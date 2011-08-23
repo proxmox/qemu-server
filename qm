@@ -1,0 +1,479 @@
+#!/usr/bin/perl -w
+
+use strict;
+use Getopt::Long;
+use Fcntl ':flock';
+use File::Path;
+use IO::Socket::UNIX;
+use IO::Select;
+
+use PVE::Tools qw(extract_param);
+use PVE::Cluster;
+use PVE::SafeSyslog;
+use PVE::INotify;
+use PVE::RPCEnvironment;
+use PVE::QemuServer;
+use PVE::API2::Qemu;
+use PVE::JSONSchema qw(get_standard_option);
+use Term::ReadLine;
+
+use PVE::CLIHandler;
+
+use base qw(PVE::CLIHandler);
+
+$ENV{'PATH'} = '/sbin:/bin:/usr/sbin:/usr/bin';
+
+initlog('qm');
+
+die "please run as root\n" if $> != 0;
+
+PVE::INotify::inotify_init();
+
+my $rpcenv = PVE::RPCEnvironment->init('cli');
+
+$rpcenv->init_request();
+$rpcenv->set_language($ENV{LANG});
+$rpcenv->set_user('root@pam'); 
+
+my $nodename = PVE::INotify::nodename();
+
+PVE::JSONSchema::register_standard_option('skiplock', {
+    description => "Ignore locks - only root is allowed to use this option.",
+    type => 'boolean', 
+    optional => 1,
+});
+
+sub run_vnc_proxy {
+    my ($vmid) = @_;
+
+    my $path = PVE::QemuServer::vnc_socket($vmid);
+
+    my $s = IO::Socket::UNIX->new(Peer => $path, Timeout => 120);
+
+    die "unable to connect to socket '$path' - $!" if !$s;
+
+    my $select = new IO::Select;
+
+    $select->add(\*STDIN);
+    $select->add($s);
+
+    my $timeout = 60*15; # 15 minutes
+
+    my @handles;
+    while ($select->count && 
+	   scalar(@handles = $select->can_read ($timeout))) {
+	foreach my $h (@handles) {
+	    my $buf;
+	    my $n = $h->sysread($buf, 4096);
+
+	    if ($h == \*STDIN) {
+		if ($n) {
+		    syswrite($s, $buf);
+		} else {
+		    exit(0);
+		}
+	    } elsif ($h == $s) {
+		if ($n) {
+		    syswrite(\*STDOUT, $buf);
+		} else {
+		    exit(0);
+		}
+	    }
+	}
+    }
+    exit(0);
+}
+
+__PACKAGE__->register_method ({
+    name => 'showcmd', 
+    path => 'showcmd', 
+    method => 'GET',
+    description => "Show command line which is used to start the VM (debug info).",
+    parameters => {
+    	additionalProperties => 0,
+	properties => {
+	    vmid => get_standard_option('pve-vmid'),
+	},
+    },
+    returns => { type => 'null'},
+    code => sub {
+	my ($param) = @_;
+
+	my $storecfg = PVE::Storage::config();
+	print PVE::QemuServer::vm_commandline($storecfg, $param->{vmid}) . "\n";
+
+	return undef;
+    }});
+
+__PACKAGE__->register_method ({
+    name => 'status', 
+    path => 'status', 
+    method => 'GET',
+    description => "Show VM status.",
+    parameters => {
+    	additionalProperties => 0,
+	properties => {
+	    vmid => get_standard_option('pve-vmid'),
+	    verbose => {
+		description => "Verbose output format",
+		type => 'boolean',
+		optional => 1,
+	    }
+	},
+    },
+    returns => { type => 'null'},
+    code => sub {
+	my ($param) = @_;
+
+	# test if VM exists
+	my $conf = PVE::QemuServer::load_config ($param->{vmid});
+
+	my $vmstatus = PVE::QemuServer::vmstatus($param->{vmid});
+	my $stat = $vmstatus->{$param->{vmid}};
+	if ($param->{verbose}) {
+	    foreach my $k (sort (keys %$stat)) {
+		next if $k eq 'cpu' || $k eq 'relcpu'; # always 0
+		my $v = $stat->{$k};
+		next if !defined($v);
+		print "$k: $v\n";
+	    }
+	} else {
+	    my $status = $stat->{status} || 'unknown';
+	    print "status: $status\n";
+	}
+
+	return undef;
+    }});
+
+__PACKAGE__->register_method ({
+    name => 'vncproxy', 
+    path => 'vncproxy', 
+    method => 'PUT',
+    description => "Proxy VM VNC traffic to stdin/stdout",
+    parameters => {
+    	additionalProperties => 0,
+	properties => {
+	    vmid => get_standard_option('pve-vmid'),
+	},
+    },
+    returns => { type => 'null'},
+    code => sub {
+	my ($param) = @_;
+
+	my $vmid = $param->{vmid};
+
+	run_vnc_proxy ($vmid);
+
+	return undef;
+    }});
+
+__PACKAGE__->register_method ({
+    name => 'unlock', 
+    path => 'unlock', 
+    method => 'PUT',
+    description => "Unlock the VM.",
+    parameters => {
+    	additionalProperties => 0,
+	properties => {
+	    vmid => get_standard_option('pve-vmid'),
+	},
+    },
+    returns => { type => 'null'},
+    code => sub {
+	my ($param) = @_;
+
+	my $vmid = $param->{vmid};
+
+	PVE::QemuServer::lock_config ($vmid, sub {
+	    PVE::QemuServer::change_config_nolock  ($vmid, {}, { lock => 1 }, 1);
+	});
+
+	return undef;
+    }});
+
+__PACKAGE__->register_method ({
+    name => 'mtunnel', 
+    path => 'mtunnel', 
+    method => 'POST',
+    description => "Used by vzmigrate - do not use manually.",
+    parameters => {
+    	additionalProperties => 0,
+	properties => {},
+    },
+    returns => { type => 'null'},
+    code => sub {
+	my ($param) = @_;
+
+	print "tunnel online\n";
+	*STDOUT->flush();
+
+	while (my $line = <>) {
+	    chomp $line;
+	    last if $line =~ m/^quit$/;
+	}
+
+	return undef;
+    }});
+
+__PACKAGE__->register_method ({
+    name => 'startall', 
+    path => 'startall', 
+    method => 'POST',
+    description => "Start all virtual machines (when onboot=1).",
+    parameters => {
+    	additionalProperties => 0,
+	properties => {},
+    },
+    returns => { type => 'null'},
+    code => sub {
+	my ($param) = @_;
+
+	my $vzlist = PVE::QemuServer::vzlist();
+	my $storecfg = PVE::Storage::config();
+
+	foreach my $vmid (keys %$vzlist) {
+	    next if $vzlist->{$vmid}->{pid}; # already running
+
+	    eval {
+		my $conf = PVE::QemuServer::load_config($vmid);
+		if ($conf->{onboot}) {
+		    print STDERR "Starting Qemu VM $vmid\n";
+		    PVE::QemuServer::vm_start($storecfg, $vmid);
+		}
+	    };
+	    print STDERR $@ if $@;
+	}
+
+	return undef;
+    }});
+
+__PACKAGE__->register_method ({
+    name => 'stopall', 
+    path => 'stopall', 
+    method => 'POST',
+    description => "Stop all virtual machines.",
+    parameters => {
+    	additionalProperties => 0,
+	properties => {
+	    timeout => {
+		description => "Timeout in seconds. Default is to wait 3 minutes.",
+		type => 'integer',
+		minimum => 1,
+		optional => 1,
+	    }
+	},
+    },
+    returns => { type => 'null'},
+    code => sub {
+	my ($param) = @_;
+
+	my $timeout = $param->{timeout};
+
+	PVE::QemuServer::vm_stopall($timeout);
+
+	return undef;
+    }});
+
+__PACKAGE__->register_method ({
+    name => 'wait', 
+    path => 'wait', 
+    method => 'GET',
+    description => "Wait until the VM is stopped.",
+    parameters => {
+    	additionalProperties => 0,
+	properties => {
+	    vmid => get_standard_option('pve-vmid'),
+	    timeout => {
+		description => "Timeout in seconds. Default is to wait forever.",
+		type => 'integer',
+		minimum => 1,
+		optional => 1,
+	    }
+	},
+    },
+    returns => { type => 'null'},
+    code => sub {
+	my ($param) = @_;
+
+	my $vmid = $param->{vmid};
+	my $timeout = $param->{timeout};
+
+	my $pid = PVE::QemuServer::check_running ($vmid);
+	return if !$pid;
+
+	print "waiting until VM $vmid stopps (PID $pid)\n";
+
+	my $count = 0;
+	while ((!$timeout || ($count < $timeout)) && PVE::QemuServer::check_running ($vmid)) {
+	    $count++;
+	    sleep 1;
+	}
+
+	die "wait failed - got timeout\n" if PVE::QemuServer::check_running ($vmid);
+
+	return undef;
+    }});
+
+__PACKAGE__->register_method ({
+    name => 'monitor', 
+    path => 'monitor', 
+    method => 'POST',
+    description => "Enter Qemu Monitor interface.",
+    parameters => {
+    	additionalProperties => 0,
+	properties => {
+	    vmid => get_standard_option('pve-vmid'),
+	},
+    },
+    returns => { type => 'null'},
+    code => sub {
+	my ($param) = @_;
+
+	my $vmid = $param->{vmid};
+
+	my $conf = PVE::QemuServer::load_config ($vmid); # check if VM exists
+
+	print "Entering Qemu Monitor for VM $vmid - type 'help' for help\n";
+
+	my $term = new Term::ReadLine ('qm');
+
+	my $input;
+	while (defined ($input = $term->readline('qm> '))) {
+	    chomp $input;
+
+	    next if $input =~ m/^\s*$/;
+
+	    last if $input =~ m/^\s*q(uit)?\s*$/;
+
+	    eval {
+		print PVE::QemuServer::vm_monitor_command ($vmid, $input);
+	    };
+	    print "ERROR: $@" if $@;
+	}
+
+	return undef;
+
+    }});
+
+my $cmddef = {
+    list => [ "PVE::API2::Qemu", 'vmlist', [],
+	     { node => $nodename }, sub {
+		 my $vmlist = shift;
+
+		 exit 0 if (!scalar(@$vmlist));
+
+		 printf "%10s %-20s %-10s %-10s %12s %-10s\n", 
+		 qw(VMID NAME STATUS MEM(MB) BOOTDISK(GB) PID);
+
+		 foreach my $rec (sort { $a->{vmid} <=> $b->{vmid} } @$vmlist) {
+		     printf "%10s %-20s %-10s %-10s %12.2f %-10s\n", $rec->{vmid}, $rec->{name}, 
+		     $rec->{status}, 
+		     ($rec->{maxmem} || 0)/(1024*1024), 
+		     ($rec->{maxdisk} || 0)/(1024*1024*1024), 
+		     $rec->{pid}||0;
+		 }
+
+		 
+	      } ],
+
+    create => [ "PVE::API2::Qemu", 'create_vm', ['vmid'], { node => $nodename } ],
+
+    destroy => [ "PVE::API2::Qemu", 'destroy_vm', ['vmid'], { node => $nodename } ],
+
+    set => [ "PVE::API2::Qemu", 'update_vm', ['vmid'], { node => $nodename } ],
+
+    unlink => [ "PVE::API2::Qemu", 'unlink', ['vmid', 'idlist'], { node => $nodename } ],
+
+    config => [ "PVE::API2::Qemu", 'vm_config', ['vmid'], 
+		{ node => $nodename }, sub {
+		    my $config = shift;
+		    foreach my $k (sort (keys %$config)) {
+			my $v = $config->{$k};
+			if ($k eq 'description') {
+			    $v = PVE::Tools::encode_text($v);
+			}
+			print "$k: $v\n";
+		    }
+		}],
+	
+    showcmd => [ __PACKAGE__, 'showcmd', ['vmid']],
+
+    status => [ __PACKAGE__, 'status', ['vmid']],
+
+    vncproxy => [ __PACKAGE__, 'vncproxy', ['vmid']],
+
+    wait => [ __PACKAGE__, 'wait', ['vmid']],
+
+    unlock => [ __PACKAGE__, 'unlock', ['vmid']],
+
+    monitor  => [ __PACKAGE__, 'monitor', ['vmid']],
+
+    startall => [ __PACKAGE__, 'startall', []],
+
+    stopall => [ __PACKAGE__, 'stopall', []],
+
+    mtunnel => [ __PACKAGE__, 'mtunnel', []],	
+};
+
+sub register_vm_command {
+    my ($cmd, $descr) = @_;
+
+    # we create a wrapper, because we want one 'description' per command
+    __PACKAGE__->register_method ({
+	name => $cmd, 
+	path => $cmd, 
+	method => 'PUT',
+	description => $descr,
+	parameters => {
+	    additionalProperties => 0,
+	    properties => {
+		vmid => get_standard_option('pve-vmid'),
+		skiplock => get_standard_option('skiplock'),
+	    },
+	},
+	returns => { type => 'null'},
+	code => sub {
+	    my ($param) = @_;
+
+	    $param->{command} = $cmd;
+	    $param->{node} = $nodename;
+
+	    return PVE::API2::Qemu->vm_command($param);
+	}});
+
+    $cmddef->{$cmd} = [ __PACKAGE__, $cmd, ['vmid']];
+}
+
+register_vm_command('start', "Start virtual machine.");
+register_vm_command('stop', "Stop virtual machine.");
+register_vm_command('reset', "Reset virtual machine.");
+register_vm_command('shutdown', "Shutdown virtual machine (send ACPI showdown request)");
+register_vm_command('suspend', "Suspend virtual machine.");
+register_vm_command('resume', "Resume virtual machine.");
+register_vm_command('cad', "Send CTRL-ALT-DELETE keys.");
+
+my $cmd = shift;
+
+PVE::CLIHandler::handle_cmd($cmddef, "qm", $cmd, \@ARGV, undef, $0);
+
+exit 0;
+
+__END__
+
+=head1 NAME
+
+qm - qemu/kvm virtual machine manager
+
+=head1 SYNOPSIS
+
+=include synopsis
+
+=head1 DESCRIPTION
+
+qm is a script to manage virtual machines with qemu/kvm. You can
+create and destroy virtual machines, and control execution
+(start/stop/suspend/resume). Besides that, you can use qm to set
+parameters in the associated config file. It is also possible to
+create and delete virtual disks.
+
+=include pve_copyright

@@ -1,0 +1,68 @@
+#!/usr/bin/perl -w
+
+use strict;
+use PVE::QemuServer;
+use PVE::Tools qw(run_command);
+
+my $iface = shift;
+
+die "no interface specified\n" if !$iface;
+
+die "got strange interface name '$iface'\n" 
+    if $iface !~ m/^tap(\d+)i(\d+)$/;
+
+my $vmid = $1;
+my $netid = "net$2";
+
+my $conf = PVE::QemuServer::load_config ($vmid);
+
+die "unable to get network config '$netid'\n"
+    if !$conf->{$netid};
+
+my $net = PVE::QemuServer::parse_net($conf->{$netid});
+die "unable to parse network config '$netid'\n" if !$net;
+
+my $bridge = $net->{bridge};
+die "unable to get bridge setting\n" if !$bridge;
+
+system ("/sbin/ifconfig $iface 0.0.0.0 promisc up") == 0 ||
+    die "interface activation failed\n";
+
+if ($net->{rate}) {
+
+    my $rate = int($net->{rate}*1024*1024);
+    my $burst = 1024*1024;
+
+    system("/sbin/tc qdisc del dev $iface ingres >/dev/null 2>&1");
+    system("/sbin/tc qdisc del dev $iface root >/dev/null 2>&1");
+
+    run_command("/sbin/tc qdisc add dev $iface handle ffff: ingress");
+
+    # this does not work wit virtio - don't know why
+    #run_command("/sbin/tc filter add dev $iface parent ffff: protocol ip prio 50 u32 match ip src 0.0.0.0/0 police rate ${rate}bps burst ${burst}b drop flowid :1");
+    # so we use avrate instead
+    run_command("/sbin/tc filter add dev $iface parent ffff: " .
+		"protocol ip prio 50 estimator 1sec 8sec " .
+		"u32 match ip src 0.0.0.0/0 police avrate ${rate}bps drop flowid :1");
+
+    # tbf does not work for unknown reason
+    #$TC qdisc add dev $DEV root tbf rate $RATE latency 100ms burst $BURST
+    # so we use htb instead
+    run_command("/sbin/tc qdisc add dev $iface root handle 1: htb default 1");
+    run_command("/sbin/tc class add dev $iface parent 1: classid 1:1 " .
+		"htb rate ${rate}bps burst ${burst}b");
+
+    # enable this to debug tc
+    if (0) {
+	print "DEBUG tc settings\n";
+	system("/sbin/tc qdisc ls dev $iface");
+	system("/sbin/tc class ls dev $iface");
+	system("/sbin/tc filter ls dev $iface parent ffff:");
+    }
+
+}
+
+system ("/usr/sbin/brctl addif $bridge $iface") == 0 ||
+    die "can't add interface to bridge\n";
+
+exit 0;

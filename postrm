@@ -1,0 +1,8 @@
+#! /bin/sh
+
+# Abort if any command returns an error value
+set -e
+
+if [ "$1" = purge ]; then
+    update-rc.d qemu-server remove >/dev/null 2>&1
+fi

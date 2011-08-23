@@ -1,0 +1,420 @@
+#!/usr/bin/perl -w
+#
+#    Copyright (C) 2007-2009 Proxmox Server Solutions GmbH
+#
+#    Copyright: vzdump is under GNU GPL, the GNU General Public License.
+#
+#    This program is free software; you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation; version 2 dated June, 1991.
+#
+#    This program is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    along with this program; if not, write to the
+#    Free Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston,
+#    MA 02110-1301, USA.
+#
+#    Author: Dietmar Maurer <dietmar@proxmox.com>
+#
+
+use strict;
+use Getopt::Long;
+use Sys::Syslog;
+use File::Path;
+use PVE::VZDump;
+use PVE::Storage;
+
+$ENV{LANG} = "C"; # avoid locale related issues/warnings
+
+openlog ('vzdump', 'cons,pid', 'daemon');
+
+my @std_opts = ('extract', 'storage=s', 'info', 'prealloc', 'unique');
+
+sub print_usage {
+    my $msg = shift;
+
+    print STDERR "ERROR: $msg\n\n" if $msg;
+
+    print STDERR "usage: $0 [OPTIONS] <ARCHIVE> <VMID>\n\n";
+}
+
+sub shellquote {
+    my $str = shift;
+
+    return "''" if !defined ($str) || ($str eq '');
+    
+    die "unable to quote string containing null (\\000) bytes"
+	if $str =~ m/\x00/;
+
+    # from String::ShellQuote
+    if ($str =~ m|[^\w!%+,\-./:@^]|) {
+
+	# ' -> '\''
+	$str =~ s/'/'\\''/g;
+
+	$str = "'$str'";
+	$str =~ s/^''//;
+	$str =~ s/''$//;
+    }
+
+    return $str;
+}
+
+my $quoted_cmd = shellquote ($0);
+foreach my $arg (@ARGV) {
+    $quoted_cmd .= " " . shellquote ($arg);
+}
+
+my $opts = {};
+if (!GetOptions ($opts, @std_opts)) {
+    print_usage ();
+    exit (-1);
+}
+
+if ($#ARGV != 1) {
+    print_usage ();
+    exit (-1);
+} 
+
+my $archive = shift;
+my $vmid = PVE::VZDump::check_vmids ((shift))->[0];
+
+$SIG{INT} = $SIG{TERM} = $SIG{QUIT} = $SIG{HUP} = $SIG{PIPE} = sub {
+    die "interrupted by signal\n";
+};
+
+sub debugmsg { PVE::VZDump::debugmsg (@_); } # just a shortcut
+
+sub run_command { PVE::VZDump::run_command (undef, @_); } # just a shortcut
+
+if ($opts->{extract}) {
+
+    # NOTE: this is run as tar subprocess (--to-command)
+
+    my $filename = $ENV{TAR_FILENAME};
+    die "got strange environment -  no TAR_FILENAME\n" if !$filename;
+
+    my $filesize = $ENV{TAR_SIZE};
+    die "got strange file size '$filesize'\n" if !$filesize;
+
+    my $tmpdir = $ENV{VZDUMP_TMPDIR};
+    die "got strange environment -  no VZDUMP_TMPDIR\n" if !$tmpdir;
+
+    my $filetype = $ENV{TAR_FILETYPE} || 'none';
+    die "got strange filetype '$filetype'\n" if $filetype ne 'f';
+
+    my $conffile = "$tmpdir/qemu-server.conf";
+    my $statfile = "$tmpdir/qmrestore.stat";
+
+    if ($opts->{info}) {
+	print STDERR "reading archive member '$filename'\n";
+    } else {
+	print STDERR "extracting '$filename' from archive\n";
+    }
+
+    if ($filename eq 'qemu-server.conf') {
+	my $outfd = IO::File->new ($conffile, "w") ||
+	    die "unable to write file '$conffile'\n";
+
+	while (defined (my $line = <>)) {
+	    print $outfd $line;
+	    print STDERR "CONFIG: $line" if $opts->{info};
+	}
+
+	$outfd->close();
+
+	exit (0);
+    }
+
+    if ($opts->{info}) {
+	exec 'dd', 'bs=256K', "of=/dev/null";
+	die "couldn't exec dd: $!\n";
+    }
+
+    my $conffd = IO::File->new ($conffile, "r") ||
+	die "unable to read file '$conffile'\n";
+
+    my $map;
+    while (defined (my $line = <$conffd>)) {
+	if ($line =~ m/^\#vzdump\#map:(\S+):(\S+):(\d+):(\S*):$/) {
+	    $map->{$2} = { virtdev => $1, size => $3, storeid => $4 };
+	}
+    }
+    close ($conffd);
+
+    my $statfd = IO::File->new ($statfile, "a") ||
+	die "unable to open file '$statfile'\n";
+
+    if ($filename !~ m/^.*\.([^\.]+)$/){
+	die "got strange filename '$filename'\n";
+    }
+    my $format = $1;
+
+    my $path;
+
+    if (!$map) {
+	print STDERR "restoring old style vzdump archive - " .
+	    "no device map inside archive\n";
+	die "can't restore old style archive to storage '$opts->{storage}'\n" 
+	    if $opts->{storage} && $opts->{storage} ne 'local';
+
+	my $dir = "/var/lib/vz/images/$vmid";
+	mkpath $dir;
+
+	$path = "$dir/$filename";
+
+	print $statfd "vzdump::$path\n";
+	$statfd->close();
+
+    } else {
+
+	my $info = $map->{$filename};
+	die "no vzdump info for '$filename'\n" if !$info;
+
+	if ($filename !~ m/^vm-disk-$info->{virtdev}\.([^\.]+)$/){
+	    die "got strange filename '$filename'\n";
+	}
+
+	if ($filesize != $info->{size}) {
+	    die "detected size difference for '$filename' " .
+		"($filesize != $info->{size})\n";
+	}	
+
+	my $storeid;
+	if ($opts->{storage}) {
+	    $storeid = $opts->{storage};
+	} else {
+	    $storeid = $info->{storeid} || 'local';
+	}
+
+	my $cfg = PVE::Storage::load_config();
+	my $scfg = PVE::Storage::storage_config ($cfg, $storeid);
+
+	my $alloc_size = ($filesize + 1024 - 1)/1024;
+	if ($scfg->{type} eq 'dir' || $scfg->{type} eq 'nfs') {
+	    # hack: we just alloc a small file (32K) - we overwrite it anyways
+	    $alloc_size = 32;
+	} else {
+	    die "unable to restore '$filename' to storage '$storeid'\n" . 
+		"storage type '$scfg->{type}' does not support format '$format\n"
+		if $format ne 'raw';
+	}
+
+	my $volid = PVE::Storage::vdisk_alloc ($cfg, $storeid, $vmid,
+					       $format, undef, $alloc_size);
+
+	print STDERR "new volume ID is '$volid'\n";
+
+	print $statfd "vzdump:$info->{virtdev}:$volid\n";
+	$statfd->close();
+
+	$path = PVE::Storage::path ($cfg, $volid);
+    }
+
+    print STDERR "restore data to '$path' ($filesize bytes)\n";
+
+    if ($opts->{prealloc} || $format ne 'raw' || (-b $path)) {
+	exec 'dd', 'bs=256K', "of=$path";
+	die "couldn't exec dd: $!\n";
+    } else {
+	exec '/usr/lib/qemu-server/sparsecp', $path;
+	die "couldn't exec sparsecp: $!\n";
+    }
+}
+
+sub restore_cleanup {
+    my $statfile = shift;
+
+    return if $opts->{info};
+
+    debugmsg ('info', "starting cleanup");
+    if (my $fd = IO::File->new ($statfile, "r")) {
+	while (defined (my $line = <$fd>)) {
+	    if ($line =~ m/vzdump:([^\s:]*):(\S+)$/) {
+		my $volid = $2;
+		eval {
+		    if ($volid =~ m|^/|) {
+			unlink $volid || die 'unlink failed\n';
+		    } else {
+			my $cfg = PVE::Storage::load_config();    
+			PVE::Storage::vdisk_free ($cfg, $volid);
+		    }
+		    debugmsg ('info', "temporary volume '$volid' sucessfuly removed");  
+		};
+		debugmsg ('err', "unable to cleanup '$volid' - $@") if $@;
+	    } else {
+		debugmsg ('info', "unable to parse line in statfile - $line");
+	    }
+	}
+	$fd->close();
+    }
+}
+
+sub restore_qemu {
+    my ($archive, $vmid, $tmpdir) = @_;
+
+    local $ENV{VZDUMP_TMPDIR} = $tmpdir;
+ 
+    my $subcmd = shellquote ("--to-command=${quoted_cmd}\ --extract");
+    my $cmd = "tar xf '$archive' $subcmd";
+    run_command ($cmd);
+
+    return if $opts->{info};
+
+    # reed new mapping
+    my $map = {};
+    my $statfile = "$tmpdir/qmrestore.stat";
+    if (my $fd = IO::File->new ($statfile, "r")) {
+	while (defined (my $line = <$fd>)) {
+	    if ($line =~ m/vzdump:([^\s:]*):(\S+)$/) {
+		$map->{$1} = $2 if $1;
+	    } else {
+		debugmsg ('info', "unable to parse line in statfile - $line");
+	    }
+	}
+	$fd->close();
+    }
+
+    my $confsrc = "$tmpdir/qemu-server.conf";
+
+    my $srcfd = new IO::File ($confsrc, "r") ||
+	die "unable to open file '$confsrc'\n";
+
+    my $conffile = PVE::QemuServer::config_file ($vmid);
+    my $tmpfn = "$conffile.$$.tmp";
+
+    my $outfd = new IO::File ($tmpfn, "w") ||
+	die "unable to write config for VM $vmid\n";
+
+    eval {
+	while (defined (my $line = <$srcfd>)) {
+	    next if $line =~ m/^\#vzdump\#/;
+	    next if $line =~ m/^lock:/;
+
+	    if (($line =~ m/^((vlan)\d+):(.*)$/) && ($opts->{unique})) {
+		my ($id,$ethcfg) = ($1,$3);
+		$ethcfg =~ s/^\s+//;
+		my ($model, $mac) = split(/\=/,$ethcfg);
+		my $printvlan = PVE::QemuServer::print_vlan (PVE::QemuServer::parse_vlan ($model));
+		print $outfd "$id: $printvlan\n";
+	    } elsif ($line =~ m/^((ide|scsi|virtio)\d+):(.*)$/) {
+		my $virtdev = $1;
+		my $value = $2;
+		if ($line =~ m/backup=no/) {
+		    print $outfd "#$line";
+		} elsif ($virtdev && $map->{$virtdev}) {
+		    my $di = PVE::QemuServer::parse_drive ($virtdev, $value);
+		    $di->{file} = $map->{$virtdev};
+		    $value = PVE::QemuServer::print_drive ($vmid, $di);
+		    print $outfd "$virtdev: $value\n";
+		} else {
+		    print $outfd $line;
+		}
+	    } else {
+		print $outfd $line;
+	    }
+	}
+    };
+    my $err = $@;
+
+    $outfd->close();
+
+    if ($err) {
+	unlink $tmpfn;
+	die $err;
+    } else {
+	rename $tmpfn, $conffile;
+    }
+}
+
+my $firstfile = PVE::VZDump::read_firstfile ($archive);
+if ($firstfile ne 'qemu-server.conf') {
+    die "ERROR: file '$archive' dos not lock like a QemuServer vzdump backup\n";
+}
+
+my $tmpdir = "/var/tmp/vzdumptmp$$";
+
+PVE::QemuServer::lock_config ($vmid, sub {
+
+    my $conffile = PVE::QemuServer::config_file ($vmid);
+
+    die "unable to restore VM '$vmid' - VM already exists\n"
+	if -f $conffile;
+
+    mkpath $tmpdir;
+
+    eval {
+	debugmsg ('info', "restore QemuServer backup '$archive' " .
+		  "using ID $vmid", undef, 1) if !$opts->{info};
+
+	restore_qemu ($archive, $vmid, $tmpdir);
+
+	if ($opts->{info}) {
+	    debugmsg ('info', "reading '$archive' successful");
+	} else {
+	    debugmsg ('info', "restore QemuServer backup '$archive' successful", 
+		      undef, 1);
+	}
+    };
+    my $err = $@;
+
+    if ($err) {
+	local $SIG{INT} = $SIG{TERM} = $SIG{QUIT} = $SIG{HUP} = sub {
+	    debugmsg ('info', "got interrupt - ignored (cleanup phase)");
+	};
+
+	restore_cleanup ("$tmpdir/qmrestore.stat") if $err;
+    }
+
+    die $err if $err;
+});
+
+my $err = $@;
+
+rmtree $tmpdir;
+
+if ($err) {
+    if ($opts->{info}) {
+	debugmsg ('info', "reading '$archive' failed - $err");
+    } else {
+
+	debugmsg ('err', "restore QemuServer backup '$archive' failed - $err", 
+		  undef, 1);
+    }
+    exit (-1);
+}
+
+exit (0);
+
+__END__
+
+=head1 NAME
+                                          
+qmrestore - restore QemuServer vzdump backups
+
+=head1 SYNOPSIS
+
+qmrestore [OPTIONS] <archive> <VMID>
+
+ --info                    read/verify archive and print relevant 
+                           information (test run)
+
+ --unique		   assign a unique random ethernet address
+
+ --storage <STORAGE_ID>    restore to storage <STORAGE_ID>
+
+ --prealloc                never generate sparse files
+
+=head1 DESCRIPTION
+
+Restore the QemuServer vzdump backup <archive> to virtual machine
+<VMID>. Volumes are allocated on the original storage if there is no
+C<--storage> specified.
+
+=head1 SEE ALSO
+
+    vzdump(1) vzrestore(1)
