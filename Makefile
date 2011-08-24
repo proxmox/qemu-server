@@ -89,21 +89,21 @@ install: ${PKGSOURCES}
 
 .PHONY: deb ${DEB}
 deb ${DEB}: ${PKGSOURCES}
-	rm -rf debian
-	mkdir debian
-	make DESTDIR=${CURDIR}/debian install
+	rm -rf build
+	mkdir build
+	make DESTDIR=${CURDIR}/build install
 	perl -I. ./qm verifyapi
-	install -d -m 0755 debian/DEBIAN
-	install -m 0644 control debian/DEBIAN
-	install -m 0755 postinst debian/DEBIAN
-	install -m 0755 postrm debian/DEBIAN
-	echo "/etc/init.d/${PACKAGE}" >>debian/DEBIAN/conffiles
-	install -D -m 0644 copyright debian/${DOCDIR}/${PACKAGE}/copyright
-	install -m 0644 changelog.Debian debian/${DOCDIR}/${PACKAGE}/
-	gzip -9 debian/${DOCDIR}/${PACKAGE}/changelog.Debian
-	dpkg-deb --build debian	
-	mv debian.deb ${DEB}
-	rm -rf debian
+	install -d -m 0755 build/DEBIAN
+	install -m 0644 control build/DEBIAN
+	install -m 0755 postinst build/DEBIAN
+	install -m 0755 postrm build/DEBIAN
+	echo "/etc/init.d/${PACKAGE}" >>build/DEBIAN/conffiles
+	install -D -m 0644 copyright build/${DOCDIR}/${PACKAGE}/copyright
+	install -m 0644 changelog.Debian build/${DOCDIR}/${PACKAGE}/
+	gzip -9 build/${DOCDIR}/${PACKAGE}/changelog.Debian
+	dpkg-deb --build build	
+	mv build.deb ${DEB}
+	rm -rf build
 	-lintian ${DEB}
 
 .PHONY: upload
@@ -118,7 +118,7 @@ upload:
 
 .PHONY: clean
 clean: 	
-	rm -rf debian *.deb qm.1.gz control vzsyscalls.ph _h2ph_pre.ph ${PACKAGE}-*.tar.gz dist *.1,gz *.pod vmtar sparsecp
+	rm -rf build *.deb qm.1.gz control vzsyscalls.ph _h2ph_pre.ph ${PACKAGE}-*.tar.gz dist *.1,gz *.pod vmtar sparsecp
 	find . -name '*~' -exec rm {} ';'
 
 
