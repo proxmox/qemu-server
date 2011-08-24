@@ -21,9 +21,6 @@ PERLINCDIR=${PERLDIR}/asm-x86_64
 ARCH:=$(shell dpkg-architecture -qDEB_BUILD_ARCH)
 DEB=${PACKAGE}_${VERSION}-${PKGREL}_${ARCH}.deb
 
-CDATE:=$(shell date +%F)
-SNAP=${PACKAGE}-${VERSION}-${CDATE}.tar.gz
-
 all: ${DEB}
 
 .PHONY: dinstall
@@ -127,15 +124,3 @@ clean:
 
 .PHONY: distclean
 distclean: clean
-
-.PHONY: dist
-${SNAP} dist: distclean
-	rm -rf ${SNAP} dist/qemu-server
-	mkdir -p dist/${PACKAGE}
-	svn co svn://proxdev/server/svn/qemu-server/trunc dist/${PACKAGE}
-	tar cvzf ${SNAP} -C dist --exclude .svn ${PACKAGE}
-	rm -rf dist
-
-.PHONY:
-uploaddist: ${SNAP}
-	scp ${SNAP} pve.proxmox.com:/home/ftp/sources/
