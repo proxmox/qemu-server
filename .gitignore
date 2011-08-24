@@ -1,0 +1,8 @@
+*.deb
+*.1.gz
+*.1.pod
+*.5.gz
+*.5.pod
+sparsecp
+vmtar
+control
