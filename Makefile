@@ -118,7 +118,7 @@ upload:
 
 .PHONY: clean
 clean: 	
-	rm -rf debian *.deb qm.1.gz control vzsyscalls.ph _h2ph_pre.ph ${PACKAGE}-*.tar.gz dist *.1,gz *.pod
+	rm -rf debian *.deb qm.1.gz control vzsyscalls.ph _h2ph_pre.ph ${PACKAGE}-*.tar.gz dist *.1,gz *.pod vmtar sparsecp
 	find . -name '*~' -exec rm {} ';'
 
 
