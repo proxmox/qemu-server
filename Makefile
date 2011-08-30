@@ -103,8 +103,7 @@ deb ${DEB}: ${PKGSOURCES}
 	gzip -9 build/${DOCDIR}/${PACKAGE}/changelog.Debian
 	dpkg-deb --build build	
 	mv build.deb ${DEB}
-	rm -rf build
-	-lintian ${DEB}
+	lintian ${DEB}
 
 .PHONY: upload
 upload:
