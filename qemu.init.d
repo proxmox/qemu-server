@@ -2,14 +2,14 @@
 
 ### BEGIN INIT INFO
 # Provides:          qemu-server
-# Required-Start:    $network $local_fs $remote_fs
-# Required-Stop:     $network $local_fs $remote_fs
+# Required-Start:    pve-cluster cman $network $local_fs $remote_fs
+# Required-Stop:     pve-cluster cman $network $local_fs $remote_fs
 # Default-Start:     2 3 4 5
 # Default-Stop:      0 1 6
 # Short-Description: start all qemu/kvm virtual machines
 ### END INIT INFO
 
-PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+PATH=/sbin:/bin:/usr/sbin:/usr/bin
 PROG=/usr/sbin/qm
 DESC="Qemu Server"
 

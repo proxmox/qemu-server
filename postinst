@@ -21,7 +21,7 @@ set -e
 case "$1" in
     configure)
 
-	update-rc.d qemu-server defaults 25 >/dev/null 2>&1
+	update-rc.d qemu-server defaults 25 75 >/dev/null 2>&1
 
 	# update old config files
 
