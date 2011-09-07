@@ -868,7 +868,7 @@ sub print_drive_full {
 
     my $pathinfo = $path ? "file=$path," : '';
 
-    return "${pathinfo}if=$drive->{interface},index=$drive->{index}$opts";
+    return "${pathinfo}if=none,id=drive-$drive->{interface}$drive->{index}$opts";
 }
 
 
