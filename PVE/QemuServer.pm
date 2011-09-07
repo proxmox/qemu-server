@@ -395,10 +395,10 @@ while (my ($k, $v) = each %$confdesc) {
 }
 
 my $MAX_IDE_DISKS = 4;
-my $MAX_SCSI_DISKS = 16;
-my $MAX_VIRTIO_DISKS = 16;
+my $MAX_SCSI_DISKS = 14;
+my $MAX_VIRTIO_DISKS = 6;
 my $MAX_USB_DEVICES = 5;
-my $MAX_NETS = 32;
+my $MAX_NETS = 6;
 my $MAX_UNUSED_DISKS = 8;
 
 my $nic_model_list = ['rtl8139', 'ne2k_pci', 'e1000',  'pcnet',  'virtio',
@@ -626,7 +626,7 @@ sub disk_devive_info {
     if ($bus eq 'ide') {
 	$maxdev = 2;
     } elsif ($bus eq 'scsi') {
-	$maxdev = 8;
+	$maxdev = 7;
     }
 
     my $controller = int ($index / $maxdev);
