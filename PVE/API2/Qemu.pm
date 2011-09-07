@@ -293,7 +293,12 @@ __PACKAGE__->register_method({
     },
     returns => { 
 	type => "object",
-	properties => {},
+	properties => {
+	    digest => {
+		type => 'string',
+		description => 'SHA1 digest of configuration file. This can be used to prevent concurrent modifications.',
+	    }
+	},
     },
     code => sub {
 	my ($param) = @_;
@@ -332,6 +337,12 @@ __PACKAGE__->register_method({
 		    optional => 1,
 		    requires => 'delete',
 		},
+		digest => {
+		    type => 'string',
+		    description => 'Prevent changes if current configuration file has different SHA1 digest. This can be used to prevent concurrent modifications.',
+		    maxLength => 40,
+		    optional => 1,		    
+		}
 	    }),
     },
     returns => { type => 'null'},
@@ -355,6 +366,8 @@ __PACKAGE__->register_method({
 	my $force = extract_param($param, 'force');
 
 	die "no options specified\n" if !$delete && !scalar(keys %$param);
+
+	my $digest = extract_param($param, 'digest');
 
 	my $storecfg = PVE::Storage::config(); 
 
@@ -395,6 +408,9 @@ __PACKAGE__->register_method({
 	my $updatefn =  sub {
 
 	    my $conf = PVE::QemuServer::load_config($vmid);
+
+	    die "checksum missmatch (file change by other user?)\n" 
+		if $digest && $digest ne $conf->{digest};
 
 	    PVE::QemuServer::check_lock($conf) if !$skiplock;
 

@@ -392,6 +392,7 @@ my $cmddef = {
 		{ node => $nodename }, sub {
 		    my $config = shift;
 		    foreach my $k (sort (keys %$config)) {
+			next if $k eq 'digest';
 			my $v = $config->{$k};
 			if ($k eq 'description') {
 			    $v = PVE::Tools::encode_text($v);

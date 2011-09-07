@@ -1323,7 +1323,9 @@ sub parse_vm_config {
 
     return undef if !defined($raw);
 
-    my $res = {};
+    my $res = {
+	digest => Digest::SHA1::sha1_hex($raw),
+    };
 
     $filename =~ m|/qemu-server/(\d+)\.conf$| 
 	|| die "got strange filename '$filename'";
@@ -1408,6 +1410,7 @@ sub change_config_nolock {
     my $new_volids = {};
 
     foreach my $key (keys %$settings) {
+	next if $key eq 'digest';
 	my $value = $settings->{$key};
 	if ($key eq 'description') {
 	    $value = PVE::Tools::encode_text($value);
