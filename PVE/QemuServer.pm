@@ -843,6 +843,42 @@ sub print_drive {
     return "$drive->{file}$opts";
 }
 
+sub print_drivedevice_full {
+    my ($storecfg, $vmid, $drive) = @_;
+
+    my $device = '';
+    my $maxdev = 0;
+ 
+    if ($drive->{interface} eq 'virtio') {
+
+      $device="virtio-blk-pci,drive=drive-$drive->{interface}$drive->{index},id=device-$drive->{interface}$drive->{index}";	  	  
+    }
+
+    elsif ($drive->{interface} eq 'scsi') {
+
+      $maxdev = 7;
+      my $controller = int ($drive->{index} / $maxdev);
+      my $unit = $drive->{index} % $maxdev;
+
+      $device="scsi-disk,bus=scsi$controller.0,scsi-id=$unit,drive=drive-$drive->{interface}$drive->{index},id=device-$drive->{interface}$drive->{index}";
+    }
+
+    elsif ($drive->{interface} eq 'ide'){
+
+      $maxdev = 2;
+      my $controller = int ($drive->{index} / $maxdev);
+      my $unit = $drive->{index} % $maxdev;
+
+      $device="ide-drive,bus=ide.$controller,unit=$unit,drive=drive-$drive->{interface}$drive->{index},id=device-$drive->{interface}$drive->{index}";
+    }
+
+    if ($drive->{interface} eq 'usb'){
+      #  -device ide-drive,bus=ide.1,unit=0,drive=drive-ide0-1-0,id=ide0-1-0 
+    }
+
+    return $device;
+}
+
 sub print_drive_full {
     my ($storecfg, $vmid, $drive) = @_;
 
@@ -2005,6 +2041,7 @@ sub config_to_command {
 	my $tmp = print_drive_full ($storecfg, $vmid, $drive);
 	$tmp .= ",boot=on" if $conf->{bootdisk} && ($conf->{bootdisk} eq $ds);
 	push @$cmd, '-drive', $tmp;
+	push @$cmd, '-device',print_drivedevice_full ($storecfg,$vmid, $drive);
     });
 
     push @$cmd, '-m', $conf->{memory} || $defaults->{memory};
