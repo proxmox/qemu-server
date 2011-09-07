@@ -231,8 +231,12 @@ __PACKAGE__->register_method ({
 	my $vzlist = PVE::QemuServer::vzlist();
 	my $storecfg = PVE::Storage::config();
 
+	my $count = 0;
 	foreach my $vmid (keys %$vzlist) {
 	    next if $vzlist->{$vmid}->{pid}; # already running
+
+	    sleep(2) if $count != 0; # reduce load
+	    $count++;
 
 	    eval {
 		my $conf = PVE::QemuServer::load_config($vmid);
