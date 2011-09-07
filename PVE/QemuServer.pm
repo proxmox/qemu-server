@@ -1880,7 +1880,8 @@ sub config_to_command {
     my $use_virtio = 0;
 
     my $socket = monitor_socket ($vmid);
-    push @$cmd, '-monitor', "unix:$socket,server,nowait";
+    push @$cmd, '-chardev', "socket,id=monitor,path=$socket,server,nowait";
+    push @$cmd, '-mon', "chardev=monitor,mode=readline";
 
     $socket = vnc_socket ($vmid);
     push @$cmd,  '-vnc', "unix:$socket,x509,password";
