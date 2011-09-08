@@ -281,6 +281,12 @@ EODESC
 	description => "Select VGA type. If you want to use high resolution modes (>= 1280x1024x16) then you should use option 'std' or 'vmware'. Default is 'std' for win7/w2k8, and 'cirrur' for other OS types",
 	enum => [qw(std cirrus vmware)],
     },
+    watchdog => {
+	optional => 1,
+	type => 'string', format => 'pve-qm-watchdog',
+	typetext => '[[model=]i6300esb|ib700] [,[action=]reset|shutdown|poweroff|pause|debug|none]',
+	description => "Create a virtual hardware watchdog device.  Once enabled (by a guest action), the watchdog must be periodically polled by an agent inside the guest or else the guest will be restarted (or execute the action specified)",
+    },
     hostpci => {
 	optional => 1,
         type => 'string', format => 'pve-qm-hostpci',
@@ -1030,6 +1036,39 @@ sub verify_hostpci {
 	}
     }
     return $value;
+}
+
+PVE::JSONSchema::register_format('pve-qm-watchdog', \&verify_watchdog);
+sub verify_watchdog {
+    my ($value, $noerr) = @_;
+
+    return $value if parse_watchdog($value);
+
+    return undef if $noerr;
+    
+    die "unable to parse watchdog options\n";
+}
+
+sub parse_watchdog {
+    my ($value) = @_;
+
+    return undef if !$value;
+
+    my $res = {};
+
+    foreach my $p (split (/,/, $value)) {
+	next if $p =~ m/^\s*$/;
+
+	if ($p =~ m/^(model=)?(i6300esb|ib700)$/) {
+	    $res->{model} = $2;
+	} elsif ($p =~ m/^(action=)?(reset|shutdown|poweroff|pause|debug|none)$/) {
+	    $res->{action} = $2;
+	} else {
+	    return undef;
+	}
+    }
+
+    return $res;
 }
 
 sub parse_usb_device {
@@ -2027,6 +2066,12 @@ sub config_to_command {
     #my $soundhw = $conf->{soundhw} || $defaults->{soundhw};
     #push @$cmd, '-soundhw', 'es1370';
     #push @$cmd, '-soundhw', $soundhw if $soundhw;
+
+    if ($conf->{watchdog}) {
+	my $wdopts = parse_watchdog($conf->{watchdog});
+	push @$cmd, '-watchdog', $wdopts->{model} || 'i6300esb';
+	push @$cmd, '-watchdog-action', $wdopts->{action} if $wdopts->{action};
+    }
 
     my $vollist = [];
 
