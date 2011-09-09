@@ -2095,6 +2095,7 @@ sub config_to_command {
     }
 
     my $vollist = [];
+    my $scsicontroller = {};
 
     foreach_drive($conf, sub {
 	my ($ds, $drive) = @_;
@@ -2105,6 +2106,12 @@ sub config_to_command {
 	}; # ignore errors
 
 	$use_virtio = 1 if $ds =~ m/^virtio/;
+        if ($drive->{interface} eq 'scsi') {
+           my $maxdev = 7;
+           my $controller = int ($drive->{index} / $maxdev);
+           push @$cmd, '-device', "lsi,id=scsi$controller" if !$scsicontroller->{$controller};
+           my $scsicontroller->{$controller}=1;
+        }
 	my $tmp = print_drive_full ($storecfg, $vmid, $drive);
 	$tmp .= ",boot=on" if $conf->{bootdisk} && ($conf->{bootdisk} eq $ds);
 	push @$cmd, '-drive', $tmp;
