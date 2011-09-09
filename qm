@@ -236,12 +236,16 @@ __PACKAGE__->register_method ({
 	my $vzlist = PVE::QemuServer::vzlist();
 	my $storecfg = PVE::Storage::config();
 
+	PVE::Cluster::check_cfs_quorum();
+
 	my $count = 0;
 	foreach my $vmid (keys %$vzlist) {
 	    next if $vzlist->{$vmid}->{pid}; # already running
 
 	    sleep(2) if $count != 0; # reduce load
 	    $count++;
+
+	    PVE::Cluster::check_cfs_quorum(); # abort when we loose quorum
 
 	    eval {
 		my $conf = PVE::QemuServer::load_config($vmid);
