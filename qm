@@ -195,7 +195,7 @@ __PACKAGE__->register_method ({
     name => 'mtunnel', 
     path => 'mtunnel', 
     method => 'POST',
-    description => "Used by vzmigrate - do not use manually.",
+    description => "Used by qmigrate - do not use manually.",
     parameters => {
     	additionalProperties => 0,
 	properties => {},
@@ -204,6 +204,11 @@ __PACKAGE__->register_method ({
     code => sub {
 	my ($param) = @_;
 
+	if (!PVE::Cluster::check_cfs_quorum(1)) {
+	    print "no quorum\n";
+	    return undef;
+	}
+ 
 	print "tunnel online\n";
 	*STDOUT->flush();
 
