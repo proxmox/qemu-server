@@ -1199,15 +1199,16 @@ sub lock_config {
 }
 
 sub cfs_config_path {
-    my ($vmid) = @_;
+    my ($vmid, $node) = @_;
 
-    return "nodes/$nodename/qemu-server/$vmid.conf";
+    $node = $nodename if !$node;
+    return "nodes/$node/qemu-server/$vmid.conf";
 }
 
 sub config_file {
-    my ($vmid) = @_;
+    my ($vmid, $node) = @_;
 
-    my $cfspath = cfs_config_path($vmid);
+    my $cfspath = cfs_config_path($vmid, $node);
     return "/etc/pve/$cfspath";
 }
 
@@ -1605,7 +1606,6 @@ sub config_list {
     return $res if !$vmlist || !$vmlist->{ids};
     my $ids = $vmlist->{ids};
 
-    my $nodename = PVE::INotify::nodename();
     foreach my $vmid (keys %$ids) {
 	my $d = $ids->{$vmid};
 	next if !$d->{node} || $d->{node} ne $nodename;
