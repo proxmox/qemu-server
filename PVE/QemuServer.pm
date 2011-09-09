@@ -1614,6 +1614,27 @@ sub config_list {
     return $res;
 }
 
+# test if VM uses local resources (to prevent migration)
+sub check_local_resources {
+    my ($conf, $noerr) = @_;
+
+    my $loc_res = 0;
+    # fixme:
+    die "implement me";
+    $loc_res = 1 if $conf->{hostusb};
+    $loc_res = 1 if $conf->{hostpci};
+    $loc_res = 1 if $conf->{serial};
+    $loc_res = 1 if $conf->{parallel};
+
+    foreach $k (keys %$conf) {
+	$loc_res = 1 if $k =~ m/^(usb|pci)\d+$/;
+    }
+
+    die "VM uses local resources\n" if $loc_res && !$noerr;
+
+    return $loc_res;
+}
+
 sub check_lock {
     my ($conf) = @_;
 
