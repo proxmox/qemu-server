@@ -1626,7 +1626,7 @@ sub check_local_resources {
     $loc_res = 1 if $conf->{serial};
     $loc_res = 1 if $conf->{parallel};
 
-    foreach $k (keys %$conf) {
+    foreach my $k (keys %$conf) {
 	$loc_res = 1 if $k =~ m/^(usb|pci)\d+$/;
     }
 
