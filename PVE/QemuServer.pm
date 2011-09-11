@@ -287,22 +287,6 @@ EODESC
 	typetext => '[[model=]i6300esb|ib700] [,[action=]reset|shutdown|poweroff|pause|debug|none]',
 	description => "Create a virtual hardware watchdog device.  Once enabled (by a guest action), the watchdog must be periodically polled by an agent inside the guest or else the guest will be restarted (or execute the action specified)",
     },
-    hostpci => {
-	optional => 1,
-        type => 'string', format => 'pve-qm-hostpci',
-	typetext => "HOSTPCIDEVICE { , HOSTPCIDEVICE }",
-	description => <<EODESCR,
-Map host pci devices. HOSTPCIDEVICE syntax is:
-
-'bus:dev.func' (hexadecimal numbers)
-
-You can us the 'lspci' command to list existing pci devices.
-
-Note: This option allows direct access to host hardware. So it is no longer possible to migrate such machines - use with special care.
-
-Experimental: user reported problems with this option.
-EODESCR
-    },
     serial => {
 	optional => 1,
 	type => 'string', format => 'pve-qm-serial',
@@ -406,6 +390,7 @@ my $MAX_VIRTIO_DISKS = 6;
 my $MAX_USB_DEVICES = 5;
 my $MAX_NETS = 6;
 my $MAX_UNUSED_DISKS = 8;
+my $MAX_HOSTPCI_DEVICES = 2;
 
 my $nic_model_list = ['rtl8139', 'ne2k_pci', 'e1000',  'pcnet',  'virtio',
 		      'ne2k_isa', 'i82551', 'i82557b', 'i82559er'];
@@ -489,6 +474,27 @@ EODESCR
 };
 PVE::JSONSchema::register_standard_option("pve-qm-usb", $usbdesc);
 
+my $hostpcidesc = {
+        optional => 1,
+        type => 'string', format => 'pve-qm-hostpci',
+        typetext => "HOSTPCIDEVICE",
+        description => <<EODESCR,
+Map host pci devices. HOSTPCIDEVICE syntax is:
+
+'bus:dev.func' (hexadecimal numbers)
+
+You can us the 'lspci' command to list existing pci devices.
+
+Note: This option allows direct access to host hardware. So it is no longer possible to migrate such machines - use with special care.
+
+Experimental: user reported problems with this option.
+EODESCR
+};
+PVE::JSONSchema::register_standard_option("pve-qm-hostpci", $hostpcidesc);
+
+for (my $i = 0; $i < $MAX_HOSTPCI_DEVICES; $i++)  {
+    $confdesc->{"hostpci$i"} = $hostpcidesc;
+}
 
 for (my $i = 0; $i < $MAX_IDE_DISKS; $i++)  {
     $drivename_hash->{"ide$i"} = 1;
@@ -921,6 +927,22 @@ sub drive_is_cdrom {
 
 }
 
+sub parse_hostpci {
+    my ($value) = @_;
+
+    return undef if !$value;
+
+    my $res = {};
+
+    if ($value =~ m/^[a-f0-9]{2}:[a-f0-9]{2}\.[a-f0-9]$/) {
+       $res->{pciid} = $value;
+    } else {
+       return undef;
+    }
+
+    return $res;
+}
+
 # netX: e1000=XX:XX:XX:XX:XX:XX,bridge=vmbr0,rate=<mbps>
 sub parse_net {
     my ($data) = @_;
@@ -1028,14 +1050,11 @@ PVE::JSONSchema::register_format('pve-qm-hostpci', \&verify_hostpci);
 sub verify_hostpci {
     my ($value, $noerr) = @_;
 
-    my @dl = split (/,/, $value);
-    foreach my $v (@dl) {
-	if ($v !~ m/^[a-f0-9]{2}:[a-f0-9]{2}\.[a-f0-9]$/i) {
-	    return undef if $noerr;
-	    die "unable to parse pci id\n";
-	}
-    }
-    return $value;
+    return $value if parse_hostpci($value);
+
+    return undef if $noerr;
+
+    die "unable to parse pci id\n";
 }
 
 PVE::JSONSchema::register_format('pve-qm-watchdog', \&verify_watchdog);
@@ -1203,6 +1222,15 @@ sub cfs_config_path {
 
     $node = $nodename if !$node;
     return "nodes/$node/qemu-server/$vmid.conf";
+}
+
+sub check_iommu_support{
+    #fixme : need to check IOMMU support
+    #http://www.linux-kvm.org/page/How_to_assign_devices_with_VT-d_in_KVM
+
+    my $iommu=1;
+    return $iommu;
+
 }
 
 sub config_file {
@@ -1960,11 +1988,10 @@ sub config_to_command {
     push @$cmd, '-device', 'usb-tablet,bus=ehci.0,port=6' if $tablet;
 
     # host pci devices
-    if (my $pcidl = $conf->{hostpci}) {
-	my @dl = split (/,/, $pcidl);
-	foreach my $dev (@dl) {
-	    push @$cmd, '-device', "pci-assign,host=$dev" if $dev;
-	}
+    for (my $i = 0; $i < $MAX_HOSTPCI_DEVICES; $i++)  {
+          my $d = parse_hostpci($conf->{"hostpci$i"});
+          next if !$d;
+          push @$cmd, '-device', "pci-assign,host=$d->{pciid},id=hostpci$i";
     }
 
     # usb devices
@@ -2277,16 +2304,15 @@ sub vm_start {
 
 	my ($cmd, $vollist) = config_to_command ($storecfg, $vmid, $conf, $defaults, $migrate_uri);
 	# host pci devices
-	if (my $pcidl = $conf->{hostpci}) {
-	    my @dl = split (/,/, $pcidl);
-	    foreach my $dev (@dl) {
-		$dev = lc($dev);
-		my $info = pci_device_info("0000:$dev");
-		die "no pci device info for device '$dev'\n" if !$info;
-		die "can't unbind pci device '$dev'\n" if !pci_dev_bind_to_stub($info);
-		die "can't reset pci device '$dev'\n" if !pci_dev_reset($info);
-	    }
-	}
+        for (my $i = 0; $i < $MAX_HOSTPCI_DEVICES; $i++)  {
+          my $d = parse_hostpci($conf->{"hostpci$i"});
+          next if !$d;
+          my $info = pci_device_info("0000:$d->{pciid}");
+          die "IOMMU not present\n" if !check_iommu_support();
+          die "no pci device info for device '$d->{pciid}'\n" if !$info;
+          die "can't unbind pci device '$d->{pciid}'\n" if !pci_dev_bind_to_stub($info);
+          die "can't reset pci device '$d->{pciid}'\n" if !pci_dev_reset($info);
+        }
 
 	PVE::Storage::activate_volumes($storecfg, $vollist);
 
