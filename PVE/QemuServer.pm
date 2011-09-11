@@ -287,18 +287,6 @@ EODESC
 	typetext => '[[model=]i6300esb|ib700] [,[action=]reset|shutdown|poweroff|pause|debug|none]',
 	description => "Create a virtual hardware watchdog device.  Once enabled (by a guest action), the watchdog must be periodically polled by an agent inside the guest or else the guest will be restarted (or execute the action specified)",
     },
-    parallel => {
-	optional => 1,
-	type => 'string', format => 'pve-qm-parallel',
-	typetext => "PARALLELDEVICE { , PARALLELDEVICE }",
-	description =>  <<EODESCR,
-Map host parallel devices. PARALLELDEVICE syntax is /dev/parport* 
-
-Note: This option allows direct access to host hardware. So it is no longer possible to migrate such machines - use with special care.
-
-Experimental: user reported problems with this option.
-EODESCR
-    },
     startdate => {
 	optional => 1,
 	type => 'string', 
@@ -380,6 +368,7 @@ my $MAX_NETS = 6;
 my $MAX_UNUSED_DISKS = 8;
 my $MAX_HOSTPCI_DEVICES = 2;
 my $MAX_SERIAL_PORTS = 4;
+my $MAX_PARALLEL_PORTS = 3;
 
 my $nic_model_list = ['rtl8139', 'ne2k_pci', 'e1000',  'pcnet',  'virtio',
 		      'ne2k_isa', 'i82551', 'i82557b', 'i82559er'];
@@ -494,6 +483,24 @@ Experimental: user reported problems with this option.
 EODESCR
 };
 PVE::JSONSchema::register_standard_option("pve-qm-serial", $serialdesc);
+
+my $paralleldesc= {
+	optional => 1,
+	type => 'string', format => 'pve-qm-parallel',
+	typetext => "PARALLELDEVICE",
+	description =>  <<EODESCR,
+Map host parallel devices. PARALLELDEVICE syntax is /dev/parport* 
+
+Note: This option allows direct access to host hardware. So it is no longer possible to migrate such machines - use with special care.
+
+Experimental: user reported problems with this option.
+EODESCR
+};
+PVE::JSONSchema::register_standard_option("pve-qm-parallel", $paralleldesc);
+
+for (my $i = 0; $i < $MAX_PARALLEL_PORTS; $i++)  {
+    $confdesc->{"parallel$i"} = $paralleldesc;
+}
 
 for (my $i = 0; $i < $MAX_SERIAL_PORTS; $i++)  {
     $confdesc->{"serial$i"} = $serialdesc;
@@ -1139,14 +1146,26 @@ PVE::JSONSchema::register_format('pve-qm-parallel', \&verify_parallel);
 sub verify_parallel {
     my ($value, $noerr) = @_;
 
-    my @dl = split (/,/, $value);
-    foreach my $v (@dl) {
-	if ($v !~ m|^/dev/parport\d+$|) {
-	    return undef if $noerr;
-	    die "invalid device name\n";
-	}
+    return $value if parse_parallel($value);
+
+    return undef if $noerr;
+
+    die "invalid device name\n";
+}
+
+sub parse_parallel {
+    my ($value) = @_;
+
+    return undef if !$value;
+
+    my $res = {};
+    if ($value =~ m|^/dev/parport\d+$|) {
+       $res->{dev} = $value;
+    } else {
+       return undef;
     }
-    return $value;
+
+    return $res;
 }
 
 PVE::JSONSchema::register_format('pve-qm-serial', \&verify_serial);
@@ -2041,14 +2060,11 @@ sub config_to_command {
     }
 
     # parallel devices
-    if (my $pardl = $conf->{parallel}) {
-	my @dl = split (/,/, $pardl);
-	foreach my $dev (@dl) {
-	    next if !$dev;
-	    if (-c $dev) {
-		push @$cmd, '-parallel', "$dev";
-	    }
-	}
+    for (my $i = 0; $i < $MAX_PARALLEL_PORTS; $i++)  {
+          my $d = parse_parallel($conf->{"parallel$i"});
+          next if !$d;
+          push @$cmd, '-chardev', "parport,id=parallel$i,path=$d->{dev}";
+          push @$cmd, '-device', "isa-parallel,chardev=parallel$i";
     }
 
     my $vmname = $conf->{name} || "vm$vmid";
