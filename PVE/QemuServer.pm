@@ -287,18 +287,6 @@ EODESC
 	typetext => '[[model=]i6300esb|ib700] [,[action=]reset|shutdown|poweroff|pause|debug|none]',
 	description => "Create a virtual hardware watchdog device.  Once enabled (by a guest action), the watchdog must be periodically polled by an agent inside the guest or else the guest will be restarted (or execute the action specified)",
     },
-    serial => {
-	optional => 1,
-	type => 'string', format => 'pve-qm-serial',
-	typetext => "SERIALDEVICE { , SERIALDEVICE }",
-	description =>  <<EODESCR,
-Map host serial devices. SERIALDEVICE syntax is /dev/ttyS* 
-
-Note: This option allows direct access to host hardware. So it is no longer possible to migrate such machines - use with special care.
-
-Experimental: user reported problems with this option.
-EODESCR
-    },
     parallel => {
 	optional => 1,
 	type => 'string', format => 'pve-qm-parallel',
@@ -391,6 +379,7 @@ my $MAX_USB_DEVICES = 5;
 my $MAX_NETS = 6;
 my $MAX_UNUSED_DISKS = 8;
 my $MAX_HOSTPCI_DEVICES = 2;
+my $MAX_SERIAL_PORTS = 4;
 
 my $nic_model_list = ['rtl8139', 'ne2k_pci', 'e1000',  'pcnet',  'virtio',
 		      'ne2k_isa', 'i82551', 'i82557b', 'i82559er'];
@@ -491,6 +480,24 @@ Experimental: user reported problems with this option.
 EODESCR
 };
 PVE::JSONSchema::register_standard_option("pve-qm-hostpci", $hostpcidesc);
+
+my $serialdesc = {
+	optional => 1,
+	type => 'string', format => 'pve-qm-serial',
+	typetext => "SERIALDEVICE",
+	description =>  <<EODESCR,
+Map host serial devices. SERIALDEVICE syntax is /dev/ttyS* 
+
+Note: This option allows direct access to host hardware. So it is no longer possible to migrate such machines - use with special care.
+
+Experimental: user reported problems with this option.
+EODESCR
+};
+PVE::JSONSchema::register_standard_option("pve-qm-serial", $serialdesc);
+
+for (my $i = 0; $i < $MAX_SERIAL_PORTS; $i++)  {
+    $confdesc->{"serial$i"} = $serialdesc;
+}
 
 for (my $i = 0; $i < $MAX_HOSTPCI_DEVICES; $i++)  {
     $confdesc->{"hostpci$i"} = $hostpcidesc;
@@ -1146,14 +1153,27 @@ PVE::JSONSchema::register_format('pve-qm-serial', \&verify_serial);
 sub verify_serial {
     my ($value, $noerr) = @_;
 
-    my @dl = split (/,/, $value);
-    foreach my $v (@dl) {
-	if ($v !~ m|^/dev/ttyS\d+$|) {
-	    return undef if $noerr;
-	    die "invalid device name\n";
-	}
+    return $value if parse_serial($value);
+
+    return undef if $noerr;
+
+    die "invalid device name\n";
+
+}
+
+sub parse_serial {
+    my ($value) = @_;
+
+    return undef if !$value;
+
+    my $res = {};
+    if ($value =~ m|^/dev/ttyS\d+$|) {
+       $res->{dev} = $value;
+    } else {
+       return undef;
     }
-    return $value;
+
+    return $res;
 }
 
 # add JSON properties for create and set function
@@ -2013,14 +2033,11 @@ sub config_to_command {
     }
 
     # serial devices
-    if (my $serdl = $conf->{serial}) {
-	my @dl = split (/,/, $serdl);
-	foreach my $dev (@dl) {
-	    next if !$dev;
-	    if (-c $dev) {
-		push @$cmd, '-serial', "$dev";
-	    }
-	}
+    for (my $i = 0; $i < $MAX_SERIAL_PORTS; $i++)  {
+          my $d = parse_serial($conf->{"serial$i"});
+          next if !$d;
+          push @$cmd, '-chardev', "tty,id=serial$i,path=$d->{dev}";
+          push @$cmd, '-device', "isa-serial,chardev=serial$i";
     }
 
     # parallel devices
