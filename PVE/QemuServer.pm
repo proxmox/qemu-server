@@ -28,14 +28,14 @@ use Time::HiRes qw (gettimeofday);
 
 my $cpuinfo = PVE::ProcFSTools::read_cpuinfo();
 
-# Note about locking: we use flock on the config file protect 
+# Note about locking: we use flock on the config file protect
 # against concurent actions.
 # Aditionaly, we have a 'lock' setting in the config file. This
 # can be set to 'migrate' or 'backup'. Most actions are not
 # allowed when such lock is set. But you can ignore this kind of
 # lock with the --skiplock flag.
 
-cfs_register_file('/qemu-server/', \&parse_vm_config);  
+cfs_register_file('/qemu-server/', \&parse_vm_config);
 
 #no warnings 'redefine';
 
@@ -265,7 +265,7 @@ EODESC
 	description => "Enable/disable time drift fix.",
 	default => 1,
     },
-    localtime => { 
+    localtime => {
 	optional => 1,
 	type => 'boolean',
 	description => "Set the real time clock to local time. This is enabled by default if ostype indicates a Microsoft OS.",
@@ -289,7 +289,7 @@ EODESC
     },
     startdate => {
 	optional => 1,
-	type => 'string', 
+	type => 'string',
 	typetext => "(now | YYYY-MM-DD | YYYY-MM-DDTHH:MM:SS)",
 	description => "Set the initial date of the real time clock. Valid format for date are: 'now' or '2006-06-17T16:01:21' or '2006-06-17'.",
 	pattern => '(now|\d{4}-\d{1,2}-\d{1,2}(T\d{1,2}:\d{1,2}:\d{1,2})?)',
@@ -380,11 +380,11 @@ my $netdesc = {
     type => 'string', format => 'pve-qm-net',
     typetext => "MODEL=XX:XX:XX:XX:XX:XX [,bridge=<dev>][,rate=<mbps>]",
     description => <<EODESCR,
-Specify network devices. 
+Specify network devices.
 
 MODEL is one of: $nic_model_list_txt
 
-XX:XX:XX:XX:XX:XX should be an unique MAC address. This is 
+XX:XX:XX:XX:XX:XX should be an unique MAC address. This is
 automatically generated if not specified.
 
 The bridge parameter can be used to automatically add the interface to a bridge device. The Proxmox VE standard bridge is called 'vmbr0'.
@@ -408,7 +408,7 @@ for (my $i = 0; $i < $MAX_NETS; $i++)  {
 }
 
 my $drivename_hash;
-    
+
 my $idedesc = {
     optional => 1,
     type => 'string', format => 'pve-qm-drive',
@@ -441,10 +441,10 @@ my $usbdesc = {
 Configure an USB device (n is 0 to 4). This can be used to
 pass-through usb devices to the guest. HOSTUSBDEVICE syntax is:
 
-'bus-port(.port)*' (decimal numbers) or 
+'bus-port(.port)*' (decimal numbers) or
 'vendor_id:product_id' (hexadeciaml numbers)
 
-You can use the 'lsusb -t' command to list existing usb devices.  
+You can use the 'lsusb -t' command to list existing usb devices.
 
 Note: This option allows direct access to host hardware. So it is no longer possible to migrate such machines - use with special care.
 
@@ -475,7 +475,7 @@ my $serialdesc = {
 	type => 'string',
 	pattern => '/dev/ttyS\d+',
 	description =>  <<EODESCR,
-Map host serial devices (n is 0 to 3). 
+Map host serial devices (n is 0 to 3).
 
 Note: This option allows direct access to host hardware. So it is no longer possible to migrate such machines - use with special care.
 
@@ -488,7 +488,7 @@ my $paralleldesc= {
 	type => 'string',
 	pattern => '/dev/parport\d+',
 	description =>  <<EODESCR,
-Map host parallel devices (n is 0 to 2).  
+Map host parallel devices (n is 0 to 2).
 
 Note: This option allows direct access to host hardware. So it is no longer possible to migrate such machines - use with special care.
 
@@ -564,7 +564,7 @@ sub kvm_user_version {
     $kvm_user_version = 'unknown';
 
     my $tmp = `kvm -help 2>/dev/null`;
-    
+
     if ($tmp =~ m/^QEMU( PC)? emulator version (\d+\.\d+\.\d+) /) {
 	$kvm_user_version = $2;
     }
@@ -577,7 +577,7 @@ my $kernel_has_vhost_net = -c '/dev/vhost-net';
 
 sub disknames {
     # order is important - used to autoselect boot disk
-    return ((map { "ide$_" } (0 .. ($MAX_IDE_DISKS - 1))),  
+    return ((map { "ide$_" } (0 .. ($MAX_IDE_DISKS - 1))),
             (map { "scsi$_" } (0 .. ($MAX_SCSI_DISKS - 1))),
             (map { "virtio$_" } (0 .. ($MAX_VIRTIO_DISKS - 1))));
 }
@@ -591,7 +591,7 @@ sub valid_drivename {
 sub option_exists {
     my $key = shift;
     return defined($confdesc->{$key});
-} 
+}
 
 sub nic_models {
     return $nic_model_list;
@@ -609,7 +609,7 @@ sub os_list_description {
 	win7 => 'Windows 7',
 	l24 => 'Linux 2.4',
 	l26 => 'Linux 2.6',
-    }; 
+    };
 }
 
 # a clumsy way to split an argument string into an array,
@@ -630,7 +630,7 @@ sub split_args {
 	    push @$args, $data;
 	});
     };
-    
+
     my $err = $@;
 
     die "unable to parse args: $str\n" if $err;
@@ -663,17 +663,17 @@ sub disk_devive_info {
 }
 
 sub qemu_drive_name {
-    my ($dev, $media) = @_; 
+    my ($dev, $media) = @_;
 
     my $info = disk_devive_info ($dev);
     my $mediastr = '';
 
     if (($info->{bus} eq 'ide') || ($info->{bus} eq 'scsi')) {
 	$mediastr = ($media eq 'cdrom') ? "-cd" : "-hd";
-	return sprintf("%s%i%s%i", $info->{bus}, $info->{controller}, 
+	return sprintf("%s%i%s%i", $info->{bus}, $info->{controller},
 		       $mediastr, $info->{unit});
     } else {
-	return sprintf("%s%i", $info->{bus}, $info->{index}); 
+	return sprintf("%s%i", $info->{bus}, $info->{index});
     }
 }
 
@@ -708,9 +708,9 @@ sub filename_to_volume_id {
 
     if (!($file eq 'none' || $file eq 'cdrom' ||
 	  $file =~ m|^/dev/.+| || $file =~ m/^([^:]+):(.+)$/)) {
-			    
+
 	return undef if $file =~ m|/|;
-	
+
 	if ($media && $media eq 'cdrom') {
 	    $file = "local:iso/$file";
 	} else {
@@ -736,7 +736,7 @@ sub verify_media_type {
     }
 
     return if ($vtype eq $etype);
-    
+
     raise_param_exc({ $opt => "unexpected media type ($vtype != $etype)" });
 }
 
@@ -748,7 +748,7 @@ sub cleanup_drive_path {
     if (($drive->{file} !~ m/^(cdrom|none)$/) &&
 	($drive->{file} !~ m|^/dev/.+|) &&
 	($drive->{file} !~ m/^([^:]+):(.+)$/) &&
-	($drive->{file} !~ m/^\d+$/)) { 
+	($drive->{file} !~ m/^\d+$/)) {
 	my ($vtype, $volid) = PVE::Storage::path_to_volume_id($storecfg, $drive->{file});
 	raise_param_exc({ $opt => "unable to associate path '$drive->{file}' to any storage"}) if !$vtype;
 	$drive->{media} = 'cdrom' if !$drive->{media} && $vtype eq 'iso';
@@ -765,7 +765,7 @@ sub create_conf_nolock {
     my $filename = config_file ($vmid);
 
     die "configuration file '$filename' already exists\n" if -f $filename;
-    
+
     my $defaults = load_defaults();
 
     $settings->{name} = "vm$vmid" if !$settings->{name};
@@ -792,7 +792,7 @@ sub parse_drive {
     my ($key, $data) = @_;
 
     my $res = {};
-    
+
     # $key may be undefined - used to verify JSON parameters
     if (!defined($key)) {
 	$res->{interface} = 'unknown'; # should not harm when used to verify parameters
@@ -813,7 +813,7 @@ sub parse_drive {
 	    $k = 'file' if $k eq 'volume';
 
 	    return undef if defined $res->{$k};
-	    
+
 	    $res->{$k} = $v;
 	} else {
 	    if (!$res->{file} && $p !~ m/=/) {
@@ -826,7 +826,7 @@ sub parse_drive {
 
     return undef if !$res->{file};
 
-    return undef if $res->{cache} && 
+    return undef if $res->{cache} &&
 	$res->{cache} !~ m/^(off|none|writethrough|writeback)$/;
     return undef if $res->{snapshot} && $res->{snapshot} !~ m/^(on|off)$/;
     return undef if $res->{cyls} && $res->{cyls} !~ m/^\d+$/;
@@ -842,7 +842,7 @@ sub parse_drive {
 
     if ($res->{media} && ($res->{media} eq 'cdrom')) {
 	return undef if $res->{snapshot} || $res->{trans} || $res->{format};
-	return undef if $res->{heads} || $res->{secs} || $res->{cyls}; 
+	return undef if $res->{heads} || $res->{secs} || $res->{cyls};
 	return undef if $res->{interface} eq 'virtio';
     }
 
@@ -872,10 +872,10 @@ sub print_drivedevice_full {
 
     my $device = '';
     my $maxdev = 0;
- 
+
     if ($drive->{interface} eq 'virtio') {
 
-      $device="virtio-blk-pci,drive=drive-$drive->{interface}$drive->{index},id=device-$drive->{interface}$drive->{index}";	  	  
+      $device="virtio-blk-pci,drive=drive-$drive->{interface}$drive->{index},id=device-$drive->{interface}$drive->{index}";
     }
 
     elsif ($drive->{interface} eq 'scsi') {
@@ -897,7 +897,7 @@ sub print_drivedevice_full {
     }
 
     if ($drive->{interface} eq 'usb'){
-      #  -device ide-drive,bus=ide.1,unit=0,drive=drive-ide0-1-0,id=ide0-1-0 
+      #  -device ide-drive,bus=ide.1,unit=0,drive=drive-ide0-1-0,id=ide0-1-0
     }
 
     return $device;
@@ -909,10 +909,10 @@ sub print_drive_full {
     my $opts = '';
     foreach my $o (@qemu_drive_options) {
 	$opts .= ",$o=$drive->{$o}" if $drive->{$o};
-    } 
+    }
 
     # use linux-aio by default (qemu default is threads)
-    $opts .= ",aio=native" if !$drive->{aio}; 
+    $opts .= ",aio=native" if !$drive->{aio};
 
     my $path;
     my $volid = $drive->{file};
@@ -975,7 +975,7 @@ sub parse_net {
 	} else {
 	    return undef;
 	}
-	
+
     }
 
     return undef if !$res->{model};
@@ -1015,7 +1015,7 @@ sub add_unused_volume {
 	    return if $vid eq $volid; # do not add duplicates
 	} else {
 	    $key = $test;
-	} 
+	}
     }
 
     die "To many unused volume - please delete them first.\n" if !$key;
@@ -1029,7 +1029,7 @@ PVE::JSONSchema::register_format('pve-qm-bootdisk', \&verify_bootdisk);
 sub verify_bootdisk {
     my ($value, $noerr) = @_;
 
-    return $value if valid_drivename($value); 
+    return $value if valid_drivename($value);
 
     return undef if $noerr;
 
@@ -1043,7 +1043,7 @@ sub verify_net {
     return $value if parse_net($value);
 
     return undef if $noerr;
-    
+
     die "unable to parse network options\n";
 }
 
@@ -1054,7 +1054,7 @@ sub verify_drive {
     return $value if parse_drive (undef, $value);
 
     return undef if $noerr;
-    
+
     die "unable to parse drive options\n";
 }
 
@@ -1076,7 +1076,7 @@ sub verify_watchdog {
     return $value if parse_watchdog($value);
 
     return undef if $noerr;
-    
+
     die "unable to parse watchdog options\n";
 }
 
@@ -1128,7 +1128,7 @@ sub parse_usb_device {
 
     return $res;
 }
- 
+
 PVE::JSONSchema::register_format('pve-qm-usb-device', \&verify_usb_device);
 sub verify_usb_device {
     my ($value, $noerr) = @_;
@@ -1136,7 +1136,7 @@ sub verify_usb_device {
     return $value if parse_usb_device($value);
 
     return undef if $noerr;
-    
+
     die "unable to parse usb device\n";
 }
 
@@ -1167,9 +1167,9 @@ sub check_type {
     }
 
     if ($type eq 'boolean') {
-	return 1 if ($value eq '1') || ($value =~ m/^(on|yes|true)$/i); 
-	return 0 if ($value eq '0') || ($value =~ m/^(off|no|false)$/i); 
-	die "type check ('boolean') failed - got '$value'\n";	
+	return 1 if ($value eq '1') || ($value =~ m/^(on|yes|true)$/i);
+	return 0 if ($value eq '0') || ($value =~ m/^(off|no|false)$/i);
+	die "type check ('boolean') failed - got '$value'\n";
     } elsif ($type eq 'integer') {
 	return int($1) if $value =~ m/^(\d+)$/;
 	die "type check ('integer') failed - got '$value'\n";
@@ -1182,10 +1182,10 @@ sub check_type {
 		die "unable to parse drive options\n";
 	    }
 	    PVE::JSONSchema::check_format($fmt, $value);
-	    return $value;	
-	} 
+	    return $value;
+	}
 	$value =~ s/^\"(.*)\"$/$1/;
-	return $value;	
+	return $value;
     } else {
 	die "internal error"
     }
@@ -1257,7 +1257,7 @@ sub create_disks {
 		my $fmt = $disk->{format} || $defformat;
 		syslog ('info', "VM $vmid creating new disk - size is $size GB");
 
-		my $volid = PVE::Storage::vdisk_alloc ($storecfg, $storeid, $vmid, 
+		my $volid = PVE::Storage::vdisk_alloc ($storecfg, $storeid, $vmid,
 						       $fmt, undef, $size*1024*1024);
 
 		$disk->{file} = $volid;
@@ -1297,7 +1297,7 @@ sub unlink_image {
 
     die "reject to unlink absolute path '$volid'"
 	if $volid =~ m|^/|;
-    
+
     my ($path, $owner) = PVE::Storage::path ($storecfg, $volid);
 
     die "reject to unlink '$volid' - not owned by this VM"
@@ -1319,7 +1319,7 @@ sub destroy_vm {
 
     check_lock ($conf);
 
-    # only remove disks owned by this VM 
+    # only remove disks owned by this VM
     foreach_drive($conf, sub {
 	my ($ds, $drive) = @_;
 
@@ -1333,7 +1333,7 @@ sub destroy_vm {
 
 	PVE::Storage::vdisk_free ($storecfg, $volid);
     });
-    
+
     unlink $conffile;
 
     # also remove unused disk
@@ -1343,7 +1343,7 @@ sub destroy_vm {
 	eval {
 	    PVE::Storage::foreach_volid ($dl, sub {
 		my ($volid, $sid, $volname, $d) = @_;
-		PVE::Storage::vdisk_free ($storecfg, $volid);	    
+		PVE::Storage::vdisk_free ($storecfg, $volid);
 	    });
 	};
 	warn $@ if $@;
@@ -1387,7 +1387,7 @@ sub load_diskinfo_old {
     foreach my $ds (keys %$res) {
 	my $di = $res->{$ds};
 
-	$res->{$ds}->{disksize} = $info->{$di->{file}} ? 
+	$res->{$ds}->{disksize} = $info->{$di->{file}} ?
 	    $info->{$di->{file}}->{size} / (1024*1024) : 0;
     }
 
@@ -1404,7 +1404,7 @@ sub load_config {
     die "no such VM ('$vmid')\n" if !defined($conf);
 
     return $conf;
-}  
+}
 
 sub parse_vm_config {
     my ($filename, $raw) = @_;
@@ -1415,14 +1415,14 @@ sub parse_vm_config {
 	digest => Digest::SHA1::sha1_hex($raw),
     };
 
-    $filename =~ m|/qemu-server/(\d+)\.conf$| 
+    $filename =~ m|/qemu-server/(\d+)\.conf$|
 	|| die "got strange filename '$filename'";
 
     my $vmid = $1;
 
     while ($raw && $raw =~ s/^(.*?)(\n|$)//) {
 	my $line = $1;
-	
+
 	next if $line =~ m/^\#/;
 
 	next if $line =~ m/^\s*$/;
@@ -1466,7 +1466,7 @@ sub parse_vm_config {
     # convert old smp to sockets
     if ($res->{smp} && !$res->{sockets}) {
 	$res->{sockets} = $res->{smp};
-    } 
+    }
     delete $res->{smp};
 
     return $res;
@@ -1489,7 +1489,7 @@ sub change_config_nolock {
 
     # we do not use 'smp' any longer
     if ($settings->{sockets}) {
-	$unset->{smp} = 1; 
+	$unset->{smp} = 1;
     } elsif ($settings->{smp}) {
 	$settings->{sockets} = $settings->{smp};
 	$unset->{smp} = 1;
@@ -1531,7 +1531,7 @@ sub change_config_nolock {
 	my $done;
 
 	while (my $line = <$fh>) {
-	
+
 	    if (($line =~ m/^\#/) || ($line =~ m/^\s*$/)) {
 		die $werror unless print $out $line;
 		next;
@@ -1556,7 +1556,7 @@ sub change_config_nolock {
 		}
 		if (!defined ($unset->{$key})) {
 		    die $werror unless print $out "$key: $value\n";
-		} 
+		}
 
 		next;
 	    }
@@ -1585,7 +1585,7 @@ sub change_config_nolock {
     if (!$out->close()) {
 	$err = "close failed - $!\n";
 	unlink $tmpfn;
-	die $err;	
+	die $err;
     }
 
     if (!rename($tmpfn, $filename)) {
@@ -1595,7 +1595,7 @@ sub change_config_nolock {
     }
 }
 
-sub load_defaults { 
+sub load_defaults {
 
     my $res = {};
 
@@ -1605,7 +1605,7 @@ sub load_defaults {
 	    $res->{$key} = $default;
 	}
     }
-   
+
     my $conf = PVE::Cluster::cfs_read_file('datacenter.cfg');
     $res->{keyboard} = $conf->{keyboard} if $conf->{keyboard};
 
@@ -1631,7 +1631,7 @@ sub check_local_resources {
     my ($conf, $noerr) = @_;
 
     my $loc_res = 0;
-    
+
     $loc_res = 1 if $conf->{hostusb}; # old syntax
     $loc_res = 1 if $conf->{hostpci}; # old syntax
 
@@ -1707,12 +1707,12 @@ sub check_running {
 }
 
 sub vzlist {
-    
+
     my $vzlist = config_list();
 
     my $fd = IO::Dir->new ($var_run_tmpdir) || return $vzlist;
 
-    while (defined(my $de = $fd->read)) { 
+    while (defined(my $de = $fd->read)) {
 	next if $de !~ m/^(\d+)\.pid$/;
 	my $vmid = $1;
 	next if !defined ($vzlist->{$vmid});
@@ -1783,7 +1783,7 @@ sub vmstatus {
 
     my $res = {};
 
-    my $storecfg = PVE::Storage::config(); 
+    my $storecfg = PVE::Storage::config();
 
     my $list = vzlist();
     my ($uptime) = PVE::ProcFSTools::read_proc_uptime();
@@ -1811,7 +1811,7 @@ sub vmstatus {
 
 	$d->{cpus} = ($conf->{sockets} || 1) * ($conf->{cores} || 1);
 	$d->{name} = $conf->{name} || "VM $vmid";
-	$d->{maxmem} = $conf->{memory} ? $conf->{memory}*(1024*1024) : 0; 
+	$d->{maxmem} = $conf->{memory} ? $conf->{memory}*(1024*1024) : 0;
 
 
 	$d->{uptime} = 0;
@@ -1834,7 +1834,7 @@ sub vmstatus {
 	my $vmid = $1;
 	my $d = $res->{$vmid};
 	next if !$d;
-	
+
 	$d->{netout} += $netdev->{$dev}->{receive};
 	$d->{netin} += $netdev->{$dev}->{transmit};
     }
@@ -1869,7 +1869,7 @@ sub vmstatus {
 	} else {
 	    next;
 	}
- 
+
 	my $used = $utime + $stime;
 
 	my $vcpus = $d->{cpus} > $cpucount ? $cpucount : $d->{cpus};
@@ -1882,8 +1882,8 @@ sub vmstatus {
 
 	my $old = $last_proc_pid_stat->{$pid};
 	if (!$old) {
-	    $last_proc_pid_stat->{$pid} = { 
-		time => $ctime, 
+	    $last_proc_pid_stat->{$pid} = {
+		time => $ctime,
 		used => $used,
 		cpu => 0,
 		relcpu => 0,
@@ -1899,7 +1899,7 @@ sub vmstatus {
 	    $d->{cpu} = $dutime/$dtime;
 	    $d->{relcpu} = ($d->{cpu} * $cpucount) / $vcpus;
 	    $last_proc_pid_stat->{$pid} = {
-		time => $ctime, 
+		time => $ctime,
 		used => $used,
 		cpu => $d->{cpu},
 		relcpu => $d->{relcpu},
@@ -1955,14 +1955,14 @@ sub config_to_command {
     push @$cmd,  '-vnc', "unix:$socket,x509,password";
 
     push @$cmd, '-pidfile' , pidfile_name ($vmid);
- 
+
     push @$cmd, '-daemonize';
 
     push @$cmd, '-incoming', $migrate_uri if $migrate_uri;
 
     # include usb device config
     push @$cmd, '-readconfig', '/usr/share/qemu-server/pve-usb.cfg';
-    
+
     # enable absolute mouse coordinates (needed by vnc)
     my $tablet = defined ($conf->{tablet}) ? $conf->{tablet} : $defaults->{tablet};
     push @$cmd, '-device', 'usb-tablet,bus=ehci.0,port=6' if $tablet;
@@ -1988,7 +1988,7 @@ sub config_to_command {
     # serial devices
     for (my $i = 0; $i < $MAX_SERIAL_PORTS; $i++)  {
 	if (my $path = $conf->{"serial$i"}) {
-	    die "no such serial device\n" if ! -c $path; 
+	    die "no such serial device\n" if ! -c $path;
 	    push @$cmd, '-chardev', "tty,id=serial$i,path=$path";
 	    push @$cmd, '-device', "isa-serial,chardev=serial$i";
 	}
@@ -1997,7 +1997,7 @@ sub config_to_command {
     # parallel devices
     for (my $i = 0; $i < $MAX_PARALLEL_PORTS; $i++)  {
 	if (my $path = $conf->{"parallel$i"}) {
-	    die "no such parallel device\n" if ! -c $path; 
+	    die "no such parallel device\n" if ! -c $path;
 	    push @$cmd, '-chardev', "parport,id=parallel$i,path=$path";
 	    push @$cmd, '-device', "isa-parallel,chardev=parallel$i";
 	}
@@ -2006,7 +2006,7 @@ sub config_to_command {
     my $vmname = $conf->{name} || "vm$vmid";
 
     push @$cmd, '-name', $vmname;
-    
+
     my $sockets = 1;
     $sockets = $conf->{smp} if $conf->{smp}; # old style - no longer iused
     $sockets = $conf->{sockets} if  $conf->{sockets};
@@ -2040,7 +2040,7 @@ sub config_to_command {
 	    $vga = 'cirrus';
 	}
     }
-  
+
     push @$cmd, '-vga', $vga if $vga; # for kvm 77 and later
 
     # time drift fix
@@ -2062,8 +2062,8 @@ sub config_to_command {
 	}
 
 	# -tdf ?
-	# -no-acpi 
-	# -no-kvm 
+	# -no-acpi
+	# -no-kvm
 	# -win2k-hack ?
     }
 
@@ -2100,7 +2100,7 @@ sub config_to_command {
     foreach_drive($conf, sub {
 	my ($ds, $drive) = @_;
 
-	eval { 
+	eval {
 	    PVE::Storage::parse_volume_id ($drive->{file});
 	    push @$vollist, $drive->{file};
 	}; # ignore errors
@@ -2119,7 +2119,7 @@ sub config_to_command {
     });
 
     push @$cmd, '-m', $conf->{memory} || $defaults->{memory};
- 
+
     my $foundnet = 0;
 
     foreach my $k (sort keys %$conf) {
@@ -2135,7 +2135,7 @@ sub config_to_command {
 	    my $ifname = "tap${vmid}i$i";
 
 	    # kvm uses TUNSETIFF ioctl, and that limits ifname length
-	    die "interface name '$ifname' is too long (max 15 character)\n" 
+	    die "interface name '$ifname' is too long (max 15 character)\n"
 		if length($ifname) >= 16;
 
 	    my $device = $net->{model};
@@ -2158,15 +2158,15 @@ sub config_to_command {
 		"romfile=," : '';
 	    push @$cmd, '-device', "$device,${extra}mac=$net->{macaddr},netdev=${k}";
 	}
-    } 
-       
+    }
+
     push @$cmd, '-net', 'none' if !$foundnet;
 
     # hack: virtio with fairsched is unreliable, so we do not use fairsched
     # when the VM uses virtio devices.
-    if (!$use_virtio && $have_ovz) { 
-     
-	my $cpuunits = defined ($conf->{cpuunits}) ? 
+    if (!$use_virtio && $have_ovz) {
+
+	my $cpuunits = defined ($conf->{cpuunits}) ?
 	    $conf->{cpuunits} : $defaults->{cpuunits};
 
 	push @$cmd, '-cpuunits', $cpuunits if $cpuunits;
@@ -2183,7 +2183,7 @@ sub config_to_command {
 
     return wantarray ? ($cmd, $vollist) : $cmd;
 }
- 
+
 sub vnc_socket {
     my ($vmid) = @_;
     return "${var_run_tmpdir}/$vmid.vnc";
@@ -2218,7 +2218,7 @@ sub random_ether_addr {
 	    $mac .= ":$ss";
 	}
     }
-    
+
     return $mac;
 }
 
@@ -2310,13 +2310,13 @@ sub vm_start {
 	    }
 	}
 
-	if (my $migrate_speed = 
+	if (my $migrate_speed =
 	    $conf->{migrate_speed} || $defaults->{migrate_speed}) {
 	    my $cmd = "migrate_set_speed ${migrate_speed}m";
 	    eval { vm_monitor_command ($vmid, $cmd, 1); };
 	}
 
-	if (my $migrate_downtime = 
+	if (my $migrate_downtime =
 	    $conf->{migrate_downtime} || $defaults->{migrate_downtime}) {
 	    my $cmd = "migrate_set_downtime ${migrate_downtime}";
 	    eval { vm_monitor_command ($vmid, $cmd, 1); };
@@ -2373,7 +2373,7 @@ sub vm_monitor_command {
 
 	my $timeout = 3;
 
-	# hack: migrate sometime blocks the monitor (when migrate_downtime 
+	# hack: migrate sometime blocks the monitor (when migrate_downtime
 	# is set)
 	if ($cmdstr =~ m/^(info\s+migrate|migrate\s)/) {
 	    $timeout = 60*60; # 1 hour
@@ -2381,7 +2381,7 @@ sub vm_monitor_command {
 
 	# read banner;
 	my $data = __read_avail ($sock, $timeout);
-	
+
 	if ($data !~ m/^QEMU\s+(\S+)\s+monitor\s/) {
 	    die "got unexpected qemu monitor banner\n";
 	}
@@ -2402,7 +2402,7 @@ sub vm_monitor_command {
 
 	return if ($cmdstr eq 'q') || ($cmdstr eq 'quit');
 
-	$timeout = 20; 
+	$timeout = 20;
 
 	if ($cmdstr =~ m/^(info\s+migrate|migrate\s)/) {
 	    $timeout = 60*60; # 1 hour
@@ -2410,11 +2410,11 @@ sub vm_monitor_command {
 	    $timeout = 60; # note: cdrom mount command is slow
 	}
 	if ($res = __read_avail ($sock, $timeout)) {
-  
+
 	    my @lines = split ("\r?\n", $res);
 
 	    shift @lines if $lines[0] !~ m/^unknown command/; # skip echo
-	    
+
 	    $res = join ("\n", @lines);
 	    $res .= "\n";
 	}
@@ -2487,7 +2487,7 @@ sub vm_stop {
 	my $conf = load_config ($vmid);
 
 	check_lock ($conf) if !$skiplock;
-    
+
 	syslog ("info", "VM $vmid stopping");
 
 	eval { vm_monitor_command ($vmid, "quit", 1); };
@@ -2571,7 +2571,7 @@ sub vm_cad {
 	check_lock ($conf) if !$skiplock;
 
 	syslog ("info", "VM $vmid sending cntl-alt-delete");
-    
+
 	vm_monitor_command ($vmid, "sendkey ctrl-alt-delete", 1);
     });
 }
@@ -2649,7 +2649,7 @@ sub vm_stopall {
 
 	foreach my $vmid (keys %$vzlist) {
 	    next if !$vzlist->{$vmid}->{pid};
-	
+
 	    $msg = "VM $vmid still running - sending stop now\n";
 	    syslog ('info', $msg);
 	    print $msg;
@@ -2679,7 +2679,7 @@ sub vm_stopall {
 
 	foreach my $vmid (keys %$vzlist) {
 	    next if !$vzlist->{$vmid}->{pid};
-	
+
 	    $msg = "VM $vmid still running - terminating now with SIGTERM\n";
 	    syslog ('info', $msg);
 	    print $msg;
