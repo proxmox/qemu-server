@@ -26,7 +26,7 @@ use PVE::INotify;
 use PVE::ProcFSTools;
 use Time::HiRes qw (gettimeofday);
 
-my $clock_ticks = POSIX::sysconf(&POSIX::_SC_CLK_TCK);
+my $cpuinfo = PVE::ProcFSTools::read_cpuinfo();
 
 # Note about locking: we use flock on the config file protect 
 # against concurent actions.
@@ -1631,8 +1631,7 @@ sub check_local_resources {
     my ($conf, $noerr) = @_;
 
     my $loc_res = 0;
-    # fixme:
-    die "implement me";
+    
     $loc_res = 1 if $conf->{hostusb}; # old syntax
     $loc_res = 1 if $conf->{hostpci}; # old syntax
 
@@ -1840,7 +1839,6 @@ sub vmstatus {
 	$d->{netin} += $netdev->{$dev}->{transmit};
     }
 
-    my $cpuinfo = PVE::ProcFSTools::read_cpuinfo();
     my $cpucount = $cpuinfo->{cpus} || 1;
     my $ctime = gettimeofday;
 
@@ -1893,7 +1891,7 @@ sub vmstatus {
 	    next;
 	}
 
-	my $dtime = ($ctime -  $old->{time}) * $cpucount * $clock_ticks;
+	my $dtime = ($ctime -  $old->{time}) * $cpucount * $cpuinfo->{user_hz};
 
 	if ($dtime > 1000) {
 	    my $dutime = $used -  $old->{used};
@@ -2069,7 +2067,11 @@ sub config_to_command {
 	# -win2k-hack ?
     }
 
-    push @$cmd, '-no-kvm' if $nokvm;
+    if ($nokvm) {
+	push @$cmd, '-no-kvm';
+    } else {
+	die "No accelerator found!\n" if !$cpuinfo->{hvm};
+    }
 
     push @$cmd, '-localtime' if $conf->{localtime};
 
