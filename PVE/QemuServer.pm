@@ -1633,8 +1633,8 @@ sub check_local_resources {
     my $loc_res = 0;
     # fixme:
     die "implement me";
-    $loc_res = 1 if $conf->{hostusb};
-    $loc_res = 1 if $conf->{hostpci};
+    $loc_res = 1 if $conf->{hostusb}; # old syntax
+    $loc_res = 1 if $conf->{hostpci}; # old syntax
 
     foreach my $k (keys %$conf) {
 	$loc_res = 1 if $k =~ m/^(usb|hostpci|serial|parallel)\d+$/;
@@ -1984,13 +1984,6 @@ sub config_to_command {
 	    push @$cmd, '-device', "usb-host,vendorid=$d->{vendorid},productid=$d->{productid}";
 	} elsif (defined($d->{hostbus}) && defined($d->{hostport})) {
 	    push @$cmd, '-device', "usb-host,hostbus=$d->{hostbus},hostport=$d->{hostport}";
-	}
-    }
-
-    if (my $usbdl = $conf->{hostusb}) {
-	my @dl = split (/,/, $usbdl);
-	foreach my $dev (@dl) {
-	    push @$cmd, '-usbdevice', "host:$dev" if $dev;
 	}
     }
 
