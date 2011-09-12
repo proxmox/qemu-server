@@ -71,6 +71,11 @@ __PACKAGE__->register_method({
 		description => "Use online/live migration.",
 		optional => 1,
 	    },
+	    force => {
+		type => 'boolean',
+		description => "Allow to migrate VMs which use local devices.",
+		optional => 1,
+	    },
 	},
     },
     returns => { type => 'null'},
@@ -111,7 +116,7 @@ __PACKAGE__->register_method({
 	    }
 
 	    my $rhash = {};
-	    eval_int (sub { phase1($conf, $rhash, $running); });
+	    eval_int (sub { phase1($conf, $rhash, $running, $param->{force}); });
 	    my $err = $@;
 
 	    if ($err) {
@@ -277,8 +282,6 @@ sub sync_disks {
     logmsg('info', "copying disk images");
 
     my $res = [];
-
-    die "implement me";
 
     eval {
 
@@ -471,12 +474,12 @@ sub finish_tunnel {
 }
 
 sub phase1 {
-    my ($conf, $rhash, $running) = @_;
+    my ($conf, $rhash, $running, $force) = @_;
 
     logmsg('info', "starting migration of VM $vmid to node '$node' ($nodeip)");
 
     if (my $loc_res = PVE::QemuServer::check_local_resources($conf, 1)) {
-	if ($running) {
+	if ($running || !$force) {
 	    die "can't migrate VM which uses local devices\n";
 	} else {
 	    logmsg('info', "migrating VM which uses local devices");
