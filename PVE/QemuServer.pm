@@ -1989,14 +1989,20 @@ sub config_to_command {
 
     # serial devices
     for (my $i = 0; $i < $MAX_SERIAL_PORTS; $i++)  {
-          push @$cmd, '-chardev', "tty,id=serial$i,path=$conf->{serial$i}";
-          push @$cmd, '-device', "isa-serial,chardev=serial$i";
+	if (my $path = $conf->{"serial$i"}) {
+	    die "no such serial device\n" if ! -c $path; 
+	    push @$cmd, '-chardev', "tty,id=serial$i,path=$path";
+	    push @$cmd, '-device', "isa-serial,chardev=serial$i";
+	}
     }
 
     # parallel devices
     for (my $i = 0; $i < $MAX_PARALLEL_PORTS; $i++)  {
-          push @$cmd, '-chardev', "parport,id=parallel$i,path=$conf->{parallel$i}";
-          push @$cmd, '-device', "isa-parallel,chardev=parallel$i";
+	if (my $path = $conf->{"parallel$i"}) {
+	    die "no such parallel device\n" if ! -c $path; 
+	    push @$cmd, '-chardev', "parport,id=parallel$i,path=$path";
+	    push @$cmd, '-device', "isa-parallel,chardev=parallel$i";
+	}
     }
 
     my $vmname = $conf->{name} || "vm$vmid";
