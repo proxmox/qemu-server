@@ -218,7 +218,7 @@ if ($opts->{extract}) {
     print STDERR "restore data to '$path' ($filesize bytes)\n";
 
     if ($opts->{prealloc} || $format ne 'raw' || (-b $path)) {
-	exec 'dd', 'bs=256K', "of=$path";
+	exec 'dd', 'ibs=256K', 'obs=256K', "of=$path";
 	die "couldn't exec dd: $!\n";
     } else {
 	exec '/usr/lib/qemu-server/sparsecp', $path;
