@@ -421,7 +421,7 @@ my $scsidesc = {
     optional => 1,
     type => 'string', format => 'pve-qm-drive',
     typetext => '[volume=]volume,] [,media=cdrom|disk] [,cyls=c,heads=h,secs=s[,trans=t]] [,snapshot=on|off] [,cache=none|writethrough|writeback] [,format=f] [,backup=yes|no] [,aio=native|threads]',
-    description => "Use volume as SCSI hard disk or CD-ROM (n is 0 to 15).",
+    description => "Use volume as SCSI hard disk or CD-ROM (n is 0 to 13).",
 };
 PVE::JSONSchema::register_standard_option("pve-qm-scsi", $scsidesc);
 
@@ -429,7 +429,7 @@ my $virtiodesc = {
     optional => 1,
     type => 'string', format => 'pve-qm-drive',
     typetext => '[volume=]volume,] [,media=cdrom|disk] [,cyls=c,heads=h,secs=s[,trans=t]] [,snapshot=on|off] [,cache=none|writethrough|writeback] [,format=f] [,backup=yes|no] [,aio=native|threads]',
-    description => "Use volume as VIRTIO hard disk (n is 0 to 15).",
+    description => "Use volume as VIRTIO hard disk (n is 0 to 5).",
 };
 PVE::JSONSchema::register_standard_option("pve-qm-virtio", $virtiodesc);
 
@@ -438,7 +438,7 @@ my $usbdesc = {
     type => 'string', format => 'pve-qm-usb-device',
     typetext => 'host=HOSTUSBDEVICE',
     description => <<EODESCR,
-Configure an USB device (n is 0 to 5). This can be used to
+Configure an USB device (n is 0 to 4). This can be used to
 pass-through usb devices to the guest. HOSTUSBDEVICE syntax is:
 
 'bus-port(.port)*' (decimal numbers) or 
@@ -473,9 +473,9 @@ PVE::JSONSchema::register_standard_option("pve-qm-hostpci", $hostpcidesc);
 my $serialdesc = {
 	optional => 1,
 	type => 'string', format => 'pve-qm-serial',
-	typetext => "SERIALDEVICE",
+	pattern => '/dev/ttyS\d+',
 	description =>  <<EODESCR,
-Map host serial devices. SERIALDEVICE syntax is /dev/ttyS* 
+Map host serial devices (n is 0 to 3). 
 
 Note: This option allows direct access to host hardware. So it is no longer possible to migrate such machines - use with special care.
 
@@ -487,9 +487,9 @@ PVE::JSONSchema::register_standard_option("pve-qm-serial", $serialdesc);
 my $paralleldesc= {
 	optional => 1,
 	type => 'string', format => 'pve-qm-parallel',
-	typetext => "PARALLELDEVICE",
+	pattern => '/dev/parport\d+',
 	description =>  <<EODESCR,
-Map host parallel devices. PARALLELDEVICE syntax is /dev/parport* 
+Map host parallel devices (n is 0 to 2).  
 
 Note: This option allows direct access to host hardware. So it is no longer possible to migrate such machines - use with special care.
 
@@ -1690,11 +1690,9 @@ sub check_local_resources {
     die "implement me";
     $loc_res = 1 if $conf->{hostusb};
     $loc_res = 1 if $conf->{hostpci};
-    $loc_res = 1 if $conf->{serial};
-    $loc_res = 1 if $conf->{parallel};
 
     foreach my $k (keys %$conf) {
-	$loc_res = 1 if $k =~ m/^(usb|pci)\d+$/;
+	$loc_res = 1 if $k =~ m/^(usb|hostpci|serial|parallel)\d+$/;
     }
 
     die "VM uses local resources\n" if $loc_res && !$noerr;
