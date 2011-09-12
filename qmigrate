@@ -305,12 +305,15 @@ sub sync_disks {
 	PVE::QemuServer::foreach_drive($conf, sub {
 	    my ($ds, $drive) = @_;
 
-	    return if PVE::QemuServer::drive_is_cdrom($drive);
-
 	    my $volid = $drive->{file};
-
 	    return if !$volid;
+
 	    die "cant migrate local file/device '$volid'\n" if $volid =~ m|^/|;
+
+	    if (PVE::QemuServer::drive_is_cdrom($drive)) {
+		die "cant migrate local cdrom drive\n" if $volid eq 'cdrom';
+		return if $volid eq 'none';
+	    }
 
 	    my ($sid, $volname) = PVE::Storage::parse_volume_id($volid);
 	    
