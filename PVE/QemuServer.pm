@@ -472,7 +472,7 @@ PVE::JSONSchema::register_standard_option("pve-qm-hostpci", $hostpcidesc);
 
 my $serialdesc = {
 	optional => 1,
-	type => 'string', format => 'pve-qm-serial',
+	type => 'string',
 	pattern => '/dev/ttyS\d+',
 	description =>  <<EODESCR,
 Map host serial devices (n is 0 to 3). 
@@ -482,11 +482,10 @@ Note: This option allows direct access to host hardware. So it is no longer poss
 Experimental: user reported problems with this option.
 EODESCR
 };
-PVE::JSONSchema::register_standard_option("pve-qm-serial", $serialdesc);
 
 my $paralleldesc= {
 	optional => 1,
-	type => 'string', format => 'pve-qm-parallel',
+	type => 'string',
 	pattern => '/dev/parport\d+',
 	description =>  <<EODESCR,
 Map host parallel devices (n is 0 to 2).  
@@ -496,7 +495,6 @@ Note: This option allows direct access to host hardware. So it is no longer poss
 Experimental: user reported problems with this option.
 EODESCR
 };
-PVE::JSONSchema::register_standard_option("pve-qm-parallel", $paralleldesc);
 
 for (my $i = 0; $i < $MAX_PARALLEL_PORTS; $i++)  {
     $confdesc->{"parallel$i"} = $paralleldesc;
@@ -1140,59 +1138,6 @@ sub verify_usb_device {
     return undef if $noerr;
     
     die "unable to parse usb device\n";
-}
-
-PVE::JSONSchema::register_format('pve-qm-parallel', \&verify_parallel);
-sub verify_parallel {
-    my ($value, $noerr) = @_;
-
-    return $value if parse_parallel($value);
-
-    return undef if $noerr;
-
-    die "invalid device name\n";
-}
-
-sub parse_parallel {
-    my ($value) = @_;
-
-    return undef if !$value;
-
-    my $res = {};
-    if ($value =~ m|^/dev/parport\d+$|) {
-       $res->{dev} = $value;
-    } else {
-       return undef;
-    }
-
-    return $res;
-}
-
-PVE::JSONSchema::register_format('pve-qm-serial', \&verify_serial);
-sub verify_serial {
-    my ($value, $noerr) = @_;
-
-    return $value if parse_serial($value);
-
-    return undef if $noerr;
-
-    die "invalid device name\n";
-
-}
-
-sub parse_serial {
-    my ($value) = @_;
-
-    return undef if !$value;
-
-    my $res = {};
-    if ($value =~ m|^/dev/ttyS\d+$|) {
-       $res->{dev} = $value;
-    } else {
-       return undef;
-    }
-
-    return $res;
 }
 
 # add JSON properties for create and set function
@@ -2051,17 +1996,13 @@ sub config_to_command {
 
     # serial devices
     for (my $i = 0; $i < $MAX_SERIAL_PORTS; $i++)  {
-          my $d = parse_serial($conf->{"serial$i"});
-          next if !$d;
-          push @$cmd, '-chardev', "tty,id=serial$i,path=$d->{dev}";
+          push @$cmd, '-chardev', "tty,id=serial$i,path=$conf->{serial$i}";
           push @$cmd, '-device', "isa-serial,chardev=serial$i";
     }
 
     # parallel devices
     for (my $i = 0; $i < $MAX_PARALLEL_PORTS; $i++)  {
-          my $d = parse_parallel($conf->{"parallel$i"});
-          next if !$d;
-          push @$cmd, '-chardev', "parport,id=parallel$i,path=$d->{dev}";
+          push @$cmd, '-chardev', "parport,id=parallel$i,path=$conf->{parallel$i}";
           push @$cmd, '-device', "isa-parallel,chardev=parallel$i";
     }
 
