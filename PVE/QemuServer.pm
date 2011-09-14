@@ -1786,7 +1786,7 @@ sub vmstatus {
     my $storecfg = PVE::Storage::config();
 
     my $list = vzlist();
-    my ($uptime) = PVE::ProcFSTools::read_proc_uptime();
+    my ($uptime) = PVE::ProcFSTools::read_proc_uptime(1);
 
     foreach my $vmid (keys %$list) {
 	next if $opt_vmid && ($vmid ne $opt_vmid);
@@ -1812,7 +1812,6 @@ sub vmstatus {
 	$d->{cpus} = ($conf->{sockets} || 1) * ($conf->{cores} || 1);
 	$d->{name} = $conf->{name} || "VM $vmid";
 	$d->{maxmem} = $conf->{memory} ? $conf->{memory}*(1024*1024) : 0;
-
 
 	$d->{uptime} = 0;
 	$d->{cpu} = 0;
@@ -1860,24 +1859,17 @@ sub vmstatus {
 	    $d->{diskwrite} = $data->{wchar} || 0;
 	}
 
-	my $statstr = file_read_firstline("/proc/$pid/stat");
-	next if !$statstr;
+	my $pstat = PVE::ProcFSTools::read_proc_pid_stat($pid);
+	next if !$pstat; # not running
 
-	my ($utime, $stime, $vsize, $rss, $starttime);
-	if ($statstr =~ m/^$pid \(.*\) \S (-?\d+) -?\d+ -?\d+ -?\d+ -?\d+ \d+ \d+ \d+ \d+ \d+ (\d+) (\d+) (-?\d+) (-?\d+) -?\d+ -?\d+ -?\d+ 0 (\d+) (\d+) (-?\d+) \d+ \d+ \d+ \d+ \d+ \d+ \d+ \d+ \d+ \d+ \d+ \d+ \d+ -?\d+ -?\d+ \d+ \d+ \d+/) {
-	    ($utime, $stime, $vsize, $rss, $starttime) = ($2, $3, $7, $8 * 4096, $6);
-	} else {
-	    next;
-	}
-
-	my $used = $utime + $stime;
+	my $used = $pstat->{utime} + $pstat->{stime};
 
 	my $vcpus = $d->{cpus} > $cpucount ? $cpucount : $d->{cpus};
 
-	$d->{uptime} = int ($uptime - ($starttime/100));
+	$d->{uptime} = int(($uptime - $pstat->{starttime})/$cpuinfo->{user_hz});
 
-	if ($vsize) {
-	    $d->{mem} = int (($rss/$vsize)*$d->{maxmem});
+	if ($pstat->{vsize}) {
+	    $d->{mem} = int (($pstat->{rss}/$pstat->{vsize})*$d->{maxmem});
 	}
 
 	my $old = $last_proc_pid_stat->{$pid};
