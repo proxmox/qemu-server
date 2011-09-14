@@ -37,6 +37,19 @@ my $cpuinfo = PVE::ProcFSTools::read_cpuinfo();
 
 cfs_register_file('/qemu-server/', \&parse_vm_config);
 
+PVE::JSONSchema::register_standard_option('skiplock', {
+    description => "Ignore locks - only root is allowed to use this option.",
+    type => 'boolean', 
+    optional => 1,
+});
+
+PVE::JSONSchema::register_standard_option('pve-qm-stateuri', {
+    description => "Some command save/restore state from this location.",
+    type => 'string',
+    maxLength => 128,
+    optional => 1,
+});
+
 #no warnings 'redefine';
 
 unless(defined(&_VZSYSCALLS_H_)) {

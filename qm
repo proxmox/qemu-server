@@ -37,12 +37,6 @@ $rpcenv->set_user('root@pam');
 
 my $nodename = PVE::INotify::nodename();
 
-PVE::JSONSchema::register_standard_option('skiplock', {
-    description => "Ignore locks - only root is allowed to use this option.",
-    type => 'boolean', 
-    optional => 1,
-});
-
 sub run_vnc_proxy {
     my ($vmid) = @_;
 
@@ -393,6 +387,13 @@ my $cmddef = {
 
     destroy => [ "PVE::API2::Qemu", 'destroy_vm', ['vmid'], { node => $nodename } ],
 
+    migrate => [ "PVE::API2::Qemu", 'migrate_vm', ['target', 'vmid'], { node => $nodename }, 
+		 sub {
+		     my $upid = shift;
+		     my $status = PVE::Tools::upid_read_status($upid);
+		     exit($status eq 'OK' ? 0 : -1);
+		 }],
+
     set => [ "PVE::API2::Qemu", 'update_vm', ['vmid'], { node => $nodename } ],
 
     unlink => [ "PVE::API2::Qemu", 'unlink', ['vmid', 'idlist'], { node => $nodename } ],
@@ -443,6 +444,7 @@ sub register_vm_command {
 	    properties => {
 		vmid => get_standard_option('pve-vmid'),
 		skiplock => get_standard_option('skiplock'),
+		stateuri => get_standard_option('pve-qm-stateuri'),
 	    },
 	},
 	returns => { type => 'null'},

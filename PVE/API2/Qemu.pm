@@ -11,6 +11,7 @@ use PVE::Storage;
 use PVE::JSONSchema qw(get_standard_option);
 use PVE::RESTHandler;
 use PVE::QemuServer;
+use PVE::QemuMigrate;
 use PVE::RPCEnvironment;
 use PVE::AccessControl;
 use PVE::INotify;
@@ -181,6 +182,7 @@ __PACKAGE__->register_method({
 	    { subdir => 'status' },
 	    { subdir => 'unlink' },
 	    { subdir => 'vncproxy' },
+	    { subdir => 'migrate' },
 	    { subdir => 'rrd' },
 	    { subdir => 'rrddata' },
 	    ];
@@ -321,11 +323,7 @@ __PACKAGE__->register_method({
 	    {
 		node => get_standard_option('pve-node'),
 		vmid => get_standard_option('pve-vmid'),
-		skiplock => { 
-		    description => "Ignore locks - only root is allowed to use this option.",
-		    type => 'boolean', 
-		    optional => 1,
-		},
+		skiplock => get_standard_option('skiplock'),
 		delete => {
 		    type => 'string', format => 'pve-configid-list',
 		    description => "A list of settings you want to delete.",
@@ -355,12 +353,11 @@ __PACKAGE__->register_method({
 
 	my $node = extract_param($param, 'node');
 
-	# fixme: fork worker?
-
 	my $vmid = extract_param($param, 'vmid');
 
 	my $skiplock = extract_param($param, 'skiplock');
-	raise_param_exc({ skiplock => "Only root may use this option." }) if $user ne 'root@pam';
+	raise_param_exc({ skiplock => "Only root may use this option." }) 
+	    if $skiplock && $user ne 'root@pam';
 
 	my $delete = extract_param($param, 'delete');
 	my $force = extract_param($param, 'force');
@@ -510,6 +507,7 @@ __PACKAGE__->register_method({
 	properties => {
 	    node => get_standard_option('pve-node'),
 	    vmid => get_standard_option('pve-vmid'),
+	    skiplock => get_standard_option('skiplock'),
 	},
     },
     returns => { type => 'null' },
@@ -524,7 +522,7 @@ __PACKAGE__->register_method({
 
 	my $skiplock = $param->{skiplock};
 	raise_param_exc({ skiplock => "Only root may use this option." }) 
-	    if $user ne 'root@pam';
+	    if $skiplock && $user ne 'root@pam';
 
 	my $storecfg = PVE::Storage::config(); 
 
@@ -692,18 +690,16 @@ __PACKAGE__->register_method({
     method => 'PUT',
     protected => 1,
     proxyto => 'node',
-    description => "Set virtual machine status.",
+    description => "Set virtual machine status (execute vm commands).",
     parameters => {
     	additionalProperties => 0,
 	properties => {
 	    node => get_standard_option('pve-node'),
 	    vmid => get_standard_option('pve-vmid'),
-	    skiplock => { 
-		description => "Ignore locks - only root is allowed to use this option.",
-		type => 'boolean', 
-		optional => 1,
-	    },
+	    skiplock => get_standard_option('skiplock'),
+	    stateuri => get_standard_option('pve-qm-stateuri'),
 	    command => { 
+		description => "The command to execute.",
 		type => 'string',
 		enum => [qw(start stop reset shutdown cad suspend resume) ],
 	    },
@@ -719,22 +715,22 @@ __PACKAGE__->register_method({
 
 	my $node = extract_param($param, 'node');
 
-	# fixme: proxy to correct node
-	# fixme: fork worker?
-
 	my $vmid = extract_param($param, 'vmid');
+
+	my $stateuri = extract_param($param, 'stateuri');
+	raise_param_exc({ stateuri => "Only root may use this option." }) 
+	    if $stateuri && $user ne 'root@pam';
 
 	my $skiplock = extract_param($param, 'skiplock');
 	raise_param_exc({ skiplock => "Only root may use this option." }) 
-	    if $user ne 'root@pam';
+	    if $skiplock && $user ne 'root@pam';
 
 	my $command = $param->{command};
 
 	my $storecfg = PVE::Storage::config(); 
 	
 	if ($command eq 'start') {
-	    my $statefile = undef; # fixme: --incoming parameter
-	    PVE::QemuServer::vm_start($storecfg, $vmid, $statefile, $skiplock);
+	    PVE::QemuServer::vm_start($storecfg, $vmid, $stateuri, $skiplock);
 	} elsif ($command eq 'stop') {
 	    PVE::QemuServer::vm_stop($vmid, $skiplock);
 	} elsif ($command eq 'reset') {
@@ -754,5 +750,75 @@ __PACKAGE__->register_method({
 	return undef;
     }});
 
+__PACKAGE__->register_method({
+    name => 'migrate_vm', 
+    path => '{vmid}/migrate',
+    method => 'POST',
+    protected => 1,
+    proxyto => 'node',
+    description => "Migrate virtual machine. Creates a new migration task.",
+    parameters => {
+    	additionalProperties => 0,
+	properties => {
+	    node => get_standard_option('pve-node'),
+	    vmid => get_standard_option('pve-vmid'),
+	    target => get_standard_option('pve-node', { description => "Target node." }),
+	    online => {
+		type => 'boolean',
+		description => "Use online/live migration.",
+		optional => 1,
+	    },
+	    force => {
+		type => 'boolean',
+		description => "Allow to migrate VMs which use local devices. Only root may use this option.",
+		optional => 1,
+	    },
+	},
+    },
+    returns => { 
+	type => 'string',
+	description => "the task ID.",
+    },
+    code => sub {
+	my ($param) = @_;
+
+	my $rpcenv = PVE::RPCEnvironment::get();
+
+	my $user = $rpcenv->get_user();
+
+	my $target = extract_param($param, 'target');
+
+	my $localnode = PVE::INotify::nodename();
+	raise_param_exc({ target => "target is local node."}) if $target eq $localnode;
+
+	PVE::Cluster::check_cfs_quorum();
+
+	PVE::Cluster::check_node_exists($target);
+
+	my $targetip = PVE::Cluster::remote_node_ip($target);
+
+	my $vmid = extract_param($param, 'vmid');
+
+	raise_param_exc({ force => "Only root may use this option." }) if $user ne 'root@pam';
+
+	# test if VM exists
+	PVE::QemuServer::load_config($vmid);
+
+	# try to detect errors early
+	if (PVE::QemuServer::check_running($vmid)) {
+	    die "cant migrate running VM without --online\n" 
+		if !$param->{online};
+	}
+
+	my $realcmd = sub {
+	    my $upid = shift;
+
+	    PVE::QemuMigrate::migrate($target, $targetip, $vmid, $param->{online}, $param->{force});
+	};
+
+	my $upid = $rpcenv->fork_worker('qmigrate', $vmid, $user, $realcmd);
+
+	return $upid;
+    }});
 
 1;

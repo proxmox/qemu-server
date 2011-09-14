@@ -57,7 +57,7 @@ qm.1.pod: qm PVE/QemuServer.pm
 vm.conf.5.pod: gen-vmconf-pod.pl PVE/QemuServer.pm 
 	perl -I. ./gen-vmconf-pod.pl >$@
 
-PKGSOURCES=qm qm.1.gz qm.1.pod qmigrate qmigrate.1.gz qmrestore qmrestore.1.gz sparsecp vmtar qemu.init.d qmupdate control vm.conf.5.pod vm.conf.5.gz
+PKGSOURCES=qm qm.1.gz qm.1.pod qmrestore qmrestore.1.gz sparsecp vmtar qemu.init.d qmupdate control vm.conf.5.pod vm.conf.5.gz
 
 .PHONY: install
 install: ${PKGSOURCES}
@@ -72,17 +72,14 @@ install: ${PKGSOURCES}
 	install -m 0644 pve-usb.cfg ${DESTDIR}/usr/share/${PACKAGE}
 	make -C PVE install
 	install -m 0755 qm ${DESTDIR}${SBINDIR}
-	install -m 0755 qmigrate ${DESTDIR}${SBINDIR}
 	install -m 0755 qmrestore ${DESTDIR}${SBINDIR}
 	install -D -m 0755 qmupdate ${DESTDIR}${VARLIBDIR}/qmupdate
 	install -D -m 0755 qemu.init.d ${DESTDIR}/etc/init.d/${PACKAGE}
 	install -m 0755 pve-bridge ${DESTDIR}${VARLIBDIR}/pve-bridge
 	install -s -m 0755 vmtar ${DESTDIR}${LIBDIR}
 	install -s -m 0755 sparsecp ${DESTDIR}${LIBDIR}
-#	pod2man -n qemu-server -s 1 -r "proxmox 1.0" -c "Proxmox Documentation" <qemu-server.pod | gzip -9 > ${DESTDIR}/usr/share/man/man1/qemu-server.1.gz
 	install -m 0644 qm.1.gz ${DESTDIR}/usr/share/man/man1/
 	install -m 0644 qm.1.pod ${DESTDIR}/${PODDIR}
-	install -m 0644 qmigrate.1.gz ${DESTDIR}/usr/share/man/man1/
 	install -m 0644 qmrestore.1.gz ${DESTDIR}/usr/share/man/man1/
 	install -m 0644 vm.conf.5.pod ${DESTDIR}/${PODDIR}
 	install -m 0644 vm.conf.5.gz ${DESTDIR}/usr/share/man/man5/
