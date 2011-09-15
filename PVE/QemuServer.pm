@@ -24,7 +24,7 @@ use PVE::Tools qw(run_command lock_file file_read_firstline);
 use PVE::Cluster qw(cfs_register_file cfs_read_file cfs_write_file cfs_lock_file);
 use PVE::INotify;
 use PVE::ProcFSTools;
-use Time::HiRes qw (gettimeofday);
+use Time::HiRes qw(gettimeofday);
 
 my $cpuinfo = PVE::ProcFSTools::read_cpuinfo();
 
@@ -84,31 +84,31 @@ unless(defined(&_VZSYSCALLS_H_)) {
 sub fairsched_mknod {
     my ($parent, $weight, $desired) = @_;
 
-    return syscall(&__NR_fairsched_mknod, int ($parent), int ($weight), int ($desired));
+    return syscall(&__NR_fairsched_mknod, int($parent), int($weight), int($desired));
 }
 
 sub fairsched_rmnod {
     my ($id) = @_;
 
-    return syscall(&__NR_fairsched_rmnod, int ($id));
+    return syscall(&__NR_fairsched_rmnod, int($id));
 }
 
 sub fairsched_mvpr {
     my ($pid, $newid) = @_;
 
-    return syscall(&__NR_fairsched_mvpr, int ($pid), int ($newid));
+    return syscall(&__NR_fairsched_mvpr, int($pid), int($newid));
 }
 
 sub fairsched_vcpus {
     my ($id, $vcpus) = @_;
 
-    return syscall(&__NR_fairsched_vcpus, int ($id), int ($vcpus));
+    return syscall(&__NR_fairsched_vcpus, int($id), int($vcpus));
 }
 
 sub fairsched_rate {
     my ($id, $op, $rate) = @_;
 
-    return syscall(&__NR_fairsched_rate, int ($id), int ($op), int ($rate));
+    return syscall(&__NR_fairsched_rate, int($id), int($op), int($rate));
 }
 
 use constant FAIRSCHED_SET_RATE  => 0;
@@ -118,10 +118,10 @@ use constant FAIRSCHED_GET_RATE  => 2;
 sub fairsched_cpulimit {
     my ($id, $limit) = @_;
 
-    my $cpulim1024 = int ($limit * 1024 / 100);
+    my $cpulim1024 = int($limit * 1024 / 100);
     my $op = $cpulim1024 ? FAIRSCHED_SET_RATE : FAIRSCHED_DROP_RATE;
 
-    return fairsched_rate ($id, $op, $cpulim1024);
+    return fairsched_rate($id, $op, $cpulim1024);
 }
 
 my $nodename = PVE::INotify::nodename();
@@ -385,7 +385,7 @@ my $MAX_PARALLEL_PORTS = 3;
 
 my $nic_model_list = ['rtl8139', 'ne2k_pci', 'e1000',  'pcnet',  'virtio',
 		      'ne2k_isa', 'i82551', 'i82557b', 'i82559er'];
-my $nic_model_list_txt = join (' ', sort @$nic_model_list);
+my $nic_model_list_txt = join(' ', sort @$nic_model_list);
 
 # fixme:
 my $netdesc = {
@@ -556,10 +556,10 @@ sub kvm_version {
 
     return $kvm_api_version if $kvm_api_version;
 
-    my $fh = IO::File->new ("</dev/kvm") ||
+    my $fh = IO::File->new("</dev/kvm") ||
 	return 0;
 
-    if (my $v = $fh->ioctl (KVM_GET_API_VERSION(), 0)) {
+    if (my $v = $fh->ioctl(KVM_GET_API_VERSION(), 0)) {
 	$kvm_api_version = $v;
     }
 
@@ -598,7 +598,7 @@ sub disknames {
 sub valid_drivename {
     my $dev = shift;
 
-    return defined ($drivename_hash->{$dev});
+    return defined($drivename_hash->{$dev});
 }
 
 sub option_exists {
@@ -638,7 +638,7 @@ sub split_args {
     my $cmd = 'perl -e \'foreach my $a (@ARGV) { print "$a\n"; } \' -- ' . $str;
 
     eval {
-	run_command ($cmd, outfunc => sub {
+	run_command($cmd, outfunc => sub {
 	    my $data = shift;
 	    push @$args, $data;
 	});
@@ -666,7 +666,7 @@ sub disk_devive_info {
 	$maxdev = 7;
     }
 
-    my $controller = int ($index / $maxdev);
+    my $controller = int($index / $maxdev);
     my $unit = $index % $maxdev;
 
 
@@ -678,7 +678,7 @@ sub disk_devive_info {
 sub qemu_drive_name {
     my ($dev, $media) = @_;
 
-    my $info = disk_devive_info ($dev);
+    my $info = disk_devive_info($dev);
     my $mediastr = '';
 
     if (($info->{bus} eq 'ide') || ($info->{bus} eq 'scsi')) {
@@ -711,7 +711,7 @@ sub get_iso_path {
     } elsif ($cdrom =~ m|^/|) {
 	return $cdrom;
     } else {
-	return PVE::Storage::path ($storecfg, $cdrom);
+	return PVE::Storage::path($storecfg, $cdrom);
     }
 }
 
@@ -775,7 +775,7 @@ sub cleanup_drive_path {
 sub create_conf_nolock {
     my ($vmid, $settings) = @_;
 
-    my $filename = config_file ($vmid);
+    my $filename = config_file($vmid);
 
     die "configuration file '$filename' already exists\n" if -f $filename;
 
@@ -887,26 +887,26 @@ sub print_drivedevice_full {
     my $maxdev = 0;
 
     if ($drive->{interface} eq 'virtio') {
-      my $pciaddr=print_pci_addr("$drive->{interface}$drive->{index}");
-      $device="virtio-blk-pci,drive=drive-$drive->{interface}$drive->{index},id=device-$drive->{interface}$drive->{index}$pciaddr";
+      my $pciaddr = print_pci_addr("$drive->{interface}$drive->{index}");
+      $device = "virtio-blk-pci,drive=drive-$drive->{interface}$drive->{index},id=device-$drive->{interface}$drive->{index}$pciaddr";
     }
 
     elsif ($drive->{interface} eq 'scsi') {
 
       $maxdev = 7;
-      my $controller = int ($drive->{index} / $maxdev);
+      my $controller = int($drive->{index} / $maxdev);
       my $unit = $drive->{index} % $maxdev;
 
-      $device="scsi-disk,bus=scsi$controller.0,scsi-id=$unit,drive=drive-$drive->{interface}$drive->{index},id=device-$drive->{interface}$drive->{index}";
+      $device = "scsi-disk,bus=scsi$controller.0,scsi-id=$unit,drive=drive-$drive->{interface}$drive->{index},id=device-$drive->{interface}$drive->{index}";
     }
 
     elsif ($drive->{interface} eq 'ide'){
 
       $maxdev = 2;
-      my $controller = int ($drive->{index} / $maxdev);
+      my $controller = int($drive->{index} / $maxdev);
       my $unit = $drive->{index} % $maxdev;
 
-      $device="ide-drive,bus=ide.$controller,unit=$unit,drive=drive-$drive->{interface}$drive->{index},id=device-$drive->{interface}$drive->{index}";
+      $device = "ide-drive,bus=ide.$controller,unit=$unit,drive=drive-$drive->{interface}$drive->{index},id=device-$drive->{interface}$drive->{index}";
     }
 
     if ($drive->{interface} eq 'usb'){
@@ -929,13 +929,13 @@ sub print_drive_full {
 
     my $path;
     my $volid = $drive->{file};
-    if (drive_is_cdrom ($drive)) {
-	$path = get_iso_path ($storecfg, $vmid, $volid);
+    if (drive_is_cdrom($drive)) {
+	$path = get_iso_path($storecfg, $vmid, $volid);
     } else {
 	if ($volid =~ m|^/|) {
 	    $path = $volid;
 	} else {
-	    $path = PVE::Storage::path ($storecfg, $volid);
+	    $path = PVE::Storage::path($storecfg, $volid);
 	}
     }
 
@@ -974,11 +974,11 @@ sub parse_net {
 
     my $res = {};
 
-    foreach my $kvp (split (/,/, $data)) {
+    foreach my $kvp (split(/,/, $data)) {
 
 	if ($kvp =~ m/^(ne2k_pci|e1000|rtl8139|pcnet|virtio|ne2k_isa|i82551|i82557b|i82559er)(=([0-9a-f]{2}(:[0-9a-f]{2}){5}))?$/i) {
-	    my $model = lc ($1);
-	    my $mac = uc($3) || random_ether_addr ();
+	    my $model = lc($1);
+	    my $mac = uc($3) || random_ether_addr();
 	    $res->{model} = $model;
 	    $res->{macaddr} = $mac;
 	} elsif ($kvp =~ m/^bridge=(\S+)$/) {
@@ -1064,7 +1064,7 @@ PVE::JSONSchema::register_format('pve-qm-drive', \&verify_drive);
 sub verify_drive {
     my ($value, $noerr) = @_;
 
-    return $value if parse_drive (undef, $value);
+    return $value if parse_drive(undef, $value);
 
     return undef if $noerr;
 
@@ -1100,7 +1100,7 @@ sub parse_watchdog {
 
     my $res = {};
 
-    foreach my $p (split (/,/, $value)) {
+    foreach my $p (split(/,/, $value)) {
 	next if $p =~ m/^\s*$/;
 
 	if ($p =~ m/^(model=)?(i6300esb|ib700)$/) {
@@ -1120,7 +1120,7 @@ sub parse_usb_device {
 
     return undef if !$value;
 
-    my @dl = split (/,/, $value);
+    my @dl = split(/,/, $value);
     my $found;
 
     my $res = {};
@@ -1171,7 +1171,7 @@ sub check_type {
 
     my $type = $confdesc->{$key}->{type};
 
-    if (!defined ($value)) {
+    if (!defined($value)) {
 	die "got undefined value\n";
     }
 
@@ -1190,7 +1190,7 @@ sub check_type {
 	if (my $fmt = $confdesc->{$key}->{format}) {
 	    if ($fmt eq 'pve-qm-drive') {
 		# special case - we need to pass $key to parse_drive()
-		my $drive = parse_drive ($key, $value);
+		my $drive = parse_drive($key, $value);
 		return $value if $drive;
 		die "unable to parse drive options\n";
 	    }
@@ -1207,7 +1207,7 @@ sub check_type {
 sub lock_config {
     my ($vmid, $code, @param) = @_;
 
-    my $filename = config_file_lock ($vmid);
+    my $filename = config_file_lock($vmid);
 
     lock_file($filename, 10, $code, @param);
 
@@ -1246,7 +1246,7 @@ sub config_file_lock {
 sub touch_config {
     my ($vmid) = @_;
 
-    my $conf = config_file ($vmid);
+    my $conf = config_file($vmid);
     utime undef, undef, $conf;
 }
 
@@ -1259,30 +1259,30 @@ sub create_disks {
 	foreach_drive($settings, sub {
 	    my ($ds, $disk) = @_;
 
-	    return if drive_is_cdrom ($disk);
+	    return if drive_is_cdrom($disk);
 
 	    my $file = $disk->{file};
 
 	    if ($file =~ m/^(([^:\s]+):)?(\d+(\.\d+)?)$/) {
 		my $storeid = $2 || 'local';
 		my $size = $3;
-		my $defformat = PVE::Storage::storage_default_format ($storecfg, $storeid);
+		my $defformat = PVE::Storage::storage_default_format($storecfg, $storeid);
 		my $fmt = $disk->{format} || $defformat;
-		syslog ('info', "VM $vmid creating new disk - size is $size GB");
+		syslog('info', "VM $vmid creating new disk - size is $size GB");
 
-		my $volid = PVE::Storage::vdisk_alloc ($storecfg, $storeid, $vmid,
+		my $volid = PVE::Storage::vdisk_alloc($storecfg, $storeid, $vmid,
 						       $fmt, undef, $size*1024*1024);
 
 		$disk->{file} = $volid;
-		delete ($disk->{format}); # no longer needed
+		delete $disk->{format}; # no longer needed
 		push @$vollist, $volid;
-		$settings->{$ds} = PVE::QemuServer::print_drive ($vmid, $disk);
+		$settings->{$ds} = PVE::QemuServer::print_drive($vmid, $disk);
 	    } else {
 		my $path;
 		if ($disk->{file} =~ m|^/dev/.+|) {
 		    $path = $disk->{file};
 		} else {
-		    $path = PVE::Storage::path ($storecfg, $disk->{file});
+		    $path = PVE::Storage::path($storecfg, $disk->{file});
 		}
 		if (!(-f $path || -b $path)) {
 		    die "image '$path' does not exists\n";
@@ -1294,9 +1294,9 @@ sub create_disks {
     my $err = $@;
 
     if ($err) {
-	syslog ('err', "VM $vmid creating disks failed");
+	syslog('err', "VM $vmid creating disks failed");
 	foreach my $volid (@$vollist) {
-	    eval { PVE::Storage::vdisk_free ($storecfg, $volid); };
+	    eval { PVE::Storage::vdisk_free($storecfg, $volid); };
 	    warn $@ if $@;
 	}
 	die $err;
@@ -1311,52 +1311,52 @@ sub unlink_image {
     die "reject to unlink absolute path '$volid'"
 	if $volid =~ m|^/|;
 
-    my ($path, $owner) = PVE::Storage::path ($storecfg, $volid);
+    my ($path, $owner) = PVE::Storage::path($storecfg, $volid);
 
     die "reject to unlink '$volid' - not owned by this VM"
 	if !$owner || ($owner != $vmid);
 
-    syslog ('info', "VM $vmid deleting volume '$volid'");
+    syslog('info', "VM $vmid deleting volume '$volid'");
 
-    PVE::Storage::vdisk_free ($storecfg, $volid);
+    PVE::Storage::vdisk_free($storecfg, $volid);
 
-    touch_config ($vmid);
+    touch_config($vmid);
 }
 
 sub destroy_vm {
     my ($storecfg, $vmid) = @_;
 
-    my $conffile = config_file ($vmid);
+    my $conffile = config_file($vmid);
 
-    my $conf = load_config ($vmid);
+    my $conf = load_config($vmid);
 
-    check_lock ($conf);
+    check_lock($conf);
 
     # only remove disks owned by this VM
     foreach_drive($conf, sub {
 	my ($ds, $drive) = @_;
 
- 	return if drive_is_cdrom ($drive);
+ 	return if drive_is_cdrom($drive);
 
 	my $volid = $drive->{file};
 	next if !$volid || $volid =~ m|^/|;
 
-	my ($path, $owner) = PVE::Storage::path ($storecfg, $volid);
+	my ($path, $owner) = PVE::Storage::path($storecfg, $volid);
 	next if !$path || !$owner || ($owner != $vmid);
 
-	PVE::Storage::vdisk_free ($storecfg, $volid);
+	PVE::Storage::vdisk_free($storecfg, $volid);
     });
 
     unlink $conffile;
 
     # also remove unused disk
     eval {
-	my $dl = PVE::Storage::vdisk_list ($storecfg, undef, $vmid);
+	my $dl = PVE::Storage::vdisk_list($storecfg, undef, $vmid);
 
 	eval {
-	    PVE::Storage::foreach_volid ($dl, sub {
+	    PVE::Storage::foreach_volid($dl, sub {
 		my ($volid, $sid, $volname, $d) = @_;
-		PVE::Storage::vdisk_free ($storecfg, $volid);
+		PVE::Storage::vdisk_free($storecfg, $volid);
 	    });
 	};
 	warn $@ if $@;
@@ -1378,19 +1378,19 @@ sub load_diskinfo_old {
 
 	$res->{$ds} = $di;
 
-	return if drive_is_cdrom ($di);
+	return if drive_is_cdrom($di);
 
 	if ($di->{file} =~ m|^/dev/.+|) {
-	    $info->{$di->{file}}->{size} = PVE::Storage::file_size_info ($di->{file});
+	    $info->{$di->{file}}->{size} = PVE::Storage::file_size_info($di->{file});
 	} else {
 	    push @$vollist, $di->{file};
 	}
     });
 
     eval {
-	my $dl = PVE::Storage::vdisk_list ($storecfg, undef, $vmid, $vollist);
+	my $dl = PVE::Storage::vdisk_list($storecfg, undef, $vmid, $vollist);
 
-	PVE::Storage::foreach_volid ($dl, sub {
+	PVE::Storage::foreach_volid($dl, sub {
 	    my ($volid, $sid, $volname, $d) = @_;
 	    $info->{$volid} = $d;
 	});
@@ -1460,7 +1460,7 @@ sub parse_vm_config {
 		    my $v = parse_drive($key, $value);
 		    if (my $volid = filename_to_volume_id($vmid, $v->{file}, $v->{media})) {
 			$v->{file} = $volid;
-			$value = print_drive ($vmid, $v);
+			$value = print_drive($vmid, $v);
 		    } else {
 			warn "vm $vmid - unable to parse value of '$key'\n";
 			next;
@@ -1488,7 +1488,7 @@ sub parse_vm_config {
 sub change_config {
     my ($vmid, $settings, $unset, $skiplock) = @_;
 
-    lock_config ($vmid, &change_config_nolock, $settings, $unset, $skiplock);
+    lock_config($vmid, &change_config_nolock, $settings, $unset, $skiplock);
 }
 
 sub change_config_nolock {
@@ -1532,12 +1532,12 @@ sub change_config_nolock {
     my $filename = config_file($vmid);
     my $tmpfn = "$filename.$$.tmp";
 
-    my $fh = new IO::File ($filename, "r") ||
+    my $fh = new IO::File($filename, "r") ||
 	die "unable to read config for VM $vmid\n";
 
     my $werror = "unable to write config for VM $vmid\n";
 
-    my $out = new IO::File ($tmpfn, "w") || die $werror;
+    my $out = new IO::File($tmpfn, "w") || die $werror;
 
     eval {
 
@@ -1563,11 +1563,11 @@ sub change_config_nolock {
 		next if $done->{$key};
 		$done->{$key} = 1;
 
-		if (defined ($res->{$key})) {
+		if (defined($res->{$key})) {
 		    $value = $res->{$key};
 		    delete $res->{$key};
 		}
-		if (!defined ($unset->{$key})) {
+		if (!defined($unset->{$key})) {
 		    die $werror unless print $out "$key: $value\n";
 		}
 
@@ -1579,7 +1579,7 @@ sub change_config_nolock {
 
 	foreach my $key (keys %$res) {
 
-	    if (!defined ($unset->{$key})) {
+	    if (!defined($unset->{$key})) {
 		die $werror unless print $out "$key: $res->{$key}\n";
 	    }
 	}
@@ -1666,12 +1666,12 @@ sub check_lock {
 sub check_cmdline {
     my ($pidfile, $pid) = @_;
 
-    my $fh = IO::File->new ("/proc/$pid/cmdline", "r");
-    if (defined ($fh)) {
+    my $fh = IO::File->new("/proc/$pid/cmdline", "r");
+    if (defined($fh)) {
 	my $line = <$fh>;
 	$fh->close;
 	return undef if !$line;
-	my @param = split (/\0/, $line);
+	my @param = split(/\0/, $line);
 
 	my $cmd = $param[0];
 	return if !$cmd || ($cmd !~ m|kvm$|);
@@ -1702,7 +1702,7 @@ sub check_running {
     if (my $fd = IO::File->new("<$pidfile")) {
 	my $st = stat($fd);
 	my $line = <$fd>;
-	close ($fd);
+	close($fd);
 
 	my $mtime = $st->mtime;
 	if ($mtime > time()) {
@@ -1726,13 +1726,13 @@ sub vzlist {
 
     my $vzlist = config_list();
 
-    my $fd = IO::Dir->new ($var_run_tmpdir) || return $vzlist;
+    my $fd = IO::Dir->new($var_run_tmpdir) || return $vzlist;
 
     while (defined(my $de = $fd->read)) {
 	next if $de !~ m/^(\d+)\.pid$/;
 	my $vmid = $1;
-	next if !defined ($vzlist->{$vmid});
-	if (my $pid = check_running ($vmid)) {
+	next if !defined($vzlist->{$vmid});
+	if (my $pid = check_running($vmid)) {
 	    $vzlist->{$vmid}->{pid} = $pid;
 	}
     }
@@ -1766,7 +1766,7 @@ sub disksize {
     if ($volid =~ m|^/|) {
 	$path = $timeoutid = $volid;
     } else {
-	$storeid = $timeoutid = PVE::Storage::parse_volume_id ($volid);
+	$storeid = $timeoutid = PVE::Storage::parse_volume_id($volid);
 	$path = PVE::Storage::path($storecfg, $volid);
     }
 
@@ -1865,7 +1865,7 @@ sub vmstatus {
 
 	if (my $fh = IO::File->new("/proc/$pid/io", "r")) {
 	    my $data = {};
-	    while (defined (my $line = <$fh>)) {
+	    while (defined(my $line = <$fh>)) {
 		if ($line =~ m/^([rw]char):\s+(\d+)$/) {
 		    $data->{$1} = $2;
 		}
@@ -1885,7 +1885,7 @@ sub vmstatus {
 	$d->{uptime} = int(($uptime - $pstat->{starttime})/$cpuinfo->{user_hz});
 
 	if ($pstat->{vsize}) {
-	    $d->{mem} = int (($pstat->{rss}/$pstat->{vsize})*$d->{maxmem});
+	    $d->{mem} = int(($pstat->{rss}/$pstat->{vsize})*$d->{maxmem});
 	}
 
 	my $old = $last_proc_pid_stat->{$pid};
@@ -1927,7 +1927,7 @@ sub foreach_drive {
     foreach my $ds (keys %$conf) {
 	next if !valid_drivename($ds);
 
-	my $drive = parse_drive ($ds, $conf->{$ds});
+	my $drive = parse_drive($ds, $conf->{$ds});
 	next if !$drive;
 
 	&$func($ds, $drive);
@@ -1955,14 +1955,14 @@ sub config_to_command {
 
     my $use_virtio = 0;
 
-    my $socket = monitor_socket ($vmid);
+    my $socket = monitor_socket($vmid);
     push @$cmd, '-chardev', "socket,id=monitor,path=$socket,server,nowait";
     push @$cmd, '-mon', "chardev=monitor,mode=readline";
 
-    $socket = vnc_socket ($vmid);
+    $socket = vnc_socket($vmid);
     push @$cmd,  '-vnc', "unix:$socket,x509,password";
 
-    push @$cmd, '-pidfile' , pidfile_name ($vmid);
+    push @$cmd, '-pidfile' , pidfile_name($vmid);
 
     push @$cmd, '-daemonize';
 
@@ -1972,7 +1972,7 @@ sub config_to_command {
     push @$cmd, '-readconfig', '/usr/share/qemu-server/pve-usb.cfg';
 
     # enable absolute mouse coordinates (needed by vnc)
-    my $tablet = defined ($conf->{tablet}) ? $conf->{tablet} : $defaults->{tablet};
+    my $tablet = defined($conf->{tablet}) ? $conf->{tablet} : $defaults->{tablet};
     push @$cmd, '-device', 'usb-tablet,bus=ehci.0,port=6' if $tablet;
 
     # host pci devices
@@ -2036,9 +2036,9 @@ sub config_to_command {
 
     push @$cmd, '-boot', $boot_opt if $boot_opt;
 
-    push @$cmd, '-no-acpi' if defined ($conf->{acpi}) && $conf->{acpi} == 0;
+    push @$cmd, '-no-acpi' if defined($conf->{acpi}) && $conf->{acpi} == 0;
 
-    push @$cmd, '-no-reboot' if  defined ($conf->{reboot}) && $conf->{reboot} == 0;
+    push @$cmd, '-no-reboot' if  defined($conf->{reboot}) && $conf->{reboot} == 0;
 
     my $vga = $conf->{vga};
     if (!$vga) {
@@ -2052,19 +2052,19 @@ sub config_to_command {
     push @$cmd, '-vga', $vga if $vga; # for kvm 77 and later
 
     # time drift fix
-    my $tdf = defined ($conf->{tdf}) ? $conf->{tdf} : $defaults->{tdf};
+    my $tdf = defined($conf->{tdf}) ? $conf->{tdf} : $defaults->{tdf};
     push @$cmd, '-tdf' if $tdf;
 
-    my $nokvm = defined ($conf->{kvm}) && $conf->{kvm} == 0 ? 1 : 0;
+    my $nokvm = defined($conf->{kvm}) && $conf->{kvm} == 0 ? 1 : 0;
 
     if (my $ost = $conf->{ostype}) {
 	# other, wxp, w2k, w2k3, w2k8, wvista, win7, l24, l26
 
 	if ($ost =~ m/^w/) { # windows
-	    push @$cmd, '-localtime' if !defined ($conf->{localtime});
+	    push @$cmd, '-localtime' if !defined($conf->{localtime});
 
 	    # use rtc-td-hack when acpi is enabled
-	    if (!(defined ($conf->{acpi}) && $conf->{acpi} == 0)) {
+	    if (!(defined($conf->{acpi}) && $conf->{acpi} == 0)) {
 		push @$cmd, '-rtc-td-hack';
 	    }
 	}
@@ -2109,21 +2109,21 @@ sub config_to_command {
 	my ($ds, $drive) = @_;
 
 	eval {
-	    PVE::Storage::parse_volume_id ($drive->{file});
+	    PVE::Storage::parse_volume_id($drive->{file});
 	    push @$vollist, $drive->{file};
 	}; # ignore errors
 
 	$use_virtio = 1 if $ds =~ m/^virtio/;
         if ($drive->{interface} eq 'scsi') {
            my $maxdev = 7;
-           my $controller = int ($drive->{index} / $maxdev);
+           my $controller = int($drive->{index} / $maxdev);
            push @$cmd, '-device', "lsi,id=scsi$controller" if !$scsicontroller->{$controller};
            my $scsicontroller->{$controller}=1;
         }
-	my $tmp = print_drive_full ($storecfg, $vmid, $drive);
+	my $tmp = print_drive_full($storecfg, $vmid, $drive);
 	$tmp .= ",boot=on" if $conf->{bootdisk} && ($conf->{bootdisk} eq $ds);
 	push @$cmd, '-drive', $tmp;
-	push @$cmd, '-device',print_drivedevice_full ($storecfg,$vmid, $drive);
+	push @$cmd, '-device',print_drivedevice_full($storecfg,$vmid, $drive);
     });
 
     push @$cmd, '-m', $conf->{memory} || $defaults->{memory};
@@ -2132,7 +2132,7 @@ sub config_to_command {
 
     foreach my $k (sort keys %$conf) {
 	next if $k !~ m/^net(\d+)$/;
-	my $i = int ($1);
+	my $i = int($1);
 
 	die "got strange net id '$i'\n" if $i >= ${MAX_NETS};
 
@@ -2174,7 +2174,7 @@ sub config_to_command {
     # when the VM uses virtio devices.
     if (!$use_virtio && $have_ovz) {
 
-	my $cpuunits = defined ($conf->{cpuunits}) ?
+	my $cpuunits = defined($conf->{cpuunits}) ?
 	    $conf->{cpuunits} : $defaults->{cpuunits};
 
 	push @$cmd, '-cpuunits', $cpuunits if $cpuunits;
@@ -2185,7 +2185,7 @@ sub config_to_command {
 
     # add custom args
     if ($conf->{args}) {
-	my $aa = split_args ($conf->{args});
+	my $aa = split_args($conf->{args});
 	push @$cmd, @$aa;
     }
 
@@ -2209,16 +2209,16 @@ sub pidfile_name {
 
 sub random_ether_addr {
 
-    my $rand = Digest::SHA1::sha1_hex (rand(), time());
+    my $rand = Digest::SHA1::sha1_hex(rand(), time());
 
     my $mac = '';
     for (my $i = 0; $i < 6; $i++) {
-	my $ss = hex (substr ($rand, $i*2, 2));
+	my $ss = hex(substr($rand, $i*2, 2));
 	if (!$i) {
 	    $ss &= 0xfe; # clear multicast
 	    $ss |= 2; # set local id
 	}
-	$ss = sprintf ("%02X", $ss);
+	$ss = sprintf("%02X", $ss);
 
 	if (!$i) {
 	    $mac .= "$ss";
@@ -2234,14 +2234,14 @@ sub next_migrate_port {
 
     for (my $p = 60000; $p < 60010; $p++) {
 
-	my $sock = IO::Socket::INET->new (Listen => 5,
-					  LocalAddr => 'localhost',
-					  LocalPort => $p,
-					  ReuseAddr => 1,
-					  Proto     => 0);
+	my $sock = IO::Socket::INET->new(Listen => 5,
+					 LocalAddr => 'localhost',
+					 LocalPort => $p,
+					 ReuseAddr => 1,
+					 Proto     => 0);
 
 	if ($sock) {
-	    close ($sock);
+	    close($sock);
 	    return $p;
 	}
     }
@@ -2252,17 +2252,17 @@ sub next_migrate_port {
 sub vm_start {
     my ($storecfg, $vmid, $statefile, $skiplock) = @_;
 
-    lock_config ($vmid, sub {
-	my $conf = load_config ($vmid);
+    lock_config($vmid, sub {
+	my $conf = load_config($vmid);
 
-	check_lock ($conf) if !$skiplock;
+	check_lock($conf) if !$skiplock;
 
-	if (check_running ($vmid)) {
+	if (check_running($vmid)) {
 	    my $msg = "VM $vmid already running - start failed\n" ;
-	    syslog ('err', $msg);
+	    syslog('err', $msg);
 	    die $msg;
 	} else {
-	    syslog ('info', "VM $vmid start");
+	    syslog('info', "VM $vmid start");
 	}
 
 	my $migrate_uri;
@@ -2297,13 +2297,13 @@ sub vm_start {
 
 	PVE::Storage::activate_volumes($storecfg, $vollist);
 
-	eval  { run_command ($cmd, timeout => $migrate_uri ? undef : 30); };
+	eval  { run_command($cmd, timeout => $migrate_uri ? undef : 30); };
 
 	my $err = $@;
 
 	if ($err) {
 	    my $msg = "start failed: $err";
-	    syslog ('err', "VM $vmid $msg");
+	    syslog('err', "VM $vmid $msg");
 	    die $msg;
 	}
 
@@ -2314,20 +2314,20 @@ sub vm_start {
 	    } else {
 		unlink $statefile;
 		# fixme: send resume - is that necessary ?
-		eval  { vm_monitor_command ($vmid, "cont", 1) };
+		eval  { vm_monitor_command($vmid, "cont", 1) };
 	    }
 	}
 
 	if (my $migrate_speed =
 	    $conf->{migrate_speed} || $defaults->{migrate_speed}) {
 	    my $cmd = "migrate_set_speed ${migrate_speed}m";
-	    eval { vm_monitor_command ($vmid, $cmd, 1); };
+	    eval { vm_monitor_command($vmid, $cmd, 1); };
 	}
 
 	if (my $migrate_downtime =
 	    $conf->{migrate_downtime} || $defaults->{migrate_downtime}) {
 	    my $cmd = "migrate_set_downtime ${migrate_downtime}";
-	    eval { vm_monitor_command ($vmid, $cmd, 1); };
+	    eval { vm_monitor_command($vmid, $cmd, 1); };
 	}
 
     });
@@ -2337,15 +2337,15 @@ sub __read_avail {
     my ($fh, $timeout) = @_;
 
     my $sel = new IO::Select;
-    $sel->add ($fh);
+    $sel->add($fh);
 
     my $res = '';
     my $buf;
 
     my @ready;
-    while (scalar (@ready = $sel->can_read ($timeout))) {
+    while (scalar (@ready = $sel->can_read($timeout))) {
 	my $count;
-	if ($count = $fh->sysread ($buf, 8192)) {
+	if ($count = $fh->sysread($buf, 8192)) {
 	    if ($buf =~ /^(.*)\(qemu\) $/s) {
 		$res .= $1;
 		last;
@@ -2353,14 +2353,14 @@ sub __read_avail {
 		$res .= $buf;
 	    }
 	} else {
-	    if (!defined ($count)) {
+	    if (!defined($count)) {
 		die "$!\n";
 	    }
 	    last;
 	}
     }
 
-    die "monitor read timeout\n" if !scalar (@ready);
+    die "monitor read timeout\n" if !scalar(@ready);
 
     return $res;
 }
@@ -2370,14 +2370,14 @@ sub vm_monitor_command {
 
     my $res;
 
-    syslog ("info", "VM $vmid monitor command '$cmdstr'") if !$nolog;
+    syslog("info", "VM $vmid monitor command '$cmdstr'") if !$nolog;
 
     eval {
 	die "VM not running\n" if !check_running($vmid, $nocheck);
 
 	my $sname = monitor_socket($vmid);
 
-	my $sock = IO::Socket::UNIX->new ( Peer => $sname ) ||
+	my $sock = IO::Socket::UNIX->new( Peer => $sname ) ||
 	    die "unable to connect to VM $vmid socket - $!\n";
 
 	my $timeout = 3;
@@ -2389,23 +2389,23 @@ sub vm_monitor_command {
 	}
 
 	# read banner;
-	my $data = __read_avail ($sock, $timeout);
+	my $data = __read_avail($sock, $timeout);
 
 	if ($data !~ m/^QEMU\s+(\S+)\s+monitor\s/) {
 	    die "got unexpected qemu monitor banner\n";
 	}
 
 	my $sel = new IO::Select;
-	$sel->add ($sock);
+	$sel->add($sock);
 
-	if (!scalar (my @ready = $sel->can_write ($timeout))) {
+	if (!scalar(my @ready = $sel->can_write($timeout))) {
 	    die "monitor write error - timeout";
 	}
 
 	my $fullcmd = "$cmdstr\r";
 
 	my $b;
-	if (!($b = $sock->syswrite ($fullcmd)) || ($b != length ($fullcmd))) {
+	if (!($b = $sock->syswrite($fullcmd)) || ($b != length($fullcmd))) {
 	    die "monitor write error - $!";
 	}
 
@@ -2418,13 +2418,13 @@ sub vm_monitor_command {
 	} elsif ($cmdstr =~ m/^(eject|change)/) {
 	    $timeout = 60; # note: cdrom mount command is slow
 	}
-	if ($res = __read_avail ($sock, $timeout)) {
+	if ($res = __read_avail($sock, $timeout)) {
 
-	    my @lines = split ("\r?\n", $res);
+	    my @lines = split("\r?\n", $res);
 
 	    shift @lines if $lines[0] !~ m/^unknown command/; # skip echo
 
-	    $res = join ("\n", @lines);
+	    $res = join("\n", @lines);
 	    $res .= "\n";
 	}
     };
@@ -2432,7 +2432,7 @@ sub vm_monitor_command {
     my $err = $@;
 
     if ($err) {
-	syslog ("err", "VM $vmid monitor command failed - $err");
+	syslog("err", "VM $vmid monitor command failed - $err");
 	die $err;
     }
 
@@ -2442,42 +2442,42 @@ sub vm_monitor_command {
 sub vm_commandline {
     my ($storecfg, $vmid) = @_;
 
-    my $conf = load_config ($vmid);
+    my $conf = load_config($vmid);
 
     my $defaults = load_defaults();
 
-    my $cmd = config_to_command ($storecfg, $vmid, $conf, $defaults);
+    my $cmd = config_to_command($storecfg, $vmid, $conf, $defaults);
 
-    return join (' ', @$cmd);
+    return join(' ', @$cmd);
 }
 
 sub vm_reset {
     my ($vmid, $skiplock) = @_;
 
-    lock_config ($vmid, sub {
+    lock_config($vmid, sub {
 
-	my $conf = load_config ($vmid);
+	my $conf = load_config($vmid);
 
-	check_lock ($conf) if !$skiplock;
+	check_lock($conf) if !$skiplock;
 
-	syslog ("info", "VM $vmid sending 'reset'");
+	syslog("info", "VM $vmid sending 'reset'");
 
-	vm_monitor_command ($vmid, "system_reset", 1);
+	vm_monitor_command($vmid, "system_reset", 1);
     });
 }
 
 sub vm_shutdown {
     my ($vmid, $skiplock) = @_;
 
-    lock_config ($vmid, sub {
+    lock_config($vmid, sub {
 
-	my $conf = load_config ($vmid);
+	my $conf = load_config($vmid);
 
-	check_lock ($conf) if !$skiplock;
+	check_lock($conf) if !$skiplock;
 
-	syslog ("info", "VM $vmid sending 'shutdown'");
+	syslog("info", "VM $vmid sending 'shutdown'");
 
-	vm_monitor_command ($vmid, "system_powerdown", 1);
+	vm_monitor_command($vmid, "system_powerdown", 1);
     });
 }
 
@@ -2500,9 +2500,9 @@ sub vm_stop {
 	    check_lock($conf) if !$skiplock;
 	}
 
-	syslog ("info", "VM $vmid stopping");
+	syslog("info", "VM $vmid stopping");
 
-	eval { vm_monitor_command ($vmid, "quit", 1, $nocheck); };
+	eval { vm_monitor_command($vmid, "quit", 1, $nocheck); };
 
 	my $err = $@;
 
@@ -2517,11 +2517,11 @@ sub vm_stop {
 	    }
 
 	    if ($count >= $timeout) {
-		syslog ('info', "VM $vmid still running - terminating now with SIGTERM");
+		syslog('info', "VM $vmid still running - terminating now with SIGTERM");
 		kill 15, $pid;
 	    }
 	} else {
-	    syslog ('info', "VM $vmid quit failed - terminating now with SIGTERM");
+	    syslog('info', "VM $vmid quit failed - terminating now with SIGTERM");
 	    kill 15, $pid;
 	}
 
@@ -2535,7 +2535,7 @@ sub vm_stop {
 	}
 
 	if ($count >= $timeout) {
-	    syslog ('info', "VM $vmid still running - terminating now with SIGKILL\n");
+	    syslog('info', "VM $vmid still running - terminating now with SIGKILL\n");
 	    kill 9, $pid;
 	}
 
@@ -2546,58 +2546,58 @@ sub vm_stop {
 sub vm_suspend {
     my ($vmid, $skiplock) = @_;
 
-    lock_config ($vmid, sub {
+    lock_config($vmid, sub {
 
-	my $conf = load_config ($vmid);
+	my $conf = load_config($vmid);
 
-	check_lock ($conf) if !$skiplock;
+	check_lock($conf) if !$skiplock;
 
-	syslog ("info", "VM $vmid suspend");
+	syslog("info", "VM $vmid suspend");
 
-	vm_monitor_command ($vmid, "stop", 1);
+	vm_monitor_command($vmid, "stop", 1);
     });
 }
 
 sub vm_resume {
     my ($vmid, $skiplock) = @_;
 
-    lock_config ($vmid, sub {
+    lock_config($vmid, sub {
 
-	my $conf = load_config ($vmid);
+	my $conf = load_config($vmid);
 
-	check_lock ($conf) if !$skiplock;
+	check_lock($conf) if !$skiplock;
 
-	syslog ("info", "VM $vmid resume");
+	syslog("info", "VM $vmid resume");
 
-	vm_monitor_command ($vmid, "cont", 1);
+	vm_monitor_command($vmid, "cont", 1);
     });
 }
 
 sub vm_cad {
     my ($vmid, $skiplock) = @_;
 
-    lock_config ($vmid, sub {
+    lock_config($vmid, sub {
 
-	my $conf = load_config ($vmid);
+	my $conf = load_config($vmid);
 
-	check_lock ($conf) if !$skiplock;
+	check_lock($conf) if !$skiplock;
 
-	syslog ("info", "VM $vmid sending cntl-alt-delete");
+	syslog("info", "VM $vmid sending cntl-alt-delete");
 
-	vm_monitor_command ($vmid, "sendkey ctrl-alt-delete", 1);
+	vm_monitor_command($vmid, "sendkey ctrl-alt-delete", 1);
     });
 }
 
 sub vm_destroy {
     my ($storecfg, $vmid, $skiplock) = @_;
 
-    lock_config ($vmid, sub {
+    lock_config($vmid, sub {
 
-	my $conf = load_config ($vmid);
+	my $conf = load_config($vmid);
 
-	check_lock ($conf) if !$skiplock;
+	check_lock($conf) if !$skiplock;
 
-	syslog ("info", "VM $vmid destroy called (removing all data)");
+	syslog("info", "VM $vmid destroy called (removing all data)");
 
 	eval {
 	    if (!check_running($vmid)) {
@@ -2611,7 +2611,7 @@ sub vm_destroy {
 	my $err = $@;
 
 	if ($err) {
-	    syslog ("err", "VM $vmid destroy failed - $err");
+	    syslog("err", "VM $vmid destroy failed - $err");
 	    die $err;
 	}
     });
@@ -2632,17 +2632,17 @@ sub vm_stopall {
     if ($count) {
 
 	my $msg = "Stopping Qemu Server - sending shutdown requests to all VMs\n";
-	syslog ('info', $msg);
+	syslog('info', $msg);
 	print STDERR $msg;
 
 	foreach my $vmid (keys %$vzlist) {
 	    next if !$vzlist->{$vmid}->{pid};
-	    eval { vm_shutdown ($vmid, 1); };
+	    eval { vm_shutdown($vmid, 1); };
 	    print STDERR $@ if $@;
 	}
 
 	my $wt = 5;
-	my $maxtries = int (($timeout + $wt -1)/$wt);
+	my $maxtries = int(($timeout + $wt -1)/$wt);
 	my $try = 0;
 	while (($try < $maxtries) && $count) {
 	    $try++;
@@ -2663,16 +2663,16 @@ sub vm_stopall {
 	    next if !$vzlist->{$vmid}->{pid};
 
 	    $msg = "VM $vmid still running - sending stop now\n";
-	    syslog ('info', $msg);
+	    syslog('info', $msg);
 	    print $msg;
 
-	    eval { vm_monitor_command ($vmid, "quit", 1); };
+	    eval { vm_monitor_command($vmid, "quit", 1); };
 	    print STDERR $@ if $@;
 
 	}
 
 	$timeout = 30;
-	$maxtries = int (($timeout + $wt -1)/$wt);
+	$maxtries = int(($timeout + $wt -1)/$wt);
 	$try = 0;
 	while (($try < $maxtries) && $count) {
 	    $try++;
@@ -2693,7 +2693,7 @@ sub vm_stopall {
 	    next if !$vzlist->{$vmid}->{pid};
 
 	    $msg = "VM $vmid still running - terminating now with SIGTERM\n";
-	    syslog ('info', $msg);
+	    syslog('info', $msg);
 	    print $msg;
 	    kill 15, $vzlist->{$vmid}->{pid};
 	}
@@ -2702,7 +2702,7 @@ sub vm_stopall {
 	# processes gets killed anyways (no need to send kill -9 here)
 
 	$msg = "Qemu Server stopped\n";
-	syslog ('info', $msg);
+	syslog('info', $msg);
 	print STDERR $msg;
     }
 }
@@ -2712,7 +2712,7 @@ sub vm_stopall {
 sub file_write {
     my ($filename, $buf) = @_;
 
-    my $fh = IO::File->new ($filename, "w");
+    my $fh = IO::File->new($filename, "w");
     return undef if !$fh;
 
     my $res = print $fh $buf;
@@ -2761,7 +2761,7 @@ sub pci_dev_reset {
 
     my $fn = "$pcisysfs/devices/$name/reset";
 
-    return file_write ($fn, "1");
+    return file_write($fn, "1");
 }
 
 sub pci_dev_bind_to_stub {
@@ -2773,41 +2773,35 @@ sub pci_dev_bind_to_stub {
     return 1 if -d $testdir;
 
     my $data = "$dev->{vendor} $dev->{product}";
-    return undef if !file_write ("$pcisysfs/drivers/pci-stub/new_id", $data);
+    return undef if !file_write("$pcisysfs/drivers/pci-stub/new_id", $data);
 
     my $fn = "$pcisysfs/devices/$name/driver/unbind";
-    if (!file_write ($fn, $name)) {
+    if (!file_write($fn, $name)) {
 	return undef if -f $fn;
     }
 
     $fn = "$pcisysfs/drivers/pci-stub/bind";
     if (! -d $testdir) {
-	return undef if !file_write ($fn, $name);
+	return undef if !file_write($fn, $name);
     }
 
     return -d $testdir;
 }
 
-sub print_pci_addr() { 
+sub print_pci_addr { 
     my ($id) = @_;
+
     my $res = '';
-    my $devices = {};
+    my $devices = {
+	virtio0 => { bus => 0, addr => 10 },
+	virtio1 => { bus => 0, addr => 11 },
+	virtio2 => { bus => 0, addr => 12 },
+	virtio3 => { bus => 0, addr => 13 },
+	virtio4 => { bus => 0, addr => 14 },
+	virtio5 => { bus => 0, addr => 15 },
+    };
 
-    $devices->{virtio0}->{bus} = 0;
-    $devices->{virtio0}->{addr} = 10;
-    $devices->{virtio1}->{bus} = 0;
-    $devices->{virtio1}->{addr} = 11;
-    $devices->{virtio2}->{bus} = 0;
-    $devices->{virtio2}->{addr} = 12;
-    $devices->{virtio3}->{bus} = 0;
-    $devices->{virtio3}->{addr} = 13;
-    $devices->{virtio4}->{bus} = 0;
-    $devices->{virtio4}->{addr} = 14;
-    $devices->{virtio5}->{bus} = 0;
-    $devices->{virtio5}->{addr} = 15;
-
-
-    if (defined ($devices->{$id}->{bus}) && defined ($devices->{$id}->{addr})) {
+    if (defined($devices->{$id}->{bus}) && defined($devices->{$id}->{addr})) {
 	   my $addr = sprintf("0x%x", $devices->{$id}->{addr});
 	   $res = ",bus=pci.$devices->{$id}->{bus},addr=$addr";
     }
