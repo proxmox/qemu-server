@@ -887,8 +887,8 @@ sub print_drivedevice_full {
     my $maxdev = 0;
 
     if ($drive->{interface} eq 'virtio') {
-
-      $device="virtio-blk-pci,drive=drive-$drive->{interface}$drive->{index},id=device-$drive->{interface}$drive->{index}";
+      my $pciaddr=print_pci_addr("$drive->{interface}$drive->{index}");
+      $device="virtio-blk-pci,drive=drive-$drive->{interface}$drive->{index},id=device-$drive->{interface}$drive->{index}$pciaddr";
     }
 
     elsif ($drive->{interface} eq 'scsi') {
@@ -2779,6 +2779,33 @@ sub pci_dev_bind_to_stub {
     }
 
     return -d $testdir;
+}
+
+sub print_pci_addr() { 
+    my ($id) = @_;
+    my $res = '';
+    my $devices = {};
+
+    $devices->{virtio0}->{bus} = 0;
+    $devices->{virtio0}->{addr} = 10;
+    $devices->{virtio1}->{bus} = 0;
+    $devices->{virtio1}->{addr} = 11;
+    $devices->{virtio2}->{bus} = 0;
+    $devices->{virtio2}->{addr} = 12;
+    $devices->{virtio3}->{bus} = 0;
+    $devices->{virtio3}->{addr} = 13;
+    $devices->{virtio4}->{bus} = 0;
+    $devices->{virtio4}->{addr} = 14;
+    $devices->{virtio5}->{bus} = 0;
+    $devices->{virtio5}->{addr} = 15;
+
+
+    if (defined ($devices->{$id}->{bus}) && defined ($devices->{$id}->{addr})) {
+	   my $addr = sprintf("0x%x", $devices->{$id}->{addr});
+	   $res = ",bus=pci.$devices->{$id}->{bus},addr=$addr";
+    }
+    return $res;
+
 }
 
 1;
