@@ -1690,17 +1690,17 @@ sub check_cmdline {
 }
 
 sub check_running {
-    my ($vmid) = @_;
+    my ($vmid, $nocheck) = @_;
 
-    my $filename = config_file ($vmid);
+    my $filename = config_file($vmid);
 
     die "unable to find configuration file for VM $vmid - no such machine\n"
-	if ! -f $filename;
+	if !$nocheck && ! -f $filename;
 
-    my $pidfile = pidfile_name ($vmid);
+    my $pidfile = pidfile_name($vmid);
 
-    if (my $fd = IO::File->new ("<$pidfile")) {
-	my $st = stat ($fd);
+    if (my $fd = IO::File->new("<$pidfile")) {
+	my $st = stat($fd);
 	my $line = <$fd>;
 	close ($fd);
 
@@ -1711,8 +1711,11 @@ sub check_running {
 
 	if ($line =~ m/^(\d+)$/) {
 	    my $pid = $1;
-
-	    return $pid if ((-d "/proc/$pid") && check_cmdline ($pidfile, $pid));
+	    if (check_cmdline($pidfile, $pid)) {
+		if (my $pinfo = PVE::ProcFSTools::check_process_running($pid)) {
+		    return $pid;
+		}
+	    }
 	}
     }
 
@@ -2280,7 +2283,7 @@ sub vm_start {
 
 	my $defaults = load_defaults();
 
-	my ($cmd, $vollist) = config_to_command ($storecfg, $vmid, $conf, $defaults, $migrate_uri);
+	my ($cmd, $vollist) = config_to_command($storecfg, $vmid, $conf, $defaults, $migrate_uri);
 	# host pci devices
         for (my $i = 0; $i < $MAX_HOSTPCI_DEVICES; $i++)  {
           my $d = parse_hostpci($conf->{"hostpci$i"});
@@ -2326,6 +2329,7 @@ sub vm_start {
 	    my $cmd = "migrate_set_downtime ${migrate_downtime}";
 	    eval { vm_monitor_command ($vmid, $cmd, 1); };
 	}
+
     });
 }
 
@@ -2362,16 +2366,16 @@ sub __read_avail {
 }
 
 sub vm_monitor_command {
-    my ($vmid, $cmdstr, $nolog) = @_;
+    my ($vmid, $cmdstr, $nolog, $nocheck) = @_;
 
     my $res;
 
     syslog ("info", "VM $vmid monitor command '$cmdstr'") if !$nolog;
 
     eval {
-	die "VM not running\n"  if !check_running ($vmid);
+	die "VM not running\n" if !check_running($vmid, $nocheck);
 
-	my $sname = monitor_socket ($vmid);
+	my $sname = monitor_socket($vmid);
 
 	my $sock = IO::Socket::UNIX->new ( Peer => $sname ) ||
 	    die "unable to connect to VM $vmid socket - $!\n";
@@ -2477,25 +2481,28 @@ sub vm_shutdown {
     });
 }
 
+# Note: use $nockeck to skip tests if VM configuration file exists.
+# We need that when migration VMs to other nodes (files already moved) 
 sub vm_stop {
-    my ($vmid, $skiplock) = @_;
+    my ($vmid, $skiplock, $nocheck) = @_;
 
-    lock_config ($vmid, sub {
+    lock_config($vmid, sub {
 
-	my $pid = check_running ($vmid);
+	my $pid = check_running($vmid, $nocheck);
 
 	if (!$pid) {
-	    syslog ('info', "VM $vmid already stopped");
+	    syslog('info', "VM $vmid already stopped");
 	    return;
 	}
 
-	my $conf = load_config ($vmid);
-
-	check_lock ($conf) if !$skiplock;
+	if (!$nocheck) {
+	    my $conf = load_config($vmid);
+	    check_lock($conf) if !$skiplock;
+	}
 
 	syslog ("info", "VM $vmid stopping");
 
-	eval { vm_monitor_command ($vmid, "quit", 1); };
+	eval { vm_monitor_command ($vmid, "quit", 1, $nocheck); };
 
 	my $err = $@;
 
@@ -2504,7 +2511,7 @@ sub vm_stop {
 	    my $timeout = 50; # fixme: how long?
 
 	    my $count = 0;
-	    while (($count < $timeout) && check_running ($vmid)) {
+	    while (($count < $timeout) && check_running($vmid, $nocheck)) {
 		$count++;
 		sleep 1;
 	    }
@@ -2522,7 +2529,7 @@ sub vm_stop {
 	my $timeout = 10;
 
 	my $count = 0;
-	while (($count < $timeout) && check_running ($vmid)) {
+	while (($count < $timeout) && check_running($vmid, $nocheck)) {
 	    $count++;
 	    sleep 1;
 	}
@@ -2532,7 +2539,7 @@ sub vm_stop {
 	    kill 9, $pid;
 	}
 
-	fairsched_rmnod ($vmid); # try to destroy group
+	fairsched_rmnod($vmid); # try to destroy group
     });
 }
 

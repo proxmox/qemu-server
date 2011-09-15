@@ -243,6 +243,9 @@ sub migrate {
 	}
 
 	# vm is now owned by other node
+	# Note: there is no VM config file on the local node anymore, so 
+	# we need to pass $nocheck = 1 for vm commands
+
 	my $volids = $rhash->{volumes};
 
 	if ($running) {
@@ -260,10 +263,8 @@ sub migrate {
 		}
 	    }
 
-	    # fixme: ther is no config file, so this will never work
-	    # fixme: use kill(9, $running) to make sure it is stopped
 	    # always stop local VM - no interrupts possible
-	    eval { PVE::QemuServer::vm_stop($session->{vmid}, 1); };
+	    eval { PVE::QemuServer::vm_stop($session->{vmid}, 1, 1); };
 	    if ($@) {
 		logmsg('err', "stopping vm failed - $@");
 		$errors = 1;
@@ -446,7 +447,7 @@ sub phase1 {
 };
 
 sub phase2 {
-    my ($session, $conf, $rhash) = shift;
+    my ($session, $conf, $rhash) = @_;
 
     logmsg('info', "starting VM on remote node '$session->{node}'");
 
@@ -477,12 +478,12 @@ sub phase2 {
 
     my $start = time();
 
-    PVE::QemuServer::vm_monitor_command($session->{vmid}, "migrate -d \"tcp:localhost:$lport\"");
+    PVE::QemuServer::vm_monitor_command($session->{vmid}, "migrate -d \"tcp:localhost:$lport\"", 0, 1);
 
     my $lstat = '';
     while (1) {
 	sleep (2);
-	my $stat = PVE::QemuServer::vm_monitor_command($session->{vmid}, "info migrate", 1);
+	my $stat = PVE::QemuServer::vm_monitor_command($session->{vmid}, "info migrate", 1, 1);
 	if ($stat =~ m/^Migration status: (active|completed|failed|cancelled)$/im) {
 	    my $ms = $1;
 
