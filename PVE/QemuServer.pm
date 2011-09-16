@@ -183,7 +183,7 @@ my $confdesc = {
     memory => {
 	optional => 1,
 	type => 'integer',
-	description => "Amount of RAM for the VM in MB.",
+	description => "Amount of RAM for the VM in MB. This is the maximum available memory when you use the balloon device.",
 	minimum => 16,
 	default => 512,
     },
@@ -191,7 +191,7 @@ my $confdesc = {
         optional => 1,
         type => 'integer',
         description => "Amount of target RAM for the VM in MB.",
-        default => 0,
+	minimum => 16,
     },
     keyboard => {
 	optional => 1,
@@ -2101,6 +2101,7 @@ sub config_to_command {
     #my $soundhw = $conf->{soundhw} || $defaults->{soundhw};
     #push @$cmd, '-soundhw', 'es1370';
     #push @$cmd, '-soundhw', $soundhw if $soundhw;
+
     push @$cmd, '-device', 'virtio-balloon-pci,id=balloon0' if $conf->{balloon};
 
     if ($conf->{watchdog}) {
@@ -2337,28 +2338,7 @@ sub vm_start {
 	    eval { vm_monitor_command($vmid, $cmd, 1); };
 	}
 
-        if($conf->{balloon})
-        {
-          my $newmemorysize=0;
-          my $timewait=0;
-          #set balloon
-          print "try to balloon to $conf->{balloon}\n";
-          vm_balloonset($vmid,$conf->{balloon});
-          #display memory until balloon activate
-          $cmd = "info balloon";
-          while ($conf->{balloon} ne $newmemorysize && $timewait < 120) {
-             my $result=vm_monitor_command ($vmid, $cmd, 1);
-             if ($result =~ m/^balloon: actual=(\d+)$/) {
-                $newmemorysize=$1;
-                print "current memory:$newmemorysize\n";
-             }
-             $timewait++;
-             sleep 1;
-          }
-        print "can't set balloon to $conf->{balloon}, do you have balloon device driver installed?\n" if $timewait > 60;
-
-        }
-
+	vm_balloonset($vmid, $conf->{balloon}) if $conf->{balloon};
     });
 }
 
@@ -2839,10 +2819,9 @@ sub print_pci_addr {
 }
 
 sub vm_balloonset {
-    my ($vmid,$value) = @_;
+    my ($vmid, $value) = @_;
 
-    vm_monitor_command ($vmid, "balloon $value", 1);
-
+    vm_monitor_command($vmid, "balloon $value", 1);
 }
 
 1;
