@@ -1640,6 +1640,7 @@ sub config_list {
     foreach my $vmid (keys %$ids) {
 	my $d = $ids->{$vmid};
 	next if !$d->{node} || $d->{node} ne $nodename;
+	next if !$d->{type} || $d->{type} ne 'qemu';
 	$res->{$vmid}->{exists} = 1;
     }
     return $res;
