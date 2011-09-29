@@ -237,7 +237,7 @@ EODESC
 	type => 'string',
 	description => "Boot on floppy (a), hard disk (c), CD-ROM (d), or network (n).",
 	pattern => '[acdn]{1,4}',
-	default => 'cad',
+	default => 'cdn',
     },
     bootdisk => {
 	optional => 1,
@@ -2034,14 +2034,10 @@ sub config_to_command {
 
     push @$cmd, '-cpu', $conf->{cpu} if $conf->{cpu};
 
-    $boot_opt = "menu=on";
-    if ($conf->{boot}) {
-	$boot_opt .= ",order=$conf->{boot}";
-    }
-
     push @$cmd, '-nodefaults';
 
-    push @$cmd, '-boot', $boot_opt if $boot_opt;
+    my $bootorder = $conf->{boot} || $confdesc->{boot}->{default};
+    push @$cmd, '-boot', "menu=on,order=$bootorder";
 
     push @$cmd, '-no-acpi' if defined($conf->{acpi}) && $conf->{acpi} == 0;
 
