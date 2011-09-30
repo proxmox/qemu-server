@@ -2098,8 +2098,8 @@ sub config_to_command {
     #my $soundhw = $conf->{soundhw} || $defaults->{soundhw};
     #push @$cmd, '-soundhw', 'es1370';
     #push @$cmd, '-soundhw', $soundhw if $soundhw;
-
-    push @$cmd, '-device', 'virtio-balloon-pci,id=balloon0' if $conf->{balloon};
+    my $pciaddr = print_pci_addr("balloon0");
+    push @$cmd, '-device', "virtio-balloon-pci,id=balloon0$pciaddr" if $conf->{balloon};
 
     if ($conf->{watchdog}) {
 	my $wdopts = parse_watchdog($conf->{watchdog});
@@ -2799,6 +2799,7 @@ sub print_pci_addr {
 
     my $res = '';
     my $devices = {
+	balloon0 => { bus => 0, addr => 3 },
 	virtio0 => { bus => 0, addr => 10 },
 	virtio1 => { bus => 0, addr => 11 },
 	virtio2 => { bus => 0, addr => 12 },
