@@ -1945,7 +1945,7 @@ sub config_to_command {
     my ($storecfg, $vmid, $conf, $defaults, $migrate_uri) = @_;
 
     my $cmd = [];
-
+    my $pciaddr = '';
     my $kvmver = kvm_user_version();
     my $vernum = 0; # unknown
     if ($kvmver =~ m/^(\d+)\.(\d+)\.(\d+)$/) {
@@ -1986,7 +1986,8 @@ sub config_to_command {
     for (my $i = 0; $i < $MAX_HOSTPCI_DEVICES; $i++)  {
           my $d = parse_hostpci($conf->{"hostpci$i"});
           next if !$d;
-          push @$cmd, '-device', "pci-assign,host=$d->{pciid},id=hostpci$i";
+	  $pciaddr = print_pci_addr("hostpci$i");
+          push @$cmd, '-device', "pci-assign,host=$d->{pciid},id=hostpci$i$pciaddr";
     }
 
     # usb devices
@@ -2098,7 +2099,7 @@ sub config_to_command {
     #my $soundhw = $conf->{soundhw} || $defaults->{soundhw};
     #push @$cmd, '-soundhw', 'es1370';
     #push @$cmd, '-soundhw', $soundhw if $soundhw;
-    my $pciaddr = print_pci_addr("balloon0");
+    $pciaddr = print_pci_addr("balloon0");
     push @$cmd, '-device', "virtio-balloon-pci,id=balloon0$pciaddr" if $conf->{balloon};
 
     if ($conf->{watchdog}) {
@@ -2806,6 +2807,9 @@ sub print_pci_addr {
 	virtio3 => { bus => 0, addr => 13 },
 	virtio4 => { bus => 0, addr => 14 },
 	virtio5 => { bus => 0, addr => 15 },
+	hostpci0 => { bus => 0, addr => 16 },
+	hostpci1 => { bus => 0, addr => 17 },
+
     };
 
     if (defined($devices->{$id}->{bus}) && defined($devices->{$id}->{addr})) {
