@@ -2104,7 +2104,9 @@ sub config_to_command {
 
     if ($conf->{watchdog}) {
 	my $wdopts = parse_watchdog($conf->{watchdog});
-	push @$cmd, '-watchdog', $wdopts->{model} || 'i6300esb';
+	$pciaddr = print_pci_addr("watchdog");
+	my $watchdog = $wdopts->{model} || 'i6300esb';
+	push @$cmd, '-device', "$watchdog$pciaddr";
 	push @$cmd, '-watchdog-action', $wdopts->{action} if $wdopts->{action};
     }
 
@@ -2801,6 +2803,7 @@ sub print_pci_addr {
     my $res = '';
     my $devices = {
 	balloon0 => { bus => 0, addr => 3 },
+	watchdog => { bus => 0, addr => 4 },
 	virtio0 => { bus => 0, addr => 10 },
 	virtio1 => { bus => 0, addr => 11 },
 	virtio2 => { bus => 0, addr => 12 },
