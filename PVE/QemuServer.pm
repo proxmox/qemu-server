@@ -2173,7 +2173,8 @@ sub config_to_command {
 	    # not loading the pxe rom file
 	    my $extra = (!$conf->{boot} || ($conf->{boot} !~ m/n/)) ?
 		"romfile=," : '';
-	    push @$cmd, '-device', "$device,${extra}mac=$net->{macaddr},netdev=${k}";
+	    $pciaddr = print_pci_addr("${k}");
+	    push @$cmd, '-device', "$device,${extra}mac=$net->{macaddr},netdev=${k}$pciaddr";
 	}
     }
 
@@ -2815,6 +2816,13 @@ sub print_pci_addr {
 	virtio5 => { bus => 0, addr => 15 },
 	hostpci0 => { bus => 0, addr => 16 },
 	hostpci1 => { bus => 0, addr => 17 },
+	net0 => { bus => 0, addr => 18 },
+	net1 => { bus => 0, addr => 19 },
+	net2 => { bus => 0, addr => 20 },
+	net3 => { bus => 0, addr => 21 },
+	net4 => { bus => 0, addr => 22 },
+	net5 => { bus => 0, addr => 23 },
+	net6 => { bus => 0, addr => 24 },
 
     };
 
