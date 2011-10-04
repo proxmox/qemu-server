@@ -2125,7 +2125,8 @@ sub config_to_command {
         if ($drive->{interface} eq 'scsi') {
            my $maxdev = 7;
            my $controller = int($drive->{index} / $maxdev);
-           push @$cmd, '-device', "lsi,id=scsi$controller" if !$scsicontroller->{$controller};
+	   $pciaddr = print_pci_addr("scsi$controller");
+           push @$cmd, '-device', "lsi,id=scsi$controller$pciaddr" if !$scsicontroller->{$controller};
            my $scsicontroller->{$controller}=1;
         }
 	my $tmp = print_drive_full($storecfg, $vmid, $drive);
@@ -2804,6 +2805,8 @@ sub print_pci_addr {
     my $devices = {
 	balloon0 => { bus => 0, addr => 3 },
 	watchdog => { bus => 0, addr => 4 },
+	scsi0 => { bus => 0, addr => 5 },
+	scsi1 => { bus => 0, addr => 6 },
 	virtio0 => { bus => 0, addr => 10 },
 	virtio1 => { bus => 0, addr => 11 },
 	virtio2 => { bus => 0, addr => 12 },
