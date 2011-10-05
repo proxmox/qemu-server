@@ -2804,6 +2804,8 @@ sub print_pci_addr {
 
     my $res = '';
     my $devices = {
+	#addr1 : ide,parallel,serial (motherboard)
+	#addr2 : first videocard
 	balloon0 => { bus => 0, addr => 3 },
 	watchdog => { bus => 0, addr => 4 },
 	scsi0 => { bus => 0, addr => 5 },
@@ -2822,8 +2824,7 @@ sub print_pci_addr {
 	net3 => { bus => 0, addr => 21 },
 	net4 => { bus => 0, addr => 22 },
 	net5 => { bus => 0, addr => 23 },
-	net6 => { bus => 0, addr => 24 },
-
+	#addr29 : usb-host (pve-usb.cfg)
     };
 
     if (defined($devices->{$id}->{bus}) && defined($devices->{$id}->{addr})) {
