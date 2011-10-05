@@ -984,7 +984,7 @@ sub parse_net {
 
 	if ($kvp =~ m/^(ne2k_pci|e1000|rtl8139|pcnet|virtio|ne2k_isa|i82551|i82557b|i82559er)(=([0-9a-f]{2}(:[0-9a-f]{2}){5}))?$/i) {
 	    my $model = lc($1);
-	    my $mac = uc($3) || random_ether_addr();
+	    my $mac = uc($3) || PVE::Tools::random_ether_addr();
 	    $res->{model} = $model;
 	    $res->{macaddr} = $mac;
 	} elsif ($kvp =~ m/^bridge=(\S+)$/) {
@@ -2215,29 +2215,6 @@ sub monitor_socket {
 sub pidfile_name {
     my ($vmid) = @_;
     return "${var_run_tmpdir}/$vmid.pid";
-}
-
-sub random_ether_addr {
-
-    my $rand = Digest::SHA1::sha1_hex(rand(), time());
-
-    my $mac = '';
-    for (my $i = 0; $i < 6; $i++) {
-	my $ss = hex(substr($rand, $i*2, 2));
-	if (!$i) {
-	    $ss &= 0xfe; # clear multicast
-	    $ss |= 2; # set local id
-	}
-	$ss = sprintf("%02X", $ss);
-
-	if (!$i) {
-	    $mac .= "$ss";
-	} else {
-	    $mac .= ":$ss";
-	}
-    }
-
-    return $mac;
 }
 
 sub next_migrate_port {
