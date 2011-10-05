@@ -633,16 +633,9 @@ __PACKAGE__->register_method({
 	    my $qmstr = join(' ', @$qmcmd);
 
 	    # also redirect stderr (else we get RFB protocol errors)
-	    my @cmd = ('/bin/nc', '-l', '-p', $port, '-w', $timeout, '-c', "$qmstr 2>/dev/null");
+	    my $cmd = ['/bin/nc', '-l', '-p', $port, '-w', $timeout, '-c', "$qmstr 2>/dev/null"];
 
-	    my $cmdstr = join(' ', @cmd);
-	    syslog('info', "CMD3: $cmdstr");
-
-	    if (system(@cmd) != 0) {
-		my $msg = "VM $vmid vnc proxy failed - $?";
-		syslog('err', $msg);
-		return;
-	    }
+	    PVE::Tools::run_command($cmd);
 
 	    return;
 	};

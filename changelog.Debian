@@ -1,3 +1,9 @@
+qemu-server (2.0-2) unstable; urgency=low
+
+  * cleanups
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 05 Oct 2011 10:15:37 +0200
+
 qemu-server (2.0-1) unstable; urgency=low
 
   * see Changelog for details
