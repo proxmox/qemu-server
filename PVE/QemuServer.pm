@@ -1215,9 +1215,11 @@ sub lock_config {
 
     my $filename = config_file_lock($vmid);
 
-    lock_file($filename, 10, $code, @param);
+    my $res = lock_file($filename, 10, $code, @param);
 
     die $@ if $@;
+
+    return $res;
 }
 
 sub cfs_config_path {
@@ -2561,8 +2563,8 @@ sub vm_resume {
     });
 }
 
-sub vm_cad {
-    my ($vmid, $skiplock) = @_;
+sub vm_sendkey {
+    my ($vmid, $skiplock, $key) = @_;
 
     lock_config($vmid, sub {
 
@@ -2570,9 +2572,9 @@ sub vm_cad {
 
 	check_lock($conf) if !$skiplock;
 
-	syslog("info", "VM $vmid sending cntl-alt-delete");
+	syslog("info", "VM $vmid sending key $key");
 
-	vm_monitor_command($vmid, "sendkey ctrl-alt-delete", 1);
+	vm_monitor_command($vmid, "sendkey $key", 1);
     });
 }
 

@@ -415,6 +415,20 @@ my $cmddef = {
 
     status => [ __PACKAGE__, 'status', ['vmid']],
 
+    start => [ "PVE::API2::Qemu", 'vm_start', ['vmid'], { node => $nodename } ],
+
+    stop => [ "PVE::API2::Qemu", 'vm_stop', ['vmid'], { node => $nodename } ],
+
+    reset => [ "PVE::API2::Qemu", 'vm_reset', ['vmid'], { node => $nodename } ],
+
+    shutdown => [ "PVE::API2::Qemu", 'vm_shutdown', ['vmid'], { node => $nodename } ],
+
+    suspend => [ "PVE::API2::Qemu", 'vm_suspend', ['vmid'], { node => $nodename } ],
+
+    resume => [ "PVE::API2::Qemu", 'vm_resume', ['vmid'], { node => $nodename } ],
+
+    sendkey => [ "PVE::API2::Qemu", 'vm_sendkey', ['vmid', 'key'], { node => $nodename } ],
+
     vncproxy => [ __PACKAGE__, 'vncproxy', ['vmid']],
 
     wait => [ __PACKAGE__, 'wait', ['vmid']],
@@ -429,44 +443,6 @@ my $cmddef = {
 
     mtunnel => [ __PACKAGE__, 'mtunnel', []],	
 };
-
-sub register_vm_command {
-    my ($cmd, $descr) = @_;
-
-    # we create a wrapper, because we want one 'description' per command
-    __PACKAGE__->register_method ({
-	name => $cmd, 
-	path => $cmd, 
-	method => 'PUT',
-	description => $descr,
-	parameters => {
-	    additionalProperties => 0,
-	    properties => {
-		vmid => get_standard_option('pve-vmid'),
-		skiplock => get_standard_option('skiplock'),
-		stateuri => get_standard_option('pve-qm-stateuri'),
-	    },
-	},
-	returns => { type => 'null'},
-	code => sub {
-	    my ($param) = @_;
-
-	    $param->{command} = $cmd;
-	    $param->{node} = $nodename;
-
-	    return PVE::API2::Qemu->vm_command($param);
-	}});
-
-    $cmddef->{$cmd} = [ __PACKAGE__, $cmd, ['vmid']];
-}
-
-register_vm_command('start', "Start virtual machine.");
-register_vm_command('stop', "Stop virtual machine.");
-register_vm_command('reset', "Reset virtual machine.");
-register_vm_command('shutdown', "Shutdown virtual machine (send ACPI showdown request)");
-register_vm_command('suspend', "Suspend virtual machine.");
-register_vm_command('resume', "Resume virtual machine.");
-register_vm_command('cad', "Send CTRL-ALT-DELETE keys.");
 
 my $cmd = shift;
 

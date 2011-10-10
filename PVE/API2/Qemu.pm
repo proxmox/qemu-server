@@ -77,9 +77,15 @@ __PACKAGE__->register_method({
 		vmid => get_standard_option('pve-vmid'),
 	    }),
     },
-    returns => { type => 'null'},
+    returns => { 
+	type => 'string',
+    },
     code => sub {
 	my ($param) = @_;
+
+	my $rpcenv = PVE::RPCEnvironment::get();
+
+	my $user = $rpcenv->get_user();
 
 	my $node = extract_param($param, 'node');
 
@@ -108,47 +114,50 @@ __PACKAGE__->register_method({
 
 	PVE::QemuServer::add_random_macs($param);
 
-	#fixme: ? syslog ('info', "VM $vmid creating new virtual machine");
-	
-	my $vollist = [];
-
 	my $createfn = sub {
 
 	    # second test (after locking test is accurate)
 	    die "unable to create vm $vmid: config file already exists\n" 
 		if -f $filename;
 
-	    $vollist = PVE::QemuServer::create_disks($storecfg, $vmid, $param);
+	    my $realcmd = sub {
 
-	    # try to be smart about bootdisk
-	    my @disks = PVE::QemuServer::disknames();
-	    my $firstdisk;
-	    foreach my $ds (reverse @disks) {
-		next if !$param->{$ds};
-		my $disk = PVE::QemuServer::parse_drive($ds, $param->{$ds});
-		next if PVE::QemuServer::drive_is_cdrom($disk);
-		$firstdisk = $ds;
-	    }
+		my $vollist = [];
 
-	    if (!$param->{bootdisk} && $firstdisk) {
-		$param->{bootdisk} = $firstdisk; 
-	    }
+		eval {
+		    $vollist = PVE::QemuServer::create_disks($storecfg, $vmid, $param);
 
-	    PVE::QemuServer::create_conf_nolock($vmid, $param);
+		    # try to be smart about bootdisk
+		    my @disks = PVE::QemuServer::disknames();
+		    my $firstdisk;
+		    foreach my $ds (reverse @disks) {
+			next if !$param->{$ds};
+			my $disk = PVE::QemuServer::parse_drive($ds, $param->{$ds});
+			next if PVE::QemuServer::drive_is_cdrom($disk);
+			$firstdisk = $ds;
+		    }
+
+		    if (!$param->{bootdisk} && $firstdisk) {
+			$param->{bootdisk} = $firstdisk; 
+		    }
+
+		    PVE::QemuServer::create_conf_nolock($vmid, $param);
+		};
+		my $err = $@;
+
+		if ($err) {
+		    foreach my $volid (@$vollist) {
+			eval { PVE::Storage::vdisk_free($storecfg, $volid); };
+			warn $@ if $@;
+		    }
+		    die "create failed - $err";
+		}
+	    };
+
+	    return $rpcenv->fork_worker('qmcreate', $vmid, $user, $realcmd);
 	};
 
-	eval { PVE::QemuServer::lock_config($vmid, $createfn); };
-	my $err = $@;
-
-	if ($err) {
-	    foreach my $volid (@$vollist) {
-		eval { PVE::Storage::vdisk_free($storecfg, $volid); };
-		warn $@ if $@;
-	    }
-	    die "create failed - $err";
-	}
-
-	return undef;
+	return PVE::QemuServer::lock_config($vmid, $createfn);
     }});
 
 __PACKAGE__->register_method({
@@ -355,6 +364,13 @@ __PACKAGE__->register_method({
 
 	my $vmid = extract_param($param, 'vmid');
 
+	my $digest = extract_param($param, 'digest');
+
+	my @paramarr = (); # used for log message
+	foreach my $key (keys %$param) {
+	    push @paramarr, "-$key", $param->{$key};
+	}
+
 	my $skiplock = extract_param($param, 'skiplock');
 	raise_param_exc({ skiplock => "Only root may use this option." }) 
 	    if $skiplock && $user ne 'root@pam';
@@ -363,8 +379,6 @@ __PACKAGE__->register_method({
 	my $force = extract_param($param, 'force');
 
 	die "no options specified\n" if !$delete && !scalar(keys %$param);
-
-	my $digest = extract_param($param, 'digest');
 
 	my $storecfg = PVE::Storage::config(); 
 
@@ -410,6 +424,8 @@ __PACKAGE__->register_method({
 		if $digest && $digest ne $conf->{digest};
 
 	    PVE::QemuServer::check_lock($conf) if !$skiplock;
+
+	    PVE::Cluster::log_msg('info', $user, "update VM $vmid: " . join (' ', @paramarr));
 
 	    foreach my $opt (keys %$eject) {
 		if ($conf->{$opt}) {
@@ -510,7 +526,9 @@ __PACKAGE__->register_method({
 	    skiplock => get_standard_option('skiplock'),
 	},
     },
-    returns => { type => 'null' },
+    returns => { 
+	type => 'string',
+    },
     code => sub {
 	my ($param) = @_;
 
@@ -524,11 +542,16 @@ __PACKAGE__->register_method({
 	raise_param_exc({ skiplock => "Only root may use this option." }) 
 	    if $skiplock && $user ne 'root@pam';
 
+	# test if VM exists
+	my $conf = PVE::QemuServer::load_config($vmid);
+
 	my $storecfg = PVE::Storage::config(); 
 
-	PVE::QemuServer::vm_destroy($storecfg, $vmid, $skiplock);
+	my $realcmd = sub {
+	    PVE::QemuServer::vm_destroy($storecfg, $vmid, $skiplock);
+	};
 
-	return undef;
+	return $rpcenv->fork_worker('qmdestroy', $vmid, $user, $realcmd);
     }});
 
 __PACKAGE__->register_method({
@@ -652,8 +675,46 @@ __PACKAGE__->register_method({
     }});
 
 __PACKAGE__->register_method({
+    name => 'vmcmdidx',
+    path => '{vmid}/status', 
+    method => 'GET',
+    proxyto => 'node',
+    description => "Directory index",
+    parameters => {
+    	additionalProperties => 0,
+	properties => {
+	    node => get_standard_option('pve-node'),
+	    vmid => get_standard_option('pve-vmid'),
+	},
+    },
+    returns => {
+	type => 'array',
+	items => {
+	    type => "object",
+	    properties => {
+		subdir => { type => 'string' },
+	    },
+	},
+	links => [ { rel => 'child', href => "{subdir}" } ],
+    },
+    code => sub {
+	my ($param) = @_;
+
+	# test if VM exists
+	my $conf = PVE::QemuServer::load_config($param->{vmid});
+
+	my $res = [
+	    { subdir => 'current' },
+	    { subdir => 'start' },
+	    { subdir => 'stop' },
+	    ];
+	
+	return $res;
+    }});
+
+__PACKAGE__->register_method({
     name => 'vm_status', 
-    path => '{vmid}/status',
+    path => '{vmid}/status/current',
     method => 'GET',
     proxyto => 'node',
     protected => 1, # qemu pid files are only readable by root
@@ -678,12 +739,12 @@ __PACKAGE__->register_method({
     }});
 
 __PACKAGE__->register_method({
-    name => 'vm_command', 
-    path => '{vmid}/status',
-    method => 'PUT',
+    name => 'vm_start', 
+    path => '{vmid}/status/start',
+    method => 'POST',
     protected => 1,
     proxyto => 'node',
-    description => "Set virtual machine status (execute vm commands).",
+    description => "Start virtual machine.",
     parameters => {
     	additionalProperties => 0,
 	properties => {
@@ -691,14 +752,11 @@ __PACKAGE__->register_method({
 	    vmid => get_standard_option('pve-vmid'),
 	    skiplock => get_standard_option('skiplock'),
 	    stateuri => get_standard_option('pve-qm-stateuri'),
-	    command => { 
-		description => "The command to execute.",
-		type => 'string',
-		enum => [qw(start stop reset shutdown cad suspend resume) ],
-	    },
 	},
     },
-    returns => { type => 'null'},
+    returns => { 
+	type => 'string',
+    },
     code => sub {
 	my ($param) = @_;
 
@@ -718,29 +776,289 @@ __PACKAGE__->register_method({
 	raise_param_exc({ skiplock => "Only root may use this option." }) 
 	    if $skiplock && $user ne 'root@pam';
 
-	my $command = $param->{command};
-
 	my $storecfg = PVE::Storage::config(); 
-	
-	if ($command eq 'start') {
-	    PVE::QemuServer::vm_start($storecfg, $vmid, $stateuri, $skiplock);
-	} elsif ($command eq 'stop') {
-	    PVE::QemuServer::vm_stop($vmid, $skiplock);
-	} elsif ($command eq 'reset') {
-	    PVE::QemuServer::vm_reset($vmid, $skiplock);
-	} elsif ($command eq 'shutdown') {
-	    PVE::QemuServer::vm_shutdown($vmid, $skiplock);
-	} elsif ($command eq 'suspend') {
-	    PVE::QemuServer::vm_suspend($vmid, $skiplock);
-	} elsif ($command eq 'resume') {
-	    PVE::QemuServer::vm_resume($vmid, $skiplock);
-	} elsif ($command eq 'cad') {
-	    PVE::QemuServer::vm_cad($vmid, $skiplock);
-	} else {
-	    raise_param_exc({ command => "unknown command '$command'" }) 
-	}
 
-	return undef;
+	my $realcmd = sub {
+	    my $upid = shift;
+
+	    syslog('info', "start VM $vmid: $upid\n");
+
+	    PVE::QemuServer::vm_start($storecfg, $vmid, $stateuri, $skiplock);
+
+	    return;
+	};
+
+	return $rpcenv->fork_worker('qmstart', $vmid, $user, $realcmd);
+    }});
+
+__PACKAGE__->register_method({
+    name => 'vm_stop', 
+    path => '{vmid}/status/stop',
+    method => 'POST',
+    protected => 1,
+    proxyto => 'node',
+    description => "Stop virtual machine.",
+    parameters => {
+    	additionalProperties => 0,
+	properties => {
+	    node => get_standard_option('pve-node'),
+	    vmid => get_standard_option('pve-vmid'),
+	    skiplock => get_standard_option('skiplock'),
+	},
+    },
+    returns => { 
+	type => 'string',
+    },
+    code => sub {
+	my ($param) = @_;
+
+	my $rpcenv = PVE::RPCEnvironment::get();
+
+	my $user = $rpcenv->get_user();
+
+	my $node = extract_param($param, 'node');
+
+	my $vmid = extract_param($param, 'vmid');
+
+	my $skiplock = extract_param($param, 'skiplock');
+	raise_param_exc({ skiplock => "Only root may use this option." }) 
+	    if $skiplock && $user ne 'root@pam';
+
+	my $realcmd = sub {
+	    my $upid = shift;
+
+	    syslog('info', "stop VM $vmid: $upid\n");
+
+	    PVE::QemuServer::vm_stop($vmid, $skiplock);
+
+	    return;
+	};
+
+	return $rpcenv->fork_worker('qmstop', $vmid, $user, $realcmd);
+    }});
+
+__PACKAGE__->register_method({
+    name => 'vm_reset', 
+    path => '{vmid}/status/reset',
+    method => 'POST',
+    protected => 1,
+    proxyto => 'node',
+    description => "Reset virtual machine.",
+    parameters => {
+    	additionalProperties => 0,
+	properties => {
+	    node => get_standard_option('pve-node'),
+	    vmid => get_standard_option('pve-vmid'),
+	    skiplock => get_standard_option('skiplock'),
+	},
+    },
+    returns => { 
+	type => 'string',
+    },
+    code => sub {
+	my ($param) = @_;
+
+	my $rpcenv = PVE::RPCEnvironment::get();
+
+	my $user = $rpcenv->get_user();
+
+	my $node = extract_param($param, 'node');
+
+	my $vmid = extract_param($param, 'vmid');
+
+	my $skiplock = extract_param($param, 'skiplock');
+	raise_param_exc({ skiplock => "Only root may use this option." }) 
+	    if $skiplock && $user ne 'root@pam';
+
+	my $realcmd = sub {
+	    my $upid = shift;
+
+	    syslog('info', "reset VM $vmid: $upid\n");
+
+	    PVE::QemuServer::vm_reset($vmid, $skiplock);
+
+	    return;
+	};
+
+	return $rpcenv->fork_worker('qmreset', $vmid, $user, $realcmd);
+    }});
+
+__PACKAGE__->register_method({
+    name => 'vm_shutdown', 
+    path => '{vmid}/status/shutdown',
+    method => 'POST',
+    protected => 1,
+    proxyto => 'node',
+    description => "Shutdown virtual machine.",
+    parameters => {
+    	additionalProperties => 0,
+	properties => {
+	    node => get_standard_option('pve-node'),
+	    vmid => get_standard_option('pve-vmid'),
+	    skiplock => get_standard_option('skiplock'),
+	},
+    },
+    returns => { 
+	type => 'string',
+    },
+    code => sub {
+	my ($param) = @_;
+
+	my $rpcenv = PVE::RPCEnvironment::get();
+
+	my $user = $rpcenv->get_user();
+
+	my $node = extract_param($param, 'node');
+
+	my $vmid = extract_param($param, 'vmid');
+
+	my $skiplock = extract_param($param, 'skiplock');
+	raise_param_exc({ skiplock => "Only root may use this option." }) 
+	    if $skiplock && $user ne 'root@pam';
+
+	my $realcmd = sub {
+	    my $upid = shift;
+
+	    syslog('info', "shutdown VM $vmid: $upid\n");
+
+	    PVE::QemuServer::vm_shutdown($vmid, $skiplock);
+
+	    return;
+	};
+
+	return $rpcenv->fork_worker('qmshutdown', $vmid, $user, $realcmd);
+    }});
+
+__PACKAGE__->register_method({
+    name => 'vm_suspend', 
+    path => '{vmid}/status/suspend',
+    method => 'POST',
+    protected => 1,
+    proxyto => 'node',
+    description => "Suspend virtual machine.",
+    parameters => {
+    	additionalProperties => 0,
+	properties => {
+	    node => get_standard_option('pve-node'),
+	    vmid => get_standard_option('pve-vmid'),
+	    skiplock => get_standard_option('skiplock'),
+	},
+    },
+    returns => { 
+	type => 'string',
+    },
+    code => sub {
+	my ($param) = @_;
+
+	my $rpcenv = PVE::RPCEnvironment::get();
+
+	my $user = $rpcenv->get_user();
+
+	my $node = extract_param($param, 'node');
+
+	my $vmid = extract_param($param, 'vmid');
+
+	my $skiplock = extract_param($param, 'skiplock');
+	raise_param_exc({ skiplock => "Only root may use this option." }) 
+	    if $skiplock && $user ne 'root@pam';
+
+	my $realcmd = sub {
+	    my $upid = shift;
+
+	    syslog('info', "suspend VM $vmid: $upid\n");
+
+	    PVE::QemuServer::vm_suspend($vmid, $skiplock);
+
+	    return;
+	};
+
+	return $rpcenv->fork_worker('qmsuspend', $vmid, $user, $realcmd);
+    }});
+
+__PACKAGE__->register_method({
+    name => 'vm_resume', 
+    path => '{vmid}/status/resume',
+    method => 'POST',
+    protected => 1,
+    proxyto => 'node',
+    description => "Resume virtual machine.",
+    parameters => {
+    	additionalProperties => 0,
+	properties => {
+	    node => get_standard_option('pve-node'),
+	    vmid => get_standard_option('pve-vmid'),
+	    skiplock => get_standard_option('skiplock'),
+	},
+    },
+    returns => { 
+	type => 'string',
+    },
+    code => sub {
+	my ($param) = @_;
+
+	my $rpcenv = PVE::RPCEnvironment::get();
+
+	my $user = $rpcenv->get_user();
+
+	my $node = extract_param($param, 'node');
+
+	my $vmid = extract_param($param, 'vmid');
+
+	my $skiplock = extract_param($param, 'skiplock');
+	raise_param_exc({ skiplock => "Only root may use this option." }) 
+	    if $skiplock && $user ne 'root@pam';
+
+	my $realcmd = sub {
+	    my $upid = shift;
+
+	    syslog('info', "resume VM $vmid: $upid\n");
+
+	    PVE::QemuServer::vm_resume($vmid, $skiplock);
+
+	    return;
+	};
+
+	return $rpcenv->fork_worker('qmresume', $vmid, $user, $realcmd);
+    }});
+
+__PACKAGE__->register_method({
+    name => 'vm_sendkey', 
+    path => '{vmid}/sendkey',
+    method => 'PUT',
+    protected => 1,
+    proxyto => 'node',
+    description => "Send key event to virtual machine.",
+    parameters => {
+    	additionalProperties => 0,
+	properties => {
+	    node => get_standard_option('pve-node'),
+	    vmid => get_standard_option('pve-vmid'),
+	    skiplock => get_standard_option('skiplock'),
+	    key => {
+		description => "The key (qemu monitor encoding).",
+		type => 'string'
+	    }
+	},
+    },
+    returns => { type => 'null'},
+    code => sub {
+	my ($param) = @_;
+
+	my $rpcenv = PVE::RPCEnvironment::get();
+
+	my $user = $rpcenv->get_user();
+
+	my $node = extract_param($param, 'node');
+
+	my $vmid = extract_param($param, 'vmid');
+
+	my $skiplock = extract_param($param, 'skiplock');
+	raise_param_exc({ skiplock => "Only root may use this option." }) 
+	    if $skiplock && $user ne 'root@pam';
+
+	PVE::QemuServer::vm_sendkey($vmid, $skiplock, $param->{key});
+
+	return;
     }});
 
 __PACKAGE__->register_method({
