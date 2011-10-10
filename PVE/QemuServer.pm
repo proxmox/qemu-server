@@ -900,7 +900,7 @@ sub print_drivedevice_full {
 
     if ($drive->{interface} eq 'virtio') {
       my $pciaddr = print_pci_addr("$drive->{interface}$drive->{index}");
-      $device = "virtio-blk-pci,drive=drive-$drive->{interface}$drive->{index},id=device-$drive->{interface}$drive->{index}$pciaddr";
+      $device = "virtio-blk-pci,drive=drive-$drive->{interface}$drive->{index},id=$drive->{interface}$drive->{index}$pciaddr";
     }
 
     elsif ($drive->{interface} eq 'scsi') {
@@ -2268,6 +2268,29 @@ sub vm_devices_list {
         }
 
 return $devices;
+}
+
+sub vm_deviceadd {
+    my ($storecfg,$vmid, $deviceid,$device) = @_;
+
+    my $cfspath = cfs_config_path($vmid);
+    my $conf = PVE::Cluster::cfs_read_file($cfspath) || {};
+
+    return if !check_running ($vmid) || $conf->{hotplug} != 1 ; # do nothing if vm is running or hotplug option not set to 1
+
+    if($deviceid =~ m/^(virtio)(\d+)$/) {
+
+        my $drive = print_drive_full ($storecfg,$vmid, $device);
+        vm_monitor_command ($vmid, "drive_add auto $drive", 1);
+        my $devicefull = print_drivedevice_full ($storecfg,$vmid, $device);
+        vm_monitor_command ($vmid, "device_add $devicefull", 1);
+    }
+
+    #verification
+    sleep 2; #give a litlle time to os to add the device
+    my $devices_list = vm_devices_list($vmid);
+    die "error on hotplug device" if(! defined($devices_list->{$deviceid}));
+
 }
 
 sub vm_start {
