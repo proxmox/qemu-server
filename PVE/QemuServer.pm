@@ -2293,6 +2293,26 @@ sub vm_deviceadd {
 
 }
 
+sub vm_devicedel {
+    my ($vmid,$deviceid) = @_;
+
+    my $cfspath = cfs_config_path($vmid);
+    my $conf = PVE::Cluster::cfs_read_file($cfspath) || {};
+
+    return if !check_running ($vmid) || $conf->{hotplug} != 1 ;
+
+    if($deviceid =~ m/^(virtio)(\d+)$/){
+
+        vm_monitor_command ($vmid, "drive_del drive-$deviceid",1);
+        vm_monitor_command ($vmid, "device_del $deviceid",1);
+
+    }
+
+    sleep 2;
+    my $devices_list=vm_devices_list($vmid);
+    die "error on hot-unplugging device " if(defined $devices_list->{$deviceid});
+}
+
 sub vm_start {
     my ($storecfg, $vmid, $statefile, $skiplock) = @_;
 
