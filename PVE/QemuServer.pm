@@ -1302,6 +1302,7 @@ sub create_disks {
 		    die "image '$path' does not exists\n";
 		}
 	    }
+	    PVE::QemuServer::vm_deviceadd ($storecfg,$vmid,$ds, $disk);
 	});
     };
 
