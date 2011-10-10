@@ -153,6 +153,12 @@ my $confdesc = {
 	description => "Automatic restart after crash (currently ignored).",
 	default => 0,
     },
+    hotplug => {
+        optional => 1,
+        type => 'integer',
+        description => "Activate hotplug for disk and network device",
+        default => 0,
+    },
     reboot => {
 	optional => 1,
 	type => 'boolean',
