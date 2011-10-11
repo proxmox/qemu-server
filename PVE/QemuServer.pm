@@ -155,7 +155,7 @@ my $confdesc = {
     },
     hotplug => {
         optional => 1,
-        type => 'integer',
+        type => 'boolean',
         description => "Activate hotplug for disk and network device",
         default => 0,
     },
@@ -2277,20 +2277,20 @@ sub vm_deviceadd {
     my $cfspath = cfs_config_path($vmid);
     my $conf = PVE::Cluster::cfs_read_file($cfspath) || {};
 
-    return if !check_running ($vmid) || $conf->{hotplug} != 1 ; # do nothing if vm is running or hotplug option not set to 1
+    return if !check_running($vmid) || !$conf->{hotplug}; 
 
     if($deviceid =~ m/^(virtio)(\d+)$/) {
 
-        my $drive = print_drive_full ($storecfg,$vmid, $device);
-        vm_monitor_command ($vmid, "drive_add auto $drive", 1);
-        my $devicefull = print_drivedevice_full ($storecfg,$vmid, $device);
-        vm_monitor_command ($vmid, "device_add $devicefull", 1);
+        my $drive = print_drive_full($storecfg,$vmid, $device);
+        vm_monitor_command($vmid, "drive_add auto $drive", 1);
+        my $devicefull = print_drivedevice_full($storecfg,$vmid, $device);
+        vm_monitor_command($vmid, "device_add $devicefull", 1);
     }
 
     #verification
     sleep 2; #give a litlle time to os to add the device
     my $devices_list = vm_devices_list($vmid);
-    die "error on hotplug device" if(! defined($devices_list->{$deviceid}));
+    die "error on hotplug device" if !defined($devices_list->{$deviceid});
 
 }
 
@@ -2300,18 +2300,18 @@ sub vm_devicedel {
     my $cfspath = cfs_config_path($vmid);
     my $conf = PVE::Cluster::cfs_read_file($cfspath) || {};
 
-    return if !check_running ($vmid) || $conf->{hotplug} != 1 ;
+    return if !check_running ($vmid) || !$conf->{hotplug};
 
     if($deviceid =~ m/^(virtio)(\d+)$/){
 
-        vm_monitor_command ($vmid, "drive_del drive-$deviceid",1);
-        vm_monitor_command ($vmid, "device_del $deviceid",1);
+        vm_monitor_command($vmid, "drive_del drive-$deviceid", 1);
+        vm_monitor_command($vmid, "device_del $deviceid", 1);
 
     }
 
     sleep 2;
-    my $devices_list=vm_devices_list($vmid);
-    die "error on hot-unplugging device " if(defined $devices_list->{$deviceid});
+    my $devices_list = vm_devices_list($vmid);
+    die "error on hot-unplugging device " if defined($devices_list->{$deviceid});
 }
 
 sub vm_start {
