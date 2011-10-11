@@ -1302,7 +1302,7 @@ sub create_disks {
 		    die "image '$path' does not exists\n";
 		}
 	    }
-	    PVE::QemuServer::vm_deviceadd ($storecfg,$vmid,$ds, $disk);
+	    PVE::QemuServer::vm_deviceadd($storecfg, $vmid, $ds, $disk);
 	});
     };
 
@@ -2248,31 +2248,32 @@ sub next_migrate_port {
 sub vm_devices_list {
     my ($vmid) = @_;
 
-        my $res = vm_monitor_command ($vmid, "info pci", 1);
+    my $res = vm_monitor_command ($vmid, "info pci", 1);
 
-        my @lines = split ("\n", $res);
-        my $devices;
-        my $bus;
-        my $addr;
-        my $id;
-        foreach my $line (@lines) {
-            $line =~ s/^\s+//;
-          if ($line =~ m/^Bus  (\d+), device   (\d+), function (\d+):$/) {
-           $bus=$1;
-           $addr=$2;
-          }
-          if ($line =~ m/^id "([a-z][a-z_\-]*\d*)"$/) {
+    my @lines = split ("\n", $res);
+    my $devices;
+    my $bus;
+    my $addr;
+    my $id;
+    
+    foreach my $line (@lines) {
+	$line =~ s/^\s+//;
+	if ($line =~ m/^Bus  (\d+), device   (\d+), function (\d+):$/) {
+	    $bus=$1;
+	    $addr=$2;
+	}
+	if ($line =~ m/^id "([a-z][a-z_\-]*\d*)"$/) {
             $id=$1;
             $devices->{$id}->{bus}=$bus;
             $devices->{$id}->{addr}=$addr;
-          }
-        }
+	}
+    }
 
-return $devices;
+    return $devices;
 }
 
 sub vm_deviceadd {
-    my ($storecfg,$vmid, $deviceid,$device) = @_;
+    my ($storecfg, $vmid, $deviceid, $device) = @_;
 
     my $cfspath = cfs_config_path($vmid);
     my $conf = PVE::Cluster::cfs_read_file($cfspath) || {};
@@ -2281,9 +2282,9 @@ sub vm_deviceadd {
 
     if($deviceid =~ m/^(virtio)(\d+)$/) {
 
-        my $drive = print_drive_full($storecfg,$vmid, $device);
+        my $drive = print_drive_full($storecfg, $vmid, $device);
         vm_monitor_command($vmid, "drive_add auto $drive", 1);
-        my $devicefull = print_drivedevice_full($storecfg,$vmid, $device);
+        my $devicefull = print_drivedevice_full($storecfg, $vmid, $device);
         vm_monitor_command($vmid, "device_add $devicefull", 1);
     }
 
