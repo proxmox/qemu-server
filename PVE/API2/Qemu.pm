@@ -804,6 +804,12 @@ __PACKAGE__->register_method({
 	    node => get_standard_option('pve-node'),
 	    vmid => get_standard_option('pve-vmid'),
 	    skiplock => get_standard_option('skiplock'),
+	    timeout => {
+		description => "Wait maximal timeout seconds.",
+		type => 'integer',
+		minimum => 0,
+		optional => 1,
+	    }
 	},
     },
     returns => { 
@@ -830,6 +836,21 @@ __PACKAGE__->register_method({
 	    syslog('info', "stop VM $vmid: $upid\n");
 
 	    PVE::QemuServer::vm_stop($vmid, $skiplock);
+
+	    my $pid = PVE::QemuServer::check_running ($vmid);
+
+	    if ($pid && $param->{timeout}) {
+		print "waiting until VM $vmid stopps (PID $pid)\n";
+
+		my $count = 0;
+		while (($count < $param->{timeout}) && 
+		       PVE::QemuServer::check_running($vmid)) {
+		    $count++;
+		    sleep 1;
+		}
+
+		die "wait failed - got timeout\n" if PVE::QemuServer::check_running($vmid);
+	    }
 
 	    return;
 	};
@@ -896,6 +917,12 @@ __PACKAGE__->register_method({
 	    node => get_standard_option('pve-node'),
 	    vmid => get_standard_option('pve-vmid'),
 	    skiplock => get_standard_option('skiplock'),
+	    timeout => {
+		description => "Wait maximal timeout seconds.",
+		type => 'integer',
+		minimum => 0,
+		optional => 1,
+	    }
 	},
     },
     returns => { 
@@ -922,6 +949,21 @@ __PACKAGE__->register_method({
 	    syslog('info', "shutdown VM $vmid: $upid\n");
 
 	    PVE::QemuServer::vm_shutdown($vmid, $skiplock);
+
+	    my $pid = PVE::QemuServer::check_running ($vmid);
+
+	    if ($pid && $param->{timeout}) {
+		print "waiting until VM $vmid stopps (PID $pid)\n";
+
+		my $count = 0;
+		while (($count < $param->{timeout}) && 
+		       PVE::QemuServer::check_running($vmid)) {
+		    $count++;
+		    sleep 1;
+		}
+
+		die "wait failed - got timeout\n" if PVE::QemuServer::check_running($vmid);
+	    }
 
 	    return;
 	};
