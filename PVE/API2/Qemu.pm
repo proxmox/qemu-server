@@ -89,8 +89,6 @@ __PACKAGE__->register_method({
 
 	my $node = extract_param($param, 'node');
 
-	# fixme: fork worker?
-
 	my $vmid = extract_param($param, 'vmid');
 
 	my $filename = PVE::QemuServer::config_file($vmid);
