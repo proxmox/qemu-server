@@ -1,34 +1,14 @@
 package PVE::VZDump::QemuServer;
 
-#    Copyright (C) 2007-2009 Proxmox Server Solutions GmbH
-#
-#    Copyright: vzdump is under GNU GPL, the GNU General Public License.
-#
-#    This program is free software; you can redistribute it and/or modify
-#    it under the terms of the GNU General Public License as published by
-#    the Free Software Foundation; version 2 dated June, 1991.
-#
-#    This program is distributed in the hope that it will be useful,
-#    but WITHOUT ANY WARRANTY; without even the implied warranty of
-#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#    GNU General Public License for more details.
-#
-#    You should have received a copy of the GNU General Public License
-#    along with this program; if not, write to the
-#    Free Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston,
-#    MA 02110-1301, USA.
-#
-#    Author: Dietmar Maurer <dietmar@proxmox.com>
-
 use strict;
 use warnings;
 use File::Path;
 use File::Basename;
+use PVE::INotify;
 use PVE::VZDump;
 use PVE::Cluster;
 use PVE::Storage;
 use PVE::QemuServer;
-use Sys::Hostname;
 use IO::File;
 
 use base qw (PVE::VZDump::Plugin);
@@ -36,7 +16,7 @@ use base qw (PVE::VZDump::Plugin);
 sub new {
     my ($class, $vzdump) = @_;
     
-    PVE::VZDump::check_bin ('qm');
+    PVE::VZDump::check_bin('qm');
 
     my $self = bless { vzdump => $vzdump };
 
@@ -62,13 +42,13 @@ sub prepare {
 
     $task->{disks} = [];
 
-    my $conf = $self->{vmlist}->{$vmid} = PVE::QemuServer::load_config ($vmid);
+    my $conf = $self->{vmlist}->{$vmid} = PVE::QemuServer::load_config($vmid);
 
     $task->{hostname} = $conf->{name};
 
     my $lvmmap = PVE::VZDump::get_lvm_mapping();
 
-    my $hostname = hostname(); 
+    my $hostname = PVE::INotify::nodename(); 
 
     my $ind = {};
     my $mountinfo = {};
@@ -188,12 +168,9 @@ sub prepare {
 sub vm_status {
     my ($self, $vmid) = @_;
 
-    my $status_text = $self->cmd ("qm status $vmid");
-    chomp $status_text;
-
-    my $running = $status_text =~ m/running/ ? 1 : 0;
-   
-    return wantarray ? ($running, $status_text) : $running; 
+    my $running = PVE::QemuServer::check_running($vmid) ? 1 : 0;
+  
+    return wantarray ? ($running, $running ? 'running' : 'stopped') : $running; 
 }
 
 sub lock_vm {
@@ -205,7 +182,7 @@ sub lock_vm {
 sub unlock_vm {
     my ($self, $vmid) = @_;
 
-    $self->cmd ("qm --skiplock set $vmid --lock ''");
+    $self->cmd ("qm unlock $vmid");
 }
 
 sub stop_vm {
@@ -215,25 +192,25 @@ sub stop_vm {
 
     my $wait = $opts->{stopwait} * 60;
     # send shutdown and wait
-    $self->cmd ("qm --skiplock shutdown $vmid && qm wait $vmid $wait");
+    $self->cmd ("qm shutdown $vmid --skiplock && qm wait $vmid $wait");
 }
 
 sub start_vm {
     my ($self, $task, $vmid) = @_;
 
-    $self->cmd ("qm --skiplock start $vmid");
+    $self->cmd ("qm start $vmid --skiplock");
 }
 
 sub suspend_vm {
     my ($self, $task, $vmid) = @_;
 
-    $self->cmd ("qm --skiplock suspend $vmid");
+    $self->cmd ("qm suspend $vmid --skiplock");
 }
 
 sub resume_vm {
     my ($self, $task, $vmid) = @_;
 
-    $self->cmd ("qm --skiplock resume $vmid");
+    $self->cmd ("qm resume $vmid --skiplock");
 }
 
 sub snapshot_alloc {
@@ -454,7 +431,6 @@ sub cleanup {
 	   }
        }
    }
-
 }
 
 1;
