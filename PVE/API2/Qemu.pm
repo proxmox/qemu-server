@@ -458,7 +458,7 @@ __PACKAGE__->register_method({
 		} 
 		next if !defined($conf->{$opt});
 		if (PVE::QemuServer::valid_drivename($opt)) {
-		    PVE::QemuServer::vm_devicedel($vmid,$opt);
+		    PVE::QemuServer::vm_devicedel($vmid, $conf, $opt);
 		    my $drive = PVE::QemuServer::parse_drive($opt, $conf->{$opt});
 		    if (PVE::QemuServer::drive_is_cdrom($drive)) {
 			$cdchange->{$opt} = undef;
@@ -484,7 +484,7 @@ __PACKAGE__->register_method({
 		$unset->{$opt} = 1;
 	    }
 
-	    PVE::QemuServer::create_disks($storecfg, $vmid, $param);
+	    PVE::QemuServer::create_disks($storecfg, $vmid, $param, $conf);
 
 	    PVE::QemuServer::change_config_nolock($vmid, $param, $unset, 1);
 

@@ -1265,7 +1265,7 @@ sub touch_config {
 }
 
 sub create_disks {
-    my ($storecfg, $vmid, $settings) = @_;
+    my ($storecfg, $vmid, $settings, $conf) = @_;
 
     my $vollist = [];
 
@@ -1302,7 +1302,7 @@ sub create_disks {
 		    die "image '$path' does not exists\n";
 		}
 	    }
-	    PVE::QemuServer::vm_deviceadd($storecfg, $vmid, $ds, $disk);
+	    PVE::QemuServer::vm_deviceadd($storecfg, $conf, $vmid, $ds, $disk) if defined($conf);
 	});
     };
 
@@ -2273,46 +2273,67 @@ sub vm_devices_list {
 }
 
 sub vm_deviceadd {
-    my ($storecfg, $vmid, $deviceid, $device) = @_;
-
-    my $cfspath = cfs_config_path($vmid);
-    my $conf = PVE::Cluster::cfs_read_file($cfspath) || {};
-
-    return if !check_running($vmid) || !$conf->{hotplug}; 
-
+    my ($storecfg, $conf, $vmid, $deviceid, $device) = @_;
+    return if !check_running($vmid) || !$conf->{hotplug} || $conf->{$deviceid};
+    
     if($deviceid =~ m/^(virtio)(\d+)$/) {
 
         my $drive = print_drive_full($storecfg, $vmid, $device);
-        vm_monitor_command($vmid, "drive_add auto $drive", 1);
+        my $ret = vm_monitor_command($vmid, "drive_add auto $drive", 1);
+        # If the command succeeds qemu prints: "OK"
+        if ($ret !~ m/OK/s) {
+           die "adding drive failed: $ret";
+        }
+       
         my $devicefull = print_drivedevice_full($storecfg, $vmid, $device);
-        vm_monitor_command($vmid, "device_add $devicefull", 1);
+        $ret = vm_monitor_command($vmid, "device_add $devicefull", 1);
+        $ret =~ s/^\s+//;
+        # Otherwise, if the command succeeds, no output is sent. So any non-empty string shows an error 
+        die 'error on hotplug device : $ret' if $ret ne "";
     }
 
-    #verification
-    sleep 2; #give a litlle time to os to add the device
-    my $devices_list = vm_devices_list($vmid);
-    die "error on hotplug device" if !defined($devices_list->{$deviceid});
-
+    for (my $i = 0; $i <= 5; $i++) {
+        my $devices_list = vm_devices_list($vmid);
+        return if defined($devices_list->{$deviceid});   
+        sleep 1;
+    }
+	
+    die "error on hotplug device $deviceid";
 }
 
 sub vm_devicedel {
-    my ($vmid,$deviceid) = @_;
-
-    my $cfspath = cfs_config_path($vmid);
-    my $conf = PVE::Cluster::cfs_read_file($cfspath) || {};
+    my ($vmid, $conf, $deviceid) = @_;
 
     return if !check_running ($vmid) || !$conf->{hotplug};
 
+    die "can't unplug bootdisk" if $conf->{bootdisk} eq $deviceid;
+
     if($deviceid =~ m/^(virtio)(\d+)$/){
 
-        vm_monitor_command($vmid, "drive_del drive-$deviceid", 1);
-        vm_monitor_command($vmid, "device_del $deviceid", 1);
+        my $ret = vm_monitor_command($vmid, "drive_del drive-$deviceid", 1);
+        $ret =~ s/^\s+//;
+        if ($ret =~ m/Device \'.*?\' not found/s) {
+            # NB: device not found errors mean the drive was auto-deleted and we ignore the error 
+        }
+        elsif ($ret ne "") {
+            die "deleting drive $deviceid failed : $ret";
+        }
+
+        $ret = vm_monitor_command($vmid, "device_del $deviceid", 1);
+        $ret =~ s/^\s+//;
+        die 'detaching device $deviceid failed : $ret' if $ret ne "";
 
     }
 
-    sleep 2;
-    my $devices_list = vm_devices_list($vmid);
-    die "error on hot-unplugging device " if defined($devices_list->{$deviceid});
+    #need to verify the device is correctly remove as device_del is async and empty return is not reliable
+    for (my $i = 0; $i <= 5; $i++) {
+        my $devices_list = vm_devices_list($vmid);
+        return if !defined($devices_list->{$deviceid});
+        sleep 1;
+    }
+    die "error on hot-plugging device $deviceid";
+
+
 }
 
 sub vm_start {
