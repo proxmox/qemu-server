@@ -1265,7 +1265,7 @@ sub touch_config {
 }
 
 sub create_disks {
-    my ($storecfg, $vmid, $settings, $conf) = @_;
+    my ($storecfg, $vmid, $settings, $conf, $default_storage) = @_;
 
     my $vollist = [];
 
@@ -1278,7 +1278,7 @@ sub create_disks {
 	    my $file = $disk->{file};
 
 	    if ($file =~ m/^(([^:\s]+):)?(\d+(\.\d+)?)$/) {
-		my $storeid = $2 || 'local';
+		my $storeid = $2 || $default_storage;
 		my $size = $3;
 		my $defformat = PVE::Storage::storage_default_format($storecfg, $storeid);
 		my $fmt = $disk->{format} || $defformat;
@@ -2917,5 +2917,162 @@ sub vm_balloonset {
 
     vm_monitor_command($vmid, "balloon $value", 1);
 }
+
+# vzdump restore implementaion
+
+sub archive_read_firstfile {
+    my $archive = shift;
+    
+    die "ERROR: file '$archive' does not exist\n" if ! -f $archive;
+
+    # try to detect archive type first
+    my $pid = open (TMP, "tar tf '$archive'|") ||
+	die "unable to open file '$archive'\n";
+    my $firstfile = <TMP>;
+    kill 15, $pid;
+    close TMP;
+
+    die "ERROR: archive contaions no data\n" if !$firstfile;
+    chomp $firstfile;
+
+    return $firstfile;
+}
+
+sub restore_cleanup {
+    my $statfile = shift;
+
+    print STDERR "starting cleanup\n";
+
+    if (my $fd = IO::File->new($statfile, "r")) {
+	while (defined(my $line = <$fd>)) {
+	    if ($line =~ m/vzdump:([^\s:]*):(\S+)$/) {
+		my $volid = $2;
+		eval {
+		    if ($volid =~ m|^/|) {
+			unlink $volid || die 'unlink failed\n';
+		    } else {
+			my $cfg = cfs_read_file('storage.cfg');
+			PVE::Storage::vdisk_free($cfg, $volid);
+		    }
+		    print STDERR "temporary volume '$volid' sucessfuly removed\n";  
+		};
+		print STDERR "unable to cleanup '$volid' - $@" if $@;
+	    } else {
+		print STDERR "unable to parse line in statfile - $line";
+	    }   
+	}
+	$fd->close();
+    }
+}
+
+sub restore_archive {
+    my ($archive, $vmid, $opts) = @_;
+
+    my $firstfile = archive_read_firstfile($archive);
+    die "ERROR: file '$archive' dos not lock like a QemuServer vzdump backup\n"
+	if $firstfile ne 'qemu-server.conf';
+
+    my $tocmd = "/usr/lib/qemu-server/qmextract";
+
+    $tocmd .= " --storage $opts->{storage}" if $opts->{storage};
+    $tocmd .= ' --prealloc' if $opts->{prealloc};
+    $tocmd .= ' --info' if $opts->{info};
+
+    my $cmd = ['tar', 'xf', $archive, '--to-command', $tocmd];
+
+    my $tmpdir = "/var/tmp/vzdumptmp$$";
+    mkpath $tmpdir;
+
+    local $ENV{VZDUMP_TMPDIR} = $tmpdir;
+    local $ENV{VZDUMP_VMID} = $vmid;
+
+    my $conffile = PVE::QemuServer::config_file($vmid);
+    my $tmpfn = "$conffile.$$.tmp";
+
+    # disable interrupts (always do cleanups)
+    local $SIG{INT} = $SIG{TERM} = $SIG{QUIT} = $SIG{HUP} = sub {
+	print STDERR "got interrupt - ignored\n";
+    };
+
+    eval { 
+	# enable interrupts
+	local $SIG{INT} = $SIG{TERM} = $SIG{QUIT} = $SIG{HUP} = $SIG{PIPE} = sub {
+	    die "interrupted by signal\n";
+	};
+
+	PVE::Tools::run_command($cmd); 
+
+	return if $opts->{info};
+
+	# read new mapping
+	my $map = {};
+	my $statfile = "$tmpdir/qmrestore.stat";
+	if (my $fd = IO::File->new($statfile, "r")) {
+	    while (defined (my $line = <$fd>)) {
+		if ($line =~ m/vzdump:([^\s:]*):(\S+)$/) {
+		    $map->{$1} = $2 if $1;
+		} else {
+		    print STDERR "unable to parse line in statfile - $line\n";
+		}
+	    }
+	    $fd->close();
+	}
+
+	my $confsrc = "$tmpdir/qemu-server.conf";
+
+	my $srcfd = new IO::File($confsrc, "r") ||
+	    die "unable to open file '$confsrc'\n";
+
+	my $outfd = new IO::File ($tmpfn, "w") ||
+	    die "unable to write config for VM $vmid\n";
+
+	while (defined (my $line = <$srcfd>)) {
+	    next if $line =~ m/^\#vzdump\#/;
+	    next if $line =~ m/^lock:/;
+	    next if $line =~ m/^unused\d+:/;
+
+	    if (($line =~ m/^((vlan)\d+):(.*)$/) && ($opts->{unique})) {
+		my ($id,$ethcfg) = ($1,$3);
+		$ethcfg =~ s/^\s+//;
+		my ($model, $mac) = split(/\=/,$ethcfg);
+		my $printvlan = PVE::QemuServer::print_vlan(PVE::QemuServer::parse_vlan($model));
+		print $outfd "$id: $printvlan\n";
+	    } elsif ($line =~ m/^((ide|scsi|virtio)\d+):(.*)$/) {
+		my $virtdev = $1;
+		my $value = $2;
+		if ($line =~ m/backup=no/) {
+		    print $outfd "#$line";
+		} elsif ($virtdev && $map->{$virtdev}) {
+		    my $di = PVE::QemuServer::parse_drive($virtdev, $value);
+		    $di->{file} = $map->{$virtdev};
+		    $value = PVE::QemuServer::print_drive($vmid, $di);
+		    print $outfd "$virtdev: $value\n";
+		} else {
+		    print $outfd $line;
+		}
+	    } else {
+		print $outfd $line;
+	    }
+	}
+
+	$srcfd->close();
+	$outfd->close();
+    };
+    my $err = $@;
+
+    if ($err) {	
+
+	unlink $tmpfn;
+
+	restore_cleanup("$tmpdir/qmrestore.stat") if !$opts->{info};
+	
+	die $err;
+    } 
+
+    rmtree $tmpdir;
+
+    rename $tmpfn, $conffile ||
+	die "unable to commit configuration file '$conffile'\n";
+};
 
 1;

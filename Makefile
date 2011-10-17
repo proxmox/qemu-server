@@ -54,10 +54,13 @@ sparsecp: sparsecp.c utils.c
 qm.1.pod: qm PVE/QemuServer.pm
 	perl -I. ./qm printmanpod >$@
 
+qmrestore.1.pod: qmrestore
+	perl -I. ./qmrestore printmanpod >$@
+
 vm.conf.5.pod: gen-vmconf-pod.pl PVE/QemuServer.pm 
 	perl -I. ./gen-vmconf-pod.pl >$@
 
-PKGSOURCES=qm qm.1.gz qm.1.pod qmrestore qmrestore.1.gz sparsecp vmtar qemu.init.d qmupdate control vm.conf.5.pod vm.conf.5.gz
+PKGSOURCES=qm qm.1.gz qm.1.pod qmrestore qmrestore.1.pod qmrestore.1.gz qmextract sparsecp vmtar qemu.init.d qmupdate control vm.conf.5.pod vm.conf.5.gz
 
 .PHONY: install
 install: ${PKGSOURCES}
@@ -78,9 +81,11 @@ install: ${PKGSOURCES}
 	install -m 0755 pve-bridge ${DESTDIR}${VARLIBDIR}/pve-bridge
 	install -s -m 0755 vmtar ${DESTDIR}${LIBDIR}
 	install -s -m 0755 sparsecp ${DESTDIR}${LIBDIR}
+	install -m 0755 qmextract ${DESTDIR}${LIBDIR}
 	install -m 0644 qm.1.gz ${DESTDIR}/usr/share/man/man1/
 	install -m 0644 qm.1.pod ${DESTDIR}/${PODDIR}
 	install -m 0644 qmrestore.1.gz ${DESTDIR}/usr/share/man/man1/
+	install -m 0644 qmrestore.1.pod ${DESTDIR}/${PODDIR}
 	install -m 0644 vm.conf.5.pod ${DESTDIR}/${PODDIR}
 	install -m 0644 vm.conf.5.gz ${DESTDIR}/usr/share/man/man5/
 
@@ -114,7 +119,7 @@ upload:
 
 .PHONY: clean
 clean: 	
-	rm -rf build *.deb qm.1.gz control vzsyscalls.ph _h2ph_pre.ph ${PACKAGE}-*.tar.gz dist *.1,gz *.pod vmtar sparsecp
+	rm -rf build *.deb control vzsyscalls.ph _h2ph_pre.ph ${PACKAGE}-*.tar.gz dist *.1.gz *.pod vmtar sparsecp
 	find . -name '*~' -exec rm {} ';'
 
 

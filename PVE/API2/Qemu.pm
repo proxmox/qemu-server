@@ -66,7 +66,7 @@ __PACKAGE__->register_method({
     name => 'create_vm', 
     path => '', 
     method => 'POST',
-    description => "Create new virtual machine.",
+    description => "Create or restore a virtual machine.",
     protected => 1,
     proxyto => 'node',
     parameters => {
@@ -75,6 +75,21 @@ __PACKAGE__->register_method({
 	    {
 		node => get_standard_option('pve-node'),
 		vmid => get_standard_option('pve-vmid'),
+		archive => {
+		    description => "The backup file.",
+		    type => 'string',
+		    optional => 1,
+		    maxLength => 255,
+		},
+		storage => get_standard_option('pve-storage-id', {
+		    description => "Default storage.",
+		    optional => 1,
+		}),
+		force => {
+		    optional => 1, 
+		    type => 'boolean',
+		    description => "Allow to overwrite existing VM.",
+		},
 	    }),
     },
     returns => { 
@@ -91,26 +106,50 @@ __PACKAGE__->register_method({
 
 	my $vmid = extract_param($param, 'vmid');
 
+	my $archive = extract_param($param, 'archive');
+
+	my $storage = extract_param($param, 'storage');
+
 	my $filename = PVE::QemuServer::config_file($vmid);
-	# first test (befor locking)
-	die "unable to create vm $vmid: config file already exists\n" 
-	    if -f $filename;
 	
 	my $storecfg = PVE::Storage::config(); 
 
-	&$resolve_cdrom_alias($param);
+	PVE::Cluster::check_cfs_quorum();
 
-	foreach my $opt (keys %$param) {
-	    if (PVE::QemuServer::valid_drivename($opt)) {
-		my $drive = PVE::QemuServer::parse_drive($opt, $param->{$opt});
-		raise_param_exc({ $opt => "unable to parse drive options" }) if !$drive;
+	if (!$archive) { 
+	    &$resolve_cdrom_alias($param);
 
-		PVE::QemuServer::cleanup_drive_path($opt, $storecfg, $drive);
-		$param->{$opt} = PVE::QemuServer::print_drive($vmid, $drive);
+	    foreach my $opt (keys %$param) {
+		if (PVE::QemuServer::valid_drivename($opt)) {
+		    my $drive = PVE::QemuServer::parse_drive($opt, $param->{$opt});
+		    raise_param_exc({ $opt => "unable to parse drive options" }) if !$drive;
+		    
+		    PVE::QemuServer::cleanup_drive_path($opt, $storecfg, $drive);
+		    $param->{$opt} = PVE::QemuServer::print_drive($vmid, $drive);
+		}
 	    }
+
+	    PVE::QemuServer::add_random_macs($param);
 	}
 
-	PVE::QemuServer::add_random_macs($param);
+	# fixme: archive eq '-' (read from stdin)
+
+	my $restorefn = sub {
+
+	    if (-f $filename) {
+		die "unable to restore vm $vmid: config file already exists\n" 
+		    if !$param->{force};
+
+		die "unable to restore vm $vmid: vm is running\n" 
+		    if PVE::QemuServer::check_running($vmid);
+	    }
+
+	    my $realcmd = sub {
+		PVE::QemuServer::restore_archive($archive, $vmid, { storage => $storage});
+	    };
+
+	    return $rpcenv->fork_worker('qmrestore', $vmid, $user, $realcmd);
+	};
 
 	my $createfn = sub {
 
@@ -123,7 +162,7 @@ __PACKAGE__->register_method({
 		my $vollist = [];
 
 		eval {
-		    $vollist = PVE::QemuServer::create_disks($storecfg, $vmid, $param);
+		    $vollist = PVE::QemuServer::create_disks($storecfg, $vmid, $param, $storage);
 
 		    # try to be smart about bootdisk
 		    my @disks = PVE::QemuServer::disknames();
@@ -155,7 +194,7 @@ __PACKAGE__->register_method({
 	    return $rpcenv->fork_worker('qmcreate', $vmid, $user, $realcmd);
 	};
 
-	return PVE::QemuServer::lock_config($vmid, $createfn);
+	return PVE::QemuServer::lock_config($vmid, $archive ? $restorefn : $createfn);
     }});
 
 __PACKAGE__->register_method({
