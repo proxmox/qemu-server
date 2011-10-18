@@ -89,6 +89,13 @@ __PACKAGE__->register_method({
 		    optional => 1, 
 		    type => 'boolean',
 		    description => "Allow to overwrite existing VM.",
+		    requires => 'archive',
+		},
+		unique => {
+		    optional => 1, 
+		    type => 'boolean',
+		    description => "Assign a unique random ethernet address.",
+		    requires => 'archive',
 		},
 	    }),
     },
@@ -110,6 +117,10 @@ __PACKAGE__->register_method({
 
 	my $storage = extract_param($param, 'storage');
 
+	my $force = extract_param($param, 'force');
+
+	my $unique = extract_param($param, 'unique');
+
 	my $filename = PVE::QemuServer::config_file($vmid);
 	
 	my $storecfg = PVE::Storage::config(); 
@@ -130,6 +141,9 @@ __PACKAGE__->register_method({
 	    }
 
 	    PVE::QemuServer::add_random_macs($param);
+	} else {
+	    my $keystr = join(' ', keys %$param);
+	    raise_param_exc({ archive => "option conflicts with other options ($keystr)"}) if $keystr; 
 	}
 
 	# fixme: archive eq '-' (read from stdin)
@@ -138,7 +152,7 @@ __PACKAGE__->register_method({
 
 	    if (-f $filename) {
 		die "unable to restore vm $vmid: config file already exists\n" 
-		    if !$param->{force};
+		    if !$force;
 
 		die "unable to restore vm $vmid: vm is running\n" 
 		    if PVE::QemuServer::check_running($vmid);
@@ -148,7 +162,9 @@ __PACKAGE__->register_method({
 	    }
 
 	    my $realcmd = sub {
-		PVE::QemuServer::restore_archive($archive, $vmid, { storage => $storage});
+		PVE::QemuServer::restore_archive($archive, $vmid, { 
+		    storage => $storage,
+		    unique => $unique });
 	    };
 
 	    return $rpcenv->fork_worker('qmrestore', $vmid, $user, $realcmd);

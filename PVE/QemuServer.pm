@@ -3030,18 +3030,35 @@ sub restore_archive {
 	my $outfd = new IO::File ($tmpfn, "w") ||
 	    die "unable to write config for VM $vmid\n";
 
+	my $netcount = 0;
+
 	while (defined (my $line = <$srcfd>)) {
 	    next if $line =~ m/^\#vzdump\#/;
 	    next if $line =~ m/^lock:/;
 	    next if $line =~ m/^unused\d+:/;
 
-	    if (($line =~ m/^((vlan)\d+):(.*)$/) && ($opts->{unique})) {
-		my ($id,$ethcfg) = ($1,$3);
-		$ethcfg =~ s/^\s+//;
-		my ($model, $mac) = split(/\=/,$ethcfg);
-		my $printvlan = PVE::QemuServer::print_vlan(PVE::QemuServer::parse_vlan($model));
-		print $outfd "$id: $printvlan\n";
-	    } elsif ($line =~ m/^((ide|scsi|virtio)\d+):(.*)$/) {
+	    if (($line =~ m/^(vlan(\d+)):\s*(\S+)\s*$/)) {
+		# try to convert old 1.X settings
+		my ($id, $ind, $ethcfg) = ($1, $2, $3);
+		foreach my $devconfig (PVE::Tools::split_list($ethcfg)) {
+		    my ($model, $macaddr) = split(/\=/, $devconfig);
+		    $macaddr = PVE::Tools::random_ether_addr() if !$macaddr || $opts->{unique};
+		    my $net = {
+			model => $model,
+			bridge => "vmbr$ind",
+			macaddr => $macaddr,
+		    };
+		    my $netstr = print_net($net);
+		    print $outfd "net${netcount}: $netstr\n";
+		    $netcount++;
+		}
+	    } elsif (($line =~ m/^(net\d+):\s*(\S+)\s*$/) && ($opts->{unique})) {
+		my ($id, $netstr) = ($1, $2);
+		my $net = parse_net($netstr);
+		$net->{macaddr} = PVE::Tools::random_ether_addr() if $net->{macaddr};
+		$netstr = print_net($net);
+		print $outfd "$id: $netstr\n";		
+	    } elsif ($line =~ m/^((ide|scsi|virtio)\d+):\s*(\S+)\s*$/) {
 		my $virtdev = $1;
 		my $value = $2;
 		if ($line =~ m/backup=no/) {

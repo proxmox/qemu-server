@@ -50,6 +50,11 @@ __PACKAGE__->register_method({
 		type => 'boolean',
 		description => "Allow to overwrite existing VM.",
 	    },
+	    unique => {
+		optional => 1, 
+		type => 'boolean',
+		description => "Assign a unique random ethernet address.",
+	    },
 	},
     },
     returns => { 
