@@ -142,6 +142,9 @@ __PACKAGE__->register_method({
 
 		die "unable to restore vm $vmid: vm is running\n" 
 		    if PVE::QemuServer::check_running($vmid);
+
+		# destroy existing data - keep empty config
+		PVE::QemuServer::destroy_vm($storecfg, $vmid, 1);
 	    }
 
 	    my $realcmd = sub {

@@ -1339,7 +1339,7 @@ sub unlink_image {
 }
 
 sub destroy_vm {
-    my ($storecfg, $vmid) = @_;
+    my ($storecfg, $vmid, $keep_empty_config) = @_;
 
     my $conffile = config_file($vmid);
 
@@ -1362,7 +1362,11 @@ sub destroy_vm {
 	PVE::Storage::vdisk_free($storecfg, $volid);
     });
 
-    unlink $conffile;
+    if ($keep_empty_config) {
+	PVE::Tools::file_set_contents($conffile, "mem: 128\n");
+    } else {
+	unlink $conffile;
+    }
 
     # also remove unused disk
     eval {
