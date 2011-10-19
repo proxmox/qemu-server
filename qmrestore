@@ -37,7 +37,7 @@ __PACKAGE__->register_method({
 	properties => {
 	    vmid => get_standard_option('pve-vmid'),
 	    archive => {
-		description => "The backup file.",
+		description => "The backup file. You can pass '-' to read from standard input.",
 		type => 'string', 
 		maxLength => 255,
 	    },
