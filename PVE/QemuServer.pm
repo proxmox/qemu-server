@@ -1363,7 +1363,7 @@ sub destroy_vm {
     });
 
     if ($keep_empty_config) {
-	PVE::Tools::file_set_contents($conffile, "mem: 128\n");
+	PVE::Tools::file_set_contents($conffile, "memory: 128\n");
     } else {
 	unlink $conffile;
     }
@@ -2969,12 +2969,36 @@ sub restore_cleanup {
     }
 }
 
+sub shellquote {
+    my $str = shift;
+
+    return "''" if !defined ($str) || ($str eq '');
+    
+    die "unable to quote string containing null (\\000) bytes"
+	if $str =~ m/\x00/;
+
+    # from String::ShellQuote
+    if ($str =~ m|[^\w!%+,\-./:@^]|) {
+
+	# ' -> '\''
+	$str =~ s/'/'\\''/g;
+
+	$str = "'$str'";
+	$str =~ s/^''//;
+	$str =~ s/''$//;
+    }
+
+    return $str;
+}
+
 sub restore_archive {
     my ($archive, $vmid, $opts) = @_;
 
-    my $firstfile = archive_read_firstfile($archive);
-    die "ERROR: file '$archive' dos not lock like a QemuServer vzdump backup\n"
-	if $firstfile ne 'qemu-server.conf';
+    if ($archive ne '-') {
+	my $firstfile = archive_read_firstfile($archive);
+	die "ERROR: file '$archive' dos not lock like a QemuServer vzdump backup\n"
+	    if $firstfile ne 'qemu-server.conf';
+    }
 
     my $tocmd = "/usr/lib/qemu-server/qmextract";
 
@@ -2982,7 +3006,10 @@ sub restore_archive {
     $tocmd .= ' --prealloc' if $opts->{prealloc};
     $tocmd .= ' --info' if $opts->{info};
 
-    my $cmd = ['tar', 'xf', $archive, '--to-command', $tocmd];
+    # tar option "xf" does not autodetect compression when read fron STDIN,
+    # so we pipe to zcat
+    my $cmd = "zcat -f|tar xf " . shellquote($archive) . " --to-command" .
+	shellquote($tocmd);
 
     my $tmpdir = "/var/tmp/vzdumptmp$$";
     mkpath $tmpdir;
@@ -3004,7 +3031,13 @@ sub restore_archive {
 	    die "interrupted by signal\n";
 	};
 
-	PVE::Tools::run_command($cmd); 
+	if ($archive eq '-') {
+	    print "extracting archive from STDIN\n";
+	    run_command($cmd, input => "<&STDIN");
+	} else {
+	    print "extracting archive '$archive'\n";
+	    run_command($cmd);
+	}
 
 	return if $opts->{info};
 

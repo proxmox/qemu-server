@@ -146,8 +146,6 @@ __PACKAGE__->register_method({
 	    raise_param_exc({ archive => "option conflicts with other options ($keystr)"}) if $keystr; 
 	}
 
-	# fixme: archive eq '-' (read from stdin)
-
 	my $restorefn = sub {
 
 	    if (-f $filename) {

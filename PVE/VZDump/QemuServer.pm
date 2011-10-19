@@ -393,8 +393,6 @@ sub archive {
 
     my $fh;
 
-    my $bwl = $opts->{bwlimit}*1024; # bandwidth limit for cstream
-
     my @filea = ($conffile, 'qemu-server.conf'); # always first file in tar
     foreach my $di (@{$task->{disks}}) {
 	if ($di->{type} eq 'block' || $di->{type} eq 'file') {
@@ -404,13 +402,18 @@ sub archive {
 	}
     }
 
-    my $out = ">$filename";
-    $out = "|cstream -t $bwl $out" if $opts->{bwlimit};
-    $out = "|gzip $out" if $opts->{compress};
-
     my $files = join (' ', map { "'$_'" } @filea);
     
-    $self->cmd("/usr/lib/qemu-server/vmtar $files $out");
+    my $cmd = "/usr/lib/qemu-server/vmtar $files";
+    my $bwl = $opts->{bwlimit}*1024; # bandwidth limit for cstream
+    $cmd .= "|cstream -t $bwl" if $opts->{bwlimit};
+    $cmd .= "|gzip" if $opts->{compress};
+
+    if ($opts->{stdout}) {
+	$self->cmd ($cmd, output => ">&=" . fileno($opts->{stdout}));
+    } else {
+	$self->cmd ("$cmd >$filename");
+    }
 }
 
 sub cleanup {
