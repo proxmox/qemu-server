@@ -2140,7 +2140,7 @@ sub config_to_command {
            my $controller = int($drive->{index} / $maxdev);
 	   $pciaddr = print_pci_addr("scsi$controller");
            push @$cmd, '-device', "lsi,id=scsi$controller$pciaddr" if !$scsicontroller->{$controller};
-           my $scsicontroller->{$controller}=1;
+           $scsicontroller->{$controller}=1;
         }
 	my $tmp = print_drive_full($storecfg, $vmid, $drive);
 	$tmp .= ",boot=on" if $conf->{bootdisk} && ($conf->{bootdisk} eq $ds);
