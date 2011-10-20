@@ -3002,14 +3002,14 @@ sub restore_archive {
 
     my $tocmd = "/usr/lib/qemu-server/qmextract";
 
-    $tocmd .= " --storage $opts->{storage}" if $opts->{storage};
+    $tocmd .= " --storage " . shellquote($opts->{storage}) if $opts->{storage};
     $tocmd .= ' --prealloc' if $opts->{prealloc};
     $tocmd .= ' --info' if $opts->{info};
 
     # tar option "xf" does not autodetect compression when read fron STDIN,
     # so we pipe to zcat
-    my $cmd = "zcat -f|tar xf " . shellquote($archive) . " --to-command" .
-	shellquote($tocmd);
+    my $cmd = "zcat -f|tar xf " . shellquote($archive) . " " .
+	shellquote("--to-command=$tocmd");
 
     my $tmpdir = "/var/tmp/vzdumptmp$$";
     mkpath $tmpdir;
