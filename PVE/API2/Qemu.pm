@@ -143,7 +143,10 @@ __PACKAGE__->register_method({
 	    PVE::QemuServer::add_random_macs($param);
 	} else {
 	    my $keystr = join(' ', keys %$param);
-	    raise_param_exc({ archive => "option conflicts with other options ($keystr)"}) if $keystr; 
+	    raise_param_exc({ archive => "option conflicts with other options ($keystr)"}) if $keystr;
+
+	    die "pipe requires cli environment\n" 
+		if $archive eq '-' && $rpcenv->{type} ne 'cli'; 
 	}
 
 	my $restorefn = sub {
