@@ -2,6 +2,7 @@ package PVE::API2::Qemu;
 
 use strict;
 use warnings;
+use Cwd 'abs_path';
 
 use PVE::Cluster;
 use PVE::SafeSyslog;
@@ -145,8 +146,20 @@ __PACKAGE__->register_method({
 	    my $keystr = join(' ', keys %$param);
 	    raise_param_exc({ archive => "option conflicts with other options ($keystr)"}) if $keystr;
 
-	    die "pipe requires cli environment\n" 
-		if $archive eq '-' && $rpcenv->{type} ne 'cli'; 
+	    if ($archive eq '-') {
+		die "pipe requires cli environment\n" 
+		    && $rpcenv->{type} ne 'cli';
+	    } else {
+		if (PVE::Storage::parse_volume_id($archive, 1)) {
+		    $archive = PVE::Storage::path($storecfg, $archive);
+		} else {
+		    raise_param_exc({ archive => "Only root can pass arbitrary paths." }) 
+			if $user ne 'root@pam';
+
+		    $archive = abs_path($archive);
+		}
+		die "can't find file '$archive'\n" if ! -f $archive;
+	    } 
 	}
 
 	my $restorefn = sub {
