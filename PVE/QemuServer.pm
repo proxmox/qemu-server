@@ -2969,28 +2969,6 @@ sub restore_cleanup {
     }
 }
 
-sub shellquote {
-    my $str = shift;
-
-    return "''" if !defined ($str) || ($str eq '');
-    
-    die "unable to quote string containing null (\\000) bytes"
-	if $str =~ m/\x00/;
-
-    # from String::ShellQuote
-    if ($str =~ m|[^\w!%+,\-./:@^]|) {
-
-	# ' -> '\''
-	$str =~ s/'/'\\''/g;
-
-	$str = "'$str'";
-	$str =~ s/^''//;
-	$str =~ s/''$//;
-    }
-
-    return $str;
-}
-
 sub restore_archive {
     my ($archive, $vmid, $opts) = @_;
 
@@ -3002,14 +2980,14 @@ sub restore_archive {
 
     my $tocmd = "/usr/lib/qemu-server/qmextract";
 
-    $tocmd .= " --storage " . shellquote($opts->{storage}) if $opts->{storage};
+    $tocmd .= " --storage " . PVE::Tools::shellquote($opts->{storage}) if $opts->{storage};
     $tocmd .= ' --prealloc' if $opts->{prealloc};
     $tocmd .= ' --info' if $opts->{info};
 
     # tar option "xf" does not autodetect compression when read fron STDIN,
     # so we pipe to zcat
-    my $cmd = "zcat -f|tar xf " . shellquote($archive) . " " .
-	shellquote("--to-command=$tocmd");
+    my $cmd = "zcat -f|tar xf " . PVE::Tools::shellquote($archive) . " " .
+	PVE::Tools::shellquote("--to-command=$tocmd");
 
     my $tmpdir = "/var/tmp/vzdumptmp$$";
     mkpath $tmpdir;
