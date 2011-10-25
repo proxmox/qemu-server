@@ -637,32 +637,6 @@ sub os_list_description {
     };
 }
 
-# a clumsy way to split an argument string into an array,
-# we simply pass it to the cli (exec call)
-# fixme: use Text::ParseWords::shellwords() ?
-sub split_args {
-    my ($str) = @_;
-
-    my $args = [];
-
-    return $args if !$str;
-
-    my $cmd = 'perl -e \'foreach my $a (@ARGV) { print "$a\n"; } \' -- ' . $str;
-
-    eval {
-	run_command($cmd, outfunc => sub {
-	    my $data = shift;
-	    push @$args, $data;
-	});
-    };
-
-    my $err = $@;
-
-    die "unable to parse args: $str\n" if $err;
-
-    return $args;
-}
-
 sub disk_devive_info {
     my $dev = shift;
 
@@ -2208,7 +2182,7 @@ sub config_to_command {
 
     # add custom args
     if ($conf->{args}) {
-	my $aa = split_args($conf->{args});
+	my $aa = PVE::Tools::split_args($conf->{args});
 	push @$cmd, @$aa;
     }
 
