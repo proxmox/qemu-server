@@ -706,7 +706,7 @@ __PACKAGE__->register_method({
 
 	my $remip;
 	
-	if ($node ne PVE::INotify::nodename()) {
+	if ($node ne 'localhost' && $node ne PVE::INotify::nodename()) {
 	    $remip = PVE::Cluster::remote_node_ip($node);
 	}
 
