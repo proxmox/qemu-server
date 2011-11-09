@@ -264,6 +264,7 @@ __PACKAGE__->register_method({
 	    { subdir => 'migrate' },
 	    { subdir => 'rrd' },
 	    { subdir => 'rrddata' },
+	    { subdir => 'monitor' },
 	    ];
 	
 	return $res;
@@ -1243,6 +1244,41 @@ __PACKAGE__->register_method({
 	my $upid = $rpcenv->fork_worker('qmigrate', $vmid, $user, $realcmd);
 
 	return $upid;
+    }});
+
+__PACKAGE__->register_method({
+    name => 'monitor', 
+    path => '{vmid}/monitor', 
+    method => 'POST',
+    protected => 1,
+    proxyto => 'node',
+    description => "Execute Qemu monitor commands.",
+    parameters => {
+    	additionalProperties => 0,
+	properties => {
+	    node => get_standard_option('pve-node'),
+	    vmid => get_standard_option('pve-vmid'),
+	    command => {
+		type => 'string',
+		description => "The monitor command.",
+	    }
+	},
+    },
+    returns => { type => 'string'},
+    code => sub {
+	my ($param) = @_;
+
+	my $vmid = $param->{vmid};
+
+	my $conf = PVE::QemuServer::load_config ($vmid); # check if VM exists
+
+	my $res = '';
+	eval {
+	    $res = PVE::QemuServer::vm_monitor_command($vmid, $param->{command});
+	};
+	$res = "ERROR: $@" if $@;
+
+	return $res;
     }});
 
 1;
