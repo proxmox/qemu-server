@@ -1224,7 +1224,8 @@ __PACKAGE__->register_method({
 
 	my $vmid = extract_param($param, 'vmid');
 
-	raise_param_exc({ force => "Only root may use this option." }) if $user ne 'root@pam';
+	raise_param_exc({ force => "Only root may use this option." }) 
+	    if $param->{force} && $user ne 'root@pam';
 
 	# test if VM exists
 	PVE::QemuServer::load_config($vmid);
