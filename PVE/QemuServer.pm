@@ -1798,6 +1798,8 @@ sub vmstatus {
     my $list = vzlist();
     my ($uptime) = PVE::ProcFSTools::read_proc_uptime(1);
 
+    my $cpucount = $cpuinfo->{cpus} || 1;
+
     foreach my $vmid (keys %$list) {
 	next if $opt_vmid && ($vmid ne $opt_vmid);
 
@@ -1820,12 +1822,13 @@ sub vmstatus {
 	}
 
 	$d->{cpus} = ($conf->{sockets} || 1) * ($conf->{cores} || 1);
+	$d->{cpus} = $cpucount if $d->{cpus} > $cpucount;
+
 	$d->{name} = $conf->{name} || "VM $vmid";
 	$d->{maxmem} = $conf->{memory} ? $conf->{memory}*(1024*1024) : 0;
 
 	$d->{uptime} = 0;
 	$d->{cpu} = 0;
-	$d->{relcpu} = 0;
 	$d->{mem} = 0;
 
 	$d->{netout} = 0;
@@ -1848,7 +1851,6 @@ sub vmstatus {
 	$d->{netin} += $netdev->{$dev}->{transmit};
     }
 
-    my $cpucount = $cpuinfo->{cpus} || 1;
     my $ctime = gettimeofday;
 
     foreach my $vmid (keys %$list) {
@@ -1874,8 +1876,6 @@ sub vmstatus {
 
 	my $used = $pstat->{utime} + $pstat->{stime};
 
-	my $vcpus = $d->{cpus} > $cpucount ? $cpucount : $d->{cpus};
-
 	$d->{uptime} = int(($uptime - $pstat->{starttime})/$cpuinfo->{user_hz});
 
 	if ($pstat->{vsize}) {
@@ -1888,7 +1888,6 @@ sub vmstatus {
 		time => $ctime,
 		used => $used,
 		cpu => 0,
-		relcpu => 0,
 	    };
 	    next;
 	}
@@ -1898,17 +1897,14 @@ sub vmstatus {
 	if ($dtime > 1000) {
 	    my $dutime = $used -  $old->{used};
 
-	    $d->{cpu} = $dutime/$dtime;
-	    $d->{relcpu} = ($d->{cpu} * $cpucount) / $vcpus;
+	    $d->{cpu} = (($dutime/$dtime)* $cpucount) / $d->{cpus};
 	    $last_proc_pid_stat->{$pid} = {
 		time => $ctime,
 		used => $used,
 		cpu => $d->{cpu},
-		relcpu => $d->{relcpu},
 	    };
 	} else {
 	    $d->{cpu} = $old->{cpu};
-	    $d->{relcpu} = $old->{relcpu};
 	}
     }
 
