@@ -437,7 +437,7 @@ my $drivename_hash;
 my $idedesc = {
     optional => 1,
     type => 'string', format => 'pve-qm-drive',
-    typetext => '[volume=]volume,] [,media=cdrom|disk] [,cyls=c,heads=h,secs=s[,trans=t]] [,snapshot=on|off] [,cache=none|writethrough|writeback] [,format=f] [,backup=yes|no] [,aio=native|threads]',
+    typetext => '[volume=]volume,] [,media=cdrom|disk] [,cyls=c,heads=h,secs=s[,trans=t]] [,snapshot=on|off] [,cache=none|writethrough|writeback|unsafe] [,format=f] [,backup=yes|no] [,aio=native|threads]',
     description => "Use volume as IDE hard disk or CD-ROM (n is 0 to 3).",
 };
 PVE::JSONSchema::register_standard_option("pve-qm-ide", $idedesc);
@@ -445,7 +445,7 @@ PVE::JSONSchema::register_standard_option("pve-qm-ide", $idedesc);
 my $scsidesc = {
     optional => 1,
     type => 'string', format => 'pve-qm-drive',
-    typetext => '[volume=]volume,] [,media=cdrom|disk] [,cyls=c,heads=h,secs=s[,trans=t]] [,snapshot=on|off] [,cache=none|writethrough|writeback] [,format=f] [,backup=yes|no] [,aio=native|threads]',
+    typetext => '[volume=]volume,] [,media=cdrom|disk] [,cyls=c,heads=h,secs=s[,trans=t]] [,snapshot=on|off] [,cache=none|writethrough|writeback|unsafe] [,format=f] [,backup=yes|no] [,aio=native|threads]',
     description => "Use volume as SCSI hard disk or CD-ROM (n is 0 to 13).",
 };
 PVE::JSONSchema::register_standard_option("pve-qm-scsi", $scsidesc);
@@ -453,7 +453,7 @@ PVE::JSONSchema::register_standard_option("pve-qm-scsi", $scsidesc);
 my $virtiodesc = {
     optional => 1,
     type => 'string', format => 'pve-qm-drive',
-    typetext => '[volume=]volume,] [,media=cdrom|disk] [,cyls=c,heads=h,secs=s[,trans=t]] [,snapshot=on|off] [,cache=none|writethrough|writeback] [,format=f] [,backup=yes|no] [,aio=native|threads]',
+    typetext => '[volume=]volume,] [,media=cdrom|disk] [,cyls=c,heads=h,secs=s[,trans=t]] [,snapshot=on|off] [,cache=none|writethrough|writeback|unsafe] [,format=f] [,backup=yes|no] [,aio=native|threads]',
     description => "Use volume as VIRTIO hard disk (n is 0 to 5).",
 };
 PVE::JSONSchema::register_standard_option("pve-qm-virtio", $virtiodesc);
@@ -826,7 +826,7 @@ sub parse_drive {
     return undef if !$res->{file};
 
     return undef if $res->{cache} &&
-	$res->{cache} !~ m/^(off|none|writethrough|writeback)$/;
+	$res->{cache} !~ m/^(off|none|writethrough|writeback|unsafe)$/;
     return undef if $res->{snapshot} && $res->{snapshot} !~ m/^(on|off)$/;
     return undef if $res->{cyls} && $res->{cyls} !~ m/^\d+$/;
     return undef if $res->{heads} && $res->{heads} !~ m/^\d+$/;
