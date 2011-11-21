@@ -1,3 +1,9 @@
+qemu-server (2.0-5) unstable; urgency=low
+
+  * fix vzdump stop mode
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 21 Nov 2011 06:38:03 +0100
+
 qemu-server (2.0-4) unstable; urgency=low
 
   * bump version

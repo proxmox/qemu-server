@@ -193,7 +193,7 @@ sub stop_vm {
 
     my $wait = $opts->{stopwait} * 60;
     # send shutdown and wait
-    $self->cmd ("qm shutdown $vmid --skiplock && qm wait $vmid $wait");
+    $self->cmd ("qm shutdown $vmid --skiplock && qm wait $vmid --timeout $wait");
 }
 
 sub start_vm {
