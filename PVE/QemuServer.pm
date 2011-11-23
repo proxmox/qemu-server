@@ -2378,12 +2378,15 @@ sub vm_start {
 		eval  { vm_monitor_command($vmid, "cont", 1) };
 	    }
 	}
-
-	if (my $migrate_speed =
-	    $conf->{migrate_speed} || $defaults->{migrate_speed}) {
+	
+	# always set migrate speed (overwrite kvm default of 32m)
+	# we set a very hight default of 8192m which is basically unlimited
+	my $migrate_speed = $defaults->{migrate_speed} || 8192;
+	$migrate_speed = $conf->{migrate_speed} || $migrate_speed;
+	eval { 
 	    my $cmd = "migrate_set_speed ${migrate_speed}m";
-	    eval { vm_monitor_command($vmid, $cmd, 1); };
-	}
+	    vm_monitor_command($vmid, $cmd, 1); 
+	};
 
 	if (my $migrate_downtime =
 	    $conf->{migrate_downtime} || $defaults->{migrate_downtime}) {
