@@ -150,16 +150,18 @@ __PACKAGE__->register_method({
 		die "pipe requires cli environment\n" 
 		    && $rpcenv->{type} ne 'cli';
 	    } else {
+		my $path;
 		if (PVE::Storage::parse_volume_id($archive, 1)) {
-		    $archive = PVE::Storage::path($storecfg, $archive);
+		    $path = PVE::Storage::path($storecfg, $archive);
 		} else {
 		    raise_param_exc({ archive => "Only root can pass arbitrary paths." }) 
 			if $user ne 'root@pam';
 
-		    $archive = abs_path($archive);
+		    $path = abs_path($archive);
 		}
-		die "can't find file '$archive'\n" if ! -f $archive;
-	    } 
+		die "can't find archive file '$archive'\n" if !($path && -f $path);
+		$archive = $path;
+	    }
 	}
 
 	my $restorefn = sub {
