@@ -2644,8 +2644,6 @@ sub vm_sendkey {
 
 	my $conf = load_config($vmid);
 
-	check_lock($conf) if !$skiplock;
-
 	vm_monitor_command($vmid, "sendkey $key");
     });
 }
