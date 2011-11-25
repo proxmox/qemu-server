@@ -1216,9 +1216,12 @@ __PACKAGE__->register_method({
 	    if $param->{force} && $user ne 'root@pam';
 
 	# test if VM exists
-	PVE::QemuServer::load_config($vmid);
+	my $conf = PVE::QemuServer::load_config($vmid);
 
 	# try to detect errors early
+
+	PVE::QemuServer::check_lock($conf);
+
 	if (PVE::QemuServer::check_running($vmid)) {
 	    die "cant migrate running VM without --online\n" 
 		if !$param->{online};
