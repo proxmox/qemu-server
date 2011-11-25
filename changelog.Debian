@@ -1,3 +1,13 @@
+qemu-server (2.0-7) unstable; urgency=low
+
+  * activate/deactivate LVs more carefully
+  
+  * avoid syslog whenever possible
+  
+  * code cleanups
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 25 Nov 2011 08:08:04 +0100
+
 qemu-server (2.0-6) unstable; urgency=low
 
   * set correct migrate speed

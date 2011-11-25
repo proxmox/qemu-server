@@ -6,7 +6,6 @@ use POSIX qw(strftime);
 use IO::File;
 use IPC::Open2;
 use PVE::Tools qw(run_command);
-use PVE::SafeSyslog;
 use PVE::INotify;
 use PVE::Cluster;
 use PVE::Storage;
@@ -29,10 +28,12 @@ sub logmsg {
 
     my $tstr = strftime("%b %d %H:%M:%S", localtime);
 
-    syslog($level, $msg);
-
     foreach my $line (split (/\n/, $msg)) {
-	print STDOUT "$tstr $line\n";
+	if ($level eq 'err') {
+	    print STDOUT "$tstr ERROR: $line\n";
+	} else {
+	    print STDOUT "$tstr $line\n";
+	}
     }
     \*STDOUT->flush();
 }
@@ -43,12 +44,10 @@ sub eval_int {
     eval {
 	local $SIG{INT} = $SIG{TERM} = $SIG{QUIT} = $SIG{HUP} = sub {
 	    $delayed_interrupt = 0;
-	    logmsg('err', "received interrupt");
 	    die "interrupted by signal\n";
 	};
 	local $SIG{PIPE} = sub {
 	    $delayed_interrupt = 0;
-	    logmsg('err', "received broken pipe interrupt");
 	    die "interrupted by signal\n";
 	};
 
@@ -211,12 +210,9 @@ sub migrate {
     # lock config during migration
     eval { PVE::QemuServer::lock_config($vmid, sub {
 
-	eval_int(sub { prepare($session); });
+	my $conf;
+	eval_int(sub { $conf = prepare($session); });
 	die $@ if $@;
-
-	my $conf = PVE::QemuServer::load_config($vmid);
-
-	PVE::QemuServer::check_lock($conf);
 
 	my $running = 0;
 	if (my $pid = PVE::QemuServer::check_running($vmid)) {
@@ -232,7 +228,9 @@ sub migrate {
 	    if ($rhash->{clearlock}) {
 		my $unset = { lock => 1 };
 		eval { PVE::QemuServer::change_config_nolock($session->{vmid}, {}, $unset, 1) };
-		logmsg('err', $@) if $@;
+		if (my $tmperr = $@) {
+		    logmsg('err', $tmperr);
+		}
 	    }
 	    if ($rhash->{volumes}) {
 		foreach my $volid (@{$rhash->{volumes}}) {
@@ -257,16 +255,16 @@ sub migrate {
 	    # always kill tunnel
 	    if ($rhash->{tunnel}) {
 		eval_int(sub { finish_tunnel($rhash->{tunnel}) });
-		if ($@) {
-		    logmsg('err', "stopping tunnel failed - $@");
+		if (my $tmperr = $@) {
+		    logmsg('err', "stopping tunnel failed - $tmperr");
 		    $errors = 1;
 		}
 	    }
 
 	    # always stop local VM - no interrupts possible
-	    eval { PVE::QemuServer::vm_stop($session->{vmid}, 1, 1); };
-	    if ($@) {
-		logmsg('err', "stopping vm failed - $@");
+	    eval { PVE::QemuServer::vm_stop($session->{storecfg}, $session->{vmid}, 1, 1); };
+	    if (my $tmperr = $@) {
+		logmsg('err', "stopping vm failed - $tmperr");
 		$errors = 1;
 	    }
 
@@ -281,8 +279,8 @@ sub migrate {
 	    my $cmd = [ @{$session->{rem_ssh}}, $qm_cmd, 'unlock', $session->{vmid} ];
 	    run_command($cmd);
 	});
-	if ($@) {
-	    logmsg('err', "failed to clear migrate lock - $@");
+	if (my $tmperr = $@) {
+	    logmsg('err', "failed to clear migrate lock - $tmperr");
 	    $errors = 1;
 	}
 
@@ -298,6 +296,18 @@ sub migrate {
 		last if $err =~ /^interrupted by signal$/;
 	    }
 	}
+
+	# always deactivate volumes - avoid lvm LVs to be active on 
+	# several nodes
+	eval {
+	    my $vollist = PVE::QemuServer::get_vm_volumes($conf);
+	    PVE::Storage::deactivate_volumes($session->{storecfg}, $vollist);
+	};
+	if (my $tmperr = $@) {
+	    logmsg('err', $tmperr);
+	    $errors = 1;
+	}
+
     })};
 
     my $err = $@;
@@ -311,15 +321,13 @@ sub migrate {
     my $duration = sprintf "%02d:%02d:%02d", $hours, $mins, $secs;
 
     if ($err) {
-	my $msg = "migration aborted (duration $duration): $err\n";
-	logmsg('err', $msg);
-	die $msg;
+	logmsg('err', "migration aborted (duration $duration): $err");
+	die "migration aborted";
     }
 
     if ($errors) {
-	my $msg = "migration finished with problems (duration $duration)\n";
-	logmsg('err', $msg);
-	die $msg;
+	logmsg('err', "migration finished with problems (duration $duration)");
+	die "migration problems"
     }
 
     logmsg('info', "migration finished successfuly (duration $duration)");
@@ -328,13 +336,21 @@ sub migrate {
 sub prepare {
     my ($session) = @_;
 
-    my $conffile = PVE::QemuServer::config_file($session->{vmid});
-    die "VM $session->{vmid} does not exist on this node\n" if ! -f $conffile;
+    # test is VM exist
+    my $conf = PVE::QemuServer::load_config($session->{vmid});
+
+    PVE::QemuServer::check_lock($conf);
+
+    # activate volumes
+    my $vollist = PVE::QemuServer::get_vm_volumes($conf);
+    PVE::Storage::activate_volumes($session->{storecfg}, $vollist);
 
     # test ssh connection
     my $cmd = [ @{$session->{rem_ssh}}, '/bin/true' ];
     eval { run_command($cmd); };
     die "Can't connect to destination address using public key\n" if $@;
+
+    return $conf;
 }
 
 sub sync_disks {
@@ -478,12 +494,12 @@ sub phase2 {
 
     my $start = time();
 
-    PVE::QemuServer::vm_monitor_command($session->{vmid}, "migrate -d \"tcp:localhost:$lport\"", 0, 1);
+    PVE::QemuServer::vm_monitor_command($session->{vmid}, "migrate -d \"tcp:localhost:$lport\"", 1);
 
     my $lstat = '';
     while (1) {
 	sleep (2);
-	my $stat = PVE::QemuServer::vm_monitor_command($session->{vmid}, "info migrate", 1, 1);
+	my $stat = PVE::QemuServer::vm_monitor_command($session->{vmid}, "info migrate", 1);
 	if ($stat =~ m/^Migration status: (active|completed|failed|cancelled)$/im) {
 	    my $ms = $1;
 

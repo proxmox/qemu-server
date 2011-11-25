@@ -1294,24 +1294,6 @@ sub create_disks {
     return $vollist;
 }
 
-sub unlink_image {
-    my ($storecfg, $vmid, $volid) = @_;
-
-    die "reject to unlink absolute path '$volid'"
-	if $volid =~ m|^/|;
-
-    my ($path, $owner) = PVE::Storage::path($storecfg, $volid);
-
-    die "reject to unlink '$volid' - not owned by this VM"
-	if !$owner || ($owner != $vmid);
-
-    syslog('info', "VM $vmid deleting volume '$volid'");
-
-    PVE::Storage::vdisk_free($storecfg, $volid);
-
-    touch_config($vmid);
-}
-
 sub destroy_vm {
     my ($storecfg, $vmid, $keep_empty_config) = @_;
 
@@ -1328,10 +1310,10 @@ sub destroy_vm {
  	return if drive_is_cdrom($drive);
 
 	my $volid = $drive->{file};
-	next if !$volid || $volid =~ m|^/|;
+	return if !$volid || $volid =~ m|^/|;
 
 	my ($path, $owner) = PVE::Storage::path($storecfg, $volid);
-	next if !$path || !$owner || ($owner != $vmid);
+	return if !$path || !$owner || ($owner != $vmid);
 
 	PVE::Storage::vdisk_free($storecfg, $volid);
     });
@@ -2099,11 +2081,10 @@ sub config_to_command {
     foreach_drive($conf, sub {
 	my ($ds, $drive) = @_;
 
-	eval {
-	    PVE::Storage::parse_volume_id($drive->{file});
+	if (PVE::Storage::parse_volume_id($drive->{file}, 1)) {
 	    push @$vollist, $drive->{file};
-	}; # ignore errors
-
+	}
+	
 	$use_virtio = 1 if $ds =~ m/^virtio/;
         if ($drive->{interface} eq 'scsi') {
            my $maxdev = 7;
@@ -2222,7 +2203,7 @@ sub next_migrate_port {
 sub vm_devices_list {
     my ($vmid) = @_;
 
-    my $res = vm_monitor_command ($vmid, "info pci", 1);
+    my $res = vm_monitor_command ($vmid, "info pci");
 
     my @lines = split ("\n", $res);
     my $devices;
@@ -2253,14 +2234,14 @@ sub vm_deviceadd {
     if($deviceid =~ m/^(virtio)(\d+)$/) {
 
         my $drive = print_drive_full($storecfg, $vmid, $device);
-        my $ret = vm_monitor_command($vmid, "drive_add auto $drive", 1);
+        my $ret = vm_monitor_command($vmid, "drive_add auto $drive");
         # If the command succeeds qemu prints: "OK"
         if ($ret !~ m/OK/s) {
            die "adding drive failed: $ret";
         }
        
         my $devicefull = print_drivedevice_full($storecfg, $vmid, $device);
-        $ret = vm_monitor_command($vmid, "device_add $devicefull", 1);
+        $ret = vm_monitor_command($vmid, "device_add $devicefull");
         $ret =~ s/^\s+//;
         # Otherwise, if the command succeeds, no output is sent. So any non-empty string shows an error 
         die 'error on hotplug device : $ret' if $ret ne "";
@@ -2284,7 +2265,7 @@ sub vm_devicedel {
 
     if($deviceid =~ m/^(virtio)(\d+)$/){
 
-        my $ret = vm_monitor_command($vmid, "drive_del drive-$deviceid", 1);
+        my $ret = vm_monitor_command($vmid, "drive_del drive-$deviceid");
         $ret =~ s/^\s+//;
         if ($ret =~ m/Device \'.*?\' not found/s) {
             # NB: device not found errors mean the drive was auto-deleted and we ignore the error 
@@ -2293,7 +2274,7 @@ sub vm_devicedel {
             die "deleting drive $deviceid failed : $ret";
         }
 
-        $ret = vm_monitor_command($vmid, "device_del $deviceid", 1);
+        $ret = vm_monitor_command($vmid, "device_del $deviceid");
         $ret =~ s/^\s+//;
         die 'detaching device $deviceid failed : $ret' if $ret ne "";
 
@@ -2318,13 +2299,7 @@ sub vm_start {
 
 	check_lock($conf) if !$skiplock;
 
-	if (check_running($vmid)) {
-	    my $msg = "VM $vmid already running - start failed\n" ;
-	    syslog('err', $msg);
-	    die $msg;
-	} else {
-	    syslog('info', "VM $vmid start");
-	}
+	die "VM $vmid already running\n" if check_running($vmid);
 
 	my $migrate_uri;
 	my $migrate_port = 0;
@@ -2359,14 +2334,8 @@ sub vm_start {
 	PVE::Storage::activate_volumes($storecfg, $vollist);
 
 	eval  { run_command($cmd, timeout => $migrate_uri ? undef : 30); };
-
 	my $err = $@;
-
-	if ($err) {
-	    my $msg = "start failed: $err";
-	    syslog('err', "VM $vmid $msg");
-	    die $msg;
-	}
+	die "start failed: $err" if $err;
 
 	if ($statefile) {
 
@@ -2375,7 +2344,7 @@ sub vm_start {
 	    } else {
 		unlink $statefile;
 		# fixme: send resume - is that necessary ?
-		eval  { vm_monitor_command($vmid, "cont", 1) };
+		eval { vm_monitor_command($vmid, "cont"); };
 	    }
 	}
 	
@@ -2385,13 +2354,13 @@ sub vm_start {
 	$migrate_speed = $conf->{migrate_speed} || $migrate_speed;
 	eval { 
 	    my $cmd = "migrate_set_speed ${migrate_speed}m";
-	    vm_monitor_command($vmid, $cmd, 1); 
+	    vm_monitor_command($vmid, $cmd); 
 	};
 
 	if (my $migrate_downtime =
 	    $conf->{migrate_downtime} || $defaults->{migrate_downtime}) {
 	    my $cmd = "migrate_set_downtime ${migrate_downtime}";
-	    eval { vm_monitor_command($vmid, $cmd, 1); };
+	    eval { vm_monitor_command($vmid, $cmd); };
 	}
 
 	vm_balloonset($vmid, $conf->{balloon}) if $conf->{balloon};
@@ -2431,14 +2400,12 @@ sub __read_avail {
 }
 
 sub vm_monitor_command {
-    my ($vmid, $cmdstr, $nolog, $nocheck) = @_;
+    my ($vmid, $cmdstr, $nocheck) = @_;
 
     my $res;
 
-    syslog("info", "VM $vmid monitor command '$cmdstr'") if !$nolog;
-
     eval {
-	die "VM not running\n" if !check_running($vmid, $nocheck);
+	die "VM $vmid not running\n" if !check_running($vmid, $nocheck);
 
 	my $sname = monitor_socket($vmid);
 
@@ -2525,14 +2492,42 @@ sub vm_reset {
 
 	check_lock($conf) if !$skiplock;
 
-	syslog("info", "VM $vmid sending 'reset'");
-
-	vm_monitor_command($vmid, "system_reset", 1);
+	vm_monitor_command($vmid, "system_reset");
     });
 }
 
+sub get_vm_volumes {
+    my ($conf) = @_;
+
+    my $vollist = [];
+    foreach_drive($conf, sub {
+	my ($ds, $drive) = @_;
+
+	my ($sid, $volname) = PVE::Storage::parse_volume_id($drive->{file}, 1);
+	return if !$sid;
+
+	my $volid = $drive->{file};
+	return if !$volid || $volid =~ m|^/|;
+
+	push @$vollist, $volid;
+    });
+
+    return $vollist;
+}
+
+sub vm_stop_cleanup {
+    my ($storecfg, $vmid, $conf) = @_;
+
+    fairsched_rmnod($vmid); # try to destroy group
+
+    my $vollist = get_vm_volumes($conf);
+    PVE::Storage::deactivate_volumes($storecfg, $vollist);
+}
+
 sub vm_shutdown {
-    my ($vmid, $skiplock) = @_;
+    my ($storecfg, $vmid, $skiplock, $timeout) = @_;
+
+    $timeout = 60 if !$timeout;
 
     lock_config($vmid, sub {
 
@@ -2540,41 +2535,48 @@ sub vm_shutdown {
 
 	check_lock($conf) if !$skiplock;
 
-	syslog("info", "VM $vmid sending 'shutdown'");
+	vm_monitor_command($vmid, "system_powerdown");
 
-	vm_monitor_command($vmid, "system_powerdown", 1);
+	my $pid = check_running($vmid);
+
+	if ($pid && $timeout) {
+	    print "waiting until VM $vmid stopps (PID $pid)\n";
+
+	    my $count = 0;
+	    while (($count < $timeout) && check_running($vmid)) {
+		$count++;
+		sleep 1;
+	    }
+
+	    die "shutdown failed - got timeout\n" if check_running($vmid);
+	}
+
+	vm_stop_cleanup($storecfg, $vmid, $conf);
     });
 }
 
 # Note: use $nockeck to skip tests if VM configuration file exists.
 # We need that when migration VMs to other nodes (files already moved) 
 sub vm_stop {
-    my ($vmid, $skiplock, $nocheck) = @_;
+    my ($storecfg, $vmid, $skiplock, $nocheck, $timeout) = @_;
+
+    $timeout = 60 if !$timeout;
 
     lock_config($vmid, sub {
 
 	my $pid = check_running($vmid, $nocheck);
+	return if !$pid;
 
-	if (!$pid) {
-	    syslog('info', "VM $vmid already stopped");
-	    return;
-	}
-
+	my $conf;
 	if (!$nocheck) {
-	    my $conf = load_config($vmid);
+	    $conf = load_config($vmid);
 	    check_lock($conf) if !$skiplock;
 	}
 
-	syslog("info", "VM $vmid stopping");
-
-	eval { vm_monitor_command($vmid, "quit", 1, $nocheck); };
-
+	eval { vm_monitor_command($vmid, "quit", $nocheck); };
 	my $err = $@;
 
 	if (!$err) {
-	    # wait some time
-	    my $timeout = 50; # fixme: how long?
-
 	    my $count = 0;
 	    while (($count < $timeout) && check_running($vmid, $nocheck)) {
 		$count++;
@@ -2582,16 +2584,16 @@ sub vm_stop {
 	    }
 
 	    if ($count >= $timeout) {
-		syslog('info', "VM $vmid still running - terminating now with SIGTERM");
+		warn "VM still running - terminating now with SIGTERM\n";
 		kill 15, $pid;
 	    }
 	} else {
-	    syslog('info', "VM $vmid quit failed - terminating now with SIGTERM");
+	    warn "VM quit failed - terminating now with SIGTERM\n";
 	    kill 15, $pid;
 	}
 
 	# wait again
-	my $timeout = 10;
+	$timeout = 10;
 
 	my $count = 0;
 	while (($count < $timeout) && check_running($vmid, $nocheck)) {
@@ -2600,12 +2602,13 @@ sub vm_stop {
 	}
 
 	if ($count >= $timeout) {
-	    syslog('info', "VM $vmid still running - terminating now with SIGKILL\n");
+	    warn "VM still running - terminating now with SIGKILL\n";
 	    kill 9, $pid;
+	    sleep 1;
 	}
 
-	fairsched_rmnod($vmid); # try to destroy group
-    });
+	vm_stop_cleanup($storecfg, $vmid, $conf) if $conf;
+   });
 }
 
 sub vm_suspend {
@@ -2617,9 +2620,7 @@ sub vm_suspend {
 
 	check_lock($conf) if !$skiplock;
 
-	syslog("info", "VM $vmid suspend");
-
-	vm_monitor_command($vmid, "stop", 1);
+	vm_monitor_command($vmid, "stop");
     });
 }
 
@@ -2632,9 +2633,7 @@ sub vm_resume {
 
 	check_lock($conf) if !$skiplock;
 
-	syslog("info", "VM $vmid resume");
-
-	vm_monitor_command($vmid, "cont", 1);
+	vm_monitor_command($vmid, "cont");
     });
 }
 
@@ -2647,9 +2646,7 @@ sub vm_sendkey {
 
 	check_lock($conf) if !$skiplock;
 
-	syslog("info", "VM $vmid sending key $key");
-
-	vm_monitor_command($vmid, "sendkey $key", 1);
+	vm_monitor_command($vmid, "sendkey $key");
     });
 }
 
@@ -2662,78 +2659,71 @@ sub vm_destroy {
 
 	check_lock($conf) if !$skiplock;
 
-	syslog("info", "VM $vmid destroy called (removing all data)");
-
-	eval {
-	    if (!check_running($vmid)) {
-		fairsched_rmnod($vmid); # try to destroy group
-		destroy_vm($storecfg, $vmid);
-	    } else {
-		die "VM is running\n";
-	    }
-	};
-
-	my $err = $@;
-
-	if ($err) {
-	    syslog("err", "VM $vmid destroy failed - $err");
-	    die $err;
+	if (!check_running($vmid)) {
+	    fairsched_rmnod($vmid); # try to destroy group
+	    destroy_vm($storecfg, $vmid);
+	} else {
+	    die "VM $vmid is running - destroy failed\n";
 	}
     });
 }
 
 sub vm_stopall {
-    my ($timeout) = @_;
+    my ($storecfg, $timeout) = @_;
 
     $timeout = 3*60 if !$timeout;
+
+    my $cleanuphash = {};
 
     my $vzlist = vzlist();
     my $count = 0;
     foreach my $vmid (keys %$vzlist) {
 	next if !$vzlist->{$vmid}->{pid};
 	$count++;
+	$cleanuphash->{$vmid} = 1;
+    }
+
+    return if !$count;
+
+    my $msg = "Stopping Qemu Server - sending shutdown requests to all VMs\n";
+    syslog('info', $msg);
+    warn $msg;
+
+    foreach my $vmid (keys %$vzlist) {
+	next if !$vzlist->{$vmid}->{pid};
+	eval { vm_shutdown($storecfg, $vmid, 1); };
+	my $err = $@;
+	if ($err) {
+	    warn $err;
+	} else {
+	    delete $cleanuphash->{$vmid};
+	}
+    }
+
+    my $wt = 5;
+    my $maxtries = int(($timeout + $wt -1)/$wt);
+    my $try = 0;
+    while (($try < $maxtries) && $count) {
+	$try++;
+	sleep $wt;
+	
+	$vzlist = vzlist();
+	$count = 0;
+	foreach my $vmid (keys %$vzlist) {
+	    next if !$vzlist->{$vmid}->{pid};
+	    $count++;
+	}
+	last if !$count;
     }
 
     if ($count) {
 
-	my $msg = "Stopping Qemu Server - sending shutdown requests to all VMs\n";
-	syslog('info', $msg);
-	print STDERR $msg;
-
-	foreach my $vmid (keys %$vzlist) {
-	    next if !$vzlist->{$vmid}->{pid};
-	    eval { vm_shutdown($vmid, 1); };
-	    print STDERR $@ if $@;
-	}
-
-	my $wt = 5;
-	my $maxtries = int(($timeout + $wt -1)/$wt);
-	my $try = 0;
-	while (($try < $maxtries) && $count) {
-	    $try++;
-	    sleep $wt;
-
-	    $vzlist = vzlist();
-	    $count = 0;
-	    foreach my $vmid (keys %$vzlist) {
-		next if !$vzlist->{$vmid}->{pid};
-		$count++;
-	    }
-	    last if !$count;
-	}
-
-	return if !$count;
-
 	foreach my $vmid (keys %$vzlist) {
 	    next if !$vzlist->{$vmid}->{pid};
 
-	    $msg = "VM $vmid still running - sending stop now\n";
-	    syslog('info', $msg);
-	    print $msg;
-
-	    eval { vm_monitor_command($vmid, "quit", 1); };
-	    print STDERR $@ if $@;
-
+	    warn "VM $vmid still running - sending stop now\n";
+	    eval { vm_monitor_command($vmid, "quit"); };
+	    warn $@ if $@;
 	}
 
 	$timeout = 30;
@@ -2742,7 +2732,7 @@ sub vm_stopall {
 	while (($try < $maxtries) && $count) {
 	    $try++;
 	    sleep $wt;
-
+	
 	    $vzlist = vzlist();
 	    $count = 0;
 	    foreach my $vmid (keys %$vzlist) {
@@ -2752,24 +2742,34 @@ sub vm_stopall {
 	    last if !$count;
 	}
 
-	return if !$count;
+	if ($count) {
 
-	foreach my $vmid (keys %$vzlist) {
-	    next if !$vzlist->{$vmid}->{pid};
+	    foreach my $vmid (keys %$vzlist) {
+		next if !$vzlist->{$vmid}->{pid};
 
-	    $msg = "VM $vmid still running - terminating now with SIGTERM\n";
-	    syslog('info', $msg);
-	    print $msg;
-	    kill 15, $vzlist->{$vmid}->{pid};
+		warn "VM $vmid still running - terminating now with SIGTERM\n";
+		kill 15, $vzlist->{$vmid}->{pid};
+	    }
+	    sleep 1;
 	}
 
 	# this is called by system shotdown scripts, so remaining
 	# processes gets killed anyways (no need to send kill -9 here)
-
-	$msg = "Qemu Server stopped\n";
-	syslog('info', $msg);
-	print STDERR $msg;
     }
+
+    $vzlist = vzlist();
+    foreach my $vmid (keys %$cleanuphash) {
+	next if $vzlist->{$vmid}->{pid};
+	eval { 
+	    my $conf = load_config($vmid);
+	    vm_stop_cleanup($storecfg, $vmid, $conf); 
+	};
+	warn $@ if $@;
+    }
+
+    $msg = "Qemu Server stopped\n";
+    syslog('info', $msg);
+    print $msg;
 }
 
 # pci helpers
@@ -2892,7 +2892,7 @@ sub print_pci_addr {
 sub vm_balloonset {
     my ($vmid, $value) = @_;
 
-    vm_monitor_command($vmid, "balloon $value", 1);
+    vm_monitor_command($vmid, "balloon $value");
 }
 
 # vzdump restore implementaion

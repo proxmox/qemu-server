@@ -622,6 +622,10 @@ __PACKAGE__->register_method({
 	my $storecfg = PVE::Storage::config(); 
 
 	my $realcmd = sub {
+	    my $upid = shift;
+
+	    syslog('info', "destroy VM $vmid: $upid\n");
+
 	    PVE::QemuServer::vm_destroy($storecfg, $vmid, $skiplock);
 	};
 
@@ -807,7 +811,7 @@ __PACKAGE__->register_method({
 	# test if VM exists
 	my $conf = PVE::QemuServer::load_config($param->{vmid});
 
-	my $vmstatus =  PVE::QemuServer::vmstatus($param->{vmid});
+	my $vmstatus = PVE::QemuServer::vmstatus($param->{vmid});
 
 	return $vmstatus->{$param->{vmid}};
     }});
@@ -849,6 +853,8 @@ __PACKAGE__->register_method({
 	my $skiplock = extract_param($param, 'skiplock');
 	raise_param_exc({ skiplock => "Only root may use this option." }) 
 	    if $skiplock && $user ne 'root@pam';
+
+	die "VM $vmid already running\n" if PVE::QemuServer::check_running($vmid);
 
 	my $storecfg = PVE::Storage::config(); 
 
@@ -904,27 +910,16 @@ __PACKAGE__->register_method({
 	raise_param_exc({ skiplock => "Only root may use this option." }) 
 	    if $skiplock && $user ne 'root@pam';
 
+	die "VM $vmid not running\n" if !PVE::QemuServer::check_running($vmid);
+
+	my $storecfg = PVE::Storage::config();
+
 	my $realcmd = sub {
 	    my $upid = shift;
 
 	    syslog('info', "stop VM $vmid: $upid\n");
 
-	    PVE::QemuServer::vm_stop($vmid, $skiplock);
-
-	    my $pid = PVE::QemuServer::check_running ($vmid);
-
-	    if ($pid && $param->{timeout}) {
-		print "waiting until VM $vmid stopps (PID $pid)\n";
-
-		my $count = 0;
-		while (($count < $param->{timeout}) && 
-		       PVE::QemuServer::check_running($vmid)) {
-		    $count++;
-		    sleep 1;
-		}
-
-		die "wait failed - got timeout\n" if PVE::QemuServer::check_running($vmid);
-	    }
+	    PVE::QemuServer::vm_stop($storecfg, $vmid, $skiplock, 0, $param->{timeout});
 
 	    return;
 	};
@@ -965,10 +960,10 @@ __PACKAGE__->register_method({
 	raise_param_exc({ skiplock => "Only root may use this option." }) 
 	    if $skiplock && $user ne 'root@pam';
 
+	die "VM $vmid not running\n" if !PVE::QemuServer::check_running($vmid);
+
 	my $realcmd = sub {
 	    my $upid = shift;
-
-	    syslog('info', "reset VM $vmid: $upid\n");
 
 	    PVE::QemuServer::vm_reset($vmid, $skiplock);
 
@@ -1017,27 +1012,14 @@ __PACKAGE__->register_method({
 	raise_param_exc({ skiplock => "Only root may use this option." }) 
 	    if $skiplock && $user ne 'root@pam';
 
+	die "VM $vmid not running\n" if !PVE::QemuServer::check_running($vmid);
+
 	my $realcmd = sub {
 	    my $upid = shift;
 
 	    syslog('info', "shutdown VM $vmid: $upid\n");
 
-	    PVE::QemuServer::vm_shutdown($vmid, $skiplock);
-
-	    my $pid = PVE::QemuServer::check_running ($vmid);
-
-	    if ($pid && $param->{timeout}) {
-		print "waiting until VM $vmid stopps (PID $pid)\n";
-
-		my $count = 0;
-		while (($count < $param->{timeout}) && 
-		       PVE::QemuServer::check_running($vmid)) {
-		    $count++;
-		    sleep 1;
-		}
-
-		die "wait failed - got timeout\n" if PVE::QemuServer::check_running($vmid);
-	    }
+	    PVE::QemuServer::vm_shutdown($vmid, $skiplock, $param->{timeout});
 
 	    return;
 	};
@@ -1077,6 +1059,8 @@ __PACKAGE__->register_method({
 	my $skiplock = extract_param($param, 'skiplock');
 	raise_param_exc({ skiplock => "Only root may use this option." }) 
 	    if $skiplock && $user ne 'root@pam';
+
+	die "VM $vmid not running\n" if !PVE::QemuServer::check_running($vmid);
 
 	my $realcmd = sub {
 	    my $upid = shift;
@@ -1123,6 +1107,8 @@ __PACKAGE__->register_method({
 	my $skiplock = extract_param($param, 'skiplock');
 	raise_param_exc({ skiplock => "Only root may use this option." }) 
 	    if $skiplock && $user ne 'root@pam';
+
+	die "VM $vmid already running\n" if PVE::QemuServer::check_running($vmid);
 
 	my $realcmd = sub {
 	    my $upid = shift;

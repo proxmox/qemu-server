@@ -276,7 +276,9 @@ __PACKAGE__->register_method ({
 
 	my $timeout = $param->{timeout};
 
-	PVE::QemuServer::vm_stopall($timeout);
+	my $storecfg = PVE::Storage::config();
+
+	PVE::QemuServer::vm_stopall($storecfg, $timeout);
 
 	return undef;
     }});
