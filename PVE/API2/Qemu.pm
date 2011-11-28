@@ -1108,7 +1108,7 @@ __PACKAGE__->register_method({
 	raise_param_exc({ skiplock => "Only root may use this option." }) 
 	    if $skiplock && $user ne 'root@pam';
 
-	die "VM $vmid already running\n" if PVE::QemuServer::check_running($vmid);
+	die "VM $vmid not running\n" if !PVE::QemuServer::check_running($vmid);
 
 	my $realcmd = sub {
 	    my $upid = shift;
