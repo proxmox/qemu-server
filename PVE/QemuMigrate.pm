@@ -322,12 +322,12 @@ sub migrate {
 
     if ($err) {
 	logmsg('err', "migration aborted (duration $duration): $err");
-	die "migration aborted";
+	die "migration aborted\n";
     }
 
     if ($errors) {
 	logmsg('err', "migration finished with problems (duration $duration)");
-	die "migration problems"
+	die "migration problems\n"
     }
 
     logmsg('info', "migration finished successfuly (duration $duration)");
