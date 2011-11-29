@@ -1,3 +1,9 @@
+qemu-server (2.0-9) unstable; urgency=low
+
+  * fix 'qm stopall'
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 29 Nov 2011 11:14:01 +0100
+
 qemu-server (2.0-8) unstable; urgency=low
 
   * be more careful when removing snapshots

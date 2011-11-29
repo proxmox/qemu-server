@@ -2689,13 +2689,8 @@ sub vm_stopall {
 
     foreach my $vmid (keys %$vzlist) {
 	next if !$vzlist->{$vmid}->{pid};
-	eval { vm_shutdown($storecfg, $vmid, 1); };
-	my $err = $@;
-	if ($err) {
-	    warn $err;
-	} else {
-	    delete $cleanuphash->{$vmid};
-	}
+	eval { vm_monitor_command($vmid, "system_powerdown"); };
+	warn $@ if $@;
     }
 
     my $wt = 5;
