@@ -215,26 +215,17 @@ sub resume_vm {
 }
 
 sub snapshot_alloc {
-    my ($self, $volid, $name, $size, $srcdev) = @_;
+    my ($self, $storeid, $name, $size, $srcdev) = @_;
 
     my $cmd = "lvcreate --size ${size}M --snapshot --name '$name' '$srcdev'";
 
-    my ($storeid, $volname) = PVE::Storage::parse_volume_id ($volid, 1);
     if ($storeid) {
 
 	my $scfg = PVE::Storage::storage_config ($self->{storecfg}, $storeid);
 
 	# lock shared storage
 	return PVE::Storage::cluster_lock_storage ($storeid, $scfg->{shared}, undef, sub {
-
-	    if ($scfg->{type} eq 'lvm') {
-		my $vg = $scfg->{vgname};
-
 		$self->cmd ($cmd);
-
-	    } else {
-		die "can't allocate snapshot on storage type '$scfg->{type}'\n";
-	    }
 	});
     } else {
 	$self->cmd ($cmd);
@@ -242,34 +233,36 @@ sub snapshot_alloc {
 }
 
 sub snapshot_free {
-    my ($self, $volid, $name, $snapdev, $noerr) = @_;
+    my ($self, $storeid, $name, $snapdev, $noerr) = @_;
 
-    my $cmd = "lvremove -f '$snapdev'";
+    my $cmd = ['lvremove', '-f', $snapdev];
 
-    eval {
-	my ($storeid, $volname) = PVE::Storage::parse_volume_id ($volid, 1);
-	if ($storeid) {
-
-	    my $scfg = PVE::Storage::storage_config ($self->{storecfg}, $storeid);
-
-	    # lock shared storage
-	    return PVE::Storage::cluster_lock_storage ($storeid, $scfg->{shared}, undef, sub {
-
-		if ($scfg->{type} eq 'lvm') {
-		    my $vg = $scfg->{vgname};
-
-		    $self->cmd ($cmd);
-
-		} else {
-		    die "can't allocate snapshot on storage type '$scfg->{type}'\n";
-		}
-	    });
-	} else {
-	    $self->cmd ($cmd);
+    # loop, because we often get 'LV in use: not deactivating'
+    # we use run_command() because we do not want to log errors here
+    my $wait = 1;
+    while(-b $snapdev) {
+	eval {
+	    if ($storeid) {
+		my $scfg = PVE::Storage::storage_config ($self->{storecfg}, $storeid);
+		# lock shared storage
+		return PVE::Storage::cluster_lock_storage($storeid, $scfg->{shared}, undef, sub {
+		    PVE::Tools::run_command($cmd, outfunc => sub {}, errfunc => {});
+		});
+	    } else {
+		PVE::Tools::run_command($cmd, outfunc => sub {}, errfunc => {});
+	    }
+	};
+	my $err = $@;
+	last if !$err;
+	if ($wait >= 64) {
+	    $self->logerr($err);
+	    die $@ if !$noerr;
+	    last;
 	}
-    };
-    die $@ if !$noerr;
-    $self->logerr ($@) if $@;
+	$self->loginfo("lvremove failed - trying again in $wait seconds") if $wait >= 8;
+	sleep($wait);
+	$wait = $wait*2;
+    }
 }
 
 sub snapshot {
@@ -284,33 +277,29 @@ sub snapshot {
 
 	    if (-b $di->{snapdev}) {
 		$self->loginfo ("trying to remove stale snapshot '$di->{snapdev}'");
-		$self->snapshot_free ($di->{volid}, $di->{snapname}, $di->{snapdev}, 1); 
+		$self->snapshot_free ($di->{storeid}, $di->{snapname}, $di->{snapdev}, 1); 
 	    }
 
 	    $di->{cleanup_lvm} = 1;
-	    $self->snapshot_alloc ($di->{volid}, $di->{snapname}, $opts->{size},
+	    $self->snapshot_alloc ($di->{storeid}, $di->{snapname}, $opts->{size},
 				   "/dev/$di->{lvmvg}/$di->{lvmlv}"); 
 
 	} elsif ($di->{type} eq 'file') {
 
 	    next if defined ($mounts->{$di->{mountpoint}}); # already mounted
 
-	    # note: files are never on shared storage, so we use $di->{path} instead
-	    # of $di->{volid} (avoid PVE:Storage calls because path start with /)
-
 	    if (-b $di->{snapdev}) {
 		$self->loginfo ("trying to remove stale snapshot '$di->{snapdev}'");	    
 	    
 		$self->cmd_noerr ("umount $di->{mountpoint}");
-
-		$self->snapshot_free ($di->{path}, $di->{snapname}, $di->{snapdev}, 1); 
+		$self->snapshot_free ($di->{storeid}, $di->{snapname}, $di->{snapdev}, 1); 
 	    }
 
 	    mkpath $di->{mountpoint}; # create mount point for lvm snapshot
 
 	    $di->{cleanup_lvm} = 1;
 
-	    $self->snapshot_alloc ($di->{path}, $di->{snapname}, $opts->{size},
+	    $self->snapshot_alloc ($di->{storeid}, $di->{snapname}, $opts->{size},
 				   "/dev/$di->{lvmvg}/$di->{lvmlv}"); 
 	    
 	    my $mopts = $di->{fstype} eq 'xfs' ? "-o nouuid" : '';
@@ -428,9 +417,9 @@ sub cleanup {
        if ($di->{cleanup_lvm}) {
 	   if (-b $di->{snapdev}) {
 	       if ($di->{type} eq 'block') {
-		   $self->snapshot_free ($di->{volid}, $di->{snapname}, $di->{snapdev}, 1);
+		   $self->snapshot_free ($di->{storeid}, $di->{snapname}, $di->{snapdev}, 1);
 	       } elsif ($di->{type} eq 'file') {
-		   $self->snapshot_free ($di->{path}, $di->{snapname}, $di->{snapdev}, 1);
+		   $self->snapshot_free ($di->{storeid}, $di->{snapname}, $di->{snapdev}, 1);
 	       }
 	   }
        }
