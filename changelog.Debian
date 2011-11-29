@@ -1,3 +1,13 @@
+qemu-server (2.0-8) unstable; urgency=low
+
+  * be more careful when removing snapshots
+  
+  * do not call check_lock() for sendkey
+  
+  * try to detect errors before starting the background task
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 29 Nov 2011 08:08:44 +0100
+
 qemu-server (2.0-7) unstable; urgency=low
 
   * activate/deactivate LVs more carefully
