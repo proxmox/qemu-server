@@ -1014,12 +1014,14 @@ __PACKAGE__->register_method({
 
 	die "VM $vmid not running\n" if !PVE::QemuServer::check_running($vmid);
 
+	my $storecfg = PVE::Storage::config();
+
 	my $realcmd = sub {
 	    my $upid = shift;
 
 	    syslog('info', "shutdown VM $vmid: $upid\n");
 
-	    PVE::QemuServer::vm_shutdown($vmid, $skiplock, $param->{timeout});
+	    PVE::QemuServer::vm_shutdown($storecfg, $vmid, $skiplock, $param->{timeout});
 
 	    return;
 	};
