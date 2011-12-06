@@ -445,7 +445,7 @@ PVE::JSONSchema::register_standard_option("pve-qm-ide", $idedesc);
 my $scsidesc = {
     optional => 1,
     type => 'string', format => 'pve-qm-drive',
-    typetext => '[volume=]volume,] [,media=cdrom|disk] [,cyls=c,heads=h,secs=s[,trans=t]] [,snapshot=on|off] [,cache=none|writethrough|writeback|unsafe] [,format=f] [,backup=yes|no] [,aio=native|threads]',
+    typetext => '[volume=]volume,] [,media=cdrom|disk|block] [,cyls=c,heads=h,secs=s[,trans=t]] [,snapshot=on|off] [,cache=none|writethrough|writeback|unsafe] [,format=f] [,backup=yes|no] [,aio=native|threads]',
     description => "Use volume as SCSI hard disk or CD-ROM (n is 0 to 13).",
 };
 PVE::JSONSchema::register_standard_option("pve-qm-scsi", $scsidesc);
@@ -872,6 +872,8 @@ sub print_drivedevice_full {
     my $device = '';
     my $maxdev = 0;
 
+    
+   
     if ($drive->{interface} eq 'virtio') {
       my $pciaddr = print_pci_addr("$drive->{interface}$drive->{index}");
       $device = "virtio-blk-pci,drive=drive-$drive->{interface}$drive->{index},id=$drive->{interface}$drive->{index}$pciaddr";
@@ -882,8 +884,19 @@ sub print_drivedevice_full {
       $maxdev = 7;
       my $controller = int($drive->{index} / $maxdev);
       my $unit = $drive->{index} % $maxdev;
+      my $devicetype = '';
 
-      $device = "scsi-disk,bus=scsi$controller.0,scsi-id=$unit,drive=drive-$drive->{interface}$drive->{index},id=device-$drive->{interface}$drive->{index}";
+      if($drive->{media} && $drive->{media} eq 'cdrom') {
+     	$devicetype = "cd";
+      }
+      elsif ($drive->{media} && $drive->{media} eq 'block') {
+	$devicetype = $drive->{media};
+      }
+      else {
+	$devicetype = "hd";
+      }
+
+      $device = "scsi-$devicetype,bus=scsi$controller.0,scsi-id=$unit,drive=drive-$drive->{interface}$drive->{index},id=device-$drive->{interface}$drive->{index}";
     }
 
     elsif ($drive->{interface} eq 'ide'){
@@ -891,8 +904,9 @@ sub print_drivedevice_full {
       $maxdev = 2;
       my $controller = int($drive->{index} / $maxdev);
       my $unit = $drive->{index} % $maxdev;
+      my $devicetype = ($drive->{media} && $drive->{media} eq 'cdrom') ? "cd" : "hd";
 
-      $device = "ide-drive,bus=ide.$controller,unit=$unit,drive=drive-$drive->{interface}$drive->{index},id=device-$drive->{interface}$drive->{index}";
+      $device = "ide-$devicetype,bus=ide.$controller,unit=$unit,drive=drive-$drive->{interface}$drive->{index},id=device-$drive->{interface}$drive->{index}";
     }
 
     if ($drive->{interface} eq 'usb'){
