@@ -2,63 +2,15 @@ package PVE::QemuMigrate;
 
 use strict;
 use warnings;
-use POSIX qw(strftime);
+use PVE::AbstractMigrate;
 use IO::File;
 use IPC::Open2;
-use PVE::Tools qw(run_command);
 use PVE::INotify;
 use PVE::Cluster;
 use PVE::Storage;
 use PVE::QemuServer;
 
-my $delayed_interrupt = 0;
-
-# blowfish is a fast block cipher, much faster then 3des
-my @ssh_opts = ('-c', 'blowfish', '-o', 'BatchMode=yes');
-my @ssh_cmd = ('/usr/bin/ssh', @ssh_opts);
-my @scp_cmd = ('/usr/bin/scp', @ssh_opts);
-my $qm_cmd = '/usr/sbin/qm';
-
-sub logmsg {
-    my ($level, $msg) = @_;
-
-    chomp $msg;
-
-    return if !$msg;
-
-    my $tstr = strftime("%b %d %H:%M:%S", localtime);
-
-    foreach my $line (split (/\n/, $msg)) {
-	if ($level eq 'err') {
-	    print STDOUT "$tstr ERROR: $line\n";
-	} else {
-	    print STDOUT "$tstr $line\n";
-	}
-    }
-    \*STDOUT->flush();
-}
-
-sub eval_int {
-    my ($func) = @_;
-
-    eval {
-	local $SIG{INT} = $SIG{TERM} = $SIG{QUIT} = $SIG{HUP} = sub {
-	    $delayed_interrupt = 0;
-	    die "interrupted by signal\n";
-	};
-	local $SIG{PIPE} = sub {
-	    $delayed_interrupt = 0;
-	    die "interrupted by signal\n";
-	};
-
-	my $di = $delayed_interrupt;
-	$delayed_interrupt = 0;
-
-	die "interrupted by signal\n" if $di;
-
-	&$func();
-    };
-}
+use base qw(PVE::AbstractMigrate);
 
 sub fork_command_pipe {
     my ($cmd) = @_;
@@ -137,10 +89,9 @@ sub run_with_timeout {
 }
 
 sub fork_tunnel {
-    my ($nodeip, $lport, $rport) = @_;
+    my ($self, $nodeip, $lport, $rport) = @_;
 
-    my $cmd = [@ssh_cmd, '-o', 'BatchMode=yes',
-	       '-L', "$lport:localhost:$rport", $nodeip,
+    my $cmd = [@{$self->{rem_ssh}}, '-L', "$lport:localhost:$rport",
 	       'qm', 'mtunnel' ];
 
     my $tunnel = fork_command_pipe($cmd);
@@ -165,7 +116,7 @@ sub fork_tunnel {
 }
 
 sub finish_tunnel {
-    my $tunnel = shift;
+    my ($self, $tunnel) = @_;
 
     my $writer = $tunnel->{writer};
 
@@ -182,181 +133,60 @@ sub finish_tunnel {
     die $err if $err;
 }
 
-sub migrate {
-    my ($node, $nodeip, $vmid, $online, $force) = @_;
-
-    my $starttime = time();
-
-    my $rem_ssh = [@ssh_cmd, "root\@$nodeip"];
-
-    local $SIG{INT} = $SIG{TERM} = $SIG{QUIT} = $SIG{HUP} = $SIG{PIPE} = sub {
-	logmsg('err', "received interrupt - delayed");
-	$delayed_interrupt = 1;
-    };
-
-    local $ENV{RSYNC_RSH} = join(' ', @ssh_cmd);
-
-    my $session = {
-	vmid => $vmid,
-	node => $node,
-	nodeip => $nodeip,
-	force => $force,
-	storecfg => PVE::Storage::config(),
-	rem_ssh => $rem_ssh,
-    };
+sub lock_vm {
+    my ($self, $vmid, $code, @param) = @_;
     
-    my $errors;
-
-    # lock config during migration
-    eval { PVE::QemuServer::lock_config($vmid, sub {
-
-	my $conf;
-	eval_int(sub { $conf = prepare($session); });
-	die $@ if $@;
-
-	my $running = 0;
-	if (my $pid = PVE::QemuServer::check_running($vmid)) {
-	    die "cant migrate running VM without --online\n" if !$online;
-	    $running = $pid;
-	}
-
-	my $rhash = {};
-	eval_int (sub { phase1($session, $conf, $rhash, $running); });
-	my $err = $@;
-
-	if ($err) {
-	    if ($rhash->{clearlock}) {
-		my $unset = { lock => 1 };
-		eval { PVE::QemuServer::change_config_nolock($session->{vmid}, {}, $unset, 1) };
-		if (my $tmperr = $@) {
-		    logmsg('err', $tmperr);
-		}
-	    }
-	    if ($rhash->{volumes}) {
-		foreach my $volid (@{$rhash->{volumes}}) {
-		    logmsg('err', "found stale volume copy '$volid' on node '$session->{node}'");
-		}
-	    }
-	    die $err;
-	}
-
-	# vm is now owned by other node
-	# Note: there is no VM config file on the local node anymore, so 
-	# we need to pass $nocheck = 1 for vm commands
-
-	my $volids = $rhash->{volumes};
-
-	if ($running) {
-
-	    $rhash = {};
-	    eval_int(sub { phase2($session, $conf, $rhash); });
-	    my $err = $@;
-
-	    # always kill tunnel
-	    if ($rhash->{tunnel}) {
-		eval_int(sub { finish_tunnel($rhash->{tunnel}) });
-		if (my $tmperr = $@) {
-		    logmsg('err', "stopping tunnel failed - $tmperr");
-		    $errors = 1;
-		}
-	    }
-
-	    # always stop local VM - no interrupts possible
-	    eval { PVE::QemuServer::vm_stop($session->{storecfg}, $session->{vmid}, 1, 1); };
-	    if (my $tmperr = $@) {
-		logmsg('err', "stopping vm failed - $tmperr");
-		$errors = 1;
-	    }
-
-	    if ($err) {
-		$errors = 1;
-		logmsg('err', "online migrate failure - $err");
-	    }
-	}
-
-	# finalize -- clear migrate lock
-	eval_int(sub {
-	    my $cmd = [ @{$session->{rem_ssh}}, $qm_cmd, 'unlock', $session->{vmid} ];
-	    run_command($cmd);
-	});
-	if (my $tmperr = $@) {
-	    logmsg('err', "failed to clear migrate lock - $tmperr");
-	    $errors = 1;
-	}
-
-	# destroy local copies
-	foreach my $volid (@$volids) {
-	    eval_int(sub { PVE::Storage::vdisk_free($session->{storecfg}, $volid); });
-	    my $err = $@;
-
-	    if ($err) {
-		logmsg('err', "removing local copy of '$volid' failed - $err");
-		$errors = 1;
-
-		last if $err =~ /^interrupted by signal$/;
-	    }
-	}
-
-	# always deactivate volumes - avoid lvm LVs to be active on 
-	# several nodes
-	eval {
-	    my $vollist = PVE::QemuServer::get_vm_volumes($conf);
-	    PVE::Storage::deactivate_volumes($session->{storecfg}, $vollist);
-	};
-	if (my $tmperr = $@) {
-	    logmsg('err', $tmperr);
-	    $errors = 1;
-	}
-
-    })};
-
-    my $err = $@;
-
-    my $delay = time() - $starttime;
-    my $mins = int($delay/60);
-    my $secs = $delay - $mins*60;
-    my $hours =  int($mins/60);
-    $mins = $mins - $hours*60;
-
-    my $duration = sprintf "%02d:%02d:%02d", $hours, $mins, $secs;
-
-    if ($err) {
-	logmsg('err', "migration aborted (duration $duration): $err");
-	die "migration aborted\n";
-    }
-
-    if ($errors) {
-	logmsg('err', "migration finished with problems (duration $duration)");
-	die "migration problems\n"
-    }
-
-    logmsg('info', "migration finished successfuly (duration $duration)");
+    return PVE::QemuServer::lock_config($vmid, $code, @param);
 }
 
 sub prepare {
-    my ($session) = @_;
+    my ($self, $vmid) = @_;
+
+    my $online = $self->{opts}->{online};
+
+    $self->{storecfg} = PVE::Storage::config();
 
     # test is VM exist
-    my $conf = PVE::QemuServer::load_config($session->{vmid});
+    my $conf = $self->{vmconf} = PVE::QemuServer::load_config($vmid);
 
     PVE::QemuServer::check_lock($conf);
 
+    my $running = 0;
+    if (my $pid = PVE::QemuServer::check_running($vmid)) {
+	die "cant migrate running VM without --online\n" if !$online;
+	$running = $pid;
+    }
+
+    if (my $loc_res = PVE::QemuServer::check_local_resources($conf, 1)) {
+	if ($self->{running} || !$self->{opts}->{force}) {
+	    die "can't migrate VM which uses local devices\n";
+	} else {
+	    $self->log('info', "migrating VM which uses local devices");
+	}
+    }
+
     # activate volumes
     my $vollist = PVE::QemuServer::get_vm_volumes($conf);
-    PVE::Storage::activate_volumes($session->{storecfg}, $vollist);
+    PVE::Storage::activate_volumes($self->{storecfg}, $vollist);
+
+    # fixme: check if storage is available on both nodes
 
     # test ssh connection
-    my $cmd = [ @{$session->{rem_ssh}}, '/bin/true' ];
-    eval { run_command($cmd); };
+    my $cmd = [ @{$self->{rem_ssh}}, '/bin/true' ];
+    eval { $self->cmd_quiet($cmd); };
     die "Can't connect to destination address using public key\n" if $@;
 
-    return $conf;
+    return $running;
 }
 
 sub sync_disks {
-    my ($session, $conf, $rhash, $running) = @_;
+    my ($self, $vmid) = @_;
 
-    logmsg('info', "copying disk images");
+    $self->log('info', "copying disk images");
+
+    my $conf = $self->{vmconf};
+
+    $self->{volumes} = [];
 
     my $res = [];
 
@@ -366,11 +196,13 @@ sub sync_disks {
 	my $cdromhash = {};
 
 	# get list from PVE::Storage (for unused volumes)
-	my $dl = PVE::Storage::vdisk_list($session->{storecfg}, undef, $session->{vmid});
+	my $dl = PVE::Storage::vdisk_list($self->{storecfg}, undef, $vmid);
 	PVE::Storage::foreach_volid($dl, sub {
 	    my ($volid, $sid, $volname) = @_;
 
-	    my $scfg =  PVE::Storage::storage_config($session->{storecfg}, $sid);
+	    # check if storage is available on both nodes
+	    my $scfg = PVE::Storage::storage_check_node($self->{storecfg}, $sid);
+	    PVE::Storage::storage_check_node($self->{storecfg}, $sid, $self->{node});
 
 	    return if $scfg->{shared};
 
@@ -396,7 +228,9 @@ sub sync_disks {
 
 	    my ($sid, $volname) = PVE::Storage::parse_volume_id($volid);
 
-	    my $scfg =  PVE::Storage::storage_config($session->{storecfg}, $sid);
+	    # check if storage is available on both nodes
+	    my $scfg = PVE::Storage::storage_check_node($self->{storecfg}, $sid);
+	    PVE::Storage::storage_check_node($self->{storecfg}, $sid, $self->{node});
 
 	    return if $scfg->{shared};
 
@@ -404,22 +238,22 @@ sub sync_disks {
 
 	    $sharedvm = 0;
 
-	    my ($path, $owner) = PVE::Storage::path($session->{storecfg}, $volid);
+	    my ($path, $owner) = PVE::Storage::path($self->{storecfg}, $volid);
 
 	    die "can't migrate volume '$volid' - owned by other VM (owner = VM $owner)\n"
-		if !$owner || ($owner != $session->{vmid});
+		if !$owner || ($owner != $self->{vmid});
 
 	    $volhash->{$volid} = 1;
 	});
 
-	if ($running && !$sharedvm) {
+	if ($self->{running} && !$sharedvm) {
 	    die "can't do online migration - VM uses local disks\n";
 	}
 
 	# do some checks first
 	foreach my $volid (keys %$volhash) {
 	    my ($sid, $volname) = PVE::Storage::parse_volume_id($volid);
-	    my $scfg =  PVE::Storage::storage_config($session->{storecfg}, $sid);
+	    my $scfg =  PVE::Storage::storage_config($self->{storecfg}, $sid);
 
 	    die "can't migrate '$volid' - storagy type '$scfg->{type}' not supported\n"
 		if $scfg->{type} ne 'dir';
@@ -427,53 +261,66 @@ sub sync_disks {
 
 	foreach my $volid (keys %$volhash) {
 	    my ($sid, $volname) = PVE::Storage::parse_volume_id($volid);
-	    push @{$rhash->{volumes}}, $volid;
-	    PVE::Storage::storage_migrate($session->{storecfg}, $volid, $session->{nodeip}, $sid);
+	    push @{$self->{volumes}}, $volid;
+	    PVE::Storage::storage_migrate($self->{storecfg}, $volid, $self->{nodeip}, $sid);
 	}
     };
     die "Failed to sync data - $@" if $@;
 }
 
 sub phase1 {
-    my ($session, $conf, $rhash, $running) = @_;
+    my ($self, $vmid) = @_;
 
-    logmsg('info', "starting migration of VM $session->{vmid} to node '$session->{node}' ($session->{nodeip})");
+    $self->log('info', "starting migration of VM $vmid to node '$self->{node}' ($self->{nodeip})");
 
-    if (my $loc_res = PVE::QemuServer::check_local_resources($conf, 1)) {
-	if ($running || !$session->{force}) {
-	    die "can't migrate VM which uses local devices\n";
-	} else {
-	    logmsg('info', "migrating VM which uses local devices");
-	}
-    }
+    my $conf = $self->{vmconf};
 
     # set migrate lock in config file
-    $rhash->{clearlock} = 1;
+    PVE::QemuServer::change_config_nolock($vmid, { lock => 'migrate' }, {}, 1);
 
-    PVE::QemuServer::change_config_nolock($session->{vmid}, { lock => 'migrate' }, {}, 1);
-
-    sync_disks($session, $conf, $rhash, $running);
+    sync_disks($self, $vmid);
 
     # move config to remote node
-    my $conffile = PVE::QemuServer::config_file($session->{vmid});
-    my $newconffile = PVE::QemuServer::config_file($session->{vmid}, $session->{node});
+    my $conffile = PVE::QemuServer::config_file($vmid);
+    my $newconffile = PVE::QemuServer::config_file($vmid, $self->{node});
 
-    die "Failed to move config to node '$session->{node}' - rename failed: $!\n"
+    die "Failed to move config to node '$self->{node}' - rename failed: $!\n"
 	if !rename($conffile, $newconffile);
 };
 
-sub phase2 {
-    my ($session, $conf, $rhash) = @_;
+sub phase1_cleanup {
+    my ($self, $vmid, $err) = @_;
 
-    logmsg('info', "starting VM on remote node '$session->{node}'");
+    $self->log('info', "aborting phase 1 - cleanup resources");
+
+    my $unset = { lock => 1 };
+    eval { PVE::QemuServer::change_config_nolock($vmid, {}, $unset, 1) };
+    if (my $err = $@) {
+	$self->log('err', $err);
+    }
+  
+    if ($self->{volumes}) {
+	foreach my $volid (@{$self->{volumes}}) {
+	    $self->log('err', "found stale volume copy '$volid' on node '$self->{node}'");
+	    # fixme: try to remove ?
+	}
+    }
+}
+
+sub phase2 {
+    my ($self, $vmid) = @_;
+
+    my $conf = $self->{vmconf};
+
+    logmsg('info', "starting VM $vmid on remote node '$self->{node}'");
 
     my $rport;
 
     ## start on remote node
-    my $cmd = [@{$session->{rem_ssh}}, $qm_cmd, 'start', 
-	       $session->{vmid}, '--stateuri', 'tcp', '--skiplock'];
+    my $cmd = [@{$self->{rem_ssh}}, 'qm', 'start', 
+	       $vmid, '--stateuri', 'tcp', '--skiplock'];
 
-    run_command($cmd, outfunc => sub {
+    $self->cmd($cmd, outfunc => sub {
 	my $line = shift;
 
 	if ($line =~ m/^migration listens on port (\d+)$/) {
@@ -483,23 +330,23 @@ sub phase2 {
 
     die "unable to detect remote migration port\n" if !$rport;
 
-    logmsg('info', "starting migration tunnel");
+    $self->log('info', "starting migration tunnel");
 
     ## create tunnel to remote port
     my $lport = PVE::QemuServer::next_migrate_port();
-    $rhash->{tunnel} = fork_tunnel($session->{nodeip}, $lport, $rport);
+    $self->{tunnel} = $self->fork_tunnel($self->{nodeip}, $lport, $rport);
 
-    logmsg('info', "starting online/live migration");
+    $self->log('info', "starting online/live migration");
     # start migration
 
     my $start = time();
 
-    PVE::QemuServer::vm_monitor_command($session->{vmid}, "migrate -d \"tcp:localhost:$lport\"", 1);
+    PVE::QemuServer::vm_monitor_command($vmid, "migrate -d \"tcp:localhost:$lport\"", 1);
 
     my $lstat = '';
     while (1) {
 	sleep (2);
-	my $stat = PVE::QemuServer::vm_monitor_command($session->{vmid}, "info migrate", 1);
+	my $stat = PVE::QemuServer::vm_monitor_command($vmid, "info migrate", 1);
 	if ($stat =~ m/^Migration status: (active|completed|failed|cancelled)$/im) {
 	    my $ms = $1;
 
@@ -510,10 +357,10 @@ sub phase2 {
 		    $rem = $1 if $stat =~ m/^remaining ram: (\d+) kbytes$/im;
 		    $total = $1 if $stat =~ m/^total ram: (\d+) kbytes$/im;
 
-		    logmsg('info', "migration status: $ms (transferred ${trans}KB, " .
-			    "remaining ${rem}KB), total ${total}KB)");
+		    $self->log('info', "migration status: $ms (transferred ${trans}KB, " .
+			       "remaining ${rem}KB), total ${total}KB)");
 		} else {
-		    logmsg('info', "migration status: $ms");
+		    $self->log('info', "migration status: $ms");
 		}
 	    }
 
@@ -521,10 +368,10 @@ sub phase2 {
 		my $delay = time() - $start;
 		if ($delay > 0) {
 		    my $mbps = sprintf "%.2f", $conf->{memory}/$delay;
-		    logmsg('info', "migration speed: $mbps MB/s");
+		    $self->log('info', "migration speed: $mbps MB/s");
 		}
 	    }
-
+	    
 	    if ($ms eq 'failed' || $ms eq 'cancelled') {
 		die "aborting\n"
 	    }
@@ -536,3 +383,62 @@ sub phase2 {
 	$lstat = $stat;
     };
 }
+
+sub phase3 {
+    my ($self, $vmid) = @_;
+    
+    my $volids = $self->{volumes};
+
+    # destroy local copies
+    foreach my $volid (@$volids) {
+	eval { PVE::Storage::vdisk_free($self->{storecfg}, $volid); };
+	if (my $err = $@) {
+	    $self->log('err', "removing local copy of '$volid' failed - $err");
+	    $self->{errors} = 1;
+	    last if $err =~ /^interrupted by signal$/;
+	}
+    }
+
+    if ($self->{tunnel}) {
+	eval { finish_tunnel($self, $self->{tunnel});  };
+	if (my $err = $@) {
+	    $self->log('err', $err);
+	    $self->{errors} = 1;
+	}
+    }
+}
+
+sub phase3_cleanup {
+    my ($self, $vmid, $err) = @_;
+
+    my $conf = $self->{vmconf};
+
+    # always stop local VM
+    eval { PVE::QemuServer::vm_stop($self->{storecfg}, $vmid, 1, 1); };
+    if (my $err = $@) {
+	$self->log('err', "stopping vm failed - $err");
+	$self->{errors} = 1;
+    }
+
+    # always deactivate volumes - avoid lvm LVs to be active on several nodes
+    eval {
+	my $vollist = PVE::QemuServer::get_vm_volumes($conf);
+	PVE::Storage::deactivate_volumes($self->{storecfg}, $vollist);
+    };
+    if (my $err = $@) {
+	$self->log('err', $err);
+	$self->{errors} = 1;
+    }
+
+    # clear migrate lock
+    my $cmd = [ @{$self->{rem_ssh}}, 'qm', 'unlock', $vmid ];
+    $self->cmd_logerr($cmd, errmsg => "failed to clear migrate lock");
+}
+
+sub final_cleanup {
+    my ($self, $vmid) = @_;
+
+    # nothing to do
+}
+
+1;

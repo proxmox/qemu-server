@@ -1232,7 +1232,7 @@ __PACKAGE__->register_method({
 	my $realcmd = sub {
 	    my $upid = shift;
 
-	    PVE::QemuMigrate::migrate($target, $targetip, $vmid, $param->{online}, $param->{force});
+	    PVE::QemuMigrate->migrate($target, $targetip, $vmid, $param);
 	};
 
 	my $upid = $rpcenv->fork_worker('qmigrate', $vmid, $user, $realcmd);
