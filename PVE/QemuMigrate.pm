@@ -13,7 +13,7 @@ use PVE::QemuServer;
 use base qw(PVE::AbstractMigrate);
 
 sub fork_command_pipe {
-    my ($cmd) = @_;
+    my ($self, $cmd) = @_;
 
     my $reader = IO::File->new();
     my $writer = IO::File->new();
@@ -28,7 +28,7 @@ sub fork_command_pipe {
 
     # catch exec errors
     if ($orig_pid != $$) {
-	logmsg('err', "can't fork command pipe\n");
+	$self->log('err', "can't fork command pipe\n");
 	POSIX::_exit(1);
 	kill('KILL', $$);
     }
@@ -39,7 +39,7 @@ sub fork_command_pipe {
 }
 
 sub finish_command_pipe {
-    my $cmdpipe = shift;
+    my ($self, $cmdpipe) = @_;
 
     my $writer = $cmdpipe->{writer};
     my $reader = $cmdpipe->{reader};
@@ -94,7 +94,7 @@ sub fork_tunnel {
     my $cmd = [@{$self->{rem_ssh}}, '-L', "$lport:localhost:$rport",
 	       'qm', 'mtunnel' ];
 
-    my $tunnel = fork_command_pipe($cmd);
+    my $tunnel = $self->fork_command_pipe($cmd);
 
     my $reader = $tunnel->{reader};
 
@@ -109,7 +109,7 @@ sub fork_tunnel {
     my $err = $@;
 
     if ($err) {
-	finish_command_pipe($tunnel);
+	$self->finish_command_pipe($tunnel);
 	die "can't open migration tunnel - $err";
     }
     return $tunnel;
@@ -128,7 +128,7 @@ sub finish_tunnel {
     };
     my $err = $@;
 
-    finish_command_pipe($tunnel);
+    $self->finish_command_pipe($tunnel);
 
     die $err if $err;
 }
@@ -312,7 +312,7 @@ sub phase2 {
 
     my $conf = $self->{vmconf};
 
-    logmsg('info', "starting VM $vmid on remote node '$self->{node}'");
+    $self->log('info', "starting VM $vmid on remote node '$self->{node}'");
 
     my $rport;
 
