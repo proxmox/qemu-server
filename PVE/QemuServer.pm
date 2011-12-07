@@ -903,6 +903,8 @@ sub print_drivedevice_full {
 	die "unsupported interface type";
     }
 
+    $device .= ",bootindex=$drive->{bootindex}" if $drive->{bootindex};
+
     return $device;
 }
 
@@ -911,6 +913,7 @@ sub print_drive_full {
 
     my $opts = '';
     foreach my $o (@qemu_drive_options) {
+	next if $o eq 'bootindex';
 	$opts .= ",$o=$drive->{$o}" if $drive->{$o};
     }
 
@@ -2000,8 +2003,6 @@ sub config_to_command {
 
     my $cores = $conf->{cores} || 1;
 
-    my $boot_opt;
-
     push @$cmd, '-smp', "sockets=$sockets,cores=$cores";
 
     push @$cmd, '-cpu', $conf->{cpu} if $conf->{cpu};
@@ -2009,7 +2010,23 @@ sub config_to_command {
     push @$cmd, '-nodefaults';
 
     my $bootorder = $conf->{boot} || $confdesc->{boot}->{default};
-    push @$cmd, '-boot', "menu=on,order=$bootorder";
+
+    my $bootindex_hash = {
+	c => 100,
+	a => 200,
+	d => 300,
+    };
+
+    if ($bootorder) {
+	$bootindex_hash = {};
+	my $i = 1;
+	foreach my $o (split(//, $bootorder)) {
+	    $bootindex_hash->{$o} = $i*100;
+	    $i++;
+	} 
+    }
+
+    push @$cmd, '-boot', "menu=on";
 
     push @$cmd, '-no-acpi' if defined($conf->{acpi}) && $conf->{acpi} == 0;
 
@@ -2092,6 +2109,19 @@ sub config_to_command {
 	}
 	
 	$use_virtio = 1 if $ds =~ m/^virtio/;
+
+	if (drive_is_cdrom ($drive)) {
+	    if ($bootindex_hash->{d}) {
+		$drive->{bootindex} = $bootindex_hash->{d};
+		$bootindex_hash->{d} += 1;
+	    }
+	} else {
+	    if ($bootindex_hash->{c}) {
+		$drive->{bootindex} = $bootindex_hash->{c} if $conf->{bootdisk} && ($conf->{bootdisk} eq $ds);
+		$bootindex_hash->{c} += 1;
+	    }
+	}
+
         if ($drive->{interface} eq 'scsi') {
            my $maxdev = 7;
            my $controller = int($drive->{index} / $maxdev);
@@ -2099,9 +2129,8 @@ sub config_to_command {
            push @$cmd, '-device', "lsi,id=scsi$controller$pciaddr" if !$scsicontroller->{$controller};
            $scsicontroller->{$controller}=1;
         }
-	my $tmp = print_drive_full($storecfg, $vmid, $drive);
-	$tmp .= ",boot=on" if $conf->{bootdisk} && ($conf->{bootdisk} eq $ds);
-	push @$cmd, '-drive', $tmp;
+
+	push @$cmd, '-drive',  print_drive_full($storecfg, $vmid, $drive);
 	push @$cmd, '-device',print_drivedevice_full($storecfg,$vmid, $drive);
     });
 
@@ -2144,7 +2173,12 @@ sub config_to_command {
 	    my $extra = (!$conf->{boot} || ($conf->{boot} !~ m/n/)) ?
 		"romfile=," : '';
 	    $pciaddr = print_pci_addr("${k}");
-	    push @$cmd, '-device', "$device,${extra}mac=$net->{macaddr},netdev=${k}$pciaddr";
+	    my $tmpstr = "$device,${extra}mac=$net->{macaddr},netdev=${k}$pciaddr";
+	    if (my $bootindex = $bootindex_hash->{n}) {
+		$tmpstr .= ",bootindex=$bootindex";
+		$bootindex_hash->{n} += 1;
+	    }
+	    push @$cmd, '-device', $tmpstr; 
 	}
     }
 
