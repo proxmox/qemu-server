@@ -590,7 +590,7 @@ sub kvm_user_version {
 
     my $tmp = `kvm -help 2>/dev/null`;
 
-    if ($tmp =~ m/^QEMU( PC)? emulator version (\d+\.\d+\.\d+) /) {
+    if ($tmp =~ m/^QEMU( PC)? emulator version (\d+\.\d+(\.\d+)?) /) {
 	$kvm_user_version = $2;
     }
 
@@ -1927,11 +1927,13 @@ sub config_to_command {
     my $pciaddr = '';
     my $kvmver = kvm_user_version();
     my $vernum = 0; # unknown
-    if ($kvmver =~ m/^(\d+)\.(\d+)\.(\d+)$/) {
+    if ($kvmver =~ m/^(\d+)\.(\d+)$/) {
+	$vernum = $1*1000000+$2*1000;
+    } elsif ($kvmver =~ m/^(\d+)\.(\d+)\.(\d+)$/) {
 	$vernum = $1*1000000+$2*1000+$3;
     }
 
-    die "detected old qemu-kvm binary ($kvmver)\n" if $vernum < 14000;
+    die "detected old qemu-kvm binary ($kvmver)\n" if $vernum < 15000;
 
     my $have_ovz = -f '/proc/vz/vestat';
 
