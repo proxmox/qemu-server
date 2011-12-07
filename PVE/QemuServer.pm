@@ -872,45 +872,35 @@ sub print_drivedevice_full {
     my $device = '';
     my $maxdev = 0;
 
-    
-   
     if ($drive->{interface} eq 'virtio') {
-      my $pciaddr = print_pci_addr("$drive->{interface}$drive->{index}");
-      $device = "virtio-blk-pci,drive=drive-$drive->{interface}$drive->{index},id=$drive->{interface}$drive->{index}$pciaddr";
-    }
+	my $pciaddr = print_pci_addr("$drive->{interface}$drive->{index}");
+	$device = "virtio-blk-pci,drive=drive-$drive->{interface}$drive->{index},id=$drive->{interface}$drive->{index}$pciaddr";
+    } elsif ($drive->{interface} eq 'scsi') {
+	$maxdev = 7;
+	my $controller = int($drive->{index} / $maxdev);
+	my $unit = $drive->{index} % $maxdev;
+	my $devicetype = 'hd';
+	if ($drive->{media}) {
+	    if($drive->{media} eq 'cdrom') {
+		$devicetype = 'cd';
+	    } elsif ($drive->{media} eq 'block') {
+		$devicetype = 'block';
+	    }
+	}
 
-    elsif ($drive->{interface} eq 'scsi') {
+	$device = "scsi-$devicetype,bus=scsi$controller.0,scsi-id=$unit,drive=drive-$drive->{interface}$drive->{index},id=device-$drive->{interface}$drive->{index}";
+    } elsif ($drive->{interface} eq 'ide'){
+	$maxdev = 2;
+	my $controller = int($drive->{index} / $maxdev);
+	my $unit = $drive->{index} % $maxdev;
+	my $devicetype = ($drive->{media} && $drive->{media} eq 'cdrom') ? "cd" : "hd";
 
-      $maxdev = 7;
-      my $controller = int($drive->{index} / $maxdev);
-      my $unit = $drive->{index} % $maxdev;
-      my $devicetype = '';
-
-      if($drive->{media} && $drive->{media} eq 'cdrom') {
-     	$devicetype = "cd";
-      }
-      elsif ($drive->{media} && $drive->{media} eq 'block') {
-	$devicetype = $drive->{media};
-      }
-      else {
-	$devicetype = "hd";
-      }
-
-      $device = "scsi-$devicetype,bus=scsi$controller.0,scsi-id=$unit,drive=drive-$drive->{interface}$drive->{index},id=device-$drive->{interface}$drive->{index}";
-    }
-
-    elsif ($drive->{interface} eq 'ide'){
-
-      $maxdev = 2;
-      my $controller = int($drive->{index} / $maxdev);
-      my $unit = $drive->{index} % $maxdev;
-      my $devicetype = ($drive->{media} && $drive->{media} eq 'cdrom') ? "cd" : "hd";
-
-      $device = "ide-$devicetype,bus=ide.$controller,unit=$unit,drive=drive-$drive->{interface}$drive->{index},id=device-$drive->{interface}$drive->{index}";
-    }
-
-    if ($drive->{interface} eq 'usb'){
-      #  -device ide-drive,bus=ide.1,unit=0,drive=drive-ide0-1-0,id=ide0-1-0
+	$device = "ide-$devicetype,bus=ide.$controller,unit=$unit,drive=drive-$drive->{interface}$drive->{index},id=device-$drive->{interface}$drive->{index}";
+    } elsif ($drive->{interface} eq 'usb') {
+	die "implement me";
+	#  -device ide-drive,bus=ide.1,unit=0,drive=drive-ide0-1-0,id=ide0-1-0
+    } else {
+	die "unsupported interface type";
     }
 
     return $device;
