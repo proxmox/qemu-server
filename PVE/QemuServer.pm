@@ -2025,20 +2025,12 @@ sub config_to_command {
 
     my $bootorder = $conf->{boot} || $confdesc->{boot}->{default};
 
-    my $bootindex_hash = {
-	c => 100,
-	a => 200,
-	d => 300,
-    };
-
-    if ($bootorder) {
-	$bootindex_hash = {};
-	my $i = 1;
-	foreach my $o (split(//, $bootorder)) {
-	    $bootindex_hash->{$o} = $i*100;
-	    $i++;
-	} 
-    }
+    my $bootindex_hash = {};
+    my $i = 1;
+    foreach my $o (split(//, $bootorder)) {
+	$bootindex_hash->{$o} = $i*100;
+	$i++;
+    } 
 
     push @$cmd, '-boot', "menu=on";
 
@@ -2184,8 +2176,7 @@ sub config_to_command {
 
 	    # qemu > 0.15 always try to boot from network - we disable that by
 	    # not loading the pxe rom file
-	    my $extra = (!$conf->{boot} || ($conf->{boot} !~ m/n/)) ?
-		"romfile=," : '';
+	    my $extra = ($bootorder !~ m/n/) ? "romfile=," : '';
 	    $pciaddr = print_pci_addr("${k}");
 	    my $tmpstr = "$device,${extra}mac=$net->{macaddr},netdev=${k}$pciaddr";
 	    if (my $bootindex = $bootindex_hash->{n}) {
