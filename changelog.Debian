@@ -1,3 +1,9 @@
+qemu-server (2.0-11) unstable; urgency=low
+
+  * do not use ehci by default
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 08 Dec 2011 10:26:36 +0100
+
 qemu-server (2.0-10) unstable; urgency=low
 
   * set qm exit codes currectly
