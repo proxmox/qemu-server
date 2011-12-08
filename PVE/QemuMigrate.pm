@@ -320,13 +320,13 @@ sub phase2 {
     my $cmd = [@{$self->{rem_ssh}}, 'qm', 'start', 
 	       $vmid, '--stateuri', 'tcp', '--skiplock'];
 
-    $self->cmd($cmd, outfunc => sub {
+    PVE::Tools::run_command($cmd, outfunc => sub {
 	my $line = shift;
 
 	if ($line =~ m/^migration listens on port (\d+)$/) {
 	    $rport = $1;
 	}
-    });
+    }, errfunc => sub {});
 
     die "unable to detect remote migration port\n" if !$rport;
 
