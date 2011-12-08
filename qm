@@ -395,7 +395,7 @@ my $cmddef = {
 
     destroy => [ "PVE::API2::Qemu", 'destroy_vm', ['vmid'], { node => $nodename }, $upid_exit ],
 
-    migrate => [ "PVE::API2::Qemu", 'migrate_vm', ['target', 'vmid'], { node => $nodename }, $upid_exit ],
+    migrate => [ "PVE::API2::Qemu", 'migrate_vm', ['vmid', 'target'], { node => $nodename }, $upid_exit ],
 
     set => [ "PVE::API2::Qemu", 'update_vm', ['vmid'], { node => $nodename } ],
 
