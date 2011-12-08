@@ -336,18 +336,19 @@ sub phase2 {
     my $lport = PVE::QemuServer::next_migrate_port();
     $self->{tunnel} = $self->fork_tunnel($self->{nodeip}, $lport, $rport);
 
-    $self->log('info', "starting online/live migration");
+    $self->log('info', "starting online/live migration on port $lport");
     # start migration
 
     my $start = time();
 
-    PVE::QemuServer::vm_monitor_command($vmid, "migrate -d \"tcp:localhost:$lport\"", 1);
+    my $merr = PVE::QemuServer::vm_monitor_command($vmid, "migrate -d \"tcp:localhost:$lport\"", 1);
 
     my $lstat = '';
     while (1) {
 	sleep (2);
 	my $stat = PVE::QemuServer::vm_monitor_command($vmid, "info migrate", 1);
 	if ($stat =~ m/^Migration status: (active|completed|failed|cancelled)$/im) {
+	    $merr = undef;
 	    my $ms = $1;
 
 	    if ($stat ne $lstat) {
@@ -378,6 +379,7 @@ sub phase2 {
 
 	    last if $ms ne 'active';
 	} else {
+	    die $merr if $merr;
 	    die "unable to parse migration status '$stat' - aborting\n";
 	}
 	$lstat = $stat;
