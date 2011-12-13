@@ -445,7 +445,7 @@ PVE::JSONSchema::register_standard_option("pve-qm-ide", $idedesc);
 my $scsidesc = {
     optional => 1,
     type => 'string', format => 'pve-qm-drive',
-    typetext => '[volume=]volume,] [,media=cdrom|disk|block] [,cyls=c,heads=h,secs=s[,trans=t]] [,snapshot=on|off] [,cache=none|writethrough|writeback|unsafe] [,format=f] [,backup=yes|no] [,aio=native|threads]',
+    typetext => '[volume=]volume,] [,media=cdrom|disk] [,cyls=c,heads=h,secs=s[,trans=t]] [,snapshot=on|off] [,cache=none|writethrough|writeback|unsafe] [,format=f] [,backup=yes|no] [,aio=native|threads]',
     description => "Use volume as SCSI hard disk or CD-ROM (n is 0 to 13).",
 };
 PVE::JSONSchema::register_standard_option("pve-qm-scsi", $scsidesc);
@@ -880,13 +880,19 @@ sub print_drivedevice_full {
 	my $controller = int($drive->{index} / $maxdev);
 	my $unit = $drive->{index} % $maxdev;
 	my $devicetype = 'hd';
-	if ($drive->{media}) {
-	    if($drive->{media} eq 'cdrom') {
-		$devicetype = 'cd';
-	    } elsif ($drive->{media} eq 'block') {
-		$devicetype = 'block';
-	    }
-	}
+        my $path = '';
+        if (drive_is_cdrom($drive)) {
+              $devicetype = 'cd';
+          } else {
+              if ($drive->{file} =~ m|^/|) {
+                  $path = $drive->{file};
+              } else {
+                  $path = PVE::Storage::path($storecfg, $drive->{file});
+              }
+              if ($path =~ m|^/dev/| ) {
+                  $devicetype = 'block';
+              }
+         }
 
 	$device = "scsi-$devicetype,bus=scsi$controller.0,scsi-id=$unit,drive=drive-$drive->{interface}$drive->{index},id=device-$drive->{interface}$drive->{index}";
     } elsif ($drive->{interface} eq 'ide'){
