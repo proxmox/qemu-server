@@ -54,40 +54,6 @@ sub finish_command_pipe {
     waitpid($cpid, 0);
 }
 
-sub run_with_timeout {
-    my ($timeout, $code, @param) = @_;
-
-    die "got timeout\n" if $timeout <= 0;
-
-    my $prev_alarm;
-
-    my $sigcount = 0;
-
-    my $res;
-
-    eval {
-	local $SIG{ALRM} = sub { $sigcount++; die "got timeout\n"; };
-	local $SIG{PIPE} = sub { $sigcount++; die "broken pipe\n" };
-	local $SIG{__DIE__};   # see SA bug 4631
-
-	$prev_alarm = alarm($timeout);
-
-	$res = &$code(@param);
-
-	alarm(0); # avoid race conditions
-    };
-
-    my $err = $@;
-
-    alarm($prev_alarm) if defined($prev_alarm);
-
-    die "unknown error" if $sigcount && !$err; # seems to happen sometimes
-
-    die $err if $err;
-
-    return $res;
-}
-
 sub fork_tunnel {
     my ($self, $nodeip, $lport, $rport) = @_;
 
@@ -100,7 +66,7 @@ sub fork_tunnel {
 
     my $helo;
     eval {
-	run_with_timeout(60, sub { $helo = <$reader>; });
+	PVE::Tools::run_with_timeout(60, sub { $helo = <$reader>; });
 	die "no reply\n" if !$helo;
 	die "no quorum on target node\n" if $helo =~ m/^no quorum$/;
 	die "got strange reply from mtunnel ('$helo')\n"
@@ -121,7 +87,7 @@ sub finish_tunnel {
     my $writer = $tunnel->{writer};
 
     eval {
-	run_with_timeout(30, sub {
+	PVE::Tools::run_with_timeout(30, sub {
 	    print $writer "quit\n";
 	    $writer->flush();
 	});
