@@ -1,3 +1,9 @@
+qemu-server (2.0-12) unstable; urgency=low
+
+  * implement forceStop option for shutdown
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 15 Dec 2011 12:58:00 +0100
+
 qemu-server (2.0-11) unstable; urgency=low
 
   * do not use ehci by default

@@ -991,6 +991,12 @@ __PACKAGE__->register_method({
 		type => 'integer',
 		minimum => 0,
 		optional => 1,
+	    },
+	    forceStop => {
+		description => "Make sure the VM stops.",
+		type => 'boolean',
+		optional => 1,
+		default => 0,
 	    }
 	},
     },
@@ -1021,7 +1027,8 @@ __PACKAGE__->register_method({
 
 	    syslog('info', "shutdown VM $vmid: $upid\n");
 
-	    PVE::QemuServer::vm_shutdown($storecfg, $vmid, $skiplock, $param->{timeout});
+	    PVE::QemuServer::vm_stop($storecfg, $vmid, $skiplock, 0, 
+				     $param->{timeout}, 1, $param->{forceStop});
 
 	    return;
 	};

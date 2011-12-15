@@ -2575,43 +2575,14 @@ sub vm_stop_cleanup {
     PVE::Storage::deactivate_volumes($storecfg, $vollist);
 }
 
-sub vm_shutdown {
-    my ($storecfg, $vmid, $skiplock, $timeout) = @_;
-
-    $timeout = 60 if !$timeout;
-
-    lock_config($vmid, sub {
-
-	my $conf = load_config($vmid);
-
-	check_lock($conf) if !$skiplock;
-
-	vm_monitor_command($vmid, "system_powerdown");
-
-	my $pid = check_running($vmid);
-
-	if ($pid && $timeout) {
-	    print "waiting until VM $vmid stopps (PID $pid)\n";
-
-	    my $count = 0;
-	    while (($count < $timeout) && check_running($vmid)) {
-		$count++;
-		sleep 1;
-	    }
-
-	    die "shutdown failed - got timeout\n" if check_running($vmid);
-	}
-
-	vm_stop_cleanup($storecfg, $vmid, $conf);
-    });
-}
-
 # Note: use $nockeck to skip tests if VM configuration file exists.
 # We need that when migration VMs to other nodes (files already moved) 
 sub vm_stop {
-    my ($storecfg, $vmid, $skiplock, $nocheck, $timeout) = @_;
+    my ($storecfg, $vmid, $skiplock, $nocheck, $timeout, $shutdown, $force) = @_;
 
-    $timeout = 60 if !$timeout;
+    $timeout = 60 if !defined($timeout);
+
+    $force = 1 if !defined($force) && !$shutdown;
 
     lock_config($vmid, sub {
 
@@ -2624,7 +2595,13 @@ sub vm_stop {
 	    check_lock($conf) if !$skiplock;
 	}
 
-	eval { vm_monitor_command($vmid, "quit", $nocheck); };
+	eval {
+	    if ($shutdown) {
+		vm_monitor_command($vmid, "system_powerdown", $nocheck);
+	    } else {
+		vm_monitor_command($vmid, "quit", $nocheck);
+	    } 
+	};
 	my $err = $@;
 
 	if (!$err) {
@@ -2635,12 +2612,23 @@ sub vm_stop {
 	    }
 
 	    if ($count >= $timeout) {
-		warn "VM still running - terminating now with SIGTERM\n";
-		kill 15, $pid;
+		if ($force) {
+		    warn "VM still running - terminating now with SIGTERM\n";
+		    kill 15, $pid;
+		} else {
+		    die "VM quit/powerdown failed - got timeout\n";
+		}
+	    } else {
+		vm_stop_cleanup($storecfg, $vmid, $conf) if $conf;
+		return;
 	    }
 	} else {
-	    warn "VM quit failed - terminating now with SIGTERM\n";
-	    kill 15, $pid;
+	    if ($force) {
+		warn "VM quit/powerdown failed - terminating now with SIGTERM\n";
+		kill 15, $pid;
+	    } else {
+		die "VM quit/powerdown failed\n"; 
+	    }
 	}
 
 	# wait again
