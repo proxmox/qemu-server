@@ -2569,10 +2569,13 @@ sub get_vm_volumes {
 sub vm_stop_cleanup {
     my ($storecfg, $vmid, $conf) = @_;
 
-    fairsched_rmnod($vmid); # try to destroy group
+    eval {
+	fairsched_rmnod($vmid); # try to destroy group
 
-    my $vollist = get_vm_volumes($conf);
-    PVE::Storage::deactivate_volumes($storecfg, $vollist);
+	my $vollist = get_vm_volumes($conf);
+	PVE::Storage::deactivate_volumes($storecfg, $vollist);
+    };
+    warn $@ if $@; # avoid errors - just warn
 }
 
 # Note: use $nockeck to skip tests if VM configuration file exists.
