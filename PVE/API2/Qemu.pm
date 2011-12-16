@@ -854,8 +854,6 @@ __PACKAGE__->register_method({
 	raise_param_exc({ skiplock => "Only root may use this option." }) 
 	    if $skiplock && $user ne 'root@pam';
 
-	die "VM $vmid already running\n" if PVE::QemuServer::check_running($vmid);
-
 	my $storecfg = PVE::Storage::config(); 
 
 	my $realcmd = sub {
@@ -909,8 +907,6 @@ __PACKAGE__->register_method({
 	my $skiplock = extract_param($param, 'skiplock');
 	raise_param_exc({ skiplock => "Only root may use this option." }) 
 	    if $skiplock && $user ne 'root@pam';
-
-	die "VM $vmid not running\n" if !PVE::QemuServer::check_running($vmid);
 
 	my $storecfg = PVE::Storage::config();
 
@@ -1017,8 +1013,6 @@ __PACKAGE__->register_method({
 	my $skiplock = extract_param($param, 'skiplock');
 	raise_param_exc({ skiplock => "Only root may use this option." }) 
 	    if $skiplock && $user ne 'root@pam';
-
-	die "VM $vmid not running\n" if !PVE::QemuServer::check_running($vmid);
 
 	my $storecfg = PVE::Storage::config();
 
