@@ -23,6 +23,8 @@ case "$1" in
 	(egrep '^flags.*vmx' /proc/cpuinfo >/dev/null && modprobe -q kvm-intel) || 
 	echo "unable to load kvm module"
 
+	modprobe -q vhost_net || true
+
 	# recent distributions use tmpfs for /var/run
 	# and /var/lock to avoid to clean it up on every boot.
 	# they also assume that init scripts will create
