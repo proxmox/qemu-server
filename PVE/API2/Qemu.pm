@@ -812,8 +812,16 @@ __PACKAGE__->register_method({
 	my $conf = PVE::QemuServer::load_config($param->{vmid});
 
 	my $vmstatus = PVE::QemuServer::vmstatus($param->{vmid});
+	my $status = $vmstatus->{$param->{vmid}};
 
-	return $vmstatus->{$param->{vmid}};
+	my $cc = PVE::Cluster::cfs_read_file('cluster.conf');
+	if (PVE::Cluster::cluster_conf_lookup_pvevm($cc, 0, $param->{vmid}, 1)) {
+	    $status->{ha} = 1;
+	} else {
+	    $status->{ha} = 0;
+	}
+
+	return $status;
     }});
 
 __PACKAGE__->register_method({
