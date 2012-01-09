@@ -138,8 +138,6 @@ mkdir $lock_dir;
 
 my $pcisysfs = "/sys/bus/pci";
 
-my $keymaphash = PVE::Tools::kvmkeymaps();
-
 my $confdesc = {
     onboot => {
 	optional => 1,
@@ -203,7 +201,7 @@ my $confdesc = {
 	optional => 1,
 	type => 'string',
 	description => "Keybord layout for vnc server. Default is read from the datacenter configuration file.",
-	enum => [ keys %$keymaphash ],
+	enum => PVE::Tools::kvmkeymaplist(),
 	default => 'en-us',
     },
     name => {

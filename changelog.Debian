@@ -1,3 +1,9 @@
+qemu-server (2.0-14) unstable; urgency=low
+
+  * use 'da' instead of 'dk' for Danish keyboard (qemu use that name)
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 09 Jan 2012 11:24:40 +0100
+
 qemu-server (2.0-13) unstable; urgency=low
 
   * load vhost_net module
