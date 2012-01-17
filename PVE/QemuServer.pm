@@ -1756,8 +1756,14 @@ sub disksize {
     if ($volid =~ m|^/|) {
 	$path = $timeoutid = $volid;
     } else {
-	$storeid = $timeoutid = PVE::Storage::parse_volume_id($volid);
-	$path = PVE::Storage::path($storecfg, $volid);
+	eval {
+	    $storeid = $timeoutid = PVE::Storage::parse_volume_id($volid);
+	    $path = PVE::Storage::path($storecfg, $volid);
+	};
+	if (my $err = $@) {
+	    warn $err;
+	    return undef;
+	}
     }
 
     my $last_timeout = $storage_timeout_hash->{$timeoutid};
