@@ -2565,21 +2565,24 @@ sub get_vm_volumes {
 }
 
 sub vm_stop_cleanup {
-    my ($storecfg, $vmid, $conf) = @_;
+    my ($storecfg, $vmid, $conf, $keepActive) = @_;
 
     eval {
 	fairsched_rmnod($vmid); # try to destroy group
 
-	my $vollist = get_vm_volumes($conf);
-	PVE::Storage::deactivate_volumes($storecfg, $vollist);
+	if (!$keepActive) {
+	    my $vollist = get_vm_volumes($conf);
+	    PVE::Storage::deactivate_volumes($storecfg, $vollist);
+	}
     };
     warn $@ if $@; # avoid errors - just warn
 }
 
 # Note: use $nockeck to skip tests if VM configuration file exists.
-# We need that when migration VMs to other nodes (files already moved) 
+# We need that when migration VMs to other nodes (files already moved)
+# Note: we set $keepActive in vzdump stop mode - volumes need to stay active
 sub vm_stop {
-    my ($storecfg, $vmid, $skiplock, $nocheck, $timeout, $shutdown, $force) = @_;
+    my ($storecfg, $vmid, $skiplock, $nocheck, $timeout, $shutdown, $force, $keepActive) = @_;
 
     $timeout = 60 if !defined($timeout);
 
@@ -2620,7 +2623,7 @@ sub vm_stop {
 		    die "VM quit/powerdown failed - got timeout\n";
 		}
 	    } else {
-		vm_stop_cleanup($storecfg, $vmid, $conf) if $conf;
+		vm_stop_cleanup($storecfg, $vmid, $conf, $keepActive) if $conf;
 		return;
 	    }
 	} else {
@@ -2647,7 +2650,7 @@ sub vm_stop {
 	    sleep 1;
 	}
 
-	vm_stop_cleanup($storecfg, $vmid, $conf) if $conf;
+	vm_stop_cleanup($storecfg, $vmid, $conf, $keepActive) if $conf;
    });
 }
 

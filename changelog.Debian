@@ -1,6 +1,8 @@
 qemu-server (2.0-15) unstable; urgency=low
 
   * online migration fix: close tunnel later, wait for connection close
+  
+  * fix bug #81: do no deactivate volumes in vzdump stop mode
 
  -- Proxmox Support Team <support@proxmox.com>  Tue, 17 Jan 2012 11:24:56 +0100
 

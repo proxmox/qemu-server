@@ -895,6 +895,12 @@ __PACKAGE__->register_method({
 		type => 'integer',
 		minimum => 0,
 		optional => 1,
+	    },
+	    keepActive => {
+		description => "Do not decativate storage volumes.",
+		type => 'boolean',
+		optional => 1,
+		default => 0,
 	    }
 	},
     },
@@ -916,6 +922,10 @@ __PACKAGE__->register_method({
 	raise_param_exc({ skiplock => "Only root may use this option." }) 
 	    if $skiplock && $user ne 'root@pam';
 
+	my $keepActive = extract_param($param, 'keepActive');
+	raise_param_exc({ keepActive => "Only root may use this option." }) 
+	    if $keepActive && $user ne 'root@pam';
+
 	my $storecfg = PVE::Storage::config();
 
 	my $realcmd = sub {
@@ -923,7 +933,8 @@ __PACKAGE__->register_method({
 
 	    syslog('info', "stop VM $vmid: $upid\n");
 
-	    PVE::QemuServer::vm_stop($storecfg, $vmid, $skiplock, 0, $param->{timeout});
+	    PVE::QemuServer::vm_stop($storecfg, $vmid, $skiplock, 0, 
+				     $param->{timeout}, 0, 1, $keepActive);
 
 	    return;
 	};
@@ -1001,6 +1012,12 @@ __PACKAGE__->register_method({
 		type => 'boolean',
 		optional => 1,
 		default => 0,
+	    },
+	    keepActive => {
+		description => "Do not decativate storage volumes.",
+		type => 'boolean',
+		optional => 1,
+		default => 0,
 	    }
 	},
     },
@@ -1022,6 +1039,10 @@ __PACKAGE__->register_method({
 	raise_param_exc({ skiplock => "Only root may use this option." }) 
 	    if $skiplock && $user ne 'root@pam';
 
+	my $keepActive = extract_param($param, 'keepActive');
+	raise_param_exc({ keepActive => "Only root may use this option." }) 
+	    if $keepActive && $user ne 'root@pam';
+
 	my $storecfg = PVE::Storage::config();
 
 	my $realcmd = sub {
@@ -1029,8 +1050,8 @@ __PACKAGE__->register_method({
 
 	    syslog('info', "shutdown VM $vmid: $upid\n");
 
-	    PVE::QemuServer::vm_stop($storecfg, $vmid, $skiplock, 0, 
-				     $param->{timeout}, 1, $param->{forceStop});
+	    PVE::QemuServer::vm_stop($storecfg, $vmid, $skiplock, 0, $param->{timeout}, 
+				     1, $param->{forceStop}, $keepActive);
 
 	    return;
 	};
