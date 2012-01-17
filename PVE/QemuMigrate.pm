@@ -39,7 +39,7 @@ sub fork_command_pipe {
 }
 
 sub finish_command_pipe {
-    my ($self, $cmdpipe) = @_;
+    my ($self, $cmdpipe, $timeout) = @_;
 
     my $writer = $cmdpipe->{writer};
     my $reader = $cmdpipe->{reader};
@@ -49,9 +49,25 @@ sub finish_command_pipe {
 
     my $cpid = $cmdpipe->{pid};
 
-    kill(15, $cpid) if kill(0, $cpid);
+    if ($timeout) {
+	for (my $i = 0; $i < $timeout; $i++) {
+	    return if !PVE::ProcFSTools::check_process_running($cpid);
+	    sleep(1);
+	}
+    }
 
-    waitpid($cpid, 0);
+    $self->log('info', "ssh tunnel still running - terminating now with SIGTERM\n");
+    kill(15, $cpid);
+
+    # wait again
+    for (my $i = 0; $i < 10; $i++) {
+	return if !PVE::ProcFSTools::check_process_running($cpid);
+	sleep(1);
+    }
+
+    $self->log('info', "ssh tunnel still running - terminating now with SIGKILL\n");
+    kill 9, $cpid;
+    sleep 1;
 }
 
 sub fork_tunnel {
@@ -94,7 +110,7 @@ sub finish_tunnel {
     };
     my $err = $@;
 
-    $self->finish_command_pipe($tunnel);
+    $self->finish_command_pipe($tunnel, 30);
 
     die $err if $err;
 }
@@ -366,14 +382,6 @@ sub phase3 {
 	    last if $err =~ /^interrupted by signal$/;
 	}
     }
-
-    if ($self->{tunnel}) {
-	eval { finish_tunnel($self, $self->{tunnel});  };
-	if (my $err = $@) {
-	    $self->log('err', $err);
-	    $self->{errors} = 1;
-	}
-    }
 }
 
 sub phase3_cleanup {
@@ -386,6 +394,14 @@ sub phase3_cleanup {
     if (my $err = $@) {
 	$self->log('err', "stopping vm failed - $err");
 	$self->{errors} = 1;
+    }
+
+    if ($self->{tunnel}) {
+	eval { finish_tunnel($self, $self->{tunnel});  };
+	if (my $err = $@) {
+	    $self->log('err', $err);
+	    $self->{errors} = 1;
+	}
     }
 
     # always deactivate volumes - avoid lvm LVs to be active on several nodes
