@@ -701,10 +701,13 @@ __PACKAGE__->register_method({
 	my $rpcenv = PVE::RPCEnvironment::get();
 
 	my $user = $rpcenv->get_user();
-	my $ticket = PVE::AccessControl::assemble_ticket($user);
 
 	my $vmid = $param->{vmid};
 	my $node = $param->{node};
+
+	my $authpath = "/vms/$vmid";
+
+	my $ticket = PVE::AccessControl::assemble_vnc_ticket($user, $authpath);
 
 	$sslcert = PVE::Tools::file_get_contents("/etc/pve/pve-root-ca.pem", 8192)
 	    if !$sslcert;
