@@ -2295,6 +2295,14 @@ sub vm_deviceplug {
            return undef;
         }
     }
+
+    if ($deviceid =~ m/^(lsi)(\d+)$/) {
+        my $pciaddr = print_pci_addr($deviceid);
+        my $devicefull = "lsi,id=$deviceid$pciaddr";
+        qemu_deviceadd($vmid, $devicefull);
+        return undef if(!qemu_deviceaddverify($vmid, $deviceid));
+    }
+
     return 1;
 }
 
@@ -2310,6 +2318,11 @@ sub vm_deviceunplug {
         qemu_devicedel($vmid, $deviceid);
         return undef if !qemu_devicedelverify($vmid, $deviceid);
     }
+
+    if ($deviceid =~ m/^(lsi)(\d+)$/) {
+        return undef if !qemu_devicedel($vmid, $deviceid);
+    }
+
     return 1;
 }
 
@@ -2387,6 +2400,20 @@ sub qemu_devicedelverify {
     }  
     syslog("err", "error on hot-unplugging device $deviceid");
     return undef;
+}
+
+sub qemu_findorcreatelsi {
+    my ($storecfg, $conf, $vmid, $device) = @_;
+
+    my $maxdev = 7;
+    my $controller = int($device->{index} / $maxdev);
+    my $lsiid="lsi$controller";
+    my $devices_list = vm_devices_list($vmid);
+
+    if(!defined($devices_list->{$lsiid})) {
+       return undef if !vm_deviceplug($storecfg, $conf, $vmid, $lsiid);
+    }
+    return 1;
 }
 
 sub vm_start {
