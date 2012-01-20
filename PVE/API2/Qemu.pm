@@ -439,6 +439,7 @@ __PACKAGE__->register_method({
 
 	my $digest = extract_param($param, 'digest');
 
+        my @hotplugerr = ();
 	my @paramarr = (); # used for log message
 	foreach my $key (keys %$param) {
 	    push @paramarr, "-$key", $param->{$key};
@@ -500,6 +501,17 @@ __PACKAGE__->register_method({
 
 	    PVE::Cluster::log_msg('info', $user, "update VM $vmid: " . join (' ', @paramarr));
 
+            my @newdelete = ();
+            foreach my $opt (PVE::Tools::split_list($delete)) {
+               if(PVE::QemuServer::vm_deviceunplug($vmid, $conf, $opt)) {
+                    push(@newdelete, $opt);
+               }
+               else {
+                    push(@hotplugerr, $opt);
+               }
+            }
+            $delete = join(',', @newdelete) if scalar(@newdelete) > 0;
+
 	    foreach my $opt (keys %$eject) {
 		if ($conf->{$opt}) {
 		    my $drive = PVE::QemuServer::parse_drive($opt, $conf->{$opt});
@@ -533,7 +545,6 @@ __PACKAGE__->register_method({
 		} 
 		next if !defined($conf->{$opt});
 		if (PVE::QemuServer::valid_drivename($opt)) {
-		    PVE::QemuServer::vm_deviceunplug($vmid, $conf, $opt);
 		    my $drive = PVE::QemuServer::parse_drive($opt, $conf->{$opt});
 		    if (PVE::QemuServer::drive_is_cdrom($drive)) {
 			$cdchange->{$opt} = undef;
@@ -561,6 +572,18 @@ __PACKAGE__->register_method({
 
 	    PVE::QemuServer::create_disks($storecfg, $vmid, $param, $conf);
 
+            #hotplug disks
+            foreach my $opt (keys %$param) {
+                if($opt =~ m/^(scsi|virtio)(\d+)$/) {
+                   my $device = PVE::QemuServer::parse_drive($opt, $param->{$opt});
+                   if(!PVE::QemuServer::vm_deviceplug($storecfg, $conf, $vmid, $opt, $device)) {
+                       $unset->{$opt} = 1;
+                       PVE::QemuServer::add_unused_volume($param, $device->{file});
+                       push(@hotplugerr, $opt);
+                   }
+                }
+            }
+
 	    PVE::QemuServer::change_config_nolock($vmid, $param, $unset, 1);
 
 	    return if !PVE::QemuServer::check_running($vmid);
@@ -580,6 +603,9 @@ __PACKAGE__->register_method({
 	    # fixme: log ?
 	    warn $@ if $@;
 	}
+
+        raise_param_exc({ hotplug => "error hotplug/unplug ".join(',', @hotplugerr)})
+            if scalar(@hotplugerr) > 0;
 
 	return undef;
     }});
