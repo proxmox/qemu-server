@@ -2284,66 +2284,109 @@ sub vm_devices_list {
 
 sub vm_deviceplug {
     my ($storecfg, $conf, $vmid, $deviceid, $device) = @_;
-    return if !check_running($vmid) || !$conf->{hotplug} || $conf->{$deviceid};
+    return 1 if !check_running($vmid) || !$conf->{hotplug} || $conf->{$deviceid};
     
-    if($deviceid =~ m/^(virtio)(\d+)$/) {
-
-        my $drive = print_drive_full($storecfg, $vmid, $device);
-        my $ret = vm_monitor_command($vmid, "drive_add auto $drive");
-        # If the command succeeds qemu prints: "OK"
-        if ($ret !~ m/OK/s) {
-           die "adding drive failed: $ret";
-        }
-       
+    if ($deviceid =~ m/^(virtio)(\d+)$/) {
+        return undef if !qemu_driveadd($storecfg, $vmid, $device);
         my $devicefull = print_drivedevice_full($storecfg, $vmid, $device);
-        $ret = vm_monitor_command($vmid, "device_add $devicefull");
-        $ret =~ s/^\s+//;
-        # Otherwise, if the command succeeds, no output is sent. So any non-empty string shows an error 
-        die 'error on hotplug device : $ret' if $ret ne "";
+        qemu_deviceadd($vmid, $devicefull);
+        if(!qemu_deviceaddverify($vmid, $deviceid)) {
+           qemu_drivedel($vmid, $deviceid);
+           return undef;
+        }
     }
-
-    for (my $i = 0; $i <= 5; $i++) {
-        my $devices_list = vm_devices_list($vmid);
-        return if defined($devices_list->{$deviceid});   
-        sleep 1;
-    }
-	
-    die "error on hotplug device $deviceid";
+    return 1;
 }
 
 sub vm_deviceunplug {
     my ($vmid, $conf, $deviceid) = @_;
 
-    return if !check_running ($vmid) || !$conf->{hotplug};
+    return 1 if !check_running ($vmid) || !$conf->{hotplug};
 
     die "can't unplug bootdisk" if $conf->{bootdisk} eq $deviceid;
 
-    if($deviceid =~ m/^(virtio)(\d+)$/){
-
-        my $ret = vm_monitor_command($vmid, "drive_del drive-$deviceid");
-        $ret =~ s/^\s+//;
-        if ($ret =~ m/Device \'.*?\' not found/s) {
-            # NB: device not found errors mean the drive was auto-deleted and we ignore the error 
-        }
-        elsif ($ret ne "") {
-            die "deleting drive $deviceid failed : $ret";
-        }
-
-        $ret = vm_monitor_command($vmid, "device_del $deviceid");
-        $ret =~ s/^\s+//;
-        die 'detaching device $deviceid failed : $ret' if $ret ne "";
-
+    if ($deviceid =~ m/^(virtio)(\d+)$/) {
+        return undef if !qemu_drivedel($vmid, $deviceid);
+        qemu_devicedel($vmid, $deviceid);
+        return undef if !qemu_devicedelverify($vmid, $deviceid);
     }
+    return 1;
+}
+
+sub qemu_deviceadd {
+    my ($vmid, $devicefull) = @_;
+
+    my $ret = vm_monitor_command($vmid, "device_add $devicefull");
+    $ret =~ s/^\s+//;
+    # Otherwise, if the command succeeds, no output is sent. So any non-empty string shows an error 
+    return 1 if $ret eq "";
+    syslog("err", "error on hotplug device : $ret");
+    return undef;
+
+}
+ 
+sub qemu_devicedel {
+    my($vmid, $deviceid) = @_;
+
+    my $ret = vm_monitor_command($vmid, "device_del $deviceid");
+    $ret =~ s/^\s+//;
+    return 1 if $ret eq "";
+    syslog("err", "detaching device $deviceid failed : $ret");
+    return undef;
+}
+
+sub qemu_driveadd {
+    my($storecfg, $vmid, $device) = @_;
+
+    my $drive = print_drive_full($storecfg, $vmid, $device);
+    my $ret = vm_monitor_command($vmid, "drive_add auto $drive");
+    # If the command succeeds qemu prints: "OK"
+    if ($ret !~ m/OK/s) {
+        syslog("err", "adding drive failed: $ret");
+        return undef;
+    }
+    return 1;
+}
+ 
+sub qemu_drivedel {
+    my($vmid, $deviceid) = @_;
+
+    my $ret = vm_monitor_command($vmid, "drive_del drive-$deviceid");
+    $ret =~ s/^\s+//;
+    if ($ret =~ m/Device \'.*?\' not found/s) {
+        # NB: device not found errors mean the drive was auto-deleted and we ignore the error 
+    }
+    elsif ($ret ne "") {
+      syslog("err", "deleting drive $deviceid failed : $ret");
+      return undef;
+    }
+    return 1;
+}
+
+sub qemu_deviceaddverify {
+    my ($vmid,$deviceid) = @_;
+
+    for (my $i = 0; $i <= 5; $i++) {
+         my $devices_list = vm_devices_list($vmid);
+         return 1 if defined($devices_list->{$deviceid});
+         sleep 1;
+    }  
+    syslog("err", "error on hotplug device $deviceid");
+    return undef;
+}
+ 
+
+sub qemu_devicedelverify {
+    my ($vmid,$deviceid) = @_;
 
     #need to verify the device is correctly remove as device_del is async and empty return is not reliable
     for (my $i = 0; $i <= 5; $i++) {
-        my $devices_list = vm_devices_list($vmid);
-        return if !defined($devices_list->{$deviceid});
-        sleep 1;
-    }
-    die "error on hot-plugging device $deviceid";
-
-
+         my $devices_list = vm_devices_list($vmid);
+         return 1 if !defined($devices_list->{$deviceid});
+         sleep 1;
+    }  
+    syslog("err", "error on hot-unplugging device $deviceid");
+    return undef;
 }
 
 sub vm_start {
