@@ -2303,6 +2303,16 @@ sub vm_deviceplug {
         return undef if(!qemu_deviceaddverify($vmid, $deviceid));
     }
 
+    if ($deviceid =~ m/^(scsi)(\d+)$/) {
+        return undef if !qemu_findorcreatelsi($storecfg,$conf, $vmid, $device);
+        return undef if !qemu_driveadd($storecfg, $vmid, $device);
+        my $devicefull = print_drivedevice_full($storecfg, $vmid, $device);
+        if(!qemu_deviceadd($vmid, $devicefull)) {
+           qemu_drivedel($vmid, $deviceid);
+           return undef;
+        }
+    }
+
     return 1;
 }
 
@@ -2321,6 +2331,11 @@ sub vm_deviceunplug {
 
     if ($deviceid =~ m/^(lsi)(\d+)$/) {
         return undef if !qemu_devicedel($vmid, $deviceid);
+    }
+
+    if ($deviceid =~ m/^(scsi)(\d+)$/) {
+        return undef if !qemu_devicedel($vmid, $deviceid);
+        return undef if !qemu_drivedel($vmid, $deviceid);
     }
 
     return 1;
