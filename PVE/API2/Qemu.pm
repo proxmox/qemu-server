@@ -533,7 +533,7 @@ __PACKAGE__->register_method({
 		} 
 		next if !defined($conf->{$opt});
 		if (PVE::QemuServer::valid_drivename($opt)) {
-		    PVE::QemuServer::vm_devicedel($vmid, $conf, $opt);
+		    PVE::QemuServer::vm_deviceunplug($vmid, $conf, $opt);
 		    my $drive = PVE::QemuServer::parse_drive($opt, $conf->{$opt});
 		    if (PVE::QemuServer::drive_is_cdrom($drive)) {
 			$cdchange->{$opt} = undef;

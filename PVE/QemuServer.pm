@@ -1290,7 +1290,7 @@ sub create_disks {
 		    die "image '$path' does not exists\n";
 		}
 	    }
-	    PVE::QemuServer::vm_deviceadd($storecfg, $conf, $vmid, $ds, $disk) if defined($conf);
+	    PVE::QemuServer::vm_deviceplug($storecfg, $conf, $vmid, $ds, $disk) if defined($conf);
 	});
     };
 
@@ -2282,7 +2282,7 @@ sub vm_devices_list {
     return $devices;
 }
 
-sub vm_deviceadd {
+sub vm_deviceplug {
     my ($storecfg, $conf, $vmid, $deviceid, $device) = @_;
     return if !check_running($vmid) || !$conf->{hotplug} || $conf->{$deviceid};
     
@@ -2311,7 +2311,7 @@ sub vm_deviceadd {
     die "error on hotplug device $deviceid";
 }
 
-sub vm_devicedel {
+sub vm_deviceunplug {
     my ($vmid, $conf, $deviceid) = @_;
 
     return if !check_running ($vmid) || !$conf->{hotplug};
