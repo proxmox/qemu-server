@@ -892,7 +892,7 @@ sub print_drivedevice_full {
               }
          }
 
-	$device = "scsi-$devicetype,bus=scsi$controller.0,scsi-id=$unit,drive=drive-$drive->{interface}$drive->{index},id=device-$drive->{interface}$drive->{index}";
+	$device = "scsi-$devicetype,bus=lsi$controller.0,scsi-id=$unit,drive=drive-$drive->{interface}$drive->{index},id=device-$drive->{interface}$drive->{index}";
     } elsif ($drive->{interface} eq 'ide'){
 	$maxdev = 2;
 	my $controller = int($drive->{index} / $maxdev);
@@ -2141,8 +2141,8 @@ sub config_to_command {
         if ($drive->{interface} eq 'scsi') {
            my $maxdev = 7;
            my $controller = int($drive->{index} / $maxdev);
-	   $pciaddr = print_pci_addr("scsi$controller");
-           push @$cmd, '-device', "lsi,id=scsi$controller$pciaddr" if !$scsicontroller->{$controller};
+           $pciaddr = print_pci_addr("lsi$controller");
+           push @$cmd, '-device', "lsi,id=lsi$controller$pciaddr" if !$scsicontroller->{$controller};
            $scsicontroller->{$controller}=1;
         }
 
@@ -2904,8 +2904,8 @@ sub print_pci_addr {
 	#addr2 : first videocard
 	balloon0 => { bus => 0, addr => 3 },
 	watchdog => { bus => 0, addr => 4 },
-	scsi0 => { bus => 0, addr => 5 },
-	scsi1 => { bus => 0, addr => 6 },
+	lsi0 => { bus => 0, addr => 5 },
+	lsi1 => { bus => 0, addr => 6 },
 	virtio0 => { bus => 0, addr => 10 },
 	virtio1 => { bus => 0, addr => 11 },
 	virtio2 => { bus => 0, addr => 12 },
