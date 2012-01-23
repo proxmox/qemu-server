@@ -278,8 +278,7 @@ __PACKAGE__->register_method({
     method => 'GET',
     protected => 1, # fixme: can we avoid that?
     permissions => {
-	path => '/vms/{vmid}',
-	privs => [ 'VM.Audit' ],
+	check => ['perm', '/vms/{vmid}', [ 'VM.Audit' ]],
     },
     description => "Read VM RRD statistics (returns PNG)",
     parameters => {
@@ -325,8 +324,7 @@ __PACKAGE__->register_method({
     method => 'GET',
     protected => 1, # fixme: can we avoid that?
     permissions => {
-	path => '/vms/{vmid}',
-	privs => [ 'VM.Audit' ],
+	check => ['perm', '/vms/{vmid}', [ 'VM.Audit' ]],
     },
     description => "Read VM RRD statistics",
     parameters => {
@@ -700,8 +698,7 @@ __PACKAGE__->register_method({
     method => 'POST',
     protected => 1,
     permissions => {
-	path => '/vms/{vmid}',
-	privs => [ 'VM.Console' ],
+	check => ['perm', '/vms/{vmid}', [ 'VM.Console' ]],
     },
     description => "Creates a TCP VNC proxy connections.",
     parameters => {
