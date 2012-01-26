@@ -437,7 +437,6 @@ __PACKAGE__->register_method({
 
 	my $digest = extract_param($param, 'digest');
 
-        my @hotplugerr = ();
 	my @paramarr = (); # used for log message
 	foreach my $key (keys %$param) {
 	    push @paramarr, "-$key", $param->{$key};
@@ -456,154 +455,124 @@ __PACKAGE__->register_method({
 
 	&$resolve_cdrom_alias($param);
 
-	my $eject = {};
-	my $cdchange = {};
+	my $conf = PVE::QemuServer::load_config($vmid);
 
-	foreach my $opt (keys %$param) {
-	    if (PVE::QemuServer::valid_drivename($opt)) {
-		my $drive = PVE::QemuServer::parse_drive($opt, $param->{$opt});
-		raise_param_exc({ $opt => "unable to parse drive options" }) if !$drive;
-		if ($drive->{file} eq 'eject') {
-		    $eject->{$opt} = 1;
-		    delete $param->{$opt};
-		    next;
-		}
+	die "checksum missmatch (file change by other user?)\n" 
+	   if $digest && $digest ne $conf->{digest};
 
-		PVE::QemuServer::cleanup_drive_path($opt, $storecfg, $drive);
-		$param->{$opt} = PVE::QemuServer::print_drive($vmid, $drive);
+	PVE::QemuServer::check_lock($conf) if !$skiplock;
 
-		if (PVE::QemuServer::drive_is_cdrom($drive)) {
-		    $cdchange->{$opt} = PVE::QemuServer::get_iso_path($storecfg, $vmid, $drive->{file});
-		}
-	    }
-	}
+	PVE::Cluster::log_msg('info', $user, "update VM $vmid: " . join (' ', @paramarr));
 
+	#delete
 	foreach my $opt (PVE::Tools::split_list($delete)) {
+
 	    $opt = 'ide2' if $opt eq 'cdrom';
 	    die "you can't use '-$opt' and '-delete $opt' at the same time\n"
 		if defined($param->{$opt});
-	}
-
-	PVE::QemuServer::add_random_macs($param);
-
-	my $vollist = [];
-
-	my $updatefn =  sub {
-
-	    my $conf = PVE::QemuServer::load_config($vmid);
-
-	    die "checksum missmatch (file change by other user?)\n" 
-		if $digest && $digest ne $conf->{digest};
-
-	    PVE::QemuServer::check_lock($conf) if !$skiplock;
-
-	    PVE::Cluster::log_msg('info', $user, "update VM $vmid: " . join (' ', @paramarr));
-
-            my @newdelete = ();
-            foreach my $opt (PVE::Tools::split_list($delete)) {
-               if(PVE::QemuServer::vm_deviceunplug($vmid, $conf, $opt)) {
-                    push(@newdelete, $opt);
-               }
-               else {
-                    push(@hotplugerr, $opt);
-               }
-            }
-            $delete = join(',', @newdelete) if scalar(@newdelete) > 0;
-
-	    foreach my $opt (keys %$eject) {
-		if ($conf->{$opt}) {
-		    my $drive = PVE::QemuServer::parse_drive($opt, $conf->{$opt});
-		    $cdchange->{$opt} = undef if PVE::QemuServer::drive_is_cdrom($drive);
-		} else {
-		    raise_param_exc({ $opt => "eject failed - drive does not exist." });
-		}
-	    }
-
-	    foreach my $opt (keys %$param) {
-		next if !PVE::QemuServer::valid_drivename($opt);
-		next if !$conf->{$opt};
-		my $old_drive = PVE::QemuServer::parse_drive($opt, $conf->{$opt});
-		next if PVE::QemuServer::drive_is_cdrom($old_drive);
-		my $new_drive = PVE::QemuServer::parse_drive($opt, $param->{$opt});
-		if ($new_drive->{file} ne $old_drive->{file}) {
-		    my ($path, $owner);
-		    eval { ($path, $owner) = PVE::Storage::path($storecfg, $old_drive->{file}); };
-		    if ($owner && ($owner == $vmid)) {
-			PVE::QemuServer::add_unused_volume($conf, $param, $old_drive->{file});
-		    }
-		}
-	    }
 
 	    my $unset = {};
 
-	    foreach my $opt (PVE::Tools::split_list($delete)) {
-		$opt = 'ide2' if $opt eq 'cdrom';
-		if (!PVE::QemuServer::option_exists($opt)) {
-		    raise_param_exc({ delete => "unknown option '$opt'" });
-		} 
-		next if !defined($conf->{$opt});
-		if (PVE::QemuServer::valid_drivename($opt)) {
-		    my $drive = PVE::QemuServer::parse_drive($opt, $conf->{$opt});
-		    if (PVE::QemuServer::drive_is_cdrom($drive)) {
-			$cdchange->{$opt} = undef;
-		    } else {
-			my $volid = $drive->{file};
+ 	    if (!PVE::QemuServer::option_exists($opt)) {
+	        raise_param_exc({ delete => "unknown option '$opt'" });
+	    } 
 
-			if ($volid !~  m|^/|) {
-			    my ($path, $owner);
-			    eval { ($path, $owner) = PVE::Storage::path($storecfg, $volid); };
-			    if ($owner && ($owner == $vmid)) {
-				if ($force) {
-				    push @$vollist, $volid;
-				} else {
-				    PVE::QemuServer::add_unused_volume($conf, $param, $volid);
-				}
+	    next if !defined($conf->{$opt});
+
+	    die "error hot-unplug $opt" if !PVE::QemuServer::vm_deviceunplug($vmid, $conf, $opt);
+
+	    #drive
+	    if (PVE::QemuServer::valid_drivename($opt)) {
+	        my $drive = PVE::QemuServer::parse_drive($opt, $conf->{$opt});
+                #hdd
+	        if (!PVE::QemuServer::drive_is_cdrom($drive)) {
+		    my $volid = $drive->{file};
+
+		    if ($volid !~  m|^/|) {
+		        my ($path, $owner);
+		        eval { ($path, $owner) = PVE::Storage::path($storecfg, $volid); };
+		        if ($owner && ($owner == $vmid)) {
+		       	    if ($force) {
+ 			        eval { PVE::Storage::vdisk_free($storecfg, $volid); };
+	                        # fixme: log ?
+        	                warn $@ if $@;
+			    } else {
+			        PVE::QemuServer::add_unused_volume($conf, $volid, $vmid);
 			    }
 			}
 		    }
-		} elsif ($opt =~ m/^unused/) {
-		    push @$vollist, $conf->{$opt};
-		}
-
-		$unset->{$opt} = 1;
+                 }
+	    } elsif ($opt =~ m/^unused/) {
+	            my $drive = PVE::QemuServer::parse_drive($opt, $conf->{$opt});
+                    my $volid = $drive->{file};
+		    eval { PVE::Storage::vdisk_free($storecfg, $volid); };
+	            # fixme: log ?
+        	    warn $@ if $@;
 	    }
 
-	    PVE::QemuServer::create_disks($storecfg, $vmid, $param, $conf);
-
-            #hotplug disks
-            foreach my $opt (keys %$param) {
-                if($opt =~ m/^(scsi|virtio)(\d+)$/) {
-                   my $device = PVE::QemuServer::parse_drive($opt, $param->{$opt});
-                   if(!PVE::QemuServer::vm_deviceplug($storecfg, $conf, $vmid, $opt, $device)) {
-                       $unset->{$opt} = 1;
-                       PVE::QemuServer::add_unused_volume($param, $device->{file});
-                       push(@hotplugerr, $opt);
-                   }
-                }
-            }
-
-	    PVE::QemuServer::change_config_nolock($vmid, $param, $unset, 1);
-
-	    return if !PVE::QemuServer::check_running($vmid);
-
-	    foreach my $opt (keys %$cdchange) {
-		my $qdn = PVE::QemuServer::qemu_drive_name($opt, 'cdrom');
-		my $path = $cdchange->{$opt};
-		PVE::QemuServer::vm_monitor_command($vmid, "eject $qdn", 0);
-		PVE::QemuServer::vm_monitor_command($vmid, "change $qdn \"$path\"", 0) if $path;
-	    }
-	};
-
-	PVE::QemuServer::lock_config($vmid, $updatefn);
-
-	foreach my $volid (@$vollist) {
-	    eval { PVE::Storage::vdisk_free($storecfg, $volid); };
-	    # fixme: log ?
-	    warn $@ if $@;
+	    $unset->{$opt} = 1;
+	    PVE::QemuServer::change_config_nolock($vmid, {}, $unset, 1);
 	}
 
-        raise_param_exc({ hotplug => "error hotplug/unplug ".join(',', @hotplugerr)})
-            if scalar(@hotplugerr) > 0;
+
+
+	#add
+	foreach my $opt (keys %$param) {
+
+            #drives
+	    if (PVE::QemuServer::valid_drivename($opt)) {
+		my $drive = PVE::QemuServer::parse_drive($opt, $param->{$opt});
+		raise_param_exc({ $opt => "unable to parse drive options" }) if !$drive;
+
+ 		PVE::QemuServer::cleanup_drive_path($opt, $storecfg, $drive);
+		$param->{$opt} = PVE::QemuServer::print_drive($vmid, $drive);
+
+                #cdrom
+		if (PVE::QemuServer::drive_is_cdrom($drive) && PVE::QemuServer::check_running($vmid)) {
+ 		    if ($drive->{file} eq 'none') {
+                        PVE::QemuServer::vm_monitor_command($vmid, "eject -f drive-$opt", 0);
+		        #delete $param->{$opt};
+		    }
+		    else {
+		        my $path = PVE::QemuServer::get_iso_path($storecfg, $vmid, $drive->{file});
+                        PVE::QemuServer::vm_monitor_command($vmid, "eject -f drive-$opt", 0); #force eject if locked
+		        PVE::QemuServer::vm_monitor_command($vmid, "change drive-$opt \"$path\"", 0) if $path;
+                    }
+		}
+		#hdd
+                else {
+                    #swap drive
+                    if ($conf->{$opt}){
+		        my $old_drive = PVE::QemuServer::parse_drive($opt, $conf->{$opt});
+ 	                if ($drive->{file} ne $old_drive->{file} && !PVE::QemuServer::drive_is_cdrom($old_drive)) {
+
+                            my ($path, $owner);
+                            eval { ($path, $owner) = PVE::Storage::path($storecfg, $old_drive->{file}); };
+                            if ($owner && ($owner == $vmid)) {
+	                        die "error hot-unplug $opt" if !PVE::QemuServer::vm_deviceunplug($vmid, $conf, $opt);
+                                PVE::QemuServer::add_unused_volume($conf, $old_drive->{file}, $vmid);
+                            }
+                        }
+                    }
+		    my $settings = { $opt => $param->{$opt} };
+		    PVE::QemuServer::create_disks($storecfg, $vmid, $settings, $conf);
+		    $param->{$opt} = $settings->{$opt};
+                    #hotplug disks
+                    if(!PVE::QemuServer::vm_deviceplug($storecfg, $conf, $vmid, $opt, $drive)) {
+                       PVE::QemuServer::add_unused_volume($conf,$drive->{file},$vmid);
+                       PVE::QemuServer::change_config_nolock($vmid, {}, { $opt => 1 }, 1);
+                       die "error hotplug $opt - put disk in unused";
+                    }
+                }
+	   }
+           #nics
+           if ($opt =~ m/^net(\d+)$/) {
+                my $net = PVE::QemuServer::parse_net($param->{$opt});
+                $param->{$opt} = PVE::QemuServer::print_net($net);
+           }
+
+           PVE::QemuServer::change_config_nolock($vmid, { $opt => $param->{$opt} }, {}, 1);
+	}
 
 	return undef;
     }});
