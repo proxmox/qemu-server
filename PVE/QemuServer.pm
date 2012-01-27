@@ -39,7 +39,7 @@ cfs_register_file('/qemu-server/', \&parse_vm_config);
 
 PVE::JSONSchema::register_standard_option('skiplock', {
     description => "Ignore locks - only root is allowed to use this option.",
-    type => 'boolean', 
+    type => 'boolean',
     optional => 1,
 });
 
@@ -2040,7 +2040,7 @@ sub config_to_command {
     foreach my $o (split(//, $bootorder)) {
 	$bootindex_hash->{$o} = $i*100;
 	$i++;
-    } 
+    }
 
     push @$cmd, '-boot', "menu=on";
 
@@ -2123,7 +2123,7 @@ sub config_to_command {
 	if (PVE::Storage::parse_volume_id($drive->{file}, 1)) {
 	    push @$vollist, $drive->{file};
 	}
-	
+
 	$use_virtio = 1 if $ds =~ m/^virtio/;
 
 	if (drive_is_cdrom ($drive)) {
@@ -2193,7 +2193,7 @@ sub config_to_command {
 		$tmpstr .= ",bootindex=$bootindex";
 		$bootindex_hash->{n} += 1;
 	    }
-	    push @$cmd, '-device', $tmpstr; 
+	    push @$cmd, '-device', $tmpstr;
 	}
     }
 
@@ -2265,7 +2265,7 @@ sub vm_devices_list {
     my $bus;
     my $addr;
     my $id;
-    
+
     foreach my $line (@lines) {
 	$line =~ s/^\s+//;
 	if ($line =~ m/^Bus  (\d+), device   (\d+), function (\d+):$/) {
@@ -2285,7 +2285,7 @@ sub vm_devices_list {
 sub vm_deviceplug {
     my ($storecfg, $conf, $vmid, $deviceid, $device) = @_;
     return 1 if !check_running($vmid) || !$conf->{hotplug} || $conf->{$deviceid};
-    
+
     if ($deviceid =~ m/^(virtio)(\d+)$/) {
         return undef if !qemu_driveadd($storecfg, $vmid, $device);
         my $devicefull = print_drivedevice_full($storecfg, $vmid, $device);
@@ -2346,13 +2346,13 @@ sub qemu_deviceadd {
 
     my $ret = vm_monitor_command($vmid, "device_add $devicefull");
     $ret =~ s/^\s+//;
-    # Otherwise, if the command succeeds, no output is sent. So any non-empty string shows an error 
+    # Otherwise, if the command succeeds, no output is sent. So any non-empty string shows an error
     return 1 if $ret eq "";
     syslog("err", "error on hotplug device : $ret");
     return undef;
 
 }
- 
+
 sub qemu_devicedel {
     my($vmid, $deviceid) = @_;
 
@@ -2375,14 +2375,14 @@ sub qemu_driveadd {
     }
     return 1;
 }
- 
+
 sub qemu_drivedel {
     my($vmid, $deviceid) = @_;
 
     my $ret = vm_monitor_command($vmid, "drive_del drive-$deviceid");
     $ret =~ s/^\s+//;
     if ($ret =~ m/Device \'.*?\' not found/s) {
-        # NB: device not found errors mean the drive was auto-deleted and we ignore the error 
+        # NB: device not found errors mean the drive was auto-deleted and we ignore the error
     }
     elsif ($ret ne "") {
       syslog("err", "deleting drive $deviceid failed : $ret");
@@ -2398,11 +2398,11 @@ sub qemu_deviceaddverify {
          my $devices_list = vm_devices_list($vmid);
          return 1 if defined($devices_list->{$deviceid});
          sleep 1;
-    }  
+    }
     syslog("err", "error on hotplug device $deviceid");
     return undef;
 }
- 
+
 
 sub qemu_devicedelverify {
     my ($vmid,$deviceid) = @_;
@@ -2412,7 +2412,7 @@ sub qemu_devicedelverify {
          my $devices_list = vm_devices_list($vmid);
          return 1 if !defined($devices_list->{$deviceid});
          sleep 1;
-    }  
+    }
     syslog("err", "error on hot-unplugging device $deviceid");
     return undef;
 }
@@ -2487,14 +2487,14 @@ sub vm_start {
 		eval { vm_monitor_command($vmid, "cont"); };
 	    }
 	}
-	
+
 	# always set migrate speed (overwrite kvm default of 32m)
 	# we set a very hight default of 8192m which is basically unlimited
 	my $migrate_speed = $defaults->{migrate_speed} || 8192;
 	$migrate_speed = $conf->{migrate_speed} || $migrate_speed;
-	eval { 
+	eval {
 	    my $cmd = "migrate_set_speed ${migrate_speed}m";
-	    vm_monitor_command($vmid, $cmd); 
+	    vm_monitor_command($vmid, $cmd);
 	};
 
 	if (my $migrate_downtime =
@@ -2695,7 +2695,7 @@ sub vm_stop {
 		vm_monitor_command($vmid, "system_powerdown", $nocheck);
 	    } else {
 		vm_monitor_command($vmid, "quit", $nocheck);
-	    } 
+	    }
 	};
 	my $err = $@;
 
@@ -2722,7 +2722,7 @@ sub vm_stop {
 		warn "VM quit/powerdown failed - terminating now with SIGTERM\n";
 		kill 15, $pid;
 	    } else {
-		die "VM quit/powerdown failed\n"; 
+		die "VM quit/powerdown failed\n";
 	    }
 	}
 
@@ -2833,7 +2833,7 @@ sub vm_stopall {
     while (($try < $maxtries) && $count) {
 	$try++;
 	sleep $wt;
-	
+
 	$vzlist = vzlist();
 	$count = 0;
 	foreach my $vmid (keys %$vzlist) {
@@ -2859,7 +2859,7 @@ sub vm_stopall {
 	while (($try < $maxtries) && $count) {
 	    $try++;
 	    sleep $wt;
-	
+
 	    $vzlist = vzlist();
 	    $count = 0;
 	    foreach my $vmid (keys %$vzlist) {
@@ -2887,9 +2887,9 @@ sub vm_stopall {
     $vzlist = vzlist();
     foreach my $vmid (keys %$cleanuphash) {
 	next if $vzlist->{$vmid}->{pid};
-	eval { 
+	eval {
 	    my $conf = load_config($vmid);
-	    vm_stop_cleanup($storecfg, $vmid, $conf); 
+	    vm_stop_cleanup($storecfg, $vmid, $conf);
 	};
 	warn $@ if $@;
     }
@@ -2980,7 +2980,7 @@ sub pci_dev_bind_to_stub {
     return -d $testdir;
 }
 
-sub print_pci_addr { 
+sub print_pci_addr {
     my ($id) = @_;
 
     my $res = '';
@@ -3026,7 +3026,7 @@ sub vm_balloonset {
 
 sub archive_read_firstfile {
     my $archive = shift;
-    
+
     die "ERROR: file '$archive' does not exist\n" if ! -f $archive;
 
     # try to detect archive type first
@@ -3058,12 +3058,12 @@ sub restore_cleanup {
 			my $cfg = cfs_read_file('storage.cfg');
 			PVE::Storage::vdisk_free($cfg, $volid);
 		    }
-		    print STDERR "temporary volume '$volid' sucessfuly removed\n";  
+		    print STDERR "temporary volume '$volid' sucessfuly removed\n";
 		};
 		print STDERR "unable to cleanup '$volid' - $@" if $@;
 	    } else {
 		print STDERR "unable to parse line in statfile - $line";
-	    }   
+	    }
 	}
 	$fd->close();
     }
@@ -3103,7 +3103,7 @@ sub restore_archive {
 	print STDERR "got interrupt - ignored\n";
     };
 
-    eval { 
+    eval {
 	# enable interrupts
 	local $SIG{INT} = $SIG{TERM} = $SIG{QUIT} = $SIG{HUP} = $SIG{PIPE} = sub {
 	    die "interrupted by signal\n";
@@ -3168,7 +3168,7 @@ sub restore_archive {
 		my $net = parse_net($netstr);
 		$net->{macaddr} = PVE::Tools::random_ether_addr() if $net->{macaddr};
 		$netstr = print_net($net);
-		print $outfd "$id: $netstr\n";		
+		print $outfd "$id: $netstr\n";
 	    } elsif ($line =~ m/^((ide|scsi|virtio)\d+):\s*(\S+)\s*$/) {
 		my $virtdev = $1;
 		my $value = $2;
@@ -3192,14 +3192,14 @@ sub restore_archive {
     };
     my $err = $@;
 
-    if ($err) {	
+    if ($err) {
 
 	unlink $tmpfn;
 
 	restore_cleanup("$tmpdir/qmrestore.stat") if !$opts->{info};
-	
+
 	die $err;
-    } 
+    }
 
     rmtree $tmpdir;
 

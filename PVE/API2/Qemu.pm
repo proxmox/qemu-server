@@ -34,8 +34,8 @@ my $resolve_cdrom_alias = sub {
 };
 
 __PACKAGE__->register_method({
-    name => 'vmlist', 
-    path => '', 
+    name => 'vmlist',
+    path => '',
     method => 'GET',
     description => "Virtual machine index (per node).",
     proxyto => 'node',
@@ -64,8 +64,8 @@ __PACKAGE__->register_method({
     }});
 
 __PACKAGE__->register_method({
-    name => 'create_vm', 
-    path => '', 
+    name => 'create_vm',
+    path => '',
     method => 'POST',
     description => "Create or restore a virtual machine.",
     protected => 1,
@@ -87,20 +87,20 @@ __PACKAGE__->register_method({
 		    optional => 1,
 		}),
 		force => {
-		    optional => 1, 
+		    optional => 1,
 		    type => 'boolean',
 		    description => "Allow to overwrite existing VM.",
 		    requires => 'archive',
 		},
 		unique => {
-		    optional => 1, 
+		    optional => 1,
 		    type => 'boolean',
 		    description => "Assign a unique random ethernet address.",
 		    requires => 'archive',
 		},
 	    }),
     },
-    returns => { 
+    returns => {
 	type => 'string',
     },
     code => sub {
@@ -123,19 +123,19 @@ __PACKAGE__->register_method({
 	my $unique = extract_param($param, 'unique');
 
 	my $filename = PVE::QemuServer::config_file($vmid);
-	
-	my $storecfg = PVE::Storage::config(); 
+
+	my $storecfg = PVE::Storage::config();
 
 	PVE::Cluster::check_cfs_quorum();
 
-	if (!$archive) { 
+	if (!$archive) {
 	    &$resolve_cdrom_alias($param);
 
 	    foreach my $opt (keys %$param) {
 		if (PVE::QemuServer::valid_drivename($opt)) {
 		    my $drive = PVE::QemuServer::parse_drive($opt, $param->{$opt});
 		    raise_param_exc({ $opt => "unable to parse drive options" }) if !$drive;
-		    
+
 		    PVE::QemuServer::cleanup_drive_path($opt, $storecfg, $drive);
 		    $param->{$opt} = PVE::QemuServer::print_drive($vmid, $drive);
 		}
@@ -147,14 +147,14 @@ __PACKAGE__->register_method({
 	    raise_param_exc({ archive => "option conflicts with other options ($keystr)"}) if $keystr;
 
 	    if ($archive eq '-') {
-		die "pipe requires cli environment\n" 
+		die "pipe requires cli environment\n"
 		    && $rpcenv->{type} ne 'cli';
 	    } else {
 		my $path;
 		if (PVE::Storage::parse_volume_id($archive, 1)) {
 		    $path = PVE::Storage::path($storecfg, $archive);
 		} else {
-		    raise_param_exc({ archive => "Only root can pass arbitrary paths." }) 
+		    raise_param_exc({ archive => "Only root can pass arbitrary paths." })
 			if $user ne 'root@pam';
 
 		    $path = abs_path($archive);
@@ -167,10 +167,10 @@ __PACKAGE__->register_method({
 	my $restorefn = sub {
 
 	    if (-f $filename) {
-		die "unable to restore vm $vmid: config file already exists\n" 
+		die "unable to restore vm $vmid: config file already exists\n"
 		    if !$force;
 
-		die "unable to restore vm $vmid: vm is running\n" 
+		die "unable to restore vm $vmid: vm is running\n"
 		    if PVE::QemuServer::check_running($vmid);
 
 		# destroy existing data - keep empty config
@@ -178,7 +178,7 @@ __PACKAGE__->register_method({
 	    }
 
 	    my $realcmd = sub {
-		PVE::QemuServer::restore_archive($archive, $vmid, { 
+		PVE::QemuServer::restore_archive($archive, $vmid, {
 		    storage => $storage,
 		    unique => $unique });
 	    };
@@ -189,7 +189,7 @@ __PACKAGE__->register_method({
 	my $createfn = sub {
 
 	    # second test (after locking test is accurate)
-	    die "unable to create vm $vmid: config file already exists\n" 
+	    die "unable to create vm $vmid: config file already exists\n"
 		if -f $filename;
 
 	    my $realcmd = sub {
@@ -210,7 +210,7 @@ __PACKAGE__->register_method({
 		    }
 
 		    if (!$param->{bootdisk} && $firstdisk) {
-			$param->{bootdisk} = $firstdisk; 
+			$param->{bootdisk} = $firstdisk;
 		    }
 
 		    PVE::QemuServer::create_conf_nolock($vmid, $param);
@@ -234,7 +234,7 @@ __PACKAGE__->register_method({
 
 __PACKAGE__->register_method({
     name => 'vmdiridx',
-    path => '{vmid}', 
+    path => '{vmid}',
     method => 'GET',
     proxyto => 'node',
     description => "Directory index",
@@ -268,13 +268,13 @@ __PACKAGE__->register_method({
 	    { subdir => 'rrddata' },
 	    { subdir => 'monitor' },
 	    ];
-	
+
 	return $res;
     }});
 
 __PACKAGE__->register_method({
-    name => 'rrd', 
-    path => '{vmid}/rrd', 
+    name => 'rrd',
+    path => '{vmid}/rrd',
     method => 'GET',
     protected => 1, # fixme: can we avoid that?
     permissions => {
@@ -313,14 +313,14 @@ __PACKAGE__->register_method({
 	my ($param) = @_;
 
 	return PVE::Cluster::create_rrd_graph(
-	    "pve2-vm/$param->{vmid}", $param->{timeframe}, 
+	    "pve2-vm/$param->{vmid}", $param->{timeframe},
 	    $param->{ds}, $param->{cf});
-					      
+
     }});
 
 __PACKAGE__->register_method({
-    name => 'rrddata', 
-    path => '{vmid}/rrddata', 
+    name => 'rrddata',
+    path => '{vmid}/rrddata',
     method => 'GET',
     protected => 1, # fixme: can we avoid that?
     permissions => {
@@ -361,8 +361,8 @@ __PACKAGE__->register_method({
 
 
 __PACKAGE__->register_method({
-    name => 'vm_config', 
-    path => '{vmid}/config', 
+    name => 'vm_config',
+    path => '{vmid}/config',
     method => 'GET',
     proxyto => 'node',
     description => "Get virtual machine configuration.",
@@ -373,7 +373,7 @@ __PACKAGE__->register_method({
 	    vmid => get_standard_option('pve-vmid'),
 	},
     },
-    returns => { 
+    returns => {
 	type => "object",
 	properties => {
 	    digest => {
@@ -391,8 +391,8 @@ __PACKAGE__->register_method({
     }});
 
 __PACKAGE__->register_method({
-    name => 'update_vm', 
-    path => '{vmid}/config', 
+    name => 'update_vm',
+    path => '{vmid}/config',
     method => 'PUT',
     protected => 1,
     proxyto => 'node',
@@ -419,7 +419,7 @@ __PACKAGE__->register_method({
 		    type => 'string',
 		    description => 'Prevent changes if current configuration file has different SHA1 digest. This can be used to prevent concurrent modifications.',
 		    maxLength => 40,
-		    optional => 1,		    
+		    optional => 1,
 		}
 	    }),
     },
@@ -443,7 +443,7 @@ __PACKAGE__->register_method({
 	}
 
 	my $skiplock = extract_param($param, 'skiplock');
-	raise_param_exc({ skiplock => "Only root may use this option." }) 
+	raise_param_exc({ skiplock => "Only root may use this option." })
 	    if $skiplock && $user ne 'root@pam';
 
 	my $delete = extract_param($param, 'delete');
@@ -451,13 +451,13 @@ __PACKAGE__->register_method({
 
 	die "no options specified\n" if !$delete && !scalar(keys %$param);
 
-	my $storecfg = PVE::Storage::config(); 
+	my $storecfg = PVE::Storage::config();
 
 	&$resolve_cdrom_alias($param);
 
 	my $conf = PVE::QemuServer::load_config($vmid);
 
-	die "checksum missmatch (file change by other user?)\n" 
+	die "checksum missmatch (file change by other user?)\n"
 	   if $digest && $digest ne $conf->{digest};
 
 	PVE::QemuServer::check_lock($conf) if !$skiplock;
@@ -475,7 +475,7 @@ __PACKAGE__->register_method({
 
  	    if (!PVE::QemuServer::option_exists($opt)) {
 	        raise_param_exc({ delete => "unknown option '$opt'" });
-	    } 
+	    }
 
 	    next if !defined($conf->{$opt});
 
@@ -579,8 +579,8 @@ __PACKAGE__->register_method({
 
 
 __PACKAGE__->register_method({
-    name => 'destroy_vm', 
-    path => '{vmid}', 
+    name => 'destroy_vm',
+    path => '{vmid}',
     method => 'DELETE',
     protected => 1,
     proxyto => 'node',
@@ -593,7 +593,7 @@ __PACKAGE__->register_method({
 	    skiplock => get_standard_option('skiplock'),
 	},
     },
-    returns => { 
+    returns => {
 	type => 'string',
     },
     code => sub {
@@ -606,13 +606,13 @@ __PACKAGE__->register_method({
 	my $vmid = $param->{vmid};
 
 	my $skiplock = $param->{skiplock};
-	raise_param_exc({ skiplock => "Only root may use this option." }) 
+	raise_param_exc({ skiplock => "Only root may use this option." })
 	    if $skiplock && $user ne 'root@pam';
 
 	# test if VM exists
 	my $conf = PVE::QemuServer::load_config($vmid);
 
-	my $storecfg = PVE::Storage::config(); 
+	my $storecfg = PVE::Storage::config();
 
 	my $realcmd = sub {
 	    my $upid = shift;
@@ -626,8 +626,8 @@ __PACKAGE__->register_method({
     }});
 
 __PACKAGE__->register_method({
-    name => 'unlink', 
-    path => '{vmid}/unlink', 
+    name => 'unlink',
+    path => '{vmid}/unlink',
     method => 'PUT',
     protected => 1,
     proxyto => 'node',
@@ -662,8 +662,8 @@ __PACKAGE__->register_method({
 my $sslcert;
 
 __PACKAGE__->register_method({
-    name => 'vncproxy', 
-    path => '{vmid}/vncproxy', 
+    name => 'vncproxy',
+    path => '{vmid}/vncproxy',
     method => 'POST',
     protected => 1,
     permissions => {
@@ -677,7 +677,7 @@ __PACKAGE__->register_method({
 	    vmid => get_standard_option('pve-vmid'),
 	},
     },
-    returns => { 
+    returns => {
     	additionalProperties => 0,
 	properties => {
 	    user => { type => 'string' },
@@ -707,7 +707,7 @@ __PACKAGE__->register_method({
 	my $port = PVE::Tools::next_vnc_port();
 
 	my $remip;
-	
+
 	if ($node ne 'localhost' && $node ne PVE::INotify::nodename()) {
 	    $remip = PVE::Cluster::remote_node_ip($node);
 	}
@@ -717,7 +717,7 @@ __PACKAGE__->register_method({
 	my $remcmd = $remip ? ['/usr/bin/ssh', '-T', '-o', 'BatchMode=yes',
 			       '-c', 'blowfish-cbc', $remip] : [];
 
-	my $timeout = 10; 
+	my $timeout = 10;
 
 	my $realcmd = sub {
 	    my $upid = shift;
@@ -741,15 +741,15 @@ __PACKAGE__->register_method({
 	return {
 	    user => $user,
 	    ticket => $ticket,
-	    port => $port, 
-	    upid => $upid, 
-	    cert => $sslcert, 
+	    port => $port,
+	    upid => $upid,
+	    cert => $sslcert,
 	};
     }});
 
 __PACKAGE__->register_method({
     name => 'vmcmdidx',
-    path => '{vmid}/status', 
+    path => '{vmid}/status',
     method => 'GET',
     proxyto => 'node',
     description => "Directory index",
@@ -781,12 +781,12 @@ __PACKAGE__->register_method({
 	    { subdir => 'start' },
 	    { subdir => 'stop' },
 	    ];
-	
+
 	return $res;
     }});
 
 __PACKAGE__->register_method({
-    name => 'vm_status', 
+    name => 'vm_status',
     path => '{vmid}/status/current',
     method => 'GET',
     proxyto => 'node',
@@ -820,7 +820,7 @@ __PACKAGE__->register_method({
     }});
 
 __PACKAGE__->register_method({
-    name => 'vm_start', 
+    name => 'vm_start',
     path => '{vmid}/status/start',
     method => 'POST',
     protected => 1,
@@ -835,7 +835,7 @@ __PACKAGE__->register_method({
 	    stateuri => get_standard_option('pve-qm-stateuri'),
 	},
     },
-    returns => { 
+    returns => {
 	type => 'string',
     },
     code => sub {
@@ -850,14 +850,14 @@ __PACKAGE__->register_method({
 	my $vmid = extract_param($param, 'vmid');
 
 	my $stateuri = extract_param($param, 'stateuri');
-	raise_param_exc({ stateuri => "Only root may use this option." }) 
+	raise_param_exc({ stateuri => "Only root may use this option." })
 	    if $stateuri && $user ne 'root@pam';
 
 	my $skiplock = extract_param($param, 'skiplock');
-	raise_param_exc({ skiplock => "Only root may use this option." }) 
+	raise_param_exc({ skiplock => "Only root may use this option." })
 	    if $skiplock && $user ne 'root@pam';
 
-	my $storecfg = PVE::Storage::config(); 
+	my $storecfg = PVE::Storage::config();
 
 	my $realcmd = sub {
 	    my $upid = shift;
@@ -873,7 +873,7 @@ __PACKAGE__->register_method({
     }});
 
 __PACKAGE__->register_method({
-    name => 'vm_stop', 
+    name => 'vm_stop',
     path => '{vmid}/status/stop',
     method => 'POST',
     protected => 1,
@@ -899,7 +899,7 @@ __PACKAGE__->register_method({
 	    }
 	},
     },
-    returns => { 
+    returns => {
 	type => 'string',
     },
     code => sub {
@@ -914,11 +914,11 @@ __PACKAGE__->register_method({
 	my $vmid = extract_param($param, 'vmid');
 
 	my $skiplock = extract_param($param, 'skiplock');
-	raise_param_exc({ skiplock => "Only root may use this option." }) 
+	raise_param_exc({ skiplock => "Only root may use this option." })
 	    if $skiplock && $user ne 'root@pam';
 
 	my $keepActive = extract_param($param, 'keepActive');
-	raise_param_exc({ keepActive => "Only root may use this option." }) 
+	raise_param_exc({ keepActive => "Only root may use this option." })
 	    if $keepActive && $user ne 'root@pam';
 
 	my $storecfg = PVE::Storage::config();
@@ -928,7 +928,7 @@ __PACKAGE__->register_method({
 
 	    syslog('info', "stop VM $vmid: $upid\n");
 
-	    PVE::QemuServer::vm_stop($storecfg, $vmid, $skiplock, 0, 
+	    PVE::QemuServer::vm_stop($storecfg, $vmid, $skiplock, 0,
 				     $param->{timeout}, 0, 1, $keepActive);
 
 	    return;
@@ -938,7 +938,7 @@ __PACKAGE__->register_method({
     }});
 
 __PACKAGE__->register_method({
-    name => 'vm_reset', 
+    name => 'vm_reset',
     path => '{vmid}/status/reset',
     method => 'POST',
     protected => 1,
@@ -952,7 +952,7 @@ __PACKAGE__->register_method({
 	    skiplock => get_standard_option('skiplock'),
 	},
     },
-    returns => { 
+    returns => {
 	type => 'string',
     },
     code => sub {
@@ -967,7 +967,7 @@ __PACKAGE__->register_method({
 	my $vmid = extract_param($param, 'vmid');
 
 	my $skiplock = extract_param($param, 'skiplock');
-	raise_param_exc({ skiplock => "Only root may use this option." }) 
+	raise_param_exc({ skiplock => "Only root may use this option." })
 	    if $skiplock && $user ne 'root@pam';
 
 	die "VM $vmid not running\n" if !PVE::QemuServer::check_running($vmid);
@@ -984,7 +984,7 @@ __PACKAGE__->register_method({
     }});
 
 __PACKAGE__->register_method({
-    name => 'vm_shutdown', 
+    name => 'vm_shutdown',
     path => '{vmid}/status/shutdown',
     method => 'POST',
     protected => 1,
@@ -1016,7 +1016,7 @@ __PACKAGE__->register_method({
 	    }
 	},
     },
-    returns => { 
+    returns => {
 	type => 'string',
     },
     code => sub {
@@ -1031,11 +1031,11 @@ __PACKAGE__->register_method({
 	my $vmid = extract_param($param, 'vmid');
 
 	my $skiplock = extract_param($param, 'skiplock');
-	raise_param_exc({ skiplock => "Only root may use this option." }) 
+	raise_param_exc({ skiplock => "Only root may use this option." })
 	    if $skiplock && $user ne 'root@pam';
 
 	my $keepActive = extract_param($param, 'keepActive');
-	raise_param_exc({ keepActive => "Only root may use this option." }) 
+	raise_param_exc({ keepActive => "Only root may use this option." })
 	    if $keepActive && $user ne 'root@pam';
 
 	my $storecfg = PVE::Storage::config();
@@ -1045,7 +1045,7 @@ __PACKAGE__->register_method({
 
 	    syslog('info', "shutdown VM $vmid: $upid\n");
 
-	    PVE::QemuServer::vm_stop($storecfg, $vmid, $skiplock, 0, $param->{timeout}, 
+	    PVE::QemuServer::vm_stop($storecfg, $vmid, $skiplock, 0, $param->{timeout},
 				     1, $param->{forceStop}, $keepActive);
 
 	    return;
@@ -1055,7 +1055,7 @@ __PACKAGE__->register_method({
     }});
 
 __PACKAGE__->register_method({
-    name => 'vm_suspend', 
+    name => 'vm_suspend',
     path => '{vmid}/status/suspend',
     method => 'POST',
     protected => 1,
@@ -1069,7 +1069,7 @@ __PACKAGE__->register_method({
 	    skiplock => get_standard_option('skiplock'),
 	},
     },
-    returns => { 
+    returns => {
 	type => 'string',
     },
     code => sub {
@@ -1084,7 +1084,7 @@ __PACKAGE__->register_method({
 	my $vmid = extract_param($param, 'vmid');
 
 	my $skiplock = extract_param($param, 'skiplock');
-	raise_param_exc({ skiplock => "Only root may use this option." }) 
+	raise_param_exc({ skiplock => "Only root may use this option." })
 	    if $skiplock && $user ne 'root@pam';
 
 	die "VM $vmid not running\n" if !PVE::QemuServer::check_running($vmid);
@@ -1103,7 +1103,7 @@ __PACKAGE__->register_method({
     }});
 
 __PACKAGE__->register_method({
-    name => 'vm_resume', 
+    name => 'vm_resume',
     path => '{vmid}/status/resume',
     method => 'POST',
     protected => 1,
@@ -1117,7 +1117,7 @@ __PACKAGE__->register_method({
 	    skiplock => get_standard_option('skiplock'),
 	},
     },
-    returns => { 
+    returns => {
 	type => 'string',
     },
     code => sub {
@@ -1132,7 +1132,7 @@ __PACKAGE__->register_method({
 	my $vmid = extract_param($param, 'vmid');
 
 	my $skiplock = extract_param($param, 'skiplock');
-	raise_param_exc({ skiplock => "Only root may use this option." }) 
+	raise_param_exc({ skiplock => "Only root may use this option." })
 	    if $skiplock && $user ne 'root@pam';
 
 	die "VM $vmid not running\n" if !PVE::QemuServer::check_running($vmid);
@@ -1151,7 +1151,7 @@ __PACKAGE__->register_method({
     }});
 
 __PACKAGE__->register_method({
-    name => 'vm_sendkey', 
+    name => 'vm_sendkey',
     path => '{vmid}/sendkey',
     method => 'PUT',
     protected => 1,
@@ -1182,7 +1182,7 @@ __PACKAGE__->register_method({
 	my $vmid = extract_param($param, 'vmid');
 
 	my $skiplock = extract_param($param, 'skiplock');
-	raise_param_exc({ skiplock => "Only root may use this option." }) 
+	raise_param_exc({ skiplock => "Only root may use this option." })
 	    if $skiplock && $user ne 'root@pam';
 
 	PVE::QemuServer::vm_sendkey($vmid, $skiplock, $param->{key});
@@ -1191,7 +1191,7 @@ __PACKAGE__->register_method({
     }});
 
 __PACKAGE__->register_method({
-    name => 'migrate_vm', 
+    name => 'migrate_vm',
     path => '{vmid}/migrate',
     method => 'POST',
     protected => 1,
@@ -1215,7 +1215,7 @@ __PACKAGE__->register_method({
 	    },
 	},
     },
-    returns => { 
+    returns => {
 	type => 'string',
 	description => "the task ID.",
     },
@@ -1239,7 +1239,7 @@ __PACKAGE__->register_method({
 
 	my $vmid = extract_param($param, 'vmid');
 
-	raise_param_exc({ force => "Only root may use this option." }) 
+	raise_param_exc({ force => "Only root may use this option." })
 	    if $param->{force} && $user ne 'root@pam';
 
 	# test if VM exists
@@ -1250,7 +1250,7 @@ __PACKAGE__->register_method({
 	PVE::QemuServer::check_lock($conf);
 
 	if (PVE::QemuServer::check_running($vmid)) {
-	    die "cant migrate running VM without --online\n" 
+	    die "cant migrate running VM without --online\n"
 		if !$param->{online};
 	}
 
@@ -1266,8 +1266,8 @@ __PACKAGE__->register_method({
     }});
 
 __PACKAGE__->register_method({
-    name => 'monitor', 
-    path => '{vmid}/monitor', 
+    name => 'monitor',
+    path => '{vmid}/monitor',
     method => 'POST',
     protected => 1,
     proxyto => 'node',
