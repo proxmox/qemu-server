@@ -944,6 +944,52 @@ sub print_drive_full {
     return "${pathinfo}if=none,id=drive-$drive->{interface}$drive->{index}$opts";
 }
 
+sub print_netdevice_full {
+    my ($vmid, $conf, $net, $netid) = @_;
+
+    my $bootorder = $conf->{boot} || $confdesc->{boot}->{default};
+
+    my $device = $net->{model};
+    if ($net->{model} eq 'virtio') {
+         $device = 'virtio-net-pci';
+     };
+
+    # qemu > 0.15 always try to boot from network - we disable that by
+    # not loading the pxe rom file
+    my $extra = ($bootorder !~ m/n/) ? "romfile=," : '';
+    my $pciaddr = print_pci_addr("$netid");
+    my $tmpstr = "$device,${extra}mac=$net->{macaddr},netdev=$netid$pciaddr,id=$netid";
+    $tmpstr .= ",bootindex=$net->{bootindex}" if $net->{bootindex} ;
+    return $tmpstr;
+}
+
+sub print_netdev_full {
+    my ($vmid, $conf, $net, $netid) = @_;
+
+    my $i = '';
+    if ($netid =~ m/^net(\d+)$/) {
+        $i = int($1);
+    }
+
+    die "got strange net id '$i'\n" if $i >= ${MAX_NETS};
+
+    my $ifname = "tap${vmid}i$i";
+
+    # kvm uses TUNSETIFF ioctl, and that limits ifname length
+    die "interface name '$ifname' is too long (max 15 character)\n"
+        if length($ifname) >= 16;
+
+    my $vhostparam = '';
+    $vhostparam = ',vhost=on' if $kernel_has_vhost_net && $net->{model} eq 'virtio';
+
+    my $vmname = $conf->{name} || "vm$vmid";
+
+    if ($net->{bridge}) {
+        return "type=tap,id=$netid,ifname=${ifname},script=/var/lib/qemu-server/pve-bridge$vhostparam";
+    } else {
+        return "type=user,id=$netid,hostname=$vmname";
+    }
+}
 
 sub drive_is_cdrom {
     my ($drive) = @_;
@@ -2152,52 +2198,24 @@ sub config_to_command {
 
     push @$cmd, '-m', $conf->{memory} || $defaults->{memory};
 
-    my $foundnet = 0;
+    for (my $i = 0; $i < $MAX_NETS; $i++) {
+         my $d = parse_net($conf->{"net$i"});
+         next if !$d;
 
-    foreach my $k (sort keys %$conf) {
-	next if $k !~ m/^net(\d+)$/;
-	my $i = int($1);
+         $use_virtio = 1 if $d->{model} eq 'virtio';
 
-	die "got strange net id '$i'\n" if $i >= ${MAX_NETS};
+         if ($bootindex_hash->{n}) {
+            $d->{bootindex} = $bootindex_hash->{n};
+            $bootindex_hash->{n} += 1;
+         }
 
-	if ($conf->{"net$i"} && (my $net = parse_net($conf->{"net$i"}))) {
+         my $netdevfull = print_netdev_full($vmid,$conf,$d,"net$i");
+         push @$cmd, '-netdev', $netdevfull;
 
-	    $foundnet = 1;
-
-	    my $ifname = "tap${vmid}i$i";
-
-	    # kvm uses TUNSETIFF ioctl, and that limits ifname length
-	    die "interface name '$ifname' is too long (max 15 character)\n"
-		if length($ifname) >= 16;
-
-	    my $device = $net->{model};
-	    my $vhostparam = '';
-	    if ($net->{model} eq 'virtio') {
-		$use_virtio = 1;
-		$device = 'virtio-net-pci';
-		$vhostparam = ',vhost=on' if $kernel_has_vhost_net;
-	    };
-
-	    if ($net->{bridge}) {
-		push @$cmd, '-netdev', "type=tap,id=${k},ifname=${ifname},script=/var/lib/qemu-server/pve-bridge$vhostparam";
-	    } else {
-		push @$cmd, '-netdev', "type=user,id=${k},hostname=$vmname";
-	    }
-
-	    # qemu > 0.15 always try to boot from network - we disable that by
-	    # not loading the pxe rom file
-	    my $extra = ($bootorder !~ m/n/) ? "romfile=," : '';
-	    $pciaddr = print_pci_addr("${k}");
-	    my $tmpstr = "$device,${extra}mac=$net->{macaddr},netdev=${k}$pciaddr";
-	    if (my $bootindex = $bootindex_hash->{n}) {
-		$tmpstr .= ",bootindex=$bootindex";
-		$bootindex_hash->{n} += 1;
-	    }
-	    push @$cmd, '-device', $tmpstr;
-	}
+         my $netdevicefull = print_netdevice_full($vmid,$conf,$d,"net$i");
+         push @$cmd, '-device', $netdevicefull;
     }
 
-    push @$cmd, '-net', 'none' if !$foundnet;
 
     # hack: virtio with fairsched is unreliable, so we do not use fairsched
     # when the VM uses virtio devices.
