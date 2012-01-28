@@ -563,12 +563,24 @@ __PACKAGE__->register_method({
 		    }
 		}
 		#nics
+		my $net = undef;
 		if ($opt =~ m/^net(\d+)$/) {
-		    my $net = PVE::QemuServer::parse_net($param->{$opt});
+		    $net = PVE::QemuServer::parse_net($param->{$opt});
 		    $param->{$opt} = PVE::QemuServer::print_net($net);
+		    #if online update, then unplug first
+		    die "error hot-unplug $opt for update" if $conf->{$opt} && !PVE::QemuServer::vm_deviceunplug($vmid, $conf, $opt);
 		}
 
 		PVE::QemuServer::change_config_nolock($vmid, { $opt => $param->{$opt} }, {}, 1);
+
+		#nic hotplug after config write as we need it for pve-bridge script
+		if (defined ($net)) {
+		    if(!PVE::QemuServer::vm_deviceplug($storecfg, $conf, $vmid, $opt, $net)) {
+		    #rewrite conf to remove nic if hotplug fail
+		    PVE::QemuServer::change_config_nolock($vmid, {}, { $opt => 1 }, 1);
+		    die "error hotplug $opt";
+		    }
+		}
 	    }
 	};
 
