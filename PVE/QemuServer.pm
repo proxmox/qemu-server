@@ -2199,6 +2199,7 @@ sub config_to_command {
     push @$cmd, '-m', $conf->{memory} || $defaults->{memory};
 
     for (my $i = 0; $i < $MAX_NETS; $i++) {
+         next if !$conf->{"net$i"};
          my $d = parse_net($conf->{"net$i"});
          next if !$d;
 
