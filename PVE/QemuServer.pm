@@ -2302,7 +2302,7 @@ sub vm_devices_list {
 
 sub vm_deviceplug {
     my ($storecfg, $conf, $vmid, $deviceid, $device) = @_;
-    return 1 if !check_running($vmid) || !$conf->{hotplug} || $conf->{$deviceid};
+    return 1 if !check_running($vmid) || !$conf->{hotplug};
 
     if ($deviceid =~ m/^(virtio)(\d+)$/) {
         return undef if !qemu_driveadd($storecfg, $vmid, $device);
@@ -2331,6 +2331,16 @@ sub vm_deviceplug {
         }
     }
 
+    if ($deviceid =~ m/^(net)(\d+)$/) {
+        return undef if !qemu_netdevadd($vmid, $conf, $device, $deviceid);
+        my $netdevicefull = print_netdevice_full($vmid, $conf, $device, $deviceid);
+        qemu_deviceadd($vmid, $netdevicefull);
+        if(!qemu_deviceaddverify($vmid, $deviceid)) {
+           qemu_netdevdel($vmid, $deviceid);
+           return undef;
+        }
+    }
+
     return 1;
 }
 
@@ -2354,6 +2364,12 @@ sub vm_deviceunplug {
     if ($deviceid =~ m/^(scsi)(\d+)$/) {
         return undef if !qemu_devicedel($vmid, $deviceid);
         return undef if !qemu_drivedel($vmid, $deviceid);
+    }
+
+    if ($deviceid =~ m/^(net)(\d+)$/) {
+        return undef if !qemu_netdevdel($vmid, $deviceid);
+        qemu_devicedel($vmid, $deviceid);
+        return undef if !qemu_devicedelverify($vmid, $deviceid);
     }
 
     return 1;
@@ -2447,6 +2463,30 @@ sub qemu_findorcreatelsi {
        return undef if !vm_deviceplug($storecfg, $conf, $vmid, $lsiid);
     }
     return 1;
+}
+
+sub qemu_netdevadd {
+    my ($vmid, $conf, $device, $deviceid) = @_;
+
+    my $netdev = print_netdev_full($vmid, $conf, $device, $deviceid);
+    my $ret = vm_monitor_command($vmid, "netdev_add $netdev");
+    $ret =~ s/^\s+//;
+
+    #if the command succeeds, no output is sent. So any non-empty string shows an error 
+    return 1 if $ret eq "";
+    syslog("err", "adding netdev failed: $ret");
+    return undef;
+}
+
+sub qemu_netdevdel {
+    my ($vmid, $deviceid) = @_;
+
+    my $ret = vm_monitor_command($vmid, "netdev_del $deviceid");
+    $ret =~ s/^\s+//;
+    #if the command succeeds, no output is sent. So any non-empty string shows an error 
+    return 1 if $ret eq "";
+    syslog("err", "deleting netdev failed: $ret");
+    return undef;
 }
 
 sub vm_start {
