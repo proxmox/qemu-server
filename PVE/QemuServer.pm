@@ -2181,6 +2181,7 @@ sub config_to_command {
 
     my $vollist = [];
     my $scsicontroller = {};
+    my $ahcicontroller = {};
 
     foreach_drive($conf, sub {
 	my ($ds, $drive) = @_;
@@ -2211,7 +2212,14 @@ sub config_to_command {
            $scsicontroller->{$controller}=1;
         }
 
-	push @$cmd, '-drive',  print_drive_full($storecfg, $vmid, $drive);
+        if ($drive->{interface} eq 'sata') {
+           my $controller = int($drive->{index} / $MAX_SATA_DISKS);
+           $pciaddr = print_pci_addr("ahci$controller");
+           push @$cmd, '-device', "ahci,id=ahci$controller,multifunction=on$pciaddr" if !$ahcicontroller->{$controller};
+           $ahcicontroller->{$controller}=1;
+        }
+
+	push @$cmd, '-drive',print_drive_full($storecfg, $vmid, $drive);
 	push @$cmd, '-device',print_drivedevice_full($storecfg,$vmid, $drive);
     });
 
@@ -3069,6 +3077,7 @@ sub print_pci_addr {
 	watchdog => { bus => 0, addr => 4 },
 	lsi0 => { bus => 0, addr => 5 },
 	lsi1 => { bus => 0, addr => 6 },
+	ahci0 => { bus => 0, addr => 7 },
 	virtio0 => { bus => 0, addr => 10 },
 	virtio1 => { bus => 0, addr => 11 },
 	virtio2 => { bus => 0, addr => 12 },
