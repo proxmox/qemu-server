@@ -386,6 +386,7 @@ while (my ($k, $v) = each %$confdesc) {
 my $MAX_IDE_DISKS = 4;
 my $MAX_SCSI_DISKS = 14;
 my $MAX_VIRTIO_DISKS = 6;
+my $MAX_SATA_DISKS = 6;
 my $MAX_USB_DEVICES = 5;
 my $MAX_NETS = 6;
 my $MAX_UNUSED_DISKS = 8;
@@ -447,6 +448,14 @@ my $scsidesc = {
     description => "Use volume as SCSI hard disk or CD-ROM (n is 0 to 13).",
 };
 PVE::JSONSchema::register_standard_option("pve-qm-scsi", $scsidesc);
+
+my $satadesc = {
+    optional => 1,
+    type => 'string', format => 'pve-qm-drive',
+    typetext => '[volume=]volume,] [,media=cdrom|disk] [,cyls=c,heads=h,secs=s[,trans=t]] [,snapshot=on|off] [,cache=none|writethrough|writeback|unsafe] [,format=f] [,backup=yes|no] [,aio=native|threads]',
+    description => "Use volume as SATA hard disk or CD-ROM (n is 0 to 5).",
+};
+PVE::JSONSchema::register_standard_option("pve-qm-sata", $satadesc);
 
 my $virtiodesc = {
     optional => 1,
@@ -536,6 +545,11 @@ for (my $i = 0; $i < $MAX_IDE_DISKS; $i++)  {
     $confdesc->{"ide$i"} = $idedesc;
 }
 
+for (my $i = 0; $i < $MAX_SATA_DISKS; $i++)  {
+    $drivename_hash->{"sata$i"} = 1;
+    $confdesc->{"sata$i"} = $satadesc;
+}
+
 for (my $i = 0; $i < $MAX_SCSI_DISKS; $i++)  {
     $drivename_hash->{"scsi$i"} = 1;
     $confdesc->{"scsi$i"} = $scsidesc ;
@@ -602,7 +616,8 @@ sub disknames {
     # order is important - used to autoselect boot disk
     return ((map { "ide$_" } (0 .. ($MAX_IDE_DISKS - 1))),
             (map { "scsi$_" } (0 .. ($MAX_SCSI_DISKS - 1))),
-            (map { "virtio$_" } (0 .. ($MAX_VIRTIO_DISKS - 1))));
+            (map { "virtio$_" } (0 .. ($MAX_VIRTIO_DISKS - 1))),
+            (map { "sata$_" } (0 .. ($MAX_SATA_DISKS - 1))));
 }
 
 sub valid_drivename {
@@ -900,6 +915,10 @@ sub print_drivedevice_full {
 	my $devicetype = ($drive->{media} && $drive->{media} eq 'cdrom') ? "cd" : "hd";
 
 	$device = "ide-$devicetype,bus=ide.$controller,unit=$unit,drive=drive-$drive->{interface}$drive->{index},id=$drive->{interface}$drive->{index}";
+    } elsif ($drive->{interface} eq 'sata'){
+	my $controller = int($drive->{index} / $MAX_SATA_DISKS);
+	my $unit = $drive->{index} % $MAX_SATA_DISKS;
+	$device = "ide-drive,bus=ahci$controller.$unit,drive=drive-$drive->{interface}$drive->{index},id=$drive->{interface}$drive->{index}";
     } elsif ($drive->{interface} eq 'usb') {
 	die "implement me";
 	#  -device ide-drive,bus=ide.1,unit=0,drive=drive-ide0-1-0,id=ide0-1-0
