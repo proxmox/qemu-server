@@ -1084,7 +1084,7 @@ sub add_random_macs {
 }
 
 sub add_unused_volume {
-    my ($config, $volid, $vmid) = @_;
+    my ($config, $volid, $changes) = @_;
 
     my $key;
     for (my $ind = $MAX_UNUSED_DISKS - 1; $ind >= 0; $ind--) {
@@ -1098,8 +1098,7 @@ sub add_unused_volume {
 
     die "To many unused volume - please delete them first.\n" if !$key;
 
-    PVE::QemuServer::change_config_nolock($vmid, { $key => $volid }, {}, 1);
-    $config->{$key} = $volid;
+    $changes->{$key} = $config->{$key} = $volid;
 }
 
 # fixme: remove all thos $noerr parameters?
