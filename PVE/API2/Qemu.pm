@@ -620,6 +620,12 @@ __PACKAGE__->register_method({
 
 	die "no options specified\n" if !$delete_str && !scalar(keys %$param);
 
+	my $storecfg = PVE::Storage::config();
+
+	&$resolve_cdrom_alias($param);
+
+	# now try to verify all parameters
+
 	my @delete = ();
 	foreach my $opt (PVE::Tools::split_list($delete_str)) {
 	    $opt = 'ide2' if $opt eq 'cdrom';
@@ -633,9 +639,23 @@ __PACKAGE__->register_method({
 	    push @delete, $opt;
 	}
 
-	my $storecfg = PVE::Storage::config();
+	my $drive_hash = {};
+	my $net_hash = {};
+	foreach my $opt (keys %$param) {
+	    if (PVE::QemuServer::valid_drivename($opt)) {
+		# cleanup drive path
+		my $drive = PVE::QemuServer::parse_drive($opt, $param->{$opt});
+		PVE::QemuServer::cleanup_drive_path($opt, $storecfg, $drive);
+		$param->{$opt} = PVE::QemuServer::print_drive($vmid, $drive);
+		$drive_hash->{$opt} = $drive;
+	    } elsif ($opt =~ m/^net(\d+)$/) { 
+		# add macaddr
+		my $net = PVE::QemuServer::parse_net($param->{$opt});
+		$param->{$opt} = PVE::QemuServer::print_net($net);
+		$net_hash->{$opt} = $net;
+	    }
+	}
 
-	&$resolve_cdrom_alias($param);
 
 	my $updatefn =  sub {
 
@@ -651,13 +671,14 @@ __PACKAGE__->register_method({
 	    #delete
 	    foreach my $opt (@delete) {
 
+		$conf = PVE::QemuServer::load_config($vmid); # update/reload
+
 		next if !defined($conf->{$opt});
 
 		die "error hot-unplug $opt" if !PVE::QemuServer::vm_deviceunplug($vmid, $conf, $opt);
 
 		#drive
-		if (PVE::QemuServer::valid_drivename($opt)) {
-		    my $drive = PVE::QemuServer::parse_drive($opt, $conf->{$opt});
+		if (my $drive = $drive_hash->{$opt}) {
 		    #hdd
 		    if (!PVE::QemuServer::drive_is_cdrom($drive)) {
 			my $volid = $drive->{file};
@@ -677,7 +698,7 @@ __PACKAGE__->register_method({
 			}
 		    }
 		} elsif ($opt =~ m/^unused/) {
-	            my $drive = PVE::QemuServer::parse_drive($opt, $conf->{$opt});
+	            my $drive =  PVE::QemuServer::parse_drive($opt, $conf->{$opt});
                     my $volid = $drive->{file};
 		    eval { PVE::Storage::vdisk_free($storecfg, $volid); };
 	            # fixme: log ?
@@ -690,28 +711,21 @@ __PACKAGE__->register_method({
 	    #add
 	    foreach my $opt (keys %$param) {
 
+		$conf = PVE::QemuServer::load_config($vmid); # update/reload
+
 		#drives
-		if (PVE::QemuServer::valid_drivename($opt)) {
-		    my $drive = PVE::QemuServer::parse_drive($opt, $param->{$opt});
-		    raise_param_exc({ $opt => "unable to parse drive options" }) if !$drive;
-
-		    PVE::QemuServer::cleanup_drive_path($opt, $storecfg, $drive);
-		    $param->{$opt} = PVE::QemuServer::print_drive($vmid, $drive);
-
+		if (my $drive = $drive_hash->{$opt}) {
 		    #cdrom
 		    if (PVE::QemuServer::drive_is_cdrom($drive) && PVE::QemuServer::check_running($vmid)) {
 			if ($drive->{file} eq 'none') {
 			    PVE::QemuServer::vm_monitor_command($vmid, "eject -f drive-$opt", 0);
 			    #delete $param->{$opt};
-			}
-			else {
+			} else {
 			    my $path = PVE::QemuServer::get_iso_path($storecfg, $vmid, $drive->{file});
 			    PVE::QemuServer::vm_monitor_command($vmid, "eject -f drive-$opt", 0); #force eject if locked
 			    PVE::QemuServer::vm_monitor_command($vmid, "change drive-$opt \"$path\"", 0) if $path;
 			}
-		    }
-		    #hdd
-		    else {
+		    } else { #hdd
 			#swap drive
 			if ($conf->{$opt}){
 			    my $old_drive = PVE::QemuServer::parse_drive($opt, $conf->{$opt});
@@ -735,25 +749,27 @@ __PACKAGE__->register_method({
 			    die "error hotplug $opt - put disk in unused";
 			}
 		    }
-		}
-		#nics
-		my $net = undef;
-		if ($opt =~ m/^net(\d+)$/) {
-		    $net = PVE::QemuServer::parse_net($param->{$opt});
-		    $param->{$opt} = PVE::QemuServer::print_net($net);
+
+		    PVE::QemuServer::change_config_nolock($vmid, { $opt => $param->{$opt} }, {}, 1);
+	
+		} elsif (my $net = $net_hash->{$opt}) { #nics
+
 		    #if online update, then unplug first
-		    die "error hot-unplug $opt for update" if $conf->{$opt} && !PVE::QemuServer::vm_deviceunplug($vmid, $conf, $opt);
-		}
+		    die "error hot-unplug $opt for update" if $conf->{$opt} && 
+			!PVE::QemuServer::vm_deviceunplug($vmid, $conf, $opt);
 
-		PVE::QemuServer::change_config_nolock($vmid, { $opt => $param->{$opt} }, {}, 1);
+		    PVE::QemuServer::change_config_nolock($vmid, { $opt => $param->{$opt} }, {}, 1);
 
-		#nic hotplug after config write as we need it for pve-bridge script
-		if (defined ($net)) {
+		    #nic hotplug after config write as we need it for pve-bridge script
 		    if(!PVE::QemuServer::vm_deviceplug($storecfg, $conf, $vmid, $opt, $net)) {
-		    #rewrite conf to remove nic if hotplug fail
-		    PVE::QemuServer::change_config_nolock($vmid, {}, { $opt => 1 }, 1);
-		    die "error hotplug $opt";
+			#rewrite conf to remove nic if hotplug fail
+			PVE::QemuServer::change_config_nolock($vmid, {}, { $opt => 1 }, 1);
+			die "error hotplug $opt";
 		    }
+
+		} else {
+
+		    PVE::QemuServer::change_config_nolock($vmid, { $opt => $param->{$opt} }, {}, 1);
 		}
 	    }
 	};
