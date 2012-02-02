@@ -258,7 +258,8 @@ sub phase1 {
     my $conf = $self->{vmconf};
 
     # set migrate lock in config file
-    PVE::QemuServer::change_config_nolock($vmid, { lock => 'migrate' }, {}, 1);
+    $conf->{lock} = 'migrate';
+    PVE::QemuServer::update_config_nolock($vmid, $conf, 1);
 
     sync_disks($self, $vmid);
 
@@ -275,8 +276,9 @@ sub phase1_cleanup {
 
     $self->log('info', "aborting phase 1 - cleanup resources");
 
-    my $unset = { lock => 1 };
-    eval { PVE::QemuServer::change_config_nolock($vmid, {}, $unset, 1) };
+    my $conf = $self->{vmconf};
+    delete $conf->{lock};
+    eval { PVE::QemuServer::update_config_nolock($vmid, $conf, 1) };
     if (my $err = $@) {
 	$self->log('err', $err);
     }

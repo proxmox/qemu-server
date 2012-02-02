@@ -35,7 +35,9 @@ my $cpuinfo = PVE::ProcFSTools::read_cpuinfo();
 # allowed when such lock is set. But you can ignore this kind of
 # lock with the --skiplock flag.
 
-cfs_register_file('/qemu-server/', \&parse_vm_config);
+cfs_register_file('/qemu-server/', 
+		  \&parse_vm_config,
+		  \&write_vm_config);
 
 PVE::JSONSchema::register_standard_option('skiplock', {
     description => "Ignore locks - only root is allowed to use this option.",
@@ -1084,7 +1086,7 @@ sub add_random_macs {
 }
 
 sub add_unused_volume {
-    my ($config, $volid, $changes) = @_;
+    my ($config, $volid) = @_;
 
     my $key;
     for (my $ind = $MAX_UNUSED_DISKS - 1; $ind >= 0; $ind--) {
@@ -1097,8 +1099,10 @@ sub add_unused_volume {
     }
 
     die "To many unused volume - please delete them first.\n" if !$key;
+    
+    $config->{$key} = $volid;
 
-    $changes->{$key} = $config->{$key} = $volid;
+    return $key;
 }
 
 # fixme: remove all thos $noerr parameters?
@@ -1483,127 +1487,74 @@ sub parse_vm_config {
     return $res;
 }
 
-sub change_config {
-    my ($vmid, $settings, $unset, $skiplock) = @_;
+sub write_vm_config {
+    my ($filename, $conf) = @_;
 
-    lock_config($vmid, &change_config_nolock, $settings, $unset, $skiplock);
-}
-
-sub change_config_nolock {
-    my ($vmid, $settings, $unset, $skiplock) = @_;
-
-    my $res = {};
-
-    $unset->{ide2} = $unset->{cdrom} if $unset->{cdrom};
-
-    check_lock($settings) if !$skiplock;
+    if ($conf->{cdrom}) {
+	die "option ide2 conflicts with cdrom\n" if $conf->{ide2};
+	$conf->{ide2} = $conf->{cdrom};
+	delete $conf->{cdrom};
+    }
 
     # we do not use 'smp' any longer
-    if ($settings->{sockets}) {
-	$unset->{smp} = 1;
-    } elsif ($settings->{smp}) {
-	$settings->{sockets} = $settings->{smp};
-	$unset->{smp} = 1;
+    if ($conf->{sockets}) {
+	delete $conf->{smp};
+    } elsif ($conf->{smp}) {
+	$conf->{sockets} = $conf->{smp};
+	delete $conf->{cores};
+	delete $conf->{smp};
     }
 
     my $new_volids = {};
-
-    foreach my $key (keys %$settings) {
+    foreach my $key (keys %$conf) {
 	next if $key eq 'digest';
-	my $value = $settings->{$key};
+	my $value = $conf->{$key};
 	if ($key eq 'description') {
 	    $value = PVE::Tools::encode_text($value);
 	}
 	eval { $value = check_type($key, $value); };
 	die "unable to parse value of '$key' - $@" if $@;
-	if ($key eq 'cdrom') {
-	    $res->{ide2} = $value;
-	} else {
-	    $res->{$key} = $value;
-	}
+
+	$conf->{$key} = $value;
+
 	if (valid_drivename($key)) {
 	    my $drive = PVE::QemuServer::parse_drive($key, $value);
 	    $new_volids->{$drive->{file}} = 1 if $drive && $drive->{file};
 	}
     }
 
-    my $filename = config_file($vmid);
-    my $tmpfn = "$filename.$$.tmp";
-
-    my $fh = new IO::File($filename, "r") ||
-	die "unable to read config for VM $vmid\n";
-
-    my $werror = "unable to write config for VM $vmid\n";
-
-    my $out = new IO::File($tmpfn, "w") || die $werror;
-
-    eval {
-
-	my $done;
-
-	while (my $line = <$fh>) {
-
-	    if (($line =~ m/^\#/) || ($line =~ m/^\s*$/)) {
-		die $werror unless print $out $line;
-		next;
-	    }
-
-	    if ($line =~ m/^([a-z][a-z_]*\d*):\s*(.*\S)\s*$/) {
-		my $key = $1;
-		my $value = $2;
-
-		# remove 'unusedX' settings if we re-add a volume
-		next if $key =~ m/^unused/ && $new_volids->{$value};
-
-		# convert 'smp' to 'sockets'
-		$key = 'sockets' if $key eq 'smp';
-
-		next if $done->{$key};
-		$done->{$key} = 1;
-
-		if (defined($res->{$key})) {
-		    $value = $res->{$key};
-		    delete $res->{$key};
-		}
-		if (!defined($unset->{$key})) {
-		    die $werror unless print $out "$key: $value\n";
-		}
-
-		next;
-	    }
-
-	    die "unable to parse config file: $line\n";
+    # remove 'unusedX' settings if we re-add a volume
+    foreach my $key (keys %$conf) {
+	my $value = $conf->{$key};
+	if ($key =~ m/^unused/ && $new_volids->{$value}) {
+	    delete $conf->{$key};
 	}
-
-	foreach my $key (keys %$res) {
-
-	    if (!defined($unset->{$key})) {
-		die $werror unless print $out "$key: $res->{$key}\n";
-	    }
-	}
-    };
-
-    my $err = $@;
-
-    $fh->close();
-
-    if ($err) {
-	$out->close();
-	unlink $tmpfn;
-	die $err;
     }
 
-    if (!$out->close()) {
-	$err = "close failed - $!\n";
-	unlink $tmpfn;
-	die $err;
+    # gererate RAW data
+    my $raw = '';
+    foreach my $key (sort keys %$conf) {
+	next if $key eq 'digest';
+	$raw .= "$key: $conf->{$key}\n";
     }
 
-    if (!rename($tmpfn, $filename)) {
-	$err = "rename failed - $!\n";
-	unlink $tmpfn;
-	die $err;
-    }
+    return $raw;
+}
+
+sub update_config_nolock {
+    my ($vmid, $conf, $skiplock) = @_;
+
+    check_lock($conf) if !$skiplock;
+    
+    my $cfspath = cfs_config_path($vmid);
+
+    PVE::Cluster::cfs_write_file($cfspath, $conf);
+}
+
+sub update_config {
+    my ($vmid, $conf, $skiplock) = @_;
+
+    lock_config($vmid, &update_config_nolock, $conf, $skiplock);
 }
 
 sub load_defaults {

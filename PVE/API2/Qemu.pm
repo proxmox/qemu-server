@@ -58,15 +58,15 @@ my $check_volume_access = sub {
 # Note: $pool is only needed when creating a VM, because pool permissions
 # are automatically inherited if VM already exists inside a pool.
 my $create_disks = sub {
-    my ($rpcenv, $authuser, $storecfg, $vmid, $pool, $settings, $default_storage) = @_;
+    my ($rpcenv, $authuser, $conf, $storecfg, $vmid, $pool, $settings, $default_storage) = @_;
 
     # check permissions first
 
     my $alloc = [];
-    foreach_drive($settings, sub {
+    PVE::QemuServer::foreach_drive($settings, sub {
 	my ($ds, $disk) = @_;
 
-	return if drive_is_cdrom($disk);
+	return if PVE::QemuServer::drive_is_cdrom($disk);
 
 	my $volid = $disk->{file};
 
@@ -112,7 +112,7 @@ my $create_disks = sub {
     foreach my $task (@$alloc) {
 	my ($ds, $disk) = @$task;
 	delete $disk->{format}; # no longer needed
-	$settings->{$ds} = PVE::QemuServer::print_drive($vmid, $disk);
+	$conf->{$ds} = $settings->{$ds} = PVE::QemuServer::print_drive($vmid, $disk);
     }
 
     return $vollist;
@@ -345,24 +345,26 @@ __PACKAGE__->register_method({
 
 		my $vollist = [];
 
+		my $conf = $param;
+
 		eval {
-		    $vollist = &$create_disks($rpcenv, $authuser, $storecfg, $vmid, $pool, $param, $storage);
+		    $vollist = &$create_disks($rpcenv, $authuser, $conf, $storecfg, $vmid, $pool, $param, $storage);
 
 		    # try to be smart about bootdisk
 		    my @disks = PVE::QemuServer::disknames();
 		    my $firstdisk;
 		    foreach my $ds (reverse @disks) {
-			next if !$param->{$ds};
-			my $disk = PVE::QemuServer::parse_drive($ds, $param->{$ds});
+			next if !$conf->{$ds};
+			my $disk = PVE::QemuServer::parse_drive($ds, $conf->{$ds});
 			next if PVE::QemuServer::drive_is_cdrom($disk);
 			$firstdisk = $ds;
 		    }
 
-		    if (!$param->{bootdisk} && $firstdisk) {
-			$param->{bootdisk} = $firstdisk;
+		    if (!$conf->{bootdisk} && $firstdisk) {
+			$conf->{bootdisk} = $firstdisk;
 		    }
 
-		    PVE::QemuServer::create_conf_nolock($vmid, $param);
+		    PVE::QemuServer::update_conf_nolock($vmid, $conf);
 		};
 		my $err = $@;
 
@@ -546,9 +548,7 @@ __PACKAGE__->register_method({
     }});
 
 my $delete_drive = sub {
-    my ($conf, $storecfg, $vmid, $drive, $force) = @_;
-
-    my $changes = {};
+    my ($conf, $storecfg, $vmid, $key, $drive, $force) = @_;
 
     if (!PVE::QemuServer::drive_is_cdrom($drive)) {
 	my $volid = $drive->{file};
@@ -561,15 +561,14 @@ my $delete_drive = sub {
 		    eval { PVE::Storage::vdisk_free($storecfg, $volid); };
 		    warn $@ if $@;
 		} else {
-		    PVE::QemuServer::add_unused_volume($conf, $volid, $vmid, $changes);
+		    PVE::QemuServer::add_unused_volume($conf, $volid, $vmid);
 		}
+		delete $conf->{$key};
 	    }
 	}
     } else {
 
     }
-
-    return $changes;
 };
 
 my $vm_config_perm_list = [
@@ -700,21 +699,20 @@ __PACKAGE__->register_method({
 		$conf = PVE::QemuServer::load_config($vmid); # update/reload
 
 		next if !defined($conf->{$opt});
-
+		
 		die "error hot-unplug $opt" if !PVE::QemuServer::vm_deviceunplug($vmid, $conf, $opt);
 
-		my $changes = {};
-
-		if (my $drive = $drive_hash->{$opt}) { # drives
-		    $changes = &$delete_drive($conf, $storecfg, $vmid, $drive, $force);
+		if (PVE::QemuServer::valid_drivename($opt)) {
+		    my $drive = PVE::QemuServer::parse_drive($opt, $conf->{$opt});
+		    &$delete_drive($conf, $storecfg, $vmid, $opt, $drive, $force);
 		} elsif ($opt =~ m/^unused/) {
 	            my $drive =  PVE::QemuServer::parse_drive($opt, $conf->{$opt});
                     my $volid = $drive->{file};
 		    eval { PVE::Storage::vdisk_free($storecfg, $volid); };
 		    warn $@ if $@;
+		    delete $conf->{$opt};
 		}
-
-		PVE::QemuServer::change_config_nolock($vmid, $changes, { $opt => 1 }, 1);
+		PVE::QemuServer::update_config_nolock($vmid, $conf, 1);
 	    }
 
 	    foreach my $opt (keys %$param) { # add/change
@@ -731,9 +729,9 @@ __PACKAGE__->register_method({
 			!PVE::QemuServer::drive_is_cdrom($old_drive)) {  # delete old disks
 
 			die "error hot-unplug $opt" if !PVE::QemuServer::vm_deviceunplug($vmid, $conf, $opt);
-
-			my $changes = &$delete_drive($conf, $storecfg, $vmid, $old_drive, 0);
-			PVE::QemuServer::change_config_nolock($vmid, $changes, { $opt => 1 }, 1);
+			
+			&$delete_drive($conf, $storecfg, $vmid, $opt, $old_drive, 0);
+			PVE::QemuServer::update_config_nolock($vmid, $conf, 1);
 			$conf = PVE::QemuServer::load_config($vmid); # update/reload
 		    }
 				    
@@ -749,13 +747,14 @@ __PACKAGE__->register_method({
 			    }
 			}
 
-			PVE::QemuServer::change_config_nolock($vmid, { $opt => $param->{$opt} }, {}, 1);
+			$conf->{$opt} = $param->{$opt};
+			PVE::QemuServer::update_config_nolock($vmid, $conf, 1);
 
 		    } else { #hdd
 
 			my $settings = { $opt => $param->{$opt} };
-			&$create_disks($rpcenv, $authuser, $storecfg, $vmid, undef, $settings);
-			PVE::QemuServer::change_config_nolock($vmid, { $opt => $settings->{$opt} }, {}, 1);
+			&$create_disks($rpcenv, $authuser, $conf, $storecfg, $vmid, undef, $settings);
+			PVE::QemuServer::update_config_nolock($vmid, $conf, 1);
 			$conf = PVE::QemuServer::load_config($vmid); # update/reload
 
 			my $newdrive = PVE::QemuServer::parse_drive($opt, $conf->{$opt});
@@ -770,15 +769,18 @@ __PACKAGE__->register_method({
 		    die "error hot-unplug $opt for update" if $conf->{$opt} && 
 			!PVE::QemuServer::vm_deviceunplug($vmid, $conf, $opt);
 
-		    PVE::QemuServer::change_config_nolock($vmid, { $opt => $param->{$opt} }, {}, 1);
+		    $conf->{$opt} = $param->{$opt};
+		    PVE::QemuServer::update_config_nolock($vmid, $conf, 1);
 		    $conf = PVE::QemuServer::load_config($vmid); # update/reload
 
 		    my $newnet = PVE::QemuServer::parse_net($conf->{$opt});
+
 		    die "error hotplug $opt" if !PVE::QemuServer::vm_deviceplug($storecfg, $conf, $vmid, $opt, $newnet);
 
 		} else {
 
-		    PVE::QemuServer::change_config_nolock($vmid, { $opt => $param->{$opt} }, {}, 1);
+		    $conf->{$opt} = $param->{$opt};
+		    PVE::QemuServer::update_config_nolock($vmid, $conf, 1);
 		}
 	    }
 	};
