@@ -4,15 +4,21 @@ use strict;
 use Getopt::Long;
 use File::Path;
 use IO::File;
+use PVE::INotify;
 use PVE::JSONSchema;
 use PVE::Tools;
 use PVE::Cluster qw(cfs_read_file);
+use PVE::RPCEnvironment;
 use PVE::QemuServer;
 
-my @std_opts = ('storage=s', 'info', 'prealloc');
+$ENV{'PATH'} = '/sbin:/bin:/usr/sbin:/usr/bin';
+
+die "please run as root\n" if $> != 0;
+
+my @std_opts = ('storage=s', 'pool=s', 'info', 'prealloc');
 
 sub print_usage {
-    print STDERR "usage: $0 [--storage=<storeid>] [--info] [--prealloc] <archive> <vmid>\n\n";
+    print STDERR "usage: $0 [--storage=<storeid>] [--pool=<poolid>] [--info] [--prealloc] <archive> <vmid>\n\n";
 }
 
 my $opts = {};
@@ -20,6 +26,14 @@ if (!GetOptions ($opts, @std_opts)) {
     print_usage ();
     exit (-1);
 }
+
+PVE::INotify::inotify_init();
+
+my $rpcenv = PVE::RPCEnvironment->init('cli');
+
+$rpcenv->init_request();
+$rpcenv->set_language($ENV{LANG});
+$rpcenv->set_user('root@pam'); 
 
 sub extract_archive {
     # NOTE: this is run as tar subprocess (--to-command)
@@ -42,6 +56,9 @@ sub extract_archive {
 
     my $vmid = $ENV{VZDUMP_VMID};
     PVE::JSONSchema::pve_verify_vmid($vmid);
+
+    my $user = $ENV{VZDUMP_USER};
+    $rpcenv->check_user_enabled($user);
 
     if ($opts->{info}) {
 	print STDERR "reading archive member '$filename'\n";
@@ -96,7 +113,7 @@ sub extract_archive {
 	print STDERR "restoring old style vzdump archive - " .
 	    "no device map inside archive\n";
 	die "can't restore old style archive to storage '$opts->{storage}'\n" 
-	    if $opts->{storage} && $opts->{storage} ne 'local';
+	    if defined($opts->{storage}) && $opts->{storage} ne 'local';
 
 	my $dir = "/var/lib/vz/images/$vmid";
 	mkpath $dir;
@@ -120,9 +137,24 @@ sub extract_archive {
 		"($filesize != $info->{size})\n";
 	}	
 
+	# check permission for all used storages 
+	my $pool = $opts->{pool};
+	if ($user ne 'root@pam') {
+	    if (defined($opts->{storage})) {
+		my $sid = $opts->{storage} || 'local';
+		$rpcenv->check_storage_perm($user, $vmid, $pool, $sid, ['Datastore.AllocateSpace']);
+	    } else {	
+		foreach my $fn (keys %$map) {
+		    my $fi = $map->{$fn};
+		    my $sid = $fi->{storeid} || 'local';
+		    $rpcenv->check_storage_perm($user, $vmid, $pool, $sid, ['Datastore.AllocateSpace']);
+		}
+	    }
+	}
+
 	my $storeid;
-	if ($opts->{storage}) {
-	    $storeid = $opts->{storage};
+	if (defined($opts->{storage})) {
+	    $storeid = $opts->{storage} || 'local';
 	} else {
 	    $storeid = $info->{storeid} || 'local';
 	}
@@ -172,7 +204,7 @@ if (scalar(@ARGV) == 2) {
 
     PVE::Cluster::check_cfs_quorum();
 
-    PVE::QemuServer::restore_archive($archive, $vmid, $opts);
+    PVE::QemuServer::restore_archive($archive, $vmid, 'root@pam', $opts);
  
 } elsif (scalar(@ARGV) == 0 && $ENV{TAR_FILENAME}) {
     extract_archive();    

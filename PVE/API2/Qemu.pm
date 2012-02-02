@@ -33,11 +33,132 @@ my $resolve_cdrom_alias = sub {
     }
 };
 
+my $check_volume_access = sub {
+    my ($rpcenv, $authuser, $storecfg, $vmid, $volid, $pool) = @_;
+
+    my $path;
+    if (my ($sid, $volname) = PVE::Storage::parse_volume_id($volid, 1)) {
+	my ($ownervm, $vtype);
+	($path, $ownervm, $vtype) = PVE::Storage::path($storecfg, $volid);
+	if ($vtype eq 'iso' || $vtype eq 'vztmpl') {
+	    # we simply allow access 
+	} elsif (!$ownervm || ($ownervm != $vmid)) {
+	    # allow if we are Datastore administrator
+	    $rpcenv->check_storage_perm($authuser, $vmid, $pool, $sid, [ 'Datastore.Allocate' ]);
+	}
+    } else {
+	die "Only root can pass arbitrary filesystem paths."
+	    if $authuser ne 'root@pam';
+
+	$path = abs_path($volid);
+    }
+    return $path;
+};
+
+# Note: $pool is only needed when creating a VM, because pool permissions
+# are automatically inherited if VM already exists inside a pool.
+my $create_disks = sub {
+    my ($rpcenv, $authuser, $storecfg, $vmid, $pool, $settings, $conf, $default_storage) = @_;
+
+    # check permissions first
+
+    my $alloc = [];
+    foreach_drive($settings, sub {
+	my ($ds, $disk) = @_;
+
+	return if drive_is_cdrom($disk);
+
+	my $volid = $disk->{file};
+
+	if ($volid =~ m/^(([^:\s]+):)?(\d+(\.\d+)?)$/) {
+	    my ($storeid, $size) = ($2 || $default_storage, $3);
+	    die "no storage ID specified (and no default storage)\n" if !$storeid;
+	    $rpcenv->check_storage_perm($authuser, $vmid, $pool, $storeid, [ 'Datastore.AllocateSpace' ]);
+	    my $defformat = PVE::Storage::storage_default_format($storecfg, $storeid);
+	    my $fmt = $disk->{format} || $defformat;
+	    push @$alloc, [$ds, $disk, $storeid, $size, $fmt];
+	} else {
+	    my $path = &$check_volume_access($rpcenv, $authuser, $storecfg, $vmid, $volid, $pool);
+	    die "image '$path' does not exists\n" if (!(-f $path || -b $path));
+	}
+    });
+
+    # now try to allocate everything
+
+    my $vollist = [];
+    eval {
+	foreach my $task (@$alloc) {
+	    my ($ds, $disk, $storeid, $size, $fmt) = @$task;
+
+	    my $volid = PVE::Storage::vdisk_alloc($storecfg, $storeid, $vmid,
+						  $fmt, undef, $size*1024*1024);
+
+	    $disk->{file} = $volid;
+	    push @$vollist, $volid;
+	}
+    };
+
+    # free allocated images on error
+    if (my $err = $@) {
+	syslog('err', "VM $vmid creating disks failed");
+	foreach my $volid (@$vollist) {
+	    eval { PVE::Storage::vdisk_free($storecfg, $volid); };
+	    warn $@ if $@;
+	}
+	die $err;
+    }
+
+    # modify vm config if everything went well
+    foreach my $task (@$alloc) {
+	my ($ds, $disk) = @$task;
+	delete $disk->{format}; # no longer needed
+	$settings->{$ds} = PVE::QemuServer::print_drive($vmid, $disk);
+    }
+
+    return $vollist;
+};
+
+my $check_vm_modify_config_perm = sub {
+    my ($rpcenv, $authuser, $vmid, $pool, $param) = @_;
+
+    return 1 if $authuser ne 'root@pam';
+
+    foreach my $opt (keys %$param) {
+	# disk checks need to be done somewhere else
+	next if PVE::QemuServer::valid_drivename($opt);
+
+	if ($opt eq 'sockets' || $opt eq 'cores' ||
+	    $opt eq 'cpu' || $opt eq 'smp' || 
+	    $opt eq 'cpuimit' || $opt eq 'cpuunits') {
+	    $rpcenv->check_vm_perm($authuser, $vmid, $pool, ['VM.Config.CPU']);
+	} elsif ($opt eq 'boot' || $opt eq 'bootdisk') {
+	    $rpcenv->check_vm_perm($authuser, $vmid, $pool, ['VM.Config.Disk']);
+	} elsif ($opt eq 'memory' || $opt eq 'balloon') {
+	    $rpcenv->check_vm_perm($authuser, $vmid, $pool, ['VM.Config.Memory']);
+	} elsif ($opt eq 'args' || $opt eq 'lock') {
+	    die "only root can set '$opt' config\n";
+	} elsif ($opt eq 'cpu' || $opt eq 'kvm' || $opt eq 'acpi' || 
+		 $opt eq 'vga' || $opt eq 'watchdog' || $opt eq 'tablet') {
+	    $rpcenv->check_vm_perm($authuser, $vmid, $pool, ['VM.Config.HWType']);
+	} elsif ($opt =~ m/^net\d+$/) {
+	    $rpcenv->check_vm_perm($authuser, $vmid, $pool, ['VM.Config.Network']);
+	} else {
+	    $rpcenv->check_vm_perm($authuser, $vmid, $pool, ['VM.Config.Options']);
+	}
+    }
+
+    return 1;
+};
+
 __PACKAGE__->register_method({
     name => 'vmlist',
     path => '',
     method => 'GET',
     description => "Virtual machine index (per node).",
+    permissions => {
+	description => "Only list VMs where you have VM.Audit permissons on /vms/<vmid>.",
+	user => 'all',
+    },
     proxyto => 'node',
     protected => 1, # qemu pid files are only readable by root
     parameters => {
@@ -57,10 +178,21 @@ __PACKAGE__->register_method({
     code => sub {
 	my ($param) = @_;
 
+	my $rpcenv = PVE::RPCEnvironment::get();
+	my $authuser = $rpcenv->get_user();
+
 	my $vmstatus = PVE::QemuServer::vmstatus();
 
-	return PVE::RESTHandler::hash_to_array($vmstatus, 'vmid');
+	my $res = [];
+	foreach my $vmid (keys %$vmstatus) {
+	    next if !$rpcenv->check($authuser, "/vms/$vmid", [ 'VM.Audit' ], 1);
 
+	    my $data = $vmstatus->{$vmid};
+	    $data->{vmid} = $vmid;
+	    push @$res, $data;
+	}
+
+	return $res;
     }});
 
 __PACKAGE__->register_method({
@@ -68,6 +200,13 @@ __PACKAGE__->register_method({
     path => '',
     method => 'POST',
     description => "Create or restore a virtual machine.",
+    permissions => {
+	description => "You need 'VM.Allocate' permissions on /vms/{vmid} or on the VM pool /pool/{pool}. If you create disks you need 'Datastore.AllocateSpace' on any used storage.",
+	check => [ 'or', 
+		   [ 'perm', '/vms/{vmid}', ['VM.Allocate']],
+		   [ 'perm', '/pool/{pool}', ['VM.Allocate'], require_param => 'pool'],
+	    ],
+    },
     protected => 1,
     proxyto => 'node',
     parameters => {
@@ -98,6 +237,11 @@ __PACKAGE__->register_method({
 		    description => "Assign a unique random ethernet address.",
 		    requires => 'archive',
 		},
+		pool => { 
+		    optional => 1,
+		    type => 'string', format => 'pve-poolid',
+		    description => "Add the VM to the specified pool.",
+		},
 	    }),
     },
     returns => {
@@ -108,7 +252,7 @@ __PACKAGE__->register_method({
 
 	my $rpcenv = PVE::RPCEnvironment::get();
 
-	my $user = $rpcenv->get_user();
+	my $authuser = $rpcenv->get_user();
 
 	my $node = extract_param($param, 'node');
 
@@ -121,12 +265,22 @@ __PACKAGE__->register_method({
 	my $force = extract_param($param, 'force');
 
 	my $unique = extract_param($param, 'unique');
+	
+	my $pool = extract_param($param, 'pool');
 
 	my $filename = PVE::QemuServer::config_file($vmid);
 
 	my $storecfg = PVE::Storage::config();
 
 	PVE::Cluster::check_cfs_quorum();
+
+	if (defined($pool)) {
+	    $rpcenv->check_pool_exist($pool);
+	    $rpcenv->check_perm_modify($authuser, "/pool/$pool");
+	} 
+
+	$rpcenv->check_storage_perm($authuser, $vmid, $pool, $storage, [ 'Datastore.AllocateSpace' ])
+	    if defined($storage);
 
 	if (!$archive) {
 	    &$resolve_cdrom_alias($param);
@@ -150,15 +304,7 @@ __PACKAGE__->register_method({
 		die "pipe requires cli environment\n"
 		    && $rpcenv->{type} ne 'cli';
 	    } else {
-		my $path;
-		if (PVE::Storage::parse_volume_id($archive, 1)) {
-		    $path = PVE::Storage::path($storecfg, $archive);
-		} else {
-		    raise_param_exc({ archive => "Only root can pass arbitrary paths." })
-			if $user ne 'root@pam';
-
-		    $path = abs_path($archive);
-		}
+		my $path = &$check_volume_access($rpcenv, $authuser, $storecfg, $vmid, $archive, $pool);
 		die "can't find archive file '$archive'\n" if !($path && -f $path);
 		$archive = $path;
 	    }
@@ -178,13 +324,16 @@ __PACKAGE__->register_method({
 	    }
 
 	    my $realcmd = sub {
-		PVE::QemuServer::restore_archive($archive, $vmid, {
+		PVE::QemuServer::restore_archive($archive, $vmid, $authuser, {
 		    storage => $storage,
+		    pool => $pool,
 		    unique => $unique });
 	    };
 
-	    return $rpcenv->fork_worker('qmrestore', $vmid, $user, $realcmd);
+	    return $rpcenv->fork_worker('qmrestore', $vmid, $authuser, $realcmd);
 	};
+
+	&$check_vm_modify_config_perm($rpcenv, $authuser, $vmid, $pool, $param);
 
 	my $createfn = sub {
 
@@ -197,7 +346,7 @@ __PACKAGE__->register_method({
 		my $vollist = [];
 
 		eval {
-		    $vollist = PVE::QemuServer::create_disks($storecfg, $vmid, $param, $storage);
+		    $vollist = &$create_disks($rpcenv, $authuser, $storecfg, $vmid, $pool, $param, $storage);
 
 		    # try to be smart about bootdisk
 		    my @disks = PVE::QemuServer::disknames();
@@ -226,7 +375,7 @@ __PACKAGE__->register_method({
 		}
 	    };
 
-	    return $rpcenv->fork_worker('qmcreate', $vmid, $user, $realcmd);
+	    return $rpcenv->fork_worker('qmcreate', $vmid, $authuser, $realcmd);
 	};
 
 	return PVE::QemuServer::lock_config($vmid, $archive ? $restorefn : $createfn);
@@ -238,6 +387,9 @@ __PACKAGE__->register_method({
     method => 'GET',
     proxyto => 'node',
     description => "Directory index",
+    permissions => {
+	user => 'all',
+    },
     parameters => {
     	additionalProperties => 0,
 	properties => {
@@ -366,6 +518,9 @@ __PACKAGE__->register_method({
     method => 'GET',
     proxyto => 'node',
     description => "Get virtual machine configuration.",
+    permissions => {
+	check => ['perm', '/vms/{vmid}', [ 'VM.Audit' ]],
+    },
     parameters => {
     	additionalProperties => 0,
 	properties => {
@@ -390,6 +545,16 @@ __PACKAGE__->register_method({
 	return $conf;
     }});
 
+my $vm_config_perm_list = [
+	    'VM.Config.Disk', 
+	    'VM.Config.CDROM', 
+	    'VM.Config.CPU', 
+	    'VM.Config.Memory', 
+	    'VM.Config.Network', 
+	    'VM.Config.HWType',
+	    'VM.Config.Options',
+    ];
+
 __PACKAGE__->register_method({
     name => 'update_vm',
     path => '{vmid}/config',
@@ -397,6 +562,9 @@ __PACKAGE__->register_method({
     protected => 1,
     proxyto => 'node',
     description => "Set virtual machine options.",
+    permissions => {
+	check => ['perm', '/vms/{vmid}', $vm_config_perm_list, any => 1],
+    },
     parameters => {
     	additionalProperties => 0,
 	properties => PVE::QemuServer::json_config_properties(
@@ -429,7 +597,7 @@ __PACKAGE__->register_method({
 
 	my $rpcenv = PVE::RPCEnvironment::get();
 
-	my $user = $rpcenv->get_user();
+	my $authuser = $rpcenv->get_user();
 
 	my $node = extract_param($param, 'node');
 
@@ -444,7 +612,7 @@ __PACKAGE__->register_method({
 
 	my $skiplock = extract_param($param, 'skiplock');
 	raise_param_exc({ skiplock => "Only root may use this option." })
-	    if $skiplock && $user ne 'root@pam';
+	    if $skiplock && $authuser ne 'root@pam';
 
 	my $delete = extract_param($param, 'delete');
 	my $force = extract_param($param, 'force');
@@ -464,7 +632,7 @@ __PACKAGE__->register_method({
 
 	    PVE::QemuServer::check_lock($conf) if !$skiplock;
 
-	    PVE::Cluster::log_msg('info', $user, "update VM $vmid: " . join (' ', @paramarr));
+	    PVE::Cluster::log_msg('info', $authuser, "update VM $vmid: " . join (' ', @paramarr));
 
 	    #delete
 	    foreach my $opt (PVE::Tools::split_list($delete)) {
@@ -552,7 +720,7 @@ __PACKAGE__->register_method({
 			    }
 			}
 			my $settings = { $opt => $param->{$opt} };
-			PVE::QemuServer::create_disks($storecfg, $vmid, $settings, $conf);
+			&$create_disks($rpcenv, $authuser, $storecfg, $vmid, undef, $settings, $conf);
 			$param->{$opt} = $settings->{$opt};
 			#hotplug disks
 			if(!PVE::QemuServer::vm_deviceplug($storecfg, $conf, $vmid, $opt, $drive)) {
@@ -597,6 +765,9 @@ __PACKAGE__->register_method({
     protected => 1,
     proxyto => 'node',
     description => "Destroy the vm (also delete all used/owned volumes).",
+    permissions => {
+	check => [ 'perm', '/vms/{vmid}', ['VM.Allocate']],
+    },
     parameters => {
     	additionalProperties => 0,
 	properties => {
@@ -613,13 +784,13 @@ __PACKAGE__->register_method({
 
 	my $rpcenv = PVE::RPCEnvironment::get();
 
-	my $user = $rpcenv->get_user();
+	my $authuser = $rpcenv->get_user();
 
 	my $vmid = $param->{vmid};
 
 	my $skiplock = $param->{skiplock};
 	raise_param_exc({ skiplock => "Only root may use this option." })
-	    if $skiplock && $user ne 'root@pam';
+	    if $skiplock && $authuser ne 'root@pam';
 
 	# test if VM exists
 	my $conf = PVE::QemuServer::load_config($vmid);
@@ -634,7 +805,7 @@ __PACKAGE__->register_method({
 	    PVE::QemuServer::vm_destroy($storecfg, $vmid, $skiplock);
 	};
 
-	return $rpcenv->fork_worker('qmdestroy', $vmid, $user, $realcmd);
+	return $rpcenv->fork_worker('qmdestroy', $vmid, $authuser, $realcmd);
     }});
 
 __PACKAGE__->register_method({
@@ -644,6 +815,9 @@ __PACKAGE__->register_method({
     protected => 1,
     proxyto => 'node',
     description => "Unlink/delete disk images.",
+    permissions => {
+	check => [ 'perm', '/vms/{vmid}', ['VM.Config.Disk']],
+    },
     parameters => {
     	additionalProperties => 0,
 	properties => {
@@ -704,14 +878,14 @@ __PACKAGE__->register_method({
 
 	my $rpcenv = PVE::RPCEnvironment::get();
 
-	my $user = $rpcenv->get_user();
+	my $authuser = $rpcenv->get_user();
 
 	my $vmid = $param->{vmid};
 	my $node = $param->{node};
 
 	my $authpath = "/vms/$vmid";
 
-	my $ticket = PVE::AccessControl::assemble_vnc_ticket($user, $authpath);
+	my $ticket = PVE::AccessControl::assemble_vnc_ticket($authuser, $authpath);
 
 	$sslcert = PVE::Tools::file_get_contents("/etc/pve/pve-root-ca.pem", 8192)
 	    if !$sslcert;
@@ -748,10 +922,10 @@ __PACKAGE__->register_method({
 	    return;
 	};
 
-	my $upid = $rpcenv->fork_worker('vncproxy', $vmid, $user, $realcmd);
+	my $upid = $rpcenv->fork_worker('vncproxy', $vmid, $authuser, $realcmd);
 
 	return {
-	    user => $user,
+	    user => $authuser,
 	    ticket => $ticket,
 	    port => $port,
 	    upid => $upid,
@@ -765,6 +939,9 @@ __PACKAGE__->register_method({
     method => 'GET',
     proxyto => 'node',
     description => "Directory index",
+    permissions => {
+	user => 'all',
+    },
     parameters => {
     	additionalProperties => 0,
 	properties => {
@@ -804,6 +981,9 @@ __PACKAGE__->register_method({
     proxyto => 'node',
     protected => 1, # qemu pid files are only readable by root
     description => "Get virtual machine status.",
+    permissions => {
+	check => ['perm', '/vms/{vmid}', [ 'VM.Audit' ]],
+    },
     parameters => {
     	additionalProperties => 0,
 	properties => {
@@ -838,6 +1018,9 @@ __PACKAGE__->register_method({
     protected => 1,
     proxyto => 'node',
     description => "Start virtual machine.",
+    permissions => {
+	check => ['perm', '/vms/{vmid}', [ 'VM.PowerMgmt' ]],
+    },
     parameters => {
     	additionalProperties => 0,
 	properties => {
@@ -855,7 +1038,7 @@ __PACKAGE__->register_method({
 
 	my $rpcenv = PVE::RPCEnvironment::get();
 
-	my $user = $rpcenv->get_user();
+	my $authuser = $rpcenv->get_user();
 
 	my $node = extract_param($param, 'node');
 
@@ -863,11 +1046,11 @@ __PACKAGE__->register_method({
 
 	my $stateuri = extract_param($param, 'stateuri');
 	raise_param_exc({ stateuri => "Only root may use this option." })
-	    if $stateuri && $user ne 'root@pam';
+	    if $stateuri && $authuser ne 'root@pam';
 
 	my $skiplock = extract_param($param, 'skiplock');
 	raise_param_exc({ skiplock => "Only root may use this option." })
-	    if $skiplock && $user ne 'root@pam';
+	    if $skiplock && $authuser ne 'root@pam';
 
 	my $storecfg = PVE::Storage::config();
 
@@ -881,7 +1064,7 @@ __PACKAGE__->register_method({
 	    return;
 	};
 
-	return $rpcenv->fork_worker('qmstart', $vmid, $user, $realcmd);
+	return $rpcenv->fork_worker('qmstart', $vmid, $authuser, $realcmd);
     }});
 
 __PACKAGE__->register_method({
@@ -891,6 +1074,9 @@ __PACKAGE__->register_method({
     protected => 1,
     proxyto => 'node',
     description => "Stop virtual machine.",
+    permissions => {
+	check => ['perm', '/vms/{vmid}', [ 'VM.PowerMgmt' ]],
+    },
     parameters => {
     	additionalProperties => 0,
 	properties => {
@@ -919,7 +1105,7 @@ __PACKAGE__->register_method({
 
 	my $rpcenv = PVE::RPCEnvironment::get();
 
-	my $user = $rpcenv->get_user();
+	my $authuser = $rpcenv->get_user();
 
 	my $node = extract_param($param, 'node');
 
@@ -927,11 +1113,11 @@ __PACKAGE__->register_method({
 
 	my $skiplock = extract_param($param, 'skiplock');
 	raise_param_exc({ skiplock => "Only root may use this option." })
-	    if $skiplock && $user ne 'root@pam';
+	    if $skiplock && $authuser ne 'root@pam';
 
 	my $keepActive = extract_param($param, 'keepActive');
 	raise_param_exc({ keepActive => "Only root may use this option." })
-	    if $keepActive && $user ne 'root@pam';
+	    if $keepActive && $authuser ne 'root@pam';
 
 	my $storecfg = PVE::Storage::config();
 
@@ -946,7 +1132,7 @@ __PACKAGE__->register_method({
 	    return;
 	};
 
-	return $rpcenv->fork_worker('qmstop', $vmid, $user, $realcmd);
+	return $rpcenv->fork_worker('qmstop', $vmid, $authuser, $realcmd);
     }});
 
 __PACKAGE__->register_method({
@@ -956,6 +1142,9 @@ __PACKAGE__->register_method({
     protected => 1,
     proxyto => 'node',
     description => "Reset virtual machine.",
+    permissions => {
+	check => ['perm', '/vms/{vmid}', [ 'VM.PowerMgmt' ]],
+    },
     parameters => {
     	additionalProperties => 0,
 	properties => {
@@ -972,7 +1161,7 @@ __PACKAGE__->register_method({
 
 	my $rpcenv = PVE::RPCEnvironment::get();
 
-	my $user = $rpcenv->get_user();
+	my $authuser = $rpcenv->get_user();
 
 	my $node = extract_param($param, 'node');
 
@@ -980,7 +1169,7 @@ __PACKAGE__->register_method({
 
 	my $skiplock = extract_param($param, 'skiplock');
 	raise_param_exc({ skiplock => "Only root may use this option." })
-	    if $skiplock && $user ne 'root@pam';
+	    if $skiplock && $authuser ne 'root@pam';
 
 	die "VM $vmid not running\n" if !PVE::QemuServer::check_running($vmid);
 
@@ -992,7 +1181,7 @@ __PACKAGE__->register_method({
 	    return;
 	};
 
-	return $rpcenv->fork_worker('qmreset', $vmid, $user, $realcmd);
+	return $rpcenv->fork_worker('qmreset', $vmid, $authuser, $realcmd);
     }});
 
 __PACKAGE__->register_method({
@@ -1002,6 +1191,9 @@ __PACKAGE__->register_method({
     protected => 1,
     proxyto => 'node',
     description => "Shutdown virtual machine.",
+    permissions => {
+	check => ['perm', '/vms/{vmid}', [ 'VM.PowerMgmt' ]],
+    },
     parameters => {
     	additionalProperties => 0,
 	properties => {
@@ -1036,7 +1228,7 @@ __PACKAGE__->register_method({
 
 	my $rpcenv = PVE::RPCEnvironment::get();
 
-	my $user = $rpcenv->get_user();
+	my $authuser = $rpcenv->get_user();
 
 	my $node = extract_param($param, 'node');
 
@@ -1044,11 +1236,11 @@ __PACKAGE__->register_method({
 
 	my $skiplock = extract_param($param, 'skiplock');
 	raise_param_exc({ skiplock => "Only root may use this option." })
-	    if $skiplock && $user ne 'root@pam';
+	    if $skiplock && $authuser ne 'root@pam';
 
 	my $keepActive = extract_param($param, 'keepActive');
 	raise_param_exc({ keepActive => "Only root may use this option." })
-	    if $keepActive && $user ne 'root@pam';
+	    if $keepActive && $authuser ne 'root@pam';
 
 	my $storecfg = PVE::Storage::config();
 
@@ -1063,7 +1255,7 @@ __PACKAGE__->register_method({
 	    return;
 	};
 
-	return $rpcenv->fork_worker('qmshutdown', $vmid, $user, $realcmd);
+	return $rpcenv->fork_worker('qmshutdown', $vmid, $authuser, $realcmd);
     }});
 
 __PACKAGE__->register_method({
@@ -1073,6 +1265,9 @@ __PACKAGE__->register_method({
     protected => 1,
     proxyto => 'node',
     description => "Suspend virtual machine.",
+    permissions => {
+	check => ['perm', '/vms/{vmid}', [ 'VM.PowerMgmt' ]],
+    },
     parameters => {
     	additionalProperties => 0,
 	properties => {
@@ -1089,7 +1284,7 @@ __PACKAGE__->register_method({
 
 	my $rpcenv = PVE::RPCEnvironment::get();
 
-	my $user = $rpcenv->get_user();
+	my $authuser = $rpcenv->get_user();
 
 	my $node = extract_param($param, 'node');
 
@@ -1097,7 +1292,7 @@ __PACKAGE__->register_method({
 
 	my $skiplock = extract_param($param, 'skiplock');
 	raise_param_exc({ skiplock => "Only root may use this option." })
-	    if $skiplock && $user ne 'root@pam';
+	    if $skiplock && $authuser ne 'root@pam';
 
 	die "VM $vmid not running\n" if !PVE::QemuServer::check_running($vmid);
 
@@ -1111,7 +1306,7 @@ __PACKAGE__->register_method({
 	    return;
 	};
 
-	return $rpcenv->fork_worker('qmsuspend', $vmid, $user, $realcmd);
+	return $rpcenv->fork_worker('qmsuspend', $vmid, $authuser, $realcmd);
     }});
 
 __PACKAGE__->register_method({
@@ -1121,6 +1316,9 @@ __PACKAGE__->register_method({
     protected => 1,
     proxyto => 'node',
     description => "Resume virtual machine.",
+    permissions => {
+	check => ['perm', '/vms/{vmid}', [ 'VM.PowerMgmt' ]],
+    },
     parameters => {
     	additionalProperties => 0,
 	properties => {
@@ -1137,7 +1335,7 @@ __PACKAGE__->register_method({
 
 	my $rpcenv = PVE::RPCEnvironment::get();
 
-	my $user = $rpcenv->get_user();
+	my $authuser = $rpcenv->get_user();
 
 	my $node = extract_param($param, 'node');
 
@@ -1145,7 +1343,7 @@ __PACKAGE__->register_method({
 
 	my $skiplock = extract_param($param, 'skiplock');
 	raise_param_exc({ skiplock => "Only root may use this option." })
-	    if $skiplock && $user ne 'root@pam';
+	    if $skiplock && $authuser ne 'root@pam';
 
 	die "VM $vmid not running\n" if !PVE::QemuServer::check_running($vmid);
 
@@ -1159,7 +1357,7 @@ __PACKAGE__->register_method({
 	    return;
 	};
 
-	return $rpcenv->fork_worker('qmresume', $vmid, $user, $realcmd);
+	return $rpcenv->fork_worker('qmresume', $vmid, $authuser, $realcmd);
     }});
 
 __PACKAGE__->register_method({
@@ -1169,6 +1367,9 @@ __PACKAGE__->register_method({
     protected => 1,
     proxyto => 'node',
     description => "Send key event to virtual machine.",
+    permissions => {
+	check => ['perm', '/vms/{vmid}', [ 'VM.Console' ]],
+    },
     parameters => {
     	additionalProperties => 0,
 	properties => {
@@ -1187,7 +1388,7 @@ __PACKAGE__->register_method({
 
 	my $rpcenv = PVE::RPCEnvironment::get();
 
-	my $user = $rpcenv->get_user();
+	my $authuser = $rpcenv->get_user();
 
 	my $node = extract_param($param, 'node');
 
@@ -1195,7 +1396,7 @@ __PACKAGE__->register_method({
 
 	my $skiplock = extract_param($param, 'skiplock');
 	raise_param_exc({ skiplock => "Only root may use this option." })
-	    if $skiplock && $user ne 'root@pam';
+	    if $skiplock && $authuser ne 'root@pam';
 
 	PVE::QemuServer::vm_sendkey($vmid, $skiplock, $param->{key});
 
@@ -1209,6 +1410,9 @@ __PACKAGE__->register_method({
     protected => 1,
     proxyto => 'node',
     description => "Migrate virtual machine. Creates a new migration task.",
+    permissions => {
+	check => ['perm', '/vms/{vmid}', [ 'VM.Migrate' ]],
+    },
     parameters => {
     	additionalProperties => 0,
 	properties => {
@@ -1236,7 +1440,7 @@ __PACKAGE__->register_method({
 
 	my $rpcenv = PVE::RPCEnvironment::get();
 
-	my $user = $rpcenv->get_user();
+	my $authuser = $rpcenv->get_user();
 
 	my $target = extract_param($param, 'target');
 
@@ -1252,7 +1456,7 @@ __PACKAGE__->register_method({
 	my $vmid = extract_param($param, 'vmid');
 
 	raise_param_exc({ force => "Only root may use this option." })
-	    if $param->{force} && $user ne 'root@pam';
+	    if $param->{force} && $authuser ne 'root@pam';
 
 	# test if VM exists
 	my $conf = PVE::QemuServer::load_config($vmid);
@@ -1272,7 +1476,7 @@ __PACKAGE__->register_method({
 	    PVE::QemuMigrate->migrate($target, $targetip, $vmid, $param);
 	};
 
-	my $upid = $rpcenv->fork_worker('qmigrate', $vmid, $user, $realcmd);
+	my $upid = $rpcenv->fork_worker('qmigrate', $vmid, $authuser, $realcmd);
 
 	return $upid;
     }});
@@ -1284,6 +1488,9 @@ __PACKAGE__->register_method({
     protected => 1,
     proxyto => 'node',
     description => "Execute Qemu monitor commands.",
+    permissions => {
+	check => ['perm', '/vms/{vmid}', [ 'VM.Monitor' ]],
+    },
     parameters => {
     	additionalProperties => 0,
 	properties => {

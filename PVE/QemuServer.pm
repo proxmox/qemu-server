@@ -1318,61 +1318,6 @@ sub touch_config {
     utime undef, undef, $conf;
 }
 
-sub create_disks {
-    my ($storecfg, $vmid, $settings, $conf, $default_storage) = @_;
-
-    my $vollist = [];
-
-    eval {
-	foreach_drive($settings, sub {
-	    my ($ds, $disk) = @_;
-
-	    return if drive_is_cdrom($disk);
-
-	    my $file = $disk->{file};
-
-	    if ($file =~ m/^(([^:\s]+):)?(\d+(\.\d+)?)$/) {
-		my $storeid = $2 || $default_storage;
-		my $size = $3;
-		my $defformat = PVE::Storage::storage_default_format($storecfg, $storeid);
-		my $fmt = $disk->{format} || $defformat;
-		syslog('info', "VM $vmid creating new disk - size is $size GB");
-
-		my $volid = PVE::Storage::vdisk_alloc($storecfg, $storeid, $vmid,
-						       $fmt, undef, $size*1024*1024);
-
-		$disk->{file} = $volid;
-		delete $disk->{format}; # no longer needed
-		push @$vollist, $volid;
-		$settings->{$ds} = PVE::QemuServer::print_drive($vmid, $disk);
-	    } else {
-		my $path;
-		if ($disk->{file} =~ m|^/dev/.+|) {
-		    $path = $disk->{file};
-		} else {
-		    $path = PVE::Storage::path($storecfg, $disk->{file});
-		}
-		if (!(-f $path || -b $path)) {
-		    die "image '$path' does not exists\n";
-		}
-	    }
-	});
-    };
-
-    my $err = $@;
-
-    if ($err) {
-	syslog('err', "VM $vmid creating disks failed");
-	foreach my $volid (@$vollist) {
-	    eval { PVE::Storage::vdisk_free($storecfg, $volid); };
-	    warn $@ if $@;
-	}
-	die $err;
-    }
-
-    return $vollist;
-}
-
 sub destroy_vm {
     my ($storecfg, $vmid, $keep_empty_config) = @_;
 
@@ -3157,7 +3102,7 @@ sub restore_cleanup {
 }
 
 sub restore_archive {
-    my ($archive, $vmid, $opts) = @_;
+    my ($archive, $vmid, $user, $opts) = @_;
 
     if ($archive ne '-') {
 	my $firstfile = archive_read_firstfile($archive);
@@ -3168,10 +3113,11 @@ sub restore_archive {
     my $tocmd = "/usr/lib/qemu-server/qmextract";
 
     $tocmd .= " --storage " . PVE::Tools::shellquote($opts->{storage}) if $opts->{storage};
+    $tocmd .= " --pool " . PVE::Tools::shellquote($opts->{pool}) if $opts->{pool};
     $tocmd .= ' --prealloc' if $opts->{prealloc};
     $tocmd .= ' --info' if $opts->{info};
 
-    # tar option "xf" does not autodetect compression when read fron STDIN,
+    # tar option "xf" does not autodetect compression when read from STDIN,
     # so we pipe to zcat
     my $cmd = "zcat -f|tar xf " . PVE::Tools::shellquote($archive) . " " .
 	PVE::Tools::shellquote("--to-command=$tocmd");
@@ -3181,6 +3127,7 @@ sub restore_archive {
 
     local $ENV{VZDUMP_TMPDIR} = $tmpdir;
     local $ENV{VZDUMP_VMID} = $vmid;
+    local $ENV{VZDUMP_USER} = $user;
 
     my $conffile = PVE::QemuServer::config_file($vmid);
     my $tmpfn = "$conffile.$$.tmp";

@@ -55,6 +55,11 @@ __PACKAGE__->register_method({
 		type => 'boolean',
 		description => "Assign a unique random ethernet address.",
 	    },
+	    pool => { 
+		optional => 1,
+		type => 'string', format => 'pve-poolid',
+		description => "Add the VM to the specified pool.",
+	    },
 	},
     },
     returns => { 
