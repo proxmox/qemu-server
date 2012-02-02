@@ -614,10 +614,24 @@ __PACKAGE__->register_method({
 	raise_param_exc({ skiplock => "Only root may use this option." })
 	    if $skiplock && $authuser ne 'root@pam';
 
-	my $delete = extract_param($param, 'delete');
+	my $delete_str = extract_param($param, 'delete');
+
 	my $force = extract_param($param, 'force');
 
-	die "no options specified\n" if !$delete && !scalar(keys %$param);
+	die "no options specified\n" if !$delete_str && !scalar(keys %$param);
+
+	my @delete = ();
+	foreach my $opt (PVE::Tools::split_list($delete_str)) {
+	    $opt = 'ide2' if $opt eq 'cdrom';
+	    raise_param_exc({ delete => "you can't use '-$opt' and " .
+				  "-delete $opt' at the same time" })
+		if defined($param->{$opt});
+
+	    if (!PVE::QemuServer::option_exists($opt)) {
+		raise_param_exc({ delete => "unknown option '$opt'" });
+	    }
+	    push @delete, $opt;
+	}
 
 	my $storecfg = PVE::Storage::config();
 
@@ -635,15 +649,7 @@ __PACKAGE__->register_method({
 	    PVE::Cluster::log_msg('info', $authuser, "update VM $vmid: " . join (' ', @paramarr));
 
 	    #delete
-	    foreach my $opt (PVE::Tools::split_list($delete)) {
-
-		$opt = 'ide2' if $opt eq 'cdrom';
-		die "you can't use '-$opt' and '-delete $opt' at the same time\n"
-		    if defined($param->{$opt});
-
-		if (!PVE::QemuServer::option_exists($opt)) {
-		    raise_param_exc({ delete => "unknown option '$opt'" });
-		}
+	    foreach my $opt (@delete) {
 
 		next if !defined($conf->{$opt});
 
