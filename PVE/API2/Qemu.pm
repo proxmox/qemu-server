@@ -65,7 +65,9 @@ my $check_storage_access = sub {
 
 	my $volid = $drive->{file};
 
-	if (!$isCDROM && ($volid =~ m/^(([^:\s]+):)?(\d+(\.\d+)?)$/)) {
+	if (!$volid || $volid eq 'none') {
+	    # nothing to check
+	} elsif (!$isCDROM && ($volid =~ m/^(([^:\s]+):)?(\d+(\.\d+)?)$/)) {
 	    my ($storeid, $size) = ($2 || $default_storage, $3);
 	    die "no storage ID specified (and no default storage)\n" if !$storeid;
 	    $rpcenv->check_storage_perm($authuser, $vmid, $pool, $storeid, [ 'Datastore.AllocateSpace' ]);
@@ -89,7 +91,9 @@ my $create_disks = sub {
 
 	my $volid = $disk->{file};
 
-	if ($volid =~ m/^(([^:\s]+):)?(\d+(\.\d+)?)$/) {
+	if (!$volid || $volid eq 'none') {
+	    $res->{$ds} = $settings->{$ds};
+	} elsif ($volid =~ m/^(([^:\s]+):)?(\d+(\.\d+)?)$/) {
 	    my ($storeid, $size) = ($2 || $default_storage, $3);
 	    die "no storage ID specified (and no default storage)\n" if !$storeid;
 	    my $defformat = PVE::Storage::storage_default_format($storecfg, $storeid);
@@ -103,7 +107,7 @@ my $create_disks = sub {
 	} else {
 	    my $path = &$check_volume_access($rpcenv, $authuser, $storecfg, $vmid, $volid, $pool);
 	    die "image '$path' does not exists\n" if (!(-f $path || -b $path));
-	    $res->{$ds} = $settings->{ds};
+	    $res->{$ds} = $settings->{$ds};
 	}
     });
 
