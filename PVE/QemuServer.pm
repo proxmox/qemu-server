@@ -2225,6 +2225,7 @@ sub vm_devices_list {
 
 sub vm_deviceplug {
     my ($storecfg, $conf, $vmid, $deviceid, $device) = @_;
+
     return 1 if !check_running($vmid) || !$conf->{hotplug};
 
     if ($deviceid =~ m/^(virtio)(\d+)$/) {
@@ -2272,7 +2273,7 @@ sub vm_deviceunplug {
 
     return 1 if !check_running ($vmid) || !$conf->{hotplug};
 
-    die "can't unplug bootdisk" if $conf->{bootdisk} eq $deviceid;
+    die "can't unplug bootdisk" if $conf->{bootdisk} && $conf->{bootdisk} eq $deviceid;
 
     if ($deviceid =~ m/^(virtio)(\d+)$/) {
         return undef if !qemu_drivedel($vmid, $deviceid);
@@ -2556,6 +2557,8 @@ sub vm_monitor_command {
 	}
 
 	my $fullcmd = "$cmdstr\r";
+
+	# syslog('info', "VM $vmid monitor command: $cmdstr");
 
 	my $b;
 	if (!($b = $sock->syswrite($fullcmd)) || ($b != length($fullcmd))) {
