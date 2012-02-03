@@ -4,7 +4,7 @@ use strict;
 use warnings;
 use Cwd 'abs_path';
 
-use PVE::Cluster;
+use PVE::Cluster qw (cfs_read_file cfs_write_file);;
 use PVE::SafeSyslog;
 use PVE::Tools qw(extract_param);
 use PVE::Exception qw(raise raise_param_exc);
@@ -325,6 +325,15 @@ __PACKAGE__->register_method({
 	    }
 	}
 
+	my $addVMtoPoolFn = sub {		       
+	    my $usercfg = cfs_read_file("user.cfg");
+	    if (my $data = $usercfg->{pools}->{$pool}) {
+		$data->{vms}->{$vmid} = 1;
+		$usercfg->{vms}->{$vmid} = $pool;
+		cfs_write_file("user.cfg", $usercfg);
+	    }
+	};
+
 	my $restorefn = sub {
 
 	    if (-f $filename) {
@@ -343,6 +352,8 @@ __PACKAGE__->register_method({
 		    storage => $storage,
 		    pool => $pool,
 		    unique => $unique });
+
+		PVE::AccessControl::lock_user_config($addVMtoPoolFn, "can't add VM to pool") if $pool;
 	    };
 
 	    return $rpcenv->fork_worker('qmrestore', $vmid, $authuser, $realcmd);
@@ -390,6 +401,8 @@ __PACKAGE__->register_method({
 		    }
 		    die "create failed - $err";
 		}
+
+		PVE::AccessControl::lock_user_config($addVMtoPoolFn, "can't add VM to pool") if $pool;
 	    };
 
 	    return $rpcenv->fork_worker('qmcreate', $vmid, $authuser, $realcmd);
@@ -905,12 +918,24 @@ __PACKAGE__->register_method({
 
 	my $storecfg = PVE::Storage::config();
 
+	my $delVMfromPoolFn = sub {		       
+	    my $usercfg = cfs_read_file("user.cfg");
+	    my $pool = $usercfg->{vms}->{$vmid};
+	    if (my $data = $usercfg->{pools}->{$pool}) {
+		delete $data->{vms}->{$vmid};
+		delete $usercfg->{vms}->{$vmid};
+		cfs_write_file("user.cfg", $usercfg);
+	    }
+	};
+
 	my $realcmd = sub {
 	    my $upid = shift;
 
 	    syslog('info', "destroy VM $vmid: $upid\n");
 
 	    PVE::QemuServer::vm_destroy($storecfg, $vmid, $skiplock);
+
+	    PVE::AccessControl::lock_user_config($delVMfromPoolFn, "pool cleanup failed");
 	};
 
 	return $rpcenv->fork_worker('qmdestroy', $vmid, $authuser, $realcmd);
