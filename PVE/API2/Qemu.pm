@@ -378,7 +378,8 @@ __PACKAGE__->register_method({
 			$conf->{bootdisk} = $firstdisk;
 		    }
 
-		    PVE::QemuServer::update_conf_nolock($vmid, $conf);
+		    PVE::QemuServer::update_config_nolock($vmid, $conf);
+
 		};
 		my $err = $@;
 
