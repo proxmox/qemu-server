@@ -2228,6 +2228,9 @@ sub vm_deviceplug {
 
     return 1 if !check_running($vmid) || !$conf->{hotplug};
 
+    my $devices_list = vm_devices_list($vmid);
+    return 1 if defined($devices_list->{$deviceid});
+
     if ($deviceid =~ m/^(virtio)(\d+)$/) {
         return undef if !qemu_driveadd($storecfg, $vmid, $device);
         my $devicefull = print_drivedevice_full($storecfg, $vmid, $device);
@@ -2272,6 +2275,9 @@ sub vm_deviceunplug {
     my ($vmid, $conf, $deviceid) = @_;
 
     return 1 if !check_running ($vmid) || !$conf->{hotplug};
+
+    my $devices_list = vm_devices_list($vmid);
+    return 1 if !defined($devices_list->{$deviceid});
 
     die "can't unplug bootdisk" if $conf->{bootdisk} && $conf->{bootdisk} eq $deviceid;
 
