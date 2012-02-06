@@ -33,27 +33,6 @@ my $resolve_cdrom_alias = sub {
     }
 };
 
-my $check_volume_access = sub {
-    my ($rpcenv, $authuser, $storecfg, $vmid, $volid) = @_;
-
-    my $path;
-    if (my ($sid, $volname) = PVE::Storage::parse_volume_id($volid, 1)) {
-	my ($ownervm, $vtype);
-	($path, $ownervm, $vtype) = PVE::Storage::path($storecfg, $volid);
-	if ($vtype eq 'iso' || $vtype eq 'vztmpl') {
-	    # we simply allow access 
-	} elsif (!$ownervm || ($ownervm != $vmid)) {
-	    # allow if we are Datastore administrator
-	    $rpcenv->check($authuser, "/storage/$sid", ['Datastore.Allocate']);
-	}
-    } else {
-	die "Only root can pass arbitrary filesystem paths."
-	    if $authuser ne 'root@pam';
-
-	$path = abs_path($volid);
-    }
-    return $path;
-};
 
 my $check_storage_access = sub {
    my ($rpcenv, $authuser, $storecfg, $vmid, $settings, $default_storage) = @_;
@@ -72,7 +51,7 @@ my $check_storage_access = sub {
 	    die "no storage ID specified (and no default storage)\n" if !$storeid;
 	    $rpcenv->check($authuser, "/storage/$storeid", ['Datastore.AllocateSpace']);
 	} else {
-	    my $path = &$check_volume_access($rpcenv, $authuser, $storecfg, $vmid, $volid);
+	    my $path = $rpcenv->check_volume_access($authuser, $storecfg, $vmid, $volid);
 	    die "image '$path' does not exists\n" if (!(-f $path || -b $path));
 	}
     });
@@ -105,7 +84,7 @@ my $create_disks = sub {
 	    delete $disk->{format}; # no longer needed
 	    $res->{$ds} = PVE::QemuServer::print_drive($vmid, $disk);
 	} else {
-	    my $path = &$check_volume_access($rpcenv, $authuser, $storecfg, $vmid, $volid);
+	    my $path = $rpcenv->check_volume_access($authuser, $storecfg, $vmid, $volid);
 	    die "image '$path' does not exists\n" if (!(-f $path || -b $path));
 	    $res->{$ds} = $settings->{$ds};
 	}
@@ -319,7 +298,7 @@ __PACKAGE__->register_method({
 		die "pipe requires cli environment\n"
 		    && $rpcenv->{type} ne 'cli';
 	    } else {
-		my $path = &$check_volume_access($rpcenv, $authuser, $storecfg, $vmid, $archive);
+		my $path = $rpcenv->check_volume_access($authuser, $storecfg, $vmid, $archive);
 		die "can't find archive file '$archive'\n" if !($path && -f $path);
 		$archive = $path;
 	    }
