@@ -119,7 +119,7 @@ my $check_vm_modify_config_perm = sub {
 
 	if ($opt eq 'sockets' || $opt eq 'cores' ||
 	    $opt eq 'cpu' || $opt eq 'smp' || 
-	    $opt eq 'cpuimit' || $opt eq 'cpuunits') {
+	    $opt eq 'cpulimit' || $opt eq 'cpuunits') {
 	    $rpcenv->check_vm_perm($authuser, $vmid, $pool, ['VM.Config.CPU']);
 	} elsif ($opt eq 'boot' || $opt eq 'bootdisk') {
 	    $rpcenv->check_vm_perm($authuser, $vmid, $pool, ['VM.Config.Disk']);
