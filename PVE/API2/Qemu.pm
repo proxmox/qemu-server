@@ -34,7 +34,7 @@ my $resolve_cdrom_alias = sub {
 };
 
 my $check_volume_access = sub {
-    my ($rpcenv, $authuser, $storecfg, $vmid, $volid, $pool) = @_;
+    my ($rpcenv, $authuser, $storecfg, $vmid, $volid) = @_;
 
     my $path;
     if (my ($sid, $volname) = PVE::Storage::parse_volume_id($volid, 1)) {
@@ -44,7 +44,7 @@ my $check_volume_access = sub {
 	    # we simply allow access 
 	} elsif (!$ownervm || ($ownervm != $vmid)) {
 	    # allow if we are Datastore administrator
-	    $rpcenv->check_storage_perm($authuser, $vmid, $pool, $sid, [ 'Datastore.Allocate' ]);
+	    $rpcenv->check($authuser, "/storage/$sid", ['Datastore.Allocate']);
 	}
     } else {
 	die "Only root can pass arbitrary filesystem paths."
@@ -56,7 +56,7 @@ my $check_volume_access = sub {
 };
 
 my $check_storage_access = sub {
-   my ($rpcenv, $authuser, $storecfg, $vmid, $pool, $settings, $default_storage) = @_;
+   my ($rpcenv, $authuser, $storecfg, $vmid, $settings, $default_storage) = @_;
 
    PVE::QemuServer::foreach_drive($settings, sub {
 	my ($ds, $drive) = @_;
@@ -70,9 +70,9 @@ my $check_storage_access = sub {
 	} elsif (!$isCDROM && ($volid =~ m/^(([^:\s]+):)?(\d+(\.\d+)?)$/)) {
 	    my ($storeid, $size) = ($2 || $default_storage, $3);
 	    die "no storage ID specified (and no default storage)\n" if !$storeid;
-	    $rpcenv->check_storage_perm($authuser, $vmid, $pool, $storeid, [ 'Datastore.AllocateSpace' ]);
+	    $rpcenv->check($authuser, "/storage/$storeid", ['Datastore.AllocateSpace']);
 	} else {
-	    my $path = &$check_volume_access($rpcenv, $authuser, $storecfg, $vmid, $volid, $pool);
+	    my $path = &$check_volume_access($rpcenv, $authuser, $storecfg, $vmid, $volid);
 	    die "image '$path' does not exists\n" if (!(-f $path || -b $path));
 	}
     });
@@ -105,7 +105,7 @@ my $create_disks = sub {
 	    delete $disk->{format}; # no longer needed
 	    $res->{$ds} = PVE::QemuServer::print_drive($vmid, $disk);
 	} else {
-	    my $path = &$check_volume_access($rpcenv, $authuser, $storecfg, $vmid, $volid, $pool);
+	    my $path = &$check_volume_access($rpcenv, $authuser, $storecfg, $vmid, $volid);
 	    die "image '$path' does not exists\n" if (!(-f $path || -b $path));
 	    $res->{$ds} = $settings->{$ds};
 	}
@@ -290,13 +290,13 @@ __PACKAGE__->register_method({
 	    $rpcenv->check_perm_modify($authuser, "/pool/$pool");
 	} 
 
-	$rpcenv->check_storage_perm($authuser, $vmid, $pool, $storage, [ 'Datastore.AllocateSpace' ])
+	$rpcenv->check($authuser, "/storage/$storage", ['Datastore.AllocateSpace'])
 	    if defined($storage);
 
 	if (!$archive) {
 	    &$resolve_cdrom_alias($param);
 
-	    &$check_storage_access($rpcenv, $authuser, $storecfg, $vmid, $pool, $param, $storage);
+	    &$check_storage_access($rpcenv, $authuser, $storecfg, $vmid, $param, $storage);
 
 	    &$check_vm_modify_config_perm($rpcenv, $authuser, $vmid, $pool, [ keys %$param]);
 
@@ -319,7 +319,7 @@ __PACKAGE__->register_method({
 		die "pipe requires cli environment\n"
 		    && $rpcenv->{type} ne 'cli';
 	    } else {
-		my $path = &$check_volume_access($rpcenv, $authuser, $storecfg, $vmid, $archive, $pool);
+		my $path = &$check_volume_access($rpcenv, $authuser, $storecfg, $vmid, $archive);
 		die "can't find archive file '$archive'\n" if !($path && -f $path);
 		$archive = $path;
 	    }
@@ -634,7 +634,7 @@ my $vmconfig_delete_option = sub {
 
 	my $drive = PVE::QemuServer::parse_drive($opt, $conf->{$opt});
 	if (my $sid = &$test_deallocate_drive($storecfg, $vmid, $opt, $drive, $force)) {  
-	    $rpcenv->check_storage_perm($authuser, $vmid, undef, $sid, [ 'Datastore.Allocate' ]);
+	    $rpcenv->check($authuser, "/storage/$sid", ['Datastore.Allocate']);
 	}
     }
 		
@@ -831,7 +831,7 @@ __PACKAGE__->register_method({
 
 	&$check_vm_modify_config_perm($rpcenv, $authuser, $vmid, undef, [keys %$param]);
 
-	&$check_storage_access($rpcenv, $authuser, $storecfg, $vmid, undef, $param);
+	&$check_storage_access($rpcenv, $authuser, $storecfg, $vmid, $param);
 
 	my $updatefn =  sub {
 

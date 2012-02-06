@@ -142,12 +142,12 @@ sub extract_archive {
 	if ($user ne 'root@pam') {
 	    if (defined($opts->{storage})) {
 		my $sid = $opts->{storage} || 'local';
-		$rpcenv->check_storage_perm($user, $vmid, $pool, $sid, ['Datastore.AllocateSpace']);
+		$rpcenv->check($user, "/storage/$sid", ['Datastore.AllocateSpace']);
 	    } else {	
 		foreach my $fn (keys %$map) {
 		    my $fi = $map->{$fn};
 		    my $sid = $fi->{storeid} || 'local';
-		    $rpcenv->check_storage_perm($user, $vmid, $pool, $sid, ['Datastore.AllocateSpace']);
+		    $rpcenv->check($user, "/storage/$sid", ['Datastore.AllocateSpace']);
 		}
 	    }
 	}
