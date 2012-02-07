@@ -306,7 +306,7 @@ sub snapshot {
 
 	    $di->{snapshot_mount} = 1;
 
-	    $self->cmd ("mount -t $di->{fstype} $mopts $di->{snapdev} $di->{mountpoint}");
+	    $self->cmd ("mount -n -t $di->{fstype} $mopts $di->{snapdev} $di->{mountpoint}");
 
 	    $mounts->{$di->{mountpoint}} = 1;
 
