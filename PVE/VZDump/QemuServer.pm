@@ -372,7 +372,7 @@ sub assemble {
 }
 
 sub archive {
-    my ($self, $task, $vmid, $filename) = @_;
+    my ($self, $task, $vmid, $filename, $comp) = @_;
 
     my $conffile = "$task->{tmpdir}/qemu-server.conf";
 
@@ -396,7 +396,7 @@ sub archive {
     my $cmd = "/usr/lib/qemu-server/vmtar $files";
     my $bwl = $opts->{bwlimit}*1024; # bandwidth limit for cstream
     $cmd .= "|cstream -t $bwl" if $opts->{bwlimit};
-    $cmd .= "|gzip" if $opts->{compress};
+    $cmd .= "|$comp" if $comp;
 
     if ($opts->{stdout}) {
 	$self->cmd ($cmd, output => ">&=" . fileno($opts->{stdout}));
