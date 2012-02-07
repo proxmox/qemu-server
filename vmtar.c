@@ -1,5 +1,5 @@
 /*
-    Copyright (C) 2007-2009 Proxmox Server Solutions GmbH
+    Copyright (C) 2007-2012 Proxmox Server Solutions GmbH
 
     Copyright: vzdump is under GNU GPL, the GNU General Public License.
 
@@ -429,19 +429,24 @@ int
 main (int argc, char **argv)
 {
   struct sigaction sa;
+  int sparse = 0;
 
   while (1) {
     int option_index = 0;
     static struct option long_options[] = {
+      {"sparse", 0, 0, 's'},
       {"output", 1, 0, 'o'},
       {0, 0, 0, 0}
     };
 
-    char c = getopt_long (argc, argv, "o:", long_options, &option_index);
+    char c = getopt_long (argc, argv, "so:", long_options, &option_index);
     if (c == -1)
       break;
 
     switch (c) {
+    case 's':
+      sparse = 1;
+      break;
     case 'o':
       outname = optarg;
       break;
@@ -525,9 +530,16 @@ main (int argc, char **argv)
     time_t ctime = fs.st_mtime;
 
     struct sp_array *ma = sparray_new();
-    if (!scan_sparse_file (fd, ma)) {
-      fprintf (stderr, "scanning '%s' failed\n", source); 
-      exit (-1);
+    if (sparse) {
+	    if (!scan_sparse_file (fd, ma)) {
+		    fprintf (stderr, "scanning '%s' failed\n", source); 
+		    exit (-1);
+	    }
+    } else {
+	    off_t  file_size = fs.st_size;
+	    sparray_add (ma, 0, file_size);
+	    ma->real_size = file_size;
+	    ma->effective_size = file_size;
     }
 
     dump_header (wbuf, archivename, ctime, ma);
