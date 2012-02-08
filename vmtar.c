@@ -531,15 +531,19 @@ main (int argc, char **argv)
 
     struct sp_array *ma = sparray_new();
     if (sparse) {
-	    if (!scan_sparse_file (fd, ma)) {
-		    fprintf (stderr, "scanning '%s' failed\n", source); 
-		    exit (-1);
-	    }
+      if (!scan_sparse_file (fd, ma)) {
+	fprintf (stderr, "scanning '%s' failed\n", source); 
+	exit (-1);
+      }
     } else {
-	    off_t  file_size = fs.st_size;
-	    sparray_add (ma, 0, file_size);
-	    ma->real_size = file_size;
-	    ma->effective_size = file_size;
+      off_t file_size = lseek(fd, 0, SEEK_END);
+      if (file_size < 0) {
+	fprintf (stderr, "unable to get file size of '%s'\n", source); 
+	exit (-1);
+      }
+      sparray_add (ma, 0, file_size);
+      ma->real_size = file_size;
+      ma->effective_size = file_size;
     }
 
     dump_header (wbuf, archivename, ctime, ma);
