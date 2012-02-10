@@ -530,7 +530,7 @@ main (int argc, char **argv)
     time_t ctime = fs.st_mtime;
 
     struct sp_array *ma = sparray_new();
-    if (sparse) {
+    if (sparse && !S_ISBLK(fs.st_mode)) {
       if (!scan_sparse_file (fd, ma)) {
 	fprintf (stderr, "scanning '%s' failed\n", source); 
 	exit (-1);

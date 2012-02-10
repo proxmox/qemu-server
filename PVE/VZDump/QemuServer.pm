@@ -382,15 +382,8 @@ sub archive {
 
     my $fh;
 
-    my $sparse = ''; 
-
-    # no sparse file scan for block devices
-    # no sparse file scan when we use compression
-    # but we enable it for files
-
     my @filea = ($conffile, 'qemu-server.conf'); # always first file in tar
     foreach my $di (@{$task->{disks}}) {
-	$sparse = '-s' if !$comp && $di->{type} eq 'file';
 	if ($di->{type} eq 'block' || $di->{type} eq 'file') {
 	    push @filea, $di->{snappath}, $di->{filename};
 	} else {
@@ -400,6 +393,9 @@ sub archive {
 
     my $files = join (' ', map { "'$_'" } @filea);
     
+    # no sparse file scan when we use compression
+    my $sparse = $comp ? '' : '-s'; 
+
     my $cmd = "/usr/lib/qemu-server/vmtar $sparse $files";
     my $bwl = $opts->{bwlimit}*1024; # bandwidth limit for cstream
     $cmd .= "|cstream -t $bwl" if $opts->{bwlimit};
