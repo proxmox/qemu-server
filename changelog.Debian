@@ -1,3 +1,9 @@
+qemu-server (2.0-16) unstable; urgency=low
+
+  * ignore -tdf (avoid kvm warning) - this is no longer needed 
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 13 Feb 2012 11:18:01 +0100
+
 qemu-server (2.0-15) unstable; urgency=low
 
   * online migration fix: close tunnel later, wait for connection close

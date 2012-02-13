@@ -287,7 +287,7 @@ EODESC
     tdf => {
 	optional => 1,
 	type => 'boolean',
-	description => "Enable/disable time drift fix.",
+	description => "Enable/disable time drift fix. This is ignored for kvm versions newer that 1.0 (not needed anymore).",
 	default => 1,
     },
     localtime => {
@@ -2021,7 +2021,8 @@ sub config_to_command {
 
     # time drift fix
     my $tdf = defined($conf->{tdf}) ? $conf->{tdf} : $defaults->{tdf};
-    push @$cmd, '-tdf' if $tdf;
+    # ignore - no longer supported by newer kvm
+    # push @$cmd, '-tdf' if $tdf;
 
     my $nokvm = defined($conf->{kvm}) && $conf->{kvm} == 0 ? 1 : 0;
 
