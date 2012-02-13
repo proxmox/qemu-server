@@ -123,7 +123,7 @@ main (int argc, char **argv)
   time_t delay = time(NULL) - starttime;
   if (delay <= 0) delay = 1;
 
-  fprintf (stderr, "%zu bytes copied, %d s, %.2f MiB/s\n", total, delay,
+  fprintf (stderr, "%zu bytes copied, %zd s, %.2f MiB/s\n", total, delay,
 	   (total/(1024*1024))/(float)delay);
 
   outname = NULL;
