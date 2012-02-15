@@ -596,9 +596,10 @@ my $delete_drive = sub {
 	    } else {
 		PVE::QemuServer::add_unused_volume($conf, $volid, $vmid);
 	    }
-	    delete $conf->{$key};
 	}
     }
+
+    delete $conf->{$key};
 };
 
 my $vmconfig_delete_option = sub {
