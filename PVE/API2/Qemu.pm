@@ -46,6 +46,8 @@ my $check_storage_access = sub {
 
 	if (!$volid || $volid eq 'none') {
 	    # nothing to check
+	} elsif ($isCDROM && ($volid eq 'cdrom')) {
+	    $rpcenv->check($authuser, "/", ['Sys.Console']);
 	} elsif (!$isCDROM && ($volid =~ m/^(([^:\s]+):)?(\d+(\.\d+)?)$/)) {
 	    my ($storeid, $size) = ($2 || $default_storage, $3);
 	    die "no storage ID specified (and no default storage)\n" if !$storeid;
@@ -70,7 +72,7 @@ my $create_disks = sub {
 
 	my $volid = $disk->{file};
 
-	if (!$volid || $volid eq 'none') {
+	if (!$volid || $volid eq 'none' || $volid eq 'cdrom') {
 	    $res->{$ds} = $settings->{$ds};
 	} elsif ($volid =~ m/^(([^:\s]+):)?(\d+(\.\d+)?)$/) {
 	    my ($storeid, $size) = ($2 || $default_storage, $3);
