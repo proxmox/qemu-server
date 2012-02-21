@@ -359,7 +359,7 @@ EODESCR
 	optional => 1,
 	description => "Emulated CPU type.",
 	type => 'string',
-	enum => [ qw(486 athlon pentium pentium2 pentium3 coreduo core2duo kvm32 kvm64 qemu32 qemu64 phenom host) ],
+	enum => [ qw(486 athlon pentium pentium2 pentium3 coreduo core2duo kvm32 kvm64 qemu32 qemu64 phenom cpu64-rhel6 cpu64-rhel5 Conroe Penryn Nehalem Westmere Opteron_G1 Opteron_G2 Opteron_G3 host) ],
 	default => 'qemu64',
     },
 };
