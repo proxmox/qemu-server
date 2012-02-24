@@ -57,6 +57,8 @@ sub prepare {
 
     my $snapshot_count = 0;
 
+    my $vollist = [];
+    my $drivehash = {};
     PVE::QemuServer::foreach_drive($conf, sub {
 	my ($ds, $drive) = @_;
 
@@ -66,6 +68,17 @@ sub prepare {
 	    $self->loginfo("exclude disk '$ds' (backup=no)");
 	    return;
 	}	   
+
+	my $volid = $drive->{file};
+
+	my ($storeid, $volname) = PVE::Storage::parse_volume_id ($volid, 1);
+	push @$vollist, $volid if $storeid;
+	$drivehash->{$ds} = $drive;
+    });
+
+    PVE::Storage::activate_volumes($self->{storecfg}, $vollist);
+
+    while (my ($ds, $drive) = each %$drivehash) {
  
 	my $volid = $drive->{file};
 
@@ -73,13 +86,12 @@ sub prepare {
 
 	my ($storeid, $volname) = PVE::Storage::parse_volume_id ($volid, 1);
 	if ($storeid) {
-	    PVE::Storage::activate_storage ($self->{storecfg}, $storeid);
-	    $path = PVE::Storage::path ($self->{storecfg}, $volid);
+	    $path = PVE::Storage::path($self->{storecfg}, $volid);
 	} else {
 	    $path = $volid;
 	}
 
-	return if !$path;
+	next if !$path;
 
 	die "no such volume '$volid'\n" if ! -e $path;
 
@@ -160,8 +172,7 @@ sub prepare {
 	}
 
 	push @{$task->{disks}}, $diskinfo;
-
-    });
+    }
 
     $task->{snapshot_count} = $snapshot_count;
 }

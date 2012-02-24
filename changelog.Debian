@@ -1,3 +1,9 @@
+qemu-server (2.0-20) unstable; urgency=low
+
+  * fix bug 96: fix vzdump on stopped vm
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 24 Feb 2012 07:38:45 +0100
+
 qemu-server (2.0-19) unstable; urgency=low
 
   * support more CPU models
