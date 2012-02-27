@@ -2493,6 +2493,11 @@ sub vm_start {
 	}
 
 	vm_balloonset($vmid, $conf->{balloon}) if $conf->{balloon};
+
+	my $tablet = defined($conf->{tablet}) ? $conf->{tablet} : $defaults->{tablet};
+	PVE::QemuServer::vm_monitor_command($vmid, "mouse_set 1", 0) if $tablet; #ensure usb tablet is activated
+
+
     });
 }
 
