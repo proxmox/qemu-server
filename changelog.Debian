@@ -1,3 +1,9 @@
+qemu-server (2.0-22) unstable; urgency=low
+
+  * revert tablet mice fix - does not work reliable
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 29 Feb 2012 09:45:30 +0100
+
 qemu-server (2.0-21) unstable; urgency=low
 
   * fix tablet mice as default when live migrate
