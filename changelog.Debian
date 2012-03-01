@@ -1,3 +1,9 @@
+qemu-server (2.0-25) unstable; urgency=low
+
+  * fix bug 102: remove stale status file on stop
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 01 Mar 2012 12:53:32 +0100
+
 qemu-server (2.0-24) unstable; urgency=low
 
   * save description as comment.
