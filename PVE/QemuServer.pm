@@ -214,7 +214,7 @@ my $confdesc = {
     description => {
 	optional => 1,
 	type => 'string',
-	description => "Description for the VM. Only used on the configuration web interface.",
+	description => "Description for the VM. Only used on the configuration web interface. This is saved as comment inside the configuration file.",
     },
     ostype => {
 	optional => 1,
@@ -1435,17 +1435,20 @@ sub parse_vm_config {
 
     my $vmid = $1;
 
+    my $descr = '';
+
     while ($raw && $raw =~ s/^(.*?)(\n|$)//) {
 	my $line = $1;
 
-	next if $line =~ m/^\#/;
-
 	next if $line =~ m/^\s*$/;
 
+	if ($line =~ m/^\#(.*)\s*$/) {
+	    $descr .= PVE::Tools::decode_text($1) . "\n";
+	    next;
+	}
+
 	if ($line =~ m/^(description):\s*(.*\S)\s*$/) {
-	    my $key = $1;
-	    my $value = PVE::Tools::decode_text($2);
-	    $res->{$key} = $value;
+	    $descr .= PVE::Tools::decode_text($2);
 	} elsif ($line =~ m/^(args):\s*(.*\S)\s*$/) {
 	    my $key = $1;
 	    my $value = $2;
@@ -1478,6 +1481,8 @@ sub parse_vm_config {
 	}
     }
 
+    $res->{description} = $descr if $descr;
+
     # convert old smp to sockets
     if ($res->{smp} && !$res->{sockets}) {
 	$res->{sockets} = $res->{smp};
@@ -1507,11 +1512,8 @@ sub write_vm_config {
 
     my $new_volids = {};
     foreach my $key (keys %$conf) {
-	next if $key eq 'digest';
+	next if $key eq 'digest' || $key eq 'description';
 	my $value = $conf->{$key};
-	if ($key eq 'description') {
-	    $value = PVE::Tools::encode_text($value);
-	}
 	eval { $value = check_type($key, $value); };
 	die "unable to parse value of '$key' - $@" if $@;
 
@@ -1533,8 +1535,15 @@ sub write_vm_config {
 
     # gererate RAW data
     my $raw = '';
+
+    # add description as comment to top of file
+    my $descr = $conf->{description} || '';
+    foreach my $cl (split(/\n/, $descr)) {
+	$raw .= '#' .  PVE::Tools::encode_text($cl) . "\n";
+    }
+
     foreach my $key (sort keys %$conf) {
-	next if $key eq 'digest';
+	next if $key eq 'digest' || $key eq 'description';
 	$raw .= "$key: $conf->{$key}\n";
     }
 
