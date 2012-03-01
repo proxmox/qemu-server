@@ -257,10 +257,10 @@ sub snapshot_free {
 		my $scfg = PVE::Storage::storage_config ($self->{storecfg}, $storeid);
 		# lock shared storage
 		return PVE::Storage::cluster_lock_storage($storeid, $scfg->{shared}, undef, sub {
-		    PVE::Tools::run_command($cmd, outfunc => sub {}, errfunc => {});
+		    PVE::Tools::run_command($cmd, outfunc => sub {}, errfunc => sub {});
 		});
 	    } else {
-		PVE::Tools::run_command($cmd, outfunc => sub {}, errfunc => {});
+		PVE::Tools::run_command($cmd, outfunc => sub {}, errfunc => sub {});
 	    }
 	};
 	my $err = $@;

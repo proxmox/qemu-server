@@ -1,3 +1,9 @@
+qemu-server (2.0-23) unstable; urgency=low
+
+  * fix lvremove call: avoid 'Not a CODE reference' warning
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 01 Mar 2012 06:36:33 +0100
+
 qemu-server (2.0-22) unstable; urgency=low
 
   * revert tablet mice fix - does not work reliable
