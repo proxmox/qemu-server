@@ -208,7 +208,7 @@ my $confdesc = {
     },
     name => {
 	optional => 1,
-	type => 'string',
+	type => 'string', format => 'dns-name',
 	description => "Set a name for the VM. Only used on the configuration web interface.",
     },
     description => {
