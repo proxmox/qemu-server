@@ -881,6 +881,64 @@ sub print_drive {
     return "$drive->{file}$opts";
 }
 
+sub scsi_inquiry {
+    my($fh, $noerr) = @_;
+
+    my $SG_IO = 0x2285;
+    my $SG_GET_VERSION_NUM = 0x2282;
+
+    my $versionbuf = "\x00" x 8;
+    my $ret = ioctl($fh, $SG_GET_VERSION_NUM, $versionbuf);
+    if (!$ret) {
+	die "scsi ioctl SG_GET_VERSION_NUM failoed - $!\n" if !$noerr;
+	return undef;
+    }
+    my $version = unpack("I", $versionbuf);    
+    if ($version < 30000) {
+	die "scsi generic interface too old\n"  if !$noerr;
+	return undef;
+    }
+    
+    my $buf = "\x00" x 36;
+    my $sensebuf = "\x00" x 8;
+    my $cmd = pack("C x3 C x11", 0x12, 36);
+    
+    # see /usr/include/scsi/sg.h
+    my $sg_io_hdr_t = "i i C C s I P P P I I i P C C C C S S i I I";
+
+    my $packet = pack($sg_io_hdr_t, ord('S'), -3, length($cmd), 
+		      length($sensebuf), 0, length($buf), $buf, 
+		      $cmd, $sensebuf, 6000);
+
+    $ret = ioctl($fh, $SG_IO, $packet);
+    if (!$ret) {
+	die "scsi ioctl SG_IO failed - $!\n" if !$noerr;
+	return undef;
+    }
+    
+    my @res = unpack($sg_io_hdr_t, $packet);
+    if ($res[17] || $res[18]) {
+	die "scsi ioctl SG_IO status error - $!\n" if !$noerr;
+	return undef;
+    }
+
+    my $res = {};
+    ($res->{device}, $res->{removable}, $res->{venodor},
+     $res->{product}, $res->{revision}) = unpack("C C x6 A8 A16 A4", $buf);
+
+    return $res;
+}
+
+sub path_is_scsi {
+    my ($path) = @_;
+
+    my $fh = IO::File->new("+<$path") || return undef;
+    my $res = scsi_inquiry($fh, 1);
+    close($fh);
+
+    return $res;
+}
+
 sub print_drivedevice_full {
     my ($storecfg, $vmid, $drive) = @_;
 
@@ -904,9 +962,7 @@ sub print_drivedevice_full {
               } else {
                   $path = PVE::Storage::path($storecfg, $drive->{file});
               }
-              if ($path =~ m|^/dev/| ) {
-                  $devicetype = 'block';
-              }
+	      $devicetype = 'block' if path_is_scsi($path);
          }
 
 	$device = "scsi-$devicetype,bus=lsi$controller.0,scsi-id=$unit,drive=drive-$drive->{interface}$drive->{index},id=$drive->{interface}$drive->{index}";

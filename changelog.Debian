@@ -1,3 +1,10 @@
+qemu-server (2.0-26) unstable; urgency=low
+
+  * fix bug 109: use scsi inquiry to test if we can use the scsi-block
+    driver.
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 19 Mar 2012 10:39:30 +0100
+
 qemu-server (2.0-25) unstable; urgency=low
 
   * fix bug 102: remove stale status file on stop
