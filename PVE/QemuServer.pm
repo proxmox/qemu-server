@@ -11,7 +11,7 @@ use File::Basename;
 use File::Path;
 use File::stat;
 use Getopt::Long;
-use Digest::SHA1;
+use Digest::SHA;
 use Fcntl ':flock';
 use Cwd 'abs_path';
 use IPC::Open3;
@@ -1486,7 +1486,7 @@ sub parse_vm_config {
     return undef if !defined($raw);
 
     my $res = {
-	digest => Digest::SHA1::sha1_hex($raw),
+	digest => Digest::SHA::sha1_hex($raw),
     };
 
     $filename =~ m|/qemu-server/(\d+)\.conf$|

@@ -1,3 +1,9 @@
+qemu-server (2.0-28) unstable; urgency=low
+
+  * use Digest::SHA instead of Digest::SHA1
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 20 Mar 2012 12:24:01 +0100
+
 qemu-server (2.0-27) unstable; urgency=low
 
   * make startall wait up to 10 seconds for quorum
