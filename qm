@@ -240,7 +240,7 @@ __PACKAGE__->register_method ({
 	    last if PVE::Cluster::check_cfs_quorum($i != 0 ? 1 : 0);
 	    sleep(1);
 	}
-
+	
 	my $vzlist = PVE::QemuServer::vzlist();
 	my $storecfg = PVE::Storage::config();
 
@@ -248,19 +248,25 @@ __PACKAGE__->register_method ({
 	foreach my $vmid (keys %$vzlist) {
 	    next if $vzlist->{$vmid}->{pid}; # already running
 
+	    my $conf;
+	    eval { $conf = PVE::QemuServer::load_config($vmid); };
+	    if (my $err = $@) {
+		warn $err;
+		next;
+	    }
+
+	    next if !($conf && $conf->{onboot});
+
 	    sleep(2) if $count != 0; # reduce load
 	    $count++;
 
 	    PVE::Cluster::check_cfs_quorum(); # abort when we loose quorum
 
 	    eval {
-		my $conf = PVE::QemuServer::load_config($vmid);
-		if ($conf->{onboot}) {
-		    print STDERR "Starting Qemu VM $vmid\n";
-		    PVE::QemuServer::vm_start($storecfg, $vmid);
-		}
+		print STDERR "Starting Qemu VM $vmid\n";
+		PVE::QemuServer::vm_start($storecfg, $vmid);
 	    };
-	    print STDERR $@ if $@;
+	    warn $@ if $@;
 	}
 
 	return undef;
