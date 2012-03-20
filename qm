@@ -235,10 +235,14 @@ __PACKAGE__->register_method ({
     code => sub {
 	my ($param) = @_;
 
+	# wait up to 10 seconds for quorum
+	for (my $i = 10; $i >= 0; $i--) {
+	    last if PVE::Cluster::check_cfs_quorum($i != 0 ? 1 : 0);
+	    sleep(1);
+	}
+
 	my $vzlist = PVE::QemuServer::vzlist();
 	my $storecfg = PVE::Storage::config();
-
-	PVE::Cluster::check_cfs_quorum();
 
 	my $count = 0;
 	foreach my $vmid (keys %$vzlist) {

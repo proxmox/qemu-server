@@ -1,3 +1,9 @@
+qemu-server (2.0-27) unstable; urgency=low
+
+  * make startall wait up to 10 seconds for quorum
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 20 Mar 2012 09:32:53 +0100
+
 qemu-server (2.0-26) unstable; urgency=low
 
   * fix bug 109: use scsi inquiry to test if we can use the scsi-block
