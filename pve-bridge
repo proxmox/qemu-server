@@ -63,9 +63,9 @@ if ($net->{rate}) {
 
 }
 
-if ($net->{vlan}) {
+if ($net->{tag}) {
 
-    my $vlan = $net->{vlan};
+    my $vlan = $net->{tag};
     my $bridgevlan = $bridge."v".$vlan;
 
     #check if we have an only one ethX or bondX interface in the bridge

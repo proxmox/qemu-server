@@ -404,7 +404,7 @@ my $nic_model_list_txt = join(' ', sort @$nic_model_list);
 my $netdesc = {
     optional => 1,
     type => 'string', format => 'pve-qm-net',
-    typetext => "MODEL=XX:XX:XX:XX:XX:XX [,bridge=<dev>][,rate=<mbps>][,vlan=<vlanid>]",
+    typetext => "MODEL=XX:XX:XX:XX:XX:XX [,bridge=<dev>][,rate=<mbps>][,tag=<vlanid>]",
     description => <<EODESCR,
 Specify network devices.
 
@@ -1108,8 +1108,8 @@ sub parse_net {
 	    $res->{bridge} = $1;
 	} elsif ($kvp =~ m/^rate=(\d+(\.\d+)?)$/) {
 	    $res->{rate} = $1;
-        } elsif ($kvp =~ m/^vlan=(\d+)$/) {
-            $res->{vlan} = $1;
+        } elsif ($kvp =~ m/^tag=(\d+)$/) {
+            $res->{tag} = $1;
 	} else {
 	    return undef;
 	}
@@ -1128,7 +1128,7 @@ sub print_net {
     $res .= "=$net->{macaddr}" if $net->{macaddr};
     $res .= ",bridge=$net->{bridge}" if $net->{bridge};
     $res .= ",rate=$net->{rate}" if $net->{rate};
-    $res .= ",vlan=$net->{vlan}" if $net->{vlan};
+    $res .= ",vlan=$net->{tag}" if $net->{tag};
 
     return $res;
 }
