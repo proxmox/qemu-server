@@ -1128,7 +1128,7 @@ sub print_net {
     $res .= "=$net->{macaddr}" if $net->{macaddr};
     $res .= ",bridge=$net->{bridge}" if $net->{bridge};
     $res .= ",rate=$net->{rate}" if $net->{rate};
-    $res .= ",vlan=$net->{tag}" if $net->{tag};
+    $res .= ",tag=$net->{tag}" if $net->{tag};
 
     return $res;
 }
