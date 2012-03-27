@@ -1089,6 +1089,16 @@ __PACKAGE__->register_method({
 	return $res;
     }});
 
+my $vm_is_ha_managed = sub {
+    my ($vmid) = @_;
+
+    my $cc = PVE::Cluster::cfs_read_file('cluster.conf');
+    if (PVE::Cluster::cluster_conf_lookup_pvevm($cc, 0, $vmid, 1)) {
+	return 1;
+    } 
+    return 0;
+};
+
 __PACKAGE__->register_method({
     name => 'vm_status',
     path => '{vmid}/status/current',
@@ -1116,12 +1126,7 @@ __PACKAGE__->register_method({
 	my $vmstatus = PVE::QemuServer::vmstatus($param->{vmid});
 	my $status = $vmstatus->{$param->{vmid}};
 
-	my $cc = PVE::Cluster::cfs_read_file('cluster.conf');
-	if (PVE::Cluster::cluster_conf_lookup_pvevm($cc, 0, $param->{vmid}, 1)) {
-	    $status->{ha} = 1;
-	} else {
-	    $status->{ha} = 0;
-	}
+	$status->{ha} = &$vm_is_ha_managed($param->{vmid});
 
 	return $status;
     }});
@@ -1169,17 +1174,38 @@ __PACKAGE__->register_method({
 
 	my $storecfg = PVE::Storage::config();
 
-	my $realcmd = sub {
-	    my $upid = shift;
+	if (&$vm_is_ha_managed($vmid)) {
 
-	    syslog('info', "start VM $vmid: $upid\n");
+	    my $hacmd = sub {
+		my $upid = shift;
 
-	    PVE::QemuServer::vm_start($storecfg, $vmid, $stateuri, $skiplock);
+		my $service = "pvevm:$vmid";
 
-	    return;
-	};
+		my $cmd = ['clusvcadm', '-e', $service, '-m', $node];
 
-	return $rpcenv->fork_worker('qmstart', $vmid, $authuser, $realcmd);
+		print "Executing HA start for VM $vmid\n";
+
+		PVE::Tools::run_command($cmd);
+
+		return;
+	    };
+
+	    return $rpcenv->fork_worker('hastart', $vmid, $authuser, $hacmd);
+
+	} else {
+
+	    my $realcmd = sub {
+		my $upid = shift;
+
+		syslog('info', "start VM $vmid: $upid\n");
+
+		PVE::QemuServer::vm_start($storecfg, $vmid, $stateuri, $skiplock);
+
+		return;
+	    };
+
+	    return $rpcenv->fork_worker('qmstart', $vmid, $authuser, $realcmd);
+	}
     }});
 
 __PACKAGE__->register_method({
@@ -1236,18 +1262,38 @@ __PACKAGE__->register_method({
 
 	my $storecfg = PVE::Storage::config();
 
-	my $realcmd = sub {
-	    my $upid = shift;
+	if (&$vm_is_ha_managed($vmid)) {
 
-	    syslog('info', "stop VM $vmid: $upid\n");
+	    my $hacmd = sub {
+		my $upid = shift;
 
-	    PVE::QemuServer::vm_stop($storecfg, $vmid, $skiplock, 0,
-				     $param->{timeout}, 0, 1, $keepActive);
+		my $service = "pvevm:$vmid";
 
-	    return;
-	};
+		my $cmd = ['clusvcadm', '-d', $service];
 
-	return $rpcenv->fork_worker('qmstop', $vmid, $authuser, $realcmd);
+		print "Executing HA stop for VM $vmid\n";
+
+		PVE::Tools::run_command($cmd);
+
+		return;
+	    };
+
+	    return $rpcenv->fork_worker('hastop', $vmid, $authuser, $hacmd);
+
+	} else {
+	    my $realcmd = sub {
+		my $upid = shift;
+
+		syslog('info', "stop VM $vmid: $upid\n");
+
+		PVE::QemuServer::vm_stop($storecfg, $vmid, $skiplock, 0,
+					 $param->{timeout}, 0, 1, $keepActive);
+
+		return;
+	    };
+
+	    return $rpcenv->fork_worker('qmstop', $vmid, $authuser, $realcmd);
+	}
     }});
 
 __PACKAGE__->register_method({
@@ -1585,15 +1631,35 @@ __PACKAGE__->register_method({
 		if !$param->{online};
 	}
 
-	my $realcmd = sub {
-	    my $upid = shift;
+	if (&$vm_is_ha_managed($vmid)) {
 
-	    PVE::QemuMigrate->migrate($target, $targetip, $vmid, $param);
-	};
+	    my $hacmd = sub {
+		my $upid = shift;
 
-	my $upid = $rpcenv->fork_worker('qmigrate', $vmid, $authuser, $realcmd);
+		my $service = "pvevm:$vmid";
 
-	return $upid;
+		my $cmd = ['clusvcadm', '-M', $service, '-m', $target];
+
+		print "Executing HA migrate for VM $vmid to node $target\n";
+
+		PVE::Tools::run_command($cmd);
+
+		return;
+	    };
+
+	    return $rpcenv->fork_worker('hamigrate', $vmid, $authuser, $hacmd);
+
+	} else {
+
+	    my $realcmd = sub {
+		my $upid = shift;
+
+		PVE::QemuMigrate->migrate($target, $targetip, $vmid, $param);
+	    };
+
+	    return $rpcenv->fork_worker('qmigrate', $vmid, $authuser, $realcmd);
+	}
+
     }});
 
 __PACKAGE__->register_method({

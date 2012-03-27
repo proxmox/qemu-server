@@ -1,3 +1,9 @@
+qemu-server (2.0-29) unstable; urgency=low
+
+  * fix bug #97: execute 'clusvcadm' commands for HA managed VMs
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 27 Mar 2012 10:36:23 +0200
+
 qemu-server (2.0-28) unstable; urgency=low
 
   * use Digest::SHA instead of Digest::SHA1
