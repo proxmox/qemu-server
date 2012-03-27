@@ -1174,7 +1174,7 @@ __PACKAGE__->register_method({
 
 	my $storecfg = PVE::Storage::config();
 
-	if (&$vm_is_ha_managed($vmid)) {
+	if (&$vm_is_ha_managed($vmid) && $rpcenv->{type} ne 'ha') {
 
 	    my $hacmd = sub {
 		my $upid = shift;
@@ -1262,7 +1262,7 @@ __PACKAGE__->register_method({
 
 	my $storecfg = PVE::Storage::config();
 
-	if (&$vm_is_ha_managed($vmid)) {
+	if (&$vm_is_ha_managed($vmid) && $rpcenv->{type} ne 'ha') {
 
 	    my $hacmd = sub {
 		my $upid = shift;
@@ -1631,7 +1631,7 @@ __PACKAGE__->register_method({
 		if !$param->{online};
 	}
 
-	if (&$vm_is_ha_managed($vmid)) {
+	if (&$vm_is_ha_managed($vmid) && $rpcenv->{type} ne 'ha') {
 
 	    my $hacmd = sub {
 		my $upid = shift;
