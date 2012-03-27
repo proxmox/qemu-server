@@ -244,6 +244,8 @@ __PACKAGE__->register_method ({
 	my $vzlist = PVE::QemuServer::vzlist();
 	my $storecfg = PVE::Storage::config();
 
+	my $cc = PVE::Cluster::cfs_read_file('cluster.conf');
+
 	my $count = 0;
 	foreach my $vmid (keys %$vzlist) {
 	    next if $vzlist->{$vmid}->{pid}; # already running
@@ -256,6 +258,9 @@ __PACKAGE__->register_method ({
 	    }
 
 	    next if !($conf && $conf->{onboot});
+
+	    # skip ha managed VMs (started by rgmanager)
+	    next if PVE::Cluster::cluster_conf_lookup_pvevm($cc, 0, $vmid, 1);
 
 	    sleep(2) if $count != 0; # reduce load
 	    $count++;
