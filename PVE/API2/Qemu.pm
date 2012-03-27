@@ -1174,7 +1174,8 @@ __PACKAGE__->register_method({
 
 	my $storecfg = PVE::Storage::config();
 
-	if (&$vm_is_ha_managed($vmid) && $rpcenv->{type} ne 'ha') {
+	if (&$vm_is_ha_managed($vmid) && !$stateuri &&
+	    $rpcenv->{type} ne 'ha') {
 
 	    my $hacmd = sub {
 		my $upid = shift;
