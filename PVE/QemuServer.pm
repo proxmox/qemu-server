@@ -1332,16 +1332,22 @@ sub check_type {
     }
 }
 
-sub lock_config {
-    my ($vmid, $code, @param) = @_;
+sub lock_config_full {
+    my ($vmid, $timeout, $code, @param) = @_;
 
     my $filename = config_file_lock($vmid);
 
-    my $res = lock_file($filename, 10, $code, @param);
+    my $res = lock_file($filename, $timeout, $code, @param);
 
     die $@ if $@;
 
     return $res;
+}
+
+sub lock_config {
+    my ($vmid, $code, @param) = @_;
+
+    return lock_config_full($vmid, 10, $code, @param);
 }
 
 sub cfs_config_path {

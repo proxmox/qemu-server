@@ -342,7 +342,7 @@ __PACKAGE__->register_method({
 
 	my $createfn = sub {
 
-	    # second test (after locking test is accurate)
+	    # test after locking
 	    die "unable to create vm $vmid: config file already exists\n"
 		if -f $filename;
 
@@ -389,7 +389,7 @@ __PACKAGE__->register_method({
 	    return $rpcenv->fork_worker('qmcreate', $vmid, $authuser, $realcmd);
 	};
 
-	return PVE::QemuServer::lock_config($vmid, $archive ? $restorefn : $createfn);
+	return PVE::QemuServer::lock_config_full($vmid, 1, $archive ? $restorefn : $createfn);
     }});
 
 __PACKAGE__->register_method({
