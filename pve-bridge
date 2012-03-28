@@ -3,7 +3,7 @@
 use strict;
 use PVE::QemuServer;
 use PVE::Tools qw(run_command);
-use PVE::Storage;
+use PVE::Network;
 
 my $iface = shift;
 
@@ -31,91 +31,17 @@ system ("/sbin/ifconfig $iface 0.0.0.0 promisc up") == 0 ||
 
 if ($net->{rate}) {
 
+    my $debug = 0;
     my $rate = int($net->{rate}*1024*1024);
     my $burst = 1024*1024;
 
-    system("/sbin/tc qdisc del dev $iface ingres >/dev/null 2>&1");
-    system("/sbin/tc qdisc del dev $iface root >/dev/null 2>&1");
-
-    run_command("/sbin/tc qdisc add dev $iface handle ffff: ingress");
-
-    # this does not work wit virtio - don't know why
-    #run_command("/sbin/tc filter add dev $iface parent ffff: protocol ip prio 50 u32 match ip src 0.0.0.0/0 police rate ${rate}bps burst ${burst}b drop flowid :1");
-    # so we use avrate instead
-    run_command("/sbin/tc filter add dev $iface parent ffff: " .
-		"protocol ip prio 50 estimator 1sec 8sec " .
-		"u32 match ip src 0.0.0.0/0 police avrate ${rate}bps drop flowid :1");
-
-    # tbf does not work for unknown reason
-    #$TC qdisc add dev $DEV root tbf rate $RATE latency 100ms burst $BURST
-    # so we use htb instead
-    run_command("/sbin/tc qdisc add dev $iface root handle 1: htb default 1");
-    run_command("/sbin/tc class add dev $iface parent 1: classid 1:1 " .
-		"htb rate ${rate}bps burst ${burst}b");
-
-    # enable this to debug tc
-    if (0) {
-	print "DEBUG tc settings\n";
-	system("/sbin/tc qdisc ls dev $iface");
-	system("/sbin/tc class ls dev $iface");
-	system("/sbin/tc filter ls dev $iface parent ffff:");
-    }
-
+    PVE::Network::setup_tc_rate_limit($iface, $rate, $burst, $debug);
 }
 
-if ($net->{tag}) {
+my $newbridge = PVE::Network::activate_bridge_vlan($bridge, $net->{tag});
+PVE::Network::copy_bridge_config($bridge, $newbridge) if $bridge ne $newbridge;
 
-    my $vlan = $net->{tag};
-    my $bridgevlan = $bridge."v".$vlan;
-
-    #check if we have an only one ethX or bondX interface in the bridge
-    my (undef, $interface) = PVE::Storage::dir_glob_regex("/sys/class/net/$bridge/brif/", '((eth|bond)\d+)');
-    die "No interface in bridge" if !$interface;
-    die "You can't have 2 physical interfaces on the same bridge" if(ref($interface) eq 'ARRAY');
-
-    my $interfacevlan = $interface.".".$vlan;
-
-    #create vlan on interface is not already exist
-    unless (-d "/sys/class/net/$interfacevlan") {
-    system ("/sbin/vconfig add $interface $vlan") == 0 ||
-        die "can't add vlan $vlan to interface $interface\n";
-    }
-
-    #be sure to have the interfacevlan up
-    system ("/sbin/ip link set $interfacevlan up") == 0 ||
-        die "can't up interface $interfacevlan\n";
-
-    # test if vlaninterface is already enslave in another bridge
-    my $path="/sys/class/net/$interfacevlan/brport/bridge";
-    if(-e $path) {
-        my $targetbridge = readlink($path);
-        if($targetbridge =~ m/([0-9A-Za-z]+)$/) {
-                die "Interface $interfacevlan already exist in bridge $targetbridge" if $1 ne $bridgevlan;
-        }
-    }
-
-    #add bridgevlan if it doesn't already exist
-    unless (-d "/sys/class/net/$bridgevlan") {
-        system ("/usr/sbin/brctl addbr $bridgevlan") == 0 ||
-            die "can't add bridge $bridgevlan\n";
-    }
-
-    #be sure to have the bridge up
-    system ("/sbin/ip link set $bridgevlan up") == 0 ||
-        die "can't up bridge $bridgevlan\n";
-
-    #add interfacevlan to the bridge
-    my (undef, $interfacevlanfound) = PVE::Storage::dir_glob_regex("/sys/class/net/$bridgevlan/brif/", "($interface\.$vlan)");
-    if (!defined($interfacevlanfound)) {
-     system ("/usr/sbin/brctl addif $bridgevlan $interfacevlan") == 0 ||
-     die "can't add interface $interfacevlan to bridge $bridgevlan\n";
-    }
-
-    $bridge=$bridgevlan;
-}
-
-
-system ("/usr/sbin/brctl addif $bridge $iface") == 0 ||
+system ("/usr/sbin/brctl addif $newbridge $iface") == 0 ||
     die "can't add interface to bridge\n";
 
 exit 0;
