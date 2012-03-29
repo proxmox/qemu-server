@@ -1,3 +1,12 @@
+qemu-server (2.0-32) unstable; urgency=low
+
+  * fix usb host syntax (correctly pass hexadecimal numbers with prefix
+    '0x' to kvm)
+  
+  * document rerror/werror options
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 29 Mar 2012 07:11:51 +0200
+
 qemu-server (2.0-31) unstable; urgency=low
 
   * use new network setup code from PVE::Network (libpve-common-perl)

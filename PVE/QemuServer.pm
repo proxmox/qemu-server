@@ -438,7 +438,7 @@ my $drivename_hash;
 my $idedesc = {
     optional => 1,
     type => 'string', format => 'pve-qm-drive',
-    typetext => '[volume=]volume,] [,media=cdrom|disk] [,cyls=c,heads=h,secs=s[,trans=t]] [,snapshot=on|off] [,cache=none|writethrough|writeback|unsafe] [,format=f] [,backup=yes|no] [,aio=native|threads]',
+    typetext => '[volume=]volume,] [,media=cdrom|disk] [,cyls=c,heads=h,secs=s[,trans=t]] [,snapshot=on|off] [,cache=none|writethrough|writeback|unsafe] [,format=f] [,backup=yes|no] [,rerror=ignore|report|stop] [,werror=enospc|ignore|report|stop] [,aio=native|threads]',
     description => "Use volume as IDE hard disk or CD-ROM (n is 0 to 3).",
 };
 PVE::JSONSchema::register_standard_option("pve-qm-ide", $idedesc);
@@ -446,7 +446,7 @@ PVE::JSONSchema::register_standard_option("pve-qm-ide", $idedesc);
 my $scsidesc = {
     optional => 1,
     type => 'string', format => 'pve-qm-drive',
-    typetext => '[volume=]volume,] [,media=cdrom|disk] [,cyls=c,heads=h,secs=s[,trans=t]] [,snapshot=on|off] [,cache=none|writethrough|writeback|unsafe] [,format=f] [,backup=yes|no] [,aio=native|threads]',
+    typetext => '[volume=]volume,] [,media=cdrom|disk] [,cyls=c,heads=h,secs=s[,trans=t]] [,snapshot=on|off] [,cache=none|writethrough|writeback|unsafe] [,format=f] [,backup=yes|no] [,rerror=ignore|report|stop] [,werror=enospc|ignore|report|stop] [,aio=native|threads]',
     description => "Use volume as SCSI hard disk or CD-ROM (n is 0 to 13).",
 };
 PVE::JSONSchema::register_standard_option("pve-qm-scsi", $scsidesc);
@@ -454,7 +454,7 @@ PVE::JSONSchema::register_standard_option("pve-qm-scsi", $scsidesc);
 my $satadesc = {
     optional => 1,
     type => 'string', format => 'pve-qm-drive',
-    typetext => '[volume=]volume,] [,media=cdrom|disk] [,cyls=c,heads=h,secs=s[,trans=t]] [,snapshot=on|off] [,cache=none|writethrough|writeback|unsafe] [,format=f] [,backup=yes|no] [,aio=native|threads]',
+    typetext => '[volume=]volume,] [,media=cdrom|disk] [,cyls=c,heads=h,secs=s[,trans=t]] [,snapshot=on|off] [,cache=none|writethrough|writeback|unsafe] [,format=f] [,backup=yes|no] [,rerror=ignore|report|stop] [,werror=enospc|ignore|report|stop] [,aio=native|threads]',
     description => "Use volume as SATA hard disk or CD-ROM (n is 0 to 5).",
 };
 PVE::JSONSchema::register_standard_option("pve-qm-sata", $satadesc);
@@ -462,7 +462,7 @@ PVE::JSONSchema::register_standard_option("pve-qm-sata", $satadesc);
 my $virtiodesc = {
     optional => 1,
     type => 'string', format => 'pve-qm-drive',
-    typetext => '[volume=]volume,] [,media=cdrom|disk] [,cyls=c,heads=h,secs=s[,trans=t]] [,snapshot=on|off] [,cache=none|writethrough|writeback|unsafe] [,format=f] [,backup=yes|no] [,aio=native|threads]',
+    typetext => '[volume=]volume,] [,media=cdrom|disk] [,cyls=c,heads=h,secs=s[,trans=t]] [,snapshot=on|off] [,cache=none|writethrough|writeback|unsafe] [,format=f] [,backup=yes|no] [,rerror=ignore|report|stop] [,werror=enospc|ignore|report|stop] [,aio=native|threads]',
     description => "Use volume as VIRTIO hard disk (n is 0 to 5).",
 };
 PVE::JSONSchema::register_standard_option("pve-qm-virtio", $virtiodesc);
@@ -800,6 +800,7 @@ sub create_conf_nolock {
 
 # ideX = [volume=]volume-id[,media=d][,cyls=c,heads=h,secs=s[,trans=t]]
 #        [,snapshot=on|off][,cache=on|off][,format=f][,backup=yes|no]
+#        [,rerror=ignore|report|stop][,werror=enospc|ignore|report|stop]
 #        [,aio=native|threads]
 
 sub parse_drive {
@@ -1253,10 +1254,10 @@ sub parse_usb_device {
 
     my $res = {};
     foreach my $v (@dl) {
-	if ($v =~ m/^host=([0-9A-Fa-f]{4}):([0-9A-Fa-f]{4})$/) {
+	if ($v =~ m/^host=(0x)?([0-9A-Fa-f]{4}):(0x)?([0-9A-Fa-f]{4})$/) {
 	    $found = 1;
-	    $res->{vendorid} = $1;
-	    $res->{productid} = $2;
+	    $res->{vendorid} = $2;
+	    $res->{productid} = $4;
 	} elsif ($v =~ m/^host=(\d+)\-(\d+(\.\d+)*)$/) {
 	    $found = 1;
 	    $res->{hostbus} = $1;
@@ -2027,7 +2028,7 @@ sub config_to_command {
 	my $d = parse_usb_device($conf->{"usb$i"});
 	next if !$d;
 	if ($d->{vendorid} && $d->{productid}) {
-	    push @$cmd, '-device', "usb-host,vendorid=$d->{vendorid},productid=$d->{productid}";
+	    push @$cmd, '-device', "usb-host,vendorid=0x$d->{vendorid},productid=0x$d->{productid}";
 	} elsif (defined($d->{hostbus}) && defined($d->{hostport})) {
 	    push @$cmd, '-device', "usb-host,hostbus=$d->{hostbus},hostport=$d->{hostport}";
 	}
