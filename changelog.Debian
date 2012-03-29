@@ -1,3 +1,9 @@
+qemu-server (2.0-33) unstable; urgency=low
+
+  * fix bug #121: activate volumes correctly
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 29 Mar 2012 11:09:36 +0200
+
 qemu-server (2.0-32) unstable; urgency=low
 
   * fix usb host syntax (correctly pass hexadecimal numbers with prefix

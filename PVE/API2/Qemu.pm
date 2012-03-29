@@ -53,8 +53,7 @@ my $check_storage_access = sub {
 	    die "no storage ID specified (and no default storage)\n" if !$storeid;
 	    $rpcenv->check($authuser, "/storage/$storeid", ['Datastore.AllocateSpace']);
 	} else {
-	    my $path = $rpcenv->check_volume_access($authuser, $storecfg, $vmid, $volid);
-	    die "image '$path' does not exists\n" if (!(-f $path || -b $path));
+	    $rpcenv->check_volume_access($authuser, $storecfg, $vmid, $volid);
 	}
     });
 };
@@ -87,6 +86,7 @@ my $create_disks = sub {
 	    $res->{$ds} = PVE::QemuServer::print_drive($vmid, $disk);
 	} else {
 	    my $path = $rpcenv->check_volume_access($authuser, $storecfg, $vmid, $volid);
+	    PVE::Storage::activate_volumes($storecfg, [ $volid ]);
 	    die "image '$path' does not exists\n" if (!(-f $path || -b $path));
 	    $res->{$ds} = $settings->{$ds};
 	}
@@ -301,6 +301,7 @@ __PACKAGE__->register_method({
 		    && $rpcenv->{type} ne 'cli';
 	    } else {
 		my $path = $rpcenv->check_volume_access($authuser, $storecfg, $vmid, $archive);
+		PVE::Storage::activate_volumes($storecfg, [ $archive ]);
 		die "can't find archive file '$archive'\n" if !($path && -f $path);
 		$archive = $path;
 	    }
