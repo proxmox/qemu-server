@@ -1,3 +1,9 @@
+qemu-server (2.0-34) unstable; urgency=low
+
+  * fix bug #12: check storage availability early (migrate)
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 30 Mar 2012 09:12:46 +0200
+
 qemu-server (2.0-33) unstable; urgency=low
 
   * fix bug #121: activate volumes correctly

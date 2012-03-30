@@ -1633,6 +1633,9 @@ __PACKAGE__->register_method({
 		if !$param->{online};
 	}
 
+	my $storecfg = PVE::Storage::config();
+	PVE::QemuServer::check_storage_availability($storecfg, $conf, "test");
+
 	if (&$vm_is_ha_managed($vmid) && $rpcenv->{type} ne 'ha') {
 
 	    my $hacmd = sub {

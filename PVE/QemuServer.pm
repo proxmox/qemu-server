@@ -1682,6 +1682,25 @@ sub check_local_resources {
     return $loc_res;
 }
 
+# check is used storages are available on all nodes (use by migrate)
+sub check_storage_availability {
+    my ($storecfg, $conf, $node) = @_;
+
+    foreach_drive($conf, sub {
+	my ($ds, $drive) = @_;
+
+	my $volid = $drive->{file};
+	return if !$volid;
+
+	my ($sid, $volname) = PVE::Storage::parse_volume_id($volid, 1);
+	return if !$sid;
+
+	# check if storage is available on both nodes
+	my $scfg = PVE::Storage::storage_check_node($storecfg, $sid);
+	PVE::Storage::storage_check_node($storecfg, $sid, $node);
+   });
+}
+
 sub check_lock {
     my ($conf) = @_;
 
