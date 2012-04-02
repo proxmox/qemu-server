@@ -86,7 +86,8 @@ my $create_disks = sub {
 	    $res->{$ds} = PVE::QemuServer::print_drive($vmid, $disk);
 	} else {
 	    my $path = $rpcenv->check_volume_access($authuser, $storecfg, $vmid, $volid);
-	    PVE::Storage::activate_volumes($storecfg, [ $volid ]);
+	    PVE::Storage::activate_volumes($storecfg, [ $volid ])
+		if PVE::Storage::parse_volume_id ($volid, 1);
 	    die "image '$path' does not exists\n" if (!(-f $path || -b $path));
 	    $res->{$ds} = $settings->{$ds};
 	}
@@ -298,10 +299,13 @@ __PACKAGE__->register_method({
 
 	    if ($archive eq '-') {
 		die "pipe requires cli environment\n"
-		    && $rpcenv->{type} ne 'cli';
+		    if $rpcenv->{type} ne 'cli';
 	    } else {
 		my $path = $rpcenv->check_volume_access($authuser, $storecfg, $vmid, $archive);
-		PVE::Storage::activate_volumes($storecfg, [ $archive ]);
+
+		PVE::Storage::activate_volumes($storecfg, [ $archive ])
+		    if PVE::Storage::parse_volume_id ($archive, 1);
+
 		die "can't find archive file '$archive'\n" if !($path && -f $path);
 		$archive = $path;
 	    }
