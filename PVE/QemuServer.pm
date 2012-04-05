@@ -2132,6 +2132,11 @@ sub config_to_command {
 	    }
 	}
 
+	if ($ost eq 'win7' || $ost eq 'w2k8' || $ost eq 'wvista') {
+	    push @$cmd, '-no-kvm-pit-reinjection';
+	    push @$cmd, '-no-hpet';
+	}
+
 	# -tdf ?
 	# -no-acpi
 	# -no-kvm
