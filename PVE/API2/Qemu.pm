@@ -1638,7 +1638,7 @@ __PACKAGE__->register_method({
 	}
 
 	my $storecfg = PVE::Storage::config();
-	PVE::QemuServer::check_storage_availability($storecfg, $conf, "test");
+	PVE::QemuServer::check_storage_availability($storecfg, $conf, $target);
 
 	if (&$vm_is_ha_managed($vmid) && $rpcenv->{type} ne 'ha') {
 

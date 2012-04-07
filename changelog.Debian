@@ -1,3 +1,9 @@
+qemu-server (2.0-37) unstable; urgency=low
+
+  * fix bug in storage availability check (migrate)
+
+ -- Proxmox Support Team <support@proxmox.com>  Sat, 07 Apr 2012 08:25:59 +0200
+
 qemu-server (2.0-36) unstable; urgency=low
 
   * use '-no-kvm-pit-reinjection -no-hpet' for win7 and w2k8 guests.
