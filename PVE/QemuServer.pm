@@ -320,6 +320,12 @@ EODESC
 	pattern => '(now|\d{4}-\d{1,2}-\d{1,2}(T\d{1,2}:\d{1,2}:\d{1,2})?)',
 	default => 'now',
     },
+    startup => {
+	optional => 1,
+	type => 'string', format => 'pve-qm-startup',
+	typetext => '[[order=]\d+] [,up=\d+] [,down=\d+] ',
+	description => "Startup and shutdown behavior. Order is a non-negative number defining the general startup order. Shutdown in done with reverse ordering. Additionally you can set the 'up' or 'down' delay in seconds, which specifies a delay to wait before the next VM is started or stopped.",
+    },
     args => {
 	optional => 1,
 	type => 'string',
@@ -1236,6 +1242,41 @@ sub parse_watchdog {
 	    $res->{model} = $2;
 	} elsif ($p =~ m/^(action=)?(reset|shutdown|poweroff|pause|debug|none)$/) {
 	    $res->{action} = $2;
+	} else {
+	    return undef;
+	}
+    }
+
+    return $res;
+}
+
+PVE::JSONSchema::register_format('pve-qm-startup', \&verify_startup);
+sub verify_startup {
+    my ($value, $noerr) = @_;
+
+    return $value if parse_startup($value);
+
+    return undef if $noerr;
+
+    die "unable to parse startup options\n";
+}
+
+sub parse_startup {
+    my ($value) = @_;
+
+    return undef if !$value;
+
+    my $res = {};
+
+    foreach my $p (split(/,/, $value)) {
+	next if $p =~ m/^\s*$/;
+
+	if ($p =~ m/^(order=)?(\d+)$/) {
+	    $res->{order} = $2;
+	} elsif ($p =~ m/^up=(\d+)$/) {
+	    $res->{up} = $1;
+	} elsif ($p =~ m/^down=(\d+)$/) {
+	    $res->{down} = $1;
 	} else {
 	    return undef;
 	}

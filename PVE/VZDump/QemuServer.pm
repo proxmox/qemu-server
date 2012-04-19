@@ -132,7 +132,7 @@ sub prepare {
 		my ($srcdev, $lvmpath, $lvmvg, $lvmlv, $fstype) =
 		    PVE::VZDump::get_lvm_device ($dir, $lvmmap);
 
-		my $targetdev = PVE::VZDump::get_lvm_device ($task->{dumpdir}, $lvmmap);
+		my $targetdev = PVE::VZDump::get_lvm_device($task->{dumpdir}, $lvmmap);
 
 		die ("mode failure - unable to detect lvm volume group\n") if !$lvmvg;
 		die ("mode failure - wrong lvm mount point '$lvmpath'\n") if $dir !~ m|/?$lvmpath/?|;

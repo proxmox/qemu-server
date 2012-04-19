@@ -1,3 +1,9 @@
+qemu-server (2.0-39) unstable; urgency=low
+
+  * new startup option to define startup order.
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 19 Apr 2012 14:26:04 +0200
+
 qemu-server (2.0-38) unstable; urgency=low
 
   * add directsync cache mode
