@@ -32,10 +32,9 @@ case "$1" in
 	mkdir -p /var/run/qemu-server
 	mkdir -p /var/lock/qemu-server
 
-	$PROG startall
 	;;
   stop)
-	$PROG stopall
+        # nothing to do, because we are no real daemon
 	;;
   force-reload)
 	;;

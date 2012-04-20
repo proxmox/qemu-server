@@ -223,90 +223,6 @@ __PACKAGE__->register_method ({
     }});
 
 __PACKAGE__->register_method ({
-    name => 'startall', 
-    path => 'startall', 
-    method => 'POST',
-    description => "Start all virtual machines (when onboot=1).",
-    parameters => {
-    	additionalProperties => 0,
-	properties => {},
-    },
-    returns => { type => 'null'},
-    code => sub {
-	my ($param) = @_;
-
-	# wait up to 10 seconds for quorum
-	for (my $i = 10; $i >= 0; $i--) {
-	    last if PVE::Cluster::check_cfs_quorum($i != 0 ? 1 : 0);
-	    sleep(1);
-	}
-	
-	my $vzlist = PVE::QemuServer::vzlist();
-	my $storecfg = PVE::Storage::config();
-
-	my $cc = PVE::Cluster::cfs_read_file('cluster.conf');
-
-	my $count = 0;
-	foreach my $vmid (keys %$vzlist) {
-	    next if $vzlist->{$vmid}->{pid}; # already running
-
-	    my $conf;
-	    eval { $conf = PVE::QemuServer::load_config($vmid); };
-	    if (my $err = $@) {
-		warn $err;
-		next;
-	    }
-
-	    next if !($conf && $conf->{onboot});
-
-	    # skip ha managed VMs (started by rgmanager)
-	    next if PVE::Cluster::cluster_conf_lookup_pvevm($cc, 0, $vmid, 1);
-
-	    sleep(2) if $count != 0; # reduce load
-	    $count++;
-
-	    PVE::Cluster::check_cfs_quorum(); # abort when we loose quorum
-
-	    eval {
-		print STDERR "Starting Qemu VM $vmid\n";
-		PVE::QemuServer::vm_start($storecfg, $vmid);
-	    };
-	    warn $@ if $@;
-	}
-
-	return undef;
-    }});
-
-__PACKAGE__->register_method ({
-    name => 'stopall', 
-    path => 'stopall', 
-    method => 'POST',
-    description => "Stop all virtual machines.",
-    parameters => {
-    	additionalProperties => 0,
-	properties => {
-	    timeout => {
-		description => "Timeout in seconds. Default is to wait 3 minutes.",
-		type => 'integer',
-		minimum => 1,
-		optional => 1,
-	    }
-	},
-    },
-    returns => { type => 'null'},
-    code => sub {
-	my ($param) = @_;
-
-	my $timeout = $param->{timeout};
-
-	my $storecfg = PVE::Storage::config();
-
-	PVE::QemuServer::vm_stopall($storecfg, $timeout);
-
-	return undef;
-    }});
-
-__PACKAGE__->register_method ({
     name => 'wait', 
     path => 'wait', 
     method => 'GET',
@@ -456,10 +372,6 @@ my $cmddef = {
     unlock => [ __PACKAGE__, 'unlock', ['vmid']],
 
     monitor  => [ __PACKAGE__, 'monitor', ['vmid']],
-
-    startall => [ __PACKAGE__, 'startall', []],
-
-    stopall => [ __PACKAGE__, 'stopall', []],
 
     mtunnel => [ __PACKAGE__, 'mtunnel', []],	
 };

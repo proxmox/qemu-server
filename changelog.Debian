@@ -1,6 +1,11 @@
 qemu-server (2.0-39) unstable; urgency=low
 
   * new startup option to define startup order.
+  
+  * do not start VMs with /etc/init.d/qemu-server. This is now
+  done with /etc/init.d/pve-manager
+  
+  * qm: removed startall/stopall commands
 
  -- Proxmox Support Team <support@proxmox.com>  Thu, 19 Apr 2012 14:26:04 +0200
 
