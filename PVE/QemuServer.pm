@@ -828,7 +828,7 @@ sub parse_drive {
     foreach my $p (split (/,/, $data)) {
 	next if $p =~ m/^\s*$/;
 
-	if ($p =~ m/^(file|volume|cyls|heads|secs|trans|media|snapshot|cache|format|rerror|werror|backup|aio)=(.+)$/) {
+	if ($p =~ m/^(file|volume|cyls|heads|secs|trans|media|snapshot|cache|format|rerror|werror|backup|aio|bps|bps_rd|bps_wr|iops|iops_rd|iops_wr)=(.+)$/) {
 	    my ($k, $v) = ($1, $2);
 
 	    $k = 'file' if $k eq 'volume';
@@ -861,6 +861,19 @@ sub parse_drive {
     return undef if $res->{backup} && $res->{backup} !~ m/^(yes|no)$/;
     return undef if $res->{aio} && $res->{aio} !~ m/^(native|threads)$/;
 
+    return undef if $res->{bps_rd} && $res->{bps};
+    return undef if $res->{bps_wr} && $res->{bps};
+    return undef if $res->{iops_rd} && $res->{iops};
+    return undef if $res->{iops_wr} && $res->{iops};
+
+    return undef if $res->{bps} && $res->{bps} !~ m/^\d+$/;
+    return undef if $res->{bps_rd} && $res->{bps_rd} !~ m/^\d+$/;
+    return undef if $res->{bps_wr} && $res->{bps_wr} !~ m/^\d+$/;
+    return undef if $res->{iops} && $res->{iops} !~ m/^\d+$/;
+    return undef if $res->{iops_rd} && $res->{iops_rd} !~ m/^\d+$/;
+    return undef if $res->{iops_wr} && $res->{iops_wr} !~ m/^\d+$/;
+
+
     if ($res->{media} && ($res->{media} eq 'cdrom')) {
 	return undef if $res->{snapshot} || $res->{trans} || $res->{format};
 	return undef if $res->{heads} || $res->{secs} || $res->{cyls};
@@ -875,7 +888,7 @@ sub parse_drive {
     return $res;
 }
 
-my @qemu_drive_options = qw(heads secs cyls trans media format cache snapshot rerror werror aio);
+my @qemu_drive_options = qw(heads secs cyls trans media format cache snapshot rerror werror aio bps bps_rd bps_wr iops iops_rd iops_wr);
 
 sub print_drive {
     my ($vmid, $drive) = @_;
@@ -2557,6 +2570,23 @@ sub qemu_netdevdel {
     #if the command succeeds, no output is sent. So any non-empty string shows an error 
     return 1 if $ret eq "";
     syslog("err", "deleting netdev failed: $ret");
+    return undef;
+}
+
+sub qemu_block_set_io_throttle {
+    my ($vmid, $deviceid, $bps, $bps_rd, $bps_wr, $iops, $iops_rd, $iops_wr) = @_;
+
+    $bps = 0 if !$bps;
+    $bps_rd = 0 if !$bps_rd;
+    $bps_wr = 0 if !$bps_wr;
+    $iops = 0 if !$iops;
+    $iops_rd = 0 if !$iops_rd;
+    $iops_wr = 0 if !$iops_wr;
+
+    my $ret = vm_monitor_command($vmid, "block_set_io_throttle $deviceid $bps $bps_rd $bps_wr $iops $iops_rd $iops_wr");
+    $ret =~ s/^\s+//;
+    return 1 if $ret eq "";
+    syslog("err", "error setting block_set_io_throttle: $ret");
     return undef;
 }
 
