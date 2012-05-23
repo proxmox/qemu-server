@@ -748,7 +748,7 @@ sub verify_media_type {
 
     my $etype;
     if ($media eq 'disk') {
-	$etype = 'image';
+	$etype = 'images';
     } elsif ($media eq 'cdrom') {
 	$etype = 'iso';
     } else {

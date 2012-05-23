@@ -1,3 +1,9 @@
+qemu-server (2.0-40) unstable; urgency=low
+
+  * minor fixes for newer pve-storage versions
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 23 May 2012 07:23:31 +0200
+
 qemu-server (2.0-39) unstable; urgency=low
 
   * new startup option to define startup order.
