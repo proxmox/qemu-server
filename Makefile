@@ -1,4 +1,4 @@
-RELEASE=2.0
+RELEASE=2.1
 
 VERSION=2.0
 PACKAGE=qemu-server
