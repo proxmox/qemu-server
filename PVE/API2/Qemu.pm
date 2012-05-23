@@ -907,11 +907,12 @@ __PACKAGE__->register_method({
 
 	my $delVMfromPoolFn = sub {		       
 	    my $usercfg = cfs_read_file("user.cfg");
-	    my $pool = $usercfg->{vms}->{$vmid};
-	    if (my $data = $usercfg->{pools}->{$pool}) {
-		delete $data->{vms}->{$vmid};
-		delete $usercfg->{vms}->{$vmid};
-		cfs_write_file("user.cfg", $usercfg);
+	    if (my $pool = $usercfg->{vms}->{$vmid}) {
+		if (my $data = $usercfg->{pools}->{$pool}) {
+		    delete $data->{vms}->{$vmid};
+		    delete $usercfg->{vms}->{$vmid};
+		    cfs_write_file("user.cfg", $usercfg);
+		}
 	    }
 	};
 
