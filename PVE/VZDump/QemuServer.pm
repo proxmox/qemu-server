@@ -8,6 +8,7 @@ use PVE::INotify;
 use PVE::VZDump;
 use PVE::Cluster qw(cfs_read_file);
 use PVE::Tools;
+use PVE::Storage::Plugin;
 use PVE::Storage;
 use PVE::QemuServer;
 use IO::File;
@@ -62,7 +63,7 @@ sub prepare {
     PVE::QemuServer::foreach_drive($conf, sub {
 	my ($ds, $drive) = @_;
 
-	return if PVE::QemuServer::drive_is_cdrom ($drive);
+	return if PVE::QemuServer::drive_is_cdrom($drive);
 
 	if (defined($drive->{backup}) && $drive->{backup} eq "no") {
 	    $self->loginfo("exclude disk '$ds' (backup=no)");
@@ -71,7 +72,7 @@ sub prepare {
 
 	my $volid = $drive->{file};
 
-	my ($storeid, $volname) = PVE::Storage::parse_volume_id ($volid, 1);
+	my ($storeid, $volname) = PVE::Storage::parse_volume_id($volid, 1);
 	push @$vollist, $volid if $storeid;
 	$drivehash->{$ds} = $drive;
     });
@@ -84,7 +85,7 @@ sub prepare {
 
 	my $path;
 
-	my ($storeid, $volname) = PVE::Storage::parse_volume_id ($volid, 1);
+	my ($storeid, $volname) = PVE::Storage::parse_volume_id($volid, 1);
 	if ($storeid) {
 	    $path = PVE::Storage::path($self->{storecfg}, $volid);
 	} else {
@@ -232,10 +233,10 @@ sub snapshot_alloc {
 
     if ($storeid) {
 
-	my $scfg = PVE::Storage::storage_config ($self->{storecfg}, $storeid);
+	my $scfg = PVE::Storage::storage_config($self->{storecfg}, $storeid);
 
 	# lock shared storage
-	return PVE::Storage::cluster_lock_storage ($storeid, $scfg->{shared}, undef, sub {
+	return PVE::Storage::Plugin->cluster_lock_storage($storeid, $scfg->{shared}, undef, sub {
 		$self->cmd ($cmd);
 	});
     } else {
@@ -254,9 +255,9 @@ sub snapshot_free {
     while(-b $snapdev) {
 	eval {
 	    if ($storeid) {
-		my $scfg = PVE::Storage::storage_config ($self->{storecfg}, $storeid);
+		my $scfg = PVE::Storage::storage_config($self->{storecfg}, $storeid);
 		# lock shared storage
-		return PVE::Storage::cluster_lock_storage($storeid, $scfg->{shared}, undef, sub {
+		return PVE::Storage::Plugin->cluster_lock_storage($storeid, $scfg->{shared}, undef, sub {
 		    PVE::Tools::run_command($cmd, outfunc => sub {}, errfunc => sub {});
 		});
 	    } else {
