@@ -15,6 +15,7 @@ use Digest::SHA;
 use Fcntl ':flock';
 use Cwd 'abs_path';
 use IPC::Open3;
+use JSON;
 use Fcntl;
 use PVE::SafeSyslog;
 use Storable qw(dclone);
@@ -2061,6 +2062,10 @@ sub config_to_command {
     push @$cmd, '-chardev', "socket,id=monitor,path=$socket,server,nowait";
     push @$cmd, '-mon', "chardev=monitor,mode=readline";
 
+    my $qmpsocket = qmp_socket($vmid);
+    push @$cmd, '-chardev', "socket,id=qmp,path=$qmpsocket,server,nowait";
+    push @$cmd, '-mon', "chardev=qmp,mode=control";
+
     $socket = vnc_socket($vmid);
     push @$cmd,  '-vnc', "unix:$socket,x509,password";
 
@@ -2324,6 +2329,11 @@ sub vnc_socket {
 sub monitor_socket {
     my ($vmid) = @_;
     return "${var_run_tmpdir}/$vmid.mon";
+}
+
+sub qmp_socket {
+    my ($vmid) = @_;
+    return "${var_run_tmpdir}/$vmid.qmp";
 }
 
 sub pidfile_name {
@@ -2668,6 +2678,34 @@ sub vm_start {
     });
 }
 
+sub qmp__read_avail {
+    my ($fh, $timeout) = @_;
+
+    my $sel = new IO::Select;
+    $sel->add($fh);
+
+    my $res = '';
+    my $buf;
+
+    my @ready;
+    while (scalar (@ready = $sel->can_read($timeout))) {
+	my $count;
+	if ($count = $fh->sysread($buf, 8192)) {
+		$res .= $buf;
+		last;
+	} else {
+	    if (!defined($count)) {
+		die "$!\n";
+	    }
+	    last;
+	}
+    }
+
+    die "qmp read timeout\n" if !scalar(@ready);
+    my $obj = from_json($res);
+    return $obj;
+}
+
 sub __read_avail {
     my ($fh, $timeout) = @_;
 
@@ -2768,6 +2806,95 @@ sub vm_monitor_command {
 
     if ($err) {
 	syslog("err", "VM $vmid monitor command failed - $err");
+	die $err;
+    }
+
+    return $res;
+}
+
+sub vm_qmp_command {
+    my ($vmid, $cmdstr, $nocheck) = @_;
+    #http://git.qemu.org/?p=qemu.git;a=blob;f=qmp-commands.hx;h=db980fa811325aeca8ad43472ba468702d4a25a2;hb=HEAD
+    my $res;
+
+    eval {
+	die "VM $vmid not running\n" if !check_running($vmid, $nocheck);
+
+	my $sname = qmp_socket($vmid);
+	my $sock = IO::Socket::UNIX->new( Peer => $sname ) ||
+            die "unable to connect to VM $vmid socket - $!\n";
+
+
+	my $timeout = 3;
+        
+	# maybe this works with qmp, need to be tested 
+
+	# hack: migrate sometime blocks the monitor (when migrate_downtime
+	# is set)
+	#if ($cmdstr =~ m/^(info\s+migrate|migrate\s)/) {
+	#    $timeout = 60*60; # 1 hour
+	#}
+
+	# read banner;
+	my $data = qmp__read_avail($sock, $timeout);
+	# '{"QMP": {"version": {"qemu": {"micro": 93, "minor": 0, "major": 1}, "package": " (qemu-kvm-devel)"}, "capabilities": []}} ';
+	die "got unexpected qemu qmp banner\n" if !$data->{QMP};
+
+	my $sel = new IO::Select;
+	$sel->add($sock);
+
+        #negociation
+        my $negociation = '{ "execute": "qmp_capabilities" }';
+        
+        if (!scalar(my @ready = $sel->can_write($timeout))) {
+	    die "monitor write error - timeout";
+        }
+
+        my $b;
+        if (!($b = $sock->syswrite($negociation)) || ($b != length($negociation))) {
+            die "monitor write error - $!";
+        }
+
+        $res = qmp__read_avail($sock, $timeout);
+        #  res = '{"return": {}}
+        die "qmp negociation error\n" if !$res->{return};
+
+
+	$timeout = 20;
+
+
+	my $fullcmd = undef;	
+	#generate json from hash for complex cmd
+	if (ref($cmdstr) eq "HASH") {
+		$fullcmd = to_json($cmdstr);
+
+		if ($fullcmd->{execute}  =~ m/^(info\s+migrate|migrate\s)/) {
+		      $timeout = 60*60; # 1 hour
+		} elsif ($fullcmd->{execute} =~ m/^(eject|change)/) {
+		      $timeout = 60; # note: cdrom mount command is slow
+		}
+	}
+	#execute command for simple action
+	else {
+		$fullcmd = '{ "execute": "'.$cmdstr.'" }';
+	}
+	
+	if (!($b = $sock->syswrite($fullcmd)) || ($b != length($fullcmd))) {
+	    die "monitor write error - $!";
+	}
+
+	if (ref($cmdstr) ne "HASH") {
+	  return if ($cmdstr eq 'q') || ($cmdstr eq 'quit');
+	}
+
+	$res = qmp__read_avail($sock, $timeout);
+
+    };
+
+    my $err = $@;
+
+    if ($err) {
+	syslog("err", "VM $vmid qmp command failed - $err");
 	die $err;
     }
 
