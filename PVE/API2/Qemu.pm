@@ -599,7 +599,7 @@ my $delete_drive = sub {
 	if (&$vm_is_volid_owner($storecfg, $vmid, $volid)) {
 	    if ($force || $key =~ m/^unused/) {
 		eval { PVE::Storage::vdisk_free($storecfg, $volid); };
-		warn $@ if $@;
+		die $@ if $@;
 	    } else {
 		PVE::QemuServer::add_unused_volume($conf, $volid, $vmid);
 	    }
