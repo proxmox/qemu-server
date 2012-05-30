@@ -36,7 +36,7 @@ my $cpuinfo = PVE::ProcFSTools::read_cpuinfo();
 # allowed when such lock is set. But you can ignore this kind of
 # lock with the --skiplock flag.
 
-cfs_register_file('/qemu-server/', 
+cfs_register_file('/qemu-server/',
 		  \&parse_vm_config,
 		  \&write_vm_config);
 
@@ -914,21 +914,21 @@ sub scsi_inquiry {
 	die "scsi ioctl SG_GET_VERSION_NUM failoed - $!\n" if !$noerr;
 	return undef;
     }
-    my $version = unpack("I", $versionbuf);    
+    my $version = unpack("I", $versionbuf);
     if ($version < 30000) {
 	die "scsi generic interface too old\n"  if !$noerr;
 	return undef;
     }
-    
+
     my $buf = "\x00" x 36;
     my $sensebuf = "\x00" x 8;
     my $cmd = pack("C x3 C x11", 0x12, 36);
-    
+
     # see /usr/include/scsi/sg.h
     my $sg_io_hdr_t = "i i C C s I P P P I I i P C C C C S S i I I";
 
-    my $packet = pack($sg_io_hdr_t, ord('S'), -3, length($cmd), 
-		      length($sensebuf), 0, length($buf), $buf, 
+    my $packet = pack($sg_io_hdr_t, ord('S'), -3, length($cmd),
+		      length($sensebuf), 0, length($buf), $buf,
 		      $cmd, $sensebuf, 6000);
 
     $ret = ioctl($fh, $SG_IO, $packet);
@@ -936,7 +936,7 @@ sub scsi_inquiry {
 	die "scsi ioctl SG_IO failed - $!\n" if !$noerr;
 	return undef;
     }
-    
+
     my @res = unpack($sg_io_hdr_t, $packet);
     if ($res[17] || $res[18]) {
 	die "scsi ioctl SG_IO status error - $!\n" if !$noerr;
@@ -1179,7 +1179,7 @@ sub add_unused_volume {
     }
 
     die "To many unused volume - please delete them first.\n" if !$key;
-    
+
     $config->{$key} = $volid;
 
     return $key;
@@ -1675,7 +1675,7 @@ sub update_config_nolock {
     my ($vmid, $conf, $skiplock) = @_;
 
     check_lock($conf) if !$skiplock;
-    
+
     my $cfspath = cfs_config_path($vmid);
 
     PVE::Cluster::cfs_write_file($cfspath, $conf);
@@ -2566,7 +2566,7 @@ sub qemu_netdevadd {
     my $ret = vm_monitor_command($vmid, "netdev_add $netdev");
     $ret =~ s/^\s+//;
 
-    #if the command succeeds, no output is sent. So any non-empty string shows an error 
+    #if the command succeeds, no output is sent. So any non-empty string shows an error
     return 1 if $ret eq "";
     syslog("err", "adding netdev failed: $ret");
     return undef;
@@ -2577,7 +2577,7 @@ sub qemu_netdevdel {
 
     my $ret = vm_monitor_command($vmid, "netdev_del $deviceid");
     $ret =~ s/^\s+//;
-    #if the command succeeds, no output is sent. So any non-empty string shows an error 
+    #if the command succeeds, no output is sent. So any non-empty string shows an error
     return 1 if $ret eq "";
     syslog("err", "deleting netdev failed: $ret");
     return undef;
@@ -2678,7 +2678,7 @@ sub vm_start {
     });
 }
 
-sub qmp__read_avail {
+my $qmp_read_avail = sub {
     my ($fh, $timeout) = @_;
 
     my $sel = new IO::Select;
@@ -2704,7 +2704,7 @@ sub qmp__read_avail {
     die "qmp read timeout\n" if !scalar(@ready);
     my $obj = from_json($res);
     return $obj;
-}
+};
 
 sub __read_avail {
     my ($fh, $timeout) = @_;
@@ -2814,6 +2814,7 @@ sub vm_monitor_command {
 
 sub vm_qmp_command {
     my ($vmid, $cmdstr, $nocheck) = @_;
+
     #http://git.qemu.org/?p=qemu.git;a=blob;f=qmp-commands.hx;h=db980fa811325aeca8ad43472ba468702d4a25a2;hb=HEAD
     my $res;
 
@@ -2824,10 +2825,9 @@ sub vm_qmp_command {
 	my $sock = IO::Socket::UNIX->new( Peer => $sname ) ||
             die "unable to connect to VM $vmid socket - $!\n";
 
-
 	my $timeout = 3;
-        
-	# maybe this works with qmp, need to be tested 
+
+	# maybe this works with qmp, need to be tested
 
 	# hack: migrate sometime blocks the monitor (when migrate_downtime
 	# is set)
@@ -2836,7 +2836,7 @@ sub vm_qmp_command {
 	#}
 
 	# read banner;
-	my $data = qmp__read_avail($sock, $timeout);
+	my $data = &$qmp_read_avail($sock, $timeout);
 	# '{"QMP": {"version": {"qemu": {"micro": 93, "minor": 0, "major": 1}, "package": " (qemu-kvm-devel)"}, "capabilities": []}} ';
 	die "got unexpected qemu qmp banner\n" if !$data->{QMP};
 
@@ -2845,7 +2845,7 @@ sub vm_qmp_command {
 
         #negociation
         my $negociation = '{ "execute": "qmp_capabilities" }';
-        
+
         if (!scalar(my @ready = $sel->can_write($timeout))) {
 	    die "monitor write error - timeout";
         }
@@ -2855,40 +2855,36 @@ sub vm_qmp_command {
             die "monitor write error - $!";
         }
 
-        $res = qmp__read_avail($sock, $timeout);
+        $res = &$qmp_read_avail($sock, $timeout);
         #  res = '{"return": {}}
         die "qmp negociation error\n" if !$res->{return};
 
-
 	$timeout = 20;
 
-
-	my $fullcmd = undef;	
-	#generate json from hash for complex cmd
+	my $fullcmd;
 	if (ref($cmdstr) eq "HASH") {
-		$fullcmd = to_json($cmdstr);
+	    #generate json from hash for complex cmd
+	    $fullcmd = to_json($cmdstr);
 
-		if ($fullcmd->{execute}  =~ m/^(info\s+migrate|migrate\s)/) {
-		      $timeout = 60*60; # 1 hour
-		} elsif ($fullcmd->{execute} =~ m/^(eject|change)/) {
-		      $timeout = 60; # note: cdrom mount command is slow
-		}
+	    if ($fullcmd->{execute}  =~ m/^(info\s+migrate|migrate\s)/) {
+		$timeout = 60*60; # 1 hour
+	    } elsif ($fullcmd->{execute} =~ m/^(eject|change)/) {
+		$timeout = 60; # note: cdrom mount command is slow
+	    }
+	} else {
+	    #execute command for simple action
+	    $fullcmd = '{ "execute": "' . $cmdstr . '" }';
 	}
-	#execute command for simple action
-	else {
-		$fullcmd = '{ "execute": "'.$cmdstr.'" }';
-	}
-	
+
 	if (!($b = $sock->syswrite($fullcmd)) || ($b != length($fullcmd))) {
 	    die "monitor write error - $!";
 	}
 
 	if (ref($cmdstr) ne "HASH") {
-	  return if ($cmdstr eq 'q') || ($cmdstr eq 'quit');
+	    return if ($cmdstr eq 'q') || ($cmdstr eq 'quit');
 	}
 
-	$res = qmp__read_avail($sock, $timeout);
-
+	$res = &$qmp_read_avail($sock, $timeout);
     };
 
     my $err = $@;
