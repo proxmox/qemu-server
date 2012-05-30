@@ -269,7 +269,6 @@ __PACKAGE__->register_method({
 
 	if (defined($pool)) {
 	    $rpcenv->check_pool_exist($pool);
-	    $rpcenv->check_perm_modify($authuser, "/pool/$pool");
 	} 
 
 	$rpcenv->check($authuser, "/storage/$storage", ['Datastore.AllocateSpace'])

@@ -1,3 +1,9 @@
+qemu-server (2.0-42) unstable; urgency=low
+
+  * fix pool permission checks on create
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 30 May 2012 10:13:11 +0200
+
 qemu-server (2.0-41) unstable; urgency=low
 
   * more fixes for newer pve-storage versions
