@@ -88,7 +88,20 @@ my $create_disks = sub {
 	    my $path = $rpcenv->check_volume_access($authuser, $storecfg, $vmid, $volid);
 	    PVE::Storage::activate_volumes($storecfg, [ $volid ])
 		if PVE::Storage::parse_volume_id ($volid, 1);
-	    die "image '$path' does not exists\n" if (!(-f $path || -b $path));
+
+	    my ($storeid, $volname) = PVE::Storage::parse_volume_id($volid);
+	    my $dl = PVE::Storage::vdisk_list($storecfg, $storeid, undef);
+	    my $foundvolid = undef;
+
+	    PVE::Storage::foreach_volid($dl, sub {
+		my ($volumeid) = @_;
+		if($volumeid eq $volid) {
+		    $foundvolid = 1;
+		    return;
+	        }
+	    });
+	
+	    die "image '$path' does not exists\n" if (!(-f $path || -b $path || $foundvolid));
 	    $res->{$ds} = $settings->{$ds};
 	}
     });
