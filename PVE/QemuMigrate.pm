@@ -324,32 +324,34 @@ sub phase2 {
     # start migration
 
     my $start = time();
+    eval {
+        PVE::QemuServer::vm_mon_cmd_nocheck($vmid, "migrate", uri => "tcp:localhost:$lport");
+    };
+    my $merr = $@;
 
-    my $merr = PVE::QemuServer::vm_monitor_command($vmid, "migrate -d \"tcp:localhost:$lport\"", 1);
-
-    my $lstat = '';
+    my $lstat = undef;
     while (1) {
 	sleep (2);
-	my $stat = PVE::QemuServer::vm_monitor_command($vmid, "info migrate", 1);
-	if ($stat =~ m/^Migration status: (active|completed|failed|cancelled)$/im) {
+	my $stat = PVE::QemuServer::vm_mon_cmd_nocheck($vmid, "query-migrate");
+	
+	if ($stat->{status} =~ m/^(active|completed|failed|cancelled)$/im) {
 	    $merr = undef;
-	    my $ms = $1;
 
-	    if ($stat ne $lstat) {
-		if ($ms eq 'active') {
+	    if ($stat->{ram}->{transferred} ne $lstat) {
+		if ($stat->{status} eq 'active') {
 		    my ($trans, $rem, $total) = (0, 0, 0);
-		    $trans = $1 if $stat =~ m/^transferred ram: (\d+) kbytes$/im;
-		    $rem = $1 if $stat =~ m/^remaining ram: (\d+) kbytes$/im;
-		    $total = $1 if $stat =~ m/^total ram: (\d+) kbytes$/im;
+		    $trans = sprintf "%.2f", $stat->{ram}->{transferred}/1024 if $stat->{ram}->{transferred};
+		    $rem = sprintf "%.2f", $stat->{ram}->{remaining}/1024 if $stat->{ram}->{remaining};
+   	            $total = sprintf "%.2f", $stat->{ram}->{total}/1024 if $stat->{ram}->{total};
 
-		    $self->log('info', "migration status: $ms (transferred ${trans}KB, " .
+		    $self->log('info', "migration status: $stat->{status} (transferred ${trans}KB, " .
 			       "remaining ${rem}KB), total ${total}KB)");
 		} else {
-		    $self->log('info', "migration status: $ms");
+		    $self->log('info', "migration status: $stat->{status}");
 		}
 	    }
 
-	    if ($ms eq 'completed') {
+	    if ($stat->{status} eq 'completed') {
 		my $delay = time() - $start;
 		if ($delay > 0) {
 		    my $mbps = sprintf "%.2f", $conf->{memory}/$delay;
@@ -357,16 +359,16 @@ sub phase2 {
 		}
 	    }
 	    
-	    if ($ms eq 'failed' || $ms eq 'cancelled') {
+	    if ($stat->{status} eq 'failed' || $stat->{status} eq 'cancelled') {
 		die "aborting\n"
 	    }
 
-	    last if $ms ne 'active';
+	    last if $stat->{status} ne 'active';
 	} else {
 	    die $merr if $merr;
-	    die "unable to parse migration status '$stat' - aborting\n";
+	    die "unable to parse migration status '$stat->{status}' - aborting\n";
 	}
-	$lstat = $stat;
+	$lstat = $lstat->{ram}->{transferred};
     };
 }
 
