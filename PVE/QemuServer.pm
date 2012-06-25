@@ -2825,11 +2825,11 @@ sub vm_monitor_command {
 }
 
 sub vm_qmp_command {
-    my ($vmid, $cmdstr, $nocheck) = @_;
+    my ($vmid, $cmd, $nocheck) = @_;
 
     #http://git.qemu.org/?p=qemu.git;a=blob;f=qmp-commands.hx;h=db980fa811325aeca8ad43472ba468702d4a25a2;hb=HEAD
     my $res;
-
+    my $event;
     eval {
 	die "VM $vmid not running\n" if !check_running($vmid, $nocheck);
 
@@ -2843,14 +2843,14 @@ sub vm_qmp_command {
 
 	# hack: migrate sometime blocks the monitor (when migrate_downtime
 	# is set)
-	#if ($cmdstr =~ m/^(info\s+migrate|migrate\s)/) {
-	#    $timeout = 60*60; # 1 hour
-	#}
+	
+	$timeout = 60*60 if ($cmd->{execute} =~ m/(migrate)$/);
+	
 
 	# read banner;
 	my $data = &$qmp_read_avail($sock, $timeout);
 	# '{"QMP": {"version": {"qemu": {"micro": 93, "minor": 0, "major": 1}, "package": " (qemu-kvm-devel)"}, "capabilities": []}} ';
-	die "got unexpected qemu qmp banner\n" if !$data->{QMP};
+	die "got unexpected qemu qmp banner\n" if !$data;
 
 	my $sel = new IO::Select;
 	$sel->add($sock);
@@ -2869,34 +2869,31 @@ sub vm_qmp_command {
 
         $res = &$qmp_read_avail($sock, $timeout);
         #  res = '{"return": {}}
-        die "qmp negociation error\n" if !$res->{return};
+        die "qmp negociation error\n" if !$res;
 
 	$timeout = 20;
 
-	my $fullcmd;
-	if (ref($cmdstr) eq "HASH") {
+	my $cmdjson;
+	
 	    #generate json from hash for complex cmd
-	    $fullcmd = to_json($cmdstr);
+	$cmdjson = to_json($cmd);
 
-	    if ($fullcmd->{execute}  =~ m/^(info\s+migrate|migrate\s)/) {
-		$timeout = 60*60; # 1 hour
-	    } elsif ($fullcmd->{execute} =~ m/^(eject|change)/) {
-		$timeout = 60; # note: cdrom mount command is slow
-	    }
-	} else {
-	    #execute command for simple action
-	    $fullcmd = '{ "execute": "' . $cmdstr . '" }';
+	if ($cmd->{execute}  =~ m/(migrate)$/) {
+	  $timeout = 60*60; # 1 hour
+	} elsif ($cmd->{execute} =~ m/^(eject|change)/) {
+	  $timeout = 60; # note: cdrom mount command is slow
 	}
+	
 
-	if (!($b = $sock->syswrite($fullcmd)) || ($b != length($fullcmd))) {
+	if (!($b = $sock->syswrite($cmdjson)) || ($b != length($cmdjson))) {
 	    die "monitor write error - $!";
 	}
+	
 
-	if (ref($cmdstr) ne "HASH") {
-	    return if ($cmdstr eq 'q') || ($cmdstr eq 'quit');
-	}
+	return if ($cmd->{execute} eq 'q') || ($cmd->{execute} eq 'quit');
 
-	$res = &$qmp_read_avail($sock, $timeout);
+
+	($res,$event) = &$qmp_read_avail($sock, $timeout);
     };
 
     my $err = $@;
