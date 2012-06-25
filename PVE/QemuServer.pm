@@ -2661,9 +2661,9 @@ sub vm_start {
 	# we set a very hight default of 8192m which is basically unlimited
 	my $migrate_speed = $defaults->{migrate_speed} || 8192;
 	$migrate_speed = $conf->{migrate_speed} || $migrate_speed;
+	$migrate_speed = $migrate_speed * 1048576;
 	eval {
-	    my $cmd = "migrate_set_speed ${migrate_speed}m";
-	    vm_monitor_command($vmid, $cmd);
+	    vm_mon_cmd($vmid, "migrate_set_speed", value => $migrate_speed);
 	};
 
 	my $migrate_downtime = $defaults->{migrate_downtime};
