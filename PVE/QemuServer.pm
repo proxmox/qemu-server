@@ -2669,8 +2669,7 @@ sub vm_start {
 	my $migrate_downtime = $defaults->{migrate_downtime};
 	$migrate_downtime = $conf->{migrate_downtime} if defined($conf->{migrate_downtime});
 	if (defined($migrate_downtime)) {
-	    my $cmd = "migrate_set_downtime ${migrate_downtime}";
-	    eval { vm_monitor_command($vmid, $cmd); };
+	    eval { vm_mon_cmd($vmid, "migrate_set_downtime",value => $migrate_downtime); };
 	}
 
 	vm_balloonset($vmid, $conf->{balloon}) if $conf->{balloon};
