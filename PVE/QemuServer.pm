@@ -2945,7 +2945,7 @@ sub vm_reset {
 
 	check_lock($conf) if !$skiplock;
 
-	vm_monitor_command($vmid, "system_reset");
+	vm_mon_cmd($vmid, "system_reset");
     });
 }
 
