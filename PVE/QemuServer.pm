@@ -3084,7 +3084,7 @@ sub vm_resume {
 
 	check_lock($conf) if !$skiplock;
 
-	vm_monitor_command($vmid, "cont");
+	vm_mon_cmd($vmid, "cont");
     });
 }
 
