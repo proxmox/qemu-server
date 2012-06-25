@@ -3009,9 +3009,10 @@ sub vm_stop {
 
 	eval {
 	    if ($shutdown) {
-		vm_monitor_command($vmid, "system_powerdown", $nocheck);
+		$nocheck ? vm_mon_cmd_nocheck($vmid, "system_powerdown") : vm_mon_cmd($vmid, "system_powerdown");
+		
 	    } else {
-		vm_monitor_command($vmid, "quit", $nocheck);
+		$nocheck ? vm_mon_cmd_nocheck($vmid, "quit") : vm_mon_cmd($vmid, "quit");
 	    }
 	};
 	my $err = $@;
