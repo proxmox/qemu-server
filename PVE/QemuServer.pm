@@ -2824,6 +2824,24 @@ sub vm_monitor_command {
     return $res;
 }
 
+sub vm_mon_cmd {
+    my ($vmid, $execute, %params) = @_;
+
+    my $cmd = {};
+    $cmd->{execute} = $execute;
+    $cmd->{arguments} = \%params;
+    vm_qmp_command($vmid,$cmd);
+}
+
+sub vm_mon_cmd_nocheck {
+    my ($vmid, $execute, %params) = @_;
+
+    my $cmd = {};
+    $cmd->{execute} = $execute;
+    $cmd->{arguments} = \%params;
+    vm_qmp_command($vmid,$cmd,1);
+}
+
 sub vm_qmp_command {
     my ($vmid, $cmd, $nocheck) = @_;
 
