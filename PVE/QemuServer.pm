@@ -2702,8 +2702,20 @@ my $qmp_read_avail = sub {
     }
 
     die "qmp read timeout\n" if !scalar(@ready);
-    my $obj = from_json($res);
-    return $obj;
+   
+    my @jsons = split("\n", $res);
+    my $obj = {};
+    my $event = {};
+    my $return = {};
+    foreach my $json (@jsons) {
+	$obj = from_json($json);
+	$event = $obj->{event} if exists $obj->{event};
+	$return = $obj->{QMP} if exists $obj->{QMP};
+	$return = $obj->{"return"} if exists $obj->{"return"};
+	die $obj->{error}->{desc} if exists $obj->{error}->{desc} && $obj->{error}->{desc} !~ m/Connection can not be completed immediately/;
+    }
+
+    return ($return,$event);
 };
 
 sub __read_avail {
