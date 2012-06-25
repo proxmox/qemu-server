@@ -2593,7 +2593,7 @@ sub qemu_block_set_io_throttle {
     $iops_rd = 0 if !$iops_rd;
     $iops_wr = 0 if !$iops_wr;
 
-    my $ret = vm_monitor_command($vmid, "block_set_io_throttle $deviceid $bps $bps_rd $bps_wr $iops $iops_rd $iops_wr");
+    my $ret = vm_mon_cmd($vmid, "block_set_io_throttle", device => $deviceid, bps => $bps, bps_rd => $bps_rd, bps_wr => $bps_wr, iops => $iops, iops_rd => $iops_rd, iops_wr => $iops_wr);
     $ret =~ s/^\s+//;
     return 1 if $ret eq "";
     syslog("err", "error setting block_set_io_throttle: $ret");
