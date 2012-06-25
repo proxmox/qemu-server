@@ -2653,7 +2653,7 @@ sub vm_start {
 	    } else {
 		unlink $statefile;
 		# fixme: send resume - is that necessary ?
-		eval { vm_monitor_command($vmid, "cont"); };
+		eval { vm_mon_cmd($vmid, "cont"); };
 	    }
 	}
 
