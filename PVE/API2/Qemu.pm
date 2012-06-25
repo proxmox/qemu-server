@@ -687,11 +687,11 @@ my $vmconfig_update_disk = sub {
 
 	if (PVE::QemuServer::check_running($vmid)) {
 	    if ($drive->{file} eq 'none') {
-		PVE::QemuServer::vm_monitor_command($vmid, "eject -f drive-$opt", 0);
+		PVE::QemuServer::vm_mon_cmd($vmid, "eject",force => JSON::true,device => "drive-$opt");
 	    } else {
 		my $path = PVE::QemuServer::get_iso_path($storecfg, $vmid, $drive->{file});
-		PVE::QemuServer::vm_monitor_command($vmid, "eject -f drive-$opt", 0); #force eject if locked
-		PVE::QemuServer::vm_monitor_command($vmid, "change drive-$opt \"$path\"", 0) if $path;
+		PVE::QemuServer::vm_mon_cmd($vmid, "eject",force => JSON::true,device => "drive-$opt"); #force eject if locked
+		PVE::QemuServer::vm_mon_cmd($vmid, "change",device => "drive-$opt",target => "$path") if $path;
 	    }
 	}
 
