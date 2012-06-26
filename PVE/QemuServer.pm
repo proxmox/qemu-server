@@ -2669,7 +2669,7 @@ sub vm_start {
 	my $migrate_downtime = $defaults->{migrate_downtime};
 	$migrate_downtime = $conf->{migrate_downtime} if defined($conf->{migrate_downtime});
 	if (defined($migrate_downtime)) {
-	    eval { vm_mon_cmd($vmid, "migrate_set_downtime",value => $migrate_downtime); };
+	    eval { vm_mon_cmd($vmid, "migrate_set_downtime", value => $migrate_downtime); };
 	}
 
 	vm_balloonset($vmid, $conf->{balloon}) if $conf->{balloon};
@@ -2701,7 +2701,7 @@ my $qmp_read_avail = sub {
     }
 
     die "qmp read timeout\n" if !scalar(@ready);
-   
+
     my @jsons = split("\n", $res);
     my $obj = {};
     my $event = {};
@@ -2860,9 +2860,9 @@ sub vm_qmp_command {
 
 	# hack: migrate sometime blocks the monitor (when migrate_downtime
 	# is set)
-	
+
 	$timeout = 60*60 if ($cmd->{execute} =~ m/(migrate)$/);
-	
+
 
 	# read banner;
 	my $data = &$qmp_read_avail($sock, $timeout);
@@ -2891,7 +2891,7 @@ sub vm_qmp_command {
 	$timeout = 20;
 
 	my $cmdjson;
-	
+
 	    #generate json from hash for complex cmd
 	$cmdjson = to_json($cmd);
 
@@ -2900,12 +2900,12 @@ sub vm_qmp_command {
 	} elsif ($cmd->{execute} =~ m/^(eject|change)/) {
 	  $timeout = 60; # note: cdrom mount command is slow
 	}
-	
+
 
 	if (!($b = $sock->syswrite($cmdjson)) || ($b != length($cmdjson))) {
 	    die "monitor write error - $!";
 	}
-	
+
 
 	return if ($cmd->{execute} eq 'q') || ($cmd->{execute} eq 'quit');
 
@@ -3009,7 +3009,7 @@ sub vm_stop {
 	eval {
 	    if ($shutdown) {
 		$nocheck ? vm_mon_cmd_nocheck($vmid, "system_powerdown") : vm_mon_cmd($vmid, "system_powerdown");
-		
+
 	    } else {
 		$nocheck ? vm_mon_cmd_nocheck($vmid, "quit") : vm_mon_cmd($vmid, "quit");
 	    }
@@ -3070,7 +3070,7 @@ sub vm_suspend {
 	my $conf = load_config($vmid);
 
 	check_lock($conf) if !$skiplock;
-	
+
 	vm_mon_cmd($vmid, "stop");
     });
 }
