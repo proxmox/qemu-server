@@ -2691,7 +2691,7 @@ my $qmp_read_avail = sub {
 	my $count;
 	if ($count = $fh->sysread($buf, 8192)) {
 		$res .= $buf;
-		last;
+		last if $buf =~ (m/}\r\n$/);
 	} else {
 	    if (!defined($count)) {
 		die "$!\n";
