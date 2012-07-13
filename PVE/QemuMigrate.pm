@@ -329,27 +329,12 @@ sub phase2 {
     };
     my $merr = $@;
 
-    my $lstat = undef;
+    my $lstat = 0;
     while (1) {
 	sleep (2);
 	my $stat = PVE::QemuServer::vm_mon_cmd_nocheck($vmid, "query-migrate");
-	
 	if ($stat->{status} =~ m/^(active|completed|failed|cancelled)$/im) {
 	    $merr = undef;
-
-	    if ($stat->{ram}->{transferred} ne $lstat) {
-		if ($stat->{status} eq 'active') {
-		    my ($trans, $rem, $total) = (0, 0, 0);
-		    $trans = sprintf "%.2f", $stat->{ram}->{transferred}/1024 if $stat->{ram}->{transferred};
-		    $rem = sprintf "%.2f", $stat->{ram}->{remaining}/1024 if $stat->{ram}->{remaining};
-   	            $total = sprintf "%.2f", $stat->{ram}->{total}/1024 if $stat->{ram}->{total};
-
-		    $self->log('info', "migration status: $stat->{status} (transferred ${trans}KB, " .
-			       "remaining ${rem}KB), total ${total}KB)");
-		} else {
-		    $self->log('info', "migration status: $stat->{status}");
-		}
-	    }
 
 	    if ($stat->{status} eq 'completed') {
 		my $delay = time() - $start;
@@ -363,13 +348,27 @@ sub phase2 {
 		die "aborting\n"
 	    }
 
-	    last if $stat->{status} ne 'active';
+	    if ($stat->{status} ne 'active') {
+		$self->log('info', "migration status: $stat->{status}");
+		last;
+	    }
+
+	    if ($stat->{ram}->{transferred} ne $lstat) {
+		my $trans = $stat->{ram}->{transferred} || 0;
+		my $rem = $stat->{ram}->{remaining} || 0;
+		my $total = $stat->{ram}->{total} || 0;
+
+		$self->log('info', "migration status: $stat->{status} (transferred ${trans}, " .
+			   "remaining ${rem}), total ${total})");
+	    }
+
+	    $lstat = $stat->{ram}->{transferred};
+
 	} else {
 	    die $merr if $merr;
 	    die "unable to parse migration status '$stat->{status}' - aborting\n";
 	}
-	$lstat = $lstat->{ram}->{transferred};
-    };
+    }
 }
 
 sub phase3 {
