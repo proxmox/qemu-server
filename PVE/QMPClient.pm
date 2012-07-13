@@ -50,7 +50,7 @@ sub queue_cmd {
 
 # execute a single command
 sub cmd {
-    my ($self, $vmid, $cmd) = @_;
+    my ($self, $vmid, $cmd, $timeout) = @_;
 
     my $result;
 
@@ -59,12 +59,23 @@ sub cmd {
 	$result = $resp->{'return'};
     };
 
+    die "no command specified" if !($cmd &&  $cmd->{execute});
+
     $cmd->{callback} = $callback;
     $cmd->{arguments} = {} if !defined($cmd->{arguments});
 
     $self->{queue}->{$vmid} = [ $cmd ];
 
-    $self->queue_execute();
+    if (!$timeout) {
+	# hack: monitor sometime blocks
+	if ($cmd->{execute} eq 'query-migrate') {
+	    $timeout = 60*60; # 1 hour
+	} elsif ($cmd->{execute} =~ m/^(eject|change)/) {
+	    $timeout = 60; # note: cdrom mount command is slow
+	}
+    }
+
+    $self->queue_execute($timeout);
 
     my $cmdstr = $cmd->{execute} || '';
     die "VM $vmid qmp command '$cmdstr' failed - $self->{errors}->{$vmid}"
