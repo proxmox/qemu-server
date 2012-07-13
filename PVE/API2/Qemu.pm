@@ -1141,7 +1141,7 @@ __PACKAGE__->register_method({
 	# test if VM exists
 	my $conf = PVE::QemuServer::load_config($param->{vmid});
 
-	my $vmstatus = PVE::QemuServer::vmstatus($param->{vmid});
+	my $vmstatus = PVE::QemuServer::vmstatus($param->{vmid}, 1);
 	my $status = $vmstatus->{$param->{vmid}};
 
 	$status->{ha} = &$vm_is_ha_managed($param->{vmid});

@@ -1900,8 +1900,11 @@ sub disksize {
 
 my $last_proc_pid_stat;
 
+# get VM status information
+# This must be fast and should not block ($full == false)
+# We only query KVM using QMP if $full == true (this can be slow)
 sub vmstatus {
-    my ($opt_vmid) = @_;
+    my ($opt_vmid, $full) = @_;
 
     my $res = {};
 
@@ -1971,18 +1974,6 @@ sub vmstatus {
 	my $pid = $d->{pid};
 	next if !$pid;
 
-	if (my $fh = IO::File->new("/proc/$pid/io", "r")) {
-	    my $data = {};
-	    while (defined(my $line = <$fh>)) {
-		if ($line =~ m/^([rw]char):\s+(\d+)$/) {
-		    $data->{$1} = $2;
-		}
-	    }
-	    close($fh);
-	    $d->{diskread} = $data->{rchar} || 0;
-	    $d->{diskwrite} = $data->{wchar} || 0;
-	}
-
 	my $pstat = PVE::ProcFSTools::read_proc_pid_stat($pid);
 	next if !$pstat; # not running
 
@@ -2018,6 +2009,49 @@ sub vmstatus {
 	} else {
 	    $d->{cpu} = $old->{cpu};
 	}
+    }
+
+    return $res if !$full; 
+
+    my $qmpclient = PVE::QMPClient->new();
+
+    my $blockstatscb = sub {
+	my ($vmid, $resp) = @_;
+	my $data = $resp->{'return'} || [];
+	my $totalrdbytes = 0;
+	my $totalwrbytes = 0;
+	for my $blockstat (@$data) {
+	    $totalrdbytes = $totalrdbytes + $blockstat->{stats}->{rd_bytes};
+	    $totalwrbytes = $totalwrbytes + $blockstat->{stats}->{wr_bytes};
+	}
+	$res->{$vmid}->{diskread} = $totalrdbytes;
+	$res->{$vmid}->{diskwrite} = $totalwrbytes;
+    };
+
+    my $statuscb = sub {
+	my ($vmid, $resp) = @_;
+	$qmpclient->queue_cmd($vmid, $blockstatscb, 'query-blockstats');
+
+	my $status = 'unknown';
+	if (!defined($status = $resp->{'return'}->{status})) {
+	    warn "unable to get VM status\n";
+	    return;
+	}
+
+	$res->{$vmid}->{qmpstatus} = $resp->{'return'}->{status};
+    };
+
+    foreach my $vmid (keys %$list) {
+	next if $opt_vmid && ($vmid ne $opt_vmid);
+	next if !$res->{$vmid}->{pid}; # not running
+	$qmpclient->queue_cmd($vmid, $statuscb, 'query-status');
+    }
+
+    $qmpclient->queue_execute();
+
+    foreach my $vmid (keys %$list) {
+	next if $opt_vmid && ($vmid ne $opt_vmid);
+	$res->{$vmid}->{qmpstatus} = $res->{$vmid}->{status} if !$res->{$vmid}->{qmpstatus};
     }
 
     return $res;
