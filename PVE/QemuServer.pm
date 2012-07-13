@@ -2364,24 +2364,13 @@ sub next_migrate_port {
 sub vm_devices_list {
     my ($vmid) = @_;
 
-    my $res = vm_monitor_command ($vmid, "info pci");
+    my $res = vm_mon_cmd($vmid, 'query-pci');
 
-    my @lines = split ("\n", $res);
-    my $devices;
-    my $bus;
-    my $addr;
-    my $id;
-
-    foreach my $line (@lines) {
-	$line =~ s/^\s+//;
-	if ($line =~ m/^Bus  (\d+), device   (\d+), function (\d+):$/) {
-	    $bus=$1;
-	    $addr=$2;
-	}
-	if ($line =~ m/^id "([a-z][a-z_\-]*\d*)"$/) {
-            $id=$1;
-            $devices->{$id}->{bus}=$bus;
-            $devices->{$id}->{addr}=$addr;
+    my $devices = {};
+    foreach my $pcibus (@$res) {
+	foreach my $device (@{$pcibus->{devices}}) {
+	    next if !$device->{'qdev_id'};
+	    $devices->{$device->{'qdev_id'}} = $device;
 	}
     }
 
