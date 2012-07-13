@@ -1,7 +1,11 @@
+PERLSOURCE = 			\
+	QemuServer.pm		\
+	QemuMigrate.pm		\
+	QMPClient.pm
 
 .PHONY: install
 install:
-	install -D -m 0644 QemuServer.pm ${DESTDIR}${PERLDIR}/PVE/QemuServer.pm
-	install -D -m 0644 QemuMigrate.pm ${DESTDIR}${PERLDIR}/PVE/QemuMigrate.pm
+	install -d ${DESTDIR}${PERLDIR}/PVE
+	install -m 0644 ${PERLSOURCE} ${DESTDIR}${PERLDIR}/PVE/
 	make -C VZDump install
 	make -C API2 install

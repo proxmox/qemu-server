@@ -25,6 +25,7 @@ use PVE::Tools qw(run_command lock_file file_read_firstline);
 use PVE::Cluster qw(cfs_register_file cfs_read_file cfs_write_file cfs_lock_file);
 use PVE::INotify;
 use PVE::ProcFSTools;
+use PVE::QMPClient;
 use Time::HiRes qw(gettimeofday);
 
 my $cpuinfo = PVE::ProcFSTools::read_cpuinfo();
@@ -2677,46 +2678,6 @@ sub vm_start {
     });
 }
 
-my $qmp_read_avail = sub {
-    my ($fh, $timeout) = @_;
-
-    my $sel = new IO::Select;
-    $sel->add($fh);
-
-    my $res = '';
-    my $buf;
-
-    my @ready;
-    while (scalar (@ready = $sel->can_read($timeout))) {
-	my $count;
-	if ($count = $fh->sysread($buf, 8192)) {
-		$res .= $buf;
-		last if $buf =~ (m/}\r\n$/);
-	} else {
-	    if (!defined($count)) {
-		die "$!\n";
-	    }
-	    last;
-	}
-    }
-
-    die "qmp read timeout\n" if !scalar(@ready);
-
-    my @jsons = split("\n", $res);
-    my $obj = {};
-    my $event = {};
-    my $return = {};
-    foreach my $json (@jsons) {
-	$obj = from_json($json);
-	$event = $obj->{event} if exists $obj->{event};
-	$return = $obj->{QMP} if exists $obj->{QMP};
-	$return = $obj->{"return"} if exists $obj->{"return"};
-	die $obj->{error}->{desc} if exists $obj->{error}->{desc} && $obj->{error}->{desc} !~ m/Connection can not be completed immediately/;
-    }
-
-    return ($return,$event);
-};
-
 sub __read_avail {
     my ($fh, $timeout) = @_;
 
@@ -2826,96 +2787,31 @@ sub vm_monitor_command {
 sub vm_mon_cmd {
     my ($vmid, $execute, %params) = @_;
 
-    my $cmd = {};
-    $cmd->{execute} = $execute;
-    $cmd->{arguments} = \%params;
-    vm_qmp_command($vmid,$cmd);
+    my $cmd = { execute => $execute, arguments => \%params };
+    vm_qmp_command($vmid, $cmd);
 }
 
 sub vm_mon_cmd_nocheck {
     my ($vmid, $execute, %params) = @_;
 
-    my $cmd = {};
-    $cmd->{execute} = $execute;
-    $cmd->{arguments} = \%params;
-    vm_qmp_command($vmid,$cmd,1);
+    my $cmd = { execute => $execute, arguments => \%params };
+    vm_qmp_command($vmid, $cmd, 1);
 }
 
 sub vm_qmp_command {
     my ($vmid, $cmd, $nocheck) = @_;
 
-    #http://git.qemu.org/?p=qemu.git;a=blob;f=qmp-commands.hx;h=db980fa811325aeca8ad43472ba468702d4a25a2;hb=HEAD
     my $res;
-    my $event;
+
     eval {
 	die "VM $vmid not running\n" if !check_running($vmid, $nocheck);
 
-	my $sname = qmp_socket($vmid);
-	my $sock = IO::Socket::UNIX->new( Peer => $sname ) ||
-            die "unable to connect to VM $vmid socket - $!\n";
+	my $qmpclient = PVE::QMPClient->new();
 
-	my $timeout = 3;
+	$res = $qmpclient->cmd($vmid, $cmd);
 
-	# maybe this works with qmp, need to be tested
-
-	# hack: migrate sometime blocks the monitor (when migrate_downtime
-	# is set)
-
-	$timeout = 60*60 if ($cmd->{execute} =~ m/(migrate)$/);
-
-
-	# read banner;
-	my $data = &$qmp_read_avail($sock, $timeout);
-	# '{"QMP": {"version": {"qemu": {"micro": 93, "minor": 0, "major": 1}, "package": " (qemu-kvm-devel)"}, "capabilities": []}} ';
-	die "got unexpected qemu qmp banner\n" if !$data;
-
-	my $sel = new IO::Select;
-	$sel->add($sock);
-
-        #negociation
-        my $negociation = '{ "execute": "qmp_capabilities" }';
-
-        if (!scalar(my @ready = $sel->can_write($timeout))) {
-	    die "monitor write error - timeout";
-        }
-
-        my $b;
-        if (!($b = $sock->syswrite($negociation)) || ($b != length($negociation))) {
-            die "monitor write error - $!";
-        }
-
-        $res = &$qmp_read_avail($sock, $timeout);
-        #  res = '{"return": {}}
-        die "qmp negociation error\n" if !$res;
-
-	$timeout = 20;
-
-	my $cmdjson;
-
-	    #generate json from hash for complex cmd
-	$cmdjson = to_json($cmd);
-
-	if ($cmd->{execute}  =~ m/(migrate)$/) {
-	  $timeout = 60*60; # 1 hour
-	} elsif ($cmd->{execute} =~ m/^(eject|change)/) {
-	  $timeout = 60; # note: cdrom mount command is slow
-	}
-
-
-	if (!($b = $sock->syswrite($cmdjson)) || ($b != length($cmdjson))) {
-	    die "monitor write error - $!";
-	}
-
-
-	return if ($cmd->{execute} eq 'q') || ($cmd->{execute} eq 'quit');
-
-
-	($res,$event) = &$qmp_read_avail($sock, $timeout);
     };
-
-    my $err = $@;
-
-    if ($err) {
+    if (my $err = $@) {
 	syslog("err", "VM $vmid qmp command failed - $err");
 	die $err;
     }

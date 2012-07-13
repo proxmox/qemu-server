@@ -1,3 +1,9 @@
+qemu-server (2.0-43) unstable; urgency=low
+
+  * use new QMPClient code
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 13 Jul 2012 07:05:28 +0200
+
 qemu-server (2.0-42) unstable; urgency=low
 
   * fix pool permission checks on create

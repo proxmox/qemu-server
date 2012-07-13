@@ -1,5 +1,3 @@
-#!/usr/bin/perl -w
-
 package PVE::QMPClient;
 
 use strict;
@@ -91,9 +89,6 @@ my $close_connection = sub {
     delete $self->{fhs_lookup}->{$fh};
 
     $self->{mux}->close($fh);
-
-    print "CLOSE SOCKET to $vmid\n";
-
 };
 
 my $open_connection = sub {
@@ -103,8 +98,6 @@ my $open_connection = sub {
 
     my $fh = IO::Socket::UNIX->new(Peer => $sname, Blocking => 0, Timeout => 1) ||
 	die "unable to connect to VM $vmid socket - $!\n";
-
-    print "OPEN SOCKET to $vmid \n";
 
     $self->{fhs}->{$vmid} = $fh;
     $self->{fhs_lookup}->{$fh} = $vmid;
@@ -147,12 +140,10 @@ my $check_queue = sub {
 		arguments => $cmd->{arguments},
 		id => $cmd->{id}});
 
-	    print "WRITECMD:$vmid: $qmpcmd\n";
 	    $self->{mux}->write($fh, $qmpcmd);
 	};
 	if (my $err = $@) {
 	    $self->{errors}->{$vmid} = $err;
-	    # fixme: close fh?
 	} else {
 	    $running++;
 	}
@@ -168,8 +159,6 @@ sub queue_execute {
     my ($self, $timeout) = @_;
 
     $timeout = 3 if !$timeout;
-
-    print "start exec queue\n";
 
     $self->{current} = {};
     $self->{errors} = {};
@@ -207,9 +196,6 @@ sub queue_execute {
     }
 
     $self->{queue} = $self->{current} = $self->{fhs} = $self->{fhs_lookup} = {};
-
-    print "end exec queue $running\n";
-
 }
 
 # mux_input is called when input is available on one of
@@ -217,8 +203,6 @@ sub queue_execute {
 sub mux_input {
     my ($self, $mux, $fh, $input) = @_;
 
-    print "GOT: $$input\n";
- 
     return if $$input !~ m/}\r\n$/;
 
     my $raw = $$input;
@@ -246,11 +230,6 @@ sub mux_input {
 		next;
 	    }
 
-	    # die $obj->{error}->{desc} if defined($obj->{error}->{desc});
- 
-	    #print "GOTOBJ: " . Dumper($obj);
-
-	    # we do not need events for now
 	    if (defined($obj->{event})) {
 		if (my $eventcb = $self->{eventcb}) {
 		    &$eventcb($obj);
@@ -287,121 +266,10 @@ sub mux_timeout {
     my ($self, $mux, $fh) = @_;
 
     if (my $vmid = $self->{fhs_lookup}->{$fh}) {
-
-	print "GOT timeout for $vmid\n";
-
 	$self->{errors}->{$vmid} = "got timeout\n";
     }
 
     &$check_queue($self);
 }
 
-
-
-package test;
-
-use strict;
-use PVE::SafeSyslog;
-use PVE::INotify;
-use PVE::QemuServer;
-use PVE::Cluster;
-use Data::Dumper;
-
-initlog($0);
-
-$ENV{'PATH'} = '/sbin:/bin:/usr/sbin:/usr/bin';
-
-die "please run as root\n" if $> != 0;
-
-PVE::INotify::inotify_init();
-
-my $nodename = PVE::INotify::nodename();
-
-sub vm_qmp_command {
-    my ($vmid, $cmd, $nocheck) = @_;
-
-    my $res;
-
-    eval {
-	die "VM $vmid not running\n" if !PVE::QemuServer::check_running($vmid, $nocheck);
-
-	my $qmpclient = PVE::QMPClient->new();
-
-	$res = $qmpclient->cmd($vmid, $cmd);
-
-    };
-    if (my $err = $@) {
-	syslog("err", "VM $vmid qmp command failed - $err");
-	die $err;
-    }
-
-    return $res;
-}
-
-# print Dumper(vm_qmp_command(100, { execute => 'query-status' }));
-
-sub update_qemu_stats {
-    
-    print "start update\n";
-
-    my $ctime = time();
-
-    my $vmstatus = PVE::QemuServer::vmstatus();
-
-    my $qmpclient = PVE::QMPClient->new();
-
-    my $res = {};
-
-    my $blockstatscb = sub {
-	my ($vmid, $resp) = @_;
-	my $data = $resp->{'return'} || [];
-	my $totalrdbytes = 0;
-	my $totalwrbytes = 0;
-	for my $blockstat (@$data) {
-	    $totalrdbytes = $totalrdbytes + $blockstat->{stats}->{rd_bytes};
-	    $totalwrbytes = $totalwrbytes + $blockstat->{stats}->{wr_bytes};
-	}
-	$res->{$vmid}->{diskread} = $totalrdbytes;
-	$res->{$vmid}->{diskwrite} = $totalwrbytes;
-    };
-
-    my $statuscb = sub {
-	my ($vmid, $resp) = @_;
-	$qmpclient->queue_cmd($vmid, $blockstatscb, 'query-blockstats');
-
-	my $status = 'unknown';
-	if (!defined($status = $resp->{'return'}->{status})) {
-	    warn "unable to get VM status\n";
-	    return;
-	}
-
-	$res->{$vmid}->{status} = $resp->{'return'}->{status};
-    };
-
-    foreach my $vmid (keys %$vmstatus) {
-	my $d = $vmstatus->{$vmid};
-	my $data;
-	if ($d->{pid}) { # running
-
-	    $qmpclient->queue_cmd($vmid, $statuscb, 'query-status');
-
-	}
-    }
-    print "start loop\n";
-    $qmpclient->queue_execute();
-    print "end loop\n";
-    print Dumper($res);
-    foreach my $vmid (keys %{$qmpclient->{errors}}) {
-	my $msg = "qmp error on VM $vmid: $qmpclient->{errors}->{$vmid}";
-	chomp $msg;
-	warn "$msg\n";
-    }
-
-    print "end update\n";
-}
-
-for(;;) {
-    PVE::Cluster::cfs_update();
-    update_qemu_stats();
-    sleep(3);
-}
+1;
