@@ -2819,6 +2819,19 @@ sub vm_qmp_command {
     return $res;
 }
 
+sub vm_human_monitor_command {
+    my ($vmid, $cmdline) = @_;
+
+    my $res;
+
+    my $cmd = { 
+	execute => 'human-monitor-command',
+	arguments => { 'command-line' => $cmdline},
+    };
+
+    return vm_qmp_command($vmid, $cmd);
+}
+
 sub vm_commandline {
     my ($storecfg, $vmid) = @_;
 

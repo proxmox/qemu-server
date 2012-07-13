@@ -294,7 +294,7 @@ __PACKAGE__->register_method ({
 	    last if $input =~ m/^\s*q(uit)?\s*$/;
 
 	    eval {
-		print PVE::QemuServer::vm_monitor_command ($vmid, $input);
+		print PVE::QemuServer::vm_human_monitor_command ($vmid, $input);
 	    };
 	    print "ERROR: $@" if $@;
 	}
