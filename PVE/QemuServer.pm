@@ -2059,15 +2059,11 @@ sub config_to_command {
 
     my $use_virtio = 0;
 
-    my $socket = monitor_socket($vmid);
-    push @$cmd, '-chardev', "socket,id=monitor,path=$socket,server,nowait";
-    push @$cmd, '-mon', "chardev=monitor,mode=readline";
-
     my $qmpsocket = qmp_socket($vmid);
     push @$cmd, '-chardev', "socket,id=qmp,path=$qmpsocket,server,nowait";
     push @$cmd, '-mon', "chardev=qmp,mode=control";
 
-    $socket = vnc_socket($vmid);
+    my $socket = vnc_socket($vmid);
     push @$cmd,  '-vnc', "unix:$socket,x509,password";
 
     push @$cmd, '-pidfile' , pidfile_name($vmid);
@@ -2327,11 +2323,6 @@ sub vnc_socket {
     return "${var_run_tmpdir}/$vmid.vnc";
 }
 
-sub monitor_socket {
-    my ($vmid) = @_;
-    return "${var_run_tmpdir}/$vmid.mon";
-}
-
 sub qmp_socket {
     my ($vmid) = @_;
     return "${var_run_tmpdir}/$vmid.qmp";
@@ -2462,7 +2453,7 @@ sub vm_deviceunplug {
 sub qemu_deviceadd {
     my ($vmid, $devicefull) = @_;
 
-    my $ret = vm_monitor_command($vmid, "device_add $devicefull");
+    my $ret = vm_human_monitor_command($vmid, "device_add $devicefull");
     $ret =~ s/^\s+//;
     # Otherwise, if the command succeeds, no output is sent. So any non-empty string shows an error
     return 1 if $ret eq "";
@@ -2474,7 +2465,7 @@ sub qemu_deviceadd {
 sub qemu_devicedel {
     my($vmid, $deviceid) = @_;
 
-    my $ret = vm_monitor_command($vmid, "device_del $deviceid");
+    my $ret = vm_human_monitor_command($vmid, "device_del $deviceid");
     $ret =~ s/^\s+//;
     return 1 if $ret eq "";
     syslog("err", "detaching device $deviceid failed : $ret");
@@ -2485,7 +2476,7 @@ sub qemu_driveadd {
     my($storecfg, $vmid, $device) = @_;
 
     my $drive = print_drive_full($storecfg, $vmid, $device);
-    my $ret = vm_monitor_command($vmid, "drive_add auto $drive");
+    my $ret = vm_human_monitor_command($vmid, "drive_add auto $drive");
     # If the command succeeds qemu prints: "OK"
     if ($ret !~ m/OK/s) {
         syslog("err", "adding drive failed: $ret");
@@ -2497,7 +2488,7 @@ sub qemu_driveadd {
 sub qemu_drivedel {
     my($vmid, $deviceid) = @_;
 
-    my $ret = vm_monitor_command($vmid, "drive_del drive-$deviceid");
+    my $ret = vm_human_monitor_command($vmid, "drive_del drive-$deviceid");
     $ret =~ s/^\s+//;
     if ($ret =~ m/Device \'.*?\' not found/s) {
         # NB: device not found errors mean the drive was auto-deleted and we ignore the error
@@ -2553,7 +2544,7 @@ sub qemu_netdevadd {
     my ($vmid, $conf, $device, $deviceid) = @_;
 
     my $netdev = print_netdev_full($vmid, $conf, $device, $deviceid);
-    my $ret = vm_monitor_command($vmid, "netdev_add $netdev");
+    my $ret = vm_human_monitor_command($vmid, "netdev_add $netdev");
     $ret =~ s/^\s+//;
 
     #if the command succeeds, no output is sent. So any non-empty string shows an error
@@ -2565,7 +2556,7 @@ sub qemu_netdevadd {
 sub qemu_netdevdel {
     my ($vmid, $deviceid) = @_;
 
-    my $ret = vm_monitor_command($vmid, "netdev_del $deviceid");
+    my $ret = vm_human_monitor_command($vmid, "netdev_del $deviceid");
     $ret =~ s/^\s+//;
     #if the command succeeds, no output is sent. So any non-empty string shows an error
     return 1 if $ret eq "";
@@ -2665,112 +2656,6 @@ sub vm_start {
 	vm_balloonset($vmid, $conf->{balloon}) if $conf->{balloon};
 
     });
-}
-
-sub __read_avail {
-    my ($fh, $timeout) = @_;
-
-    my $sel = new IO::Select;
-    $sel->add($fh);
-
-    my $res = '';
-    my $buf;
-
-    my @ready;
-    while (scalar (@ready = $sel->can_read($timeout))) {
-	my $count;
-	if ($count = $fh->sysread($buf, 8192)) {
-	    if ($buf =~ /^(.*)\(qemu\) $/s) {
-		$res .= $1;
-		last;
-	    } else {
-		$res .= $buf;
-	    }
-	} else {
-	    if (!defined($count)) {
-		die "$!\n";
-	    }
-	    last;
-	}
-    }
-
-    die "monitor read timeout\n" if !scalar(@ready);
-
-    return $res;
-}
-
-sub vm_monitor_command {
-    my ($vmid, $cmdstr, $nocheck) = @_;
-
-    my $res;
-
-    eval {
-	die "VM $vmid not running\n" if !check_running($vmid, $nocheck);
-
-	my $sname = monitor_socket($vmid);
-
-	my $sock = IO::Socket::UNIX->new( Peer => $sname ) ||
-	    die "unable to connect to VM $vmid socket - $!\n";
-
-	my $timeout = 3;
-
-	# hack: migrate sometime blocks the monitor (when migrate_downtime
-	# is set)
-	if ($cmdstr =~ m/^(info\s+migrate|migrate\s)/) {
-	    $timeout = 60*60; # 1 hour
-	}
-
-	# read banner;
-	my $data = __read_avail($sock, $timeout);
-
-	if ($data !~ m/^QEMU\s+(\S+)\s+monitor\s/) {
-	    die "got unexpected qemu monitor banner\n";
-	}
-
-	my $sel = new IO::Select;
-	$sel->add($sock);
-
-	if (!scalar(my @ready = $sel->can_write($timeout))) {
-	    die "monitor write error - timeout";
-	}
-
-	my $fullcmd = "$cmdstr\r";
-
-	# syslog('info', "VM $vmid monitor command: $cmdstr");
-
-	my $b;
-	if (!($b = $sock->syswrite($fullcmd)) || ($b != length($fullcmd))) {
-	    die "monitor write error - $!";
-	}
-
-	return if ($cmdstr eq 'q') || ($cmdstr eq 'quit');
-
-	$timeout = 20;
-
-	if ($cmdstr =~ m/^(info\s+migrate|migrate\s)/) {
-	    $timeout = 60*60; # 1 hour
-	} elsif ($cmdstr =~ m/^(eject|change)/) {
-	    $timeout = 60; # note: cdrom mount command is slow
-	}
-	if ($res = __read_avail($sock, $timeout)) {
-
-	    my @lines = split("\r?\n", $res);
-
-	    shift @lines if $lines[0] !~ m/^unknown command/; # skip echo
-
-	    $res = join("\n", @lines);
-	    $res .= "\n";
-	}
-    };
-
-    my $err = $@;
-
-    if ($err) {
-	syslog("err", "VM $vmid monitor command failed - $err");
-	die $err;
-    }
-
-    return $res;
 }
 
 sub vm_mon_cmd {
@@ -2992,8 +2877,9 @@ sub vm_sendkey {
     lock_config($vmid, sub {
 
 	my $conf = load_config($vmid);
-
-	vm_monitor_command($vmid, "sendkey $key");
+	
+	# there is no qmp command, so we use the human monitor command
+	vm_human_monitor_command($vmid, "sendkey $key");
     });
 }
 

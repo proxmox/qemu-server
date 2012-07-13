@@ -1715,7 +1715,7 @@ __PACKAGE__->register_method({
 
 	my $res = '';
 	eval {
-	    $res = PVE::QemuServer::vm_monitor_command($vmid, $param->{command});
+	    $res = PVE::QemuServer::vm_human_monitor_command($vmid, $param->{command});
 	};
 	$res = "ERROR: $@" if $@;
 
