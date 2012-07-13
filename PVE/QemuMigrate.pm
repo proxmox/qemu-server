@@ -177,19 +177,21 @@ sub sync_disks {
 	my $volhash = {};
 	my $cdromhash = {};
 
-	# get list from PVE::Storage (for unused volumes)
-	my $dl = PVE::Storage::vdisk_list($self->{storecfg}, undef, $vmid);
-	PVE::Storage::foreach_volid($dl, sub {
-	    my ($volid, $sid, $volname) = @_;
+        my $ids = $self->{storecfg}->{ids};
+        foreach my $storeid (keys %$ids) {
+            next if $ids->{$storeid}->{shared};
+            # get list from PVE::Storage (for unused volumes)
+            my $dl = PVE::Storage::vdisk_list($self->{storecfg}, $storeid, $vmid);
+            PVE::Storage::foreach_volid($dl, sub {
+                my ($volid, $sid, $volname) = @_;
 
-	    # check if storage is available on both nodes
-	    my $scfg = PVE::Storage::storage_check_node($self->{storecfg}, $sid);
-	    PVE::Storage::storage_check_node($self->{storecfg}, $sid, $self->{node});
+                # check if storage is available on both nodes
+                my $scfg = PVE::Storage::storage_check_node($self->{storecfg}, $sid);
+                PVE::Storage::storage_check_node($self->{storecfg}, $sid, $self->{node});
 
-	    return if $scfg->{shared};
-
-	    $volhash->{$volid} = 1;
-	});
+                $volhash->{$volid} = 1;
+            });
+        }
 
 	# and add used,owned/non-shared disks (just to be sure we have all)
 
