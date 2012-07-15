@@ -674,6 +674,15 @@ my $vmconfig_update_disk = sub {
 		&$vmconfig_delete_option($rpcenv, $authuser, $conf, $storecfg, $vmid, $opt, $force);
 		$conf = PVE::QemuServer::load_config($vmid); # update/reload
 	    }
+
+            if($drive->{bps} != $old_drive->{bps} ||
+               $drive->{bps_rd} != $old_drive->{bps_rd} ||
+               $drive->{bps_wr} != $old_drive->{bps_wr} ||
+               $drive->{iops} != $old_drive->{iops} ||
+               $drive->{iops_rd} != $old_drive->{iops_rd} ||
+               $drive->{iops_wr} != $old_drive->{iops_wr} ) {
+               PVE::QemuServer::qemu_block_set_io_throttle($vmid,"drive-$opt",$drive->{bps}, $drive->{bps_rd}, $drive->{bps_wr}, $drive->{iops}, $drive->{iops_rd}, $drive->{iops_wr}) if !PVE::QemuServer::drive_is_cdrom($drive);
+            }
 	}
     }
 
