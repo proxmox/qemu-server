@@ -181,13 +181,14 @@ sub sync_disks {
         foreach my $storeid (@sids) {
 	    my $scfg = PVE::Storage::storage_config($self->{storecfg}, $storeid);
             next if $scfg->{shared};
+	    next if !PVE::Storage::storage_check_enabled($self->{storecfg}, $storeid, undef, 1);
+
             # get list from PVE::Storage (for unused volumes)
             my $dl = PVE::Storage::vdisk_list($self->{storecfg}, $storeid, $vmid);
             PVE::Storage::foreach_volid($dl, sub {
                 my ($volid, $sid, $volname) = @_;
 
-                # check if storage is available on both nodes
-                my $scfg = PVE::Storage::storage_check_node($self->{storecfg}, $sid);
+                # check if storage is available on target node
                 PVE::Storage::storage_check_node($self->{storecfg}, $sid, $self->{node});
 
                 $volhash->{$volid} = 1;
