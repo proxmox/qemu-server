@@ -177,9 +177,10 @@ sub sync_disks {
 	my $volhash = {};
 	my $cdromhash = {};
 
-        my $ids = $self->{storecfg}->{ids};
-        foreach my $storeid (keys %$ids) {
-            next if $ids->{$storeid}->{shared};
+	my @sids = PVE::Storage::storage_ids($self->{storecfg});
+        foreach my $storeid (@sids) {
+	    my $scfg = PVE::Storage::storage_config($self->{storecfg}, $storeid);
+            next if $scfg->{shared};
             # get list from PVE::Storage (for unused volumes)
             my $dl = PVE::Storage::vdisk_list($self->{storecfg}, $storeid, $vmid);
             PVE::Storage::foreach_volid($dl, sub {

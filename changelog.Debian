@@ -1,3 +1,9 @@
+qemu-server (2.0-44) unstable; urgency=low
+
+  * migrate: only scan necessary storage for unused volumes
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 16 Jul 2012 06:59:23 +0200
+
 qemu-server (2.0-43) unstable; urgency=low
 
   * use new QMPClient code
