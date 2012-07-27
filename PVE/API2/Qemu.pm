@@ -85,21 +85,25 @@ my $create_disks = sub {
 	    delete $disk->{format}; # no longer needed
 	    $res->{$ds} = PVE::QemuServer::print_drive($vmid, $disk);
 	} else {
-	    my $path = $rpcenv->check_volume_access($authuser, $storecfg, $vmid, $volid);
-	    PVE::Storage::activate_volumes($storecfg, [ $volid ])
-		if PVE::Storage::parse_volume_id ($volid, 1);
 
-	    my ($storeid, $volname) = PVE::Storage::parse_volume_id($volid);
-	    my $dl = PVE::Storage::vdisk_list($storecfg, $storeid, undef);
+	    my $path = $rpcenv->check_volume_access($authuser, $storecfg, $vmid, $volid);
+	    
+	    my ($storeid, $volname) = PVE::Storage::parse_volume_id($volid, 1);
+
 	    my $foundvolid = undef;
 
-	    PVE::Storage::foreach_volid($dl, sub {
-		my ($volumeid) = @_;
-		if($volumeid eq $volid) {
-		    $foundvolid = 1;
-		    return;
-	        }
-	    });
+	    if ($storeid) {
+		PVE::Storage::activate_volumes($storecfg, [ $volid ]);
+		my $dl = PVE::Storage::vdisk_list($storecfg, $storeid, undef);
+
+		PVE::Storage::foreach_volid($dl, sub {
+		    my ($volumeid) = @_;
+		    if($volumeid eq $volid) {
+			$foundvolid = 1;
+			return;
+		    }
+	        });
+	    }
 	
 	    die "image '$path' does not exists\n" if (!(-f $path || -b $path || $foundvolid));
 	    $res->{$ds} = $settings->{$ds};
