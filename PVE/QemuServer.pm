@@ -1868,7 +1868,6 @@ sub disksize {
     } else {
 	eval {
 	    $storeid = $timeoutid = PVE::Storage::parse_volume_id($volid);
-	    $path = PVE::Storage::path($storecfg, $volid);
 	};
 	if (my $err = $@) {
 	    warn $err;
@@ -1887,7 +1886,7 @@ sub disksize {
 
     my ($size, $format, $used);
 
-    ($size, $format, $used) = PVE::Storage::file_size_info($path, 1);
+    ($size, $format, $used) = PVE::Storage::volume_size_info($storecfg, $volid, 1);
 
     if (!defined($format)) {
 	# got timeout
