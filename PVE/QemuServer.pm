@@ -667,45 +667,6 @@ sub os_list_description {
     };
 }
 
-sub disk_devive_info {
-    my $dev = shift;
-
-    die "unknown disk device format '$dev'" if $dev !~ m/^(ide|scsi|virtio)(\d+)$/;
-
-    my $bus = $1;
-    my $index = $2;
-    my $maxdev = 1024;
-
-    if ($bus eq 'ide') {
-	$maxdev = 2;
-    } elsif ($bus eq 'scsi') {
-	$maxdev = 7;
-    }
-
-    my $controller = int($index / $maxdev);
-    my $unit = $index % $maxdev;
-
-
-    return { bus => $bus, desc => uc($bus) . " $controller:$unit",
-	     controller => $controller, unit => $unit, index => $index };
-
-}
-
-sub qemu_drive_name {
-    my ($dev, $media) = @_;
-
-    my $info = disk_devive_info($dev);
-    my $mediastr = '';
-
-    if (($info->{bus} eq 'ide') || ($info->{bus} eq 'scsi')) {
-	$mediastr = ($media eq 'cdrom') ? "-cd" : "-hd";
-	return sprintf("%s%i%s%i", $info->{bus}, $info->{controller},
-		       $mediastr, $info->{unit});
-    } else {
-	return sprintf("%s%i", $info->{bus}, $info->{index});
-    }
-}
-
 my $cdrom_path;
 
 sub get_cdrom_path {
