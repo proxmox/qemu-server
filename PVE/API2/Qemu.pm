@@ -653,6 +653,16 @@ my $vmconfig_delete_option = sub {
     PVE::QemuServer::update_config_nolock($vmid, $conf, 1);
 };
 
+my $safe_int_ne = sub {
+    my ($a, $b) = @_;
+
+    return 0 if !defined($a) && !defined($b); 
+    return 1 if !defined($a); 
+    return 1 if !defined($b); 
+
+    return $a != $b;
+};
+
 my $vmconfig_update_disk = sub {
     my ($rpcenv, $authuser, $conf, $storecfg, $vmid, $opt, $value, $force) = @_;
 
@@ -679,12 +689,12 @@ my $vmconfig_update_disk = sub {
 		$conf = PVE::QemuServer::load_config($vmid); # update/reload
 	    }
 
-            if($drive->{bps} != $old_drive->{bps} ||
-               $drive->{bps_rd} != $old_drive->{bps_rd} ||
-               $drive->{bps_wr} != $old_drive->{bps_wr} ||
-               $drive->{iops} != $old_drive->{iops} ||
-               $drive->{iops_rd} != $old_drive->{iops_rd} ||
-               $drive->{iops_wr} != $old_drive->{iops_wr} ) {
+            if(&$safe_int_ne($drive->{bps}, $old_drive->{bps}) ||
+               &$safe_int_ne($drive->{bps_rd}, $old_drive->{bps_rd}) ||
+               &$safe_int_ne($drive->{bps_wr}, $old_drive->{bps_wr}) ||
+               &$safe_int_ne($drive->{iops}, $old_drive->{iops}) ||
+               &$safe_int_ne($drive->{iops_rd}, $old_drive->{iops_rd}) ||
+               &$safe_int_ne($drive->{iops_wr}, $old_drive->{iops_wr})) {
                PVE::QemuServer::qemu_block_set_io_throttle($vmid,"drive-$opt",$drive->{bps}, $drive->{bps_rd}, $drive->{bps_wr}, $drive->{iops}, $drive->{iops_rd}, $drive->{iops_wr}) if !PVE::QemuServer::drive_is_cdrom($drive);
             }
 	}
