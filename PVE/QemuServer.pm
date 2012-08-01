@@ -1462,48 +1462,6 @@ sub destroy_vm {
     warn $@ if $@;
 }
 
-# fixme: remove?
-sub load_diskinfo_old {
-    my ($storecfg, $vmid, $conf) = @_;
-
-    my $info = {};
-    my $res = {};
-    my $vollist;
-
-    foreach_drive($conf, sub {
-	my ($ds, $di) = @_;
-
-	$res->{$ds} = $di;
-
-	return if drive_is_cdrom($di);
-
-	if ($di->{file} =~ m|^/dev/.+|) {
-	    $info->{$di->{file}}->{size} = PVE::Storage::file_size_info($di->{file});
-	} else {
-	    push @$vollist, $di->{file};
-	}
-    });
-
-    eval {
-	my $dl = PVE::Storage::vdisk_list($storecfg, undef, $vmid, $vollist);
-
-	PVE::Storage::foreach_volid($dl, sub {
-	    my ($volid, $sid, $volname, $d) = @_;
-	    $info->{$volid} = $d;
-	});
-    };
-    warn $@ if $@;
-
-    foreach my $ds (keys %$res) {
-	my $di = $res->{$ds};
-
-	$res->{$ds}->{disksize} = $info->{$di->{file}} ?
-	    $info->{$di->{file}}->{size} / (1024*1024) : 0;
-    }
-
-    return $res;
-}
-
 sub load_config {
     my ($vmid) = @_;
 
