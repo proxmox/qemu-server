@@ -1,3 +1,9 @@
+qemu-server (2.0-47) unstable; urgency=low
+
+  * implement virtio-scsi-pci controller
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 01 Aug 2012 08:57:52 +0200
+
 qemu-server (2.0-46) unstable; urgency=low
 
   * bug fix: allow to set devices directly (-ide1 /dev/XYZ)
