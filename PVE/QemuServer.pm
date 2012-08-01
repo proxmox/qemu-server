@@ -798,7 +798,7 @@ sub parse_drive {
     foreach my $p (split (/,/, $data)) {
 	next if $p =~ m/^\s*$/;
 
-	if ($p =~ m/^(file|volume|cyls|heads|secs|trans|media|snapshot|cache|format|rerror|werror|backup|aio|bps|bps_rd|bps_wr|iops|iops_rd|iops_wr)=(.+)$/) {
+	if ($p =~ m/^(file|volume|cyls|heads|secs|trans|media|snapshot|cache|format|rerror|werror|backup|aio|bps|bps_rd|bps_wr|iops|iops_rd|iops_wr|size)=(.+)$/) {
 	    my ($k, $v) = ($1, $2);
 
 	    $k = 'file' if $k eq 'volume';
@@ -844,6 +844,21 @@ sub parse_drive {
     return undef if $res->{iops_wr} && $res->{iops_wr} !~ m/^\d+$/;
 
 
+    if ($res->{size}) {
+	return undef if $res->{size} !~ m/^([1-9]\d*(\.\d+)?)([KMG])?$/;
+	my ($size, $unit) = ($1, $3);
+	if ($unit) {
+	    if ($unit eq 'K') {
+		$size = $size * 1024;
+	    } elsif ($unit eq 'M') {
+		$size = $size * 1024 * 1024;
+	    } elsif ($unit eq 'G') {
+		$size = $size * 1024 * 1024 * 1024;
+	    }
+	}
+	$res->{size} = int($size);
+    }
+
     if ($res->{media} && ($res->{media} eq 'cdrom')) {
 	return undef if $res->{snapshot} || $res->{trans} || $res->{format};
 	return undef if $res->{heads} || $res->{secs} || $res->{cyls};
@@ -860,12 +875,33 @@ sub parse_drive {
 
 my @qemu_drive_options = qw(heads secs cyls trans media format cache snapshot rerror werror aio bps bps_rd bps_wr iops iops_rd iops_wr);
 
+my $format_size = sub {
+    my ($size) = @_;
+
+    $size = int($size);
+
+    my $kb = int($size/1024);
+    return $size if $kb*1024 != $size;
+
+    my $mb = int($kb/1024);
+    return "${kb}K" if $mb*1024 != $kb;
+
+    my $gb = int($mb/1024);
+    return "${mb}M" if $gb*1024 != $mb;
+
+    return "${gb}G";
+};
+
 sub print_drive {
     my ($vmid, $drive) = @_;
 
     my $opts = '';
     foreach my $o (@qemu_drive_options, 'backup') {
 	$opts .= ",$o=$drive->{$o}" if $drive->{$o};
+    }
+
+    if ($drive->{size}) {
+	$opts .= ",size=" . &$format_size($drive->{size});
     }
 
     return "$drive->{file}$opts";
@@ -1771,8 +1807,6 @@ sub vzlist {
     return $vzlist;
 }
 
-my $storage_timeout_hash = {};
-
 sub disksize {
     my ($storecfg, $conf) = @_;
 
@@ -1790,42 +1824,7 @@ sub disksize {
     my $volid = $drive->{file};
     return undef if !$volid;
 
-    my $path;
-    my $storeid;
-    my $timeoutid;
-
-    if ($volid =~ m|^/|) {
-	$path = $timeoutid = $volid;
-    } else {
-	eval {
-	    $storeid = $timeoutid = PVE::Storage::parse_volume_id($volid);
-	};
-	if (my $err = $@) {
-	    warn $err;
-	    return undef;
-	}
-    }
-
-    my $last_timeout = $storage_timeout_hash->{$timeoutid};
-    if ($last_timeout) {
-	if ((time() - $last_timeout) < 30) {
-	    # skip storage with errors
-	    return undef ;
-	}
-	delete $storage_timeout_hash->{$timeoutid};
-    }
-
-    my ($size, $format, $used);
-
-    ($size, $format, $used) = PVE::Storage::volume_size_info($storecfg, $volid, 1);
-
-    if (!defined($format)) {
-	# got timeout
-	$storage_timeout_hash->{$timeoutid} = time();
-	return undef;
-    }
-
-    return wantarray ? ($size, $used) : $size;
+    return $drive->{size};
 }
 
 my $last_proc_pid_stat;

@@ -81,6 +81,7 @@ my $create_disks = sub {
 	    my $volid = PVE::Storage::vdisk_alloc($storecfg, $storeid, $vmid,
 						  $fmt, undef, $size*1024*1024);
 	    $disk->{file} = $volid;
+	    $disk->{size} = $size*1024*1024*1024;
 	    push @$vollist, $volid;
 	    delete $disk->{format}; # no longer needed
 	    $res->{$ds} = PVE::QemuServer::print_drive($vmid, $disk);
@@ -106,7 +107,10 @@ my $create_disks = sub {
 	    }
 	
 	    die "image '$path' does not exists\n" if (!(-f $path || -b $path || $foundvolid));
-	    $res->{$ds} = $settings->{$ds};
+
+	    my ($size) = PVE::Storage::volume_size_info($storecfg, $volid, 1);
+	    $disk->{size} = $size;
+	    $res->{$ds} = PVE::QemuServer::print_drive($vmid, $disk);
 	}
     });
 
