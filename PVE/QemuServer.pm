@@ -1856,9 +1856,9 @@ sub vmstatus {
 	# fixme: better status?
 	$d->{status} = $list->{$vmid}->{pid} ? 'running' : 'stopped';
 
-	my ($size, $used) = disksize($storecfg, $conf);
-	if (defined($size) && defined($used)) {
-	    $d->{disk} = $used;
+	my $size = disksize($storecfg, $conf);
+	if (defined($size)) {
+	    $d->{disk} = 0; # no info available
 	    $d->{maxdisk} = $size;
 	} else {
 	    $d->{disk} = 0;
