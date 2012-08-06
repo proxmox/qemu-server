@@ -2547,6 +2547,19 @@ sub qemu_block_set_io_throttle {
 
 }
 
+sub qemu_block_resize {
+    my ($vmid, $deviceid, $storecfg, $volid, $size) = @_;
+
+    my $running = PVE::QemuServer::check_running($vmid);
+
+    return if !PVE::Storage::volume_resize($storecfg, $volid, $size, $running);
+
+    return if !$running;
+
+    vm_mon_cmd($vmid, "block_resize", device => $deviceid, size => int($size));
+
+}
+
 sub vm_start {
     my ($storecfg, $vmid, $statefile, $skiplock) = @_;
 
