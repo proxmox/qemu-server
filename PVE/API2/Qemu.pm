@@ -728,6 +728,47 @@ my $vmconfig_update_disk = sub {
     }
 };
 
+my $vmconfig_resize_disk = sub {
+    my ($rpcenv, $authuser, $conf, $storecfg, $vmid, $opt, $value, $force) = @_;
+
+    my $drive = PVE::QemuServer::parse_drive($opt, $value);
+
+    if (PVE::QemuServer::drive_is_cdrom($drive)) { #cdrom
+        die "you can't resize a cdrom";
+    } else {
+        $rpcenv->check_vm_perm($authuser, $vmid, undef, ['VM.Config.Disk']);
+    }
+
+    if ($conf->{$opt}) {
+
+        if (my $drive = PVE::QemuServer::parse_drive($opt, $conf->{$opt}))  {
+           my $volid = $drive->{file};
+            my $size = PVE::Storage::volume_size_info($storecfg, $volid, 1);
+            if ($value =~ m/^\+([1-9]\d*(\.\d+)?)([KMG])?$/){
+                my ($sizeextent, $unit) = ($1, $3);
+                if ($unit) {
+                   if ($unit eq 'K') {
+                      $sizeextent = $sizeextent * 1024;
+                   } elsif ($unit eq 'M') {
+                      $sizeextent = $sizeextent * 1024 * 1024;
+                   } elsif ($unit eq 'G') {
+                      $sizeextent = $sizeextent * 1024 * 1024 * 1024;
+                   }
+                }
+
+              my $targetsize = $size + int($sizeextent);
+              PVE::QemuServer::qemu_block_resize($vmid, "drive-$opt", $storecfg, $drive->{file}, $targetsize);
+              my $newsize = PVE::Storage::volume_size_info($storecfg, $volid, 1);
+              $drive->{size} = $newsize;
+              $conf->{$opt} = PVE::QemuServer::print_drive($vmid, $drive);
+
+              PVE::QemuServer::update_config_nolock($vmid, $conf, 1);
+            }
+        }
+    }
+
+};
+
 my $vmconfig_update_net = sub {
     my ($rpcenv, $authuser, $conf, $storecfg, $vmid, $opt, $value) = @_;
 
@@ -1747,6 +1788,87 @@ __PACKAGE__->register_method({
 	$res = "ERROR: $@" if $@;
 
 	return $res;
+    }});
+
+__PACKAGE__->register_method({
+    name => 'resize_vm',
+    path => '{vmid}/config',
+    method => 'PUT',
+    protected => 1,
+    proxyto => 'node',
+    description => "extend volume size.",
+    permissions => {
+        check => ['perm', '/vms/{vmid}', $vm_config_perm_list, any => 1],
+    },
+    parameters => {
+        additionalProperties => 0,
+        properties => PVE::QemuServer::json_config_properties(
+            {
+                node => get_standard_option('pve-node'),
+                vmid => get_standard_option('pve-vmid'),
+                skiplock => get_standard_option('skiplock'),
+                digest => {
+                    type => 'string',
+                    description => 'Prevent changes if current configuration file has different SHA1 digest. This can be used to prevent concurrent modifications.',
+                    maxLength => 40,
+                    optional => 1,
+                }
+            }),
+    },
+    returns => { type => 'null'},
+    code => sub {
+        my ($param) = @_;
+
+        my $rpcenv = PVE::RPCEnvironment::get();
+
+        my $authuser = $rpcenv->get_user();
+
+        my $node = extract_param($param, 'node');
+
+        my $vmid = extract_param($param, 'vmid');
+
+        my $digest = extract_param($param, 'digest');
+
+        my @paramarr = (); # used for log message
+        foreach my $key (keys %$param) {
+            push @paramarr, "-$key", $param->{$key};
+        }
+
+        my $skiplock = extract_param($param, 'skiplock');
+        raise_param_exc({ skiplock => "Only root may use this option." })
+            if $skiplock && $authuser ne 'root@pam';
+
+        my $force = extract_param($param, 'force');
+
+        die "no options specified\n" if !scalar(keys %$param);
+
+        my $storecfg = PVE::Storage::config();
+
+
+        &$check_vm_modify_config_perm($rpcenv, $authuser, $vmid, undef, [keys %$param]);
+
+        &$check_storage_access($rpcenv, $authuser, $storecfg, $vmid, $param);
+
+        my $updatefn =  sub {
+
+            my $conf = PVE::QemuServer::load_config($vmid);
+
+            die "checksum missmatch (file change by other user?)\n"
+                if $digest && $digest ne $conf->{digest};
+            PVE::QemuServer::check_lock($conf) if !$skiplock;
+
+            PVE::Cluster::log_msg('info', $authuser, "update VM $vmid: " . join (' ', @paramarr));
+
+            foreach my $opt (keys %$param) { # add/change
+                if (PVE::QemuServer::valid_drivename($opt)) {
+                  &$vmconfig_resize_disk($rpcenv, $authuser, $conf, $storecfg, $vmid, $opt, $param->{$opt}, $force);
+                }
+            }
+
+        };
+
+        PVE::QemuServer::lock_config($vmid, $updatefn);
+        return undef;
     }});
 
 1;
