@@ -380,6 +380,9 @@ my $cmddef = {
 
 my $cmd = shift;
 
+# Note: disable '+' prefix for Getopt::Long (for resize command)
+use Getopt::Long qw(:config no_getopt_compat); 
+
 PVE::CLIHandler::handle_cmd($cmddef, "qm", $cmd, \@ARGV, undef, $0);
 
 exit 0;

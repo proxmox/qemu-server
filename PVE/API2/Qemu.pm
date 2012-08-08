@@ -729,45 +729,6 @@ my $vmconfig_update_disk = sub {
     }
 };
 
-my $vmconfig_resize_disk = sub {
-    my ($rpcenv, $authuser, $conf, $storecfg, $vmid, $opt, $value) = @_;
-
-    my $drive = PVE::QemuServer::parse_drive($opt, $value);
-
-    if (PVE::QemuServer::drive_is_cdrom($drive)) { #cdrom
-        die "you can't resize a cdrom";
-    }
-
-    if ($conf->{$opt}) {
-
-        if (my $drive = PVE::QemuServer::parse_drive($opt, $conf->{$opt}))  {
-           my $volid = $drive->{file};
-            my $size = PVE::Storage::volume_size_info($storecfg, $volid, 1);
-            if ($value =~ m/^\+([1-9]\d*(\.\d+)?)([KMG])?$/){
-                my ($sizeextent, $unit) = ($1, $3);
-                if ($unit) {
-                   if ($unit eq 'K') {
-                      $sizeextent = $sizeextent * 1024;
-                   } elsif ($unit eq 'M') {
-                      $sizeextent = $sizeextent * 1024 * 1024;
-                   } elsif ($unit eq 'G') {
-                      $sizeextent = $sizeextent * 1024 * 1024 * 1024;
-                   }
-                }
-
-              my $targetsize = $size + int($sizeextent);
-              PVE::QemuServer::qemu_block_resize($vmid, "drive-$opt", $storecfg, $drive->{file}, $targetsize);
-              my $newsize = PVE::Storage::volume_size_info($storecfg, $volid, 1);
-              $drive->{size} = $newsize;
-              $conf->{$opt} = PVE::QemuServer::print_drive($vmid, $drive);
-
-              PVE::QemuServer::update_config_nolock($vmid, $conf, 1);
-            }
-        }
-    }
-
-};
-
 my $vmconfig_update_net = sub {
     my ($rpcenv, $authuser, $conf, $storecfg, $vmid, $opt, $value) = @_;
 
@@ -1812,7 +1773,7 @@ __PACKAGE__->register_method({
 	    },
 	    size => {
 		type => 'string',
-		pattern => '[+]?\d+(\.\d+)?[KMGT]?',
+		pattern => '\+?\d+(\.\d+)?[KMGT]?',
 		description => "The new size. With the '+' sign the value is added to the actual size of the volume and without it, the value is taken as an absolute one. Shrinking disk size is not supported.",
 	    },
 	    digest => {
@@ -1841,14 +1802,11 @@ __PACKAGE__->register_method({
  
 	my $sizestr = extract_param($param, 'size');
 
-        my $skiplock = extract_param($param, 'skiplock');
+	my $skiplock = extract_param($param, 'skiplock');
         raise_param_exc({ skiplock => "Only root may use this option." })
             if $skiplock && $authuser ne 'root@pam';
 
- 
         my $storecfg = PVE::Storage::config();
-
-        &$check_storage_access($rpcenv, $authuser, $storecfg, $vmid, $param);
 
         my $updatefn =  sub {
 
@@ -1858,10 +1816,51 @@ __PACKAGE__->register_method({
                 if $digest && $digest ne $conf->{digest};
             PVE::QemuServer::check_lock($conf) if !$skiplock;
 
+	    die "disk '$disk' does not exist\n" if !$conf->{$disk};
+
+	    my $drive = PVE::QemuServer::parse_drive($disk, $conf->{$disk});
+
+	    my $volid = $drive->{file};
+
+	    die "disk '$disk' has no associated volume\n" if !$volid;
+
+	    die "you can't resize a cdrom\n" if PVE::QemuServer::drive_is_cdrom($drive);
+
+	    my ($storeid, $volname) = PVE::Storage::parse_volume_id($volid);
+
+	    $rpcenv->check($authuser, "/storage/$storeid", ['Datastore.AllocateSpace']);
+
+	    my $size = PVE::Storage::volume_size_info($storecfg, $volid, 5);
+
+	    die "internal error" if $sizestr !~ m/^(\+)?(\d+(\.\d+)?)([KMGT])?$/;
+	    my ($ext, $newsize, $unit) = ($1, $2, $4);
+	    if ($unit) {
+		if ($unit eq 'K') {
+		    $newsize = $newsize * 1024;
+		} elsif ($unit eq 'M') {
+		    $newsize = $newsize * 1024 * 1024;
+		} elsif ($unit eq 'G') {
+		    $newsize = $newsize * 1024 * 1024 * 1024;
+		} elsif ($unit eq 'T') {
+		    $newsize = $newsize * 1024 * 1024 * 1024 * 1024;
+		}
+	    }
+	    $newsize += $size if $ext;
+	    $newsize = int($newsize);
+
+	    die "unable to skrink disk size\n" if $newsize < $size;
+
+	    return if $size == $newsize;
+
             PVE::Cluster::log_msg('info', $authuser, "update VM $vmid: resize --disk $disk --size $sizestr");
 
-	    &$vmconfig_resize_disk($rpcenv, $authuser, $conf, $storecfg, $vmid, $disk, $sizestr);
-        };
+	    PVE::QemuServer::qemu_block_resize($vmid, "drive-$disk", $storecfg, $volid, $newsize);
+	    
+	    $drive->{size} = $newsize;
+	    $conf->{$disk} = PVE::QemuServer::print_drive($vmid, $drive);
+
+	    PVE::QemuServer::update_config_nolock($vmid, $conf, 1);
+	};
 
         PVE::QemuServer::lock_config($vmid, $updatefn);
         return undef;
