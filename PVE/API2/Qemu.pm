@@ -1792,7 +1792,7 @@ __PACKAGE__->register_method({
 
 __PACKAGE__->register_method({
     name => 'resize_vm',
-    path => '{vmid}/config',
+    path => '{vmid}/resize',
     method => 'PUT',
     protected => 1,
     proxyto => 'node',
