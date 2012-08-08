@@ -452,6 +452,7 @@ __PACKAGE__->register_method({
 	    { subdir => 'unlink' },
 	    { subdir => 'vncproxy' },
 	    { subdir => 'migrate' },
+	    { subdir => 'resize' },
 	    { subdir => 'rrd' },
 	    { subdir => 'rrddata' },
 	    { subdir => 'monitor' },
@@ -729,7 +730,7 @@ my $vmconfig_update_disk = sub {
 };
 
 my $vmconfig_resize_disk = sub {
-    my ($rpcenv, $authuser, $conf, $storecfg, $vmid, $opt, $value, $force) = @_;
+    my ($rpcenv, $authuser, $conf, $storecfg, $vmid, $opt, $value) = @_;
 
     my $drive = PVE::QemuServer::parse_drive($opt, $value);
 
@@ -1794,24 +1795,33 @@ __PACKAGE__->register_method({
     method => 'PUT',
     protected => 1,
     proxyto => 'node',
-    description => "extend volume size.",
+    description => "Extend volume size.",
     permissions => {
         check => ['perm', '/vms/{vmid}', [ 'VM.Config.Disk' ]],
     },
     parameters => {
         additionalProperties => 0,
-        properties => PVE::QemuServer::json_config_properties(
-            {
-                node => get_standard_option('pve-node'),
-                vmid => get_standard_option('pve-vmid'),
-                skiplock => get_standard_option('skiplock'),
-                digest => {
-                    type => 'string',
-                    description => 'Prevent changes if current configuration file has different SHA1 digest. This can be used to prevent concurrent modifications.',
-                    maxLength => 40,
-                    optional => 1,
-                }
-            }),
+        properties => {
+	    node => get_standard_option('pve-node'),
+	    vmid => get_standard_option('pve-vmid'),
+	    skiplock => get_standard_option('skiplock'),
+	    disk => {
+		type => 'string',
+		description => "The disk you want to resize.",
+		enum => [PVE::QemuServer::disknames()],
+	    },
+	    size => {
+		type => 'string',
+		pattern => '[+]?\d+(\.\d+)?[KMGT]?',
+		description => "The new size. With the '+' sign the value is added to the actual size of the volume and without it, the value is taken as an absolute one. Shrinking disk size is not supported.",
+	    },
+	    digest => {
+		type => 'string',
+		description => 'Prevent changes if current configuration file has different SHA1 digest. This can be used to prevent concurrent modifications.',
+		maxLength => 40,
+		optional => 1,
+	    },
+	},
     },
     returns => { type => 'null'},
     code => sub {
@@ -1827,23 +1837,16 @@ __PACKAGE__->register_method({
 
         my $digest = extract_param($param, 'digest');
 
-        my @paramarr = (); # used for log message
-        foreach my $key (keys %$param) {
-            push @paramarr, "-$key", $param->{$key};
-        }
+        my $disk = extract_param($param, 'disk');
+ 
+	my $sizestr = extract_param($param, 'size');
 
         my $skiplock = extract_param($param, 'skiplock');
         raise_param_exc({ skiplock => "Only root may use this option." })
             if $skiplock && $authuser ne 'root@pam';
 
-        my $force = extract_param($param, 'force');
-
-        die "no options specified\n" if !scalar(keys %$param);
-
+ 
         my $storecfg = PVE::Storage::config();
-
-
-        &$check_vm_modify_config_perm($rpcenv, $authuser, $vmid, undef, [keys %$param]);
 
         &$check_storage_access($rpcenv, $authuser, $storecfg, $vmid, $param);
 
@@ -1855,14 +1858,9 @@ __PACKAGE__->register_method({
                 if $digest && $digest ne $conf->{digest};
             PVE::QemuServer::check_lock($conf) if !$skiplock;
 
-            PVE::Cluster::log_msg('info', $authuser, "update VM $vmid: " . join (' ', @paramarr));
+            PVE::Cluster::log_msg('info', $authuser, "update VM $vmid: resize --disk $disk --size $sizestr");
 
-            foreach my $opt (keys %$param) { # add/change
-                if (PVE::QemuServer::valid_drivename($opt)) {
-                  &$vmconfig_resize_disk($rpcenv, $authuser, $conf, $storecfg, $vmid, $opt, $param->{$opt}, $force);
-                }
-            }
-
+	    &$vmconfig_resize_disk($rpcenv, $authuser, $conf, $storecfg, $vmid, $disk, $sizestr);
         };
 
         PVE::QemuServer::lock_config($vmid, $updatefn);
