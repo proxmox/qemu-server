@@ -735,8 +735,6 @@ my $vmconfig_resize_disk = sub {
 
     if (PVE::QemuServer::drive_is_cdrom($drive)) { #cdrom
         die "you can't resize a cdrom";
-    } else {
-        $rpcenv->check_vm_perm($authuser, $vmid, undef, ['VM.Config.Disk']);
     }
 
     if ($conf->{$opt}) {
@@ -1798,7 +1796,7 @@ __PACKAGE__->register_method({
     proxyto => 'node',
     description => "extend volume size.",
     permissions => {
-        check => ['perm', '/vms/{vmid}', $vm_config_perm_list, any => 1],
+        check => ['perm', '/vms/{vmid}', [ 'VM.Config.Disk' ]],
     },
     parameters => {
         additionalProperties => 0,
