@@ -1,3 +1,11 @@
+qemu-server (2.0-48) unstable; urgency=low
+
+  * add size hint to drive options
+  
+  * new 'qm resize' command
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 14 Aug 2012 06:55:39 +0200
+
 qemu-server (2.0-47) unstable; urgency=low
 
   * implement virtio-scsi-pci controller
