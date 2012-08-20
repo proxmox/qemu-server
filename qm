@@ -303,6 +303,88 @@ __PACKAGE__->register_method ({
 
     }});
 
+__PACKAGE__->register_method ({
+    name => 'rescan', 
+    path => 'rescan', 
+    method => 'POST',
+    description => "Rescan all storages and update disk sizes and unused disk images.",
+    parameters => {
+    	additionalProperties => 0,
+	properties => {
+	    vmid => get_standard_option('pve-vmid', {optional => 1}),
+	},
+    },
+    returns => { type => 'null'},
+    code => sub {
+	my ($param) = @_;
+
+	my $cfg = PVE::Cluster::cfs_read_file("storage.cfg");
+
+	my $info = PVE::Storage::vdisk_list($cfg, undef, $param->{vmid});
+
+	my $volid_hash = {};
+	foreach my $storeid (keys %$info) {
+	    foreach my $item (@{$info->{$storeid}}) {
+		next if !($item->{volid} && $item->{size});
+		$volid_hash->{$item->{volid}} = $item;
+	    }
+	}
+
+	my $updatefn =  sub {
+	    my ($vmid) = @_;
+
+	    my $conf = PVE::QemuServer::load_config($vmid);
+	    
+	    PVE::QemuServer::check_lock($conf);
+
+	    my $changes;
+
+	    my $used = {};
+
+	    # update size info
+	    foreach my $opt (keys %$conf) {
+		if (PVE::QemuServer::valid_drivename($opt)) {
+		    my $drive = PVE::QemuServer::parse_drive($opt, $conf->{$opt});
+		    my $volid = $drive->{file};
+		    next if !$volid;
+
+		    $used->{$volid} = 1;
+
+		    next if PVE::QemuServer::drive_is_cdrom($drive);
+		    next if !$volid_hash->{$volid};
+
+		    $drive->{size} = $volid_hash->{$volid}->{size};
+		    $changes = 1;
+		    $conf->{$opt} = PVE::QemuServer::print_drive($vmid, $drive);
+		}
+	    }
+
+	    # add unused volumes
+	    foreach my $storeid (keys %$info) {
+		foreach my $item (@{$info->{$storeid}}) {
+		    next if !($item->{volid} && $item->{vmid});
+		    next if $item->{vmid} ne $vmid;
+		    next if $used->{$item->{volid}};
+		    $changes = 1;
+		    PVE::QemuServer::add_unused_volume($conf, $item->{volid});
+		}
+	    }
+
+	    PVE::QemuServer::update_config_nolock($vmid, $conf, 1) if $changes;
+	};
+
+	if (defined($param->{vmid})) {
+	    PVE::QemuServer::lock_config($param->{vmid}, $updatefn, $param->{vmid});
+	} else {
+	    my $vmlist = PVE::QemuServer::config_list();
+	    foreach my $vmid (keys %$vmlist) {
+		PVE::QemuServer::lock_config($vmid, $updatefn, $vmid);	    
+	    }
+	}
+
+	return undef;
+    }});
+
 my $cmddef = {
     list => [ "PVE::API2::Qemu", 'vmlist', [],
 	     { node => $nodename }, sub {
@@ -372,6 +454,8 @@ my $cmddef = {
     wait => [ __PACKAGE__, 'wait', ['vmid']],
 
     unlock => [ __PACKAGE__, 'unlock', ['vmid']],
+
+    rescan  => [ __PACKAGE__, 'rescan', []],
 
     monitor  => [ __PACKAGE__, 'monitor', ['vmid']],
 
