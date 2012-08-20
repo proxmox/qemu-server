@@ -3203,7 +3203,7 @@ sub print_pci_addr {
 	   my $addr = sprintf("0x%x", $devices->{$id}->{addr});
 	   my $bus = $devices->{$id}->{bus};
 	   $res = ",bus=pci.$bus,addr=$addr";
-	   $bridges->{$bus} = 1;
+	   $bridges->{$bus} = 1 if $bridges;
     }
     return $res;
 
