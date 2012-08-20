@@ -402,10 +402,10 @@ while (my ($k, $v) = each %$confdesc) {
 
 my $MAX_IDE_DISKS = 4;
 my $MAX_SCSI_DISKS = 14;
-my $MAX_VIRTIO_DISKS = 6;
+my $MAX_VIRTIO_DISKS = 32;
 my $MAX_SATA_DISKS = 6;
 my $MAX_USB_DEVICES = 5;
-my $MAX_NETS = 6;
+my $MAX_NETS = 32;
 my $MAX_UNUSED_DISKS = 8;
 my $MAX_HOSTPCI_DEVICES = 2;
 my $MAX_SERIAL_PORTS = 4;
@@ -966,13 +966,13 @@ sub path_is_scsi {
 }
 
 sub print_drivedevice_full {
-    my ($storecfg, $conf, $vmid, $drive) = @_;
+    my ($storecfg, $conf, $vmid, $drive, $bridges) = @_;
 
     my $device = '';
     my $maxdev = 0;
 
     if ($drive->{interface} eq 'virtio') {
-	my $pciaddr = print_pci_addr("$drive->{interface}$drive->{index}");
+	my $pciaddr = print_pci_addr("$drive->{interface}$drive->{index}", $bridges);
 	$device = "virtio-blk-pci,drive=drive-$drive->{interface}$drive->{index},id=$drive->{interface}$drive->{index}$pciaddr";
     } elsif ($drive->{interface} eq 'scsi') {
 	$maxdev = ($conf->{scsihw} && $conf->{scsihw} ne 'lsi') ? 256 : 7;
@@ -1053,7 +1053,7 @@ sub print_drive_full {
 }
 
 sub print_netdevice_full {
-    my ($vmid, $conf, $net, $netid) = @_;
+    my ($vmid, $conf, $net, $netid, $bridges) = @_;
 
     my $bootorder = $conf->{boot} || $confdesc->{boot}->{default};
 
@@ -1065,7 +1065,7 @@ sub print_netdevice_full {
     # qemu > 0.15 always try to boot from network - we disable that by
     # not loading the pxe rom file
     my $extra = ($bootorder !~ m/n/) ? "romfile=," : '';
-    my $pciaddr = print_pci_addr("$netid");
+    my $pciaddr = print_pci_addr("$netid", $bridges);
     my $tmpstr = "$device,${extra}mac=$net->{macaddr},netdev=$netid$pciaddr,id=$netid";
     $tmpstr .= ",bootindex=$net->{bootindex}" if $net->{bootindex} ;
     return $tmpstr;
@@ -2003,7 +2003,9 @@ sub config_to_command {
     my ($storecfg, $vmid, $conf, $defaults, $migrate_uri) = @_;
 
     my $cmd = [];
+    my $devices = [];
     my $pciaddr = '';
+    my $bridges = {};
     my $kvmver = kvm_user_version();
     my $vernum = 0; # unknown
     if ($kvmver =~ m/^(\d+)\.(\d+)$/) {
@@ -2041,15 +2043,15 @@ sub config_to_command {
 	$use_usb2 = 1;
     }
     # include usb device config
-    push @$cmd, '-readconfig', '/usr/share/qemu-server/pve-usb.cfg' if $use_usb2;
+    push @$devices, '-readconfig', '/usr/share/qemu-server/pve-usb.cfg' if $use_usb2;
 
     # enable absolute mouse coordinates (needed by vnc)
     my $tablet = defined($conf->{tablet}) ? $conf->{tablet} : $defaults->{tablet};
     if ($tablet) {
 	if ($use_usb2) {
-	    push @$cmd, '-device', 'usb-tablet,bus=ehci.0,port=6';
+	    push @$devices, '-device', 'usb-tablet,bus=ehci.0,port=6';
 	} else {
-	    push @$cmd, '-usbdevice', 'tablet';
+	    push @$devices, '-usbdevice', 'tablet';
 	}
     }
 
@@ -2057,8 +2059,8 @@ sub config_to_command {
     for (my $i = 0; $i < $MAX_HOSTPCI_DEVICES; $i++)  {
           my $d = parse_hostpci($conf->{"hostpci$i"});
           next if !$d;
-	  $pciaddr = print_pci_addr("hostpci$i");
-          push @$cmd, '-device', "pci-assign,host=$d->{pciid},id=hostpci$i$pciaddr";
+	  $pciaddr = print_pci_addr("hostpci$i", $bridges);
+          push @$devices, '-device', "pci-assign,host=$d->{pciid},id=hostpci$i$pciaddr";
     }
 
     # usb devices
@@ -2066,9 +2068,9 @@ sub config_to_command {
 	my $d = parse_usb_device($conf->{"usb$i"});
 	next if !$d;
 	if ($d->{vendorid} && $d->{productid}) {
-	    push @$cmd, '-device', "usb-host,vendorid=0x$d->{vendorid},productid=0x$d->{productid}";
+	    push @$devices, '-device', "usb-host,vendorid=0x$d->{vendorid},productid=0x$d->{productid}";
 	} elsif (defined($d->{hostbus}) && defined($d->{hostport})) {
-	    push @$cmd, '-device', "usb-host,hostbus=$d->{hostbus},hostport=$d->{hostport}";
+	    push @$devices, '-device', "usb-host,hostbus=$d->{hostbus},hostport=$d->{hostport}";
 	}
     }
 
@@ -2076,8 +2078,8 @@ sub config_to_command {
     for (my $i = 0; $i < $MAX_SERIAL_PORTS; $i++)  {
 	if (my $path = $conf->{"serial$i"}) {
 	    die "no such serial device\n" if ! -c $path;
-	    push @$cmd, '-chardev', "tty,id=serial$i,path=$path";
-	    push @$cmd, '-device', "isa-serial,chardev=serial$i";
+	    push @$devices, '-chardev', "tty,id=serial$i,path=$path";
+	    push @$devices, '-device', "isa-serial,chardev=serial$i";
 	}
     }
 
@@ -2085,8 +2087,8 @@ sub config_to_command {
     for (my $i = 0; $i < $MAX_PARALLEL_PORTS; $i++)  {
 	if (my $path = $conf->{"parallel$i"}) {
 	    die "no such parallel device\n" if ! -c $path;
-	    push @$cmd, '-chardev', "parport,id=parallel$i,path=$path";
-	    push @$cmd, '-device', "isa-parallel,chardev=parallel$i";
+	    push @$devices, '-chardev', "parport,id=parallel$i,path=$path";
+	    push @$devices, '-device', "isa-parallel,chardev=parallel$i";
 	}
     }
 
@@ -2182,15 +2184,15 @@ sub config_to_command {
     #my $soundhw = $conf->{soundhw} || $defaults->{soundhw};
     #push @$cmd, '-soundhw', 'es1370';
     #push @$cmd, '-soundhw', $soundhw if $soundhw;
-    $pciaddr = print_pci_addr("balloon0");
-    push @$cmd, '-device', "virtio-balloon-pci,id=balloon0$pciaddr" if $conf->{balloon};
+    $pciaddr = print_pci_addr("balloon0", $bridges);
+    push @$devices, '-device', "virtio-balloon-pci,id=balloon0$pciaddr" if $conf->{balloon};
 
     if ($conf->{watchdog}) {
 	my $wdopts = parse_watchdog($conf->{watchdog});
-	$pciaddr = print_pci_addr("watchdog");
+	$pciaddr = print_pci_addr("watchdog", $bridges);
 	my $watchdog = $wdopts->{model} || 'i6300esb';
-	push @$cmd, '-device', "$watchdog$pciaddr";
-	push @$cmd, '-watchdog-action', $wdopts->{action} if $wdopts->{action};
+	push @$devices, '-device', "$watchdog$pciaddr";
+	push @$devices, '-watchdog-action', $wdopts->{action} if $wdopts->{action};
     }
 
     my $vollist = [];
@@ -2223,20 +2225,20 @@ sub config_to_command {
 
 	    my $maxdev = ($scsihw ne 'lsi') ? 256 : 7;
 	    my $controller = int($drive->{index} / $maxdev);
-	    $pciaddr = print_pci_addr("scsihw$controller");
-	    push @$cmd, '-device', "$scsihw,id=scsihw$controller$pciaddr" if !$scsicontroller->{$controller};
+	    $pciaddr = print_pci_addr("scsihw$controller", $bridges);
+	    push @$devices, '-device', "$scsihw,id=scsihw$controller$pciaddr" if !$scsicontroller->{$controller};
 	    $scsicontroller->{$controller}=1;
         }
 
         if ($drive->{interface} eq 'sata') {
            my $controller = int($drive->{index} / $MAX_SATA_DISKS);
-           $pciaddr = print_pci_addr("ahci$controller");
-           push @$cmd, '-device', "ahci,id=ahci$controller,multifunction=on$pciaddr" if !$ahcicontroller->{$controller};
+           $pciaddr = print_pci_addr("ahci$controller", $bridges);
+           push @$devices, '-device', "ahci,id=ahci$controller,multifunction=on$pciaddr" if !$ahcicontroller->{$controller};
            $ahcicontroller->{$controller}=1;
         }
 
-	push @$cmd, '-drive',print_drive_full($storecfg, $vmid, $drive);
-	push @$cmd, '-device',print_drivedevice_full($storecfg, $conf, $vmid, $drive);
+	push @$devices, '-drive',print_drive_full($storecfg, $vmid, $drive);
+	push @$devices, '-device',print_drivedevice_full($storecfg, $conf, $vmid, $drive, $bridges);
     });
 
     push @$cmd, '-m', $conf->{memory} || $defaults->{memory};
@@ -2254,10 +2256,16 @@ sub config_to_command {
          }
 
          my $netdevfull = print_netdev_full($vmid,$conf,$d,"net$i");
-         push @$cmd, '-netdev', $netdevfull;
+         push @$devices, '-netdev', $netdevfull;
 
-         my $netdevicefull = print_netdevice_full($vmid,$conf,$d,"net$i");
-         push @$cmd, '-device', $netdevicefull;
+         my $netdevicefull = print_netdevice_full($vmid,$conf,$d,"net$i",$bridges);
+         push @$devices, '-device', $netdevicefull;
+    }
+
+    #bridges
+    while (my ($k, $v) = each %$bridges) {
+	$pciaddr = print_pci_addr("pci.$k");
+	unshift @$devices, '-device', "pci-bridge,id=pci.$k,chassis_nr=$k$pciaddr" if $k > 0;
     }
 
 
@@ -2280,6 +2288,7 @@ sub config_to_command {
 	push @$cmd, @$aa;
     }
 
+    push @$cmd, @$devices;
     return wantarray ? ($cmd, $vollist) : $cmd;
 }
 
@@ -3077,7 +3086,7 @@ sub pci_dev_bind_to_stub {
 }
 
 sub print_pci_addr {
-    my ($id) = @_;
+    my ($id, $bridges) = @_;
 
     my $res = '';
     my $devices = {
@@ -3103,11 +3112,68 @@ sub print_pci_addr {
 	net4 => { bus => 0, addr => 22 },
 	net5 => { bus => 0, addr => 23 },
 	#addr29 : usb-host (pve-usb.cfg)
+	'pci.1' => { bus => 0, addr => 30 },
+	'pci.2' => { bus => 0, addr => 31 },
+	'net6' => { bus => 1, addr => 1 },
+	'net7' => { bus => 1, addr => 2 },
+	'net8' => { bus => 1, addr => 3 },
+	'net9' => { bus => 1, addr => 4 },
+	'net10' => { bus => 1, addr => 5 },
+	'net11' => { bus => 1, addr => 6 },
+	'net12' => { bus => 1, addr => 7 },
+	'net13' => { bus => 1, addr => 8 },
+	'net14' => { bus => 1, addr => 9 },
+	'net15' => { bus => 1, addr => 10 },
+	'net16' => { bus => 1, addr => 11 },
+	'net17' => { bus => 1, addr => 12 },
+	'net18' => { bus => 1, addr => 13 },
+	'net19' => { bus => 1, addr => 14 },
+	'net20' => { bus => 1, addr => 15 },
+	'net21' => { bus => 1, addr => 16 },
+	'net22' => { bus => 1, addr => 17 },
+	'net23' => { bus => 1, addr => 18 },
+	'net24' => { bus => 1, addr => 19 },
+	'net25' => { bus => 1, addr => 20 },
+	'net26' => { bus => 1, addr => 21 },
+	'net27' => { bus => 1, addr => 22 },
+	'net28' => { bus => 1, addr => 23 },
+	'net29' => { bus => 1, addr => 24 },
+	'net30' => { bus => 1, addr => 25 },
+	'net31' => { bus => 1, addr => 26 },
+	'virtio6' => { bus => 2, addr => 1 },
+	'virtio7' => { bus => 2, addr => 2 },
+	'virtio8' => { bus => 2, addr => 3 },
+	'virtio9' => { bus => 2, addr => 4 },
+	'virtio10' => { bus => 2, addr => 5 },
+	'virtio11' => { bus => 2, addr => 6 },
+	'virtio12' => { bus => 2, addr => 7 },
+	'virtio13' => { bus => 2, addr => 8 },
+	'virtio14' => { bus => 2, addr => 9 },
+	'virtio15' => { bus => 2, addr => 10 },
+	'virtio16' => { bus => 2, addr => 11 },
+	'virtio17' => { bus => 2, addr => 12 },
+	'virtio18' => { bus => 2, addr => 13 },
+	'virtio19' => { bus => 2, addr => 14 },
+	'virtio20' => { bus => 2, addr => 15 },
+	'virtio21' => { bus => 2, addr => 16 },
+	'virtio22' => { bus => 2, addr => 17 },
+	'virtio23' => { bus => 2, addr => 18 },
+	'virtio24' => { bus => 2, addr => 19 },
+	'virtio25' => { bus => 2, addr => 20 },
+	'virtio26' => { bus => 2, addr => 21 },
+	'virtio27' => { bus => 2, addr => 22 },
+	'virtio28' => { bus => 2, addr => 23 },
+	'virtio29' => { bus => 2, addr => 24 },
+	'virtio30' => { bus => 2, addr => 25 },
+	'virtio31' => { bus => 2, addr => 26 },
+
     };
 
     if (defined($devices->{$id}->{bus}) && defined($devices->{$id}->{addr})) {
 	   my $addr = sprintf("0x%x", $devices->{$id}->{addr});
-	   $res = ",bus=pci.$devices->{$id}->{bus},addr=$addr";
+	   my $bus = $devices->{$id}->{bus};
+	   $res = ",bus=pci.$bus,addr=$addr";
+	   $bridges->{$bus} = 1;
     }
     return $res;
 
