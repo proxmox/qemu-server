@@ -9,6 +9,7 @@ use PVE::INotify;
 use PVE::Cluster;
 use PVE::Storage;
 use PVE::QemuServer;
+use Time::HiRes qw( usleep );
 
 use base qw(PVE::AbstractMigrate);
 
@@ -330,8 +331,13 @@ sub phase2 {
     my $merr = $@;
 
     my $lstat = 0;
+    my $usleep = 2000000;
+    my $i = 0;
     while (1) {
-	sleep (2);
+	$i++;
+	my $avglstat = $lstat/$i if $lstat;
+
+	usleep ($usleep);
 	my $stat = PVE::QemuServer::vm_mon_cmd_nocheck($vmid, "query-migrate");
 	if ($stat->{status} =~ m/^(active|completed|failed|cancelled)$/im) {
 	    $merr = undef;
@@ -357,13 +363,15 @@ sub phase2 {
 		my $trans = $stat->{ram}->{transferred} || 0;
 		my $rem = $stat->{ram}->{remaining} || 0;
 		my $total = $stat->{ram}->{total} || 0;
+		#reduce sleep if remainig memory if lower than the everage transfert 
+		$usleep = 300000 if $rem < $avglstat;
 
 		$self->log('info', "migration status: $stat->{status} (transferred ${trans}, " .
 			   "remaining ${rem}), total ${total})");
 	    }
 
 	    $lstat = $stat->{ram}->{transferred};
-
+	    
 	} else {
 	    die $merr if $merr;
 	    die "unable to parse migration status '$stat->{status}' - aborting\n";
