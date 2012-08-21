@@ -402,7 +402,7 @@ while (my ($k, $v) = each %$confdesc) {
 
 my $MAX_IDE_DISKS = 4;
 my $MAX_SCSI_DISKS = 14;
-my $MAX_VIRTIO_DISKS = 32;
+my $MAX_VIRTIO_DISKS = 16;
 my $MAX_SATA_DISKS = 6;
 my $MAX_USB_DEVICES = 5;
 my $MAX_NETS = 32;
@@ -3180,23 +3180,6 @@ sub print_pci_addr {
 	'virtio13' => { bus => 2, addr => 8 },
 	'virtio14' => { bus => 2, addr => 9 },
 	'virtio15' => { bus => 2, addr => 10 },
-	'virtio16' => { bus => 2, addr => 11 },
-	'virtio17' => { bus => 2, addr => 12 },
-	'virtio18' => { bus => 2, addr => 13 },
-	'virtio19' => { bus => 2, addr => 14 },
-	'virtio20' => { bus => 2, addr => 15 },
-	'virtio21' => { bus => 2, addr => 16 },
-	'virtio22' => { bus => 2, addr => 17 },
-	'virtio23' => { bus => 2, addr => 18 },
-	'virtio24' => { bus => 2, addr => 19 },
-	'virtio25' => { bus => 2, addr => 20 },
-	'virtio26' => { bus => 2, addr => 21 },
-	'virtio27' => { bus => 2, addr => 22 },
-	'virtio28' => { bus => 2, addr => 23 },
-	'virtio29' => { bus => 2, addr => 24 },
-	'virtio30' => { bus => 2, addr => 25 },
-	'virtio31' => { bus => 2, addr => 26 },
-
     };
 
     if (defined($devices->{$id}->{bus}) && defined($devices->{$id}->{addr})) {
