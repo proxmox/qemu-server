@@ -369,6 +369,23 @@ sub phase2 {
     }
 }
 
+sub phase2_cleanup {
+    my ($self, $vmid, $err) = @_;
+
+    $self->log('info', "aborting phase 2 - cleanup resources");
+
+    my $conf = $self->{vmconf};
+    delete $conf->{lock};
+    eval { PVE::QemuServer::update_config_nolock($vmid, $conf, 1) };
+    if (my $err = $@) {
+        $self->log('err', $err);
+    }
+
+    ## fixme : vm_stop_cleanup on target vm
+
+
+}
+
 sub phase3 {
     my ($self, $vmid) = @_;
     
