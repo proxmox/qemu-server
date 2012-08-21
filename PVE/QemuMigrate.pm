@@ -267,12 +267,6 @@ sub phase1 {
 
     sync_disks($self, $vmid);
 
-    # move config to remote node
-    my $conffile = PVE::QemuServer::config_file($vmid);
-    my $newconffile = PVE::QemuServer::config_file($vmid, $self->{node});
-
-    die "Failed to move config to node '$self->{node}' - rename failed: $!\n"
-	if !rename($conffile, $newconffile);
 };
 
 sub phase1_cleanup {
@@ -395,6 +389,13 @@ sub phase3_cleanup {
     my ($self, $vmid, $err) = @_;
 
     my $conf = $self->{vmconf};
+
+    # move config to remote node
+    my $conffile = PVE::QemuServer::config_file($vmid);
+    my $newconffile = PVE::QemuServer::config_file($vmid, $self->{node});
+
+    die "Failed to move config to node '$self->{node}' - rename failed: $!\n"
+        if !rename($conffile, $newconffile);
 
     # always stop local VM
     eval { PVE::QemuServer::vm_stop($self->{storecfg}, $vmid, 1, 1); };
