@@ -2907,8 +2907,6 @@ sub vm_stop_cleanup {
 sub vm_stop {
     my ($storecfg, $vmid, $skiplock, $nocheck, $timeout, $shutdown, $force, $keepActive) = @_;
 
-    $timeout = 60 if !defined($timeout);
-
     $force = 1 if !defined($force) && !$shutdown;
 
     lock_config($vmid, sub {
@@ -2920,7 +2918,13 @@ sub vm_stop {
 	if (!$nocheck) {
 	    $conf = load_config($vmid);
 	    check_lock($conf) if !$skiplock;
+	    if (!defined($timeout) && $shutdown && $conf->{startup}) {
+		my $opts = parse_startup($conf->{startup});
+		$timeout = $opts->{down} if $opts->{down};
+	    }
 	}
+
+	$timeout = 60 if !defined($timeout);
 
 	eval {
 	    if ($shutdown) {
