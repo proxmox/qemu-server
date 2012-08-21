@@ -2037,6 +2037,8 @@ sub config_to_command {
 
     push @$cmd, '-incoming', $migrate_uri if $migrate_uri;
 
+    push @$cmd, '-S' if $migrate_uri;
+
     my $use_usb2 = 0;
     for (my $i = 0; $i < $MAX_USB_DEVICES; $i++)  {
 	next if !$conf->{"usb$i"};
