@@ -1194,6 +1194,8 @@ __PACKAGE__->register_method({
 	    vmid => get_standard_option('pve-vmid'),
 	    skiplock => get_standard_option('skiplock'),
 	    stateuri => get_standard_option('pve-qm-stateuri'),
+	    migratedfrom => get_standard_option('pve-node',{ optional => 1 }),
+
 	},
     },
     returns => {
@@ -1217,6 +1219,10 @@ __PACKAGE__->register_method({
 	my $skiplock = extract_param($param, 'skiplock');
 	raise_param_exc({ skiplock => "Only root may use this option." })
 	    if $skiplock && $authuser ne 'root@pam';
+
+	my $migratedfrom = extract_param($param, 'migratedfrom');
+	raise_param_exc({ migratedfrom => "Only root may use this option." })
+	    if $migratedfrom && $authuser ne 'root@pam';
 
 	my $storecfg = PVE::Storage::config();
 
@@ -1246,7 +1252,7 @@ __PACKAGE__->register_method({
 
 		syslog('info', "start VM $vmid: $upid\n");
 
-		PVE::QemuServer::vm_start($storecfg, $vmid, $stateuri, $skiplock);
+		PVE::QemuServer::vm_start($storecfg, $vmid, $stateuri, $skiplock, $migratedfrom);
 
 		return;
 	    };

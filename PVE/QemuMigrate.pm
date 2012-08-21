@@ -298,9 +298,11 @@ sub phase2 {
 
     my $rport;
 
+    my $nodename = PVE::INotify::nodename();
+
     ## start on remote node
-    my $cmd = [@{$self->{rem_ssh}}, 'qm', 'start', 
-	       $vmid, '--stateuri', 'tcp', '--skiplock'];
+    my $cmd = [@{$self->{rem_ssh}}, 'qm', 'start',
+               $vmid, '--stateuri', 'tcp', '--skiplock', '--migratedfrom', $nodename];
 
     PVE::Tools::run_command($cmd, outfunc => sub {
 	my $line = shift;

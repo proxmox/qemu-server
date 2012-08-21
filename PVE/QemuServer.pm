@@ -1499,9 +1499,9 @@ sub destroy_vm {
 }
 
 sub load_config {
-    my ($vmid) = @_;
+    my ($vmid, $node) = @_;
 
-    my $cfspath = cfs_config_path($vmid);
+    my $cfspath = cfs_config_path($vmid, $node);
 
     my $conf = PVE::Cluster::cfs_read_file($cfspath);
 
@@ -1757,9 +1757,9 @@ sub check_cmdline {
 }
 
 sub check_running {
-    my ($vmid, $nocheck) = @_;
+    my ($vmid, $nocheck, $node) = @_;
 
-    my $filename = config_file($vmid);
+    my $filename = config_file($vmid, $node);
 
     die "unable to find configuration file for VM $vmid - no such machine\n"
 	if !$nocheck && ! -f $filename;
@@ -2708,14 +2708,14 @@ sub qemu_block_resize {
 }
 
 sub vm_start {
-    my ($storecfg, $vmid, $statefile, $skiplock) = @_;
+    my ($storecfg, $vmid, $statefile, $skiplock, $migratedfrom) = @_;
 
     lock_config($vmid, sub {
-	my $conf = load_config($vmid);
+	my $conf = load_config($vmid, $migratedfrom);
 
 	check_lock($conf) if !$skiplock;
 
-	die "VM $vmid already running\n" if check_running($vmid);
+	die "VM $vmid already running\n" if check_running($vmid, undef, $migratedfrom);
 
 	my $migrate_uri;
 	my $migrate_port = 0;
