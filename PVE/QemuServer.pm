@@ -2910,9 +2910,17 @@ sub vm_stop_cleanup {
 # We need that when migration VMs to other nodes (files already moved)
 # Note: we set $keepActive in vzdump stop mode - volumes need to stay active
 sub vm_stop {
-    my ($storecfg, $vmid, $skiplock, $nocheck, $timeout, $shutdown, $force, $keepActive) = @_;
+    my ($storecfg, $vmid, $skiplock, $nocheck, $timeout, $shutdown, $force, $keepActive, $migratedfrom) = @_;
 
     $force = 1 if !defined($force) && !$shutdown;
+
+    if ($migratedfrom){
+	my $pid = check_running($vmid, $nocheck, $migratedfrom);
+	kill 15, $pid if $pid;
+	my $conf = load_config($vmid, $migratedfrom);
+	vm_stop_cleanup($storecfg, $vmid, $conf, $keepActive);
+	return;
+    }
 
     lock_config($vmid, sub {
 

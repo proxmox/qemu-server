@@ -1277,6 +1277,7 @@ __PACKAGE__->register_method({
 	    node => get_standard_option('pve-node'),
 	    vmid => get_standard_option('pve-vmid'),
 	    skiplock => get_standard_option('skiplock'),
+	    migratedfrom => get_standard_option('pve-node',{ optional => 1 }),
 	    timeout => {
 		description => "Wait maximal timeout seconds.",
 		type => 'integer',
@@ -1313,6 +1314,11 @@ __PACKAGE__->register_method({
 	raise_param_exc({ keepActive => "Only root may use this option." })
 	    if $keepActive && $authuser ne 'root@pam';
 
+	my $migratedfrom = extract_param($param, 'migratedfrom');
+	raise_param_exc({ migratedfrom => "Only root may use this option." })
+	    if $migratedfrom && $authuser ne 'root@pam';
+
+
 	my $storecfg = PVE::Storage::config();
 
 	if (&$vm_is_ha_managed($vmid) && $rpcenv->{type} ne 'ha') {
@@ -1340,7 +1346,7 @@ __PACKAGE__->register_method({
 		syslog('info', "stop VM $vmid: $upid\n");
 
 		PVE::QemuServer::vm_stop($storecfg, $vmid, $skiplock, 0,
-					 $param->{timeout}, 0, 1, $keepActive);
+					 $param->{timeout}, 0, 1, $keepActive, $migratedfrom);
 
 		return;
 	    };

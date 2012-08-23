@@ -382,6 +382,9 @@ sub phase2 {
 sub phase2_cleanup {
     my ($self, $vmid, $err) = @_;
 
+    return if !$self->{errors};
+    $self->{phase2errors} = 1;
+
     $self->log('info', "aborting phase 2 - cleanup resources");
 
     my $conf = $self->{vmconf};
@@ -391,15 +394,22 @@ sub phase2_cleanup {
         $self->log('err', $err);
     }
 
-    ## fixme : vm_stop_cleanup on target vm
-
-
+    # cleanup ressources on target host
+    my $nodename = PVE::INotify::nodename();
+ 
+    my $cmd = [@{$self->{rem_ssh}}, 'qm', 'stop', $vmid, '--skiplock', '--migratedfrom', $nodename];
+    eval{ PVE::Tools::run_command($cmd, outfunc => sub {}, errfunc => sub {}) };
+    if (my $err = $@) {
+        $self->log('err', $err);
+        $self->{errors} = 1;
+    }
 }
 
 sub phase3 {
     my ($self, $vmid) = @_;
 
     my $volids = $self->{volumes};
+    return if $self->{phase2errors};
 
     # destroy local copies
     foreach my $volid (@$volids) {
@@ -416,6 +426,7 @@ sub phase3_cleanup {
     my ($self, $vmid, $err) = @_;
 
     my $conf = $self->{vmconf};
+    return if $self->{phase2errors};
 
     # move config to remote node
     my $conffile = PVE::QemuServer::config_file($vmid);
