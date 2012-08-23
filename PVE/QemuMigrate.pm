@@ -117,7 +117,7 @@ sub finish_tunnel {
 
 sub lock_vm {
     my ($self, $vmid, $code, @param) = @_;
-    
+
     return PVE::QemuServer::lock_config($vmid, $code, @param);
 }
 
@@ -280,7 +280,7 @@ sub phase1_cleanup {
     if (my $err = $@) {
 	$self->log('err', $err);
     }
-  
+
     if ($self->{volumes}) {
 	foreach my $volid (@{$self->{volumes}}) {
 	    $self->log('err', "found stale volume copy '$volid' on node '$self->{node}'");
@@ -343,7 +343,7 @@ sub phase2 {
 		    $self->log('info', "migration speed: $mbps MB/s");
 		}
 	    }
-	    
+
 	    if ($stat->{status} eq 'failed' || $stat->{status} eq 'cancelled') {
 		die "aborting\n"
 	    }
@@ -390,7 +390,7 @@ sub phase2_cleanup {
 
 sub phase3 {
     my ($self, $vmid) = @_;
-    
+
     my $volids = $self->{volumes};
 
     # destroy local copies
@@ -416,17 +416,15 @@ sub phase3_cleanup {
     die "Failed to move config to node '$self->{node}' - rename failed: $!\n"
         if !rename($conffile, $newconffile);
 
-    ## now that config file is move, we can resume vm on target if livemigrate
+    # now that config file is move, we can resume vm on target if livemigrate
     if ($self->{tunnel}) {
-
 	my $cmd = [@{$self->{rem_ssh}}, 'qm', 'resume', $vmid, '--skiplock'];
 	eval{ PVE::Tools::run_command($cmd, outfunc => sub {}, errfunc => sub {}) };
-	if (my $err = $@) { 
+	if (my $err = $@) {
 	    $self->log('err', $err);
 	    $self->{errors} = 1;
 	}
     }
-
 
     # always stop local VM
     eval { PVE::QemuServer::vm_stop($self->{storecfg}, $vmid, 1, 1); };

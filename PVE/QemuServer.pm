@@ -1940,7 +1940,7 @@ sub vmstatus {
 	}
     }
 
-    return $res if !$full; 
+    return $res if !$full;
 
     my $qmpclient = PVE::QMPClient->new();
 
@@ -2588,7 +2588,7 @@ sub qemu_block_set_io_throttle {
 
 }
 
-# old code, only used to shutdown old VM after update 
+# old code, only used to shutdown old VM after update
 sub __read_avail {
     my ($fh, $timeout) = @_;
 
@@ -2617,14 +2617,14 @@ sub __read_avail {
     }
 
     die "monitor read timeout\n" if !scalar(@ready);
-    
+
     return $res;
 }
 
-# old code, only used to shutdown old VM after update 
+# old code, only used to shutdown old VM after update
 sub vm_monitor_command {
     my ($vmid, $cmdstr, $nocheck) = @_;
-    
+
     my $res;
 
     eval {
@@ -2678,9 +2678,9 @@ sub vm_monitor_command {
 	if ($res = __read_avail($sock, $timeout)) {
 
 	    my @lines = split("\r?\n", $res);
-	    
+
 	    shift @lines if $lines[0] !~ m/^unknown command/; # skip echo
-	    
+
 	    $res = join("\n", @lines);
 	    $res .= "\n";
 	}
@@ -2692,7 +2692,7 @@ sub vm_monitor_command {
 	syslog("err", "VM $vmid monitor command failed - $err");
 	die $err;
     }
-    
+
     return $res;
 }
 
@@ -2811,7 +2811,7 @@ sub vm_qmp_command {
     eval {
 	die "VM $vmid not running\n" if !check_running($vmid, $nocheck);
 	my $sname = PVE::QemuServer::qmp_socket($vmid);
-	if (-e $sname) { 
+	if (-e $sname) {
 	    my $qmpclient = PVE::QMPClient->new();
 
 	    $res = $qmpclient->cmd($vmid, $cmd);
@@ -2836,7 +2836,7 @@ sub vm_human_monitor_command {
 
     my $res;
 
-    my $cmd = { 
+    my $cmd = {
 	execute => 'human-monitor-command',
 	arguments => { 'command-line' => $cmdline},
     };
@@ -3019,7 +3019,7 @@ sub vm_sendkey {
     lock_config($vmid, sub {
 
 	my $conf = load_config($vmid);
-	
+
 	# there is no qmp command, so we use the human monitor command
 	vm_human_monitor_command($vmid, "sendkey $key");
     });
