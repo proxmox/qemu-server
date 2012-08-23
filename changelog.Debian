@@ -1,3 +1,9 @@
+qemu-server (2.0-52) unstable; urgency=low
+
+  * fix bug 217: stop VM after failed migrate
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 23 Aug 2012 10:33:57 +0200
+
 qemu-server (2.0-51) unstable; urgency=low
 
   * support up to 32 network devices
