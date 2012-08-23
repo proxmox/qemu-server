@@ -15,7 +15,9 @@ die "got strange interface name '$iface'\n"
 my $vmid = $1;
 my $netid = "net$2";
 
-my $conf = PVE::QemuServer::load_config ($vmid);
+my $migratedfrom = $ENV{PVE_MIGRATED_FROM};
+
+my $conf = PVE::QemuServer::load_config($vmid, $migratedfrom);
 
 die "unable to get network config '$netid'\n"
     if !$conf->{$netid};

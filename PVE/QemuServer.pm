@@ -2735,6 +2735,9 @@ sub vm_start {
 
 	my $defaults = load_defaults();
 
+	# set environment variable useful inside network script
+	$ENV{PVE_MIGRATED_FROM} = $migratedfrom if $migratedfrom;
+
 	my ($cmd, $vollist) = config_to_command($storecfg, $vmid, $conf, $defaults, $migrate_uri);
 	# host pci devices
         for (my $i = 0; $i < $MAX_HOSTPCI_DEVICES; $i++)  {
