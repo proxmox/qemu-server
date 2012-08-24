@@ -2899,7 +2899,7 @@ sub vm_stop_cleanup {
 	    PVE::Storage::deactivate_volumes($storecfg, $vollist);
 	}
 
-	foreach my $ext (qw(mon pid vnc)) {
+	foreach my $ext (qw(mon qmp pid vnc)) {
 	    unlink "/var/run/qemu-server/${vmid}.$ext";
 	}
     };
