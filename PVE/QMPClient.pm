@@ -72,6 +72,8 @@ sub cmd {
 	    $timeout = 60*60; # 1 hour
 	} elsif ($cmd->{execute} =~ m/^(eject|change)/) {
 	    $timeout = 60; # note: cdrom mount command is slow
+	} else {
+	    $timeout = 3; # default
 	}
     }
 

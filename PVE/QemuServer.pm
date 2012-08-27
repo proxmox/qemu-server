@@ -2808,13 +2808,19 @@ sub vm_qmp_command {
 
     my $res;
 
+    my $timeout;
+    if ($cmd->{arguments} && $cmd->{arguments}->{timeout}) {
+	$timeout = $cmd->{arguments}->{timeout};
+	delete $cmd->{arguments}->{timeout};
+    }
+ 
     eval {
 	die "VM $vmid not running\n" if !check_running($vmid, $nocheck);
 	my $sname = PVE::QemuServer::qmp_socket($vmid);
 	if (-e $sname) {
 	    my $qmpclient = PVE::QMPClient->new();
 
-	    $res = $qmpclient->cmd($vmid, $cmd);
+	    $res = $qmpclient->cmd($vmid, $cmd, $timeout);
 	} elsif (-e "${var_run_tmpdir}/$vmid.mon") {
 	    die "can't execute complex command on old monitor - stop/start your vm to fix the problem\n"
 		if scalar(%{$cmd->{arguments}});
