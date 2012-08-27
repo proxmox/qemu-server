@@ -4,7 +4,10 @@ use strict;
 #use PVE::SafeSyslog;
 use PVE::QemuServer;
 use IO::Multiplex;
+use POSIX qw(EINTR EAGAIN);
 use JSON;
+use Time::HiRes qw(usleep gettimeofday tv_interval);
+
 use Data::Dumper;
 
 # Qemu Monitor Protocol (QMP) client.
@@ -109,8 +112,22 @@ my $open_connection = sub {
 
     my $sname = PVE::QemuServer::qmp_socket($vmid);
 
-    my $fh = IO::Socket::UNIX->new(Peer => $sname, Blocking => 0, Timeout => 1) ||
-	die "unable to connect to VM $vmid socket - $!\n";
+    my $fh;
+    my $starttime = [gettimeofday];
+    my $count = 0;
+    for (;;) {
+	$count++;
+	$fh = IO::Socket::UNIX->new(Peer => $sname, Blocking => 0, Timeout => 1);
+	last if $fh;
+	if ($! != EINTR && $! != EAGAIN) {
+	    die "unable to connect to VM $vmid socket - $!\n";
+	}
+	my $elapsed = tv_interval($starttime, [gettimeofday]);
+	if ($elapsed > 1) {
+	    die "unable to connect to VM $vmid socket - timeout after $count retries\n";
+	}
+	usleep(100000);
+    }
 
     $self->{fhs}->{$vmid} = $fh;
     $self->{fhs_lookup}->{$fh} = $vmid;
