@@ -988,7 +988,13 @@ sub print_drivedevice_full {
               } else {
                   $path = PVE::Storage::path($storecfg, $drive->{file});
               }
-	      $devicetype = 'block' if path_is_scsi($path);
+
+	      if($path =~ m/^iscsi\:\/\//){
+		 $devicetype = 'generic';
+	      }
+	      else {
+		 $devicetype = 'block' if path_is_scsi($path);
+	      }
          }
 
         if (!$conf->{scsihw} || $conf->{scsihw} eq 'lsi'){
