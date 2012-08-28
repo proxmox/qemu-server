@@ -2790,6 +2790,13 @@ sub vm_start {
 	    eval { vm_mon_cmd($vmid, "migrate_set_downtime", value => $migrate_downtime); };
 	}
 
+	if($migratedfrom) {
+	    my $capabilities = {};
+	    $capabilities->{capability} =  "xbzrle";
+	    $capabilities->{state} = JSON::true;
+	    eval { PVE::QemuServer::vm_mon_cmd_nocheck($vmid, "migrate-set-capabilities", capabilities => [$capabilities]); };
+	}
+
 	vm_balloonset($vmid, $conf->{balloon}) if $conf->{balloon};
 
     });

@@ -325,6 +325,21 @@ sub phase2 {
     # start migration
 
     my $start = time();
+
+    my $capabilities = {};
+    $capabilities->{capability} =  "xbzrle";
+    $capabilities->{state} = JSON::true;
+
+    eval {
+	PVE::QemuServer::vm_mon_cmd_nocheck($vmid, "migrate-set-capabilities", capabilities => [$capabilities]);
+    };
+
+    #set cachesize 10% of the total memory
+    my $cachesize = int($conf->{memory}*1048576/10);
+    eval {
+	PVE::QemuServer::vm_mon_cmd_nocheck($vmid, "migrate-set-cache-size", value => $cachesize);
+    };
+
     eval {
         PVE::QemuServer::vm_mon_cmd_nocheck($vmid, "migrate", uri => "tcp:localhost:$lport");
     };
@@ -363,11 +378,18 @@ sub phase2 {
 		my $trans = $stat->{ram}->{transferred} || 0;
 		my $rem = $stat->{ram}->{remaining} || 0;
 		my $total = $stat->{ram}->{total} || 0;
+		my $xbzrlecachesize = $stat->{"xbzrle-cache"}->{"cache-size"} || 0;
+		my $xbzrlebytes = $stat->{"xbzrle-cache"}->{"bytes"} || 0;
+		my $xbzrlepages = $stat->{"xbzrle-cache"}->{"pages"} || 0;
+		my $xbzrlecachemiss = $stat->{"xbzrle-cache"}->{"cache-miss"} || 0;
+		my $xbzrleoverflow = $stat->{"xbzrle-cache"}->{"overflow"} || 0;
 		#reduce sleep if remainig memory if lower than the everage transfert 
 		$usleep = 300000 if $rem < $avglstat;
 
 		$self->log('info', "migration status: $stat->{status} (transferred ${trans}, " .
 			   "remaining ${rem}), total ${total})");
+
+		$self->log('info', "migration xbzrle cachesize: ${xbzrlecachesize} transferred ${xbzrlebytes} pages ${xbzrlepages} cachemiss ${xbzrlecachemiss} overflow ${xbzrleoverflow}");
 	    }
 
 	    $lstat = $stat->{ram}->{transferred};
