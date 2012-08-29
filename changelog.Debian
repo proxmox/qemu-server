@@ -1,6 +1,10 @@
 qemu-server (2.0-53) unstable; urgency=low
 
-  * fix bug 247: fix qmp monitor client timeout
+  * livemigrate : activate xbzrle cache
+
+  * scsihw: add megasas controller
+  
+  * partly fix bug 247: retry qmp open 
 
  -- Proxmox Support Team <support@proxmox.com>  Mon, 27 Aug 2012 13:45:18 +0200
 
