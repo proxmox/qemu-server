@@ -774,6 +774,40 @@ sub create_conf_nolock {
     PVE::Tools::file_set_contents($filename, $data);
 }
 
+my $parse_size = sub {
+    my ($value) = @_;
+
+    return undef if $value !~ m/^([1-9]\d*(\.\d+)?)([KMG])?$/;
+    my ($size, $unit) = ($1, $3);
+    if ($unit) {
+	if ($unit eq 'K') {
+	    $size = $size * 1024;
+	} elsif ($unit eq 'M') {
+	    $size = $size * 1024 * 1024;
+	} elsif ($unit eq 'G') {
+	    $size = $size * 1024 * 1024 * 1024;
+	}
+    }
+    return int($size);
+};
+
+my $format_size = sub {
+    my ($size) = @_;
+
+    $size = int($size);
+
+    my $kb = int($size/1024);
+    return $size if $kb*1024 != $size;
+
+    my $mb = int($kb/1024);
+    return "${kb}K" if $mb*1024 != $kb;
+
+    my $gb = int($mb/1024);
+    return "${mb}M" if $gb*1024 != $mb;
+
+    return "${gb}G";
+};
+
 # ideX = [volume=]volume-id[,media=d][,cyls=c,heads=h,secs=s[,trans=t]]
 #        [,snapshot=on|off][,cache=on|off][,format=f][,backup=yes|no]
 #        [,rerror=ignore|report|stop][,werror=enospc|ignore|report|stop]
@@ -845,18 +879,7 @@ sub parse_drive {
 
 
     if ($res->{size}) {
-	return undef if $res->{size} !~ m/^([1-9]\d*(\.\d+)?)([KMG])?$/;
-	my ($size, $unit) = ($1, $3);
-	if ($unit) {
-	    if ($unit eq 'K') {
-		$size = $size * 1024;
-	    } elsif ($unit eq 'M') {
-		$size = $size * 1024 * 1024;
-	    } elsif ($unit eq 'G') {
-		$size = $size * 1024 * 1024 * 1024;
-	    }
-	}
-	$res->{size} = int($size);
+	return undef if !defined($res->{size} = &$parse_size($res->{size})); 
     }
 
     if ($res->{media} && ($res->{media} eq 'cdrom')) {
@@ -874,23 +897,6 @@ sub parse_drive {
 }
 
 my @qemu_drive_options = qw(heads secs cyls trans media format cache snapshot rerror werror aio bps bps_rd bps_wr iops iops_rd iops_wr);
-
-my $format_size = sub {
-    my ($size) = @_;
-
-    $size = int($size);
-
-    my $kb = int($size/1024);
-    return $size if $kb*1024 != $size;
-
-    my $mb = int($kb/1024);
-    return "${kb}K" if $mb*1024 != $kb;
-
-    my $gb = int($mb/1024);
-    return "${mb}M" if $gb*1024 != $mb;
-
-    return "${gb}G";
-};
 
 sub print_drive {
     my ($vmid, $drive) = @_;
