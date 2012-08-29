@@ -258,7 +258,7 @@ EODESC
 	optional => 1,
 	type => 'string', format => 'pve-qm-bootdisk',
 	description => "Enable booting from specified disk.",
-	pattern => '(ide|scsi|virtio)\d+',
+	pattern => '(ide|sata|scsi|virtio)\d+',
     },
     smp => {
 	optional => 1,
