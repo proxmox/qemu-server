@@ -777,7 +777,7 @@ sub create_conf_nolock {
 my $parse_size = sub {
     my ($value) = @_;
 
-    return undef if $value !~ m/^([1-9]\d*(\.\d+)?)([KMG])?$/;
+    return undef if $value !~ m/^(\d+(\.\d+)?)([KMG])?$/;
     my ($size, $unit) = ($1, $3);
     if ($unit) {
 	if ($unit eq 'K') {
@@ -832,13 +832,18 @@ sub parse_drive {
     foreach my $p (split (/,/, $data)) {
 	next if $p =~ m/^\s*$/;
 
-	if ($p =~ m/^(file|volume|cyls|heads|secs|trans|media|snapshot|cache|format|rerror|werror|backup|aio|bps|bps_rd|bps_wr|iops|iops_rd|iops_wr|size)=(.+)$/) {
+	if ($p =~ m/^(file|volume|cyls|heads|secs|trans|media|snapshot|cache|format|rerror|werror|backup|aio|bps|mbps|bps_rd|mbps_rd|bps_wr|mbps_wr|iops|iops_rd|iops_wr|size)=(.+)$/) {
 	    my ($k, $v) = ($1, $2);
 
 	    $k = 'file' if $k eq 'volume';
 
 	    return undef if defined $res->{$k};
 
+	    if ($k eq 'bps' || $k eq 'bps_rd' || $k eq 'bps_wr') {
+		return undef if !$v || $v !~ m/^\d+/;
+		$k = "m$k";
+		$v = sprintf("%.3f", $v / (1024*1024));
+	    }
 	    $res->{$k} = $v;
 	} else {
 	    if (!$res->{file} && $p !~ m/=/) {
@@ -865,14 +870,16 @@ sub parse_drive {
     return undef if $res->{backup} && $res->{backup} !~ m/^(yes|no)$/;
     return undef if $res->{aio} && $res->{aio} !~ m/^(native|threads)$/;
 
-    return undef if $res->{bps_rd} && $res->{bps};
-    return undef if $res->{bps_wr} && $res->{bps};
+    
+    return undef if $res->{mbps_rd} && $res->{mbps};
+    return undef if $res->{mbps_wr} && $res->{mbps};
+
+    return undef if $res->{mbps} && $res->{mbps} !~ m/^\d+(\.\d+)?$/;
+    return undef if $res->{mbps_rd} && $res->{mbps_rd} !~ m/^\d+(\.\d+)?$/;
+    return undef if $res->{mbps_wr} && $res->{mbps_wr} !~ m/^\d+(\.\d+)?$/;
+
     return undef if $res->{iops_rd} && $res->{iops};
     return undef if $res->{iops_wr} && $res->{iops};
-
-    return undef if $res->{bps} && $res->{bps} !~ m/^\d+$/;
-    return undef if $res->{bps_rd} && $res->{bps_rd} !~ m/^\d+$/;
-    return undef if $res->{bps_wr} && $res->{bps_wr} !~ m/^\d+$/;
     return undef if $res->{iops} && $res->{iops} !~ m/^\d+$/;
     return undef if $res->{iops_rd} && $res->{iops_rd} !~ m/^\d+$/;
     return undef if $res->{iops_wr} && $res->{iops_wr} !~ m/^\d+$/;
@@ -896,13 +903,13 @@ sub parse_drive {
     return $res;
 }
 
-my @qemu_drive_options = qw(heads secs cyls trans media format cache snapshot rerror werror aio bps bps_rd bps_wr iops iops_rd iops_wr);
+my @qemu_drive_options = qw(heads secs cyls trans media format cache snapshot rerror werror aio iops iops_rd iops_wr);
 
 sub print_drive {
     my ($vmid, $drive) = @_;
 
     my $opts = '';
-    foreach my $o (@qemu_drive_options, 'backup') {
+    foreach my $o (@qemu_drive_options, 'mbps', 'mbps_rd', 'mbps_wr', 'backup') {
 	$opts .= ",$o=$drive->{$o}" if $drive->{$o};
     }
 
@@ -1039,6 +1046,11 @@ sub print_drive_full {
     foreach my $o (@qemu_drive_options) {
 	next if $o eq 'bootindex';
 	$opts .= ",$o=$drive->{$o}" if $drive->{$o};
+    }
+
+    foreach my $o (qw(bps bps_rd bps_wr)) {
+	my $v = $drive->{"m$o"};
+	$opts .= ",$o=" . int($v*1024*1024) if $v;
     }
 
     # use linux-aio by default (qemu default is threads)
