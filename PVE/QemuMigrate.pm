@@ -348,15 +348,28 @@ sub phase2 {
     my $lstat = 0;
     my $usleep = 2000000;
     my $i = 0;
+    my $err_count = 0;
     while (1) {
 	$i++;
 	my $avglstat = $lstat/$i if $lstat;
 
-	usleep ($usleep);
-	my $stat = PVE::QemuServer::vm_mon_cmd_nocheck($vmid, "query-migrate");
+	usleep($usleep);
+	my $stat;
+	eval {
+	    $stat = PVE::QemuServer::vm_mon_cmd_nocheck($vmid, "query-migrate");
+	};
+	if (my $err = $@) {
+	    $err_count++;
+	    warn "query migrate failed: $err\n";
+	    if ($err_count <= 5) {
+		usleep(1000000);
+		next;
+	    }
+	    die "too many query migrate failures - aborting\n";
+	}
 	if ($stat->{status} =~ m/^(active|completed|failed|cancelled)$/im) {
 	    $merr = undef;
-
+	    $err_count = 0;
 	    if ($stat->{status} eq 'completed') {
 		my $delay = time() - $start;
 		if ($delay > 0) {
