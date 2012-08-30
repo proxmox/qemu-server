@@ -397,7 +397,7 @@ sub phase2 {
 		my $xbzrlecachemiss = $stat->{"xbzrle-cache"}->{"cache-miss"} || 0;
 		my $xbzrleoverflow = $stat->{"xbzrle-cache"}->{"overflow"} || 0;
 		#reduce sleep if remainig memory if lower than the everage transfert 
-		$usleep = 300000 if $rem < $avglstat;
+		$usleep = 300000 if $avglstat && $rem < $avglstat;
 
 		$self->log('info', "migration status: $stat->{status} (transferred ${trans}, " .
 			   "remaining ${rem}), total ${total})");
