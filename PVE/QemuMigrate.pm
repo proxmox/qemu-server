@@ -328,7 +328,7 @@ sub phase2 {
 
     my $capabilities = {};
     $capabilities->{capability} =  "xbzrle";
-    $capabilities->{state} = JSON::true;
+    $capabilities->{state} = JSON::false;
 
     eval {
 	PVE::QemuServer::vm_mon_cmd_nocheck($vmid, "migrate-set-capabilities", capabilities => [$capabilities]);
@@ -402,7 +402,7 @@ sub phase2 {
 		$self->log('info', "migration status: $stat->{status} (transferred ${trans}, " .
 			   "remaining ${rem}), total ${total})");
 
-		$self->log('info', "migration xbzrle cachesize: ${xbzrlecachesize} transferred ${xbzrlebytes} pages ${xbzrlepages} cachemiss ${xbzrlecachemiss} overflow ${xbzrleoverflow}");
+		#$self->log('info', "migration xbzrle cachesize: ${xbzrlecachesize} transferred ${xbzrlebytes} pages ${xbzrlepages} cachemiss ${xbzrlecachemiss} overflow ${xbzrleoverflow}");
 	    }
 
 	    $lstat = $stat->{ram}->{transferred};
