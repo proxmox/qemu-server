@@ -287,6 +287,12 @@ EODESC
 	description => "Enable/disable ACPI.",
 	default => 1,
     },
+    qga => {
+	optional => 1,
+	type => 'boolean',
+	description => "Enable/disable Qemu GuestAgent.",
+	default => 1,
+    },
     kvm => {
 	optional => 1,
 	type => 'boolean',
@@ -2210,6 +2216,15 @@ sub config_to_command {
     #my $soundhw = $conf->{soundhw} || $defaults->{soundhw};
     #push @$cmd, '-soundhw', 'es1370';
     #push @$cmd, '-soundhw', $soundhw if $soundhw;
+
+    if($conf->{qga}) {
+	my $qgasocket = qga_socket($vmid);
+	my $pciaddr = print_pci_addr("qga0", $bridges);
+	push @$devices, '-chardev', "socket,path=$qgasocket,server,nowait,id=qga0";
+	push @$devices, '-device', "virtio-serial,id=qga0$pciaddr";
+	push @$devices, '-device', 'virtserialport,chardev=qga0,name=org.qemu.guest_agent.0';
+    }
+
     $pciaddr = print_pci_addr("balloon0", $bridges);
     push @$devices, '-device', "virtio-balloon-pci,id=balloon0$pciaddr" if $conf->{balloon};
 
@@ -2326,6 +2341,11 @@ sub vnc_socket {
 sub qmp_socket {
     my ($vmid) = @_;
     return "${var_run_tmpdir}/$vmid.qmp";
+}
+
+sub qga_socket {
+    my ($vmid) = @_;
+    return "${var_run_tmpdir}/$vmid.qga";
 }
 
 sub pidfile_name {
@@ -2936,7 +2956,7 @@ sub vm_stop_cleanup {
 	    PVE::Storage::deactivate_volumes($storecfg, $vollist);
 	}
 
-	foreach my $ext (qw(mon qmp pid vnc)) {
+	foreach my $ext (qw(mon qmp pid vnc qga)) {
 	    unlink "/var/run/qemu-server/${vmid}.$ext";
 	}
     };
@@ -3181,6 +3201,7 @@ sub print_pci_addr {
 	scsihw0 => { bus => 0, addr => 5 },
 	scsihw1 => { bus => 0, addr => 6 },
 	ahci0 => { bus => 0, addr => 7 },
+	qga0 => { bus => 0, addr => 8 },
 	virtio0 => { bus => 0, addr => 10 },
 	virtio1 => { bus => 0, addr => 11 },
 	virtio2 => { bus => 0, addr => 12 },
