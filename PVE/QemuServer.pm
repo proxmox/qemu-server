@@ -287,7 +287,7 @@ EODESC
 	description => "Enable/disable ACPI.",
 	default => 1,
     },
-    qga => {
+    agent => {
 	optional => 1,
 	type => 'boolean',
 	description => "Enable/disable Qemu GuestAgent.",
@@ -2217,7 +2217,7 @@ sub config_to_command {
     #push @$cmd, '-soundhw', 'es1370';
     #push @$cmd, '-soundhw', $soundhw if $soundhw;
 
-    if($conf->{qga}) {
+    if($conf->{agent}) {
 	my $qgasocket = qga_socket($vmid);
 	my $pciaddr = print_pci_addr("qga0", $bridges);
 	push @$devices, '-chardev', "socket,path=$qgasocket,server,nowait,id=qga0";
