@@ -291,7 +291,7 @@ EODESC
 	optional => 1,
 	type => 'boolean',
 	description => "Enable/disable Qemu GuestAgent.",
-	default => 1,
+	default => 0,
     },
     kvm => {
 	optional => 1,
