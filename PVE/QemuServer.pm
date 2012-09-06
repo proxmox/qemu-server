@@ -2789,6 +2789,12 @@ sub qga_freezefs {
     #need to impplement call to qemu-ga
 }
 
+sub qga_unfreezefs {
+    my ($vmid) = @_;
+
+    #need to impplement call to qemu-ga
+}
+
 sub vm_start {
     my ($storecfg, $vmid, $statefile, $skiplock, $migratedfrom) = @_;
 
