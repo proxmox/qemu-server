@@ -2753,6 +2753,19 @@ sub qemu_block_resize {
 
 }
 
+sub qemu_volume_snapshot {
+    my ($vmid, $deviceid, $storecfg, $volid, $snap) = @_;
+
+    my $running = PVE::QemuServer::check_running($vmid);
+
+    return if !PVE::Storage::volume_snapshot($storecfg, $volid, $snap, $running);
+
+    return if !$running;
+
+    vm_mon_cmd($vmid, "snapshot-drive", device => $deviceid, name => $snap);
+
+}
+
 sub vm_start {
     my ($storecfg, $vmid, $statefile, $skiplock, $migratedfrom) = @_;
 
