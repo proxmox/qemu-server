@@ -2776,6 +2776,13 @@ sub qemu_snapshot_start {
 
 }
 
+sub qemu_snapshot_end {
+    my ($vmid) = @_;
+
+    vm_mon_cmd($vmid, "snapshot-end");
+
+}
+
 sub vm_start {
     my ($storecfg, $vmid, $statefile, $skiplock, $migratedfrom) = @_;
 
