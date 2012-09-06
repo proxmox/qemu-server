@@ -1881,4 +1881,144 @@ __PACKAGE__->register_method({
         return undef;
     }});
 
+__PACKAGE__->register_method({
+    name => 'snapshot_vm',
+    path => '{vmid}/snapshot',
+    method => 'PUT',
+    protected => 1,
+    proxyto => 'node',
+    description => "Snapshot a VM.",
+    permissions => {
+	check => ['perm', '/vms/{vmid}', [ 'VM.Config.Disk' ]],
+    },
+    parameters => {
+	additionalProperties => 0,
+	properties => {
+	    node => get_standard_option('pve-node'),
+	    vmid => get_standard_option('pve-vmid'),
+	    skiplock => get_standard_option('skiplock'),
+	    action => {
+		type => 'string',
+		description => "Action",
+		enum => [ 'create', 'delete', 'rollback' ],
+	    },
+	    snapname => {
+		type => 'string',
+		description => "The name of the snapshot",
+		maxLength => 40,
+	    },
+	    vmstate => {
+		optional => 1,
+		type => 'boolean',
+		description => "Save the vmstate",
+	    },
+	    freezefs => {
+		optional => 1,
+		type => 'boolean',
+		description => "Freeze the filesystem",
+	    },
+	    digest => {
+		type => 'string',
+		description => 'Prevent changes if current configuration file has different SHA1 digest. This can be used to prevent concurrent modifications.',
+		maxLength => 40,
+		optional => 1,
+	    },
+	},
+    },
+    returns => { type => 'null'},
+    code => sub {
+	my ($param) = @_;
+
+	my $rpcenv = PVE::RPCEnvironment::get();
+
+	my $authuser = $rpcenv->get_user();
+
+	my $node = extract_param($param, 'node');
+
+	my $vmid = extract_param($param, 'vmid');
+
+	my $digest = extract_param($param, 'digest');
+
+	my $action = extract_param($param, 'action');
+
+	my $snapname = extract_param($param, 'snapname');
+
+	my $vmstate = extract_param($param, 'vmstate');
+ 
+	my $freezefs = extract_param($param, 'freezefs');
+
+	my $skiplock = extract_param($param, 'skiplock');
+	raise_param_exc({ skiplock => "Only root may use this option." })
+		if $skiplock && $authuser ne 'root@pam';
+
+	my $storecfg = PVE::Storage::config();
+
+	my $updatefn =  sub {
+
+	    my $conf = PVE::QemuServer::load_config($vmid);
+
+	    die "checksum missmatch (file change by other user?)\n"
+		if $digest && $digest ne $conf->{digest};
+	    PVE::QemuServer::check_lock($conf) if !$skiplock;
+
+	    &$check_storage_access($rpcenv, $authuser, $storecfg, $vmid, $conf);
+
+	    #need to implement a check to see if all storages support snapshots
+
+	    if($action eq 'create'){
+	        PVE::Cluster::log_msg('info', $authuser, "snapshot VM $vmid: $snapname");
+
+	        PVE::QemuServer::qemu_snapshot_start($vmid,$snapname) if $vmstate;
+
+	        PVE::QemuServer::qga_freezefs($vmid) if $freezefs;
+
+	        PVE::QemuServer::foreach_drive($conf, sub {
+		    my ($ds, $drive) = @_;
+
+		    return if PVE::QemuServer::drive_is_cdrom($drive);
+		    my $volid = $drive->{file};
+		    my $device = "drive-".$ds;
+		    PVE::QemuServer::qemu_volume_snapshot($vmid, $device, $storecfg, $volid, $snapname);
+	        });
+
+	        PVE::QemuServer::gqa_unfreezefs($vmid) if $freezefs;
+
+	        PVE::QemuServer::qemu_snapshot_end($vmid) if $vmstate;
+	    }
+	    elsif($action eq 'rollback'){
+
+		die "unable to rollback vm $vmid: vm is running\n"
+		    if PVE::QemuServer::check_running($vmid);
+
+	        PVE::QemuServer::foreach_drive($conf, sub {
+		    my ($ds, $drive) = @_;
+
+		    return if PVE::QemuServer::drive_is_cdrom($drive);
+		    my $volid = $drive->{file};
+		    my $device = "drive-".$ds;
+		    PVE::QemuServer::qemu_volume_snapshot_rollback($vmid, $device, $storecfg, $volid, $snapname);
+	        });
+
+	    }
+	    elsif($action eq 'delete'){
+
+                PVE::QemuServer::foreach_drive($conf, sub {
+                    my ($ds, $drive) = @_;
+
+                    return if PVE::QemuServer::drive_is_cdrom($drive);
+                    my $volid = $drive->{file};
+                    my $device = "drive-".$ds;
+                    PVE::QemuServer::qemu_volume_snapshot_delete($vmid, $device, $storecfg, $volid, $snapname);
+                });
+
+	    }
+
+	    #need to implement config change with snapshots info
+	    PVE::QemuServer::update_config_nolock($vmid, $conf, 1);
+	};
+
+	PVE::QemuServer::lock_config($vmid, $updatefn);
+	return undef;
+    }});
+
 1;
