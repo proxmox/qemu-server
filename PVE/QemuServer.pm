@@ -2766,6 +2766,16 @@ sub qemu_volume_snapshot {
 
 }
 
+sub qemu_snapshot_start {
+    my ($vmid, $snap) = @_;
+
+    #need to implement statefile location
+    my $statefile="/tmp/$vmid-$snap";
+
+    vm_mon_cmd($vmid, "snapshot-start", statefile => $statefile);
+
+}
+
 sub vm_start {
     my ($storecfg, $vmid, $statefile, $skiplock, $migratedfrom) = @_;
 
