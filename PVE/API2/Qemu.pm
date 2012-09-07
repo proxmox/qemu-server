@@ -579,6 +579,8 @@ __PACKAGE__->register_method({
 
 	my $conf = PVE::QemuServer::load_config($param->{vmid});
 
+	delete $conf->{snapshots};
+
 	return $conf;
     }});
 
@@ -1951,73 +1953,23 @@ __PACKAGE__->register_method({
 	raise_param_exc({ skiplock => "Only root may use this option." })
 		if $skiplock && $authuser ne 'root@pam';
 
-	my $storecfg = PVE::Storage::config();
 
-	my $updatefn =  sub {
+	# fixme: digest?
+	# fixme: access rights? 
+	# &$check_storage_access($rpcenv, $authuser, $storecfg, $vmid, $conf);
+	# fixme: need to implement a check to see if all storages support snapshots
 
-	    my $conf = PVE::QemuServer::load_config($vmid);
+	if($action eq 'create') {
+	    PVE::Cluster::log_msg('info', $authuser, "snapshot VM $vmid: $snapname");
+	    PVE::QemuServer::snapshot_create($vmid, $snapname, $vmstate, $freezefs);
+	} elsif($action eq 'rollback'){
+	    PVE::Cluster::log_msg('info', $authuser, "rollback snapshot VM $vmid: $snapname");
+	    PVE::QemuServer::snapshot_rollback($vmid, $snapname);
+	} elsif($action eq 'delete') {
+	    PVE::Cluster::log_msg('info', $authuser, "delete snapshot VM $vmid: $snapname");
+	    PVE::QemuServer::snapshot_delete($vmid, $snapname, $vmstate);
+	}
 
-	    die "checksum missmatch (file change by other user?)\n"
-		if $digest && $digest ne $conf->{digest};
-	    PVE::QemuServer::check_lock($conf) if !$skiplock;
-
-	    &$check_storage_access($rpcenv, $authuser, $storecfg, $vmid, $conf);
-
-	    #need to implement a check to see if all storages support snapshots
-
-	    if($action eq 'create'){
-	        PVE::Cluster::log_msg('info', $authuser, "snapshot VM $vmid: $snapname");
-
-	        PVE::QemuServer::qemu_snapshot_start($vmid,$snapname) if $vmstate;
-
-	        PVE::QemuServer::qga_freezefs($vmid) if $freezefs;
-
-	        PVE::QemuServer::foreach_drive($conf, sub {
-		    my ($ds, $drive) = @_;
-
-		    return if PVE::QemuServer::drive_is_cdrom($drive);
-		    my $volid = $drive->{file};
-		    my $device = "drive-".$ds;
-		    PVE::QemuServer::qemu_volume_snapshot($vmid, $device, $storecfg, $volid, $snapname);
-	        });
-
-	        PVE::QemuServer::gqa_unfreezefs($vmid) if $freezefs;
-
-	        PVE::QemuServer::qemu_snapshot_end($vmid) if $vmstate;
-	    }
-	    elsif($action eq 'rollback'){
-
-		die "unable to rollback vm $vmid: vm is running\n"
-		    if PVE::QemuServer::check_running($vmid);
-
-	        PVE::QemuServer::foreach_drive($conf, sub {
-		    my ($ds, $drive) = @_;
-
-		    return if PVE::QemuServer::drive_is_cdrom($drive);
-		    my $volid = $drive->{file};
-		    my $device = "drive-".$ds;
-		    PVE::QemuServer::qemu_volume_snapshot_rollback($vmid, $device, $storecfg, $volid, $snapname);
-	        });
-
-	    }
-	    elsif($action eq 'delete'){
-
-                PVE::QemuServer::foreach_drive($conf, sub {
-                    my ($ds, $drive) = @_;
-
-                    return if PVE::QemuServer::drive_is_cdrom($drive);
-                    my $volid = $drive->{file};
-                    my $device = "drive-".$ds;
-                    PVE::QemuServer::qemu_volume_snapshot_delete($vmid, $device, $storecfg, $volid, $snapname);
-                });
-
-	    }
-
-	    #need to implement config change with snapshots info
-	    PVE::QemuServer::update_config_nolock($vmid, $conf, 1);
-	};
-
-	PVE::QemuServer::lock_config($vmid, $updatefn);
 	return undef;
     }});
 

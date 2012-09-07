@@ -33,7 +33,7 @@ my $cpuinfo = PVE::ProcFSTools::read_cpuinfo();
 # Note about locking: we use flock on the config file protect
 # against concurent actions.
 # Aditionaly, we have a 'lock' setting in the config file. This
-# can be set to 'migrate', 'backup' or 'snapshot'. Most actions are not
+# can be set to 'migrate', 'backup', 'snapshot' or 'rollback'. Most actions are not
 # allowed when such lock is set. But you can ignore this kind of
 # lock with the --skiplock flag.
 
@@ -171,7 +171,7 @@ my $confdesc = {
 	optional => 1,
 	type => 'string',
 	description => "Lock/unlock the VM.",
-	enum => [qw(migrate backup snapshot)],
+	enum => [qw(migrate backup snapshot rollback)],
     },
     cpulimit => {
 	optional => 1,
@@ -1615,7 +1615,6 @@ sub parse_vm_config {
 
     $conf->{description} = $descr if $descr;
 
-    delete $res->{parent}; # just to be sure
     delete $res->{snapstate}; # just to be sure
 
     return $res;
@@ -1624,7 +1623,6 @@ sub parse_vm_config {
 sub write_vm_config {
     my ($filename, $conf) = @_;
 
-    delete $conf->{parent}; # just to be sure
     delete $conf->{snapstate}; # just to be sure
 
     if ($conf->{cdrom}) {
@@ -3554,7 +3552,9 @@ sub restore_archive {
 # inside the config file instead.
 
 my $snapshot_prepare = sub {
-    my ($vmid, $snapname, $parent) = @_;
+    my ($vmid, $snapname) = @_;
+
+    my $snap;
 
     my $updatefn =  sub {
 
@@ -3562,38 +3562,29 @@ my $snapshot_prepare = sub {
 
 	check_lock($conf);
 
+	$conf->{lock} = 'snapshot';
+
 	die "snapshot name '$snapname' already used\n" 
 	    if defined($conf->{snapshots}->{$snapname}); 
 
-	my $snap = $conf->{snapshots}->{$snapname} = {
+	$snap = $conf->{snapshots}->{$snapname} = {
 	    snapstate => "prepare",
 	};
 
-	my $parentconf = $conf;
-	if ($parent) {
-	    $parentconf = $conf->{snapshots}->{$parent};
-	    die "parent snapshot '$parent' does not exist\n" 
-		if !defined($parentconf); 
-	}
-
-	foreach my $k (keys %$parentconf) {
+	foreach my $k (keys %$conf) {
 	    next if $k eq 'snapshots';
 	    next if $k eq 'lock';
 	    next if $k eq 'digest';
 
-	    $snap->{$k} = $parentconf->{$k};
-	}
-
-	if ($parent) {
-	    $snap->{parent} = $parent;
-	} else {
-	    delete $snap->{parent};
+	    $snap->{$k} = $conf->{$k};
 	}
 
 	update_config_nolock($vmid, $conf, 1);
     };
 
     lock_config($vmid, $updatefn);
+
+    return $snap;
 };
 
 my $snapshot_commit = sub {
@@ -3615,7 +3606,7 @@ my $snapshot_commit = sub {
 	
 	delete $snap->{snapstate};
 
-	# copy snapshot confi to current config
+	# copy snapshot config to current config
 	my $newconf = {
 	    snapshots => $conf->{snapshots},
 	};
@@ -3633,17 +3624,107 @@ my $snapshot_commit = sub {
     lock_config($vmid, $updatefn);
 };
 
-sub snapshot_create {
-    my ($vmid, $snapname, $parent) = @_;
+sub snapshot_rollback {
+    my ($vmid, $snapname) = @_;
 
-    &$snapshot_prepare($vmid, $snapname, $parent);
+    my $snap;
+
+    my $prepare = 1;
+
+    my $updatefn = sub {
+
+	my $conf = load_config($vmid);
+
+	check_lock($conf) if $prepare;
+
+	die "unable to rollback vm $vmid: vm is running\n"
+	    if check_running($vmid);
+
+	if ($prepare) {
+	    $conf->{lock} = 'rollback';
+	} else {
+	    die "got wrong lock\n" if !($conf->{lock} && $conf->{lock} eq 'rollback');
+	    delete $conf->{lock};
+	}
+
+	$snap = $conf->{snapshots}->{$snapname};
+
+	die "snapshot '$snapname' does not exist\n" if !defined($snap); 
+
+	die "unable to rollback to incomplete snapshot (snapstate = $snap->{snapstate})\n" 
+	    if $snap->{snapstate};
+
+	if (!$prepare) {
+	    # copy snapshot config to current config
+	    my $newconf = {
+		snapshots => $conf->{snapshots},
+	    };
+	    foreach my $k (keys %$snap) {
+		next if $k eq 'snapshots';
+		next if $k eq 'lock';
+		next if $k eq 'digest';
+		
+		$newconf->{$k} = $snap->{$k};
+		$newconf->{parent} = $snapname;
+	    }
+	}
+
+ 	update_config_nolock($vmid, $conf, 1);
+    };
+
+    lock_config($vmid, $updatefn);
+
+    my $storecfg = PVE::Storage::config();
+    
+    foreach_drive($snap, sub {
+	my ($ds, $drive) = @_;
+
+	return if drive_is_cdrom($drive);
+
+	my $volid = $drive->{file};
+	my $device = "drive-$ds";
+
+	qemu_volume_snapshot_rollback($vmid, $device, $storecfg, $volid, $snapname);
+    });
+
+    $prepare = 0;
+    lock_config($vmid, $updatefn);
+}
+
+sub snapshot_create {
+    my ($vmid, $snapname, $vmstate, $freezefs) = @_;
+
+    my $snap = &$snapshot_prepare($vmid, $snapname);
 
     eval {
 	# create internal snapshots of all drives
+	
+	qemu_snapshot_start($vmid, $snapname) if $vmstate;
 
-	die "implement me\n";
+	qga_freezefs($vmid) if $freezefs;
+
+	my $storecfg = PVE::Storage::config();
+ 
+	foreach_drive($snap, sub {
+	    my ($ds, $drive) = @_;
+
+	    return if drive_is_cdrom($drive);
+
+	    my $volid = $drive->{file};
+	    my $device = "drive-$ds";
+
+	    qemu_volume_snapshot($vmid, $device, $storecfg, $volid, $snapname);
+       });
     };
-    if (my $err = $@) {
+    my $err = $@;
+
+    eval { gqa_unfreezefs($vmid) if $freezefs; };
+    warn $@ if $@;
+
+    eval { qemu_snapshot_end($vmid) if $vmstate; };
+    warn $@ if $@;
+
+    if ($err) {
 	warn "snapshot create failed: starting cleanup\n";
 	eval { snapshot_delete($vmid, $snapname); };
 	warn $@ if $@;
@@ -3658,15 +3739,15 @@ sub snapshot_delete {
 
     my $prepare = 1;
 
-    my $conf;
+    my $snap;
 
     my $updatefn =  sub {
 
-	$conf = load_config($vmid);
+	my $conf = load_config($vmid);
 
 	check_lock($conf) if !$force;
 
-	my $snap = $conf->{snapshots}->{$snapname};
+	$snap = $conf->{snapshots}->{$snapname};
 
 	die "snapshot '$snapname' does not exist\n" if !defined($snap); 
 
@@ -3696,7 +3777,17 @@ sub snapshot_delete {
 
     # now remove all internal snapshots
 
-    # fixme: implement this
+    my $storecfg = PVE::Storage::config();
+
+    PVE::QemuServer::foreach_drive($snap, sub {
+	my ($ds, $drive) = @_;
+
+	return if drive_is_cdrom($drive);
+	my $volid = $drive->{file};
+	my $device = "drive-$ds";
+
+	qemu_volume_snapshot_delete($vmid, $device, $storecfg, $volid, $snapname);
+    });
 
     # now cleanup config
     $prepare = 0;
