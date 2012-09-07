@@ -33,7 +33,7 @@ my $cpuinfo = PVE::ProcFSTools::read_cpuinfo();
 # Note about locking: we use flock on the config file protect
 # against concurent actions.
 # Aditionaly, we have a 'lock' setting in the config file. This
-# can be set to 'migrate' or 'backup'. Most actions are not
+# can be set to 'migrate', 'backup' or 'snapshot'. Most actions are not
 # allowed when such lock is set. But you can ignore this kind of
 # lock with the --skiplock flag.
 
@@ -171,7 +171,7 @@ my $confdesc = {
 	optional => 1,
 	type => 'string',
 	description => "Lock/unlock the VM.",
-	enum => [qw(migrate backup)],
+	enum => [qw(migrate backup snapshot)],
     },
     cpulimit => {
 	optional => 1,
@@ -1547,6 +1547,7 @@ sub parse_vm_config {
 
     my $res = {
 	digest => Digest::SHA::sha1_hex($raw),
+	snapshots => {},
     };
 
     $filename =~ m|/qemu-server/(\d+)\.conf$|
@@ -1554,12 +1555,20 @@ sub parse_vm_config {
 
     my $vmid = $1;
 
+    my $conf = $res;
     my $descr = '';
 
-    while ($raw && $raw =~ s/^(.*?)(\n|$)//) {
-	my $line = $1;
-
+    my @lines = split(/\n/, $raw);
+    foreach my $line (@lines) {
 	next if $line =~ m/^\s*$/;
+	
+	if ($line =~ m/^\[([a-z][a-z0-9_\-]+)\]\s*$/i) {
+	    my $snapname = $1;
+	    $conf->{description} = $descr if $descr;
+	    my $descr = '';
+	    $conf = $res->{snapshots}->{$snapname} = {}; 
+	    next;
+	}
 
 	if ($line =~ m/^\#(.*)\s*$/) {
 	    $descr .= PVE::Tools::decode_text($1) . "\n";
@@ -1568,10 +1577,14 @@ sub parse_vm_config {
 
 	if ($line =~ m/^(description):\s*(.*\S)\s*$/) {
 	    $descr .= PVE::Tools::decode_text($2);
+	} elsif ($line =~ m/parent:\s*([a-z][a-z0-9_\-]+)\s*$/) {
+	    $conf->{parent} = $1;
+	} elsif ($line =~ m/snapstate:\s*(prepare|delete)\s*$/) {
+	    $conf->{snapstate} = $1;
 	} elsif ($line =~ m/^(args):\s*(.*\S)\s*$/) {
 	    my $key = $1;
 	    my $value = $2;
-	    $res->{$key} = $value;
+	    $conf->{$key} = $value;
 	} elsif ($line =~ m/^([a-z][a-z_]*\d*):\s*(\S+)\s*$/) {
 	    my $key = $1;
 	    my $value = $2;
@@ -1592,27 +1605,27 @@ sub parse_vm_config {
 		}
 
 		if ($key eq 'cdrom') {
-		    $res->{ide2} = $value;
+		    $conf->{ide2} = $value;
 		} else {
-		    $res->{$key} = $value;
+		    $conf->{$key} = $value;
 		}
 	    }
 	}
     }
 
-    $res->{description} = $descr if $descr;
+    $conf->{description} = $descr if $descr;
 
-    # convert old smp to sockets
-    if ($res->{smp} && !$res->{sockets}) {
-	$res->{sockets} = $res->{smp};
-    }
-    delete $res->{smp};
+    delete $res->{parent}; # just to be sure
+    delete $res->{snapstate}; # just to be sure
 
     return $res;
 }
 
 sub write_vm_config {
     my ($filename, $conf) = @_;
+
+    delete $conf->{parent}; # just to be sure
+    delete $conf->{snapstate}; # just to be sure
 
     if ($conf->{cdrom}) {
 	die "option ide2 conflicts with cdrom\n" if $conf->{ide2};
@@ -1629,9 +1642,11 @@ sub write_vm_config {
 	delete $conf->{smp};
     }
 
+    # fixme: unused drives and snapshots??!!
+
     my $new_volids = {};
     foreach my $key (keys %$conf) {
-	next if $key eq 'digest' || $key eq 'description';
+	next if $key eq 'digest' || $key eq 'description' || $key eq 'snapshots';
 	my $value = $conf->{$key};
 	eval { $value = check_type($key, $value); };
 	die "unable to parse value of '$key' - $@" if $@;
@@ -1652,18 +1667,28 @@ sub write_vm_config {
 	}
     }
 
-    # gererate RAW data
-    my $raw = '';
+    my $generate_raw_config = sub {
+	my ($conf) = @_;
 
-    # add description as comment to top of file
-    my $descr = $conf->{description} || '';
-    foreach my $cl (split(/\n/, $descr)) {
-	$raw .= '#' .  PVE::Tools::encode_text($cl) . "\n";
-    }
+	my $raw = '';
 
-    foreach my $key (sort keys %$conf) {
-	next if $key eq 'digest' || $key eq 'description';
-	$raw .= "$key: $conf->{$key}\n";
+	# add description as comment to top of file
+	my $descr = $conf->{description} || '';
+	foreach my $cl (split(/\n/, $descr)) {
+	    $raw .= '#' .  PVE::Tools::encode_text($cl) . "\n";
+	}
+
+	foreach my $key (sort keys %$conf) {
+	    next if $key eq 'digest' || $key eq 'description' || $key eq 'snapshots';
+	    $raw .= "$key: $conf->{$key}\n";
+	}
+	return $raw;
+    };
+
+    my $raw = &$generate_raw_config($conf);
+    foreach my $snapname (sort keys %{$conf->{snapshots}}) {
+	$raw .= "\n[$snapname]\n";
+	$raw .= &$generate_raw_config($conf->{snapshots}->{$snapname});
     }
 
     return $raw;
@@ -3519,5 +3544,163 @@ sub restore_archive {
     rename $tmpfn, $conffile ||
 	die "unable to commit configuration file '$conffile'\n";
 };
+
+
+# Internal snapshots
+
+# NOTE: Snapshot create/delete involves several non-atomic
+# action, and can take a long time.
+# So we try to avoid locking the file and use 'lock' variable
+# inside the config file instead.
+
+my $snapshot_prepare = sub {
+    my ($vmid, $snapname, $parent) = @_;
+
+    my $updatefn =  sub {
+
+	my $conf = load_config($vmid);
+
+	check_lock($conf);
+
+	die "snapshot name '$snapname' already used\n" 
+	    if defined($conf->{snapshots}->{$snapname}); 
+
+	my $snap = $conf->{snapshots}->{$snapname} = {
+	    snapstate => "prepare",
+	};
+
+	my $parentconf = $conf;
+	if ($parent) {
+	    $parentconf = $conf->{snapshots}->{$parent};
+	    die "parent snapshot '$parent' does not exist\n" 
+		if !defined($parentconf); 
+	}
+
+	foreach my $k (keys %$parentconf) {
+	    next if $k eq 'snapshots';
+	    next if $k eq 'lock';
+	    next if $k eq 'digest';
+
+	    $snap->{$k} = $parentconf->{$k};
+	}
+
+	if ($parent) {
+	    $snap->{parent} = $parent;
+	} else {
+	    delete $snap->{parent};
+	}
+
+	update_config_nolock($vmid, $conf, 1);
+    };
+
+    lock_config($vmid, $updatefn);
+};
+
+my $snapshot_commit = sub {
+    my ($vmid, $snapname) = @_;
+
+    my $updatefn = sub {
+
+	my $conf = load_config($vmid);
+
+	die "missing snapshot lock\n" 
+	    if !($conf->{lock} && $conf->{lock} eq 'snapshot'); 
+
+	my $snap = $conf->{snapshots}->{$snapname};
+
+	die "snapshot '$snapname' does not exist\n" if !defined($snap); 
+
+	die "wrong snapshot state\n" 
+	    if !($snap->{snapstate} && $snap->{snapstate} eq "prepare"); 
+	
+	delete $snap->{snapstate};
+
+	# copy snapshot confi to current config
+	my $newconf = {
+	    snapshots => $conf->{snapshots},
+	};
+	foreach my $k (keys %$snap) {
+	    next if $k eq 'snapshots';
+	    next if $k eq 'lock';
+	    next if $k eq 'digest';
+
+	    $newconf->{$k} = $snap->{$k};
+	}
+
+	update_config_nolock($vmid, $newconf, 1);
+    };
+
+    lock_config($vmid, $updatefn);
+};
+
+sub snapshot_create {
+    my ($vmid, $snapname, $parent) = @_;
+
+    &$snapshot_prepare($vmid, $snapname, $parent);
+
+    eval {
+	# create internal snapshots of all drives
+
+	die "implement me\n";
+    };
+    if (my $err = $@) {
+	warn "snapshot create failed: starting cleanup\n";
+	eval { snapshot_delete($vmid, $snapname); };
+	warn $@ if $@;
+	die $err;
+    }
+
+    &$snapshot_commit($vmid, $snapname);
+}
+
+sub snapshot_delete {
+    my ($vmid, $snapname, $force) = @_;
+
+    my $prepare = 1;
+
+    my $conf;
+
+    my $updatefn =  sub {
+
+	$conf = load_config($vmid);
+
+	check_lock($conf) if !$force;
+
+	my $snap = $conf->{snapshots}->{$snapname};
+
+	die "snapshot '$snapname' does not exist\n" if !defined($snap); 
+
+	# remove parent refs
+	foreach my $sn (keys %{$conf->{snapshots}}) {
+	    next if $sn eq $snapname;
+	    my $snapref = $conf->{snapshots}->{$sn};
+	    if ($snapref->{parent} && $snapref->{parent} eq $snapname) {
+		if ($snap->{parent}) {
+		    $snapref->{parent} = $snap->{parent};
+		} else {
+		    delete $snapref->{parent};
+		}
+	    }
+	}
+
+	if ($prepare) {
+	    $snap->{snapstate} = 'delete';
+	} else {
+	    delete $conf->{snapshots}->{$snapname};
+	}
+
+	update_config_nolock($vmid, $conf, 1);
+    };
+
+    lock_config($vmid, $updatefn);
+
+    # now remove all internal snapshots
+
+    # fixme: implement this
+
+    # now cleanup config
+    $prepare = 0;
+    lock_config($vmid, $updatefn);
+}
 
 1;
