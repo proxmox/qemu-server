@@ -22,6 +22,7 @@ use Storable qw(dclone);
 use PVE::Exception qw(raise raise_param_exc);
 use PVE::Storage;
 use PVE::Tools qw(run_command lock_file file_read_firstline);
+use PVE::JSONSchema qw(get_standard_option);
 use PVE::Cluster qw(cfs_register_file cfs_read_file cfs_write_file cfs_lock_file);
 use PVE::INotify;
 use PVE::ProcFSTools;
@@ -389,6 +390,10 @@ EODESCR
 	enum => [ qw(486 athlon pentium pentium2 pentium3 coreduo core2duo kvm32 kvm64 qemu32 qemu64 phenom cpu64-rhel6 cpu64-rhel5 Conroe Penryn Nehalem Westmere Opteron_G1 Opteron_G2 Opteron_G3 host) ],
 	default => 'qemu64',
     },
+    parent => get_standard_option('pve-snapshot-name', {
+	optional => 1,
+	description => "Parent snapshot name. This is used internally, and should not be modified.",
+    }),
 };
 
 # what about other qemu settings ?
@@ -1583,8 +1588,6 @@ sub parse_vm_config {
 
 	if ($line =~ m/^(description):\s*(.*\S)\s*$/) {
 	    $descr .= PVE::Tools::decode_text($2);
-	} elsif ($line =~ m/parent:\s*([a-z][a-z0-9_\-]+)\s*$/) {
-	    $conf->{parent} = $1;
 	} elsif ($line =~ m/snapstate:\s*(prepare|delete)\s*$/) {
 	    $conf->{snapstate} = $1;
 	} elsif ($line =~ m/^(args):\s*(.*\S)\s*$/) {
@@ -1650,8 +1653,7 @@ sub write_vm_config {
 
     my $new_volids = {};
     foreach my $key (keys %$conf) {
-	next if $key eq 'digest' || $key eq 'description' || 
-	    $key eq 'snapshots' || $key eq 'parent';
+	next if $key eq 'digest' || $key eq 'description' || $key eq 'snapshots';
 	my $value = $conf->{$key};
 	eval { $value = check_type($key, $value); };
 	die "unable to parse value of '$key' - $@" if $@;
