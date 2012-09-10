@@ -456,6 +456,8 @@ __PACKAGE__->register_method({
 	    { subdir => 'rrd' },
 	    { subdir => 'rrddata' },
 	    { subdir => 'monitor' },
+	    { subdir => 'snapshot' },
+	    { subdir => 'rollback' },
 	    ];
 
 	return $res;
@@ -1884,9 +1886,49 @@ __PACKAGE__->register_method({
     }});
 
 __PACKAGE__->register_method({
-    name => 'snapshot_vm',
+    name => 'snapshot_list',
     path => '{vmid}/snapshot',
-    method => 'PUT',
+    method => 'GET',
+    description => "List all snapshots.",
+    permissions => {
+	check => ['perm', '/vms/{vmid}', [ 'VM.Audit' ]],
+    },
+    proxyto => 'node',
+    protected => 1, # qemu pid files are only readable by root
+    parameters => {
+    	additionalProperties => 0,
+	properties => {
+	    vmid => get_standard_option('pve-vmid'),
+	    node => get_standard_option('pve-node'),
+	},
+    },
+    returns => {
+	type => 'array',
+	items => {
+	    type => "object",
+	    properties => {},
+	},
+	links => [ { rel => 'child', href => "{name}" } ],
+    },
+    code => sub {
+	my ($param) = @_;
+
+	my $conf = PVE::QemuServer::load_config($param->{vmid});
+	my $snaphash = $conf->{snapshots} || {};
+
+	my $res = [];
+
+	foreach my $name (keys %$snaphash) {
+	    push @$res, { name => $name };
+	}
+
+	return $res;
+    }});
+
+__PACKAGE__->register_method({
+    name => 'snapshot',
+    path => '{vmid}/snapshot',
+    method => 'POST',
     protected => 1,
     proxyto => 'node',
     description => "Snapshot a VM.",
@@ -1898,12 +1940,6 @@ __PACKAGE__->register_method({
 	properties => {
 	    node => get_standard_option('pve-node'),
 	    vmid => get_standard_option('pve-vmid'),
-	    skiplock => get_standard_option('skiplock'),
-	    action => {
-		type => 'string',
-		description => "Action",
-		enum => [ 'create', 'delete', 'rollback' ],
-	    },
 	    snapname => {
 		type => 'string',
 		description => "The name of the snapshot",
@@ -1919,15 +1955,12 @@ __PACKAGE__->register_method({
 		type => 'boolean',
 		description => "Freeze the filesystem",
 	    },
-	    digest => {
-		type => 'string',
-		description => 'Prevent changes if current configuration file has different SHA1 digest. This can be used to prevent concurrent modifications.',
-		maxLength => 40,
-		optional => 1,
-	    },
 	},
     },
-    returns => { type => 'null'},
+    returns => {
+	type => 'string',
+	description => "the task ID.",
+    },
     code => sub {
 	my ($param) = @_;
 
@@ -1939,38 +1972,120 @@ __PACKAGE__->register_method({
 
 	my $vmid = extract_param($param, 'vmid');
 
-	my $digest = extract_param($param, 'digest');
-
-	my $action = extract_param($param, 'action');
-
 	my $snapname = extract_param($param, 'snapname');
 
 	my $vmstate = extract_param($param, 'vmstate');
  
 	my $freezefs = extract_param($param, 'freezefs');
 
-	my $skiplock = extract_param($param, 'skiplock');
-	raise_param_exc({ skiplock => "Only root may use this option." })
-		if $skiplock && $authuser ne 'root@pam';
-
-
-	# fixme: digest?
 	# fixme: access rights? 
 	# &$check_storage_access($rpcenv, $authuser, $storecfg, $vmid, $conf);
 	# fixme: need to implement a check to see if all storages support snapshots
 
-	if($action eq 'create') {
+	my $realcmd = sub {
 	    PVE::Cluster::log_msg('info', $authuser, "snapshot VM $vmid: $snapname");
 	    PVE::QemuServer::snapshot_create($vmid, $snapname, $vmstate, $freezefs);
-	} elsif($action eq 'rollback'){
+	};
+
+	return $rpcenv->fork_worker('qmsnapshot', $vmid, $authuser, $realcmd);
+    }});
+
+__PACKAGE__->register_method({
+    name => 'rollback',
+    path => '{vmid}/rollback',
+    method => 'POST',
+    protected => 1,
+    proxyto => 'node',
+    description => "Rollback VM state to specified snapshot.",
+    permissions => {
+	check => ['perm', '/vms/{vmid}', [ 'VM.Config.Disk' ]],
+    },
+    parameters => {
+	additionalProperties => 0,
+	properties => {
+	    node => get_standard_option('pve-node'),
+	    vmid => get_standard_option('pve-vmid'),
+	    snapname => {
+		type => 'string',
+		description => "The name of the snapshot",
+		maxLength => 40,
+	    },
+	},
+    },
+    returns => {
+	type => 'string',
+	description => "the task ID.",
+    },
+    code => sub {
+	my ($param) = @_;
+
+	my $rpcenv = PVE::RPCEnvironment::get();
+
+	my $authuser = $rpcenv->get_user();
+
+	my $node = extract_param($param, 'node');
+
+	my $vmid = extract_param($param, 'vmid');
+
+	my $snapname = extract_param($param, 'snapname');
+
+	# fixme: access rights? 
+
+	my $realcmd = sub {
 	    PVE::Cluster::log_msg('info', $authuser, "rollback snapshot VM $vmid: $snapname");
 	    PVE::QemuServer::snapshot_rollback($vmid, $snapname);
-	} elsif($action eq 'delete') {
-	    PVE::Cluster::log_msg('info', $authuser, "delete snapshot VM $vmid: $snapname");
-	    PVE::QemuServer::snapshot_delete($vmid, $snapname, $vmstate);
-	}
+	};
 
-	return undef;
+	return $rpcenv->fork_worker('qmrollback', $vmid, $authuser, $realcmd);
+    }});
+
+__PACKAGE__->register_method({
+    name => 'delsnapshot',
+    path => '{vmid}/snapshot/{snapname}',
+    method => 'DELETE',
+    protected => 1,
+    proxyto => 'node',
+    description => "Delete a VM snapshot.",
+    permissions => {
+	check => ['perm', '/vms/{vmid}', [ 'VM.Config.Disk' ]],
+    },
+    parameters => {
+	additionalProperties => 0,
+	properties => {
+	    node => get_standard_option('pve-node'),
+	    vmid => get_standard_option('pve-vmid'),
+	    snapname => {
+		type => 'string',
+		description => "The name of the snapshot",
+		maxLength => 40,
+	    },
+	},
+    },
+    returns => {
+	type => 'string',
+	description => "the task ID.",
+    },
+    code => sub {
+	my ($param) = @_;
+
+	my $rpcenv = PVE::RPCEnvironment::get();
+
+	my $authuser = $rpcenv->get_user();
+
+	my $node = extract_param($param, 'node');
+
+	my $vmid = extract_param($param, 'vmid');
+
+	my $snapname = extract_param($param, 'snapname');
+
+	# fixme: access rights? 
+
+	my $realcmd = sub {
+	    PVE::Cluster::log_msg('info', $authuser, "delete snapshot VM $vmid: $snapname");
+	    PVE::QemuServer::snapshot_delete($vmid, $snapname);
+	};
+
+	return $rpcenv->fork_worker('qmdelsnaphot', $vmid, $authuser, $realcmd);
     }});
 
 1;

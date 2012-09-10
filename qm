@@ -433,9 +433,13 @@ my $cmddef = {
 	
     showcmd => [ __PACKAGE__, 'showcmd', ['vmid']],
 
-    snapshot => [ "PVE::API2::Qemu", 'snapshot_vm', ['vmid', 'action', 'snapname'], { node => $nodename } ],
-
     status => [ __PACKAGE__, 'status', ['vmid']],
+
+    snapshot => [ "PVE::API2::Qemu", 'snapshot', ['vmid', 'snapname'], { node => $nodename } , $upid_exit ],
+
+    delsnapshot => [ "PVE::API2::Qemu", 'delsnapshot', ['vmid', 'snapname'], { node => $nodename } , $upid_exit ],
+
+    rollback => [ "PVE::API2::Qemu", 'rollback', ['vmid', 'snapname'], { node => $nodename } , $upid_exit ],
 
     start => [ "PVE::API2::Qemu", 'vm_start', ['vmid'], { node => $nodename } , $upid_exit ],
 
