@@ -3557,6 +3557,38 @@ sub restore_archive {
 # So we try to avoid locking the file and use 'lock' variable
 # inside the config file instead.
 
+my $snapshot_copy_config = sub {
+    my ($source, $dest) = @_;
+
+    foreach my $k (keys %$source) {
+	next if $k eq 'snapshots';
+	next if $k eq 'lock';
+	next if $k eq 'digest';
+	next if $k =~ m/^unused\d+$/;
+		
+	$dest->{$k} = $source->{$k};
+    }
+};
+
+my $snapshot_apply_config = sub {
+    my ($conf, $snap) = @_;
+
+    # copy snapshot list
+    my $newconf = {
+	snapshots => $conf->{snapshots},
+    };
+
+    # keep list of unused disks
+    foreach my $k (keys %$conf) {
+	next if $k !~ m/^unused\d+$/;
+	$newconf->{$k} = $conf->{$k};
+    }
+
+    &$snapshot_copy_config($snap, $newconf);
+
+    return $newconf;
+};
+
 my $snapshot_prepare = sub {
     my ($vmid, $snapname) = @_;
 
@@ -3580,13 +3612,7 @@ my $snapshot_prepare = sub {
 	    snapstate => "prepare",
 	};
 
-	foreach my $k (keys %$conf) {
-	    next if $k eq 'snapshots';
-	    next if $k eq 'lock';
-	    next if $k eq 'digest';
-
-	    $snap->{$k} = $conf->{$k};
-	}
+	&$snapshot_copy_config($conf, $snap);
 
 	update_config_nolock($vmid, $conf, 1);
     };
@@ -3615,17 +3641,7 @@ my $snapshot_commit = sub {
 	
 	delete $snap->{snapstate};
 
-	# copy snapshot config to current config
-	my $newconf = {
-	    snapshots => $conf->{snapshots},
-	};
-	foreach my $k (keys %$snap) {
-	    next if $k eq 'snapshots';
-	    next if $k eq 'lock';
-	    next if $k eq 'digest';
-
-	    $newconf->{$k} = $snap->{$k};
-	}
+	my $newconf = &$snapshot_apply_config($conf, $snap);
 
 	update_config_nolock($vmid, $newconf, 1);
     };
@@ -3665,17 +3681,8 @@ sub snapshot_rollback {
 
 	if (!$prepare) {
 	    # copy snapshot config to current config
-	    my $newconf = {
-		snapshots => $conf->{snapshots},
-	    };
-	    foreach my $k (keys %$snap) {
-		next if $k eq 'snapshots';
-		next if $k eq 'lock';
-		next if $k eq 'digest';
-		
-		$newconf->{$k} = $snap->{$k};
-		$newconf->{parent} = $snapname;
-	    }
+	    $conf = &$snapshot_apply_config($conf, $snap);
+	    $conf->{parent} = $snapname;
 	}
 
  	update_config_nolock($vmid, $conf, 1);
