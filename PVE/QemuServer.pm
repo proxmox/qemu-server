@@ -1650,7 +1650,8 @@ sub write_vm_config {
 
     my $new_volids = {};
     foreach my $key (keys %$conf) {
-	next if $key eq 'digest' || $key eq 'description' || $key eq 'snapshots';
+	next if $key eq 'digest' || $key eq 'description' || 
+	    $key eq 'snapshots' || $key eq 'parent';
 	my $value = $conf->{$key};
 	eval { $value = check_type($key, $value); };
 	die "unable to parse value of '$key' - $@" if $@;
@@ -3700,7 +3701,7 @@ sub snapshot_rollback {
 	my $volid = $drive->{file};
 	my $device = "drive-$ds";
 
-	qemu_volume_snapshot_rollback($vmid, $device, $storecfg, $volid, $snapname);
+	PVE::Storage::volume_snapshot_rollback($storecfg, $volid, $snapname);
     });
 
     $prepare = 0;
