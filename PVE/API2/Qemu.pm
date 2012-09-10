@@ -2098,7 +2098,7 @@ __PACKAGE__->register_method({
 	    PVE::QemuServer::snapshot_delete($vmid, $snapname);
 	};
 
-	return $rpcenv->fork_worker('qmdelsnaphot', $vmid, $authuser, $realcmd);
+	return $rpcenv->fork_worker('qmdelsnapshot', $vmid, $authuser, $realcmd);
     }});
 
 1;
