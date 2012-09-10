@@ -1649,31 +1649,40 @@ sub write_vm_config {
 	delete $conf->{smp};
     }
 
-    # fixme: unused drives and snapshots??!!
+    my $used_volids = {};
 
-    my $new_volids = {};
-    foreach my $key (keys %$conf) {
-	next if $key eq 'digest' || $key eq 'description' || $key eq 'snapshots';
-	my $value = $conf->{$key};
-	eval { $value = check_type($key, $value); };
-	die "unable to parse value of '$key' - $@" if $@;
+    my $cleanup_config = sub {
+	my ($cref) = @_;
 
-	$conf->{$key} = $value;
+	foreach my $key (keys %$cref) {
+	    next if $key eq 'digest' || $key eq 'description' || $key eq 'snapshots' ||
+		$key eq 'snapstate';
+	    my $value = $cref->{$key};
+	    eval { $value = check_type($key, $value); };
+	    die "unable to parse value of '$key' - $@" if $@;
 
-	if (valid_drivename($key)) {
-	    my $drive = PVE::QemuServer::parse_drive($key, $value);
-	    $new_volids->{$drive->{file}} = 1 if $drive && $drive->{file};
+	    $cref->{$key} = $value;
+
+	    if (valid_drivename($key)) {
+		my $drive = PVE::QemuServer::parse_drive($key, $value);
+		$used_volids->{$drive->{file}} = 1 if $drive && $drive->{file};
+	    }
 	}
+    };
+
+    &$cleanup_config($conf);
+    foreach my $snapname (keys %{$conf->{snapshots}}) {
+	&$cleanup_config($conf->{snapshots}->{$snapname});
     }
 
     # remove 'unusedX' settings if we re-add a volume
     foreach my $key (keys %$conf) {
 	my $value = $conf->{$key};
-	if ($key =~ m/^unused/ && $new_volids->{$value}) {
+	if ($key =~ m/^unused/ && $used_volids->{$value}) {
 	    delete $conf->{$key};
 	}
     }
-
+  
     my $generate_raw_config = sub {
 	my ($conf) = @_;
 
@@ -3608,8 +3617,27 @@ my $snapshot_prepare = sub {
 	die "snapshot name '$snapname' already used\n" 
 	    if defined($conf->{snapshots}->{$snapname}); 
 
-	# fixme: need to implement a check to see if all storages 
-	# support snapshots
+	my $storecfg = PVE::Storage::config();
+
+	PVE::QemuServer::foreach_drive($conf, sub {
+	    my ($ds, $drive) = @_;
+
+	    return if drive_is_cdrom($drive);
+	    my $volid = $drive->{file};
+
+	    my ($storeid, $volname) = PVE::Storage::parse_volume_id($volid, 1);
+	    if ($storeid) {
+		my $scfg = PVE::Storage::storage_config($storecfg, $storeid);
+		die "can't snapshot volume '$volid'\n"		
+		    if !(($scfg->{path} && $volname =~ m/\.qcow2$/) ||
+			 ($scfg->{type} eq 'rbd') || 
+			 ($scfg->{type} eq 'sheepdog'));
+	    } elsif ($volid =~ m|^(/.+)$| && -e $volid) {
+		die "snapshot device '$volid' is not possible\n";
+	    } else {
+		die "can't snapshot volume '$volid'\n";
+	    }
+	});
 
 	$snap = $conf->{snapshots}->{$snapname} = {
 	    snapstate => "prepare",
@@ -3643,6 +3671,7 @@ my $snapshot_commit = sub {
 	    if !($snap->{snapstate} && $snap->{snapstate} eq "prepare"); 
 	
 	delete $snap->{snapstate};
+	delete $conf->{lock};
 
 	my $newconf = &$snapshot_apply_config($conf, $snap);
 
@@ -3745,7 +3774,7 @@ sub snapshot_create {
 
     if ($err) {
 	warn "snapshot create failed: starting cleanup\n";
-	eval { snapshot_delete($vmid, $snapname); };
+	eval { snapshot_delete($vmid, $snapname, 1); };
 	warn $@ if $@;
 	die $err;
     }
@@ -3759,6 +3788,7 @@ sub snapshot_delete {
     my $prepare = 1;
 
     my $snap;
+    my $unused = [];
 
     my $updatefn =  sub {
 
@@ -3786,7 +3816,11 @@ sub snapshot_delete {
 	if ($prepare) {
 	    $snap->{snapstate} = 'delete';
 	} else {
+	    delete $conf->{parent} if $conf->{parent} && $conf->{parent} eq $snapname;
 	    delete $conf->{snapshots}->{$snapname};
+	    foreach my $volid (@$unused) {
+		add_unused_volume($conf, $volid);
+	    }
 	}
 
 	update_config_nolock($vmid, $conf, 1);
@@ -3806,6 +3840,7 @@ sub snapshot_delete {
 	my $device = "drive-$ds";
 
 	qemu_volume_snapshot_delete($vmid, $device, $storecfg, $volid, $snapname);
+	push @$unused, $volid;
     });
 
     # now cleanup config
