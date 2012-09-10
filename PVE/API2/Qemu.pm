@@ -457,7 +457,6 @@ __PACKAGE__->register_method({
 	    { subdir => 'rrddata' },
 	    { subdir => 'monitor' },
 	    { subdir => 'snapshot' },
-	    { subdir => 'rollback' },
 	    ];
 
 	return $res;
@@ -1991,8 +1990,46 @@ __PACKAGE__->register_method({
     }});
 
 __PACKAGE__->register_method({
+    name => 'snapshot_cmd_idx',
+    path => '{vmid}/snapshot/{snapname}',
+    description => '',
+    method => 'GET',
+    permissions => {
+	user => 'all',
+    },
+    parameters => {
+    	additionalProperties => 0,
+	properties => {
+	    vmid => get_standard_option('pve-vmid'),
+	    node => get_standard_option('pve-node'),
+	    snapname => {
+		type => 'string',
+		description => "The name of the snapshot",
+		maxLength => 40,
+	    },
+	},
+    },
+    returns => {
+	type => 'array',
+	items => {
+	    type => "object",
+	    properties => {},
+	},
+	links => [ { rel => 'child', href => "{cmd}" } ],
+    },
+    code => sub {
+	my ($param) = @_;
+
+	my $res = [];
+
+	push @$res, { cmd => 'rollback' };
+
+	return $res;
+    }});
+
+__PACKAGE__->register_method({
     name => 'rollback',
-    path => '{vmid}/rollback',
+    path => '{vmid}/snapshot/{snapname}/rollback',
     method => 'POST',
     protected => 1,
     proxyto => 'node',
