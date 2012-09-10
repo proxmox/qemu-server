@@ -54,6 +54,12 @@ PVE::JSONSchema::register_standard_option('pve-qm-stateuri', {
     optional => 1,
 });
 
+PVE::JSONSchema::register_standard_option('pve-snapshot-name', {
+    description => "The name of the snapshot.",
+    type => 'string', format => 'pve-configid',
+    maxLength => 40,
+});
+
 #no warnings 'redefine';
 
 unless(defined(&_VZSYSCALLS_H_)) {

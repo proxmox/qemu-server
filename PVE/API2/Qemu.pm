@@ -1939,11 +1939,7 @@ __PACKAGE__->register_method({
 	properties => {
 	    node => get_standard_option('pve-node'),
 	    vmid => get_standard_option('pve-vmid'),
-	    snapname => {
-		type => 'string',
-		description => "The name of the snapshot",
-		maxLength => 40,
-	    },
+	    snapname => get_standard_option('pve-snapshot-name'),
 	    vmstate => {
 		optional => 1,
 		type => 'boolean',
@@ -2002,11 +1998,7 @@ __PACKAGE__->register_method({
 	properties => {
 	    vmid => get_standard_option('pve-vmid'),
 	    node => get_standard_option('pve-node'),
-	    snapname => {
-		type => 'string',
-		description => "The name of the snapshot",
-		maxLength => 40,
-	    },
+	    snapname => get_standard_option('pve-snapshot-name'),
 	},
     },
     returns => {
@@ -2042,11 +2034,7 @@ __PACKAGE__->register_method({
 	properties => {
 	    node => get_standard_option('pve-node'),
 	    vmid => get_standard_option('pve-vmid'),
-	    snapname => {
-		type => 'string',
-		description => "The name of the snapshot",
-		maxLength => 40,
-	    },
+	    snapname => get_standard_option('pve-snapshot-name'),
 	},
     },
     returns => {
@@ -2091,11 +2079,7 @@ __PACKAGE__->register_method({
 	properties => {
 	    node => get_standard_option('pve-node'),
 	    vmid => get_standard_option('pve-vmid'),
-	    snapname => {
-		type => 'string',
-		description => "The name of the snapshot",
-		maxLength => 40,
-	    },
+	    snapname => get_standard_option('pve-snapshot-name'),
 	},
     },
     returns => {
