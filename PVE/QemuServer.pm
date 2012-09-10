@@ -3573,6 +3573,9 @@ my $snapshot_prepare = sub {
 	die "snapshot name '$snapname' already used\n" 
 	    if defined($conf->{snapshots}->{$snapname}); 
 
+	# fixme: need to implement a check to see if all storages 
+	# support snapshots
+
 	$snap = $conf->{snapshots}->{$snapname} = {
 	    snapstate => "prepare",
 	};

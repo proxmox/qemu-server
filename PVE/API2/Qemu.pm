@@ -1932,7 +1932,7 @@ __PACKAGE__->register_method({
     proxyto => 'node',
     description => "Snapshot a VM.",
     permissions => {
-	check => ['perm', '/vms/{vmid}', [ 'VM.Config.Disk' ]],
+	check => ['perm', '/vms/{vmid}', [ 'VM.Snapshot' ]],
     },
     parameters => {
 	additionalProperties => 0,
@@ -1972,10 +1972,6 @@ __PACKAGE__->register_method({
 	my $vmstate = extract_param($param, 'vmstate');
  
 	my $freezefs = extract_param($param, 'freezefs');
-
-	# fixme: access rights? 
-	# &$check_storage_access($rpcenv, $authuser, $storecfg, $vmid, $conf);
-	# fixme: need to implement a check to see if all storages support snapshots
 
 	my $realcmd = sub {
 	    PVE::Cluster::log_msg('info', $authuser, "snapshot VM $vmid: $snapname");
@@ -2027,7 +2023,7 @@ __PACKAGE__->register_method({
     proxyto => 'node',
     description => "Rollback VM state to specified snapshot.",
     permissions => {
-	check => ['perm', '/vms/{vmid}', [ 'VM.Config.Disk' ]],
+	check => ['perm', '/vms/{vmid}', [ 'VM.Snapshot' ]],
     },
     parameters => {
 	additionalProperties => 0,
@@ -2053,8 +2049,6 @@ __PACKAGE__->register_method({
 	my $vmid = extract_param($param, 'vmid');
 
 	my $snapname = extract_param($param, 'snapname');
-
-	# fixme: access rights? 
 
 	my $realcmd = sub {
 	    PVE::Cluster::log_msg('info', $authuser, "rollback snapshot VM $vmid: $snapname");
@@ -2072,7 +2066,7 @@ __PACKAGE__->register_method({
     proxyto => 'node',
     description => "Delete a VM snapshot.",
     permissions => {
-	check => ['perm', '/vms/{vmid}', [ 'VM.Config.Disk' ]],
+	check => ['perm', '/vms/{vmid}', [ 'VM.Snapshot' ]],
     },
     parameters => {
 	additionalProperties => 0,
@@ -2098,8 +2092,6 @@ __PACKAGE__->register_method({
 	my $vmid = extract_param($param, 'vmid');
 
 	my $snapname = extract_param($param, 'snapname');
-
-	# fixme: access rights? 
 
 	my $realcmd = sub {
 	    PVE::Cluster::log_msg('info', $authuser, "delete snapshot VM $vmid: $snapname");
