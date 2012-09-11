@@ -1919,7 +1919,11 @@ __PACKAGE__->register_method({
 
 	foreach my $name (keys %$snaphash) {
 	    my $d = $snaphash->{$name};
-	    my $item = { name => $name, description => $d->{description} };
+	    my $item = { 
+		name => $name, 
+		snaptime => $d->{snaptime} || 0, 
+		description => $d->{description} || '',
+	    };
 	    $item->{parent} = $d->{parent} if $d->{parent};
 	    push @$res, $item;
 	}

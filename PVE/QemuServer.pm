@@ -394,6 +394,12 @@ EODESCR
 	optional => 1,
 	description => "Parent snapshot name. This is used internally, and should not be modified.",
     }),
+    snaptime => {
+	optional => 1,
+	description => "Timestamp for snapshots.",
+	type => 'integer',
+	minimum => 0,
+    },
 };
 
 # what about other qemu settings ?
@@ -1393,6 +1399,7 @@ sub json_config_properties {
     my $prop = shift;
 
     foreach my $opt (keys %$confdesc) {
+	next if $opt eq 'parent' || $opt eq 'snaptime';
 	$prop->{$opt} = $confdesc->{$opt};
     }
 
@@ -3574,6 +3581,8 @@ my $snapshot_copy_config = sub {
 
     foreach my $k (keys %$source) {
 	next if $k eq 'snapshots';
+	next if $k eq 'snapstate';
+	next if $k eq 'snaptime';
 	next if $k eq 'lock';
 	next if $k eq 'digest';
 	next if $k =~ m/^unused\d+$/;
@@ -3641,6 +3650,7 @@ my $snapshot_prepare = sub {
 
 	$snap = $conf->{snapshots}->{$snapname} = {
 	    snapstate => "prepare",
+	    snaptime => time(),
 	};
 
 	&$snapshot_copy_config($conf, $snap);
