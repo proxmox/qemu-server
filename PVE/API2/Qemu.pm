@@ -2026,8 +2026,104 @@ __PACKAGE__->register_method({
 	my $res = [];
 
 	push @$res, { cmd => 'rollback' };
+	push @$res, { cmd => 'config' };
 
 	return $res;
+    }});
+
+__PACKAGE__->register_method({
+    name => 'update_snapshot_config',
+    path => '{vmid}/snapshot/{snapname}/config',
+    method => 'PUT',
+    protected => 1,
+    proxyto => 'node',
+    description => "Update snapshot metadata.",
+    permissions => {
+	check => ['perm', '/vms/{vmid}', [ 'VM.Snapshot' ]],
+    },
+    parameters => {
+	additionalProperties => 0,
+	properties => {
+	    node => get_standard_option('pve-node'),
+	    vmid => get_standard_option('pve-vmid'),
+	    snapname => get_standard_option('pve-snapshot-name'),
+	    description => {
+		optional => 1,
+		type => 'string',
+		description => "A textual description or comment.",
+	    },
+	},
+    },
+    returns => { type => 'null' },
+    code => sub {
+	my ($param) = @_;
+
+	my $rpcenv = PVE::RPCEnvironment::get();
+
+	my $authuser = $rpcenv->get_user();
+
+	my $vmid = extract_param($param, 'vmid');
+
+	my $snapname = extract_param($param, 'snapname');
+
+	return undef if !defined($param->{description});
+
+	my $updatefn =  sub {
+
+	    my $conf = PVE::QemuServer::load_config($vmid);
+
+	    PVE::QemuServer::check_lock($conf);
+
+	    my $snap = $conf->{snapshots}->{$snapname};
+
+	    die "snapshot '$snapname' does not exist\n" if !defined($snap); 
+	    
+	    $snap->{description} = $param->{description} if defined($param->{description});
+
+	     PVE::QemuServer::update_config_nolock($vmid, $conf, 1);
+	};
+
+	PVE::QemuServer::lock_config($vmid, $updatefn);
+
+	return undef;
+    }});
+
+__PACKAGE__->register_method({
+    name => 'get_snapshot_config',
+    path => '{vmid}/snapshot/{snapname}/config',
+    method => 'GET',
+    proxyto => 'node',
+    description => "Get snapshot configuration",
+    permissions => {
+	check => ['perm', '/vms/{vmid}', [ 'VM.Snapshot' ]],
+    },
+    parameters => {
+	additionalProperties => 0,
+	properties => {
+	    node => get_standard_option('pve-node'),
+	    vmid => get_standard_option('pve-vmid'),
+	    snapname => get_standard_option('pve-snapshot-name'),
+	},
+    },
+    returns => { type => "object" },
+    code => sub {
+	my ($param) = @_;
+
+	my $rpcenv = PVE::RPCEnvironment::get();
+
+	my $authuser = $rpcenv->get_user();
+
+	my $vmid = extract_param($param, 'vmid');
+
+	my $snapname = extract_param($param, 'snapname');
+
+	my $conf = PVE::QemuServer::load_config($vmid);
+
+	my $snap = $conf->{snapshots}->{$snapname};
+
+	die "snapshot '$snapname' does not exist\n" if !defined($snap); 
+	    
+	return $snap;
     }});
 
 __PACKAGE__->register_method({
