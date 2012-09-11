@@ -1963,6 +1963,11 @@ __PACKAGE__->register_method({
 		type => 'boolean',
 		description => "Freeze the filesystem",
 	    },
+	    description => {
+		optional => 1,
+		type => 'string',
+		description => "A textual description or comment.",
+	    },
 	},
     },
     returns => {
@@ -1982,13 +1987,10 @@ __PACKAGE__->register_method({
 
 	my $snapname = extract_param($param, 'snapname');
 
-	my $vmstate = extract_param($param, 'vmstate');
- 
-	my $freezefs = extract_param($param, 'freezefs');
-
 	my $realcmd = sub {
 	    PVE::Cluster::log_msg('info', $authuser, "snapshot VM $vmid: $snapname");
-	    PVE::QemuServer::snapshot_create($vmid, $snapname, $vmstate, $freezefs);
+	    PVE::QemuServer::snapshot_create($vmid, $snapname, $param->{vmstate}, 
+					     $param->{freezefs}, $param->{description});
 	};
 
 	return $rpcenv->fork_worker('qmsnapshot', $vmid, $authuser, $realcmd);

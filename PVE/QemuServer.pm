@@ -1583,7 +1583,7 @@ sub parse_vm_config {
 	if ($line =~ m/^\[([a-z][a-z0-9_\-]+)\]\s*$/i) {
 	    my $snapname = $1;
 	    $conf->{description} = $descr if $descr;
-	    my $descr = '';
+	    $descr = '';
 	    $conf = $res->{snapshots}->{$snapname} = {}; 
 	    next;
 	}
@@ -3611,7 +3611,7 @@ my $snapshot_apply_config = sub {
 };
 
 my $snapshot_prepare = sub {
-    my ($vmid, $snapname) = @_;
+    my ($vmid, $snapname, $comment) = @_;
 
     my $snap;
 
@@ -3648,12 +3648,13 @@ my $snapshot_prepare = sub {
 	    }
 	});
 
-	$snap = $conf->{snapshots}->{$snapname} = {
-	    snapstate => "prepare",
-	    snaptime => time(),
-	};
+	$snap = $conf->{snapshots}->{$snapname} = {};
 
 	&$snapshot_copy_config($conf, $snap);
+
+	$snap->{snapstate} = "prepare";
+	$snap->{snaptime} = time();
+	$snap->{description} = $comment if $comment;
 
 	update_config_nolock($vmid, $conf, 1);
     };
@@ -3750,9 +3751,9 @@ sub snapshot_rollback {
 }
 
 sub snapshot_create {
-    my ($vmid, $snapname, $vmstate, $freezefs) = @_;
+    my ($vmid, $snapname, $vmstate, $freezefs, $comment) = @_;
 
-    my $snap = &$snapshot_prepare($vmid, $snapname);
+    my $snap = &$snapshot_prepare($vmid, $snapname, $comment);
 
     eval {
 	# create internal snapshots of all drives
