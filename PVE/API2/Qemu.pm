@@ -1918,7 +1918,16 @@ __PACKAGE__->register_method({
 	my $res = [];
 
 	foreach my $name (keys %$snaphash) {
-	    push @$res, { name => $name };
+	    my $d = $snaphash->{$name};
+	    my $item = { name => $name, description => $d->{description} };
+	    $item->{parent} = $d->{parent} if $d->{parent};
+	    push @$res, $item;
+	}
+
+	if ($conf->{parent}) {
+	    push @$res, { name => '__current', parent => $conf->{parent} };
+	} else {
+	    push @$res, { name => '__current' };
 	}
 
 	return $res;
