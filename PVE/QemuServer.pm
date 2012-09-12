@@ -400,6 +400,11 @@ EODESCR
 	type => 'integer',
 	minimum => 0,
     },
+    vmstate => {
+	optional => 1,
+	type => 'string', format => 'pve-volume-id',
+	description => "Reference to a volume which stores the VM state. This is used internally for snapshots.",
+    },
 };
 
 # what about other qemu settings ?
@@ -1399,7 +1404,7 @@ sub json_config_properties {
     my $prop = shift;
 
     foreach my $opt (keys %$confdesc) {
-	next if $opt eq 'parent' || $opt eq 'snaptime';
+	next if $opt eq 'parent' || $opt eq 'snaptime' || $opt eq 'vmstate';
 	$prop->{$opt} = $confdesc->{$opt};
     }
 
@@ -2817,19 +2822,13 @@ sub qemu_volume_snapshot {
 sub qemu_volume_snapshot_delete {
     my ($vmid, $deviceid, $storecfg, $volid, $snap) = @_;
 
-     #need to implement statefile location
-    my $statefile="/tmp/$vmid-$snap";
-
-    unlink $statefile if -e $statefile;
-
     my $running = PVE::QemuServer::check_running($vmid);
 
     return if !PVE::Storage::volume_snapshot_delete($storecfg, $volid, $snap, $running);
 
     return if !$running;
 
-    #need to split delvm monitor command like savevm
-
+    vm_mon_cmd($vmid, "delete-drive-snapshot", device => $deviceid, name => $snap);
 }
 
 sub qemu_snapshot_start {
@@ -3583,6 +3582,7 @@ my $snapshot_copy_config = sub {
 	next if $k eq 'snapshots';
 	next if $k eq 'snapstate';
 	next if $k eq 'snaptime';
+	next if $k eq 'vmstate';
 	next if $k eq 'lock';
 	next if $k eq 'digest';
 	next if $k eq 'description';
@@ -3611,8 +3611,71 @@ my $snapshot_apply_config = sub {
     return $newconf;
 };
 
+sub foreach_writable_storage {
+    my ($conf, $func) = @_;
+
+    my $sidhash = {};
+
+    foreach my $ds (keys %$conf) {
+	next if !valid_drivename($ds);
+
+	my $drive = parse_drive($ds, $conf->{$ds});
+	next if !$drive;
+	next if drive_is_cdrom($drive);
+
+	my $volid = $drive->{file};
+
+	my ($sid, $volname) = PVE::Storage::parse_volume_id($volid, 1);
+	$sidhash->{$sid} = $sid if $sid;	
+    }
+
+    foreach my $sid (sort keys %$sidhash) {
+	&$func($sid);
+    }
+}
+
+my $alloc_vmstate_volid = sub {
+    my ($storecfg, $vmid, $conf, $snapname) = @_;
+    
+    # Note: we try to be smart when selecting a $target storage
+
+    my $target;
+
+    # search shared storage first
+    foreach_writable_storage($conf, sub {
+	my ($sid) = @_;
+	my $scfg = PVE::Storage::storage_config($storecfg, $sid);
+	return if !$scfg->{shared};
+
+	$target = $sid if !$target || $scfg->{path}; # prefer file based storage
+    });
+
+    if (!$target) {
+	# now search local storage
+	foreach_writable_storage($conf, sub {
+	    my ($sid) = @_;
+	    my $scfg = PVE::Storage::storage_config($storecfg, $sid);
+	    return if $scfg->{shared};
+
+	    $target = $sid if !$target || $scfg->{path}; # prefer file based storage;
+	});
+    }
+
+    $target = 'local' if !$target;
+
+    my $driver_state_size = 32; # assume 32MB is enough to safe all driver state;
+    my $size = $conf->{memory} + $driver_state_size;
+
+    my $name = "vm-$vmid-state-$snapname";
+    my $scfg = PVE::Storage::storage_config($storecfg, $target);
+    $name .= ".raw" if $scfg->{path}; # add filename extension for file base storage
+    my $volid = PVE::Storage::vdisk_alloc($storecfg, $target, $vmid, 'raw', $name, $size*1024);
+
+    return $volid;
+};
+
 my $snapshot_prepare = sub {
-    my ($vmid, $snapname, $comment) = @_;
+    my ($vmid, $snapname, $save_vmstate, $comment) = @_;
 
     my $snap;
 
@@ -3629,7 +3692,7 @@ my $snapshot_prepare = sub {
 
 	my $storecfg = PVE::Storage::config();
 
-	PVE::QemuServer::foreach_drive($conf, sub {
+	foreach_drive($conf, sub {
 	    my ($ds, $drive) = @_;
 
 	    return if drive_is_cdrom($drive);
@@ -3649,7 +3712,12 @@ my $snapshot_prepare = sub {
 	    }
 	});
 
+
 	$snap = $conf->{snapshots}->{$snapname} = {};
+
+	if ($save_vmstate && check_running($vmid)) {
+	    $snap->{vmstate} = &$alloc_vmstate_volid($storecfg, $vmid, $conf, $snapname);
+	}
 
 	&$snapshot_copy_config($conf, $snap);
 
@@ -3754,20 +3822,22 @@ sub snapshot_rollback {
 }
 
 sub snapshot_create {
-    my ($vmid, $snapname, $vmstate, $freezefs, $comment) = @_;
+    my ($vmid, $snapname, $save_vmstate, $freezefs, $comment) = @_;
 
-    my $snap = &$snapshot_prepare($vmid, $snapname, $comment);
+    my $snap = &$snapshot_prepare($vmid, $snapname, $save_vmstate, $comment);
 
-    $freezefs = $vmstate = 0 if !check_running($vmid);
+    $freezefs = $save_vmstate = 0 if !$snap->{vmstate}; # vm is not running
 
     my $drivehash = {};
+
+    my $running = check_running($vmid);
 
     eval {
 	# create internal snapshots of all drives
 	
-	qemu_snapshot_start($vmid, $snapname) if $vmstate;
+	qemu_snapshot_start($vmid, $snapname) if $running;
 
-	qga_freezefs($vmid) if $freezefs;
+	qga_freezefs($vmid) if $running && $freezefs;
 
 	my $storecfg = PVE::Storage::config();
  
@@ -3785,10 +3855,10 @@ sub snapshot_create {
     };
     my $err = $@;
 
-    eval { gqa_unfreezefs($vmid) if $freezefs; };
+    eval { gqa_unfreezefs($vmid) if $running && $freezefs; };
     warn $@ if $@;
 
-    eval { qemu_snapshot_end($vmid) if $vmstate; };
+    eval { qemu_snapshot_end($vmid) if $running; };
     warn $@ if $@;
 
     if ($err) {
@@ -3841,10 +3911,14 @@ sub snapshot_delete {
 	}
 
 	if ($remove_drive) {
-	    my $drive = parse_drive($remove_drive, $snap->{$remove_drive});
-	    my $volid = $drive->{file};
-	    delete $snap->{$remove_drive};
-	    add_unused_volume($conf, $volid);
+	    if ($remove_drive eq 'vmstate') {
+		delete $snap->{$remove_drive};
+	    } else {
+		my $drive = parse_drive($remove_drive, $snap->{$remove_drive});
+		my $volid = $drive->{file};
+		delete $snap->{$remove_drive};
+		add_unused_volume($conf, $volid);
+	    }
 	}
 
 	if ($prepare) {
@@ -3862,11 +3936,22 @@ sub snapshot_delete {
 
     lock_config($vmid, $updatefn);
 
-    # now remove all internal snapshots
+    # now remove vmstate file
 
     my $storecfg = PVE::Storage::config();
 
-    PVE::QemuServer::foreach_drive($snap, sub {
+    if ($snap->{vmstate}) {
+	eval {  PVE::Storage::vdisk_free($storecfg, $snap->{vmstate}); };
+	if (my $err = $@) {
+	    die $err if !$force;
+	    warn $err;
+	}
+	# save changes (remove vmstate from snapshot)
+	lock_config($vmid, $updatefn, 'vmstate') if !$force;
+    };
+
+    # now remove all internal snapshots
+    foreach_drive($snap, sub {
 	my ($ds, $drive) = @_;
 
 	return if drive_is_cdrom($drive);
