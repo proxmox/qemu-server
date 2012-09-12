@@ -3755,6 +3755,8 @@ sub snapshot_create {
 
     my $snap = &$snapshot_prepare($vmid, $snapname, $comment);
 
+    $freezefs = $vmstate = 0 if !check_running($vmid);
+
     my $drivehash = {};
 
     eval {
