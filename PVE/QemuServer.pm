@@ -3806,6 +3806,7 @@ sub snapshot_delete {
     my $unused = [];
 
     my $updatefn =  sub {
+	my ($remove_drive) = @_;
 
 	my $conf = load_config($vmid);
 
@@ -3826,6 +3827,13 @@ sub snapshot_delete {
 		    delete $snapref->{parent};
 		}
 	    }
+	}
+
+	if ($remove_drive) {
+	    my $drive = parse_drive($remove_drive, $snap->{$remove_drive});
+	    my $volid = $drive->{file};
+	    delete $snap->{$remove_drive};
+	    add_unused_volume($conf, $volid);
 	}
 
 	if ($prepare) {
@@ -3852,16 +3860,20 @@ sub snapshot_delete {
 	my ($ds, $drive) = @_;
 
 	return if drive_is_cdrom($drive);
-	return if $drivehash && !$drivehash->{$ds};
 
 	my $volid = $drive->{file};
 	my $device = "drive-$ds";
 
-	eval { qemu_volume_snapshot_delete($vmid, $device, $storecfg, $volid, $snapname); };
-	if (my $err = $@) {
-	    die $err if !$force;
-	    warn $err;
+	if (!$drivehash || $drivehash->{$ds}) {
+	    eval { qemu_volume_snapshot_delete($vmid, $device, $storecfg, $volid, $snapname); };
+	    if (my $err = $@) {
+		die $err if !$force;
+		warn $err;
+	    }
 	}
+
+	# save changes (remove drive fron snapshot)
+	lock_config($vmid, $updatefn, $ds) if !$force;
 	push @$unused, $volid;
     });
 
