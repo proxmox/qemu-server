@@ -1925,6 +1925,7 @@ __PACKAGE__->register_method({
 		description => $d->{description} || '',
 	    };
 	    $item->{parent} = $d->{parent} if $d->{parent};
+	    $item->{snapstate} = $d->{snapstate} if $d->{snapstate};
 	    push @$res, $item;
 	}
 
@@ -2185,6 +2186,11 @@ __PACKAGE__->register_method({
 	    node => get_standard_option('pve-node'),
 	    vmid => get_standard_option('pve-vmid'),
 	    snapname => get_standard_option('pve-snapshot-name'),
+	    force => {
+		optional => 1,
+		type => 'boolean',
+		description => "For removal from config file, even if removing disk snapshots fails.",
+	    },
 	},
     },
     returns => {
@@ -2206,7 +2212,7 @@ __PACKAGE__->register_method({
 
 	my $realcmd = sub {
 	    PVE::Cluster::log_msg('info', $authuser, "delete snapshot VM $vmid: $snapname");
-	    PVE::QemuServer::snapshot_delete($vmid, $snapname);
+	    PVE::QemuServer::snapshot_delete($vmid, $snapname, $param->{force});
 	};
 
 	return $rpcenv->fork_worker('qmdelsnapshot', $vmid, $authuser, $realcmd);

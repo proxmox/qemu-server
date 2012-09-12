@@ -3755,6 +3755,8 @@ sub snapshot_create {
 
     my $snap = &$snapshot_prepare($vmid, $snapname, $comment);
 
+    my $drivehash = {};
+
     eval {
 	# create internal snapshots of all drives
 	
@@ -3773,6 +3775,7 @@ sub snapshot_create {
 	    my $device = "drive-$ds";
 
 	    qemu_volume_snapshot($vmid, $device, $storecfg, $volid, $snapname);
+	    $drivehash->{$ds} = 1;
        });
     };
     my $err = $@;
@@ -3785,7 +3788,7 @@ sub snapshot_create {
 
     if ($err) {
 	warn "snapshot create failed: starting cleanup\n";
-	eval { snapshot_delete($vmid, $snapname, 1); };
+	eval { snapshot_delete($vmid, $snapname, 0, $drivehash); };
 	warn $@ if $@;
 	die $err;
     }
@@ -3793,8 +3796,9 @@ sub snapshot_create {
     &$snapshot_commit($vmid, $snapname);
 }
 
+# Note: $drivehash is only set when called from snapshot_create.
 sub snapshot_delete {
-    my ($vmid, $snapname, $force) = @_;
+    my ($vmid, $snapname, $force, $drivehash) = @_;
 
     my $prepare = 1;
 
@@ -3805,7 +3809,7 @@ sub snapshot_delete {
 
 	my $conf = load_config($vmid);
 
-	check_lock($conf) if !$force;
+	check_lock($conf) if !$drivehash;
 
 	$snap = $conf->{snapshots}->{$snapname};
 
@@ -3829,6 +3833,7 @@ sub snapshot_delete {
 	} else {
 	    delete $conf->{parent} if $conf->{parent} && $conf->{parent} eq $snapname;
 	    delete $conf->{snapshots}->{$snapname};
+	    delete $conf->{lock} if $drivehash;
 	    foreach my $volid (@$unused) {
 		add_unused_volume($conf, $volid);
 	    }
@@ -3847,10 +3852,16 @@ sub snapshot_delete {
 	my ($ds, $drive) = @_;
 
 	return if drive_is_cdrom($drive);
+	return if $drivehash && !$drivehash->{$ds};
+
 	my $volid = $drive->{file};
 	my $device = "drive-$ds";
 
-	qemu_volume_snapshot_delete($vmid, $device, $storecfg, $volid, $snapname);
+	eval { qemu_volume_snapshot_delete($vmid, $device, $storecfg, $volid, $snapname); };
+	if (my $err = $@) {
+	    die $err if !$force;
+	    warn $err;
+	}
 	push @$unused, $volid;
     });
 
