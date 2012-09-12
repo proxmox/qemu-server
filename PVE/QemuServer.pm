@@ -3585,6 +3585,7 @@ my $snapshot_copy_config = sub {
 	next if $k eq 'snaptime';
 	next if $k eq 'lock';
 	next if $k eq 'digest';
+	next if $k eq 'description';
 	next if $k =~ m/^unused\d+$/;
 		
 	$dest->{$k} = $source->{$k};
@@ -3599,9 +3600,9 @@ my $snapshot_apply_config = sub {
 	snapshots => $conf->{snapshots},
     };
 
-    # keep list of unused disks
+    # keep description and list of unused disks
     foreach my $k (keys %$conf) {
-	next if $k !~ m/^unused\d+$/;
+	next if !($k =~ m/^unused\d+$/ || $k eq 'description');
 	$newconf->{$k} = $conf->{$k};
     }
 
