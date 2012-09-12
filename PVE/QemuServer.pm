@@ -3686,6 +3686,8 @@ my $snapshot_commit = sub {
 
 	my $newconf = &$snapshot_apply_config($conf, $snap);
 
+	$newconf->{parent} = $snapname;
+
 	update_config_nolock($vmid, $newconf, 1);
     };
 
