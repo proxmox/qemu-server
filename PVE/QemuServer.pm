@@ -3809,6 +3809,18 @@ sub snapshot_delete {
     my $snap;
     my $unused = [];
 
+    my $unlink_parent = sub {
+	my ($confref, $new_parent) = @_;
+
+	if ($confref->{parent} && $confref->{parent} eq $snapname) {
+	    if ($new_parent) {
+		$confref->{parent} = $new_parent;
+	    } else {
+		delete $confref->{parent};
+	    }
+	}
+    };
+ 
     my $updatefn =  sub {
 	my ($remove_drive) = @_;
 
@@ -3821,16 +3833,10 @@ sub snapshot_delete {
 	die "snapshot '$snapname' does not exist\n" if !defined($snap); 
 
 	# remove parent refs
+	&$unlink_parent($conf, $snap->{parent});
 	foreach my $sn (keys %{$conf->{snapshots}}) {
 	    next if $sn eq $snapname;
-	    my $snapref = $conf->{snapshots}->{$sn};
-	    if ($snapref->{parent} && $snapref->{parent} eq $snapname) {
-		if ($snap->{parent}) {
-		    $snapref->{parent} = $snap->{parent};
-		} else {
-		    delete $snapref->{parent};
-		}
-	    }
+	    &$unlink_parent($conf->{snapshots}->{$sn}, $snap->{parent});
 	}
 
 	if ($remove_drive) {
@@ -3843,7 +3849,6 @@ sub snapshot_delete {
 	if ($prepare) {
 	    $snap->{snapstate} = 'delete';
 	} else {
-	    delete $conf->{parent} if $conf->{parent} && $conf->{parent} eq $snapname;
 	    delete $conf->{snapshots}->{$snapname};
 	    delete $conf->{lock} if $drivehash;
 	    foreach my $volid (@$unused) {
