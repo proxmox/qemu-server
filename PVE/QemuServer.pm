@@ -2831,23 +2831,6 @@ sub qemu_volume_snapshot_delete {
     vm_mon_cmd($vmid, "delete-drive-snapshot", device => $deviceid, name => $snap);
 }
 
-sub qemu_snapshot_start {
-    my ($vmid, $snap) = @_;
-
-    #need to implement statefile location
-    my $statefile="/tmp/$vmid-$snap";
-
-    vm_mon_cmd($vmid, "snapshot-start", statefile => $statefile);
-
-}
-
-sub qemu_snapshot_end {
-    my ($vmid) = @_;
-
-    vm_mon_cmd($vmid, "snapshot-end");
-
-}
-
 sub qga_freezefs {
     my ($vmid) = @_;
 
@@ -2914,9 +2897,11 @@ sub vm_start {
 	    if ($statefile eq 'tcp') {
 		print "migration listens on port $migrate_port\n";
 	    } else {
-		unlink $statefile;
-		# fixme: send resume - is that necessary ?
-		eval { vm_mon_cmd($vmid, "cont"); };
+		if ($migratedfrom) {
+		    unlink $statefile;
+		    # fixme: send resume - is that necessary ?
+		    eval { vm_mon_cmd($vmid, "cont"); };
+		}
 	    }
 	}
 
@@ -3770,11 +3755,16 @@ sub snapshot_rollback {
 
     my $prepare = 1;
 
+    my $storecfg = PVE::Storage::config();
+ 
     my $updatefn = sub {
 
 	my $conf = load_config($vmid);
 
-	check_lock($conf) if $prepare;
+	if ($prepare) {
+	    check_lock($conf);
+	    vm_stop($storecfg, $vmid, undef, undef, 5, undef, undef);
+	}
 
 	die "unable to rollback vm $vmid: vm is running\n"
 	    if check_running($vmid);
@@ -3800,11 +3790,16 @@ sub snapshot_rollback {
 	}
 
  	update_config_nolock($vmid, $conf, 1);
+
+	if (!$prepare && $snap->{vmstate}) {
+	    my $statefile = PVE::Storage::path($storecfg, $snap->{vmstate});
+	    # fixme: this only forws for files currently
+	    vm_start($storecfg, $vmid, $statefile);
+	}
+
     };
 
     lock_config($vmid, $updatefn);
-
-    my $storecfg = PVE::Storage::config();
     
     foreach_drive($snap, sub {
 	my ($ds, $drive) = @_;
@@ -3834,12 +3829,19 @@ sub snapshot_create {
 
     eval {
 	# create internal snapshots of all drives
-	
-	qemu_snapshot_start($vmid, $snapname) if $running;
-
-	qga_freezefs($vmid) if $running && $freezefs;
 
 	my $storecfg = PVE::Storage::config();
+
+	if ($running) {
+	    if ($snap->{vmstate}) {
+		my $path = PVE::Storage::path($storecfg, $snap->{vmstate});	
+		vm_mon_cmd($vmid, "snapshot-start", statefile => $path);
+	    } else {
+		vm_mon_cmd($vmid, "snapshot-start");
+ 	    }
+	};
+
+	qga_freezefs($vmid) if $running && $freezefs;
  
 	foreach_drive($snap, sub {
 	    my ($ds, $drive) = @_;
@@ -3858,7 +3860,7 @@ sub snapshot_create {
     eval { gqa_unfreezefs($vmid) if $running && $freezefs; };
     warn $@ if $@;
 
-    eval { qemu_snapshot_end($vmid) if $running; };
+    eval { vm_mon_cmd($vmid, "snapshot-end") if $running; };
     warn $@ if $@;
 
     if ($err) {
