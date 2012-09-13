@@ -1912,7 +1912,9 @@ __PACKAGE__->register_method({
     code => sub {
 	my ($param) = @_;
 
-	my $conf = PVE::QemuServer::load_config($param->{vmid});
+	my $vmid = $param->{vmid};
+
+	my $conf = PVE::QemuServer::load_config($vmid);
 	my $snaphash = $conf->{snapshots} || {};
 
 	my $res = [];
@@ -1922,6 +1924,7 @@ __PACKAGE__->register_method({
 	    my $item = { 
 		name => $name, 
 		snaptime => $d->{snaptime} || 0, 
+		vmstate => $d->{vmstate} ? 1 : 0,
 		description => $d->{description} || '',
 	    };
 	    $item->{parent} = $d->{parent} if $d->{parent};
@@ -1929,7 +1932,8 @@ __PACKAGE__->register_method({
 	    push @$res, $item;
 	}
 
-	my $current = { name => 'current', digest => $conf->{digest} };
+	my $running = PVE::QemuServer::check_running($vmid, 1) ? 1 : 0;
+	my $current = { name => 'current', digest => $conf->{digest}, running => $running };
 	$current->{parent} = $conf->{parent} if $conf->{parent};
 
 	push @$res, $current;
