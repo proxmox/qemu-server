@@ -1929,11 +1929,10 @@ __PACKAGE__->register_method({
 	    push @$res, $item;
 	}
 
-	if ($conf->{parent}) {
-	    push @$res, { name => '__current', parent => $conf->{parent} };
-	} else {
-	    push @$res, { name => '__current' };
-	}
+	my $current = { name => 'current', digest => $conf->{digest} };
+	$current->{parent} = $conf->{parent} if $conf->{parent};
+
+	push @$res, $current;
 
 	return $res;
     }});
@@ -1987,6 +1986,9 @@ __PACKAGE__->register_method({
 	my $vmid = extract_param($param, 'vmid');
 
 	my $snapname = extract_param($param, 'snapname');
+
+	die "unable to use snapshot name 'current' (reserved name)\n"
+	    if $snapname eq 'current';
 
 	my $realcmd = sub {
 	    PVE::Cluster::log_msg('info', $authuser, "snapshot VM $vmid: $snapname");
