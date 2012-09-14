@@ -2899,6 +2899,7 @@ sub vm_start {
 	    } else {
 		unlink $statefile if $migratedfrom;
 		eval { vm_mon_cmd($vmid, "cont"); };
+	    }
 	}
 
 	# always set migrate speed (overwrite kvm default of 32m)
