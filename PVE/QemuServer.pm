@@ -2083,7 +2083,7 @@ sub foreach_drive {
 }
 
 sub config_to_command {
-    my ($storecfg, $vmid, $conf, $defaults, $migrate_uri) = @_;
+    my ($storecfg, $vmid, $conf, $defaults) = @_;
 
     my $cmd = [];
     my $devices = [];
@@ -2117,10 +2117,6 @@ sub config_to_command {
     push @$cmd, '-pidfile' , pidfile_name($vmid);
 
     push @$cmd, '-daemonize';
-
-    push @$cmd, '-incoming', $migrate_uri if $migrate_uri;
-
-    push @$cmd, '-S' if $migrate_uri;
 
     my $use_usb2 = 0;
     for (my $i = 0; $i < $MAX_USB_DEVICES; $i++)  {
@@ -2853,28 +2849,26 @@ sub vm_start {
 
 	die "VM $vmid already running\n" if check_running($vmid, undef, $migratedfrom);
 
-	my $migrate_uri;
-	my $migrate_port = 0;
-
-	if ($statefile) {
-	    if ($statefile eq 'tcp') {
-		$migrate_port = next_migrate_port();
-		$migrate_uri = "tcp:localhost:${migrate_port}";
-	    } else {
-		if (-f $statefile) {
-		    $migrate_uri = "exec:cat $statefile";
-		} else {
-		    warn "state file '$statefile' does not exist - doing normal startup\n";
-		}
-	    }
-	}
-
 	my $defaults = load_defaults();
 
 	# set environment variable useful inside network script
 	$ENV{PVE_MIGRATED_FROM} = $migratedfrom if $migratedfrom;
 
-	my ($cmd, $vollist) = config_to_command($storecfg, $vmid, $conf, $defaults, $migrate_uri);
+	my ($cmd, $vollist) = config_to_command($storecfg, $vmid, $conf, $defaults);
+
+	my $migrate_port = 0;
+
+	if ($statefile) {
+	    if ($statefile eq 'tcp') {
+		$migrate_port = next_migrate_port();
+		my $migrate_uri = "tcp:localhost:${migrate_port}";
+		push @$cmd, '-incoming', $migrate_uri;
+		push @$cmd, '-S';
+	    } else {
+		push @$cmd, '-loadstate', $statefile;
+	    }
+	}
+
 	# host pci devices
         for (my $i = 0; $i < $MAX_HOSTPCI_DEVICES; $i++)  {
           my $d = parse_hostpci($conf->{"hostpci$i"});
@@ -2888,19 +2882,11 @@ sub vm_start {
 
 	PVE::Storage::activate_volumes($storecfg, $vollist);
 
-	eval  { run_command($cmd, timeout => $migrate_uri ? undef : 30); };
+	eval  { run_command($cmd, timeout => $migrate_port ? undef : 30); };
 	my $err = $@;
 	die "start failed: $err" if $err;
 
-	if ($statefile) {
-
-	    if ($statefile eq 'tcp') {
-		print "migration listens on port $migrate_port\n";
-	    } else {
-		unlink $statefile if $migratedfrom;
-		eval { vm_mon_cmd($vmid, "cont"); };
-	    }
-	}
+	print "migration listens on port $migrate_port\n" if $migrate_port;
 
 	# always set migrate speed (overwrite kvm default of 32m)
 	# we set a very hight default of 8192m which is basically unlimited
@@ -3685,6 +3671,7 @@ my $snapshot_prepare = sub {
 		my $scfg = PVE::Storage::storage_config($storecfg, $storeid);
 		die "can't snapshot volume '$volid'\n"		
 		    if !(($scfg->{path} && $volname =~ m/\.qcow2$/) ||
+			 ($scfg->{type} eq 'nexenta') || 
 			 ($scfg->{type} eq 'rbd') || 
 			 ($scfg->{type} eq 'sheepdog'));
 	    } elsif ($volid =~ m|^(/.+)$| && -e $volid) {
