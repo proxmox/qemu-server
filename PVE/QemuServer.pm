@@ -2888,8 +2888,9 @@ sub vm_start {
 
 	print "migration listens on port $migrate_port\n" if $migrate_port;
 
-	if ($statefile && $statefile ne 'tcp') eval {
-	    vm_mon_cmd($vmid, "cont");
+	if ($statefile && $statefile ne 'tcp')  {
+	    eval { vm_mon_cmd($vmid, "cont"); };
+	    warn $@ if $@;
 	}
 
 	# always set migrate speed (overwrite kvm default of 32m)
