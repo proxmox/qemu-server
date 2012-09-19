@@ -3745,6 +3745,13 @@ sub snapshot_rollback {
 
 	my $conf = load_config($vmid);
 
+	$snap = $conf->{snapshots}->{$snapname};
+
+	die "snapshot '$snapname' does not exist\n" if !defined($snap); 
+
+	die "unable to rollback to incomplete snapshot (snapstate = $snap->{snapstate})\n" 
+	    if $snap->{snapstate};
+
 	if ($prepare) {
 	    check_lock($conf);
 	    vm_stop($storecfg, $vmid, undef, undef, 5, undef, undef);
@@ -3759,13 +3766,6 @@ sub snapshot_rollback {
 	    die "got wrong lock\n" if !($conf->{lock} && $conf->{lock} eq 'rollback');
 	    delete $conf->{lock};
 	}
-
-	$snap = $conf->{snapshots}->{$snapname};
-
-	die "snapshot '$snapname' does not exist\n" if !defined($snap); 
-
-	die "unable to rollback to incomplete snapshot (snapstate = $snap->{snapstate})\n" 
-	    if $snap->{snapstate};
 
 	if (!$prepare) {
 	    # copy snapshot config to current config
