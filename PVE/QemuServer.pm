@@ -2882,7 +2882,7 @@ sub vm_start {
 
 	PVE::Storage::activate_volumes($storecfg, $vollist);
 
-	eval  { run_command($cmd, timeout => $migrate_port ? undef : 30); };
+	eval  { run_command($cmd, timeout => $statefile ? undef : 30); };
 	my $err = $@;
 	die "start failed: $err" if $err;
 
