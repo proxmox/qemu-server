@@ -3805,6 +3805,24 @@ sub snapshot_rollback {
     lock_config($vmid, $updatefn);
 }
 
+my $savevm_wait = sub {
+    my ($vmid) = @_;
+
+    for(;;) {
+	my $stat = PVE::QemuServer::vm_mon_cmd_nocheck($vmid, "query-savevm");
+	if (!$stat->{status}) {
+	    die "savevm not active\n";
+	} elsif ($stat->{status} eq 'active') {
+	    sleep(1);
+	    next;
+	} elsif ($stat->{status} eq 'completed') {
+	    last;
+	} else {
+	    die "query-savevm returned status '$stat->{status}'\n";
+	}
+    }
+};
+
 sub snapshot_create {
     my ($vmid, $snapname, $save_vmstate, $freezefs, $comment) = @_;
 
@@ -3824,9 +3842,10 @@ sub snapshot_create {
 	if ($running) {
 	    if ($snap->{vmstate}) {
 		my $path = PVE::Storage::path($storecfg, $snap->{vmstate});	
-		vm_mon_cmd($vmid, "snapshot-start", statefile => $path);
+		vm_mon_cmd($vmid, "savevm-start", statefile => $path);
+		&$savevm_wait($vmid);
 	    } else {
-		vm_mon_cmd($vmid, "snapshot-start");
+		vm_mon_cmd($vmid, "savevm-start");
  	    }
 	};
 
@@ -3849,7 +3868,7 @@ sub snapshot_create {
     eval { gqa_unfreezefs($vmid) if $running && $freezefs; };
     warn $@ if $@;
 
-    eval { vm_mon_cmd($vmid, "snapshot-end") if $running; };
+    eval { vm_mon_cmd($vmid, "savevm-end") if $running; };
     warn $@ if $@;
 
     if ($err) {
