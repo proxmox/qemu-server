@@ -1,3 +1,9 @@
+qemu-server (2.0-56) unstable; urgency=low
+
+  * include shanpshot support
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 24 Sep 2012 15:59:40 +0200
+
 qemu-server (2.0-55) unstable; urgency=low
 
   * migrate: disable xbzrle (not stable)
