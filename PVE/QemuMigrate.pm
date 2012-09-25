@@ -199,17 +199,16 @@ sub sync_disks {
             });
         }
 
-	# and add used,owned/non-shared disks (just to be sure we have all)
+	# and add used, owned/non-shared disks (just to be sure we have all)
 
-	PVE::QemuServer::foreach_drive($conf, sub {
-	    my ($ds, $drive) = @_;
+	PVE::QemuServer::foreach_volid($conf, sub {
+	    my ($volid, $is_cdrom) = @_;
 
-	    my $volid = $drive->{file};
 	    return if !$volid;
 
 	    die "cant migrate local file/device '$volid'\n" if $volid =~ m|^/|;
 
-	    if (PVE::QemuServer::drive_is_cdrom($drive)) {
+	    if ($is_cdrom) {
 		die "cant migrate local cdrom drive\n" if $volid eq 'cdrom';
 		return if $volid eq 'none';
 		$cdromhash->{$volid} = 1;

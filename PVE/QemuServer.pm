@@ -2082,6 +2082,38 @@ sub foreach_drive {
     }
 }
 
+sub foreach_volid {
+    my ($conf, $func) = @_;
+    
+    my $volhash = {};
+
+    my $test_volid = sub {
+	my ($volid, $is_cdrom) = @_;
+
+	return if !$volid;
+	
+	$volhash->{$volid} = $is_cdrom || 0;
+    };
+
+    PVE::QemuServer::foreach_drive($conf, sub {
+	my ($ds, $drive) = @_;
+	&$test_volid($drive->{file}, drive_is_cdrom($drive));
+    });
+
+    foreach my $snapname (keys %{$conf->{snapshots}}) {
+	my $snap = $conf->{snapshots}->{$snapname};
+	&$test_volid($snap->{vmstate}, 0);
+	PVE::QemuServer::foreach_drive($snap, sub {
+	    my ($ds, $drive) = @_;
+	    &$test_volid($drive->{file}, drive_is_cdrom($drive));
+        });
+    }
+
+    foreach my $volid (keys %$volhash) {
+	&$func($volid, $volhash->{$volid});	
+    }
+}
+
 sub config_to_command {
     my ($storecfg, $vmid, $conf, $defaults) = @_;
 
@@ -3010,14 +3042,13 @@ sub get_vm_volumes {
     my ($conf) = @_;
 
     my $vollist = [];
-    foreach_drive($conf, sub {
-	my ($ds, $drive) = @_;
+    foreach_volid($conf, sub {
+	my ($volid, $is_cdrom) = @_;
 
-	my ($sid, $volname) = PVE::Storage::parse_volume_id($drive->{file}, 1);
+	return if $volid =~ m|^/|;
+
+	my ($sid, $volname) = PVE::Storage::parse_volume_id($volid, 1);
 	return if !$sid;
-
-	my $volid = $drive->{file};
-	return if !$volid || $volid =~ m|^/|;
 
 	push @$vollist, $volid;
     });
