@@ -178,6 +178,8 @@ sub sync_disks {
 	my $volhash = {};
 	my $cdromhash = {};
 
+	my $sharedvm = 1;
+
 	my @sids = PVE::Storage::storage_ids($self->{storecfg});
         foreach my $storeid (@sids) {
 	    my $scfg = PVE::Storage::storage_config($self->{storecfg}, $storeid);
@@ -193,12 +195,12 @@ sub sync_disks {
                 PVE::Storage::storage_check_node($self->{storecfg}, $sid, $self->{node});
 
                 $volhash->{$volid} = 1;
+		$sharedvm = 0; # there is a non-shared disk
             });
         }
 
 	# and add used,owned/non-shared disks (just to be sure we have all)
 
-	my $sharedvm = 1;
 	PVE::QemuServer::foreach_drive($conf, sub {
 	    my ($ds, $drive) = @_;
 
