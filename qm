@@ -364,6 +364,7 @@ __PACKAGE__->register_method ({
 		foreach my $item (@{$info->{$storeid}}) {
 		    next if !($item->{volid} && $item->{vmid});
 		    next if $item->{vmid} ne $vmid;
+		    next if $item->{volid} =~ m/vm-$vmid-state-/;
 		    next if $used->{$item->{volid}};
 		    $changes = 1;
 		    PVE::QemuServer::add_unused_volume($conf, $item->{volid});
