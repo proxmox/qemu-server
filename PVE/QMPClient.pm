@@ -114,9 +114,11 @@ my $close_connection = sub {
 };
 
 my $open_connection = sub {
-    my ($self, $vmid) = @_;
+    my ($self, $vmid, $timeout) = @_;
 
     my $sname = PVE::QemuServer::qmp_socket($vmid);
+
+    $timeout = 1 if !$timeout;
 
     my $fh;
     my $starttime = [gettimeofday];
@@ -129,7 +131,7 @@ my $open_connection = sub {
 	    die "unable to connect to VM $vmid socket - $!\n";
 	}
 	my $elapsed = tv_interval($starttime, [gettimeofday]);
-	if ($elapsed > 1) {
+	if ($elapsed >= $timeout) {
 	    die "unable to connect to VM $vmid socket - timeout after $count retries\n";
 	}
 	usleep(100000);
@@ -204,7 +206,7 @@ sub queue_execute {
 	next if !scalar(@{$self->{queue}->{$vmid}}); # no commands for the VM
 
 	eval {
-	    my $fh = &$open_connection($self, $vmid);
+	    my $fh = &$open_connection($self, $vmid, $timeout);
 	    my $cmd = { execute => 'qmp_capabilities', arguments => {} };
 	    unshift @{$self->{queue}->{$vmid}}, $cmd;
 	    $self->{mux}->set_timeout($fh, $timeout);
