@@ -3667,8 +3667,9 @@ my $alloc_vmstate_volid = sub {
 
     $target = 'local' if !$target;
 
-    my $driver_state_size = 32; # assume 32MB is enough to safe all driver state;
-    my $size = $conf->{memory} + $driver_state_size;
+    my $driver_state_size = 500; # assume 32MB is enough to safe all driver state;
+    # we abort live save after $conf->{memory}, so we need at max twice that space
+    my $size = $conf->{memory}*2 + $driver_state_size;
 
     my $name = "vm-$vmid-state-$snapname";
     my $scfg = PVE::Storage::storage_config($storecfg, $target);
