@@ -309,8 +309,8 @@ EODESC
     tdf => {
 	optional => 1,
 	type => 'boolean',
-	description => "Enable/disable time drift fix. This is ignored for kvm versions newer that 1.0 (not needed anymore).",
-	default => 1,
+	description => "Enable/disable time drift fix.",
+	default => 0,
     },
     localtime => {
 	optional => 1,
@@ -2118,6 +2118,9 @@ sub config_to_command {
     my ($storecfg, $vmid, $conf, $defaults) = @_;
 
     my $cmd = [];
+    my $globalFlags = [];
+    my $machineFlags = [];
+    my $rtcFlags = [];
     my $devices = [];
     my $pciaddr = '';
     my $bridges = {};
@@ -2249,43 +2252,41 @@ sub config_to_command {
 
     # time drift fix
     my $tdf = defined($conf->{tdf}) ? $conf->{tdf} : $defaults->{tdf};
-    # ignore - no longer supported by newer kvm
-    # push @$cmd, '-tdf' if $tdf;
 
     my $nokvm = defined($conf->{kvm}) && $conf->{kvm} == 0 ? 1 : 0;
+    my $useLocaltime = $conf->{localtime};
 
     if (my $ost = $conf->{ostype}) {
 	# other, wxp, w2k, w2k3, w2k8, wvista, win7, l24, l26
 
 	if ($ost =~ m/^w/) { # windows
-	    push @$cmd, '-localtime' if !defined($conf->{localtime});
+	    $useLocaltime = 1 if !defined($conf->{localtime});
 
-	    # use rtc-td-hack when acpi is enabled
+	    # use time drift fix when acpi is enabled
 	    if (!(defined($conf->{acpi}) && $conf->{acpi} == 0)) {
-		push @$cmd, '-rtc-td-hack';
+		$tdf = 1 if !defined($conf->{tdf});
 	    }
 	}
 
 	if ($ost eq 'win7' || $ost eq 'w2k8' || $ost eq 'wvista') {
-	    push @$cmd, '-no-kvm-pit-reinjection';
+	    push @$globalFlags, 'kvm-pit.lost_tick_policy=discard';
 	    push @$cmd, '-no-hpet';
 	}
-
-	# -tdf ?
-	# -no-acpi
-	# -no-kvm
-	# -win2k-hack ?
     }
 
+    push @$rtcFlags, 'driftfix=slew' if $tdf;
+
     if ($nokvm) {
-	push @$cmd, '-no-kvm';
+	push @$machineFlags, 'accel=tcg';
     } else {
 	die "No accelerator found!\n" if !$cpuinfo->{hvm};
     }
 
-    push @$cmd, '-localtime' if $conf->{localtime};
-
-    push @$cmd, '-startdate', $conf->{startdate} if $conf->{startdate};
+    if ($conf->{startdate}) {
+	push @$rtcFlags, "base=$conf->{startdate}";
+    } elsif ($useLocaltime) {
+	push @$rtcFlags, 'base=localtime';
+    }
 
     push @$cmd, '-S' if $conf->{freeze};
 
@@ -2411,6 +2412,13 @@ sub config_to_command {
     }
 
     push @$cmd, @$devices;
+    push @$cmd, '-rtc', join(',', @$rtcFlags) 
+	if scalar(@$rtcFlags);
+    push @$cmd, '-machine', join(',', @$machineFlags) 
+	if scalar(@$machineFlags);
+    push @$cmd, '-global', join(',', @$globalFlags)
+	if scalar(@$globalFlags);
+
     return wantarray ? ($cmd, $vollist) : $cmd;
 }
 
