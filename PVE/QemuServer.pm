@@ -2922,7 +2922,8 @@ sub vm_start {
 
 	PVE::Storage::activate_volumes($storecfg, $vollist);
 
-	eval  { run_command($cmd, timeout => $statefile ? undef : 30); };
+	eval  { run_command($cmd, timeout => $statefile ? undef : 30,
+		    umask => 0077); };
 	my $err = $@;
 	die "start failed: $err" if $err;
 

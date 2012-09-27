@@ -1,3 +1,9 @@
+qemu-server (2.0-59) unstable; urgency=low
+
+  * disable vzdump for VM containing snapshots
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 27 Sep 2012 09:41:19 +0200
+
 qemu-server (2.0-58) unstable; urgency=low
 
   * fix bug 251: use new command line syntax

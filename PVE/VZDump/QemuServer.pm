@@ -46,6 +46,10 @@ sub prepare {
 
     my $conf = $self->{vmlist}->{$vmid} = PVE::QemuServer::load_config($vmid);
 
+    if (scalar(keys %{$conf->{snapshots}})) {
+	die "VM contains snapshots - unable to backup\n";
+    }
+
     $task->{hostname} = $conf->{name};
 
     my $lvmmap = PVE::VZDump::get_lvm_mapping();
