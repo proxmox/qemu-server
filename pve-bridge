@@ -28,7 +28,9 @@ die "unable to parse network config '$netid'\n" if !$net;
 my $bridge = $net->{bridge};
 die "unable to get bridge setting\n" if !$bridge;
 
-system ("/sbin/ifconfig $iface 0.0.0.0 promisc up") == 0 ||
+my $bridgemtu = PVE::Tools::file_read_firstline("/sys/class/net/$bridge/mtu");
+
+system ("/sbin/ifconfig $iface 0.0.0.0 promisc up mtu $bridgemtu") == 0 ||
     die "interface activation failed\n";
 
 if ($net->{rate}) {
