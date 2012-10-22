@@ -1,3 +1,9 @@
+qemu-server (2.0-60) unstable; urgency=low
+
+  * fix bug 258:  use bridge mtu for tap interfaces
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 22 Oct 2012 12:26:42 +0200
+
 qemu-server (2.0-59) unstable; urgency=low
 
   * disable vzdump for VM containing snapshots
