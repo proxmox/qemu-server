@@ -235,7 +235,7 @@ my $confdesc = {
     ostype => {
 	optional => 1,
 	type => 'string',
-        enum => [qw(other wxp w2k w2k3 w2k8 wvista win7 l24 l26)],
+        enum => [qw(other wxp w2k w2k3 w2k8 wvista win7 win8 l24 l26)],
 	description => <<EODESC,
 Used to enable special optimization/features for specific
 operating systems:
@@ -247,11 +247,12 @@ w2k3   => Microsoft Windows 2003
 w2k8   => Microsoft Windows 2008
 wvista => Microsoft Windows Vista
 win7   => Microsoft Windows 7
+win8   => Microsoft Windows 8/2012
 l24    => Linux 2.4 Kernel
 l26    => Linux 2.6/3.X Kernel
 
-other|l24|l26                  ... no special behaviour
-wxp|w2k|w2k3|w2k8|wvista|win7  ... use --localtime switch
+other|l24|l26                       ... no special behaviour
+wxp|w2k|w2k3|w2k8|wvista|win7|win8  ... use --localtime switch
 EODESC
     },
     boot => {
@@ -325,7 +326,7 @@ EODESC
     vga => {
 	optional => 1,
 	type => 'string',
-	description => "Select VGA type. If you want to use high resolution modes (>= 1280x1024x16) then you should use option 'std' or 'vmware'. Default is 'std' for win7/w2k8, and 'cirrur' for other OS types",
+	description => "Select VGA type. If you want to use high resolution modes (>= 1280x1024x16) then you should use option 'std' or 'vmware'. Default is 'std' for win8/win7/w2k8, and 'cirrur' for other OS types",
 	enum => [qw(std cirrus vmware)],
     },
     watchdog => {
@@ -690,6 +691,7 @@ sub os_list_description {
 	w2k8 => 'Windows 2008',
 	wvista => 'Windows Vista',
 	win7 => 'Windows 7',
+	win8 => 'Windows 8/2012',
 	l24 => 'Linux 2.4',
 	l26 => 'Linux 2.6',
     };
@@ -2241,7 +2243,7 @@ sub config_to_command {
 
     my $vga = $conf->{vga};
     if (!$vga) {
-	if ($conf->{ostype} && ($conf->{ostype} eq 'win7' || $conf->{ostype} eq 'w2k8')) {
+	if ($conf->{ostype} && ($conf->{ostype} eq 'win8' || $conf->{ostype} eq 'win7' || $conf->{ostype} eq 'w2k8')) {
 	    $vga = 'std';
 	} else {
 	    $vga = 'cirrus';
@@ -2257,7 +2259,7 @@ sub config_to_command {
     my $useLocaltime = $conf->{localtime};
 
     if (my $ost = $conf->{ostype}) {
-	# other, wxp, w2k, w2k3, w2k8, wvista, win7, l24, l26
+	# other, wxp, w2k, w2k3, w2k8, wvista, win7, win8, l24, l26
 
 	if ($ost =~ m/^w/) { # windows
 	    $useLocaltime = 1 if !defined($conf->{localtime});
@@ -2268,7 +2270,8 @@ sub config_to_command {
 	    }
 	}
 
-	if ($ost eq 'win7' || $ost eq 'w2k8' || $ost eq 'wvista') {
+	if ($ost eq 'win7' || $ost eq 'win8' || $ost eq 'w2k8' || 
+	    $ost eq 'wvista') {
 	    push @$globalFlags, 'kvm-pit.lost_tick_policy=discard';
 	    push @$cmd, '-no-hpet';
 	}

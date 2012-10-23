@@ -1,3 +1,9 @@
+qemu-server (2.0-61) unstable; urgency=low
+
+  * add 'win8' ostype (same defaults as win7 for now)
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 23 Oct 2012 09:35:27 +0200
+
 qemu-server (2.0-60) unstable; urgency=low
 
   * fix bug 258:  use bridge mtu for tap interfaces
