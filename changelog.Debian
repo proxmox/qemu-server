@@ -1,3 +1,9 @@
+qemu-server (2.0-62) unstable; urgency=low
+
+  * vncproxy: wait until vnc port is ready
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 24 Oct 2012 08:58:52 +0200
+
 qemu-server (2.0-61) unstable; urgency=low
 
   * add 'win8' ostype (same defaults as win7 for now)
