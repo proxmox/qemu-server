@@ -2,7 +2,7 @@ RELEASE=2.2
 
 VERSION=2.0
 PACKAGE=qemu-server
-PKGREL=62
+PKGREL=63
 
 DESTDIR=
 PREFIX=/usr
@@ -35,10 +35,10 @@ vzsyscalls.ph: vzsyscalls.h
 	 h2ph -d . vzsyscalls.h
 
 vmtar: vmtar.c utils.c
-	gcc -O2 -Wall -o vmtar vmtar.c
+	gcc -O2 -Werror -Wall -Wtype-limits -o vmtar vmtar.c
 
 sparsecp: sparsecp.c utils.c
-	gcc -O2 -Wall -o sparsecp sparsecp.c
+	gcc -O2 -Werror -Wall -Wtype-limits -o sparsecp sparsecp.c
 
 %.1.gz: %.1.pod
 	rm -f $@

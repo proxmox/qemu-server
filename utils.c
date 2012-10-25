@@ -68,7 +68,7 @@ safe_read(int fd, char *buf, size_t count)
 int 
 full_read(int fd, char *buf, size_t len)
 {
-  size_t n;
+  ssize_t n;
   size_t total;
 
   total = 0;
@@ -110,7 +110,7 @@ safe_write(int fd, char *buf, size_t count)
 int 
 full_write(int fd, char *buf, size_t len)
 {
-  size_t n;
+  ssize_t n;
   size_t total;
 
   total = 0;

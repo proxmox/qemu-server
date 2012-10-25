@@ -402,7 +402,7 @@ dump_sparse_file (int fd, struct writebuffer *wbuf, struct sp_array *ma)
 
     while (bytes_left > 0) {
       size_t bufsize = (bytes_left > BLOCKSIZE) ? BLOCKSIZE : bytes_left;
-      size_t bytes_read;
+      ssize_t bytes_read;
 
       char *blkbuf = buffer_block (wbuf);
       if ((bytes_read = full_read (fd, blkbuf, bufsize)) < 0) {
