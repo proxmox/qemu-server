@@ -1,3 +1,9 @@
+qemu-server (2.0-64) unstable; urgency=low
+
+  * fix memory leak in QMP Client (many thanks to Stefan!)
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 29 Oct 2012 12:14:51 +0100
+
 qemu-server (2.0-63) unstable; urgency=low
 
   * fix bug in vmtar 

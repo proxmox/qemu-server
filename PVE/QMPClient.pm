@@ -7,6 +7,7 @@ use IO::Multiplex;
 use POSIX qw(EINTR EAGAIN);
 use JSON;
 use Time::HiRes qw(usleep gettimeofday tv_interval);
+use Scalar::Util qw(weaken);
 
 use Data::Dumper;
 
@@ -34,6 +35,10 @@ sub new {
     $self->{eventcb} = $eventcb if $eventcb;
 
     $mux->set_callback_object($self);
+
+    # make sure perl doesn't believe this is a circular reference as we 
+    # delete mux in DESTROY
+    weaken($mux->{_object});
 
     return $self;
 }
