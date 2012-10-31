@@ -1,3 +1,9 @@
+qemu-server (2.0-65) unstable; urgency=low
+
+  * remove hardcoded blowfish cipher
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 31 Oct 2012 13:58:27 +0100
+
 qemu-server (2.0-64) unstable; urgency=low
 
   * fix memory leak in QMP Client (many thanks to Stefan!)
