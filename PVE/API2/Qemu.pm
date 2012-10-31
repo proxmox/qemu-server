@@ -1065,10 +1065,8 @@ __PACKAGE__->register_method({
 	    $remip = PVE::Cluster::remote_node_ip($node);
 	}
 
-	# NOTE: kvm VNC traffic is already TLS encrypted,
-	# so we select the fastest chipher here (or 'none'?)
-	my $remcmd = $remip ? ['/usr/bin/ssh', '-T', '-o', 'BatchMode=yes',
-			       '-c', 'blowfish-cbc', $remip] : [];
+	# NOTE: kvm VNC traffic is already TLS encrypted
+	my $remcmd = $remip ? ['/usr/bin/ssh', '-T', '-o', 'BatchMode=yes', $remip] : [];
 
 	my $timeout = 10;
 
