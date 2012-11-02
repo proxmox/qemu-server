@@ -3545,7 +3545,7 @@ sub restore_archive {
 		$net->{macaddr} = PVE::Tools::random_ether_addr() if $net->{macaddr};
 		$netstr = print_net($net);
 		print $outfd "$id: $netstr\n";
-	    } elsif ($line =~ m/^((ide|scsi|virtio)\d+):\s*(\S+)\s*$/) {
+	    } elsif ($line =~ m/^((ide|scsi|virtio|sata)\d+):\s*(\S+)\s*$/) {
 		my $virtdev = $1;
 		my $value = $2;
 		if ($line =~ m/backup=no/) {

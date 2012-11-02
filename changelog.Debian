@@ -1,3 +1,9 @@
+qemu-server (2.0-66) unstable; urgency=low
+
+  * vzdump: restore sata drives correctly
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 02 Nov 2012 07:43:16 +0100
+
 qemu-server (2.0-65) unstable; urgency=low
 
   * remove hardcoded blowfish cipher
