@@ -162,7 +162,7 @@ sub extract_archive {
 	my $cfg = cfs_read_file('storage.cfg');
 	my $scfg = PVE::Storage::storage_config($cfg, $storeid);
 
-	my $alloc_size = ($filesize + 1024 - 1)/1024;
+	my $alloc_size = int(($filesize + 1024 - 1)/1024);
 	if ($scfg->{type} eq 'dir' || $scfg->{type} eq 'nfs') {
 	    # hack: we just alloc a small file (32K) - we overwrite it anyways
 	    $alloc_size = 32;

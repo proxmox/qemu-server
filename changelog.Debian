@@ -1,3 +1,9 @@
+qemu-server (2.0-67) unstable; urgency=low
+
+  * fix allocation size in qmrestore
+
+ -- Proxmox Support Team <support@proxmox.com>  Sat, 03 Nov 2012 07:54:06 +0100
+
 qemu-server (2.0-66) unstable; urgency=low
 
   * vzdump: restore sata drives correctly
