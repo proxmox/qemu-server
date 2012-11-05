@@ -1,3 +1,9 @@
+qemu-server (2.0-68) unstable; urgency=low
+
+  * vzdump: store drive in correct order (sort) to avoid confusion
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 05 Nov 2012 06:25:33 +0100
+
 qemu-server (2.0-67) unstable; urgency=low
 
   * fix allocation size in qmrestore

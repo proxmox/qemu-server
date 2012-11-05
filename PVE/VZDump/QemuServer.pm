@@ -83,7 +83,8 @@ sub prepare {
 
     PVE::Storage::activate_volumes($self->{storecfg}, $vollist);
 
-    while (my ($ds, $drive) = each %$drivehash) {
+    foreach my $ds (sort keys %$drivehash) {
+	my $drive = $drivehash->{$ds};
  
 	my $volid = $drive->{file};
 
