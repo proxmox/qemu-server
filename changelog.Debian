@@ -1,3 +1,9 @@
+qemu-server (2.0-69) unstable; urgency=low
+
+  * fix ballon monitor command (use bytes instead of MBs)
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 16 Nov 2012 06:13:46 +0100
+
 qemu-server (2.0-68) unstable; urgency=low
 
   * vzdump: store drive in correct order (sort) to avoid confusion

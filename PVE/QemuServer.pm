@@ -3393,7 +3393,7 @@ sub print_pci_addr {
 sub vm_balloonset {
     my ($vmid, $value) = @_;
 
-    vm_mon_cmd($vmid, "balloon", value => $value);
+    vm_mon_cmd($vmid, "balloon", value => $value*1024*1024);
 }
 
 # vzdump restore implementaion
