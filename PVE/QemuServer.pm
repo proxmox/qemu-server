@@ -648,7 +648,7 @@ sub kvm_user_version {
 
     my $tmp = `kvm -help 2>/dev/null`;
 
-    if ($tmp =~ m/^QEMU( PC)? emulator version (\d+\.\d+(\.\d+)?) /) {
+    if ($tmp =~ m/^QEMU( PC)? emulator version (\d+\.\d+(\.\d+)?)[,\s]/) {
 	$kvm_user_version = $2;
     }
 
