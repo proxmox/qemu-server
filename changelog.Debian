@@ -2,6 +2,10 @@ qemu-server (2.0-70) unstable; urgency=low
 
   * fix version parser for qemu 1.3
 
+  * add new cpu types: SandyBridge Haswell Opteron_G4 Opteron_G5
+
+  * remove rhel specific cpu types: cpu64-rhel6 cpu64-rhel5
+
  -- Proxmox Support Team <support@proxmox.com>  Fri, 23 Nov 2012 07:45:19 +0100
 
 qemu-server (2.0-69) unstable; urgency=low

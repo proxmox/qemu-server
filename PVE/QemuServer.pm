@@ -388,7 +388,7 @@ EODESCR
 	optional => 1,
 	description => "Emulated CPU type.",
 	type => 'string',
-	enum => [ qw(486 athlon pentium pentium2 pentium3 coreduo core2duo kvm32 kvm64 qemu32 qemu64 phenom cpu64-rhel6 cpu64-rhel5 Conroe Penryn Nehalem Westmere Opteron_G1 Opteron_G2 Opteron_G3 host) ],
+	enum => [ qw(486 athlon pentium pentium2 pentium3 coreduo core2duo kvm32 kvm64 qemu32 qemu64 phenom Conroe Penryn Nehalem Westmere SandyBridge Haswell Opteron_G1 Opteron_G2 Opteron_G3 Opteron_G4 Opteron_G5 host) ],
 	default => 'qemu64',
     },
     parent => get_standard_option('pve-snapshot-name', {
