@@ -181,7 +181,7 @@ my $check_queue = sub {
 	    $cmd->{id} = &$next_cmdid();
 
 	    my $fd = -1;
-	    if ($cmd->{execute} eq 'add-fd') {
+	    if ($cmd->{execute} eq 'add-fd' || $cmd->{execute} eq 'getfd') {
 		$fd = $cmd->{arguments}->{fd};
 		delete $cmd->{arguments}->{fd};
 	    }
