@@ -1,13 +1,13 @@
 package PVE::QMPClient;
 
 use strict;
-#use PVE::SafeSyslog;
 use PVE::QemuServer;
 use IO::Multiplex;
 use POSIX qw(EINTR EAGAIN);
 use JSON;
 use Time::HiRes qw(usleep gettimeofday tv_interval);
 use Scalar::Util qw(weaken);
+use PVE::IPCC;
 
 use Data::Dumper;
 
@@ -36,14 +36,14 @@ sub new {
 
     $mux->set_callback_object($self);
 
-    # make sure perl doesn't believe this is a circular reference as we 
+    # make sure perl doesn't believe this is a circular reference as we
     # delete mux in DESTROY
     weaken($mux->{_object});
 
     return $self;
 }
 
-# add a single command to the queue for later execution 
+# add a single command to the queue for later execution
 # with queue_execute()
 sub queue_cmd {
     my ($self, $vmid, $callback, $execute, %params) = @_;
@@ -82,6 +82,8 @@ sub cmd {
 	    $timeout = 60; # note: cdrom mount command is slow
 	} elsif ($cmd->{execute} eq 'savevm-start' ||
 		 $cmd->{execute} eq 'savevm-end' ||
+		 $cmd->{execute} eq 'query-backup' ||
+		 $cmd->{execute} eq 'backup_cancel' ||
 		 $cmd->{execute} eq 'query-savevm' ||
 		 $cmd->{execute} eq 'delete-drive-snapshot' ||
 		 $cmd->{execute} eq 'snapshot-drive'  ) {
@@ -95,7 +97,7 @@ sub cmd {
 
     my $cmdstr = $cmd->{execute} || '';
     die "VM $vmid qmp command '$cmdstr' failed - $self->{errors}->{$vmid}"
-	if defined($self->{errors}->{$vmid});    
+	if defined($self->{errors}->{$vmid});
 
     return $result;
 };
@@ -108,10 +110,10 @@ my $next_cmdid = sub {
 
 my $close_connection = sub {
     my ($self, $vmid) = @_;
-	    
+
     my $fh = $self->{fhs}->{$vmid};
     return if !$fh;
- 
+
     delete $self->{fhs}->{$vmid};
     delete $self->{fhs_lookup}->{$fh};
 
@@ -145,7 +147,7 @@ my $open_connection = sub {
     $self->{fhs}->{$vmid} = $fh;
     $self->{fhs_lookup}->{$fh} = $vmid;
     $self->{mux}->add($fh);
- 
+
     return $fh;
 };
 
@@ -153,7 +155,7 @@ my $check_queue = sub {
     my ($self) = @_;
 
     my $running = 0;
-	
+
     foreach my $vmid (keys %{$self->{queue}}) {
 	my $fh = $self->{fhs}->{$vmid};
 	next if !$fh;
@@ -178,12 +180,23 @@ my $check_queue = sub {
 	    my $cmd = $self->{current}->{$vmid} = shift @{$self->{queue}->{$vmid}};
 	    $cmd->{id} = &$next_cmdid();
 
+	    my $fd = -1;
+	    if ($cmd->{execute} eq 'add-fd') {
+		$fd = $cmd->{arguments}->{fd};
+		delete $cmd->{arguments}->{fd};
+	    }
+
 	    my $qmpcmd = to_json({
 		execute => $cmd->{execute},
 		arguments => $cmd->{arguments},
 		id => $cmd->{id}});
 
-	    $self->{mux}->write($fh, $qmpcmd);
+	    if ($fd >= 0) {
+		my $ret = PVE::IPCC::sendfd(fileno($fh), $fd, $qmpcmd);
+		die "sendfd failed" if $ret < 0;
+	    } else {
+		$self->{mux}->write($fh, $qmpcmd);
+	    }
 	};
 	if (my $err = $@) {
 	    $self->{errors}->{$vmid} = $err;
@@ -287,7 +300,7 @@ sub mux_input {
 	    die "unable to lookup current command for VM $vmid\n" if !$curcmd;
 
 	    delete $self->{current}->{$vmid};
-	    
+
 	    if ($curcmd->{id} ne $cmdid) {
 		die "got wrong command id '$cmdid' (expected $curcmd->{id})\n";
 	    }
