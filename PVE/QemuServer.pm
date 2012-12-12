@@ -27,6 +27,7 @@ use PVE::Cluster qw(cfs_register_file cfs_read_file cfs_write_file cfs_lock_file
 use PVE::INotify;
 use PVE::ProcFSTools;
 use PVE::QMPClient;
+use PVE::RPCEnvironment;
 use Time::HiRes qw(gettimeofday);
 
 my $cpuinfo = PVE::ProcFSTools::read_cpuinfo();
@@ -444,7 +445,6 @@ my $nic_model_list = ['rtl8139', 'ne2k_pci', 'e1000',  'pcnet',  'virtio',
 		      'ne2k_isa', 'i82551', 'i82557b', 'i82559er'];
 my $nic_model_list_txt = join(' ', sort @$nic_model_list);
 
-# fixme:
 my $netdesc = {
     optional => 1,
     type => 'string', format => 'pve-qm-net',
@@ -1248,8 +1248,6 @@ sub add_unused_volume {
 
     return $key;
 }
-
-# fixme: remove all thos $noerr parameters?
 
 PVE::JSONSchema::register_format('pve-qm-bootdisk', \&verify_bootdisk);
 sub verify_bootdisk {
@@ -2883,7 +2881,7 @@ sub qga_unfreezefs {
 }
 
 sub vm_start {
-    my ($storecfg, $vmid, $statefile, $skiplock, $migratedfrom) = @_;
+    my ($storecfg, $vmid, $statefile, $skiplock, $migratedfrom, $paused) = @_;
 
     lock_config($vmid, sub {
 	my $conf = load_config($vmid, $migratedfrom);
@@ -2910,6 +2908,8 @@ sub vm_start {
 	    } else {
 		push @$cmd, '-loadstate', $statefile;
 	    }
+	} elsif ($paused) {
+	    push @$cmd, '-S';
 	}
 
 	# host pci devices
@@ -3446,6 +3446,369 @@ sub restore_cleanup {
 sub restore_archive {
     my ($archive, $vmid, $user, $opts) = @_;
 
+    my $format = $opts->{format};
+    my $comp;
+
+    if ($archive =~ m/\.tgz$/ || $archive =~ m/\.tar\.gz$/) {
+	$format = 'tar' if !$format;
+	$comp = 'gzip';
+    } elsif ($archive =~ m/\.tar$/) {
+	$format = 'tar' if !$format;
+    } elsif ($archive =~ m/.tar.lzo$/) {
+	$format = 'tar' if !$format;
+	$comp = 'lzop';
+    } elsif ($archive =~ m/\.vma$/) {
+	$format = 'vma' if !$format;
+    } elsif ($archive =~ m/\.vma\.gz$/) {
+	$format = 'vma' if !$format;
+	$comp = 'gzip';
+    } elsif ($archive =~ m/\.vma\.lzo$/) {
+	$format = 'vma' if !$format;
+	$comp = 'lzop';
+    } else {
+	$format = 'vma' if !$format; # default
+    }
+
+    # try to detect archive format
+    if ($format eq 'tar') {
+	return restore_tar_archive($archive, $vmid, $user, $opts);
+    } else {
+	return restore_vma_archive($archive, $vmid, $user, $opts, $comp);
+    }
+}
+
+sub restore_update_config_line {
+    my ($outfd, $cookie, $vmid, $map, $line, $unique) = @_;
+
+    return if $line =~ m/^\#qmdump\#/;
+    return if $line =~ m/^\#vzdump\#/;
+    return if $line =~ m/^lock:/;
+    return if $line =~ m/^unused\d+:/;
+    return if $line =~ m/^parent:/;
+
+    if (($line =~ m/^(vlan(\d+)):\s*(\S+)\s*$/)) {
+	# try to convert old 1.X settings
+	my ($id, $ind, $ethcfg) = ($1, $2, $3);
+	foreach my $devconfig (PVE::Tools::split_list($ethcfg)) {
+	    my ($model, $macaddr) = split(/\=/, $devconfig);
+	    $macaddr = PVE::Tools::random_ether_addr() if !$macaddr || $unique;
+	    my $net = {
+		model => $model,
+		bridge => "vmbr$ind",
+		macaddr => $macaddr,
+	    };
+	    my $netstr = print_net($net);
+
+	    print $outfd "net$cookie->{netcount}: $netstr\n";
+	    $cookie->{netcount}++;
+	}
+    } elsif (($line =~ m/^(net\d+):\s*(\S+)\s*$/) && $unique) {
+	my ($id, $netstr) = ($1, $2);
+	my $net = parse_net($netstr);
+	$net->{macaddr} = PVE::Tools::random_ether_addr() if $net->{macaddr};
+	$netstr = print_net($net);
+	print $outfd "$id: $netstr\n";
+    } elsif ($line =~ m/^((ide|scsi|virtio|sata)\d+):\s*(\S+)\s*$/) {
+	my $virtdev = $1;
+	my $value = $2;
+	if ($line =~ m/backup=no/) {
+	    print $outfd "#$line";
+	} elsif ($virtdev && $map->{$virtdev}) {
+	    my $di = PVE::QemuServer::parse_drive($virtdev, $value);
+	    $di->{file} = $map->{$virtdev};
+	    $value = PVE::QemuServer::print_drive($vmid, $di);
+	    print $outfd "$virtdev: $value\n";
+	} else {
+	    print $outfd $line;
+	}
+    } else {
+	print $outfd $line;
+    }
+}
+
+sub scan_volids {
+    my ($cfg, $vmid) = @_;
+
+    my $info = PVE::Storage::vdisk_list($cfg, undef, $vmid);
+
+    my $volid_hash = {};
+    foreach my $storeid (keys %$info) {
+	foreach my $item (@{$info->{$storeid}}) {
+	    next if !($item->{volid} && $item->{size});
+	    $volid_hash->{$item->{volid}} = $item;
+	}
+    }
+
+    return $volid_hash;
+}
+
+sub update_disksize {
+    my ($vmid, $conf, $volid_hash) = @_;
+ 
+    my $changes;
+
+    my $used = {};
+
+    # update size info
+    foreach my $opt (keys %$conf) {
+	if (PVE::QemuServer::valid_drivename($opt)) {
+	    my $drive = PVE::QemuServer::parse_drive($opt, $conf->{$opt});
+	    my $volid = $drive->{file};
+	    next if !$volid;
+
+	    $used->{$volid} = 1;
+
+	    next if PVE::QemuServer::drive_is_cdrom($drive);
+	    next if !$volid_hash->{$volid};
+
+	    $drive->{size} = $volid_hash->{$volid}->{size};
+	    $changes = 1;
+	    $conf->{$opt} = PVE::QemuServer::print_drive($vmid, $drive);
+	}
+    }
+
+    foreach my $volid (sort keys %$volid_hash) {
+	next if $volid =~ m/vm-$vmid-state-/;
+	next if $used->{$volid};
+	$changes = 1;
+	PVE::QemuServer::add_unused_volume($conf, $volid);
+    }
+
+    return $changes;
+}
+
+sub rescan {
+    my ($vmid, $nolock) = @_;
+
+    my $cfg = PVE::Cluster::cfs_read_file("storage.cfg");
+
+    my $volid_hash = scan_volids($cfg, $vmid);
+
+    my $updatefn =  sub {
+	my ($vmid) = @_;
+
+	my $conf = PVE::QemuServer::load_config($vmid);
+	    
+	PVE::QemuServer::check_lock($conf);
+
+	my $changes = PVE::QemuServer::update_disksize($vmid, $conf, $volid_hash);
+
+	PVE::QemuServer::update_config_nolock($vmid, $conf, 1) if $changes;
+    };
+
+    if (defined($vmid)) {
+	if ($nolock) {
+	    &$updatefn($vmid);
+	} else {
+	    PVE::QemuServer::lock_config($vmid, $updatefn, $vmid);
+	}
+    } else {
+	my $vmlist = config_list();
+	foreach my $vmid (keys %$vmlist) {
+	    if ($nolock) {
+		&$updatefn($vmid);
+	    } else {
+		PVE::QemuServer::lock_config($vmid, $updatefn, $vmid);
+	    }    
+	}
+    }
+}
+
+sub restore_vma_archive {
+    my ($archive, $vmid, $user, $opts, $comp) = @_;
+
+    my $input = $archive eq '-' ? "<&STDIN" : undef;
+    my $readfrom = $archive;
+
+    my $uncomp = '';
+    if ($comp) {
+	$readfrom = '-';
+	my $qarchive = PVE::Tools::shellquote($archive);
+	if ($comp eq 'gzip') {
+	    $uncomp = "zcat $qarchive|";
+	} elsif ($comp eq 'lzop') {
+	    $uncomp = "lzop -d -c $qarchive|";
+	} else {
+	    die "unknown compression method '$comp'\n";
+	}
+	
+    }
+
+    my $tmpdir = "/var/tmp/vzdumptmp$$";
+    rmtree $tmpdir;
+
+    # disable interrupts (always do cleanups)
+    local $SIG{INT} = $SIG{TERM} = $SIG{QUIT} = $SIG{HUP} = sub {
+	warn "got interrupt - ignored\n";
+    };
+
+    my $mapfifo = "/var/tmp/vzdumptmp$$.fifo";
+    POSIX::mkfifo($mapfifo, 0600);
+    my $fifofh;
+
+    my $openfifo = sub {
+	open($fifofh, '>', $mapfifo) || die $!;
+    };
+
+    my $cmd = "${uncomp}vma extract -v -r $mapfifo $readfrom $tmpdir";
+
+    my $oldtimeout;
+    my $timeout = 5;
+
+    my $devinfo = {};
+
+    my $rpcenv = PVE::RPCEnvironment::get();
+
+    my $conffile = PVE::QemuServer::config_file($vmid);
+    my $tmpfn = "$conffile.$$.tmp";
+
+    my $print_devmap = sub {
+	my $virtdev_hash = {};
+
+	my $cfgfn = "$tmpdir/qemu-server.conf";
+
+	# we can read the config - that is already extracted
+	my $fh = IO::File->new($cfgfn, "r") ||
+	    "unable to read qemu-server.conf - $!\n";
+
+	while (defined(my $line = <$fh>)) {
+	    if ($line =~ m/^\#qmdump\#map:(\S+):(\S+):(\S*):(\S*):$/) {
+		my ($virtdev, $devname, $storeid, $format) = ($1, $2, $3, $4);
+		die "archive does not contain data for drive '$virtdev'\n"
+		    if !$devinfo->{$devname};
+		if (defined($opts->{storage})) {
+		    $storeid = $opts->{storage} || 'local';
+		} elsif (!$storeid) {
+		    $storeid = 'local';
+		}
+		$format = 'raw' if !$format;
+		$devinfo->{$devname}->{devname} = $devname;
+		$devinfo->{$devname}->{virtdev} = $virtdev;
+		$devinfo->{$devname}->{format} = $format;
+		$devinfo->{$devname}->{storeid} = $storeid;
+
+		# check permission on storage 
+		my $pool = $opts->{pool}; # todo: do we need that?
+		if ($user ne 'root@pam') {
+		    $rpcenv->check($user, "/storage/$storeid", ['Datastore.AllocateSpace']);
+		}
+
+		$virtdev_hash->{$virtdev} = $devinfo->{$devname};
+	    }
+	}
+
+	foreach my $devname (keys %$devinfo) {
+	    die "found no device mapping information for device '$devname'\n" 
+		if !$devinfo->{$devname}->{virtdev};	    
+	}
+
+	my $map = {};
+	my $cfg = cfs_read_file('storage.cfg');
+	foreach my $virtdev (sort keys %$virtdev_hash) {
+	    my $d = $virtdev_hash->{$virtdev};
+	    my $alloc_size = int(($d->{size} + 1024 - 1)/1024);
+	    my $scfg = PVE::Storage::storage_config($cfg, $d->{storeid});
+	    my $volid = PVE::Storage::vdisk_alloc($cfg, $d->{storeid}, $vmid,
+						  $d->{format}, undef, $alloc_size);
+	    print STDERR "new volume ID is '$volid'\n";
+	    $d->{volid} = $volid;
+	    my $path = PVE::Storage::path($cfg, $volid);
+
+	    my $write_zeros = 1;
+	    # fixme: what other storages types initialize volumes with zero?
+	    if ($scfg->{type} eq 'dir' || $scfg->{type} eq 'nfs') {
+		$write_zeros = 0;
+	    }
+
+	    print $fifofh "${write_zeros}:$d->{devname}=$path\n";
+
+	    print "map '$d->{devname}' to '$path' (write zeros = ${write_zeros})\n";
+	    $map->{$virtdev} = $volid;
+	}
+
+	$fh->seek(0, 0) || die "seek failed - $!\n";
+
+	my $outfd = new IO::File ($tmpfn, "w") ||
+	    die "unable to write config for VM $vmid\n";
+
+	my $cookie = { netcount => 0 };
+	while (defined(my $line = <$fh>)) {
+	    restore_update_config_line($outfd, $cookie, $vmid, $map, $line, $opts->{unique});  
+	}
+
+	$fh->close();
+	$outfd->close();
+    };
+
+    eval {
+	# enable interrupts
+	local $SIG{INT} = $SIG{TERM} = $SIG{QUIT} = $SIG{HUP} = $SIG{PIPE} = sub {
+	    die "interrupted by signal\n";
+	};
+	local $SIG{ALRM} = sub { die "got timeout\n"; };
+
+	$oldtimeout = alarm($timeout);
+
+	my $parser = sub {
+	    my $line = shift;
+
+	    print "$line\n";
+
+	    if ($line =~ m/^DEV:\sdev_id=(\d+)\ssize:\s(\d+)\sdevname:\s(\S+)$/) {
+		my ($dev_id, $size, $devname) = ($1, $2, $3);
+		$devinfo->{$devname} = { size => $size, dev_id => $dev_id };
+	    } elsif ($line =~ m/^CTIME: /) {
+		&$print_devmap();
+		print $fifofh "done\n";
+		my $tmp = $oldtimeout || 0;
+		$oldtimeout = undef;
+		alarm($tmp);
+		close($fifofh);
+	    }
+	};
+ 
+	print "restore vma archive: $cmd\n";
+	run_command($cmd, input => $input, outfunc => $parser, afterfork => $openfifo);
+    };
+    my $err = $@;
+
+    alarm($oldtimeout) if $oldtimeout;
+
+    unlink $mapfifo;
+
+    if ($err) {
+	rmtree $tmpdir;
+	unlink $tmpfn;
+
+	my $cfg = cfs_read_file('storage.cfg');
+	foreach my $devname (keys %$devinfo) {
+	    my $volid = $devinfo->{$devname}->{volid};
+	    next if !$volid;
+	    eval {
+		if ($volid =~ m|^/|) {
+		    unlink $volid || die 'unlink failed\n';
+		} else {
+		    PVE::Storage::vdisk_free($cfg, $volid);
+		}
+		print STDERR "temporary volume '$volid' sucessfuly removed\n";
+	    };
+	    print STDERR "unable to cleanup '$volid' - $@" if $@;
+	}
+	die $err;
+    }
+
+    rmtree $tmpdir;
+    
+    rename $tmpfn, $conffile ||
+	die "unable to commit configuration file '$conffile'\n";
+
+    eval { rescan($vmid, 1); };
+    warn $@ if $@;
+}
+
+sub restore_tar_archive {
+    my ($archive, $vmid, $user, $opts) = @_;
+
     if ($archive ne '-') {
 	my $firstfile = archive_read_firstfile($archive);
 	die "ERROR: file '$archive' dos not lock like a QemuServer vzdump backup\n"
@@ -3517,50 +3880,9 @@ sub restore_archive {
 	my $outfd = new IO::File ($tmpfn, "w") ||
 	    die "unable to write config for VM $vmid\n";
 
-	my $netcount = 0;
-
+	my $cookie = { netcount => 0 };
 	while (defined (my $line = <$srcfd>)) {
-	    next if $line =~ m/^\#vzdump\#/;
-	    next if $line =~ m/^lock:/;
-	    next if $line =~ m/^unused\d+:/;
-
-	    if (($line =~ m/^(vlan(\d+)):\s*(\S+)\s*$/)) {
-		# try to convert old 1.X settings
-		my ($id, $ind, $ethcfg) = ($1, $2, $3);
-		foreach my $devconfig (PVE::Tools::split_list($ethcfg)) {
-		    my ($model, $macaddr) = split(/\=/, $devconfig);
-		    $macaddr = PVE::Tools::random_ether_addr() if !$macaddr || $opts->{unique};
-		    my $net = {
-			model => $model,
-			bridge => "vmbr$ind",
-			macaddr => $macaddr,
-		    };
-		    my $netstr = print_net($net);
-		    print $outfd "net${netcount}: $netstr\n";
-		    $netcount++;
-		}
-	    } elsif (($line =~ m/^(net\d+):\s*(\S+)\s*$/) && ($opts->{unique})) {
-		my ($id, $netstr) = ($1, $2);
-		my $net = parse_net($netstr);
-		$net->{macaddr} = PVE::Tools::random_ether_addr() if $net->{macaddr};
-		$netstr = print_net($net);
-		print $outfd "$id: $netstr\n";
-	    } elsif ($line =~ m/^((ide|scsi|virtio|sata)\d+):\s*(\S+)\s*$/) {
-		my $virtdev = $1;
-		my $value = $2;
-		if ($line =~ m/backup=no/) {
-		    print $outfd "#$line";
-		} elsif ($virtdev && $map->{$virtdev}) {
-		    my $di = PVE::QemuServer::parse_drive($virtdev, $value);
-		    $di->{file} = $map->{$virtdev};
-		    $value = PVE::QemuServer::print_drive($vmid, $di);
-		    print $outfd "$virtdev: $value\n";
-		} else {
-		    print $outfd $line;
-		}
-	    } else {
-		print $outfd $line;
-	    }
+	    restore_update_config_line($outfd, $cookie, $vmid, $map, $line, $opts->{unique});  
 	}
 
 	$srcfd->close();
@@ -3581,6 +3903,9 @@ sub restore_archive {
 
     rename $tmpfn, $conffile ||
 	die "unable to commit configuration file '$conffile'\n";
+
+    eval { rescan($vmid, 1); };
+    warn $@ if $@;
 };
 
 
@@ -3826,10 +4151,8 @@ sub snapshot_rollback {
 
 	if (!$prepare && $snap->{vmstate}) {
 	    my $statefile = PVE::Storage::path($storecfg, $snap->{vmstate});
-	    # fixme: this only forws for files currently
 	    vm_start($storecfg, $vmid, $statefile);
 	}
-
     };
 
     lock_config($vmid, $updatefn);

@@ -6,12 +6,14 @@ use File::Path;
 use File::Basename;
 use PVE::INotify;
 use PVE::VZDump;
+use PVE::IPCC;
 use PVE::Cluster qw(cfs_read_file);
 use PVE::Tools;
 use PVE::Storage::Plugin;
 use PVE::Storage;
 use PVE::QemuServer;
 use IO::File;
+use IPC::Open3;
 
 use base qw (PVE::VZDump::Plugin);
 
@@ -46,21 +48,14 @@ sub prepare {
 
     my $conf = $self->{vmlist}->{$vmid} = PVE::QemuServer::load_config($vmid);
 
-    if (scalar(keys %{$conf->{snapshots}})) {
-	die "VM contains snapshots - unable to backup\n";
+    $self->{vm_was_running} = 1;
+    if (!PVE::QemuServer::check_running($vmid)) {
+	$self->{vm_was_running} = 0;
     }
 
     $task->{hostname} = $conf->{name};
 
-    my $lvmmap = PVE::VZDump::get_lvm_mapping();
-
     my $hostname = PVE::INotify::nodename(); 
-
-    my $ind = {};
-    my $mountinfo = {};
-    my $mountind = 0;
-
-    my $snapshot_count = 0;
 
     my $vollist = [];
     my $drivehash = {};
@@ -101,86 +96,19 @@ sub prepare {
 
 	die "no such volume '$volid'\n" if ! -e $path;
 
+	my ($size, $format) = PVE::Storage::Plugin::file_size_info($path);
+
 	my $diskinfo = { path => $path , volid => $volid, storeid => $storeid, 
-			 snappath => $path, virtdev => $ds };
+			 format => $format, virtdev => $ds, qmdevice => "drive-$ds" };
 
 	if (-b $path) {
-
 	    $diskinfo->{type} = 'block';
-
-	    $diskinfo->{filename} = "vm-disk-$ds.raw";
-
-	    if ($mode eq 'snapshot') {
-		my ($lvmvg, $lvmlv) = @{$lvmmap->{$path}} if defined ($lvmmap->{$path});
-		die ("mode failure - unable to detect lvm volume group\n") if !$lvmvg;
-
-		$ind->{$lvmvg} = 0 if !defined $ind->{$lvmvg};
-		$diskinfo->{snapname} = "vzsnap-$hostname-$ind->{$lvmvg}";
-		$diskinfo->{snapdev} = "/dev/$lvmvg/$diskinfo->{snapname}";
-		$diskinfo->{lvmvg} = $lvmvg;
-		$diskinfo->{lvmlv} = $lvmlv;
-		$diskinfo->{snappath} = $diskinfo->{snapdev};
-		$ind->{$lvmvg}++;
-
-		$snapshot_count++;
-	    }
-
 	} else {
-
 	    $diskinfo->{type} = 'file';
-
-	    my (undef, $dir, $ext) = fileparse ($path, qr/\.[^.]*/);
-
-	    $diskinfo->{filename} = "vm-disk-$ds$ext";
-
-	    if ($mode eq 'snapshot') {
-	    
-		my ($srcdev, $lvmpath, $lvmvg, $lvmlv, $fstype) =
-		    PVE::VZDump::get_lvm_device ($dir, $lvmmap);
-
-		my $targetdev = PVE::VZDump::get_lvm_device($task->{dumpdir}, $lvmmap);
-
-		die ("mode failure - unable to detect lvm volume group\n") if !$lvmvg;
-		die ("mode failure - wrong lvm mount point '$lvmpath'\n") if $dir !~ m|/?$lvmpath/?|;
-		die ("mode failure - unable to dump into snapshot (use option --dumpdir)\n") 
-		    if $targetdev eq $srcdev;
-		
-		$ind->{$lvmvg} = 0 if !defined $ind->{$lvmvg};
-		    
-		my $info = $mountinfo->{$lvmpath};
-		if (!$info) {
-		    my $snapname = "vzsnap-$hostname-$ind->{$lvmvg}";
-		    my $snapdev = "/dev/$lvmvg/$snapname";
-		    $mountinfo->{$lvmpath} = $info = {
-			snapdev => $snapdev,
-			snapname => $snapname,
-			mountpoint => "/mnt/vzsnap$mountind",
-		    };
-		    $ind->{$lvmvg}++;
-		    $mountind++;
-
-		    $snapshot_count++;
-		} 
-
-		$diskinfo->{snapdev} = $info->{snapdev};
-		$diskinfo->{snapname} = $info->{snapname};
-		$diskinfo->{mountpoint} = $info->{mountpoint};
-		
-		$diskinfo->{lvmvg} = $lvmvg;
-		$diskinfo->{lvmlv} = $lvmlv;
-		
-		$diskinfo->{fstype}  = $fstype;
-		$diskinfo->{lvmpath} = $lvmpath;
-
-		$diskinfo->{snappath} = $path;
-		$diskinfo->{snappath} =~ s|/?$lvmpath/?|$diskinfo->{mountpoint}/|;
-	    }
 	}
 
 	push @{$task->{disks}}, $diskinfo;
     }
-
-    $task->{snapshot_count} = $snapshot_count;
 }
 
 sub vm_status {
@@ -231,123 +159,6 @@ sub resume_vm {
     $self->cmd ("qm resume $vmid --skiplock");
 }
 
-sub snapshot_alloc {
-    my ($self, $storeid, $name, $size, $srcdev) = @_;
-
-    my $cmd = "lvcreate --size ${size}M --snapshot --name '$name' '$srcdev'";
-
-    if ($storeid) {
-
-	my $scfg = PVE::Storage::storage_config($self->{storecfg}, $storeid);
-
-	# lock shared storage
-	return PVE::Storage::Plugin->cluster_lock_storage($storeid, $scfg->{shared}, undef, sub {
-		$self->cmd ($cmd);
-	});
-    } else {
-	$self->cmd ($cmd);
-    }
-}
-
-sub snapshot_free {
-    my ($self, $storeid, $name, $snapdev, $noerr) = @_;
-
-    my $cmd = ['lvremove', '-f', $snapdev];
-
-    # loop, because we often get 'LV in use: not deactivating'
-    # we use run_command() because we do not want to log errors here
-    my $wait = 1;
-    while(-b $snapdev) {
-	eval {
-	    if ($storeid) {
-		my $scfg = PVE::Storage::storage_config($self->{storecfg}, $storeid);
-		# lock shared storage
-		return PVE::Storage::Plugin->cluster_lock_storage($storeid, $scfg->{shared}, undef, sub {
-		    PVE::Tools::run_command($cmd, outfunc => sub {}, errfunc => sub {});
-		});
-	    } else {
-		PVE::Tools::run_command($cmd, outfunc => sub {}, errfunc => sub {});
-	    }
-	};
-	my $err = $@;
-	last if !$err;
-	if ($wait >= 64) {
-	    $self->logerr($err);
-	    die $@ if !$noerr;
-	    last;
-	}
-	$self->loginfo("lvremove failed - trying again in $wait seconds") if $wait >= 8;
-	sleep($wait);
-	$wait = $wait*2;
-    }
-}
-
-sub snapshot {
-    my ($self, $task, $vmid) = @_;
-
-    my $opts = $self->{vzdump}->{opts};
-
-    my $mounts = {};
-
-    foreach my $di (@{$task->{disks}}) {
-	if ($di->{type} eq 'block') {
-
-	    if (-b $di->{snapdev}) {
-		$self->loginfo ("trying to remove stale snapshot '$di->{snapdev}'");
-		$self->snapshot_free ($di->{storeid}, $di->{snapname}, $di->{snapdev}, 1); 
-	    }
-
-	    $di->{cleanup_lvm} = 1;
-	    $self->snapshot_alloc ($di->{storeid}, $di->{snapname}, $opts->{size},
-				   "/dev/$di->{lvmvg}/$di->{lvmlv}"); 
-
-	} elsif ($di->{type} eq 'file') {
-
-	    next if defined ($mounts->{$di->{mountpoint}}); # already mounted
-
-	    if (-b $di->{snapdev}) {
-		$self->loginfo ("trying to remove stale snapshot '$di->{snapdev}'");	    
-	    
-		$self->cmd_noerr ("umount $di->{mountpoint}");
-		$self->snapshot_free ($di->{storeid}, $di->{snapname}, $di->{snapdev}, 1); 
-	    }
-
-	    mkpath $di->{mountpoint}; # create mount point for lvm snapshot
-
-	    $di->{cleanup_lvm} = 1;
-
-	    $self->snapshot_alloc ($di->{storeid}, $di->{snapname}, $opts->{size},
-				   "/dev/$di->{lvmvg}/$di->{lvmlv}"); 
-	    
-	    my $mopts = $di->{fstype} eq 'xfs' ? "-o nouuid" : '';
-
-	    $di->{snapshot_mount} = 1;
-
-	    $self->cmd ("mount -n -t $di->{fstype} $mopts $di->{snapdev} $di->{mountpoint}");
-
-	    $mounts->{$di->{mountpoint}} = 1;
-
-	} else {
-	    die "implement me";
-	}
-    }
-}
-
-sub get_size {
-    my $path = shift;
-
-    if (-f $path) {
-	return -s $path;
-    } elsif (-b $path) {
-	my $fh = IO::File->new ($path, "r");
-	die "unable to open '$path' to detect device size\n" if !$fh;
-	my $size = sysseek $fh, 0, 2;
-	$fh->close();
-	die "unable to detect device size for '$path'\n" if !$size;
-	return $size;
-    }
-}
-
 sub assemble {
     my ($self, $task, $vmid) = @_;
 
@@ -365,19 +176,35 @@ sub assemble {
 	$conffd = IO::File->new ($conffile, 'r') ||
 	    die "unable open '$conffile'";
 
+	my $found_snapshot;
 	while (defined (my $line = <$conffd>)) {
 	    next if $line =~ m/^\#vzdump\#/; # just to be sure
+	    next if $line =~ m/^\#qmdump\#/; # just to be sure
+	    if ($line =~ m/^\[.*\]\s*$/) {
+		$found_snapshot = 1;
+	    }
+	    next if $found_snapshot; # skip all snapshots data
+	    if ($line =~ m/^unused\d+:\s*(\S+)\s*/) {
+		$self->loginfo("skip unused drive '$1' (not included into backup)");
+		next;
+	    }
+	    next if $line =~ m/^lock:/ || $line =~ m/^parent:/;
+
 	    print $outfd $line;
 	}
 
 	foreach my $di (@{$task->{disks}}) {
 	    if ($di->{type} eq 'block' || $di->{type} eq 'file') {
-		my $size = get_size ($di->{snappath});
 		my $storeid = $di->{storeid} || '';
-		print $outfd "#vzdump#map:$di->{virtdev}:$di->{filename}:$size:$storeid:\n";
+		my $format = $di->{format} || '';
+		print $outfd "#qmdump#map:$di->{virtdev}:$di->{qmdevice}:$storeid:$format:\n";
 	    } else {
 		die "internal error";
 	    }
+	}
+
+	if ($found_snapshot) {
+	     $self->loginfo("snapshots found (not included into backup)");
 	}
     };
     my $err = $@;
@@ -397,53 +224,243 @@ sub archive {
 
     my $starttime = time ();
 
-    my $fh;
+    my $speed = 0;
+    if ($opts->{bwlimit}) {
+	$speed = $opts->{bwlimit}*1024; 
+    }
 
-    my @filea = ($conffile, 'qemu-server.conf'); # always first file in tar
+    my $devlist = '';
     foreach my $di (@{$task->{disks}}) {
 	if ($di->{type} eq 'block' || $di->{type} eq 'file') {
-	    push @filea, $di->{snappath}, $di->{filename};
+	    $devlist .= $devlist ? ",$di->{qmdevice}" : $di->{qmdevice};
 	} else {
 	    die "implement me";
 	}
     }
 
-    my $files = join (' ', map { "'$_'" } @filea);
-    
-    # no sparse file scan when we use compression
-    my $sparse = $comp ? '' : '-s'; 
+    my $stop_after_backup;
+    my $resume_on_backup;
 
-    my $cmd = "/usr/lib/qemu-server/vmtar $sparse $files";
-    my $bwl = $opts->{bwlimit}*1024; # bandwidth limit for cstream
-    $cmd .= "|cstream -t $bwl" if $opts->{bwlimit};
-    $cmd .= "|$comp" if $comp;
+    my $skiplock = 1;
 
-    if ($opts->{stdout}) {
-	$self->cmd ($cmd, output => ">&=" . fileno($opts->{stdout}));
-    } else {
-	$self->cmd ("$cmd >$filename");
+    if (!PVE::QemuServer::check_running($vmid)) {
+	eval {
+	    $self->loginfo("starting kvm to execute backup task");
+	    PVE::QemuServer::vm_start($self->{storecfg}, $vmid, undef, 
+				      $skiplock, undef, 1);
+	    if ($self->{vm_was_running}) {
+		$resume_on_backup = 1;
+	    } else {
+		$stop_after_backup = 1;
+	    }
+	};
+	if (my $err = $@) {
+	    die $err;
+	}
     }
+
+    my $cpid;
+    my $interrupt_msg = "interrupted by signal\n";
+    eval {
+	$SIG{INT} = $SIG{TERM} = $SIG{QUIT} = $SIG{HUP} = $SIG{PIPE} = sub {
+	    die $interrupt_msg;
+	};
+
+	my $qmpclient = PVE::QMPClient->new();
+
+	my $uuid;
+
+	my $backup_cb = sub {
+	    my ($vmid, $resp) = @_;
+	    $uuid = $resp->{return};
+	};
+
+	my $outfh;
+	if ($opts->{stdout}) {
+	    $outfh = $opts->{stdout};
+	} else {
+	    $outfh = IO::File->new($filename, "w") ||
+		die "unable to open file '$filename' - $!\n";
+	}
+
+	my $outfileno;
+	if ($comp) {
+	    my @pipefd = POSIX::pipe();
+	    $cpid = fork();
+	    die "unable to fork worker - $!" if !defined($cpid);
+	    if ($cpid == 0) {
+		eval {
+		    POSIX::close($pipefd[1]);
+		    # redirect STDIN
+		    my $fd = fileno(STDIN);
+		    close STDIN;
+		    POSIX::close(0) if $fd != 0;
+		    die "unable to redirect STDIN - $!" 
+			if !open(STDIN, "<&", $pipefd[0]);
+		
+		    # redirect STDOUT
+		    $fd = fileno(STDOUT);
+		    close STDOUT;
+		    POSIX::close (1) if $fd != 1;
+
+		    die "unable to redirect STDOUT - $!" 
+			if !open(STDOUT, ">&", fileno($outfh));
+		    
+		    exec($comp);
+		    die "fork compressor '$comp' failed\n";
+		};
+		if (my $err = $@) {
+		    warn $err;
+		    POSIX::_exit(1); 
+		}
+		POSIX::_exit(0); 
+		kill(-9, $$); 
+	    } else {
+		POSIX::close($pipefd[0]);
+		$outfileno = $pipefd[1];
+	    } 
+	} else {
+	    $outfileno = fileno($outfh);
+	}
+
+ 	my $add_fd_cb = sub {
+	    my ($vmid, $resp) = @_;
+
+	    $qmpclient->queue_cmd($vmid, $backup_cb, 'backup', 
+				  backupfile => "/dev/fdname/backup", 
+				  speed => $speed, 
+				  'config-filename' => $conffile,
+				  devlist => $devlist);
+	};
+
+
+	$qmpclient->queue_cmd($vmid, $add_fd_cb, 'getfd', 
+			      fd => $outfileno, fdname => "backup");
+	$qmpclient->queue_execute();
+
+	die $qmpclient->{errors}->{$vmid} if $qmpclient->{errors}->{$vmid};    
+
+	if ($cpid) {
+	    POSIX::close($outfileno) == 0 || 
+		die "close output file handle failed\n";
+	}
+
+	die "got no uuid for backup task\n" if !$uuid;
+
+	$self->loginfo("started backup task '$uuid'");
+
+	if ($resume_on_backup) {
+	    $self->loginfo("resume VM");
+	    PVE::QemuServer::vm_mon_cmd($vmid, 'cont');
+	}
+
+	my $status;
+	my $starttime = time ();
+	my $last_per = -1;
+	my $last_total = 0; 
+	my $last_zero = 0;
+	my $last_transferred = 0;
+	my $last_time = time();
+	my $transferred;
+
+	while(1) {
+	    $status = PVE::QemuServer::vm_mon_cmd($vmid, 'query-backup');
+	    my $total = $status->{total};
+	    $transferred = $status->{transferred};
+	    my $per = $total ? int(($transferred * 100)/$total) : 0;
+	    my $zero = $status->{'zero-bytes'} || 0;
+	    my $zero_per = $total ? int(($zero * 100)/$total) : 0;
+		    
+	    die "got unexpected uuid\n" if $status->{uuid} ne $uuid;
+
+	    my $ctime = time();
+	    my $duration = $ctime - $starttime;
+
+	    my $rbytes = $transferred - $last_transferred;
+	    my $wbytes = $rbytes - ($zero - $last_zero);
+
+	    my $timediff = ($ctime - $last_time) || 1; # fixme
+	    my $mbps_read = ($rbytes > 0) ? 
+		int(($rbytes/$timediff)/(1000*1000)) : 0;
+	    my $mbps_write = ($wbytes > 0) ? 
+		int(($wbytes/$timediff)/(1000*1000)) : 0;
+
+	    my $statusline = "status: $per% ($transferred/$total), " .
+		"sparse ${zero_per}% ($zero), duration $duration, " .
+		"$mbps_read/$mbps_write MB/s";
+	    if ($status->{status} ne 'active') {
+		$self->loginfo($statusline);
+		die(($status->{errmsg} || "unknown error") . "\n")
+		    if $status->{status} eq 'error';
+		last;
+	    }
+	    if ($per != $last_per && ($timediff > 2)) {
+		$self->loginfo($statusline);
+		$last_per = $per;
+		$last_total = $total if $total; 
+		$last_zero = $zero if $zero;
+		$last_transferred = $transferred if $transferred;
+		$last_time = $ctime;
+	    }
+	    sleep(1);
+	}
+
+	my $duration = time() - $starttime;
+	if ($transferred && $duration) {
+	    my $mb = int($transferred/(1000*1000));
+	    my $mbps = int(($transferred/$duration)/(1000*1000));
+	    $self->loginfo("transferred $mb MB in $duration seconds ($mbps MB/s)");
+	}
+    };
+    my $err = $@;
+
+    if ($stop_after_backup) {
+	# stop if not running
+	eval {
+	    my $resp = PVE::QemuServer::vm_mon_cmd($vmid, 'query-status');
+	    my $status = $resp && $resp->{status} ?  $resp->{status} : 'unknown';
+	    if ($status eq 'prelaunch') {
+		$self->loginfo("stoping kvm after backup task");
+		PVE::QemuServer::vm_stop($self->{storecfg}, $vmid, $skiplock);
+	    } else {
+		$self->loginfo("kvm status changed after backup ('$status')" .
+			       " - keep VM running");
+	    }
+	}
+    } 
+
+    if ($err) {
+	$self->loginfo("aborting backup job");
+	eval { PVE::QemuServer::vm_mon_cmd($vmid, 'backup_cancel'); };
+	warn $@ if $@;
+	if ($cpid) { 
+	    kill(-9, $cpid); 
+	    waitpid($cpid, 0);
+	}
+	die $err;
+    }
+
+    if ($cpid && (waitpid($cpid, 0) > 0)) {
+	my $stat = $?;
+	my $ec = $stat >> 8;
+	my $signal = $stat & 127;
+	if ($ec || $signal) {
+	    die "$comp failed - wrong exit status $ec" . 
+		($signal ? " (signal $signal)\n" : "\n");
+	}
+    }
+}
+
+sub snapshot {
+    my ($self, $task, $vmid) = @_;
+
+    # nothing to do
 }
 
 sub cleanup {
     my ($self, $task, $vmid) = @_;
 
-   foreach my $di (@{$task->{disks}}) {
-       
-       if ($di->{snapshot_mount}) {
-	   $self->cmd_noerr ("umount $di->{mountpoint}");
-       }
-
-       if ($di->{cleanup_lvm}) {
-	   if (-b $di->{snapdev}) {
-	       if ($di->{type} eq 'block') {
-		   $self->snapshot_free ($di->{storeid}, $di->{snapname}, $di->{snapdev}, 1);
-	       } elsif ($di->{type} eq 'file') {
-		   $self->snapshot_free ($di->{storeid}, $di->{snapname}, $di->{snapdev}, 1);
-	       }
-	   }
-       }
-   }
+    # nothing to do ?
 }
 
 1;
