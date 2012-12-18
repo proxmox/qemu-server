@@ -2027,6 +2027,25 @@ sub vmstatus {
 
     my $qmpclient = PVE::QMPClient->new();
 
+    my $ballooncb = sub {
+	my ($vmid, $resp) = @_;
+
+	my $info = $resp->{'return'};
+	return if !$info->{max_mem};
+	
+	my $d = $res->{$vmid};
+
+	# use memory assigned to VM
+	$d->{maxmem} = $info->{max_mem};
+	$d->{balloon} = $info->{actual};
+	
+	if (defined($info->{total_mem}) && defined($info->{free_mem})) {
+	    $d->{mem} = $info->{total_mem} - $info->{free_mem};
+	    $d->{freemem} = $info->{free_mem};
+	}
+
+    };
+
     my $blockstatscb = sub {
 	my ($vmid, $resp) = @_;
 	my $data = $resp->{'return'} || [];
@@ -2042,7 +2061,11 @@ sub vmstatus {
 
     my $statuscb = sub {
 	my ($vmid, $resp) = @_;
+
 	$qmpclient->queue_cmd($vmid, $blockstatscb, 'query-blockstats');
+	# this fails if ballon driver is not loaded, so this must be
+	# the last commnand (following command are aborted if this fails).
+	$qmpclient->queue_cmd($vmid, $ballooncb, 'query-balloon');
 
 	my $status = 'unknown';
 	if (!defined($status = $resp->{'return'}->{status})) {
@@ -2957,10 +2980,13 @@ sub vm_start {
 	    $capabilities->{capability} =  "xbzrle";
 	    $capabilities->{state} = JSON::true;
 	    eval { PVE::QemuServer::vm_mon_cmd_nocheck($vmid, "migrate-set-capabilities", capabilities => [$capabilities]); };
+	} elsif ($conf->{balloon}) {
+	    vm_balloonset($vmid, $conf->{balloon});
+	    vm_mon_cmd($vmid, 'qom-set', 
+		       path => "machine/peripheral/balloon0", 
+		       property => "stats-polling-interval", 
+		       value => 2);
 	}
-
-	vm_balloonset($vmid, $conf->{balloon}) if $conf->{balloon};
-
     });
 }
 
