@@ -2344,8 +2344,11 @@ sub config_to_command {
 	push @$devices, '-device', 'virtserialport,chardev=qga0,name=org.qemu.guest_agent.0';
     }
 
-    $pciaddr = print_pci_addr("balloon0", $bridges);
-    push @$devices, '-device', "virtio-balloon-pci,id=balloon0$pciaddr" if $conf->{balloon};
+    # enable balloon by default, unless explicitly disabled
+    if (!defined($conf->{balloon}) || $conf->{balloon}) {
+	$pciaddr = print_pci_addr("balloon0", $bridges);
+	push @$devices, '-device', "virtio-balloon-pci,id=balloon0$pciaddr";
+    }
 
     if ($conf->{watchdog}) {
 	my $wdopts = parse_watchdog($conf->{watchdog});
@@ -2996,8 +2999,10 @@ sub vm_start {
 	}
 
 	# fixme: how do we handle that on migration?
-	if ($conf->{balloon}) {
-	    vm_mon_cmd($vmid, "balloon", value => $conf->{balloon}*1024*1024);
+
+	if (!defined($conf->{balloon}) || $conf->{balloon}) {
+	    vm_mon_cmd($vmid, "balloon", value => $conf->{balloon}*1024*1024) 
+		if $conf->{balloon};
 	    vm_mon_cmd($vmid, 'qom-set', 
 		       path => "machine/peripheral/balloon0", 
 		       property => "stats-polling-interval", 
