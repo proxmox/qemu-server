@@ -1963,7 +1963,7 @@ sub vmstatus {
 	$d->{maxmem} = $conf->{memory} ? $conf->{memory}*(1024*1024) : 0;
 
 	if ($conf->{balloon}) {
-	    $d->{balloon_min} = $conf->{balloon};
+	    $d->{balloon_min} = $conf->{balloon}*(1024*1024);
 	    $d->{shares} = $conf->{shares} || 1000;
 	}
 
