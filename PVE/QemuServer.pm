@@ -206,8 +206,16 @@ my $confdesc = {
     balloon => {
         optional => 1,
         type => 'integer',
-        description => "Amount of target RAM for the VM in MB.",
-	minimum => 16,
+        description => "Amount of target RAM for the VM in MB. Using zero disables the ballon driver.",
+	minimum => 0,
+    },
+    shares => {
+        optional => 1,
+        type => 'integer',
+        description => "Amount of memory shares for auto-ballooning. The larger the number is, the more memory this VM gets. Number is relative to weights of all other running VMs. Using zero disables auto-ballooning",
+	minimum => 0,
+	maximum => 50000,
+	default => 1000,
     },
     keyboard => {
 	optional => 1,
@@ -1954,6 +1962,11 @@ sub vmstatus {
 	$d->{name} = $conf->{name} || "VM $vmid";
 	$d->{maxmem} = $conf->{memory} ? $conf->{memory}*(1024*1024) : 0;
 
+	if ($conf->{balloon}) {
+	    $d->{balloon_min} = $conf->{balloon};
+	    $d->{shares} = $conf->{shares} || 1000;
+	}
+
 	$d->{uptime} = 0;
 	$d->{cpu} = 0;
 	$d->{mem} = 0;
@@ -2980,8 +2993,11 @@ sub vm_start {
 	    $capabilities->{capability} =  "xbzrle";
 	    $capabilities->{state} = JSON::true;
 	    eval { PVE::QemuServer::vm_mon_cmd_nocheck($vmid, "migrate-set-capabilities", capabilities => [$capabilities]); };
-	} elsif ($conf->{balloon}) {
-	    vm_balloonset($vmid, $conf->{balloon});
+	}
+
+	# fixme: how do we handle that on migration?
+	if ($conf->{balloon}) {
+	    vm_mon_cmd($vmid, "balloon", value => $conf->{balloon}*1024*1024);
 	    vm_mon_cmd($vmid, 'qom-set', 
 		       path => "machine/peripheral/balloon0", 
 		       property => "stats-polling-interval", 
@@ -3414,12 +3430,6 @@ sub print_pci_addr {
     }
     return $res;
 
-}
-
-sub vm_balloonset {
-    my ($vmid, $value) = @_;
-
-    vm_mon_cmd($vmid, "balloon", value => $value*1024*1024);
 }
 
 # vzdump restore implementaion
