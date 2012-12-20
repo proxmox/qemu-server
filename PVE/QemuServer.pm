@@ -2933,7 +2933,7 @@ sub vm_start {
 	print "migration listens on port $migrate_port\n" if $migrate_port;
 
 	if ($statefile && $statefile ne 'tcp')  {
-	    eval { vm_mon_cmd($vmid, "cont"); };
+	    eval { vm_mon_cmd_nocheck($vmid, "cont"); };
 	    warn $@ if $@;
 	}
 
@@ -2943,13 +2943,13 @@ sub vm_start {
 	$migrate_speed = $conf->{migrate_speed} || $migrate_speed;
 	$migrate_speed = $migrate_speed * 1048576;
 	eval {
-	    vm_mon_cmd($vmid, "migrate_set_speed", value => $migrate_speed);
+	    vm_mon_cmd_nocheck($vmid, "migrate_set_speed", value => $migrate_speed);
 	};
 
 	my $migrate_downtime = $defaults->{migrate_downtime};
 	$migrate_downtime = $conf->{migrate_downtime} if defined($conf->{migrate_downtime});
 	if (defined($migrate_downtime)) {
-	    eval { vm_mon_cmd($vmid, "migrate_set_downtime", value => $migrate_downtime); };
+	    eval { vm_mon_cmd_nocheck($vmid, "migrate_set_downtime", value => $migrate_downtime); };
 	}
 
 	if($migratedfrom) {
@@ -2959,8 +2959,8 @@ sub vm_start {
 	    eval { PVE::QemuServer::vm_mon_cmd_nocheck($vmid, "migrate-set-capabilities", capabilities => [$capabilities]); };
 	}
 
-	vm_balloonset($vmid, $conf->{balloon}) if $conf->{balloon};
-
+	vm_mon_cmd_nocheck($vmid, "balloon", value => $conf->{balloon}*1024*1024) 
+	    if $conf->{balloon};
     });
 }
 
