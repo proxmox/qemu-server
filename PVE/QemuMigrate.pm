@@ -327,6 +327,30 @@ sub phase2 {
 
     my $start = time();
 
+    # load_defaults
+    my $defaults = PVE::QemuServer::load_defaults();
+
+    # always set migrate speed (overwrite kvm default of 32m)
+    # we set a very hight default of 8192m which is basically unlimited
+    my $migrate_speed = $defaults->{migrate_speed} || 8192;
+    $migrate_speed = $conf->{migrate_speed} || $migrate_speed;
+    $migrate_speed = $migrate_speed * 1048576;
+    $self->log('info', "migrate_set_speed: $migrate_speed");
+    eval {
+        PVE::QemuServer::vm_mon_cmd_nocheck($vmid, "migrate_set_speed", value => int($migrate_speed));
+    };
+    $self->log('info', "migrate_set_speed error: $@") if $@;
+
+    my $migrate_downtime = $defaults->{migrate_downtime};
+    $migrate_downtime = $conf->{migrate_downtime} if defined($conf->{migrate_downtime});
+    if (defined($migrate_downtime)) {
+	$self->log('info', "migrate_set_downtime: $migrate_downtime");
+	eval {
+	    PVE::QemuServer::vm_mon_cmd_nocheck($vmid, "migrate_set_downtime", value => int($migrate_downtime));
+	};
+	$self->log('info', "migrate_set_downtime error: $@") if $@;
+    }
+
     my $capabilities = {};
     $capabilities->{capability} =  "xbzrle";
     $capabilities->{state} = JSON::false;
