@@ -312,7 +312,10 @@ sub phase2 {
 	if ($line =~ m/^migration listens on port (\d+)$/) {
 	    $rport = $1;
 	}
-    }, errfunc => sub {});
+    }, errfunc => sub {
+	my $line = shift;
+	$self->log('info', $line);
+    });
 
     die "unable to detect remote migration port\n" if !$rport;
 
