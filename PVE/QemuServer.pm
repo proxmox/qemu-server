@@ -2937,21 +2937,6 @@ sub vm_start {
 	    warn $@ if $@;
 	}
 
-	# always set migrate speed (overwrite kvm default of 32m)
-	# we set a very hight default of 8192m which is basically unlimited
-	my $migrate_speed = $defaults->{migrate_speed} || 8192;
-	$migrate_speed = $conf->{migrate_speed} || $migrate_speed;
-	$migrate_speed = $migrate_speed * 1048576;
-	eval {
-	    vm_mon_cmd_nocheck($vmid, "migrate_set_speed", value => $migrate_speed);
-	};
-
-	my $migrate_downtime = $defaults->{migrate_downtime};
-	$migrate_downtime = $conf->{migrate_downtime} if defined($conf->{migrate_downtime});
-	if (defined($migrate_downtime)) {
-	    eval { vm_mon_cmd_nocheck($vmid, "migrate_set_downtime", value => $migrate_downtime); };
-	}
-
 	if($migratedfrom) {
 	    my $capabilities = {};
 	    $capabilities->{capability} =  "xbzrle";
