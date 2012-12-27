@@ -4059,28 +4059,7 @@ my $snapshot_prepare = sub {
 	    if defined($conf->{snapshots}->{$snapname}); 
 
 	my $storecfg = PVE::Storage::config();
-
-	foreach_drive($conf, sub {
-	    my ($ds, $drive) = @_;
-
-	    return if drive_is_cdrom($drive);
-	    my $volid = $drive->{file};
-
-	    my ($storeid, $volname) = PVE::Storage::parse_volume_id($volid, 1);
-	    if ($storeid) {
-		my $scfg = PVE::Storage::storage_config($storecfg, $storeid);
-		die "can't snapshot volume '$volid'\n"		
-		    if !(($scfg->{path} && $volname =~ m/\.qcow2$/) ||
-			 ($scfg->{type} eq 'nexenta') || 
-			 ($scfg->{type} eq 'rbd') || 
-			 ($scfg->{type} eq 'sheepdog'));
-	    } elsif ($volid =~ m|^(/.+)$| && -e $volid) {
-		die "snapshot device '$volid' is not possible\n";
-	    } else {
-		die "can't snapshot volume '$volid'\n";
-	    }
-	});
-
+	die "snapshot feature is not available" if !has_feature('snapshot', $conf, $storecfg);
 
 	$snap = $conf->{snapshots}->{$snapname} = {};
 
@@ -4380,4 +4359,18 @@ sub snapshot_delete {
     lock_config($vmid, $updatefn);
 }
 
+sub has_feature{
+    my ($feature, $conf, $storecfg, $snapname, $running) = @_;
+
+    my $err = undef;
+    foreach_drive($conf, sub {
+	my ($ds, $drive) = @_;
+
+	return if drive_is_cdrom($drive);
+	my $volid = $drive->{file};
+	$err = 1 if !PVE::Storage::volume_has_feature($storecfg, $feature, $volid, $snapname, $running);
+    });
+
+    return 1 if !$err;
+}
 1;
