@@ -1630,6 +1630,62 @@ __PACKAGE__->register_method({
     }});
 
 __PACKAGE__->register_method({
+    name => 'vm_feature',
+    path => '{vmid}/feature',
+    method => 'GET',
+    proxyto => 'node',
+    protected => 1, 
+    description => "Check if feature for virtual machine is available.",
+    permissions => {
+	check => ['perm', '/vms/{vmid}', [ 'VM.Audit' ]],
+    },
+    parameters => {
+    	additionalProperties => 0,
+	properties => {
+	    node => get_standard_option('pve-node'),
+	    vmid => get_standard_option('pve-vmid'),
+            feature => {
+                description => "Feature to check.",
+                type => 'string',
+                enum => [ 'snapshot', 'clone' ],
+            },
+            snapname => get_standard_option('pve-snapshot-name', {
+                optional => 1,
+            }),
+	},
+
+    },
+    returns => {
+        type => 'boolean'
+    },
+    code => sub {
+	my ($param) = @_;
+
+	my $node = extract_param($param, 'node');
+
+	my $vmid = extract_param($param, 'vmid');
+
+	my $snapname = extract_param($param, 'snapname');
+
+	my $feature = extract_param($param, 'feature');
+
+	my $running = PVE::QemuServer::check_running($vmid);
+
+	my $conf = PVE::QemuServer::load_config($vmid);
+
+	if($snapname){
+	    my $snap = $conf->{snapshots}->{$snapname};
+            die "snapshot '$snapname' does not exist\n" if !defined($snap);
+	    $conf = $snap;
+	}
+	my $storecfg = PVE::Storage::config();
+
+	my $hasfeature = PVE::QemuServer::has_feature($feature, $conf, $storecfg, $snapname, $running);
+	my $res = $hasfeature ? 1 : 0 ;
+	return $res;
+    }});
+
+__PACKAGE__->register_method({
     name => 'migrate_vm',
     path => '{vmid}/migrate',
     method => 'POST',
