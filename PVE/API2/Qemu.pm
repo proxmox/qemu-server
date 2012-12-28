@@ -829,6 +829,8 @@ __PACKAGE__->register_method({
 
 	my $storecfg = PVE::Storage::config();
 
+	my $defaults = PVE::QemuServer::load_defaults();
+
 	&$resolve_cdrom_alias($param);
 
 	# now try to verify all parameters
@@ -875,12 +877,22 @@ __PACKAGE__->register_method({
 
 	    PVE::QemuServer::check_lock($conf) if !$skiplock;
 
+	    if ($param->{memory} || defined($param->{balloon})) {
+		my $maxmem = $param->{memory} || $conf->{memory} || $defaults->{memory};
+		my $balloon = defined($param->{balloon}) ?  $param->{balloon} : $conf->{balloon};
+
+		die "balloon value too large (must be smaller than assigned memory)\n"
+		    if $balloon > $maxmem;
+	    }
+
 	    PVE::Cluster::log_msg('info', $authuser, "update VM $vmid: " . join (' ', @paramarr));
 
 	    foreach my $opt (@delete) { # delete
 		$conf = PVE::QemuServer::load_config($vmid); # update/reload
 		&$vmconfig_delete_option($rpcenv, $authuser, $conf, $storecfg, $vmid, $opt, $force);
 	    }
+
+	    my $running = PVE::QemuServer::check_running($vmid);
 
 	    foreach my $opt (keys %$param) { # add/change
 
@@ -904,6 +916,14 @@ __PACKAGE__->register_method({
 		    PVE::QemuServer::update_config_nolock($vmid, $conf, 1);
 		}
 	    }
+
+	    # allow manual ballooning if shares is set to zero
+	    if ($running && defined($param->{balloon}) && 
+		defined($conf->{shares}) && ($conf->{shares} == 0)) {
+		my $balloon = $param->{'balloon'} || $conf->{memory} || $defaults->{memory};
+		PVE::QemuServer::vm_mon_cmd($vmid, "balloon", value => $balloon*1024*1024);
+	    }
+
 	};
 
 	PVE::QemuServer::lock_config($vmid, $updatefn);
