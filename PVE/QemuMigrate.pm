@@ -349,7 +349,7 @@ sub phase2 {
     if (defined($migrate_downtime)) {
 	$self->log('info', "migrate_set_downtime: $migrate_downtime");
 	eval {
-	    PVE::QemuServer::vm_mon_cmd_nocheck($vmid, "migrate_set_downtime", value => int($migrate_downtime));
+	    PVE::QemuServer::vm_mon_cmd_nocheck($vmid, "migrate_set_downtime", value => int($migrate_downtime*100)/100);
 	};
 	$self->log('info', "migrate_set_downtime error: $@") if $@;
     }
@@ -377,6 +377,8 @@ sub phase2 {
     my $usleep = 2000000;
     my $i = 0;
     my $err_count = 0;
+    my $lastrem = undef;
+    my $downtimecounter = 0;
     while (1) {
 	$i++;
 	my $avglstat = $lstat/$i if $lstat;
@@ -433,7 +435,23 @@ sub phase2 {
 			   "remaining ${rem}), total ${total}) , expected downtime ${expected_downtime}");
 
 		#$self->log('info', "migration xbzrle cachesize: ${xbzrlecachesize} transferred ${xbzrlebytes} pages ${xbzrlepages} cachemiss ${xbzrlecachemiss} overflow ${xbzrleoverflow}");
+		if (($lastrem  && $rem > $lastrem ) || ($rem == 0)) {
+		    $downtimecounter++;
+		}
+		$lastrem = $rem;
+
+		if ($downtimecounter > 5) {
+		    $downtimecounter = 0;
+		    $migrate_downtime *= 2;
+		    $self->log('info', "migrate_set_downtime: $migrate_downtime");
+		    eval {
+			PVE::QemuServer::vm_mon_cmd_nocheck($vmid, "migrate_set_downtime", value => int($migrate_downtime*100)/100);
+		    };
+		    $self->log('info', "migrate_set_downtime error: $@") if $@;
+            	}
+
 	    }
+
 
 	    $lstat = $stat->{ram}->{transferred};
 	    
