@@ -373,10 +373,10 @@ EODESCR
     },
     migrate_downtime => {
 	optional => 1,
-	type => 'integer',
+	type => 'number',
 	description => "Set maximum tolerated downtime (in seconds) for migrations.",
 	minimum => 0,
-	default => 1,
+	default => 0.1,
     },
     cdrom => {
 	optional => 1,
@@ -1435,6 +1435,9 @@ sub check_type {
     } elsif ($type eq 'integer') {
 	return int($1) if $value =~ m/^(\d+)$/;
 	die "type check ('integer') failed - got '$value'\n";
+    } elsif ($type eq 'number') {
+        return $value if $value =~ m/^(\d+)(\.\d+)?$/;
+        die "type check ('number') failed - got '$value'\n";
     } elsif ($type eq 'string') {
 	if (my $fmt = $confdesc->{$key}->{format}) {
 	    if ($fmt eq 'pve-qm-drive') {
