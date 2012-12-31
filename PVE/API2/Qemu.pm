@@ -72,7 +72,8 @@ my $create_disks = sub {
 	my $volid = $disk->{file};
 
 	if (!$volid || $volid eq 'none' || $volid eq 'cdrom') {
-	    $res->{$ds} = $settings->{$ds};
+	    delete $disk->{size};
+	    $res->{$ds} = PVE::QemuServer::print_drive($vmid, $disk);
 	} elsif ($volid =~ m/^(([^:\s]+):)?(\d+(\.\d+)?)$/) {
 	    my ($storeid, $size) = ($2 || $default_storage, $3);
 	    die "no storage ID specified (and no default storage)\n" if !$storeid;
