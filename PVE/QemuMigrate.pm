@@ -470,6 +470,12 @@ sub phase2_cleanup {
 
     $self->log('info', "aborting phase 2 - cleanup resources");
 
+    $self->log('info', "migrate_cancel");
+    eval {
+	PVE::QemuServer::vm_mon_cmd_nocheck($vmid, "migrate_cancel");
+    };
+    $self->log('info', "migrate_cancel error: $@") if $@;
+
     my $conf = $self->{vmconf};
     delete $conf->{lock};
     eval { PVE::QemuServer::update_config_nolock($vmid, $conf, 1) };
