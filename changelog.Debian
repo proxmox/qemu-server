@@ -1,3 +1,17 @@
+qemu-server (2.3-3) unstable; urgency=low
+
+  * fix Bug #293: CDROM size not reset when set to use no media
+  
+  * set migrate_downtime default value to 0.1 (and use float instead of int)
+
+  * implement dynamic migration_downtime
+  
+  * allow manual ballooning if shares is set to zero
+  
+  * new api2 call: vm_feature (test support for snapshots/clone feature)
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 02 Jan 2013 06:31:38 +0100
+
 qemu-server (2.3-2) unstable; urgency=low
 
   * use memory info from ballon driver (if enabled)
