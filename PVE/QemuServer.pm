@@ -2986,16 +2986,16 @@ sub vm_start {
 	    $capabilities->{state} = JSON::true;
 	    eval { vm_mon_cmd_nocheck($vmid, "migrate-set-capabilities", capabilities => [$capabilities]); };
 	}
+	else{
 
-	# fixme: how do we handle that on migration?
-
-	if (!defined($conf->{balloon}) || $conf->{balloon}) {
-	    vm_mon_cmd_nocheck($vmid, "balloon", value => $conf->{balloon}*1024*1024) 
-		if $conf->{balloon};
-	    vm_mon_cmd_nocheck($vmid, 'qom-set', 
-		       path => "machine/peripheral/balloon0", 
-		       property => "stats-polling-interval", 
-		       value => 2);
+	    if (!defined($conf->{balloon}) || $conf->{balloon}) {
+		vm_mon_cmd_nocheck($vmid, "balloon", value => $conf->{balloon}*1024*1024) 
+		    if $conf->{balloon};
+		vm_mon_cmd_nocheck($vmid, 'qom-set', 
+			    path => "machine/peripheral/balloon0", 
+			    property => "stats-polling-interval", 
+			    value => 2);
+	    }
 	}
     });
 }
