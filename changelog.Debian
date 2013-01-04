@@ -1,3 +1,11 @@
+qemu-server (2.3-4) unstable; urgency=low
+
+  * qmrestore vma files: when restoring to same VMID, only remove volumes
+    contained in backup - other volumes will be still available as
+    'unused' disks. Note: tar restore still removes all volumes.
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 04 Jan 2013 07:02:00 +0100
+
 qemu-server (2.3-3) unstable; urgency=low
 
   * fix Bug #293: CDROM size not reset when set to use no media
