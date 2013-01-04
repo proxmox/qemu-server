@@ -1532,6 +1532,7 @@ sub destroy_vm {
  	return if drive_is_cdrom($drive);
 
 	my $volid = $drive->{file};
+
 	return if !$volid || $volid =~ m|^/|;
 
 	my ($path, $owner) = PVE::Storage::path($storecfg, $volid);
@@ -1687,7 +1688,7 @@ sub write_vm_config {
 	    $cref->{$key} = $value;
 
 	    if (valid_drivename($key)) {
-		my $drive = PVE::QemuServer::parse_drive($key, $value);
+		my $drive = parse_drive($key, $value);
 		$used_volids->{$drive->{file}} = 1 if $drive && $drive->{file};
 	    }
 	}
@@ -2134,7 +2135,7 @@ sub foreach_volid {
 	$volhash->{$volid} = $is_cdrom || 0;
     };
 
-    PVE::QemuServer::foreach_drive($conf, sub {
+    foreach_drive($conf, sub {
 	my ($ds, $drive) = @_;
 	&$test_volid($drive->{file}, drive_is_cdrom($drive));
     });
@@ -2142,7 +2143,7 @@ sub foreach_volid {
     foreach my $snapname (keys %{$conf->{snapshots}}) {
 	my $snap = $conf->{snapshots}->{$snapname};
 	&$test_volid($snap->{vmstate}, 0);
-	PVE::QemuServer::foreach_drive($snap, sub {
+	foreach_drive($snap, sub {
 	    my ($ds, $drive) = @_;
 	    &$test_volid($drive->{file}, drive_is_cdrom($drive));
         });
@@ -2875,7 +2876,7 @@ sub vm_monitor_command {
 sub qemu_block_resize {
     my ($vmid, $deviceid, $storecfg, $volid, $size) = @_;
 
-    my $running = PVE::QemuServer::check_running($vmid);
+    my $running = check_running($vmid);
 
     return if !PVE::Storage::volume_resize($storecfg, $volid, $size, $running);
 
@@ -2888,7 +2889,7 @@ sub qemu_block_resize {
 sub qemu_volume_snapshot {
     my ($vmid, $deviceid, $storecfg, $volid, $snap) = @_;
 
-    my $running = PVE::QemuServer::check_running($vmid);
+    my $running = check_running($vmid);
 
     return if !PVE::Storage::volume_snapshot($storecfg, $volid, $snap, $running);
 
@@ -2901,7 +2902,7 @@ sub qemu_volume_snapshot {
 sub qemu_volume_snapshot_delete {
     my ($vmid, $deviceid, $storecfg, $volid, $snap) = @_;
 
-    my $running = PVE::QemuServer::check_running($vmid);
+    my $running = check_running($vmid);
 
     return if !PVE::Storage::volume_snapshot_delete($storecfg, $volid, $snap, $running);
 
@@ -2983,7 +2984,7 @@ sub vm_start {
 	    my $capabilities = {};
 	    $capabilities->{capability} =  "xbzrle";
 	    $capabilities->{state} = JSON::true;
-	    eval { PVE::QemuServer::vm_mon_cmd_nocheck($vmid, "migrate-set-capabilities", capabilities => [$capabilities]); };
+	    eval { vm_mon_cmd_nocheck($vmid, "migrate-set-capabilities", capabilities => [$capabilities]); };
 	}
 
 	# fixme: how do we handle that on migration?
@@ -3026,7 +3027,7 @@ sub vm_qmp_command {
  
     eval {
 	die "VM $vmid not running\n" if !check_running($vmid, $nocheck);
-	my $sname = PVE::QemuServer::qmp_socket($vmid);
+	my $sname = qmp_socket($vmid);
 	if (-e $sname) {
 	    my $qmpclient = PVE::QMPClient->new();
 
@@ -3427,7 +3428,7 @@ sub print_pci_addr {
 
 # vzdump restore implementaion
 
-sub archive_read_firstfile {
+sub tar_archive_read_firstfile {
     my $archive = shift;
 
     die "ERROR: file '$archive' does not exist\n" if ! -f $archive;
@@ -3445,8 +3446,8 @@ sub archive_read_firstfile {
     return $firstfile;
 }
 
-sub restore_cleanup {
-    my $statfile = shift;
+sub tar_restore_cleanup {
+    my ($storecfg, $statfile) = @_;
 
     print STDERR "starting cleanup\n";
 
@@ -3458,8 +3459,7 @@ sub restore_cleanup {
 		    if ($volid =~ m|^/|) {
 			unlink $volid || die 'unlink failed\n';
 		    } else {
-			my $cfg = cfs_read_file('storage.cfg');
-			PVE::Storage::vdisk_free($cfg, $volid);
+			PVE::Storage::vdisk_free($storecfg, $volid);
 		    }
 		    print STDERR "temporary volume '$volid' sucessfuly removed\n";
 		};
@@ -3543,9 +3543,9 @@ sub restore_update_config_line {
 	if ($line =~ m/backup=no/) {
 	    print $outfd "#$line";
 	} elsif ($virtdev && $map->{$virtdev}) {
-	    my $di = PVE::QemuServer::parse_drive($virtdev, $value);
+	    my $di = parse_drive($virtdev, $value);
 	    $di->{file} = $map->{$virtdev};
-	    $value = PVE::QemuServer::print_drive($vmid, $di);
+	    $value = print_drive($vmid, $di);
 	    print $outfd "$virtdev: $value\n";
 	} else {
 	    print $outfd $line;
@@ -3580,19 +3580,19 @@ sub update_disksize {
 
     # update size info
     foreach my $opt (keys %$conf) {
-	if (PVE::QemuServer::valid_drivename($opt)) {
-	    my $drive = PVE::QemuServer::parse_drive($opt, $conf->{$opt});
+	if (valid_drivename($opt)) {
+	    my $drive = parse_drive($opt, $conf->{$opt});
 	    my $volid = $drive->{file};
 	    next if !$volid;
 
 	    $used->{$volid} = 1;
 
-	    next if PVE::QemuServer::drive_is_cdrom($drive);
+	    next if drive_is_cdrom($drive);
 	    next if !$volid_hash->{$volid};
 
 	    $drive->{size} = $volid_hash->{$volid}->{size};
 	    $changes = 1;
-	    $conf->{$opt} = PVE::QemuServer::print_drive($vmid, $drive);
+	    $conf->{$opt} = print_drive($vmid, $drive);
 	}
     }
 
@@ -3600,7 +3600,7 @@ sub update_disksize {
 	next if $volid =~ m/vm-$vmid-state-/;
 	next if $used->{$volid};
 	$changes = 1;
-	PVE::QemuServer::add_unused_volume($conf, $volid);
+	add_unused_volume($conf, $volid);
     }
 
     return $changes;
@@ -3616,20 +3616,20 @@ sub rescan {
     my $updatefn =  sub {
 	my ($vmid) = @_;
 
-	my $conf = PVE::QemuServer::load_config($vmid);
+	my $conf = load_config($vmid);
 	    
-	PVE::QemuServer::check_lock($conf);
+	check_lock($conf);
 
-	my $changes = PVE::QemuServer::update_disksize($vmid, $conf, $volid_hash);
+	my $changes = update_disksize($vmid, $conf, $volid_hash);
 
-	PVE::QemuServer::update_config_nolock($vmid, $conf, 1) if $changes;
+	update_config_nolock($vmid, $conf, 1) if $changes;
     };
 
     if (defined($vmid)) {
 	if ($nolock) {
 	    &$updatefn($vmid);
 	} else {
-	    PVE::QemuServer::lock_config($vmid, $updatefn, $vmid);
+	    lock_config($vmid, $updatefn, $vmid);
 	}
     } else {
 	my $vmlist = config_list();
@@ -3637,7 +3637,7 @@ sub rescan {
 	    if ($nolock) {
 		&$updatefn($vmid);
 	    } else {
-		PVE::QemuServer::lock_config($vmid, $updatefn, $vmid);
+		lock_config($vmid, $updatefn, $vmid);
 	    }    
 	}
     }
@@ -3688,8 +3688,11 @@ sub restore_vma_archive {
 
     my $rpcenv = PVE::RPCEnvironment::get();
 
-    my $conffile = PVE::QemuServer::config_file($vmid);
+    my $conffile = config_file($vmid);
     my $tmpfn = "$conffile.$$.tmp";
+
+    # Note: $oldconf is undef if VM does not exists
+    my $oldconf = PVE::Cluster::cfs_read_file(cfs_config_path($vmid));
 
     my $print_devmap = sub {
 	my $virtdev_hash = {};
@@ -3731,8 +3734,32 @@ sub restore_vma_archive {
 		if !$devinfo->{$devname}->{virtdev};	    
 	}
 
-	my $map = {};
 	my $cfg = cfs_read_file('storage.cfg');
+
+	# create empty/temp config
+	if ($oldconf) { 
+	    PVE::Tools::file_set_contents($conffile, "memory: 128\n");
+	    foreach_drive($oldconf, sub {
+		my ($ds, $drive) = @_;
+
+		return if drive_is_cdrom($drive);
+
+		my $volid = $drive->{file};
+
+		return if !$volid || $volid =~ m|^/|;
+
+		my ($path, $owner) = PVE::Storage::path($cfg, $volid);
+		return if !$path || !$owner || ($owner != $vmid);
+
+		# Note: only delete disk we want to restore
+		# other volumes will become unused
+		if ($virtdev_hash->{$ds}) {
+		    PVE::Storage::vdisk_free($cfg, $volid);
+		}
+	    });
+	}
+
+	my $map = {};
 	foreach my $virtdev (sort keys %$virtdev_hash) {
 	    my $d = $virtdev_hash->{$virtdev};
 	    my $alloc_size = int(($d->{size} + 1024 - 1)/1024);
@@ -3827,9 +3854,11 @@ sub restore_vma_archive {
     }
 
     rmtree $tmpdir;
-    
-    rename $tmpfn, $conffile ||
+
+    rename($tmpfn, $conffile) ||
 	die "unable to commit configuration file '$conffile'\n";
+
+    PVE::Cluster::cfs_update(); # make sure we read new file
 
     eval { rescan($vmid, 1); };
     warn $@ if $@;
@@ -3839,10 +3868,14 @@ sub restore_tar_archive {
     my ($archive, $vmid, $user, $opts) = @_;
 
     if ($archive ne '-') {
-	my $firstfile = archive_read_firstfile($archive);
+	my $firstfile = tar_archive_read_firstfile($archive);
 	die "ERROR: file '$archive' dos not lock like a QemuServer vzdump backup\n"
 	    if $firstfile ne 'qemu-server.conf';
     }
+
+    my $storecfg = cfs_read_file('storage.cfg');
+    # destroy existing data - keep empty config
+    destroy_vm($storecfg, $vmid, 1);
 
     my $tocmd = "/usr/lib/qemu-server/qmextract";
 
@@ -3863,7 +3896,7 @@ sub restore_tar_archive {
     local $ENV{VZDUMP_VMID} = $vmid;
     local $ENV{VZDUMP_USER} = $user;
 
-    my $conffile = PVE::QemuServer::config_file($vmid);
+    my $conffile = config_file($vmid);
     my $tmpfn = "$conffile.$$.tmp";
 
     # disable interrupts (always do cleanups)
@@ -3923,7 +3956,7 @@ sub restore_tar_archive {
 
 	unlink $tmpfn;
 
-	restore_cleanup("$tmpdir/qmrestore.stat") if !$opts->{info};
+	tar_restore_cleanup($storecfg, "$tmpdir/qmrestore.stat") if !$opts->{info};
 
 	die $err;
     }
@@ -3932,6 +3965,8 @@ sub restore_tar_archive {
 
     rename $tmpfn, $conffile ||
 	die "unable to commit configuration file '$conffile'\n";
+
+    PVE::Cluster::cfs_update(); # make sure we read new file
 
     eval { rescan($vmid, 1); };
     warn $@ if $@;
@@ -4184,7 +4219,7 @@ my $savevm_wait = sub {
     my ($vmid) = @_;
 
     for(;;) {
-	my $stat = PVE::QemuServer::vm_mon_cmd_nocheck($vmid, "query-savevm");
+	my $stat = vm_mon_cmd_nocheck($vmid, "query-savevm");
 	if (!$stat->{status}) {
 	    die "savevm not active\n";
 	} elsif ($stat->{status} eq 'active') {
