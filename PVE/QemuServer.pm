@@ -3539,7 +3539,7 @@ sub restore_update_config_line {
 	print $outfd "$id: $netstr\n";
     } elsif ($line =~ m/^((ide|scsi|virtio|sata)\d+):\s*(\S+)\s*$/) {
 	my $virtdev = $1;
-	my $value = $2;
+	my $value = $3;
 	if ($line =~ m/backup=no/) {
 	    print $outfd "#$line";
 	} elsif ($virtdev && $map->{$virtdev}) {

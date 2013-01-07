@@ -1,3 +1,9 @@
+qemu-server (2.3-5) unstable; urgency=low
+
+  * fix bug #307: correctly restore disk settings
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 07 Jan 2013 06:48:48 +0100
+
 qemu-server (2.3-4) unstable; urgency=low
 
   * qmrestore vma files: when restoring to same VMID, only remove volumes
