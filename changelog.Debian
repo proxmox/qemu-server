@@ -1,3 +1,15 @@
+qemu-server (2.0-72) unstable; urgency=low
+
+  * backport fixes 
+  
+  * QemuMigrate: phase2_cleanup misses migrate_cancel
+  
+  * fix Bug #293: CDROM size not reset when set to use no media
+  
+  * add set migrate_downtime default value to 0.1 && add number type
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 08 Jan 2013 06:24:13 +0100
+
 qemu-server (2.0-71) unstable; urgency=low
 
   * show better error message if bridge does not exist
