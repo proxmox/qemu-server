@@ -1836,7 +1836,7 @@ sub check_cmdline {
 	my @param = split(/\0/, $line);
 
 	my $cmd = $param[0];
-	return if !$cmd || ($cmd !~ m|kvm$|);
+	return if !$cmd || ($cmd !~ m|kvm$| && $cmd !~ m|qemu-system-x86_64$|);
 
 	for (my $i = 0; $i < scalar (@param); $i++) {
 	    my $p = $param[$i];
