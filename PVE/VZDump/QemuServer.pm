@@ -414,13 +414,19 @@ sub archive {
     };
     my $err = $@;
 
+    if ($err) {
+	$self->loginfo("aborting backup job");
+	eval { PVE::QemuServer::vm_mon_cmd($vmid, 'backup_cancel'); };
+	warn $@ if $@;
+    }
+
     if ($stop_after_backup) {
 	# stop if not running
 	eval {
 	    my $resp = PVE::QemuServer::vm_mon_cmd($vmid, 'query-status');
 	    my $status = $resp && $resp->{status} ?  $resp->{status} : 'unknown';
 	    if ($status eq 'prelaunch') {
-		$self->loginfo("stoping kvm after backup task");
+		$self->loginfo("stopping kvm after backup task");
 		PVE::QemuServer::vm_stop($self->{storecfg}, $vmid, $skiplock);
 	    } else {
 		$self->loginfo("kvm status changed after backup ('$status')" .
@@ -430,9 +436,6 @@ sub archive {
     } 
 
     if ($err) {
-	$self->loginfo("aborting backup job");
-	eval { PVE::QemuServer::vm_mon_cmd($vmid, 'backup_cancel'); };
-	warn $@ if $@;
 	if ($cpid) { 
 	    kill(-9, $cpid); 
 	    waitpid($cpid, 0);

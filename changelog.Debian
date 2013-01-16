@@ -1,3 +1,9 @@
+qemu-server (2.3-6) unstable; urgency=low
+
+  * fix bug #315: cancel backup before stopping the VM
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 16 Jan 2013 13:22:58 +0100
+
 qemu-server (2.3-5) unstable; urgency=low
 
   * fix bug #307: correctly restore disk settings
