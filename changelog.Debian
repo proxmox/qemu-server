@@ -1,3 +1,9 @@
+qemu-server (2.3-7) unstable; urgency=low
+
+  * allow to suspend/resume VM during backup
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 17 Jan 2013 10:25:17 +0100
+
 qemu-server (2.3-6) unstable; urgency=low
 
   * fix bug #315: cancel backup before stopping the VM

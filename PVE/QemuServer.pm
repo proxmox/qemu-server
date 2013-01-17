@@ -3218,7 +3218,7 @@ sub vm_suspend {
 
 	my $conf = load_config($vmid);
 
-	check_lock($conf) if !$skiplock;
+	check_lock($conf) if !($skiplock || ($conf->{lock} && $conf->{lock} eq 'backup'));
 
 	vm_mon_cmd($vmid, "stop");
     });
@@ -3231,7 +3231,7 @@ sub vm_resume {
 
 	my $conf = load_config($vmid);
 
-	check_lock($conf) if !$skiplock;
+	check_lock($conf) if !($skiplock || ($conf->{lock} && $conf->{lock} eq 'backup'));
 
 	vm_mon_cmd($vmid, "cont");
     });
