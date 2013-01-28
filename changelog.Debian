@@ -1,3 +1,9 @@
+qemu-server (2.3-8) unstable; urgency=low
+
+  * fix tar restore: correctly check if VM config already exists
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 28 Jan 2013 09:53:12 +0100
+
 qemu-server (2.3-7) unstable; urgency=low
 
   * allow to suspend/resume VM during backup

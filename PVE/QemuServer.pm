@@ -3874,8 +3874,10 @@ sub restore_tar_archive {
     }
 
     my $storecfg = cfs_read_file('storage.cfg');
+
     # destroy existing data - keep empty config
-    destroy_vm($storecfg, $vmid, 1);
+    my $vmcfgfn = PVE::QemuServer::config_file($vmid);
+    destroy_vm($storecfg, $vmid, 1) if -f $vmcfgfn;
 
     my $tocmd = "/usr/lib/qemu-server/qmextract";
 
