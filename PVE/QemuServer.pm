@@ -2993,7 +2993,7 @@ sub vm_start {
 		    if $conf->{balloon};
 		vm_mon_cmd_nocheck($vmid, 'qom-set', 
 			    path => "machine/peripheral/balloon0", 
-			    property => "stats-polling-interval", 
+			    property => "guest-stats-polling-interval", 
 			    value => 2);
 	    }
 	}
