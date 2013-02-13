@@ -427,12 +427,11 @@ sub phase2 {
 		my $xbzrlepages = $stat->{"xbzrle-cache"}->{"pages"} || 0;
 		my $xbzrlecachemiss = $stat->{"xbzrle-cache"}->{"cache-miss"} || 0;
 		my $xbzrleoverflow = $stat->{"xbzrle-cache"}->{"overflow"} || 0;
-		my $expected_downtime = $stat->{"expected-downtime"} || 0;
 		#reduce sleep if remainig memory if lower than the everage transfert 
 		$usleep = 300000 if $avglstat && $rem < $avglstat;
 
 		$self->log('info', "migration status: $stat->{status} (transferred ${trans}, " .
-			   "remaining ${rem}), total ${total}) , expected downtime ${expected_downtime}");
+			   "remaining ${rem}), total ${total})");
 
 		#$self->log('info', "migration xbzrle cachesize: ${xbzrlecachesize} transferred ${xbzrlebytes} pages ${xbzrlepages} cachemiss ${xbzrlecachemiss} overflow ${xbzrleoverflow}");
 		if (($lastrem  && $rem > $lastrem ) || ($rem == 0)) {
