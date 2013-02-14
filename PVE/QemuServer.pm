@@ -4410,4 +4410,35 @@ sub has_feature{
 
     return 1 if !$err;
 }
+
+sub template_create {
+    my ($vmid, $conf, $disk) = @_;
+
+    my $running = check_running($vmid);
+    die "you can't convert a vm to template if vm is running vm" if $running;
+
+    my $storecfg = PVE::Storage::config();
+    my $i = 0;
+
+    foreach_drive($conf, sub {
+	my ($ds, $drive) = @_;
+
+	return if drive_is_cdrom($drive);
+	return if $disk && $ds ne $disk;
+
+	my $volid = $drive->{file};
+	my $voliddst = PVE::Storage::vdisk_create_base($storecfg, $volid);
+	$drive->{file} = $voliddst;
+	$conf->{$ds} = PVE::QemuServer::print_drive($vmid, $drive);
+	PVE::QemuServer::update_config_nolock($vmid, $conf, 1);
+
+    });
+    if($conf->{snapshots}){
+	delete $conf->{parent};
+	delete $conf->{snapshots};
+	PVE::QemuServer::update_config_nolock($vmid, $conf, 1);
+	#fixme : do we need to delete disks snapshots ?
+    }
+}
+
 1;

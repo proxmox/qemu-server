@@ -2298,4 +2298,63 @@ __PACKAGE__->register_method({
 	return $rpcenv->fork_worker('qmdelsnapshot', $vmid, $authuser, $realcmd);
     }});
 
+__PACKAGE__->register_method({
+    name => 'template',
+    path => '{vmid}/template',
+    method => 'POST',
+    protected => 1,
+    proxyto => 'node',
+    description => "Create a Template.",
+    permissions => {
+	check => ['perm', '/vms/{vmid}', [ 'VM.Template' ]],
+    },
+    parameters => {
+	additionalProperties => 0,
+	properties => {
+	    node => get_standard_option('pve-node'),
+	    vmid => get_standard_option('pve-vmid'),
+	    disk => {
+		optional => 1,
+		type => 'string',
+		description => "If you want to convert only 1 disk to base image.",
+		enum => [PVE::QemuServer::disknames()],
+	    },
+
+	},
+    },
+    returns => { type => 'null'},
+    code => sub {
+	my ($param) = @_;
+
+	my $rpcenv = PVE::RPCEnvironment::get();
+
+	my $authuser = $rpcenv->get_user();
+
+	my $node = extract_param($param, 'node');
+
+	my $vmid = extract_param($param, 'vmid');
+
+	my $disk = extract_param($param, 'disk');
+
+	my $updatefn =  sub {
+
+	    my $conf = PVE::QemuServer::load_config($vmid);
+
+	    PVE::QemuServer::check_lock($conf);
+
+	    die "you can't convert a template to a template" if PVE::QemuServer::is_template($conf) && !$disk;
+	    my $realcmd = sub {
+		PVE::QemuServer::template_create($vmid, $conf, $disk);
+	    };
+	    return $rpcenv->fork_worker('qmtemplate', $vmid, $authuser, $realcmd);
+
+	    PVE::QemuServer::update_config_nolock($vmid, $conf, 1);
+	};
+
+	PVE::QemuServer::lock_config($vmid, $updatefn);
+	return undef;
+    }});
+
+
+
 1;

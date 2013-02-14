@@ -379,6 +379,8 @@ my $cmddef = {
 
     rollback => [ "PVE::API2::Qemu", 'rollback', ['vmid', 'snapname'], { node => $nodename } , $upid_exit ],
 
+    template => [ "PVE::API2::Qemu", 'template', ['vmid'], { node => $nodename }],
+
     start => [ "PVE::API2::Qemu", 'vm_start', ['vmid'], { node => $nodename } , $upid_exit ],
 
     stop => [ "PVE::API2::Qemu", 'vm_stop', ['vmid'], { node => $nodename }, $upid_exit ],
