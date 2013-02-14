@@ -2899,6 +2899,10 @@ sub qemu_volume_snapshot {
 sub qemu_volume_snapshot_delete {
     my ($vmid, $deviceid, $storecfg, $volid, $snap) = @_;
 
+    my $conf = PVE::QemuServer::load_config($vmid);
+
+    die "you can't delete a snapshot if vm is a template" if is_template($conf);
+
     my $running = check_running($vmid);
 
     return if !PVE::Storage::volume_snapshot_delete($storecfg, $volid, $snap, $running);
