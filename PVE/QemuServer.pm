@@ -4165,6 +4165,8 @@ sub snapshot_rollback {
 
 	my $conf = load_config($vmid);
 
+	die "you can't rollback if vm is a template" if is_template($conf);
+
 	$snap = $conf->{snapshots}->{$snapname};
 
 	die "snapshot '$snapname' does not exist\n" if !defined($snap); 
