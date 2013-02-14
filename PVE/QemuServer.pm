@@ -2886,6 +2886,10 @@ sub qemu_block_resize {
 sub qemu_volume_snapshot {
     my ($vmid, $deviceid, $storecfg, $volid, $snap) = @_;
 
+    my $conf = PVE::QemuServer::load_config($vmid);
+
+    die "you can't take a snapshot if it's a template" if is_template($conf);
+
     my $running = check_running($vmid);
 
     return if !PVE::Storage::volume_snapshot($storecfg, $volid, $snap, $running);
