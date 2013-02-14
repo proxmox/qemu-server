@@ -2930,6 +2930,8 @@ sub vm_start {
     lock_config($vmid, sub {
 	my $conf = load_config($vmid, $migratedfrom);
 
+	die "you can't start a vm if it's a template" if is_template($conf);
+
 	check_lock($conf) if !$skiplock;
 
 	die "VM $vmid already running\n" if check_running($vmid, undef, $migratedfrom);
