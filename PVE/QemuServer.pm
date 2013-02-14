@@ -1978,6 +1978,8 @@ sub vmstatus {
 	$d->{diskread} = 0;
 	$d->{diskwrite} = 0;
 
+        $d->{template} = is_template($conf);
+
 	$res->{$vmid} = $d;
     }
 
