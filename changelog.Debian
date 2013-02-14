@@ -5,8 +5,12 @@ qemu-server (2.3-9) unstable; urgency=low
   * qemu 1.4 fix : rename stats-polling-interval to
     guest-stats-polling-interval
   
-  * remove expected_downtime from migration status (not set in qemu 1.4, always 0)
+  * remove expected_downtime from migration status (not set in qemu 1.4,
+    always 0)
 
+  * do not set cache=none for .raw files - use qemu default instead
+    (writeback)
+  
  -- Proxmox Support Team <support@proxmox.com>  Wed, 13 Feb 2013 10:38:13 +0100
 
 qemu-server (2.3-8) unstable; urgency=low

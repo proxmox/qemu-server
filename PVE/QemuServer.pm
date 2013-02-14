@@ -1104,9 +1104,6 @@ sub print_drive_full {
 	} else {
 	    $path = PVE::Storage::path($storecfg, $volid);
 	}
-	if (!$drive->{cache} && ($path =~ m|^/dev/| || $path =~ m|\.raw$|)) {
-	    $opts .= ",cache=none";
-	}
     }
 
     my $pathinfo = $path ? "file=$path," : '';
