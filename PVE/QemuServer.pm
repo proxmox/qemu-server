@@ -2928,7 +2928,7 @@ sub vm_start {
     lock_config($vmid, sub {
 	my $conf = load_config($vmid, $migratedfrom);
 
-	die "you can't start a vm if it's a template" if is_template($conf);
+	die "you can't start a vm if it's a template\n" if is_template($conf);
 
 	check_lock($conf) if !$skiplock;
 
@@ -4092,7 +4092,7 @@ my $snapshot_prepare = sub {
 
 	my $conf = load_config($vmid);
 
-	die "you can't take a snapshot if it's a template" 
+	die "you can't take a snapshot if it's a template\n" 
 	    if is_template($conf);
 
 	check_lock($conf);
@@ -4168,7 +4168,7 @@ sub snapshot_rollback {
 
 	my $conf = load_config($vmid);
 
-	die "you can't rollback if vm is a template" if is_template($conf);
+	die "you can't rollback if vm is a template\n" if is_template($conf);
 
 	$snap = $conf->{snapshots}->{$snapname};
 
@@ -4327,7 +4327,7 @@ sub snapshot_delete {
 
 	if (!$drivehash) {
 	    check_lock($conf);
-	    die "you can't delete a snapshot if vm is a template" 
+	    die "you can't delete a snapshot if vm is a template\n" 
 		if is_template($conf);
 	}
 
@@ -4428,7 +4428,7 @@ sub template_create {
     my ($vmid, $conf, $disk) = @_;
 
     my $running = check_running($vmid);
-    die "you can't convert a vm to template if vm is running vm" if $running;
+    die "you can't convert a vm to template if vm is running vm\n" if $running;
 
     my $storecfg = PVE::Storage::config();
     my $i = 0;
