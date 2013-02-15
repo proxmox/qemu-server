@@ -2886,10 +2886,6 @@ sub qemu_block_resize {
 sub qemu_volume_snapshot {
     my ($vmid, $deviceid, $storecfg, $volid, $snap) = @_;
 
-    my $conf = PVE::QemuServer::load_config($vmid);
-
-    die "you can't take a snapshot if it's a template" if is_template($conf);
-
     my $running = check_running($vmid);
 
     return if !PVE::Storage::volume_snapshot($storecfg, $volid, $snap, $running);
@@ -2902,10 +2898,6 @@ sub qemu_volume_snapshot {
 
 sub qemu_volume_snapshot_delete {
     my ($vmid, $deviceid, $storecfg, $volid, $snap) = @_;
-
-    my $conf = PVE::QemuServer::load_config($vmid);
-
-    die "you can't delete a snapshot if vm is a template" if is_template($conf);
 
     my $running = check_running($vmid);
 
@@ -4098,6 +4090,9 @@ my $snapshot_prepare = sub {
 
 	my $conf = load_config($vmid);
 
+	die "you can't take a snapshot if it's a template" 
+	    if is_template($conf);
+
 	check_lock($conf);
 
 	$conf->{lock} = 'snapshot';
@@ -4328,7 +4323,11 @@ sub snapshot_delete {
 
 	my $conf = load_config($vmid);
 
-	check_lock($conf) if !$drivehash;
+	if (!$drivehash) {
+	    check_lock($conf);
+	    die "you can't delete a snapshot if vm is a template" 
+		if is_template($conf);
+	}
 
 	$snap = $conf->{snapshots}->{$snapname};
 
