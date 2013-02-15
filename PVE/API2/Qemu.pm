@@ -2305,9 +2305,6 @@ __PACKAGE__->register_method({
     protected => 1,
     proxyto => 'node',
     description => "Create a Template.",
-    permissions => {
-	check => ['perm', '/vms/{vmid}', [ 'VM.Template' ]],
-    },
     parameters => {
 	additionalProperties => 0,
 	properties => {
@@ -2342,7 +2339,8 @@ __PACKAGE__->register_method({
 
 	    PVE::QemuServer::check_lock($conf);
 
-	    die "you can't convert a template to a template" if PVE::QemuServer::is_template($conf) && !$disk;
+	    die "you can't convert a template to a template" 
+		if PVE::QemuServer::is_template($conf) && !$disk;
 	    my $realcmd = sub {
 		PVE::QemuServer::template_create($vmid, $conf, $disk);
 	    };
