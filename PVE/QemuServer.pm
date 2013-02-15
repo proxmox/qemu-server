@@ -4472,11 +4472,9 @@ sub is_template {
 
     });
 
-    return undef if $baseimagecount == 0;
-
+    return 0 if $baseimagecount == 0;
     return 1 if $baseimagecount == $totalvolumecount; #full template
     return 2 if $baseimagecount < $totalvolumecount; #semi-template
-
 }
 
 1;
