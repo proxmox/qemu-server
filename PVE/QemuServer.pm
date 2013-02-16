@@ -4433,9 +4433,6 @@ sub template_create {
     my $storecfg = PVE::Storage::config();
     my $i = 0;
 
-    # First check if all disks have feature 'clone'.
-    # Note: there is no feature 'create_base', but we can safely assume
-    # that a storage with feature 'clone' can create base images.
     foreach_drive($conf, sub {
 	my ($ds, $drive) = @_;
 
@@ -4444,7 +4441,7 @@ sub template_create {
 
 	my $volid = $drive->{file};
 	die "volume '$volid' does not support template/clone\n" 
-	    if !PVE::Storage::volume_has_feature($storecfg, 'clone', $volid);
+	    if !PVE::Storage::volume_has_feature($storecfg, 'template', $volid);
     });
 
     foreach_drive($conf, sub {
