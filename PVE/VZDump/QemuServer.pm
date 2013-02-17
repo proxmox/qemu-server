@@ -94,9 +94,13 @@ sub prepare {
 
 	next if !$path;
 
-	die "no such volume '$volid'\n" if ! -e $path;
+	my $format = undef;
+	my $size = undef;
 
-	my ($size, $format) = PVE::Storage::Plugin::file_size_info($path);
+	eval{
+	    ($size, $format) = PVE::Storage::volume_size_info($self->{storecfg}, $volid, 5);
+	};
+	die "no such volume '$volid'\n" if $@;
 
 	my $diskinfo = { path => $path , volid => $volid, storeid => $storeid, 
 			 format => $format, virtdev => $ds, qmdevice => "drive-$ds" };
