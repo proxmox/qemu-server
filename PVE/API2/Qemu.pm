@@ -649,6 +649,8 @@ my $vmconfig_delete_option = sub {
 		
     die "error hot-unplug $opt" if !PVE::QemuServer::vm_deviceunplug($vmid, $conf, $opt);
 
+    PVE::QemuServer::vm_deviceplug(undef, $conf, $vmid, $opt) if $opt eq 'tablet';
+
     if ($isDisk) {
 	my $drive = PVE::QemuServer::parse_drive($opt, $conf->{$opt});
 	&$delete_drive($conf, $storecfg, $vmid, $opt, $drive, $force);
@@ -909,6 +911,12 @@ __PACKAGE__->register_method({
 					  $opt, $param->{$opt});
 
 		} else {
+
+		    if($opt eq 'tablet' && $param->{$opt} == 1){
+			PVE::QemuServer::vm_deviceplug(undef, $conf, $vmid, $opt);
+		    }elsif($opt eq 'tablet' && $param->{$opt} == 0){
+			PVE::QemuServer::vm_deviceunplug($vmid, $conf, $opt);
+		    }
 
 		    $conf->{$opt} = $param->{$opt};
 		    PVE::QemuServer::update_config_nolock($vmid, $conf, 1);

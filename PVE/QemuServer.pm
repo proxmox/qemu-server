@@ -2511,7 +2511,15 @@ sub vm_devices_list {
 sub vm_deviceplug {
     my ($storecfg, $conf, $vmid, $deviceid, $device) = @_;
 
-    return 1 if !check_running($vmid) || !$conf->{hotplug};
+    return 1 if !check_running($vmid);
+
+    if ($deviceid eq 'tablet') {
+	my $devicefull = "usb-tablet,id=tablet,bus=ehci.0,port=6";
+	qemu_deviceadd($vmid, $devicefull);
+	return 1;
+    }
+
+    return 1 if !$conf->{hotplug};
 
     my $devices_list = vm_devices_list($vmid);
     return 1 if defined($devices_list->{$deviceid});
@@ -2571,7 +2579,14 @@ sub vm_deviceplug {
 sub vm_deviceunplug {
     my ($vmid, $conf, $deviceid) = @_;
 
-    return 1 if !check_running ($vmid) || !$conf->{hotplug};
+    return 1 if !check_running ($vmid);
+
+    if ($deviceid eq 'tablet') {
+	qemu_devicedel($vmid, $deviceid);
+	return 1;
+    }
+
+    return 1 if!$conf->{hotplug};
 
     my $devices_list = vm_devices_list($vmid);
     return 1 if !defined($devices_list->{$deviceid});
