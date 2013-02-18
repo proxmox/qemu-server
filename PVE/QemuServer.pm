@@ -2192,23 +2192,11 @@ sub config_to_command {
 
     push @$cmd, '-daemonize';
 
-    my $use_usb2 = 0;
-    for (my $i = 0; $i < $MAX_USB_DEVICES; $i++)  {
-	next if !$conf->{"usb$i"};
-	$use_usb2 = 1;
-    }
-    # include usb device config
-    push @$devices, '-readconfig', '/usr/share/qemu-server/pve-usb.cfg' if $use_usb2;
+    push @$devices, '-readconfig', '/usr/share/qemu-server/pve-usb.cfg';
 
     # enable absolute mouse coordinates (needed by vnc)
     my $tablet = defined($conf->{tablet}) ? $conf->{tablet} : $defaults->{tablet};
-    if ($tablet) {
-	if ($use_usb2) {
-	    push @$devices, '-device', 'usb-tablet,bus=ehci.0,port=6';
-	} else {
-	    push @$devices, '-usbdevice', 'tablet';
-	}
-    }
+    push @$devices, '-device', 'usb-tablet,id=tablet,bus=ehci.0,port=6' if $tablet;
 
     # host pci devices
     for (my $i = 0; $i < $MAX_HOSTPCI_DEVICES; $i++)  {
