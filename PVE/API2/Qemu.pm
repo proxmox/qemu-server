@@ -656,9 +656,11 @@ my $vmconfig_delete_option = sub {
 	$unplugwarning = "<br>verify that your guest support acpi hotplug";
     }
 
-    die "error hot-unplug $opt $unplugwarning" if !PVE::QemuServer::vm_deviceunplug($vmid, $conf, $opt);
-
-    PVE::QemuServer::vm_deviceplug(undef, $conf, $vmid, $opt) if $opt eq 'tablet';
+    if($opt eq 'tablet'){
+	PVE::QemuServer::vm_deviceplug(undef, $conf, $vmid, $opt);
+    }else{
+        die "error hot-unplug $opt $unplugwarning" if !PVE::QemuServer::vm_deviceunplug($vmid, $conf, $opt);
+    }
 
     if ($isDisk) {
 	my $drive = PVE::QemuServer::parse_drive($opt, $conf->{$opt});
