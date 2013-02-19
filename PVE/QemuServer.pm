@@ -2631,12 +2631,8 @@ sub qemu_deviceadd {
 
 sub qemu_devicedel {
     my($vmid, $deviceid) = @_;
-
-    my $ret = vm_human_monitor_command($vmid, "device_del $deviceid");
-    $ret =~ s/^\s+//;
-    return 1 if $ret eq "";
-    syslog("err", "detaching device $deviceid failed : $ret");
-    return undef;
+    my $ret = vm_mon_cmd($vmid, "device_del", id => $deviceid);
+    return 1;
 }
 
 sub qemu_driveadd {
