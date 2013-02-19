@@ -2620,13 +2620,11 @@ sub vm_deviceunplug {
 sub qemu_deviceadd {
     my ($vmid, $devicefull) = @_;
 
-    my $ret = vm_human_monitor_command($vmid, "device_add $devicefull");
-    $ret =~ s/^\s+//;
-    # Otherwise, if the command succeeds, no output is sent. So any non-empty string shows an error
-    return 1 if $ret eq "";
-    syslog("err", "error on hotplug device : $ret");
-    return undef;
+    $devicefull = "driver=".$devicefull;
+    my %options =  split(/[=,]/, $devicefull);
 
+    vm_mon_cmd($vmid, "device_add" , %options);
+    return 1;
 }
 
 sub qemu_devicedel {
