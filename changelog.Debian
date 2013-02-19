@@ -1,3 +1,11 @@
+qemu-server (2.3-10) unstable; urgency=low
+
+  * enable hotplug by default
+  
+  * enable usb2 controller by default
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 19 Feb 2013 10:45:28 +0100
+
 qemu-server (2.3-9) unstable; urgency=low
 
   * depend on pve-qemu-kvm >= 1.4-1
