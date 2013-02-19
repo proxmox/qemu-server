@@ -2725,13 +2725,10 @@ sub qemu_netdevadd {
     my ($vmid, $conf, $device, $deviceid) = @_;
 
     my $netdev = print_netdev_full($vmid, $conf, $device, $deviceid);
-    my $ret = vm_human_monitor_command($vmid, "netdev_add $netdev");
-    $ret =~ s/^\s+//;
+    my %options =  split(/[=,]/, $netdev);
 
-    #if the command succeeds, no output is sent. So any non-empty string shows an error
-    return 1 if $ret eq "";
-    syslog("err", "adding netdev failed: $ret");
-    return undef;
+    vm_mon_cmd($vmid, "netdev_add",  %options);
+    return 1;
 }
 
 sub qemu_netdevdel {
