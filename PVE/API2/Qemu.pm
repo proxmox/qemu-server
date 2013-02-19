@@ -646,8 +646,17 @@ my $vmconfig_delete_option = sub {
 	    $rpcenv->check($authuser, "/storage/$sid", ['Datastore.Allocate']);
 	}
     }
-		
-    die "error hot-unplug $opt" if !PVE::QemuServer::vm_deviceunplug($vmid, $conf, $opt);
+
+    my $unplugwarning = "";
+    if($conf->{ostype} && $conf->{ostype} eq 'l26'){
+	$unplugwarning = "<br>verify that you have acpiphp && pci_hotplug modules loaded in your guest VM";
+    }elsif($conf->{ostype} && $conf->{ostype} eq 'l24'){
+	$unplugwarning = "<br>kernel 2.4 don't support hotplug, please disable hotplug in options";
+    }elsif(!$conf->{ostype} || ($conf->{ostype} && $conf->{ostype} eq 'other')){
+	$unplugwarning = "<br>verify that your guest support acpi hotplug";
+    }
+
+    die "error hot-unplug $opt $unplugwarning" if !PVE::QemuServer::vm_deviceunplug($vmid, $conf, $opt);
 
     PVE::QemuServer::vm_deviceplug(undef, $conf, $vmid, $opt) if $opt eq 'tablet';
 
