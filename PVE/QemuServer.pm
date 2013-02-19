@@ -2737,12 +2737,8 @@ sub qemu_netdevadd {
 sub qemu_netdevdel {
     my ($vmid, $deviceid) = @_;
 
-    my $ret = vm_human_monitor_command($vmid, "netdev_del $deviceid");
-    $ret =~ s/^\s+//;
-    #if the command succeeds, no output is sent. So any non-empty string shows an error
-    return 1 if $ret eq "";
-    syslog("err", "deleting netdev failed: $ret");
-    return undef;
+    vm_mon_cmd($vmid, "netdev_del", id => $deviceid);
+    return 1;
 }
 
 sub qemu_block_set_io_throttle {
