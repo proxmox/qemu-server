@@ -331,9 +331,9 @@ sub archive {
 	    my ($vmid, $resp) = @_;
 
 	    $qmpclient->queue_cmd($vmid, $backup_cb, 'backup', 
-				  backupfile => "/dev/fdname/backup", 
+				  'backup-file' => "/dev/fdname/backup", 
 				  speed => $speed, 
-				  'config-filename' => $conffile,
+				  'config-file' => $conffile,
 				  devlist => $devlist);
 	};
 
@@ -420,7 +420,7 @@ sub archive {
 
     if ($err) {
 	$self->loginfo("aborting backup job");
-	eval { PVE::QemuServer::vm_mon_cmd($vmid, 'backup_cancel'); };
+	eval { PVE::QemuServer::vm_mon_cmd($vmid, 'backup-cancel'); };
 	warn $@ if $@;
     }
 
