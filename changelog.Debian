@@ -1,3 +1,9 @@
+qemu-server (2.3-12) unstable; urgency=low
+
+  * disable hotplug by default (revert previous change)
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 22 Feb 2013 09:52:13 +0100
+
 qemu-server (2.3-11) unstable; urgency=low
 
   * fix backup parameters for pve-qemu-kvm 1.4-4

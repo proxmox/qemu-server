@@ -167,7 +167,7 @@ my $confdesc = {
         optional => 1,
         type => 'boolean',
         description => "Allow hotplug for disk and network device",
-        default => 1,
+        default => 0,
     },
     reboot => {
 	optional => 1,
@@ -2519,7 +2519,7 @@ sub vm_deviceplug {
 	return 1;
     }
 
-    return 1 if defined($conf->{hotplug}) && !$conf->{hotplug};
+    return 1 if !$conf->{hotplug};
 
     my $devices_list = vm_devices_list($vmid);
     return 1 if defined($devices_list->{$deviceid});
@@ -2586,7 +2586,7 @@ sub vm_deviceunplug {
 	return 1;
     }
 
-    return 1 if defined($conf->{hotplug}) && !$conf->{hotplug};
+    return 1 if !$conf->{hotplug};
 
     my $devices_list = vm_devices_list($vmid);
     return 1 if !defined($devices_list->{$deviceid});
