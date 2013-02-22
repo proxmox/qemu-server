@@ -233,6 +233,40 @@ sub archive {
 	$speed = $opts->{bwlimit}*1024; 
     }
 
+    if (PVE::QemuServer::is_template($self->{vmlist}->{$vmid})) {
+	my @pathlist;
+	foreach my $di (@{$task->{disks}}) {
+	    if ($di->{type} eq 'block' || $di->{type} eq 'file') {
+		push @pathlist, "$di->{qmdevice}=$di->{path}";
+	    } else {
+		die "implement me";
+	    }
+	}
+
+	my $outcmd;
+	if ($comp) {
+	    $outcmd = "exec:$comp"; 
+	} else {
+	    $outcmd = "exec:cat"; 
+	}
+
+	$outcmd .= ">$filename" if !$opts->{stdout};
+
+	my $cmd = ['/usr/bin/vma', 'create', '-v', '-c', $conffile, $outcmd, @pathlist];
+
+	$self->loginfo("starting template backup");
+	$self->loginfo(join(' ', @$cmd));
+
+	if ($opts->{stdout}) {
+	    $self->cmd($cmd, output => ">&=" . fileno($opts->{stdout}));
+	} else {
+	    $self->cmd($cmd);
+	}
+
+	return;
+    }
+
+
     my $devlist = '';
     foreach my $di (@{$task->{disks}}) {
 	if ($di->{type} eq 'block' || $di->{type} eq 'file') {
