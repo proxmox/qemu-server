@@ -2192,6 +2192,9 @@ sub config_to_command {
 
     push @$cmd, '-daemonize';
 
+    $pciaddr = print_pci_addr("piix3", $bridges);
+    push @$devices, '-device', "piix3-usb-uhci,id=uhci$pciaddr.0x2";
+
     my $use_usb2 = 0;
     for (my $i = 0; $i < $MAX_USB_DEVICES; $i++)  {
 	next if !$conf->{"usb$i"};
@@ -3356,7 +3359,7 @@ sub print_pci_addr {
 
     my $res = '';
     my $devices = {
-	#addr1 : ide,parallel,serial (motherboard)
+	piix3 => { bus => 0, addr => 1 },
 	#addr2 : first videocard
 	balloon0 => { bus => 0, addr => 3 },
 	watchdog => { bus => 0, addr => 4 },
