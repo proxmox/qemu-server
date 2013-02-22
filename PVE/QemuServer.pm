@@ -2205,13 +2205,7 @@ sub config_to_command {
 
     # enable absolute mouse coordinates (needed by vnc)
     my $tablet = defined($conf->{tablet}) ? $conf->{tablet} : $defaults->{tablet};
-    if ($tablet) {
-	if ($use_usb2) {
-	    push @$devices, '-device', 'usb-tablet,bus=ehci.0,port=6';
-	} else {
-	    push @$devices, '-usbdevice', 'tablet';
-	}
-    }
+    push @$devices, '-device', 'usb-tablet,id=tablet,bus=uhci.0,port=1' if $tablet;
 
     # host pci devices
     for (my $i = 0; $i < $MAX_HOSTPCI_DEVICES; $i++)  {
@@ -2529,7 +2523,7 @@ sub vm_deviceplug {
     return 1 if !check_running($vmid);
 
     if ($deviceid eq 'tablet') {
-	my $devicefull = "usb-tablet,id=tablet,bus=ehci.0,port=6";
+	my $devicefull = "usb-tablet,id=tablet,bus=uhci.0,port=1";
 	qemu_deviceadd($vmid, $devicefull);
 	return 1;
     }
