@@ -1106,6 +1106,8 @@ sub print_drive_full {
 	}
     }
 
+    $opts .= ",cache=none" if !$drive->{cache};
+
     my $pathinfo = $path ? "file=$path," : '';
 
     return "${pathinfo}if=none,id=drive-$drive->{interface}$drive->{index}$opts";
