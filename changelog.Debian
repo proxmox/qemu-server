@@ -1,6 +1,8 @@
 qemu-server (2.3-12) unstable; urgency=low
 
   * disable hotplug by default (revert previous change)
+  
+  * disable usb2 controller by default (revert previous change)
 
  -- Proxmox Support Team <support@proxmox.com>  Fri, 22 Feb 2013 09:52:13 +0100
 
