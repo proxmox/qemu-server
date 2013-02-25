@@ -1110,6 +1110,9 @@ __PACKAGE__->register_method({
 	my $realcmd = sub {
 	    my $upid = shift;
 
+	    my $c = 0;
+	    while ( ++$c < 10 && !-e "/var/run/qemu-server/$vmid.vnc" ) { sleep(1); }
+
 	    syslog('info', "starting vnc proxy $upid\n");
 
 	    my $qmcmd = [@$remcmd, "/usr/sbin/qm", 'vncproxy', $vmid];
