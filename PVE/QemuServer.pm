@@ -1106,7 +1106,7 @@ sub print_drive_full {
 	}
     }
 
-    $opts .= ",cache=none" if !$drive->{cache};
+    $opts .= ",cache=none" if !$drive->{cache} && !drive_is_cdrom($drive);
 
     my $pathinfo = $path ? "file=$path," : '';
 
