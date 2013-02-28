@@ -48,6 +48,9 @@ sub run_vnc_proxy {
 
     my $path = PVE::QemuServer::vnc_socket($vmid);
 
+    my $c;
+    while ( ++$c < 10 && !-e $path ) { sleep(1); }
+
     my $s = IO::Socket::UNIX->new(Peer => $path, Timeout => 120);
 
     die "unable to connect to socket '$path' - $!" if !$s;
