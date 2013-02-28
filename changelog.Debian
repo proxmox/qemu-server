@@ -3,6 +3,8 @@ qemu-server (2.3-14) unstable; urgency=low
   * bugfix #340 : don't set cache=none to cdrom
   
   * Migrate: fix check if a backing file exist  
+  
+  * vncproxy: wait max 10s for the socket if it does not exist
 
  -- Proxmox Support Team <support@proxmox.com>  Thu, 28 Feb 2013 06:21:30 +0100
 
