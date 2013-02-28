@@ -1,3 +1,9 @@
+qemu-server (2.3-15) unstable; urgency=low
+
+  * revert vncproxy change because it breaks console on remote hosts.
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 28 Feb 2013 12:53:59 +0100
+
 qemu-server (2.3-14) unstable; urgency=low
 
   * bugfix #340 : don't set cache=none to cdrom
