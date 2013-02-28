@@ -348,7 +348,7 @@ sub archive {
 		    die "fork compressor '$comp' failed\n";
 		};
 		if (my $err = $@) {
-		    warn $err;
+		    $self->logerr($err);
 		    POSIX::_exit(1); 
 		}
 		POSIX::_exit(0); 
@@ -453,9 +453,12 @@ sub archive {
     my $err = $@;
 
     if ($err) {
+	$self->logerr($err);
 	$self->loginfo("aborting backup job");
 	eval { PVE::QemuServer::vm_mon_cmd($vmid, 'backup-cancel'); };
-	warn $@ if $@;
+	if (my $err1 = $@) {
+	    $self->logerr($err1);
+	}
     }
 
     if ($stop_after_backup) {
@@ -475,7 +478,7 @@ sub archive {
 
     if ($err) {
 	if ($cpid) { 
-	    kill(-9, $cpid); 
+	    kill(9, $cpid); 
 	    waitpid($cpid, 0);
 	}
 	die $err;
