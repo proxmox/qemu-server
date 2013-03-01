@@ -83,7 +83,7 @@ sub cmd {
 	} elsif ($cmd->{execute} eq 'savevm-start' ||
 		 $cmd->{execute} eq 'savevm-end' ||
 		 $cmd->{execute} eq 'query-backup' ||
-		 $cmd->{execute} eq 'backup_cancel' ||
+		 $cmd->{execute} eq 'backup-cancel' ||
 		 $cmd->{execute} eq 'query-savevm' ||
 		 $cmd->{execute} eq 'delete-drive-snapshot' ||
 		 $cmd->{execute} eq 'snapshot-drive'  ) {
