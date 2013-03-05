@@ -16,6 +16,7 @@ use PVE::QemuMigrate;
 use PVE::RPCEnvironment;
 use PVE::AccessControl;
 use PVE::INotify;
+use PVE::Network;
 
 use Data::Dumper; # fixme: remove
 
@@ -749,11 +750,34 @@ my $vmconfig_update_disk = sub {
 my $vmconfig_update_net = sub {
     my ($rpcenv, $authuser, $conf, $storecfg, $vmid, $opt, $value) = @_;
 
-    if ($conf->{$opt}) {
-	#if online update, then unplug first
-	die "error hot-unplug $opt for update" if !PVE::QemuServer::vm_deviceunplug($vmid, $conf, $opt);
-    }
+    if ($conf->{$opt} && PVE::QemuServer::check_running($vmid)) {
+	my $oldnet = PVE::QemuServer::parse_net($conf->{$opt});
+	my $newnet = PVE::QemuServer::parse_net($value);
 
+	if($oldnet->{model} ne $newnet->{model}){
+	    #if model change, we try to hot-unplug
+            die "error hot-unplug $opt for update" if !PVE::QemuServer::vm_deviceunplug($vmid, $conf, $opt);
+	}else{
+		
+	    if($newnet->{bridge} && $oldnet->{bridge}){
+		my $iface = "tap".$vmid."i".$1 if $opt =~ m/net(\d+)/;
+
+		if($newnet->{rate} ne $oldnet->{rate}){
+		    PVE::Network::tap_rate_limit($iface, $newnet->{rate});
+		}
+
+		if(($newnet->{bridge} ne $oldnet->{bridge}) || ($newnet->{tag} ne $oldnet->{tag})){
+		    eval{PVE::Network::tap_unplug($iface, $oldnet->{bridge}, $oldnet->{tag});};
+		    PVE::Network::tap_plug($iface, $newnet->{bridge}, $newnet->{tag});
+		}
+
+	    }else{
+		#if bridge/nat mode change, we try to hot-unplug
+		die "error hot-unplug $opt for update" if !PVE::QemuServer::vm_deviceunplug($vmid, $conf, $opt);
+	    }
+	}
+	
+    }
     $conf->{$opt} = $value;
     PVE::QemuServer::update_config_nolock($vmid, $conf, 1);
     $conf = PVE::QemuServer::load_config($vmid); # update/reload
