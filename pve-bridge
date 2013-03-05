@@ -29,10 +29,6 @@ PVE::Network::tap_create($iface, $net->{bridge});
 
 PVE::Network::tap_rate_limit($iface, $net->{rate}) if $net->{rate};
 
-my $newbridge = PVE::Network::activate_bridge_vlan($bridge, $net->{tag});
-PVE::Network::copy_bridge_config($bridge, $newbridge) if $bridge ne $newbridge;
-
-system ("/usr/sbin/brctl addif $newbridge $iface") == 0 ||
-    die "can't add interface to bridge\n";
+PVE::Network::tap_plug($iface, $net->{bridge}, $net->{tag});
 
 exit 0;
