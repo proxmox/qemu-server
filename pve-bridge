@@ -34,14 +34,7 @@ die "bridge '$bridge' does not exist\n" if !$bridgemtu;
 system ("/sbin/ifconfig $iface 0.0.0.0 promisc up mtu $bridgemtu") == 0 ||
     die "interface activation failed\n";
 
-if ($net->{rate}) {
-
-    my $debug = 0;
-    my $rate = int($net->{rate}*1024*1024);
-    my $burst = 1024*1024;
-
-    PVE::Network::setup_tc_rate_limit($iface, $rate, $burst, $debug);
-}
+PVE::Network::tap_rate_limit($iface, $net->{rate}) if $net->{rate};
 
 my $newbridge = PVE::Network::activate_bridge_vlan($bridge, $net->{tag});
 PVE::Network::copy_bridge_config($bridge, $newbridge) if $bridge ne $newbridge;
