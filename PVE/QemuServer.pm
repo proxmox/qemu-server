@@ -2605,9 +2605,9 @@ sub vm_deviceunplug {
     die "can't unplug bootdisk" if $conf->{bootdisk} && $conf->{bootdisk} eq $deviceid;
 
     if ($deviceid =~ m/^(virtio)(\d+)$/) {
-        return undef if !qemu_drivedel($vmid, $deviceid);
         qemu_devicedel($vmid, $deviceid);
         return undef if !qemu_devicedelverify($vmid, $deviceid);
+        return undef if !qemu_drivedel($vmid, $deviceid);
     }
 
     if ($deviceid =~ m/^(lsi)(\d+)$/) {
