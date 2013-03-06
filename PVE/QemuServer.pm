@@ -2620,9 +2620,9 @@ sub vm_deviceunplug {
     }
 
     if ($deviceid =~ m/^(net)(\d+)$/) {
-        return undef if !qemu_netdevdel($vmid, $deviceid);
         qemu_devicedel($vmid, $deviceid);
         return undef if !qemu_devicedelverify($vmid, $deviceid);
+        return undef if !qemu_netdevdel($vmid, $deviceid);
     }
 
     return 1;
