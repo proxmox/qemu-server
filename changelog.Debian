@@ -1,3 +1,9 @@
+qemu-server (2.3-18) unstable; urgency=low
+
+  * add better checks to test if backup was successful
+  
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 12 Mar 2013 08:57:47 +0100
+
 qemu-server (2.3-17) unstable; urgency=low
 
   * fix backup-cancel timeout
