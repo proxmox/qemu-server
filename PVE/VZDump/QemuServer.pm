@@ -403,13 +403,13 @@ sub archive {
 
 	while(1) {
 	    $status = PVE::QemuServer::vm_mon_cmd($vmid, 'query-backup');
-	    my $total = $status->{total};
-	    $transferred = $status->{transferred};
+	    my $total = $status->{total} || 0;
+	    $transferred = $status->{transferred} || 0;
 	    my $per = $total ? int(($transferred * 100)/$total) : 0;
 	    my $zero = $status->{'zero-bytes'} || 0;
 	    my $zero_per = $total ? int(($zero * 100)/$total) : 0;
 		    
-	    die "got unexpected uuid\n" if $status->{uuid} ne $uuid;
+	    die "got unexpected uuid\n" if !$status->{uuid} || ($status->{uuid} ne $uuid);
 
 	    my $ctime = time();
 	    my $duration = $ctime - $starttime;
@@ -426,10 +426,16 @@ sub archive {
 	    my $statusline = "status: $per% ($transferred/$total), " .
 		"sparse ${zero_per}% ($zero), duration $duration, " .
 		"$mbps_read/$mbps_write MB/s";
-	    if ($status->{status} ne 'active') {
+	    my $res = $status->{status} || 'unknown';
+	    if ($res ne 'active') {
 		$self->loginfo($statusline);
 		die(($status->{errmsg} || "unknown error") . "\n")
-		    if $status->{status} eq 'error';
+		    if $res eq 'error';
+		die "got unexpected status '$res'\n"
+		    if $res ne 'done';
+		die "got wrong number of transfered bytes ($total != $transferred)\n"
+		    if ($res eq 'done') && ($total != $transferred);
+
 		last;
 	    }
 	    if ($per != $last_per && ($timediff > 2)) {
