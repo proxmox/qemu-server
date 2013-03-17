@@ -292,9 +292,15 @@ sub mux_close {
 sub mux_input {
     my ($self, $mux, $fh, $input) = @_;
 
-    return if $$input !~ s/^(.*})\r\n(.*)$/$2/so;
+    my $raw;
 
-    my $raw = $1;
+    if($self->{qga}){
+	return if $$input !~ s/^([^\n]+}\n[^\n]+})\n(.*)$/$2/so;
+	$raw = $1;
+    }else{
+	return if $$input !~ s/^([^\n]+})\r?\n(.*)$/$2/so;
+	$raw = $1;
+    }
 
     my $vmid = $self->{fhs_lookup}->{$fh};
     if (!$vmid) {
@@ -304,6 +310,32 @@ sub mux_input {
 
     eval {
 	my @jsons = split("\n", $raw);
+
+	if($self->{qga}){
+
+	    die "response is not complete" if @jsons != 2 ;
+
+	    my $obj = from_json($jsons[0]);
+	    my $cmdid = $obj->{return};
+	    die "received responsed without command id\n" if !$cmdid;
+
+	    my $curcmd = $self->{current}->{$vmid};
+	    die "unable to lookup current command for VM $vmid\n" if !$curcmd;
+
+	    delete $self->{current}->{$vmid};
+
+	    if ($curcmd->{id} ne $cmdid) {
+		die "got wrong command id '$cmdid' (expected $curcmd->{id})\n";
+	    }
+
+	    $obj = from_json($jsons[1]);
+
+	    if (my $callback = $curcmd->{callback}) {
+		&$callback($vmid, $obj);
+	    }
+
+	    return;
+	}
 
 	foreach my $json (@jsons) {
 	    my $obj = from_json($json);
