@@ -20,7 +20,7 @@ use Data::Dumper;
 # Note: kvm can onyl handle 1 connection, so we close connections asap
 
 sub new {
-    my ($class, $eventcb) = @_;
+    my ($class, $eventcb, $qga) = @_;
 
     my $mux = new IO::Multiplex;
 
@@ -34,6 +34,7 @@ sub new {
     }, $class;
 
     $self->{eventcb} = $eventcb if $eventcb;
+    $self->{qga} = $qga if $qga;
 
     $mux->set_callback_object($self);
 
