@@ -189,10 +189,27 @@ my $check_queue = sub {
 		delete $cmd->{arguments}->{fd};
 	    }
 
-	    my $qmpcmd = to_json({
-		execute => $cmd->{execute},
-		arguments => $cmd->{arguments},
-		id => $cmd->{id}});
+	    my $qmpcmd = undef;
+
+	    if($self->{qga}){
+
+		my $qmpcmdid =to_json({
+		    execute => 'guest-sync',
+		    arguments => { id => int($cmd->{id})}});
+
+		$qmpcmd = to_json({
+		    execute => $cmd->{execute},
+		    arguments => $cmd->{arguments}});
+
+		$qmpcmd = $qmpcmdid.$qmpcmd;
+
+	    }else{
+
+		$qmpcmd = to_json({
+		    execute => $cmd->{execute},
+		    arguments => $cmd->{arguments},
+		    id => $cmd->{id}});
+	    }
 
 	    if ($fd >= 0) {
 		my $ret = PVE::IPCC::sendfd(fileno($fh), $fd, $qmpcmd);
