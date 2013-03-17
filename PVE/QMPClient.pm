@@ -228,8 +228,12 @@ sub queue_execute {
 
 	eval {
 	    my $fh = &$open_connection($self, $vmid, $timeout);
-	    my $cmd = { execute => 'qmp_capabilities', arguments => {} };
-	    unshift @{$self->{queue}->{$vmid}}, $cmd;
+
+	    if(!$self->{qga}){
+		my $cmd = { execute => 'qmp_capabilities', arguments => {} };
+		unshift @{$self->{queue}->{$vmid}}, $cmd;
+	    }
+
 	    $self->{mux}->set_timeout($fh, $timeout);
 	};
 	if (my $err = $@) {
