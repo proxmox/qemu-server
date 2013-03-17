@@ -108,7 +108,7 @@ sub cmd {
 my $cmdid_seq = 0;
 my $next_cmdid = sub {
     $cmdid_seq++;
-    return "$$:$cmdid_seq";
+    return "$$"."0".$cmdid_seq;
 };
 
 my $close_connection = sub {
