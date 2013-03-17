@@ -2871,8 +2871,9 @@ sub spice_port {
 }
 
 sub qmp_socket {
-    my ($vmid) = @_;
-    return "${var_run_tmpdir}/$vmid.qmp";
+    my ($vmid, $qga) = @_;
+    my $sockettype = $qga ? 'qga' : 'qmp';
+    return "${var_run_tmpdir}/$vmid.$sockettype";
 }
 
 sub qga_socket {
@@ -3458,6 +3459,13 @@ sub vm_start {
     });
 }
 
+sub vm_qga_cmd {
+    my ($vmid, $execute, %params) = @_;
+
+    my $cmd = { execute => $execute, arguments => \%params };
+    vm_qmp_command($vmid, $cmd, undef, 1);
+}
+
 sub vm_mon_cmd {
     my ($vmid, $execute, %params) = @_;
 
@@ -3473,7 +3481,7 @@ sub vm_mon_cmd_nocheck {
 }
 
 sub vm_qmp_command {
-    my ($vmid, $cmd, $nocheck) = @_;
+    my ($vmid, $cmd, $nocheck, $qga) = @_;
 
     my $res;
 
@@ -3485,12 +3493,12 @@ sub vm_qmp_command {
 
     eval {
 	die "VM $vmid not running\n" if !check_running($vmid, $nocheck);
-	my $sname = qmp_socket($vmid);
+	my $sname = qmp_socket($vmid, $qga);
 	if (-e $sname) {
-	    my $qmpclient = PVE::QMPClient->new();
+	    my $qmpclient = PVE::QMPClient->new(undef, $qga);
 
 	    $res = $qmpclient->cmd($vmid, $cmd, $timeout);
-	} elsif (-e "${var_run_tmpdir}/$vmid.mon") {
+	} elsif (-e "${var_run_tmpdir}/$vmid.mon" && !$qga) {
 	    die "can't execute complex command on old monitor - stop/start your vm to fix the problem\n"
 		if scalar(%{$cmd->{arguments}});
 	    vm_monitor_command($vmid, $cmd->{execute}, $nocheck);
