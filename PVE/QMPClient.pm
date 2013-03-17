@@ -126,7 +126,7 @@ my $close_connection = sub {
 my $open_connection = sub {
     my ($self, $vmid, $timeout) = @_;
 
-    my $sname = PVE::QemuServer::qmp_socket($vmid);
+    my $sname = PVE::QemuServer::qmp_socket($vmid, $self->{qga});
 
     $timeout = 1 if !$timeout;
 
