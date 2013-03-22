@@ -1,3 +1,9 @@
+qemu-server (3.0-2) unstable; urgency=low
+
+  * fix warnings in syslog
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 22 Mar 2013 06:25:12 +0100
+
 qemu-server (3.0-1) unstable; urgency=low
 
   * start 3.0 development
