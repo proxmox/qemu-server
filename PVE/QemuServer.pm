@@ -1193,7 +1193,7 @@ sub parse_net {
 
 	if ($kvp =~ m/^(ne2k_pci|e1000|rtl8139|pcnet|virtio|ne2k_isa|i82551|i82557b|i82559er)(=([0-9a-f]{2}(:[0-9a-f]{2}){5}))?$/i) {
 	    my $model = lc($1);
-	    my $mac = uc($3) || PVE::Tools::random_ether_addr();
+	    my $mac = defined($3) ? uc($3) : PVE::Tools::random_ether_addr();
 	    $res->{model} = $model;
 	    $res->{macaddr} = $mac;
 	} elsif ($kvp =~ m/^bridge=(\S+)$/) {
