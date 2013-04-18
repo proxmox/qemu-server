@@ -259,12 +259,9 @@ sub queue_execute {
 sub mux_input {
     my ($self, $mux, $fh, $input) = @_;
 
-    return if $$input !~ m/}\r\n$/;
+    return if $$input !~ s/^(.*})\r\n(.*)$/$2/so;
 
-    my $raw = $$input;
-
-    # Remove the input from the input buffer.
-    $$input = '';
+    my $raw = $1;
 
     my $vmid = $self->{fhs_lookup}->{$fh};
     if (!$vmid) {
