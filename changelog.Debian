@@ -1,3 +1,9 @@
+qemu-server (2.3-19) unstable; urgency=low
+
+  * avoid endless loop in QMPClient
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 18 Apr 2013 10:51:28 +0200
+
 qemu-server (2.3-18) unstable; urgency=low
 
   * add better checks to test if backup was successful
