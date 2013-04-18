@@ -358,6 +358,12 @@ EODESC
 	typetext => '[[order=]\d+] [,up=\d+] [,down=\d+] ',
 	description => "Startup and shutdown behavior. Order is a non-negative number defining the general startup order. Shutdown in done with reverse ordering. Additionally you can set the 'up' or 'down' delay in seconds, which specifies a delay to wait before the next VM is started or stopped.",
     },
+    template => {
+	optional => 1,
+	type => 'boolean',
+	description => "Enable/disable Template.",
+	default => 0,
+    },
     args => {
 	optional => 1,
 	type => 'string',
