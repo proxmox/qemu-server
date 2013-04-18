@@ -1,3 +1,9 @@
+qemu-server (3.0-3) unstable; urgency=low
+
+  * allow sparse restore for sheepdog and rbd
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 18 Apr 2013 06:21:40 +0200
+
 qemu-server (3.0-2) unstable; urgency=low
 
   * fix warnings in syslog
