@@ -4454,17 +4454,8 @@ sub template_create {
 	return if $disk && $ds ne $disk;
 
 	my $volid = $drive->{file};
-	die "volume '$volid' does not support template/clone\n" 
-	    if !PVE::Storage::volume_has_feature($storecfg, 'template', $volid);
-    });
+	return if !PVE::Storage::volume_has_feature($storecfg, 'template', $volid);
 
-    foreach_drive($conf, sub {
-	my ($ds, $drive) = @_;
-
-	return if drive_is_cdrom($drive);
-	return if $disk && $ds ne $disk;
-
-	my $volid = $drive->{file};
 	my $voliddst = PVE::Storage::vdisk_create_base($storecfg, $volid);
 	$drive->{file} = $voliddst;
 	$conf->{$ds} = PVE::QemuServer::print_drive($vmid, $drive);
@@ -4474,9 +4465,10 @@ sub template_create {
     if($conf->{snapshots}){
 	delete $conf->{parent};
 	delete $conf->{snapshots};
-	PVE::QemuServer::update_config_nolock($vmid, $conf, 1);
 	#fixme : do we need to delete disks snapshots ?
     }
+    $conf->{template} = 1;
+    PVE::QemuServer::update_config_nolock($vmid, $conf, 1);
 }
 
 sub is_template {
