@@ -4476,24 +4476,7 @@ sub template_create {
 sub is_template {
     my ($conf) = @_;
 
-    my $baseimagecount = 0;
-    my $totalvolumecount = 0;
-    my $storecfg = PVE::Storage::config();
-
-    foreach_drive($conf, sub {
-	my ($ds, $drive) = @_;
-	return if drive_is_cdrom($drive);
-	$totalvolumecount++;
-	my $volid = $drive->{file};
-	if (PVE::Storage::volume_is_base($storecfg, $volid)){
-	    $baseimagecount++;
-	}
-
-    });
-
-    return 0 if $baseimagecount == 0;
-    return 1 if $baseimagecount == $totalvolumecount; #full template
-    return 2 if $baseimagecount < $totalvolumecount; #semi-template
+    return 1 if defined $conf->{template} && $conf->{template} == 1;
 }
 
 1;
