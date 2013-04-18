@@ -254,6 +254,15 @@ sub queue_execute {
     $self->{queue} = $self->{current} = $self->{fhs} = $self->{fhs_lookup} = {};
 }
 
+sub mux_close {
+    my ($self, $mux, $fh) = @_;
+
+    my $vmid = $self->{fhs_lookup}->{$fh} || 'undef';
+    return if !defined($vmid);
+
+    $self->{errors}->{$vmid} = "client closed connection\n" if !$self->{errors}->{$vmid};
+}
+
 # mux_input is called when input is available on one of
 # the descriptors.
 sub mux_input {
