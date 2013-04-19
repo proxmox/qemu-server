@@ -2351,6 +2351,13 @@ __PACKAGE__->register_method({
     protected => 1,
     proxyto => 'node',
     description => "Create a Template.",
+    permissions => {
+	description => "You need 'VM.Allocate' permissions on /vms/{vmid} or on the VM pool /pool/{pool}. If you create disks you need 'Datastore.AllocateSpace' on any used storage.",
+	check => [ 'or', 
+		   [ 'perm', '/vms/{vmid}', ['VM.Allocate']],
+		   [ 'perm', '/pool/{pool}', ['VM.Allocate'], require_param => 'pool'],
+	    ],
+    },
     parameters => {
 	additionalProperties => 0,
 	properties => {
