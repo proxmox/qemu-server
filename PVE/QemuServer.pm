@@ -3628,7 +3628,13 @@ sub rescan {
 	    
 	check_lock($conf);
 
-	my $changes = update_disksize($vmid, $conf, $volid_hash);
+	my $vm_volids = {};
+	foreach my $volid (keys %$volid_hash) {
+	    my $info = $volid_hash->{$volid};
+	    $vm_volids->{$volid} = $info if $info->{vmid} && $info->{vmid} == $vmid;
+	}
+
+	my $changes = update_disksize($vmid, $conf, $vm_volids);
 
 	update_config_nolock($vmid, $conf, 1) if $changes;
     };
