@@ -2393,7 +2393,7 @@ __PACKAGE__->register_method({
 	    PVE::QemuServer::check_lock($conf);
 
 	    die "unable to create template, because VM contains snapshots\n" 
-		if $conf->{snapshots};
+		if $conf->{snapshots} && scalar(keys %{$conf->{snapshots}});
 
 	    die "you can't convert a template to a template\n" 
 		if PVE::QemuServer::is_template($conf) && !$disk;
