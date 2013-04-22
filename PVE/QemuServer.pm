@@ -4462,11 +4462,6 @@ sub template_create {
 	PVE::QemuServer::update_config_nolock($vmid, $conf, 1);
 
     });
-    if($conf->{snapshots}){
-	delete $conf->{parent};
-	delete $conf->{snapshots};
-	#fixme : do we need to delete disks snapshots ?
-    }
     $conf->{template} = 1;
     PVE::QemuServer::update_config_nolock($vmid, $conf, 1);
 }
