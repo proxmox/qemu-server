@@ -4441,9 +4441,6 @@ sub has_feature {
 sub template_create {
     my ($vmid, $conf, $disk) = @_;
 
-    my $running = check_running($vmid);
-    die "you can't convert a vm to template if vm is running vm\n" if $running;
-
     my $storecfg = PVE::Storage::config();
 
     foreach_drive($conf, sub {
