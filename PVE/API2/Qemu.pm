@@ -2399,7 +2399,7 @@ __PACKAGE__->register_method({
 		if PVE::QemuServer::is_template($conf) && !$disk;
 
 	    die "you can't convert a VM to template if VM is running\n" 
-		if check_running($vmid);
+		if PVE::QemuServer::check_running($vmid);
 
 	    my $realcmd = sub {
 		PVE::QemuServer::template_create($vmid, $conf, $disk);
