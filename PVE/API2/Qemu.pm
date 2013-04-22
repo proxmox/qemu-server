@@ -2401,9 +2401,11 @@ __PACKAGE__->register_method({
 	    my $realcmd = sub {
 		PVE::QemuServer::template_create($vmid, $conf, $disk);
 	    };
-	    return $rpcenv->fork_worker('qmtemplate', $vmid, $authuser, $realcmd);
 
+	    $conf->{template} = 1;
 	    PVE::QemuServer::update_config_nolock($vmid, $conf, 1);
+
+	    return $rpcenv->fork_worker('qmtemplate', $vmid, $authuser, $realcmd);
 	};
 
 	PVE::QemuServer::lock_config($vmid, $updatefn);

@@ -4445,7 +4445,6 @@ sub template_create {
     die "you can't convert a vm to template if vm is running vm\n" if $running;
 
     my $storecfg = PVE::Storage::config();
-    my $i = 0;
 
     foreach_drive($conf, sub {
 	my ($ds, $drive) = @_;
@@ -4460,10 +4459,7 @@ sub template_create {
 	$drive->{file} = $voliddst;
 	$conf->{$ds} = PVE::QemuServer::print_drive($vmid, $drive);
 	PVE::QemuServer::update_config_nolock($vmid, $conf, 1);
-
     });
-    $conf->{template} = 1;
-    PVE::QemuServer::update_config_nolock($vmid, $conf, 1);
 }
 
 sub is_template {
