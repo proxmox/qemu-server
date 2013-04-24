@@ -1,3 +1,13 @@
+qemu-server (3.0-4) unstable; urgency=low
+
+  * fix bug 377: make qm rescan work properly
+  
+  * avoid endless loop in QMPClient
+  
+  * use vm create permissions for templates
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 24 Apr 2013 07:59:28 +0200
+
 qemu-server (3.0-3) unstable; urgency=low
 
   * allow sparse restore for sheepdog and rbd
