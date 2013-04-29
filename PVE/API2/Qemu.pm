@@ -1867,19 +1867,21 @@ __PACKAGE__->register_method({
 		if -f $conffile;
 
 	    # create empty/temp config - this fails if VM already exists on other node
-	    PVE::Tools::file_set_contents($conffile, "# qmcopy temporary file\n");
+	    PVE::Tools::file_set_contents($conffile, "# qmcopy temporary file\nlock: copy\n");
 
 	    my $realcmd = sub {
 		my $upid = shift;
 
-		eval {
-		    print "COPY VM $vmid start\n";
+		my $newvollist = [];
 
-		    my $newconf = {};
+		eval {
+		    my $newconf = { lock => 'copy' };
 		    my $drives = {};
 		    my $vollist = [];
 		    foreach my $opt (keys %$conf) {
 			my $value = $conf->{$opt};
+
+			next if $opt eq 'snapshots'; #  do not copy snapshot info
 
 			# always change MAC! address
 			if ($opt =~ m/^net(\d+)$/) {
@@ -1903,21 +1905,51 @@ __PACKAGE__->register_method({
 		    
 		    PVE::Storage::activate_volumes($storecfg, $vollist);
 
-		    foreach my $opt (keys %$drives) {
-			my $drive = $drives->{$opt};
-			print "COPY  drive $opt: $drive->{file}\n";
+		    eval {
+			local $SIG{INT} = $SIG{TERM} = $SIG{QUIT} = $SIG{HUP} = sub { die "interrupted by signal\n"; };
 
-		    }
+			foreach my $opt (keys %$drives) {
+			    my $drive = $drives->{$opt};
 
-		    sleep(10);
+			    my $newvolid;
+			    if (!$param->{full} && PVE::Storage::volume_is_base($storecfg,  $drive->{file})) {
+				print "clone drive $opt ($drive->{file})\n";
+				$newvolid = PVE::Storage::vdisk_clone($storecfg,  $drive->{file}, $newid);
+			    } else {
+				my ($storeid, $volname) = PVE::Storage::parse_volume_id($drive->{file});
+				my $defformat = PVE::Storage::storage_default_format($storecfg, $storeid);
+				my $fmt = $drive->{format} || $defformat;
+
+				my ($size) = PVE::Storage::volume_size_info($storecfg, $drive->{file}, 3);
+
+				print "copy drive $opt ($drive->{file})\n";
+				$newvolid = PVE::Storage::vdisk_alloc($storecfg, $storeid, $newid, $fmt, undef, ($size/1024));
+
+				PVE::QemuServer::qemu_img_convert($drive->{file}, $newvolid, $size);
+			    }
+
+			    my ($size) = PVE::Storage::volume_size_info($storecfg, $newvolid, 3);
+			    my $disk = { file => $newvolid, size => $size };
+			    $newconf->{$opt} = PVE::QemuServer::print_drive($vmid, $disk); 
+			    push @$newvollist, $newvolid;
+
+			    PVE::QemuServer::update_config_nolock($newid, $newconf, 1);
+			}
+		    };
+		    die $@ if $@;
+
+		    delete $newconf->{lock};
 		    PVE::QemuServer::update_config_nolock($newid, $newconf, 1);
-
-		    print "COPY VM $vmid end\n";
 		};
 		if (my $err = $@) { 
-		    # fixme: remove all created files
 		    unlink $conffile;
 
+		    sleep 1; # some storage like rbd need to wait before release volume - really?
+
+		    foreach my $volid (@$newvollist) {
+			eval { PVE::Storage::vdisk_free($storecfg, $volid); };
+			warn $@ if $@;
+		    }
 		    die "copy failed: $err";
 		}
 
