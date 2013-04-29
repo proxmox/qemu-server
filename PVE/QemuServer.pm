@@ -4477,4 +4477,65 @@ sub is_template {
     return 1 if defined $conf->{template} && $conf->{template} == 1;
 }
 
+sub qemu_img_convert {
+    my ($src_volid, $dst_volid, $size, $snapname) = @_;
+
+    my $storecfg = PVE::Storage::config();
+    my ($src_storeid, $src_volname) = PVE::Storage::parse_volume_id($src_volid, 1);
+    my ($dst_storeid, $dst_volname) = PVE::Storage::parse_volume_id($dst_volid, 1);
+
+    if ($src_storeid && $dst_storeid) {
+	my $src_scfg = PVE::Storage::storage_config($storecfg, $src_storeid);
+	my $dst_scfg = PVE::Storage::storage_config($storecfg, $dst_storeid);
+
+	my $src_format = qemu_img_format($src_scfg, $src_volname);
+	my $dst_format = qemu_img_format($dst_scfg, $dst_volname);
+
+	my $src_path = PVE::Storage::path($storecfg, $src_volid, $snapname);
+	my $dst_path = PVE::Storage::path($storecfg, $dst_volid);
+
+	my $cmd = [];
+	push @$cmd, '/usr/bin/qemu-img', 'convert', '-t', 'writeback', '-p', '-C';
+	push @$cmd, '-s', $snapname if($snapname && $src_format eq "qcow2");
+	push @$cmd, '-f', $src_format, '-O', $dst_format, $src_path, $dst_path;
+
+	my $parser = sub {
+	    my $line = shift;
+	    if($line =~ m/\((\S+)\/100\%\)/){
+		my $percent = $1;
+		my $transferred = int($size * $percent / 100);
+		my $remaining = $size - $transferred;
+
+		print "transferred: $transferred bytes remaining: $remaining bytes total: $size bytes progression: $percent %\n";
+	    }
+
+	};
+
+	eval  { run_command($cmd, timeout => undef, outfunc => $parser); };
+	my $err = $@;
+	die "copy failed: $err" if $err;
+    }
+}
+
+sub qemu_img_format {
+    my ($scfg, $volname) = @_;
+
+    if ($scfg->{path} && $volname =~ m/\.(raw|qcow2|qed|vmdk)$/){
+	return $1;
+    }
+    elsif ($scfg->{type} eq 'nexenta' || $scfg->{type} eq 'iscsidirect'){
+	return "iscsi";
+    }
+    elsif ($scfg->{type} eq 'lvm' || $scfg->{type} eq 'iscsi'){
+	return "host_device";
+    }
+    elsif ($scfg->{type} eq 'rbd'){
+	return "raw";
+    }
+    #sheepdog other qemu block driver
+    else{
+	return $scfg->{type};
+    }
+}
+
 1;
