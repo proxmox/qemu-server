@@ -59,6 +59,32 @@ my $check_storage_access = sub {
     });
 };
 
+my $check_storage_access_copy = sub {
+   my ($rpcenv, $authuser, $storecfg, $conf) = @_;
+
+   PVE::QemuServer::foreach_drive($conf, sub {
+	my ($ds, $drive) = @_;
+
+	my $isCDROM = PVE::QemuServer::drive_is_cdrom($drive);
+
+	my $volid = $drive->{file};
+
+	return if !$volid || $volid eq 'none';
+
+	if ($isCDROM) {
+	    if ($volid eq 'cdrom') {
+		$rpcenv->check($authuser, "/", ['Sys.Console']);
+	    } else {
+		# we simply allow access 
+	    }
+	} else {
+	    my ($sid, $volname) = PVE::Storage::parse_volume_id($volid, 1);
+	    die "unable to copy arbitrary files\n" if !$sid;
+	    $rpcenv->check($authuser, "/storage/$sid", ['Datastore.AllocateSpace']);
+	}
+    });
+};
+
 # Note: $pool is only needed when creating a VM, because pool permissions
 # are automatically inherited if VM already exists inside a pool.
 my $create_disks = sub {
@@ -344,6 +370,7 @@ __PACKAGE__->register_method({
 
 	my $restorefn = sub {
 
+	    # fixme: this test does not work if VM exists on other node!
 	    if (-f $filename) {
 		die "unable to restore vm $vmid: config file already exists\n"
 		    if !$force;
@@ -1744,6 +1771,168 @@ __PACKAGE__->register_method({
 	my $hasfeature = PVE::QemuServer::has_feature($feature, $conf, $storecfg, $snapname, $running);
 	my $res = $hasfeature ? 1 : 0 ;
 	return $res;
+    }});
+
+__PACKAGE__->register_method({
+    name => 'copy_vm',
+    path => '{vmid}/copy',
+    method => 'POST',
+    protected => 1,
+    proxyto => 'node',
+    description => "Creat a copy of virtual machine/template.",
+    permissions => {
+	description => "You need 'VM.Copy' permissions on /vms/{vmid}, and 'VM.Allocate' permissions " .
+	    "on /vms/{newid} (or on the VM pool /pool/{pool}). You also need " .
+	    "'Datastore.AllocateSpace' on any used storage.",
+	check => 
+	[ 'and', 
+	  ['perm', '/vms/{vmid}', [ 'VM.Copy' ]],
+	  [ 'or', 
+	    [ 'perm', '/vms/{newid}', ['VM.Allocate']],
+	    [ 'perm', '/pool/{pool}', ['VM.Allocate'], require_param => 'pool'],
+	  ],
+	]
+    },
+    parameters => {
+    	additionalProperties => 0,
+	properties => {
+	    # fixme: add other parameters like name and description?
+	    node => get_standard_option('pve-node'),
+	    vmid => get_standard_option('pve-vmid'),
+	    newid => get_standard_option('pve-vmid', { 
+		description => 'VMID for the copy.' }),
+	    pool => { 
+		optional => 1,
+		type => 'string', format => 'pve-poolid',
+		description => "Add the new VM to the specified pool.",
+	    },
+	    full => {
+		optional => 1,
+		type => 'boolean',
+		description => "Create a full copy of all disk. This is always done when " .
+		    "you copy a normal VM. For VM templates, we try to create a linked copy by default.",
+		default => 0,
+	    },
+	},
+    },
+    returns => {
+	type => 'string',
+    },
+    code => sub {
+	my ($param) = @_;
+
+	my $rpcenv = PVE::RPCEnvironment::get();
+
+	my $authuser = $rpcenv->get_user();
+
+	my $node = extract_param($param, 'node');
+
+	my $vmid = extract_param($param, 'vmid');
+
+	my $newid = extract_param($param, 'newid');
+
+	# fixme: update pool after create
+	my $pool = extract_param($param, 'pool');
+
+	if (defined($pool)) {
+	    $rpcenv->check_pool_exist($pool);
+	}
+
+	my $storecfg = PVE::Storage::config();
+
+	PVE::Cluster::check_cfs_quorum();
+
+	# fixme: do early checks - re-check after lock 
+
+	# fixme: impl. target node parameter (mv VM config if all storages are shared)
+
+	my $copyfn = sub {
+
+	    # all tests after lock
+	    my $conf = PVE::QemuServer::load_config($vmid);
+
+	    PVE::QemuServer::check_lock($conf);
+
+	    my $running = PVE::QemuServer::check_running($vmid);
+
+	    die "Copy running VM $vmid not implemented\n" if $running;
+
+	    &$check_storage_access_copy($rpcenv, $authuser, $storecfg, $conf);
+
+	    # fixme: snapshots??
+
+	    my $conffile = PVE::QemuServer::config_file($newid);
+
+	    die "unable to create VM $newid: config file already exists\n"
+		if -f $conffile;
+
+	    # create empty/temp config - this fails if VM already exists on other node
+	    PVE::Tools::file_set_contents($conffile, "# qmcopy temporary file\n");
+
+	    my $realcmd = sub {
+		my $upid = shift;
+
+		eval {
+		    print "COPY VM $vmid start\n";
+
+		    my $newconf = {};
+		    my $drives = {};
+		    my $vollist = [];
+		    foreach my $opt (keys %$conf) {
+			my $value = $conf->{$opt};
+
+			# always change MAC! address
+			if ($opt =~ m/^net(\d+)$/) {
+			    my $net = PVE::QemuServer::parse_net($value);
+			    $net->{macaddr} =  PVE::Tools::random_ether_addr();
+			    $newconf->{$opt} = PVE::QemuServer::print_net($net);
+			} elsif (my $drive = PVE::QemuServer::parse_drive($opt, $value)) {
+			    if (PVE::QemuServer::drive_is_cdrom($drive)) {
+				$newconf->{$opt} = $value; # simply copy configuration
+			    } else {
+				$drives->{$opt} = $drive;
+				push @$vollist, $drive->{file};
+			    }
+			} else {
+			    # copy everything else
+			    $newconf->{$opt} = $value;  
+			}
+		    }
+
+		    delete $newconf->{template};
+		    
+		    PVE::Storage::activate_volumes($storecfg, $vollist);
+
+		    foreach my $opt (keys %$drives) {
+			my $drive = $drives->{$opt};
+			print "COPY  drive $opt: $drive->{file}\n";
+
+		    }
+
+		    sleep(10);
+		    PVE::QemuServer::update_config_nolock($newid, $newconf, 1);
+
+		    print "COPY VM $vmid end\n";
+		};
+		if (my $err = $@) { 
+		    # fixme: remove all created files
+		    unlink $conffile;
+
+		    die "copy failed: $err";
+		}
+
+		return;
+	    };
+
+	    return $rpcenv->fork_worker('qmcopy', $vmid, $authuser, $realcmd);
+	};
+
+	# Aquire shared lock for $vmid
+	return PVE::QemuServer::lock_config_shared($vmid, 1, sub {
+	    # Aquire exclusive lock lock for $newid
+	    return PVE::QemuServer::lock_config_full($newid, 1, $copyfn);
+	});
+
     }});
 
 __PACKAGE__->register_method({

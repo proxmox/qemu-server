@@ -1,3 +1,9 @@
+qemu-server (3.0-5) unstable; urgency=low
+
+  * implement shared file locks
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 25 Apr 2013 11:35:01 +0200
+
 qemu-server (3.0-4) unstable; urgency=low
 
   * fix bug 377: make qm rescan work properly

@@ -21,7 +21,7 @@ use PVE::SafeSyslog;
 use Storable qw(dclone);
 use PVE::Exception qw(raise raise_param_exc);
 use PVE::Storage;
-use PVE::Tools qw(run_command lock_file file_read_firstline);
+use PVE::Tools qw(run_command lock_file lock_file_full file_read_firstline);
 use PVE::JSONSchema qw(get_standard_option);
 use PVE::Cluster qw(cfs_register_file cfs_read_file cfs_write_file cfs_lock_file);
 use PVE::INotify;
@@ -1473,6 +1473,18 @@ sub lock_config_full {
     my $filename = config_file_lock($vmid);
 
     my $res = lock_file($filename, $timeout, $code, @param);
+
+    die $@ if $@;
+
+    return $res;
+}
+
+sub lock_config_shared {
+    my ($vmid, $timeout, $code, @param) = @_;
+
+    my $filename = config_file_lock($vmid);
+
+    my $res = lock_file_full($filename, $timeout, 1, $code, @param);
 
     die $@ if $@;
 
