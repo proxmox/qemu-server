@@ -3012,7 +3012,7 @@ sub vm_start {
 	}
 	else{
 
-	    if (!defined($conf->{balloon}) || $conf->{balloon}) {
+	    if (!$statefile && (!defined($conf->{balloon}) || $conf->{balloon})) {
 		vm_mon_cmd_nocheck($vmid, "balloon", value => $conf->{balloon}*1024*1024) 
 		    if $conf->{balloon};
 		vm_mon_cmd_nocheck($vmid, 'qom-set', 
