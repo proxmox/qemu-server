@@ -1823,6 +1823,13 @@ __PACKAGE__->register_method({
 		requires => 'full',
 		optional => 1,
 	    }),
+	    format => {
+		description => "Target format for file storage.",
+		requires => 'full',
+		type => 'string',
+		optional => 1,
+		enum => [ 'raw', 'qcow2', 'vmdk'],
+	    },
 	    full => {
 		optional => 1,
 		type => 'boolean',
@@ -1858,6 +1865,8 @@ __PACKAGE__->register_method({
 	my $snapname = extract_param($param, 'snapname');
 
 	my $storage = extract_param($param, 'storage');
+
+	my $format = extract_param($param, 'format');
 
 	my $storecfg = PVE::Storage::config();
 
@@ -1962,8 +1971,14 @@ __PACKAGE__->register_method({
 			    } else {
 				my ($storeid, $volname) = PVE::Storage::parse_volume_id($drive->{file});
 				$storeid = $storage if $storage;
-				my $defformat = PVE::Storage::storage_default_format($storecfg, $storeid);
-				my $fmt = $drive->{format} || $defformat;
+
+				my $fmt = undef;
+				if($format){
+				    $fmt = $format;
+				}else{
+				    my $defformat = PVE::Storage::storage_default_format($storecfg, $storeid);
+				    $fmt = $drive->{format} || $defformat;
+				}
 
 				my ($size) = PVE::Storage::volume_size_info($storecfg, $drive->{file}, 3);
 
