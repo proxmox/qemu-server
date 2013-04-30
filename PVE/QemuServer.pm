@@ -900,6 +900,10 @@ sub parse_drive {
 
     return undef if !$res->{file};
 
+    if($res->{file} =~ m/\.(raw|cow|qcow|qcow2|vmdk|cloop)$/){
+	$res->{format} = $1;
+    }
+
     return undef if $res->{cache} &&
 	$res->{cache} !~ m/^(off|none|writethrough|writeback|unsafe|directsync)$/;
     return undef if $res->{snapshot} && $res->{snapshot} !~ m/^(on|off)$/;
