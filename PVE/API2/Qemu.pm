@@ -1742,7 +1742,6 @@ __PACKAGE__->register_method({
                 optional => 1,
             }),
 	},
-
     },
     returns => {
         type => 'boolean'
@@ -1807,6 +1806,10 @@ __PACKAGE__->register_method({
 		type => 'string', format => 'pve-poolid',
 		description => "Add the new VM to the specified pool.",
 	    },
+            snapname => get_standard_option('pve-snapshot-name', {
+ 		requires => 'full',
+		optional => 1,
+            }),
 	    storage => get_standard_option('pve-storage-id', {
 		description => "Target storage for full copy.",
 		requires => 'full',
@@ -1844,6 +1847,8 @@ __PACKAGE__->register_method({
 	    $rpcenv->check_pool_exist($pool);
 	}
 
+	my $snapname = extract_param($param, 'snapname');
+
 	my $storage = extract_param($param, 'storage');
 
 	my $storecfg = PVE::Storage::config();
@@ -1872,9 +1877,12 @@ __PACKAGE__->register_method({
 
 	    die "unexpected state change\n" if $verify_running != $running;
 
-	    &$check_storage_access_copy($rpcenv, $authuser, $storecfg, $conf, $storage);
+	    die "snapshot '$snapname' does not exist\n" 
+		if $snapname && !defined( $conf->{snapshots}->{$snapname}); 
 
-	    # fixme: snapshots??
+	    my $oldconf = $snapname ? $conf->{snapshots}->{$snapname} : $conf; 
+
+	    &$check_storage_access_copy($rpcenv, $authuser, $storecfg, $oldconf, $storage);
 
 	    my $conffile = PVE::QemuServer::config_file($newid);
 
@@ -1893,10 +1901,13 @@ __PACKAGE__->register_method({
 		    my $newconf = { lock => 'copy' };
 		    my $drives = {};
 		    my $vollist = [];
-		    foreach my $opt (keys %$conf) {
-			my $value = $conf->{$opt};
 
-			next if $opt eq 'snapshots'; #  do not copy snapshot info
+		    foreach my $opt (keys %$oldconf) {
+			my $value = $oldconf->{$opt};
+
+			# do not copy snapshot related info
+			next if $opt eq 'snapshots' ||  $opt eq 'parent' || $opt eq 'snaptime' ||
+			    $opt eq 'vmstate' || $opt eq 'snapstate';
 
 			# always change MAC! address
 			if ($opt =~ m/^net(\d+)$/) {
@@ -1941,7 +1952,7 @@ __PACKAGE__->register_method({
 				print "copy drive $opt ($drive->{file})\n";
 				$newvolid = PVE::Storage::vdisk_alloc($storecfg, $storeid, $newid, $fmt, undef, ($size/1024));
 
-				PVE::QemuServer::qemu_img_convert($drive->{file}, $newvolid, $size);
+				PVE::QemuServer::qemu_img_convert($drive->{file}, $newvolid, $size, $snapname);
 			    }
 
 			    my ($size) = PVE::Storage::volume_size_info($storecfg, $newvolid, 3);
