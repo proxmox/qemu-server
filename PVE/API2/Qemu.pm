@@ -60,7 +60,7 @@ my $check_storage_access = sub {
 };
 
 my $check_storage_access_copy = sub {
-   my ($rpcenv, $authuser, $storecfg, $conf) = @_;
+   my ($rpcenv, $authuser, $storecfg, $conf, $storage) = @_;
 
    PVE::QemuServer::foreach_drive($conf, sub {
 	my ($ds, $drive) = @_;
@@ -80,6 +80,7 @@ my $check_storage_access_copy = sub {
 	} else {
 	    my ($sid, $volname) = PVE::Storage::parse_volume_id($volid, 1);
 	    die "unable to copy arbitrary files\n" if !$sid;
+	    $sid = $storage if $storage;
 	    $rpcenv->check($authuser, "/storage/$sid", ['Datastore.AllocateSpace']);
 	}
     });
@@ -1806,6 +1807,10 @@ __PACKAGE__->register_method({
 		type => 'string', format => 'pve-poolid',
 		description => "Add the new VM to the specified pool.",
 	    },
+	    storage => get_standard_option('pve-storage-id', {
+		description => "Target storage for full copy.",
+		optional => 1,
+	    }),
 	    full => {
 		optional => 1,
 		type => 'boolean',
@@ -1838,6 +1843,8 @@ __PACKAGE__->register_method({
 	    $rpcenv->check_pool_exist($pool);
 	}
 
+	my $storage = extract_param($param, 'storage');
+
 	my $storecfg = PVE::Storage::config();
 
 	PVE::Cluster::check_cfs_quorum();
@@ -1857,7 +1864,7 @@ __PACKAGE__->register_method({
 
 	    die "Copy running VM $vmid not implemented\n" if $running;
 
-	    &$check_storage_access_copy($rpcenv, $authuser, $storecfg, $conf);
+	    &$check_storage_access_copy($rpcenv, $authuser, $storecfg, $conf, $storage);
 
 	    # fixme: snapshots??
 
@@ -1917,6 +1924,7 @@ __PACKAGE__->register_method({
 				$newvolid = PVE::Storage::vdisk_clone($storecfg,  $drive->{file}, $newid);
 			    } else {
 				my ($storeid, $volname) = PVE::Storage::parse_volume_id($drive->{file});
+				$storeid = $storage if $storage;
 				my $defformat = PVE::Storage::storage_default_format($storecfg, $storeid);
 				my $fmt = $drive->{format} || $defformat;
 
