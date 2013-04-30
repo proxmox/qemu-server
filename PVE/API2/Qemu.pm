@@ -1796,11 +1796,19 @@ __PACKAGE__->register_method({
     parameters => {
     	additionalProperties => 0,
 	properties => {
-	    # fixme: add other parameters like name and description?
 	    node => get_standard_option('pve-node'),
 	    vmid => get_standard_option('pve-vmid'),
-	    newid => get_standard_option('pve-vmid', { 
-		description => 'VMID for the copy.' }),
+	    newid => get_standard_option('pve-vmid', { description => 'VMID for the copy.' }),
+	    name => {
+		optional => 1,
+		type => 'string', format => 'dns-name',
+		description => "Set a name for the new VM.",
+	    },
+	    description => {
+		optional => 1,
+		type => 'string',
+		description => "Description for the new VM.",
+	    },
 	    pool => { 
 		optional => 1,
 		type => 'string', format => 'pve-poolid',
@@ -1928,6 +1936,16 @@ __PACKAGE__->register_method({
 		    }
 
 		    delete $newconf->{template};
+
+		    if ($param->{name}) {
+			$newconf->{name} = $param->{name};
+		    } else {
+			$newconf->{name} = "Copy-of-$oldconf->{name}";
+		    }
+
+		    if ($param->{description}) {
+			$newconf->{description} = $param->{description};
+		    }
 		    
 		    PVE::Storage::activate_volumes($storecfg, $vollist);
 
