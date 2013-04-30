@@ -1483,12 +1483,12 @@ sub lock_config_full {
     return $res;
 }
 
-sub lock_config_shared {
-    my ($vmid, $timeout, $code, @param) = @_;
+sub lock_config_mode {
+    my ($vmid, $timeout, $shared, $code, @param) = @_;
 
     my $filename = config_file_lock($vmid);
 
-    my $res = lock_file_full($filename, $timeout, 1, $code, @param);
+    my $res = lock_file_full($filename, $timeout, $shared, $code, @param);
 
     die $@ if $@;
 

@@ -1809,6 +1809,7 @@ __PACKAGE__->register_method({
 	    },
 	    storage => get_standard_option('pve-storage-id', {
 		description => "Target storage for full copy.",
+		requires => 'full',
 		optional => 1,
 	    }),
 	    full => {
@@ -1849,6 +1850,13 @@ __PACKAGE__->register_method({
 
 	PVE::Cluster::check_cfs_quorum();
 
+	my $running = PVE::QemuServer::check_running($vmid) || 0;
+
+	die "Copy running VM $vmid not implemented\n" if $running; # fixme: implement this
+
+	# exclusive lock if VM is running - else shared lock is enough;
+	my $shared_lock = $running ? 0 : 1;
+
 	# fixme: do early checks - re-check after lock 
 
 	# fixme: impl. target node parameter (mv VM config if all storages are shared)
@@ -1860,9 +1868,9 @@ __PACKAGE__->register_method({
 
 	    PVE::QemuServer::check_lock($conf);
 
-	    my $running = PVE::QemuServer::check_running($vmid);
+	    my $verify_running = PVE::QemuServer::check_running($vmid) || 0;
 
-	    die "Copy running VM $vmid not implemented\n" if $running;
+	    die "unexpected state change\n" if $verify_running != $running;
 
 	    &$check_storage_access_copy($rpcenv, $authuser, $storecfg, $conf, $storage);
 
@@ -1967,8 +1975,7 @@ __PACKAGE__->register_method({
 	    return $rpcenv->fork_worker('qmcopy', $vmid, $authuser, $realcmd);
 	};
 
-	# Aquire shared lock for $vmid
-	return PVE::QemuServer::lock_config_shared($vmid, 1, sub {
+	return PVE::QemuServer::lock_config_mode($vmid, 1, $shared_lock, sub {
 	    # Aquire exclusive lock lock for $newid
 	    return PVE::QemuServer::lock_config_full($newid, 1, $copyfn);
 	});
