@@ -62,6 +62,8 @@ my $check_storage_access = sub {
 my $check_storage_access_copy = sub {
    my ($rpcenv, $authuser, $storecfg, $conf, $storage) = @_;
 
+   my $sharedvm = 1;
+
    PVE::QemuServer::foreach_drive($conf, sub {
 	my ($ds, $drive) = @_;
 
@@ -76,14 +78,22 @@ my $check_storage_access_copy = sub {
 		$rpcenv->check($authuser, "/", ['Sys.Console']);
 	    } else {
 		# we simply allow access 
+		my ($sid, $volname) = PVE::Storage::parse_volume_id($volid);
+		my $scfg = PVE::Storage::storage_config($storecfg, $sid);
+		$sharedvm = 0 if !$scfg->{shared};
+
 	    }
 	} else {
-	    my ($sid, $volname) = PVE::Storage::parse_volume_id($volid, 1);
-	    die "unable to copy arbitrary files\n" if !$sid;
+	    my ($sid, $volname) = PVE::Storage::parse_volume_id($volid);
+	    my $scfg = PVE::Storage::storage_config($storecfg, $sid);
+	    $sharedvm = 0 if !$scfg->{shared};
+
 	    $sid = $storage if $storage;
 	    $rpcenv->check($authuser, "/storage/$sid", ['Datastore.AllocateSpace']);
 	}
     });
+
+   return $sharedvm;
 };
 
 # Note: $pool is only needed when creating a VM, because pool permissions
@@ -1823,21 +1833,25 @@ __PACKAGE__->register_method({
 		requires => 'full',
 		optional => 1,
 	    }),
-	    format => {
+	    'format' => {
 		description => "Target format for file storage.",
 		requires => 'full',
 		type => 'string',
 		optional => 1,
-		enum => [ 'raw', 'qcow2', 'vmdk'],
+	        enum => [ 'raw', 'qcow2', 'vmdk'],
 	    },
 	    full => {
 		optional => 1,
-		type => 'boolean',
-		description => "Create a full copy of all disk. This is always done when " .
+	        type => 'boolean',
+	        description => "Create a full copy of all disk. This is always done when " .
 		    "you copy a normal VM. For VM templates, we try to create a linked copy by default.",
 		default => 0,
 	    },
-	},
+	    target => get_standard_option('pve-node', { 
+		description => "Target node. Only allowed if the original VM is on shared storage.",
+		optional => 1,
+	    }),
+        },
     },
     returns => {
 	type => 'string',
@@ -1847,7 +1861,7 @@ __PACKAGE__->register_method({
 
 	my $rpcenv = PVE::RPCEnvironment::get();
 
-	my $authuser = $rpcenv->get_user();
+        my $authuser = $rpcenv->get_user();
 
 	my $node = extract_param($param, 'node');
 
@@ -1862,15 +1876,23 @@ __PACKAGE__->register_method({
 	    $rpcenv->check_pool_exist($pool);
 	}
 
-	my $snapname = extract_param($param, 'snapname');
+        my $snapname = extract_param($param, 'snapname');
 
 	my $storage = extract_param($param, 'storage');
 
 	my $format = extract_param($param, 'format');
 
+	my $target = extract_param($param, 'target');
+
+        my $localnode = PVE::INotify::nodename();
+
+        undef $target if $target eq $localnode || $target eq 'localhost';
+
+	PVE::Cluster::check_node_exists($target) if $target;
+
 	my $storecfg = PVE::Storage::config();
 
-	PVE::Cluster::check_cfs_quorum();
+        PVE::Cluster::check_cfs_quorum();
 
 	my $running = PVE::QemuServer::check_running($vmid) || 0;
 
@@ -1899,8 +1921,10 @@ __PACKAGE__->register_method({
 
 	    my $oldconf = $snapname ? $conf->{snapshots}->{$snapname} : $conf; 
 
-	    &$check_storage_access_copy($rpcenv, $authuser, $storecfg, $oldconf, $storage);
+	    my $sharedvm = &$check_storage_access_copy($rpcenv, $authuser, $storecfg, $oldconf, $storage);
 
+	    die "can't copy VM to node '$target' (VM uses local storage)\n" if $target && !$sharedvm;
+           
 	    my $conffile = PVE::QemuServer::config_file($newid);
 
 	    die "unable to create VM $newid: config file already exists\n"
@@ -2000,6 +2024,12 @@ __PACKAGE__->register_method({
 
 		    delete $newconf->{lock};
 		    PVE::QemuServer::update_config_nolock($newid, $newconf, 1);
+
+                    if ($target) {
+			my $newconffile = PVE::QemuServer::config_file($newid, $target);
+			die "Failed to move config to node '$target' - rename failed: $!\n"
+			    if !rename($conffile, $newconffile);
+		    }
 		};
 		if (my $err = $@) { 
 		    unlink $conffile;
