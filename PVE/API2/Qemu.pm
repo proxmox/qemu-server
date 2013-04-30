@@ -1779,7 +1779,7 @@ __PACKAGE__->register_method({
     method => 'POST',
     protected => 1,
     proxyto => 'node',
-    description => "Creat a copy of virtual machine/template.",
+    description => "Create a copy of virtual machine/template.",
     permissions => {
 	description => "You need 'VM.Copy' permissions on /vms/{vmid}, and 'VM.Allocate' permissions " .
 	    "on /vms/{newid} (or on the VM pool /pool/{pool}). You also need " .
