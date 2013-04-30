@@ -77,7 +77,7 @@ my $check_storage_access_copy = sub {
 	    if ($volid eq 'cdrom') {
 		$rpcenv->check($authuser, "/", ['Sys.Console']);
 	    } else {
-		# we simply allow access 
+		# we simply allow access
 		my ($sid, $volname) = PVE::Storage::parse_volume_id($volid);
 		my $scfg = PVE::Storage::storage_config($storecfg, $sid);
 		$sharedvm = 0 if !$scfg->{shared};
@@ -127,7 +127,7 @@ my $create_disks = sub {
 	} else {
 
 	    my $path = $rpcenv->check_volume_access($authuser, $storecfg, $vmid, $volid);
-	    
+
 	    my ($storeid, $volname) = PVE::Storage::parse_volume_id($volid, 1);
 
 	    my $foundvolid = undef;
@@ -144,7 +144,7 @@ my $create_disks = sub {
 		    }
 	        });
 	    }
-	
+
 	    die "image '$path' does not exists\n" if (!(-f $path || -b $path || $foundvolid));
 
 	    my ($size) = PVE::Storage::volume_size_info($storecfg, $volid, 1);
@@ -181,7 +181,7 @@ my $check_vm_modify_config_perm = sub {
 	next if PVE::QemuServer::valid_drivename($opt);
 
 	if ($opt eq 'sockets' || $opt eq 'cores' ||
-	    $opt eq 'cpu' || $opt eq 'smp' || 
+	    $opt eq 'cpu' || $opt eq 'smp' ||
 	    $opt eq 'cpulimit' || $opt eq 'cpuunits') {
 	    $rpcenv->check_vm_perm($authuser, $vmid, $pool, ['VM.Config.CPU']);
 	} elsif ($opt eq 'boot' || $opt eq 'bootdisk') {
@@ -190,7 +190,7 @@ my $check_vm_modify_config_perm = sub {
 	    $rpcenv->check_vm_perm($authuser, $vmid, $pool, ['VM.Config.Memory']);
 	} elsif ($opt eq 'args' || $opt eq 'lock') {
 	    die "only root can set '$opt' config\n";
-	} elsif ($opt eq 'cpu' || $opt eq 'kvm' || $opt eq 'acpi' || 
+	} elsif ($opt eq 'cpu' || $opt eq 'kvm' || $opt eq 'acpi' ||
 		 $opt eq 'vga' || $opt eq 'watchdog' || $opt eq 'tablet') {
 	    $rpcenv->check_vm_perm($authuser, $vmid, $pool, ['VM.Config.HWType']);
 	} elsif ($opt =~ m/^net\d+$/) {
@@ -255,7 +255,7 @@ __PACKAGE__->register_method({
     description => "Create or restore a virtual machine.",
     permissions => {
 	description => "You need 'VM.Allocate' permissions on /vms/{vmid} or on the VM pool /pool/{pool}. If you create disks you need 'Datastore.AllocateSpace' on any used storage.",
-	check => [ 'or', 
+	check => [ 'or',
 		   [ 'perm', '/vms/{vmid}', ['VM.Allocate']],
 		   [ 'perm', '/pool/{pool}', ['VM.Allocate'], require_param => 'pool'],
 	    ],
@@ -290,7 +290,7 @@ __PACKAGE__->register_method({
 		    description => "Assign a unique random ethernet address.",
 		    requires => 'archive',
 		},
-		pool => { 
+		pool => {
 		    optional => 1,
 		    type => 'string', format => 'pve-poolid',
 		    description => "Add the VM to the specified pool.",
@@ -318,7 +318,7 @@ __PACKAGE__->register_method({
 	my $force = extract_param($param, 'force');
 
 	my $unique = extract_param($param, 'unique');
-	
+
 	my $pool = extract_param($param, 'pool');
 
 	my $filename = PVE::QemuServer::config_file($vmid);
@@ -329,7 +329,7 @@ __PACKAGE__->register_method({
 
 	if (defined($pool)) {
 	    $rpcenv->check_pool_exist($pool);
-	} 
+	}
 
 	$rpcenv->check($authuser, "/storage/$storage", ['Datastore.AllocateSpace'])
 	    if defined($storage);
@@ -370,7 +370,7 @@ __PACKAGE__->register_method({
 	    }
 	}
 
-	my $addVMtoPoolFn = sub {		       
+	my $addVMtoPoolFn = sub {
 	    my $usercfg = cfs_read_file("user.cfg");
 	    if (my $data = $usercfg->{pools}->{$pool}) {
 		$data->{vms}->{$vmid} = 1;
@@ -681,7 +681,7 @@ my $vmconfig_delete_option = sub {
 	$rpcenv->check_vm_perm($authuser, $vmid, undef, ['VM.Config.Disk']);
 
 	my $drive = PVE::QemuServer::parse_drive($opt, $conf->{$opt});
-	if (my $sid = &$test_deallocate_drive($storecfg, $vmid, $opt, $drive, $force)) {  
+	if (my $sid = &$test_deallocate_drive($storecfg, $vmid, $opt, $drive, $force)) {
 	    $rpcenv->check($authuser, "/storage/$sid", ['Datastore.Allocate']);
 	}
     }
@@ -714,9 +714,9 @@ my $vmconfig_delete_option = sub {
 my $safe_num_ne = sub {
     my ($a, $b) = @_;
 
-    return 0 if !defined($a) && !defined($b); 
-    return 1 if !defined($a); 
-    return 1 if !defined($b); 
+    return 0 if !defined($a) && !defined($b);
+    return 1 if !defined($a);
+    return 1 if !defined($b);
 
     return $a != $b;
 };
@@ -753,9 +753,9 @@ my $vmconfig_update_disk = sub {
                &$safe_num_ne($drive->{iops}, $old_drive->{iops}) ||
                &$safe_num_ne($drive->{iops_rd}, $old_drive->{iops_rd}) ||
                &$safe_num_ne($drive->{iops_wr}, $old_drive->{iops_wr})) {
-               PVE::QemuServer::qemu_block_set_io_throttle($vmid,"drive-$opt", $drive->{mbps}*1024*1024, 
-							   $drive->{mbps_rd}*1024*1024, $drive->{mbps_wr}*1024*1024, 
-							   $drive->{iops}, $drive->{iops_rd}, $drive->{iops_wr}) 
+               PVE::QemuServer::qemu_block_set_io_throttle($vmid,"drive-$opt", $drive->{mbps}*1024*1024,
+							   $drive->{mbps_rd}*1024*1024, $drive->{mbps_wr}*1024*1024,
+							   $drive->{iops}, $drive->{iops_rd}, $drive->{iops_wr})
 		   if !PVE::QemuServer::drive_is_cdrom($drive);
             }
 	}
@@ -796,7 +796,7 @@ my $vmconfig_update_net = sub {
 	    #if model change, we try to hot-unplug
             die "error hot-unplug $opt for update" if !PVE::QemuServer::vm_deviceunplug($vmid, $conf, $opt);
 	}else{
-		
+
 	    if($newnet->{bridge} && $oldnet->{bridge}){
 		my $iface = "tap".$vmid."i".$1 if $opt =~ m/net(\d+)/;
 
@@ -814,7 +814,7 @@ my $vmconfig_update_net = sub {
 		die "error hot-unplug $opt for update" if !PVE::QemuServer::vm_deviceunplug($vmid, $conf, $opt);
 	    }
 	}
-	
+
     }
     $conf->{$opt} = $value;
     PVE::QemuServer::update_config_nolock($vmid, $conf, 1);
@@ -826,11 +826,11 @@ my $vmconfig_update_net = sub {
 };
 
 my $vm_config_perm_list = [
-	    'VM.Config.Disk', 
-	    'VM.Config.CDROM', 
-	    'VM.Config.CPU', 
-	    'VM.Config.Memory', 
-	    'VM.Config.Network', 
+	    'VM.Config.Disk',
+	    'VM.Config.CDROM',
+	    'VM.Config.CPU',
+	    'VM.Config.Memory',
+	    'VM.Config.Network',
 	    'VM.Config.HWType',
 	    'VM.Config.Options',
     ];
@@ -928,7 +928,7 @@ __PACKAGE__->register_method({
 		my $drive = PVE::QemuServer::parse_drive($opt, $param->{$opt});
 		PVE::QemuServer::cleanup_drive_path($opt, $storecfg, $drive);
 		$param->{$opt} = PVE::QemuServer::print_drive($vmid, $drive);
-	    } elsif ($opt =~ m/^net(\d+)$/) { 
+	    } elsif ($opt =~ m/^net(\d+)$/) {
 		# add macaddr
 		my $net = PVE::QemuServer::parse_net($param->{$opt});
 		$param->{$opt} = PVE::QemuServer::print_net($net);
@@ -975,12 +975,12 @@ __PACKAGE__->register_method({
 
 		if (PVE::QemuServer::valid_drivename($opt)) {
 
-		    &$vmconfig_update_disk($rpcenv, $authuser, $conf, $storecfg, $vmid, 
+		    &$vmconfig_update_disk($rpcenv, $authuser, $conf, $storecfg, $vmid,
 					   $opt, $param->{$opt}, $force);
-	
+
 		} elsif ($opt =~ m/^net(\d+)$/) { #nics
 
-		    &$vmconfig_update_net($rpcenv, $authuser, $conf, $storecfg, $vmid, 
+		    &$vmconfig_update_net($rpcenv, $authuser, $conf, $storecfg, $vmid,
 					  $opt, $param->{$opt});
 
 		} else {
@@ -997,7 +997,7 @@ __PACKAGE__->register_method({
 	    }
 
 	    # allow manual ballooning if shares is set to zero
-	    if ($running && defined($param->{balloon}) && 
+	    if ($running && defined($param->{balloon}) &&
 		defined($conf->{shares}) && ($conf->{shares} == 0)) {
 		my $balloon = $param->{'balloon'} || $conf->{memory} || $defaults->{memory};
 		PVE::QemuServer::vm_mon_cmd($vmid, "balloon", value => $balloon*1024*1024);
@@ -1050,7 +1050,7 @@ __PACKAGE__->register_method({
 
 	my $storecfg = PVE::Storage::config();
 
-	my $delVMfromPoolFn = sub {		       
+	my $delVMfromPoolFn = sub {
 	    my $usercfg = cfs_read_file("user.cfg");
 	    if (my $pool = $usercfg->{vms}->{$vmid}) {
 		if (my $data = $usercfg->{pools}->{$pool}) {
@@ -1246,7 +1246,7 @@ my $vm_is_ha_managed = sub {
     my $cc = PVE::Cluster::cfs_read_file('cluster.conf');
     if (PVE::Cluster::cluster_conf_lookup_pvevm($cc, 0, $vmid, 1)) {
 	return 1;
-    } 
+    }
     return 0;
 };
 
@@ -1733,7 +1733,7 @@ __PACKAGE__->register_method({
     path => '{vmid}/feature',
     method => 'GET',
     proxyto => 'node',
-    protected => 1, 
+    protected => 1,
     description => "Check if feature for virtual machine is available.",
     permissions => {
 	check => ['perm', '/vms/{vmid}', [ 'VM.Audit' ]],
@@ -1794,10 +1794,10 @@ __PACKAGE__->register_method({
 	description => "You need 'VM.Copy' permissions on /vms/{vmid}, and 'VM.Allocate' permissions " .
 	    "on /vms/{newid} (or on the VM pool /pool/{pool}). You also need " .
 	    "'Datastore.AllocateSpace' on any used storage.",
-	check => 
-	[ 'and', 
+	check =>
+	[ 'and',
 	  ['perm', '/vms/{vmid}', [ 'VM.Copy' ]],
-	  [ 'or', 
+	  [ 'or',
 	    [ 'perm', '/vms/{newid}', ['VM.Allocate']],
 	    [ 'perm', '/pool/{pool}', ['VM.Allocate'], require_param => 'pool'],
 	  ],
@@ -1819,7 +1819,7 @@ __PACKAGE__->register_method({
 		type => 'string',
 		description => "Description for the new VM.",
 	    },
-	    pool => { 
+	    pool => {
 		optional => 1,
 		type => 'string', format => 'pve-poolid',
 		description => "Add the new VM to the specified pool.",
@@ -1847,7 +1847,7 @@ __PACKAGE__->register_method({
 		    "you copy a normal VM. For VM templates, we try to create a linked copy by default.",
 		default => 0,
 	    },
-	    target => get_standard_option('pve-node', { 
+	    target => get_standard_option('pve-node', {
 		description => "Target node. Only allowed if the original VM is on shared storage.",
 		optional => 1,
 	    }),
@@ -1901,7 +1901,7 @@ __PACKAGE__->register_method({
 	# exclusive lock if VM is running - else shared lock is enough;
 	my $shared_lock = $running ? 0 : 1;
 
-	# fixme: do early checks - re-check after lock 
+	# fixme: do early checks - re-check after lock
 
 	# fixme: impl. target node parameter (mv VM config if all storages are shared)
 
@@ -1916,15 +1916,15 @@ __PACKAGE__->register_method({
 
 	    die "unexpected state change\n" if $verify_running != $running;
 
-	    die "snapshot '$snapname' does not exist\n" 
-		if $snapname && !defined( $conf->{snapshots}->{$snapname}); 
+	    die "snapshot '$snapname' does not exist\n"
+		if $snapname && !defined( $conf->{snapshots}->{$snapname});
 
-	    my $oldconf = $snapname ? $conf->{snapshots}->{$snapname} : $conf; 
+	    my $oldconf = $snapname ? $conf->{snapshots}->{$snapname} : $conf;
 
 	    my $sharedvm = &$check_storage_access_copy($rpcenv, $authuser, $storecfg, $oldconf, $storage);
 
 	    die "can't copy VM to node '$target' (VM uses local storage)\n" if $target && !$sharedvm;
-           
+
 	    my $conffile = PVE::QemuServer::config_file($newid);
 
 	    die "unable to create VM $newid: config file already exists\n"
@@ -1964,7 +1964,7 @@ __PACKAGE__->register_method({
 			    }
 			} else {
 			    # copy everything else
-			    $newconf->{$opt} = $value;  
+			    $newconf->{$opt} = $value;
 			}
 		    }
 
@@ -1979,7 +1979,7 @@ __PACKAGE__->register_method({
 		    if ($param->{description}) {
 			$newconf->{description} = $param->{description};
 		    }
-		    
+
 		    PVE::Storage::activate_volumes($storecfg, $vollist);
 
 		    eval {
@@ -2014,7 +2014,7 @@ __PACKAGE__->register_method({
 
 			    my ($size) = PVE::Storage::volume_size_info($storecfg, $newvolid, 3);
 			    my $disk = { file => $newvolid, size => $size };
-			    $newconf->{$opt} = PVE::QemuServer::print_drive($vmid, $disk); 
+			    $newconf->{$opt} = PVE::QemuServer::print_drive($vmid, $disk);
 			    push @$newvollist, $newvolid;
 
 			    PVE::QemuServer::update_config_nolock($newid, $newconf, 1);
@@ -2031,7 +2031,7 @@ __PACKAGE__->register_method({
 			    if !rename($conffile, $newconffile);
 		    }
 		};
-		if (my $err = $@) { 
+		if (my $err = $@) {
 		    unlink $conffile;
 
 		    sleep 1; # some storage like rbd need to wait before release volume - really?
@@ -2244,7 +2244,7 @@ __PACKAGE__->register_method({
         my $digest = extract_param($param, 'digest');
 
         my $disk = extract_param($param, 'disk');
- 
+
 	my $sizestr = extract_param($param, 'size');
 
 	my $skiplock = extract_param($param, 'skiplock');
@@ -2271,7 +2271,7 @@ __PACKAGE__->register_method({
 
 	    die "you can't resize a cdrom\n" if PVE::QemuServer::drive_is_cdrom($drive);
 
-	    die "you can't online resize a virtio windows bootdisk\n" 
+	    die "you can't online resize a virtio windows bootdisk\n"
 		if PVE::QemuServer::check_running($vmid) && $conf->{bootdisk} eq $disk && $conf->{ostype} =~ m/^w/ && $disk =~ m/^virtio/;
 
 	    my ($storeid, $volname) = PVE::Storage::parse_volume_id($volid);
@@ -2303,7 +2303,7 @@ __PACKAGE__->register_method({
             PVE::Cluster::log_msg('info', $authuser, "update VM $vmid: resize --disk $disk --size $sizestr");
 
 	    PVE::QemuServer::qemu_block_resize($vmid, "drive-$disk", $storecfg, $volid, $newsize);
-	    
+
 	    $drive->{size} = $newsize;
 	    $conf->{$disk} = PVE::QemuServer::print_drive($vmid, $drive);
 
@@ -2351,9 +2351,9 @@ __PACKAGE__->register_method({
 
 	foreach my $name (keys %$snaphash) {
 	    my $d = $snaphash->{$name};
-	    my $item = { 
-		name => $name, 
-		snaptime => $d->{snaptime} || 0, 
+	    my $item = {
+		name => $name,
+		snaptime => $d->{snaptime} || 0,
 		vmstate => $d->{vmstate} ? 1 : 0,
 		description => $d->{description} || '',
 	    };
@@ -2426,7 +2426,7 @@ __PACKAGE__->register_method({
 
 	my $realcmd = sub {
 	    PVE::Cluster::log_msg('info', $authuser, "snapshot VM $vmid: $snapname");
-	    PVE::QemuServer::snapshot_create($vmid, $snapname, $param->{vmstate}, 
+	    PVE::QemuServer::snapshot_create($vmid, $snapname, $param->{vmstate},
 					     $param->{freezefs}, $param->{description});
 	};
 
@@ -2513,8 +2513,8 @@ __PACKAGE__->register_method({
 
 	    my $snap = $conf->{snapshots}->{$snapname};
 
-	    die "snapshot '$snapname' does not exist\n" if !defined($snap); 
-	    
+	    die "snapshot '$snapname' does not exist\n" if !defined($snap);
+
 	    $snap->{description} = $param->{description} if defined($param->{description});
 
 	     PVE::QemuServer::update_config_nolock($vmid, $conf, 1);
@@ -2558,8 +2558,8 @@ __PACKAGE__->register_method({
 
 	my $snap = $conf->{snapshots}->{$snapname};
 
-	die "snapshot '$snapname' does not exist\n" if !defined($snap); 
-	    
+	die "snapshot '$snapname' does not exist\n" if !defined($snap);
+
 	return $snap;
     }});
 
@@ -2663,7 +2663,7 @@ __PACKAGE__->register_method({
     description => "Create a Template.",
     permissions => {
 	description => "You need 'VM.Allocate' permissions on /vms/{vmid} or on the VM pool /pool/{pool}.",
-	check => [ 'or', 
+	check => [ 'or',
 		   [ 'perm', '/vms/{vmid}', ['VM.Allocate']],
 		   [ 'perm', '/pool/{pool}', ['VM.Allocate'], require_param => 'pool'],
 	    ],
@@ -2702,13 +2702,13 @@ __PACKAGE__->register_method({
 
 	    PVE::QemuServer::check_lock($conf);
 
-	    die "unable to create template, because VM contains snapshots\n" 
+	    die "unable to create template, because VM contains snapshots\n"
 		if $conf->{snapshots} && scalar(keys %{$conf->{snapshots}});
 
-	    die "you can't convert a template to a template\n" 
+	    die "you can't convert a template to a template\n"
 		if PVE::QemuServer::is_template($conf) && !$disk;
 
-	    die "you can't convert a VM to template if VM is running\n" 
+	    die "you can't convert a VM to template if VM is running\n"
 		if PVE::QemuServer::check_running($vmid);
 
 	    my $realcmd = sub {
