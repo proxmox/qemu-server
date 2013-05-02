@@ -59,7 +59,7 @@ my $check_storage_access = sub {
     });
 };
 
-my $check_storage_access_copy = sub {
+my $check_storage_access_clone = sub {
    my ($rpcenv, $authuser, $storecfg, $conf, $storage) = @_;
 
    my $sharedvm = 1;
@@ -1784,19 +1784,19 @@ __PACKAGE__->register_method({
     }});
 
 __PACKAGE__->register_method({
-    name => 'copy_vm',
-    path => '{vmid}/copy',
+    name => 'clone_vm',
+    path => '{vmid}/clone',
     method => 'POST',
     protected => 1,
     proxyto => 'node',
     description => "Create a copy of virtual machine/template.",
     permissions => {
-	description => "You need 'VM.Copy' permissions on /vms/{vmid}, and 'VM.Allocate' permissions " .
+	description => "You need 'VM.Clone' permissions on /vms/{vmid}, and 'VM.Allocate' permissions " .
 	    "on /vms/{newid} (or on the VM pool /pool/{pool}). You also need " .
 	    "'Datastore.AllocateSpace' on any used storage.",
 	check =>
 	[ 'and',
-	  ['perm', '/vms/{vmid}', [ 'VM.Copy' ]],
+	  ['perm', '/vms/{vmid}', [ 'VM.Clone' ]],
 	  [ 'or',
 	    [ 'perm', '/vms/{newid}', ['VM.Allocate']],
 	    [ 'perm', '/pool/{pool}', ['VM.Allocate'], require_param => 'pool'],
@@ -1808,7 +1808,7 @@ __PACKAGE__->register_method({
 	properties => {
 	    node => get_standard_option('pve-node'),
 	    vmid => get_standard_option('pve-vmid'),
-	    newid => get_standard_option('pve-vmid', { description => 'VMID for the copy.' }),
+	    newid => get_standard_option('pve-vmid', { description => 'VMID for the clone.' }),
 	    name => {
 		optional => 1,
 		type => 'string', format => 'dns-name',
@@ -1829,7 +1829,7 @@ __PACKAGE__->register_method({
 		optional => 1,
             }),
 	    storage => get_standard_option('pve-storage-id', {
-		description => "Target storage for full copy.",
+		description => "Target storage for full clone.",
 		requires => 'full',
 		optional => 1,
 	    }),
@@ -1844,7 +1844,7 @@ __PACKAGE__->register_method({
 		optional => 1,
 	        type => 'boolean',
 	        description => "Create a full copy of all disk. This is always done when " .
-		    "you copy a normal VM. For VM templates, we try to create a linked copy by default.",
+		    "you clone a normal VM. For VM templates, we try to create a linked clone by default.",
 		default => 0,
 	    },
 	    target => get_standard_option('pve-node', {
@@ -1896,12 +1896,12 @@ __PACKAGE__->register_method({
 
 	my $running = PVE::QemuServer::check_running($vmid) || 0;
 
-	die "Copy running VM $vmid not implemented\n" if $running; # fixme: implement this
+	die "Clone running VM $vmid not implemented\n" if $running; # fixme: implement this
 
 	# exclusive lock if VM is running - else shared lock is enough;
 	my $shared_lock = $running ? 0 : 1;
 
-	my $copyfn = sub {
+	my $clonefn = sub {
 
 	    # do all tests after lock
 	    # we also try to do all tests before we fork the worker
@@ -1919,16 +1919,16 @@ __PACKAGE__->register_method({
 
 	    my $oldconf = $snapname ? $conf->{snapshots}->{$snapname} : $conf;
 
-	    my $sharedvm = &$check_storage_access_copy($rpcenv, $authuser, $storecfg, $oldconf, $storage);
+	    my $sharedvm = &$check_storage_access_clone($rpcenv, $authuser, $storecfg, $oldconf, $storage);
 
-	    die "can't copy VM to node '$target' (VM uses local storage)\n" if $target && !$sharedvm;
+	    die "can't clone VM to node '$target' (VM uses local storage)\n" if $target && !$sharedvm;
 
 	    my $conffile = PVE::QemuServer::config_file($newid);
 
 	    die "unable to create VM $newid: config file already exists\n"
 		if -f $conffile;
 
-	    my $newconf = { lock => 'copy' };
+	    my $newconf = { lock => 'clone' };
 	    my $drives = {};
 	    my $vollist = [];
 
@@ -1949,7 +1949,7 @@ __PACKAGE__->register_method({
 			$newconf->{$opt} = $value; # simply copy configuration
 		    } else {
 			if ($param->{full} || !PVE::Storage::volume_is_base($storecfg,  $drive->{file})) {
-			    die "Full copy feature is not available" 
+			    die "Full clone feature is not available" 
 				if !PVE::Storage::volume_has_feature($storecfg, 'copy', $drive->{file}, $snapname, $running);
 			    $drive->{full} = 1; 
 			}
@@ -1975,7 +1975,7 @@ __PACKAGE__->register_method({
 	    }
 
 	    # create empty/temp config - this fails if VM already exists on other node
-	    PVE::Tools::file_set_contents($conffile, "# qmcopy temporary file\nlock: copy\n");
+	    PVE::Tools::file_set_contents($conffile, "# qmclone temporary file\nlock: clone\n");
 
 	    my $realcmd = sub {
 		my $upid = shift;
@@ -1992,7 +1992,7 @@ __PACKAGE__->register_method({
 			    
 			my $newvolid;
 			if (!$drive->{full}) {
-			    print "clone drive $opt ($drive->{file})\n";
+			    print "create linked clone of drive $opt ($drive->{file})\n";
 			    $newvolid = PVE::Storage::vdisk_clone($storecfg,  $drive->{file}, $newid);
 			    push @$newvollist, $newvolid;
 
@@ -2010,7 +2010,7 @@ __PACKAGE__->register_method({
 
 			    my ($size) = PVE::Storage::volume_size_info($storecfg, $drive->{file}, 3);
 
-			    print "copy drive $opt ($drive->{file})\n";
+			    print "create ful clone of drive $opt ($drive->{file})\n";
 			    $newvolid = PVE::Storage::vdisk_alloc($storecfg, $storeid, $newid, $fmt, undef, ($size/1024));
 			    push @$newvollist, $newvolid;
 
@@ -2042,18 +2042,18 @@ __PACKAGE__->register_method({
 			eval { PVE::Storage::vdisk_free($storecfg, $volid); };
 			warn $@ if $@;
 		    }
-		    die "copy failed: $err";
+		    die "clone failed: $err";
 		}
 
 		return;
 	    };
 
-	    return $rpcenv->fork_worker('qmcopy', $vmid, $authuser, $realcmd);
+	    return $rpcenv->fork_worker('qmclone', $vmid, $authuser, $realcmd);
 	};
 
 	return PVE::QemuServer::lock_config_mode($vmid, 1, $shared_lock, sub {
 	    # Aquire exclusive lock lock for $newid
-	    return PVE::QemuServer::lock_config_full($newid, 1, $copyfn);
+	    return PVE::QemuServer::lock_config_full($newid, 1, $clonefn);
 	});
 
     }});
