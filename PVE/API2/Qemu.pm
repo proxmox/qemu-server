@@ -1906,8 +1906,6 @@ __PACKAGE__->register_method({
 
 	my $running = PVE::QemuServer::check_running($vmid) || 0;
 
-	die "Clone running VM $vmid not implemented\n" if $running; # fixme: implement this
-
 	# exclusive lock if VM is running - else shared lock is enough;
 	my $shared_lock = $running ? 0 : 1;
 
@@ -2024,7 +2022,12 @@ __PACKAGE__->register_method({
 			    $newvolid = PVE::Storage::vdisk_alloc($storecfg, $storeid, $newid, $fmt, undef, ($size/1024));
 			    push @$newvollist, $newvolid;
 
-			    PVE::QemuServer::qemu_img_convert($drive->{file}, $newvolid, $size, $snapname);
+			    if(!$running || $snapname){
+				PVE::QemuServer::qemu_img_convert($drive->{file}, $newvolid, $size, $snapname);
+			    }else{
+				PVE::QemuServer::qemu_drive_mirror($vmid, $opt, $newvolid, $newid);
+			    }
+
 			}
 
 			my ($size) = PVE::Storage::volume_size_info($storecfg, $newvolid, 3);
