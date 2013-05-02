@@ -1886,7 +1886,7 @@ __PACKAGE__->register_method({
 
         my $localnode = PVE::INotify::nodename();
 
-        undef $target if $target eq $localnode || $target eq 'localhost';
+        undef $target if $target && ($target eq $localnode || $target eq 'localhost');
 
 	PVE::Cluster::check_node_exists($target) if $target;
 
