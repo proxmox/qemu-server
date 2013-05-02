@@ -1992,6 +1992,8 @@ __PACKAGE__->register_method({
 			    if (!$param->{full} && PVE::Storage::volume_is_base($storecfg,  $drive->{file})) {
 				print "clone drive $opt ($drive->{file})\n";
 				$newvolid = PVE::Storage::vdisk_clone($storecfg,  $drive->{file}, $newid);
+				push @$newvollist, $newvolid;
+
 			    } else {
 				my ($storeid, $volname) = PVE::Storage::parse_volume_id($drive->{file});
 				$storeid = $storage if $storage;
@@ -2008,6 +2010,7 @@ __PACKAGE__->register_method({
 
 				print "copy drive $opt ($drive->{file})\n";
 				$newvolid = PVE::Storage::vdisk_alloc($storecfg, $storeid, $newid, $fmt, undef, ($size/1024));
+				push @$newvollist, $newvolid;
 
 				PVE::QemuServer::qemu_img_convert($drive->{file}, $newvolid, $size, $snapname);
 			    }
@@ -2015,7 +2018,6 @@ __PACKAGE__->register_method({
 			    my ($size) = PVE::Storage::volume_size_info($storecfg, $newvolid, 3);
 			    my $disk = { file => $newvolid, size => $size };
 			    $newconf->{$opt} = PVE::QemuServer::print_drive($vmid, $disk);
-			    push @$newvollist, $newvolid;
 
 			    PVE::QemuServer::update_config_nolock($newid, $newconf, 1);
 			}
