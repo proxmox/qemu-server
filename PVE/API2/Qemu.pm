@@ -1901,13 +1901,11 @@ __PACKAGE__->register_method({
 	# exclusive lock if VM is running - else shared lock is enough;
 	my $shared_lock = $running ? 0 : 1;
 
-	# fixme: do early checks - re-check after lock
-
-	# fixme: impl. target node parameter (mv VM config if all storages are shared)
-
 	my $copyfn = sub {
 
-	    # all tests after lock
+	    # do all tests after lock
+	    # we also try to do all tests before we fork the worker
+
 	    my $conf = PVE::QemuServer::load_config($vmid);
 
 	    PVE::QemuServer::check_lock($conf);
@@ -1930,6 +1928,48 @@ __PACKAGE__->register_method({
 	    die "unable to create VM $newid: config file already exists\n"
 		if -f $conffile;
 
+	    my $newconf = { lock => 'copy' };
+	    my $drives = {};
+	    my $vollist = [];
+
+	    foreach my $opt (keys %$oldconf) {
+		my $value = $oldconf->{$opt};
+
+		# do not copy snapshot related info
+		next if $opt eq 'snapshots' ||  $opt eq 'parent' || $opt eq 'snaptime' ||
+		    $opt eq 'vmstate' || $opt eq 'snapstate';
+
+		# always change MAC! address
+		if ($opt =~ m/^net(\d+)$/) {
+		    my $net = PVE::QemuServer::parse_net($value);
+		    $net->{macaddr} =  PVE::Tools::random_ether_addr();
+		    $newconf->{$opt} = PVE::QemuServer::print_net($net);
+		} elsif (my $drive = PVE::QemuServer::parse_drive($opt, $value)) {
+		    if (PVE::QemuServer::drive_is_cdrom($drive)) {
+			$newconf->{$opt} = $value; # simply copy configuration
+		    } else {
+			$drive->{full} = 1 if $param->{full} || !PVE::Storage::volume_is_base($storecfg,  $drive->{file});
+			$drives->{$opt} = $drive;
+			push @$vollist, $drive->{file};
+		    }
+		} else {
+		    # copy everything else
+		    $newconf->{$opt} = $value;
+		}
+	    }
+
+	    delete $newconf->{template};
+
+	    if ($param->{name}) {
+		$newconf->{name} = $param->{name};
+	    } else {
+		$newconf->{name} = "Copy-of-$oldconf->{name}";
+	    }
+	    
+	    if ($param->{description}) {
+		$newconf->{description} = $param->{description};
+	    }
+
 	    # create empty/temp config - this fails if VM already exists on other node
 	    PVE::Tools::file_set_contents($conffile, "# qmcopy temporary file\nlock: copy\n");
 
@@ -1939,90 +1979,46 @@ __PACKAGE__->register_method({
 		my $newvollist = [];
 
 		eval {
-		    my $newconf = { lock => 'copy' };
-		    my $drives = {};
-		    my $vollist = [];
-
-		    foreach my $opt (keys %$oldconf) {
-			my $value = $oldconf->{$opt};
-
-			# do not copy snapshot related info
-			next if $opt eq 'snapshots' ||  $opt eq 'parent' || $opt eq 'snaptime' ||
-			    $opt eq 'vmstate' || $opt eq 'snapstate';
-
-			# always change MAC! address
-			if ($opt =~ m/^net(\d+)$/) {
-			    my $net = PVE::QemuServer::parse_net($value);
-			    $net->{macaddr} =  PVE::Tools::random_ether_addr();
-			    $newconf->{$opt} = PVE::QemuServer::print_net($net);
-			} elsif (my $drive = PVE::QemuServer::parse_drive($opt, $value)) {
-			    if (PVE::QemuServer::drive_is_cdrom($drive)) {
-				$newconf->{$opt} = $value; # simply copy configuration
-			    } else {
-				$drives->{$opt} = $drive;
-				push @$vollist, $drive->{file};
-			    }
-			} else {
-			    # copy everything else
-			    $newconf->{$opt} = $value;
-			}
-		    }
-
-		    delete $newconf->{template};
-
-		    if ($param->{name}) {
-			$newconf->{name} = $param->{name};
-		    } else {
-			$newconf->{name} = "Copy-of-$oldconf->{name}";
-		    }
-
-		    if ($param->{description}) {
-			$newconf->{description} = $param->{description};
-		    }
+		    local $SIG{INT} = $SIG{TERM} = $SIG{QUIT} = $SIG{HUP} = sub { die "interrupted by signal\n"; };
 
 		    PVE::Storage::activate_volumes($storecfg, $vollist);
 
-		    eval {
-			local $SIG{INT} = $SIG{TERM} = $SIG{QUIT} = $SIG{HUP} = sub { die "interrupted by signal\n"; };
+		    foreach my $opt (keys %$drives) {
+			my $drive = $drives->{$opt};
+			    
+			my $newvolid;
+			if (!$drive->{full}) {
+			    print "clone drive $opt ($drive->{file})\n";
+			    $newvolid = PVE::Storage::vdisk_clone($storecfg,  $drive->{file}, $newid);
+			    push @$newvollist, $newvolid;
 
-			foreach my $opt (keys %$drives) {
-			    my $drive = $drives->{$opt};
+			} else {
+			    my ($storeid, $volname) = PVE::Storage::parse_volume_id($drive->{file});
+			    $storeid = $storage if $storage;
 
-			    my $newvolid;
-			    if (!$param->{full} && PVE::Storage::volume_is_base($storecfg,  $drive->{file})) {
-				print "clone drive $opt ($drive->{file})\n";
-				$newvolid = PVE::Storage::vdisk_clone($storecfg,  $drive->{file}, $newid);
-				push @$newvollist, $newvolid;
-
-			    } else {
-				my ($storeid, $volname) = PVE::Storage::parse_volume_id($drive->{file});
-				$storeid = $storage if $storage;
-
-				my $fmt = undef;
-				if($format){
-				    $fmt = $format;
-				}else{
-				    my $defformat = PVE::Storage::storage_default_format($storecfg, $storeid);
-				    $fmt = $drive->{format} || $defformat;
-				}
-
-				my ($size) = PVE::Storage::volume_size_info($storecfg, $drive->{file}, 3);
-
-				print "copy drive $opt ($drive->{file})\n";
-				$newvolid = PVE::Storage::vdisk_alloc($storecfg, $storeid, $newid, $fmt, undef, ($size/1024));
-				push @$newvollist, $newvolid;
-
-				PVE::QemuServer::qemu_img_convert($drive->{file}, $newvolid, $size, $snapname);
+			    my $fmt = undef;
+			    if($format){
+				$fmt = $format;
+			    }else{
+				my $defformat = PVE::Storage::storage_default_format($storecfg, $storeid);
+				$fmt = $drive->{format} || $defformat;
 			    }
 
-			    my ($size) = PVE::Storage::volume_size_info($storecfg, $newvolid, 3);
-			    my $disk = { file => $newvolid, size => $size };
-			    $newconf->{$opt} = PVE::QemuServer::print_drive($vmid, $disk);
+			    my ($size) = PVE::Storage::volume_size_info($storecfg, $drive->{file}, 3);
 
-			    PVE::QemuServer::update_config_nolock($newid, $newconf, 1);
+			    print "copy drive $opt ($drive->{file})\n";
+			    $newvolid = PVE::Storage::vdisk_alloc($storecfg, $storeid, $newid, $fmt, undef, ($size/1024));
+			    push @$newvollist, $newvolid;
+
+			    PVE::QemuServer::qemu_img_convert($drive->{file}, $newvolid, $size, $snapname);
 			}
-		    };
-		    die $@ if $@;
+
+			my ($size) = PVE::Storage::volume_size_info($storecfg, $newvolid, 3);
+			my $disk = { file => $newvolid, size => $size };
+			$newconf->{$opt} = PVE::QemuServer::print_drive($vmid, $disk);
+			
+			PVE::QemuServer::update_config_nolock($newid, $newconf, 1);
+		    }
 
 		    delete $newconf->{lock};
 		    PVE::QemuServer::update_config_nolock($newid, $newconf, 1);
