@@ -1948,7 +1948,11 @@ __PACKAGE__->register_method({
 		    if (PVE::QemuServer::drive_is_cdrom($drive)) {
 			$newconf->{$opt} = $value; # simply copy configuration
 		    } else {
-			$drive->{full} = 1 if $param->{full} || !PVE::Storage::volume_is_base($storecfg,  $drive->{file});
+			if ($param->{full} || !PVE::Storage::volume_is_base($storecfg,  $drive->{file})) {
+			    die "Full copy feature is not available" 
+				if !PVE::Storage::volume_has_feature($storecfg, 'copy', $drive->{file}, $snapname, $running);
+			    $drive->{full} = 1; 
+			}
 			$drives->{$opt} = $drive;
 			push @$vollist, $drive->{file};
 		    }
