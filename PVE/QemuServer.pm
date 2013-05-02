@@ -4542,4 +4542,77 @@ sub qemu_img_format {
     }
 }
 
+sub qemu_drive_mirror {
+    my ($vmid, $drive, $dst_volid, $vmiddst, $maxwait) = @_;
+
+    my $count = 1;
+    my $old_len = 0;
+    my $frozen = undef;
+
+    my $storecfg = PVE::Storage::config();
+    my ($dst_storeid, $dst_volname) = PVE::Storage::parse_volume_id($dst_volid, 1);
+
+    if ($dst_storeid) {
+	my $dst_scfg = PVE::Storage::storage_config($storecfg, $dst_storeid);
+
+	my $format = undef;
+        if ($dst_volname =~ m/\.(raw|qcow2)$/){
+	    $format = $1;
+	}
+
+	my $dst_path = PVE::Storage::path($storecfg, $dst_volid);
+
+	if($format){
+	    #fixme : sometime drive-mirror timeout, but works fine after. (I have see the problem with big volume > 200GB), so we need to eval
+	    eval{ PVE::QemuServer::vm_mon_cmd($vmid, "drive-mirror", timeout => 10, device => "drive-$drive", mode => "existing", sync => "full", target => $dst_path, format => $format); };
+	}else{
+	    eval{ PVE::QemuServer::vm_mon_cmd($vmid, "drive-mirror", timeout => 10, device => "drive-$drive", mode => "existing", sync => "full", target => $dst_path); };
+	}
+	eval{
+	    while (1) {
+		my $stats = PVE::QemuServer::vm_mon_cmd($vmid, "query-block-jobs");
+		my $stat = @$stats[0];
+		my $transferred = $stat->{offset};
+		my $total = $stat->{len};
+		my $remaining = $total - $transferred;
+		my $percent = sprintf "%.2f", ($transferred * 100 / $total);
+		die "error job is not mirroring" if $stat->{type} ne "mirror";
+
+                print "transferred: $transferred bytes remaining: $remaining bytes total: $total bytes progression: $percent %\n";
+
+		last if ($stat->{len} == $stat->{offset});
+		if ($old_len == $stat->{offset}) {
+		    if ($maxwait && $count > $maxwait) {
+		    # if writes to disk occurs the disk needs to be freezed
+		    # to be able to complete the migration
+			vm_suspend($vmid,1);
+			$count = 0;
+			$frozen = 1;
+		    }else {
+			$count++ unless $frozen;
+		    }
+		}
+		elsif ($frozen) {
+			vm_resume($vmid,1);
+			$count = 0;
+		}
+		$old_len = $stat->{offset};
+		sleep 1;
+	    }
+	};
+	if ($@) {
+	    eval{ PVE::QemuServer::vm_mon_cmd($vmid, "block-job-cancel", device => "drive-$drive"); };
+	    die "mirroring error: $@";
+	}
+
+	if($vmiddst != $vmid){
+	    #if we clone a disk for a new target vm, we don't switch the disk
+	    PVE::QemuServer::vm_mon_cmd($vmid, "block-job-cancel", device => "drive-$drive");
+	}else{
+	    #if source and destination are on the same guest
+	    PVE::QemuServer::vm_mon_cmd($vmid, "block-job-complete", device => "drive-$drive");
+	}
+    }
+}
+
 1;
