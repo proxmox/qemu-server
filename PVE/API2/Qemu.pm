@@ -248,6 +248,39 @@ __PACKAGE__->register_method({
 	return $res;
     }});
 
+
+sub add_vm_to_pool {
+    my ($vmid, $pool) = @_;
+
+    my $addVMtoPoolFn = sub {
+	my $usercfg = cfs_read_file("user.cfg");
+	if (my $data = $usercfg->{pools}->{$pool}) {
+	    $data->{vms}->{$vmid} = 1;
+	    $usercfg->{vms}->{$vmid} = $pool;
+	    cfs_write_file("user.cfg", $usercfg);
+	}
+    };
+
+    PVE::AccessControl::lock_user_config($addVMtoPoolFn, "can't add VM $vmid to pool '$pool'");
+};
+
+sub remove_vm_from_pool {
+    my ($vmid) = @_;
+    
+    my $delVMfromPoolFn = sub {
+	my $usercfg = cfs_read_file("user.cfg");
+	if (my $pool = $usercfg->{vms}->{$vmid}) {
+	    if (my $data = $usercfg->{pools}->{$pool}) {
+		delete $data->{vms}->{$vmid};
+		delete $usercfg->{vms}->{$vmid};
+		cfs_write_file("user.cfg", $usercfg);
+	    }
+	}
+    };
+
+    PVE::AccessControl::lock_user_config($delVMfromPoolFn, "pool cleanup for VM $vmid failed");
+}
+
 __PACKAGE__->register_method({
     name => 'create_vm',
     path => '',
@@ -380,15 +413,6 @@ __PACKAGE__->register_method({
 	    }
 	}
 
-	my $addVMtoPoolFn = sub {
-	    my $usercfg = cfs_read_file("user.cfg");
-	    if (my $data = $usercfg->{pools}->{$pool}) {
-		$data->{vms}->{$vmid} = 1;
-		$usercfg->{vms}->{$vmid} = $pool;
-		cfs_write_file("user.cfg", $usercfg);
-	    }
-	};
-
 	my $restorefn = sub {
 
 	    # fixme: this test does not work if VM exists on other node!
@@ -406,7 +430,7 @@ __PACKAGE__->register_method({
 		    pool => $pool,
 		    unique => $unique });
 
-		PVE::AccessControl::lock_user_config($addVMtoPoolFn, "can't add VM to pool") if $pool;
+		add_vm_to_pool($vmid, $pool) if $pool;
 	    };
 
 	    return $rpcenv->fork_worker('qmrestore', $vmid, $authuser, $realcmd);
@@ -455,7 +479,7 @@ __PACKAGE__->register_method({
 		    die "create failed - $err";
 		}
 
-		PVE::AccessControl::lock_user_config($addVMtoPoolFn, "can't add VM to pool") if $pool;
+		add_vm_to_pool($vmid, $pool) if $pool;
 	    };
 
 	    return $rpcenv->fork_worker('qmcreate', $vmid, $authuser, $realcmd);
@@ -1078,7 +1102,7 @@ __PACKAGE__->register_method({
 
 	    PVE::QemuServer::vm_destroy($storecfg, $vmid, $skiplock);
 
-	    PVE::AccessControl::lock_user_config($delVMfromPoolFn, "pool cleanup failed");
+	    remove_vm_from_pool($vmid);
 	};
 
 	return $rpcenv->fork_worker('qmdestroy', $vmid, $authuser, $realcmd);
@@ -1879,7 +1903,6 @@ __PACKAGE__->register_method({
 
 	my $newid = extract_param($param, 'newid');
 
-	# fixme: update pool after create
 	my $pool = extract_param($param, 'pool');
 
 	if (defined($pool)) {
@@ -2045,6 +2068,8 @@ __PACKAGE__->register_method({
 			die "Failed to move config to node '$target' - rename failed: $!\n"
 			    if !rename($conffile, $newconffile);
 		    }
+
+		    add_vm_to_pool($newid, $pool) if $pool;
 		};
 		if (my $err = $@) {
 		    unlink $conffile;
