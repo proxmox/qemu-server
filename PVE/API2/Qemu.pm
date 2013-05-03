@@ -1780,7 +1780,7 @@ __PACKAGE__->register_method({
             feature => {
                 description => "Feature to check.",
                 type => 'string',
-                enum => [ 'snapshot', 'clone' ],
+                enum => [ 'snapshot', 'clone', 'copy' ],
             },
             snapname => get_standard_option('pve-snapshot-name', {
                 optional => 1,
