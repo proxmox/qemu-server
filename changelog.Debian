@@ -1,3 +1,10 @@
+qemu-server (3.0-6) unstable; urgency=low
+
+  * fix bug #379 - restore: allow to overwrite existing VMs if user has 
+    VM.Backup permissions
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 03 May 2013 07:53:40 +0200
+
 qemu-server (3.0-5) unstable; urgency=low
 
   * implement shared file locks
