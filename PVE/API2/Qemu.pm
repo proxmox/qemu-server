@@ -1957,9 +1957,9 @@ __PACKAGE__->register_method({
 			$newconf->{$opt} = $value; # simply copy configuration
 		    } else {
 			if ($param->{full} || !PVE::Storage::volume_is_base($storecfg,  $drive->{file})) {
-			    die "Full clone feature is not available" 
+			    die "Full clone feature is not available"
 				if !PVE::Storage::volume_has_feature($storecfg, 'copy', $drive->{file}, $snapname, $running);
-			    $drive->{full} = 1; 
+			    $drive->{full} = 1;
 			}
 			$drives->{$opt} = $drive;
 			push @$vollist, $drive->{file};
@@ -1977,7 +1977,7 @@ __PACKAGE__->register_method({
 	    } else {
 		$newconf->{name} = "Copy-of-$oldconf->{name}";
 	    }
-	    
+
 	    if ($param->{description}) {
 		$newconf->{description} = $param->{description};
 	    }
@@ -1997,7 +1997,7 @@ __PACKAGE__->register_method({
 
 		    foreach my $opt (keys %$drives) {
 			my $drive = $drives->{$opt};
-			    
+
 			my $newvolid;
 			if (!$drive->{full}) {
 			    print "create linked clone of drive $opt ($drive->{file})\n";
@@ -2018,7 +2018,7 @@ __PACKAGE__->register_method({
 
 			    my ($size) = PVE::Storage::volume_size_info($storecfg, $drive->{file}, 3);
 
-			    print "create ful clone of drive $opt ($drive->{file})\n";
+			    print "create full clone of drive $opt ($drive->{file})\n";
 			    $newvolid = PVE::Storage::vdisk_alloc($storecfg, $storeid, $newid, $fmt, undef, ($size/1024));
 			    push @$newvollist, $newvolid;
 
@@ -2033,7 +2033,7 @@ __PACKAGE__->register_method({
 			my ($size) = PVE::Storage::volume_size_info($storecfg, $newvolid, 3);
 			my $disk = { file => $newvolid, size => $size };
 			$newconf->{$opt} = PVE::QemuServer::print_drive($vmid, $disk);
-			
+
 			PVE::QemuServer::update_config_nolock($newid, $newconf, 1);
 		    }
 
