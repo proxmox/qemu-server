@@ -7,7 +7,7 @@ use Cwd 'abs_path';
 use PVE::Cluster qw (cfs_read_file cfs_write_file);;
 use PVE::SafeSyslog;
 use PVE::Tools qw(extract_param);
-use PVE::Exception qw(raise raise_param_exc);
+use PVE::Exception qw(raise raise_param_exc raise_perm_exc);
 use PVE::Storage;
 use PVE::JSONSchema qw(get_standard_option);
 use PVE::RESTHandler;
@@ -254,11 +254,10 @@ __PACKAGE__->register_method({
     method => 'POST',
     description => "Create or restore a virtual machine.",
     permissions => {
-	description => "You need 'VM.Allocate' permissions on /vms/{vmid} or on the VM pool /pool/{pool}. If you create disks you need 'Datastore.AllocateSpace' on any used storage.",
-	check => [ 'or',
-		   [ 'perm', '/vms/{vmid}', ['VM.Allocate']],
-		   [ 'perm', '/pool/{pool}', ['VM.Allocate'], require_param => 'pool'],
-	    ],
+	description => "You need 'VM.Allocate' permissions on /vms/{vmid} or on the VM pool /pool/{pool}. " .
+	    "For restore (option 'archive'), it is enough if the user has 'VM.Backup' permission and the VM already exists. " .
+	    "If you create disks you need 'Datastore.AllocateSpace' on any used storage.",
+        user => 'all', # check inside
     },
     protected => 1,
     proxyto => 'node',
@@ -333,6 +332,17 @@ __PACKAGE__->register_method({
 
 	$rpcenv->check($authuser, "/storage/$storage", ['Datastore.AllocateSpace'])
 	    if defined($storage);
+
+	if ($rpcenv->check($authuser, "/vms/$vmid", ['VM.Allocate'], 1)) {
+	    # OK
+	} elsif ($pool && $rpcenv->check($authuser, "/pool/$pool", ['VM.Allocate'], 1)) {
+	    # OK
+	} elsif ($archive && $force && (-f $filename) &&
+		 $rpcenv->check($authuser, "/vms/$vmid", ['VM.Backup'], 1)) {
+	    # OK: user has VM.Backup permissions, and want to restore an existing VM
+	} else {
+	    raise_perm_exc();
+	}
 
 	if (!$archive) {
 	    &$resolve_cdrom_alias($param);
