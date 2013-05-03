@@ -2702,11 +2702,8 @@ __PACKAGE__->register_method({
     proxyto => 'node',
     description => "Create a Template.",
     permissions => {
-	description => "You need 'VM.Allocate' permissions on /vms/{vmid} or on the VM pool /pool/{pool}.",
-	check => [ 'or',
-		   [ 'perm', '/vms/{vmid}', ['VM.Allocate']],
-		   [ 'perm', '/pool/{pool}', ['VM.Allocate'], require_param => 'pool'],
-	    ],
+	description => "You need 'VM.Allocate' permissions on /vms/{vmid}",
+	check => [ 'perm', '/vms/{vmid}', ['VM.Allocate']],
     },
     parameters => {
 	additionalProperties => 0,
@@ -2764,7 +2761,5 @@ __PACKAGE__->register_method({
 	PVE::QemuServer::lock_config($vmid, $updatefn);
 	return undef;
     }});
-
-
 
 1;
