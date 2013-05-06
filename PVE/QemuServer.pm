@@ -4634,9 +4634,9 @@ sub qemu_drive_mirror {
 		sleep 1;
 	    }
 	};
-	if ($@) {
-	    eval{ PVE::QemuServer::vm_mon_cmd($vmid, "block-job-cancel", device => "drive-$drive"); };
-	    die "mirroring error: $@";
+	if (my $err = $@) {
+	    eval { PVE::QemuServer::vm_mon_cmd($vmid, "block-job-cancel", device => "drive-$drive"); };
+	    die "mirroring error: $err";
 	}
 
 	if($vmiddst != $vmid){
