@@ -1,3 +1,9 @@
+qemu-server (3.0-7) unstable; urgency=low
+
+  * has_feature: return list of allowed nodes
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 06 May 2013 08:58:35 +0200
+
 qemu-server (3.0-6) unstable; urgency=low
 
   * fix bug #379 - restore: allow to overwrite existing VMs if user has 
