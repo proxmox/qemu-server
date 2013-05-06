@@ -1821,7 +1821,7 @@ sub check_local_resources {
     return $loc_res;
 }
 
-# check is used storages are available on all nodes (use by migrate)
+# check if used storages are available on all nodes (use by migrate)
 sub check_storage_availability {
     my ($storecfg, $conf, $node) = @_;
 
@@ -1838,6 +1838,40 @@ sub check_storage_availability {
 	my $scfg = PVE::Storage::storage_check_node($storecfg, $sid);
 	PVE::Storage::storage_check_node($storecfg, $sid, $node);
    });
+}
+
+# list nodes where all VM images are available (used by has_feature API)
+sub shared_nodes {
+    my ($conf, $storecfg) = @_;
+
+    my $nodelist = PVE::Cluster::get_nodelist();
+    my $nodehash = { map { $_ => 1 } @$nodelist };
+    my $nodename = PVE::INotify::nodename();
+  
+    foreach_drive($conf, sub {
+	my ($ds, $drive) = @_;
+
+	my $volid = $drive->{file};
+	return if !$volid;
+
+	my ($storeid, $volname) = PVE::Storage::parse_volume_id($volid, 1);
+	if ($storeid) {
+	    my $scfg = PVE::Storage::storage_config($storecfg, $storeid);
+	    if ($scfg->{disable}) {
+		$nodehash = {};
+	    } elsif (my $avail = $scfg->{nodes}) {
+		foreach my $node (keys %$nodehash) {
+		    delete $nodehash->{$node} if !$avail->{$node};
+		}
+	    } elsif (!$scfg->{shared}) {
+		foreach my $node (keys %$nodehash) {
+		    delete $nodehash->{$node} if $node ne $nodename
+		}
+	    }
+	}
+    });
+
+    return $nodehash
 }
 
 sub check_lock {
@@ -4442,7 +4476,7 @@ sub snapshot_delete {
 sub has_feature {
     my ($feature, $conf, $storecfg, $snapname, $running) = @_;
 
-    my $err = undef;
+    my $err;
     foreach_drive($conf, sub {
 	my ($ds, $drive) = @_;
 
@@ -4451,7 +4485,7 @@ sub has_feature {
 	$err = 1 if !PVE::Storage::volume_has_feature($storecfg, $feature, $volid, $snapname, $running);
     });
 
-    return 1 if !$err;
+    return $err ? 0 : 1;
 }
 
 sub template_create {

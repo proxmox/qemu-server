@@ -1788,7 +1788,14 @@ __PACKAGE__->register_method({
 	},
     },
     returns => {
-        type => 'boolean'
+	type => "object",
+	properties => {
+	    hasFeature => { type => 'boolean' },
+	    nodes => { 	
+		type => 'array',
+		items => { type => 'string' },
+	    }
+	},
     },
     code => sub {
 	my ($param) = @_;
@@ -1812,9 +1819,13 @@ __PACKAGE__->register_method({
 	}
 	my $storecfg = PVE::Storage::config();
 
-	my $hasfeature = PVE::QemuServer::has_feature($feature, $conf, $storecfg, $snapname, $running);
-	my $res = $hasfeature ? 1 : 0 ;
-	return $res;
+	my $nodelist = PVE::QemuServer::shared_nodes($conf, $storecfg);
+	my $hasFeature = PVE::QemuServer::has_feature($feature, $conf, $storecfg, $snapname, $running);
+	
+	return {
+	    hasFeature => $hasFeature,
+	    nodes => [ keys %$nodelist ],
+	}; 
     }});
 
 __PACKAGE__->register_method({
