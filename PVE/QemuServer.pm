@@ -4606,11 +4606,13 @@ sub qemu_drive_mirror {
 	    while (1) {
 		my $stats = PVE::QemuServer::vm_mon_cmd($vmid, "query-block-jobs");
 		my $stat = @$stats[0];
+		die "mirroring job seem to have die. Maybe do you have bad sectors?" if !$stat;
+		die "error job is not mirroring" if $stat->{type} ne "mirror";
+
 		my $transferred = $stat->{offset};
 		my $total = $stat->{len};
 		my $remaining = $total - $transferred;
 		my $percent = sprintf "%.2f", ($transferred * 100 / $total);
-		die "error job is not mirroring" if $stat->{type} ne "mirror";
 
                 print "transferred: $transferred bytes remaining: $remaining bytes total: $total bytes progression: $percent %\n";
 
