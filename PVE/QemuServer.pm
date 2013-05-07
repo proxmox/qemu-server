@@ -4558,20 +4558,17 @@ sub qemu_img_convert {
 sub qemu_img_format {
     my ($scfg, $volname) = @_;
 
-    if ($scfg->{path} && $volname =~ m/\.(raw|qcow2|qed|vmdk)$/){
+    if ($scfg->{path} && $volname =~ m/\.(raw|qcow2|qed|vmdk)$/) {
 	return $1;
-    }
-    elsif ($scfg->{type} eq 'nexenta' || $scfg->{type} eq 'iscsidirect'){
+    } elsif ($scfg->{type} eq 'nexenta' || $scfg->{type} eq 'iscsidirect') {
 	return "iscsi";
-    }
-    elsif ($scfg->{type} eq 'lvm' || $scfg->{type} eq 'iscsi'){
+    } elsif ($scfg->{type} eq 'iscsi') {
 	return "host_device";
-    }
-    elsif ($scfg->{type} eq 'rbd'){
+    } elsif ($scfg->{type} eq 'lvm') {
+	return "raw";	
+    } elsif ($scfg->{type} eq 'rbd') {
 	return "raw";
-    }
-    #sheepdog other qemu block driver
-    else{
+    } else { # sheepdog or other qemu block driver
 	return $scfg->{type};
     }
 }
