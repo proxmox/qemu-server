@@ -1,3 +1,13 @@
+qemu-server (3.0-8) unstable; urgency=low
+
+  * qemu_img_format: use 'raw' for lvm
+
+  * drive-mirror : die if stats are empty
+
+  * set long timeout for query-block-jobs
+  
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 07 May 2013 10:19:19 +0200
+
 qemu-server (3.0-7) unstable; urgency=low
 
   * has_feature: return list of allowed nodes
