@@ -1,3 +1,9 @@
+qemu-server (3.0-9) unstable; urgency=low
+
+  * restore: do not restore template flag
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 08 May 2013 10:23:49 +0200
+
 qemu-server (3.0-8) unstable; urgency=low
 
   * qemu_img_format: use 'raw' for lvm
