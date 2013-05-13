@@ -1,6 +1,8 @@
 qemu-server (3.0-10) unstable; urgency=low
 
   * fix bug #381: use PVE::Tools::next_migrate_port()
+  
+  * clone: check is we can clone to target storage
 
  -- Proxmox Support Team <support@proxmox.com>  Mon, 13 May 2013 07:31:47 +0200
 

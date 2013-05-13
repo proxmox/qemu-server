@@ -1936,6 +1936,18 @@ __PACKAGE__->register_method({
 
 	my $storecfg = PVE::Storage::config();
 
+	if ($storage) {
+	    # check if storage is enabled on local node
+	    PVE::Storage::storage_check_enabled($storecfg, $storage);
+	    if ($target) {
+		# check if storage is available on target node
+		PVE::Storage::storage_check_node($storecfg, $storage, $target);
+		# clone only works if target storage is shared
+		my $scfg = PVE::Storage::storage_config($storecfg, $storage);
+		die "can't clone to non-shared storage '$storage'\n" if !$scfg->{shared};
+	    }
+	}
+
         PVE::Cluster::check_cfs_quorum();
 
 	my $running = PVE::QemuServer::check_running($vmid) || 0;
