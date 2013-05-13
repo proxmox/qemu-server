@@ -6,6 +6,7 @@ use PVE::AbstractMigrate;
 use IO::File;
 use IPC::Open2;
 use PVE::INotify;
+use PVE::Tools;
 use PVE::Cluster;
 use PVE::Storage;
 use PVE::QemuServer;
@@ -328,7 +329,7 @@ sub phase2 {
     $self->log('info', "starting migration tunnel");
 
     ## create tunnel to remote port
-    my $lport = PVE::QemuServer::next_migrate_port();
+    my $lport = PVE::Tools::next_migrate_port();
     $self->{tunnel} = $self->fork_tunnel($self->{nodeip}, $lport, $rport);
 
     $self->log('info', "starting online/live migration on port $lport");

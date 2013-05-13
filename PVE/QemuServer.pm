@@ -2540,25 +2540,6 @@ sub pidfile_name {
     return "${var_run_tmpdir}/$vmid.pid";
 }
 
-sub next_migrate_port {
-
-    for (my $p = 60000; $p < 60010; $p++) {
-
-	my $sock = IO::Socket::INET->new(Listen => 5,
-					 LocalAddr => 'localhost',
-					 LocalPort => $p,
-					 ReuseAddr => 1,
-					 Proto     => 0);
-
-	if ($sock) {
-	    close($sock);
-	    return $p;
-	}
-    }
-
-    die "unable to find free migration port";
-}
-
 sub vm_devices_list {
     my ($vmid) = @_;
 
@@ -3002,7 +2983,7 @@ sub vm_start {
 
 	if ($statefile) {
 	    if ($statefile eq 'tcp') {
-		$migrate_port = next_migrate_port();
+		$migrate_port = PVE::Tools::next_migrate_port();
 		my $migrate_uri = "tcp:localhost:${migrate_port}";
 		push @$cmd, '-incoming', $migrate_uri;
 		push @$cmd, '-S';
