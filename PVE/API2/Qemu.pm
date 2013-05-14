@@ -249,37 +249,6 @@ __PACKAGE__->register_method({
     }});
 
 
-sub add_vm_to_pool {
-    my ($vmid, $pool) = @_;
-
-    my $addVMtoPoolFn = sub {
-	my $usercfg = cfs_read_file("user.cfg");
-	if (my $data = $usercfg->{pools}->{$pool}) {
-	    $data->{vms}->{$vmid} = 1;
-	    $usercfg->{vms}->{$vmid} = $pool;
-	    cfs_write_file("user.cfg", $usercfg);
-	}
-    };
-
-    PVE::AccessControl::lock_user_config($addVMtoPoolFn, "can't add VM $vmid to pool '$pool'");
-};
-
-sub remove_vm_from_pool {
-    my ($vmid) = @_;
-    
-    my $delVMfromPoolFn = sub {
-	my $usercfg = cfs_read_file("user.cfg");
-	if (my $pool = $usercfg->{vms}->{$vmid}) {
-	    if (my $data = $usercfg->{pools}->{$pool}) {
-		delete $data->{vms}->{$vmid};
-		delete $usercfg->{vms}->{$vmid};
-		cfs_write_file("user.cfg", $usercfg);
-	    }
-	}
-    };
-
-    PVE::AccessControl::lock_user_config($delVMfromPoolFn, "pool cleanup for VM $vmid failed");
-}
 
 __PACKAGE__->register_method({
     name => 'create_vm',
@@ -430,7 +399,7 @@ __PACKAGE__->register_method({
 		    pool => $pool,
 		    unique => $unique });
 
-		add_vm_to_pool($vmid, $pool) if $pool;
+		PVE::AccessControl::add_vm_to_pool($vmid, $pool) if $pool;
 	    };
 
 	    return $rpcenv->fork_worker('qmrestore', $vmid, $authuser, $realcmd);
@@ -479,7 +448,7 @@ __PACKAGE__->register_method({
 		    die "create failed - $err";
 		}
 
-		add_vm_to_pool($vmid, $pool) if $pool;
+		PVE::AccessControl::add_vm_to_pool($vmid, $pool) if $pool;
 	    };
 
 	    return $rpcenv->fork_worker('qmcreate', $vmid, $authuser, $realcmd);
@@ -1102,7 +1071,7 @@ __PACKAGE__->register_method({
 
 	    PVE::QemuServer::vm_destroy($storecfg, $vmid, $skiplock);
 
-	    remove_vm_from_pool($vmid);
+	    PVE::AccessControl::remove_vm_from_pool($vmid);
 	};
 
 	return $rpcenv->fork_worker('qmdestroy', $vmid, $authuser, $realcmd);
@@ -2097,7 +2066,7 @@ __PACKAGE__->register_method({
 			    if !rename($conffile, $newconffile);
 		    }
 
-		    add_vm_to_pool($newid, $pool) if $pool;
+		    PVE::AccessControl::add_vm_to_pool($newid, $pool) if $pool;
 		};
 		if (my $err = $@) {
 		    unlink $conffile;
