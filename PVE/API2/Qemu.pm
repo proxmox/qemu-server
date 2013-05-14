@@ -2077,7 +2077,12 @@ __PACKAGE__->register_method({
 			}
 
 			my ($size) = PVE::Storage::volume_size_info($storecfg, $newvolid, 3);
-			my $disk = { file => $newvolid, size => $size };
+			my $disk = $drive;
+			$disk->{full} = undef;
+			$disk->{format} = undef;
+			$disk->{file} = $newvolid;
+			$disk->{size} = $size;
+
 			$newconf->{$opt} = PVE::QemuServer::print_drive($vmid, $disk);
 
 			PVE::QemuServer::update_config_nolock($newid, $newconf, 1);
