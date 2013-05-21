@@ -1,3 +1,9 @@
+qemu-server (3.0-13) unstable; urgency=low
+
+  * fix bug #391 - restore: test if requested format is supported
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 21 May 2013 12:03:56 +0200
+
 qemu-server (3.0-12) unstable; urgency=low
 
   * use add_vm_to_pool/remove_vm_from_pool from PVE::AccessControl
