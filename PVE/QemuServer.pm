@@ -3584,6 +3584,7 @@ sub restore_update_config_line {
 	    print $outfd "#$line";
 	} elsif ($virtdev && $map->{$virtdev}) {
 	    my $di = parse_drive($virtdev, $value);
+	    delete $di->{format}; # format can change on restore
 	    $di->{file} = $map->{$virtdev};
 	    $value = print_drive($vmid, $di);
 	    print $outfd "$virtdev: $value\n";
@@ -3810,6 +3811,12 @@ sub restore_vma_archive {
 	    my $d = $virtdev_hash->{$virtdev};
 	    my $alloc_size = int(($d->{size} + 1024 - 1)/1024);
 	    my $scfg = PVE::Storage::storage_config($cfg, $d->{storeid});
+
+	    # test if requested format is supported
+	    my ($defFormat, $validFormats) = PVE::Storage::storage_default_format($cfg, $d->{storeid});
+	    my $supported = grep { $_ eq $d->{format} } @$validFormats;
+	    $d->{format} = $defFormat if !$supported;
+
 	    my $volid = PVE::Storage::vdisk_alloc($cfg, $d->{storeid}, $vmid,
 						  $d->{format}, undef, $alloc_size);
 	    print STDERR "new volume ID is '$volid'\n";
