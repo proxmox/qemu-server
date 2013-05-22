@@ -958,7 +958,7 @@ __PACKAGE__->register_method({
 		my $balloon = defined($param->{balloon}) ?  $param->{balloon} : $conf->{balloon};
 
 		die "balloon value too large (must be smaller than assigned memory)\n"
-		    if $balloon > $maxmem;
+		    if $balloon && $balloon > $maxmem;
 	    }
 
 	    PVE::Cluster::log_msg('info', $authuser, "update VM $vmid: " . join (' ', @paramarr));
