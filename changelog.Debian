@@ -1,3 +1,9 @@
+qemu-server (3.0-14) unstable; urgency=low
+
+  * fix bug #389: avoid error if balloon is undefined
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 22 May 2013 07:17:38 +0200
+
 qemu-server (3.0-13) unstable; urgency=low
 
   * fix bug #391 - restore: test if requested format is supported
