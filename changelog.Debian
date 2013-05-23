@@ -1,3 +1,9 @@
+qemu-server (3.0-15) unstable; urgency=low
+
+  * qemu_img_format : use raw for as default for other storage
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 23 May 2013 11:33:47 +0200
+
 qemu-server (3.0-14) unstable; urgency=low
 
   * fix bug #389: avoid error if balloon is undefined
