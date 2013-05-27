@@ -3605,6 +3605,7 @@ sub scan_volids {
     foreach my $storeid (keys %$info) {
 	foreach my $item (@{$info->{$storeid}}) {
 	    next if !($item->{volid} && $item->{size});
+	    $item->{path} = PVE::Storage::path($cfg, $item->{volid});
 	    $volid_hash->{$item->{volid}} = $item;
 	}
     }
@@ -3619,6 +3620,12 @@ sub update_disksize {
 
     my $used = {};
 
+    # Note: it is allowed to define multiple storages with same path (alias), so
+    # we need to check both 'volid' and real 'path' (two different volid can point
+    # to the same path).
+
+    my $usedpath = {};
+    
     # update size info
     foreach my $opt (keys %$conf) {
 	if (valid_drivename($opt)) {
@@ -3627,6 +3634,10 @@ sub update_disksize {
 	    next if !$volid;
 
 	    $used->{$volid} = 1;
+	    if ($volid_hash->{$volid} && 
+		(my $path = $volid_hash->{$volid}->{path})) {
+		$usedpath->{$path} = 1;
+	    }
 
 	    next if drive_is_cdrom($drive);
 	    next if !$volid_hash->{$volid};
@@ -3637,9 +3648,23 @@ sub update_disksize {
 	}
     }
 
+    # remove 'unusedX' entry if volume is used
+    foreach my $opt (keys %$conf) {
+	next if $opt !~ m/^unused\d+$/;
+	my $volid = $conf->{$opt};
+	my $path = $volid_hash->{$volid}->{path} if $volid_hash->{$volid};
+	if ($used->{$volid} || ($path && $usedpath->{$path})) { 
+	    $changes = 1;
+	    delete $conf->{$opt};
+	}
+    }
+
     foreach my $volid (sort keys %$volid_hash) {
 	next if $volid =~ m/vm-$vmid-state-/;
 	next if $used->{$volid};
+	my $path = $volid_hash->{$volid}->{path};
+	next if !$path; # just to be sure
+	next if $usedpath->{$path};
 	$changes = 1;
 	add_unused_volume($conf, $volid);
     }
