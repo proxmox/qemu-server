@@ -493,6 +493,7 @@ __PACKAGE__->register_method({
 	    { subdir => 'vncproxy' },
 	    { subdir => 'migrate' },
 	    { subdir => 'resize' },
+	    { subdir => 'move' },
 	    { subdir => 'rrd' },
 	    { subdir => 'rrddata' },
 	    { subdir => 'monitor' },
@@ -2069,6 +2070,135 @@ __PACKAGE__->register_method({
 	    return PVE::QemuServer::lock_config_full($newid, 1, $clonefn);
 	});
 
+    }});
+
+__PACKAGE__->register_method({
+    name => 'move_vm',
+    path => '{vmid}/move',
+    method => 'PUT',
+    protected => 1,
+    proxyto => 'node',
+    description => "Move volume to different storage.",
+    permissions => {
+        check => ['perm', '/vms/{vmid}', [ 'VM.Config.Disk' ]],
+    },
+    parameters => {
+        additionalProperties => 0,
+        properties => {
+	    node => get_standard_option('pve-node'),
+	    vmid => get_standard_option('pve-vmid'),
+	    skiplock => get_standard_option('skiplock'),
+	    disk => {
+	        type => 'string',
+		description => "The disk you want to move.",
+	         enum => [PVE::QemuServer::disknames()],
+	    },
+            storage => {
+                type => 'string',
+                description => "Target Storage.",
+            },
+            format => {
+                type => 'string',
+                description => "Target Format.",
+                enum => [ 'raw', 'qcow2', 'vmdk' ],
+                optional => 1,
+            },
+	    digest => {
+		type => 'string',
+		description => 'Prevent changes if current configuration file has different SHA1 digest. This can be used to prevent concurrent modifications.',
+		maxLength => 40,
+		optional => 1,
+	    },
+	},
+    },
+    returns => { type => 'null'},
+    code => sub {
+	my ($param) = @_;
+
+	my $rpcenv = PVE::RPCEnvironment::get();
+
+	my $authuser = $rpcenv->get_user();
+
+	my $node = extract_param($param, 'node');
+
+	my $vmid = extract_param($param, 'vmid');
+
+	my $digest = extract_param($param, 'digest');
+
+	my $disk = extract_param($param, 'disk');
+
+	my $storeid = extract_param($param, 'storage');
+
+	my $format = extract_param($param, 'format');
+
+	my $skiplock = extract_param($param, 'skiplock');
+	raise_param_exc({ skiplock => "Only root may use this option." })
+	    if $skiplock && $authuser ne 'root@pam';
+
+	my $storecfg = PVE::Storage::config();
+
+	my $updatefn =  sub {
+
+	    my $conf = PVE::QemuServer::load_config($vmid);
+
+	    die "checksum missmatch (file change by other user?)\n"
+		if $digest && $digest ne $conf->{digest};
+	    PVE::QemuServer::check_lock($conf) if !$skiplock;
+
+	    die "disk '$disk' does not exist\n" if !$conf->{$disk};
+
+	    my $drive = PVE::QemuServer::parse_drive($disk, $conf->{$disk});
+
+	    my $volid = $drive->{file};
+
+	    die "disk '$disk' has no associated volume\n" if !$volid;
+
+	    die "you can't move a cdrom\n" if PVE::QemuServer::drive_is_cdrom($drive);
+
+	    my $oldfmt = undef;
+	    my ($oldstoreid, $oldvolname) = PVE::Storage::parse_volume_id($volid);
+	    if ($oldvolname =~ m/\.(raw|qcow2|vmdk)$/){
+		$oldfmt = $1;
+	    }
+
+	    die "you can't move on the same storage with same format" if ($oldstoreid eq $storeid && (!$format || $oldfmt eq $format));
+
+	    $rpcenv->check($authuser, "/storage/$storeid", ['Datastore.AllocateSpace']);
+
+	    $drive->{full} = 1;
+
+	    my $drives = {};
+	    my $vollist = [];
+
+ 	    $drives->{$disk} = $drive;
+	    push @$vollist, $drive->{file};
+
+	    PVE::Cluster::log_msg('info', $authuser, "move disk VM $vmid: move --disk $disk --storage $storeid");
+
+	    my $running = PVE::QemuServer::check_running($vmid);
+	    my $realcmd = sub {
+
+		my $newvollist = [];
+
+		eval {
+		    local $SIG{INT} = $SIG{TERM} = $SIG{QUIT} = $SIG{HUP} = sub { die "interrupted by signal\n"; };
+
+		    &$clone_disks($storecfg, $storeid, $vollist, $newvollist, $drives, undef, $format, $vmid, $vmid, $conf, $running);
+		};
+		if (my $err = $@) {
+
+                   foreach my $volid (@$newvollist) {
+                        eval { PVE::Storage::vdisk_free($storecfg, $volid); };
+                        warn $@ if $@;
+                    }
+		    die "storage migration failed: $err";
+                }
+	    };
+
+            return $rpcenv->fork_worker('qmmove', $vmid, $authuser, $realcmd);
+	};
+	PVE::QemuServer::lock_config($vmid, $updatefn);
+	return undef;
     }});
 
 __PACKAGE__->register_method({
