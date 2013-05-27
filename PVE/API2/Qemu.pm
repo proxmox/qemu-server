@@ -662,6 +662,7 @@ my $delete_drive = sub {
 	my $volid = $drive->{file};
 	if (&$vm_is_volid_owner($storecfg, $vmid, $volid)) {
 	    if ($force || $key =~ m/^unused/) {
+		# fixme: aliases!!
 		eval { PVE::Storage::vdisk_free($storecfg, $volid); };
 		die $@ if $@;
 	    } else {

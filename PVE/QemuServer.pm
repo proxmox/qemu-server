@@ -1696,6 +1696,7 @@ sub write_vm_config {
 
     my $used_volids = {};
 
+    # fixme: allow to add unused disk even if disk is used inside snapshot
     my $cleanup_config = sub {
 	my ($cref) = @_;
 
@@ -3643,8 +3644,11 @@ sub update_disksize {
 	    next if !$volid_hash->{$volid};
 
 	    $drive->{size} = $volid_hash->{$volid}->{size};
-	    $changes = 1;
-	    $conf->{$opt} = print_drive($vmid, $drive);
+	    my $new = print_drive($vmid, $drive);
+	    if ($new ne $conf->{$opt}) {
+		$changes = 1;
+		$conf->{$opt} = $new;
+	    }
 	}
     }
 
