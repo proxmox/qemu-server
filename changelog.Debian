@@ -1,3 +1,11 @@
+qemu-server (3.0-16) unstable; urgency=low
+
+  * fix bug 395: correctly handle unused disk with storage alias
+
+  * fix unused disk handling (do not hide unused disks when used with snapshot).
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 28 May 2013 12:23:12 +0200
+
 qemu-server (3.0-15) unstable; urgency=low
 
   * qemu_img_format : use raw for as default for other storage
