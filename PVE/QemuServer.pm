@@ -3711,6 +3711,7 @@ sub update_disksize {
 	next if $usedpath->{$path};
 	$changes = 1;
 	add_unused_volume($conf, $volid);
+	$usedpath->{$path} = 1; # avoid to add more than once (aliases)
     }
 
     return $changes;
