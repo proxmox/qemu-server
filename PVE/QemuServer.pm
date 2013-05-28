@@ -1696,9 +1696,8 @@ sub write_vm_config {
 
     my $used_volids = {};
 
-    # fixme: allow to add unused disk even if disk is used inside snapshot
     my $cleanup_config = sub {
-	my ($cref) = @_;
+	my ($cref, $snapname) = @_;
 
 	foreach my $key (keys %$cref) {
 	    next if $key eq 'digest' || $key eq 'description' || $key eq 'snapshots' ||
@@ -1709,7 +1708,7 @@ sub write_vm_config {
 
 	    $cref->{$key} = $value;
 
-	    if (valid_drivename($key)) {
+	    if (!$snapname && valid_drivename($key)) {
 		my $drive = parse_drive($key, $value);
 		$used_volids->{$drive->{file}} = 1 if $drive && $drive->{file};
 	    }
@@ -1718,7 +1717,7 @@ sub write_vm_config {
 
     &$cleanup_config($conf);
     foreach my $snapname (keys %{$conf->{snapshots}}) {
-	&$cleanup_config($conf->{snapshots}->{$snapname});
+	&$cleanup_config($conf->{snapshots}->{$snapname}, $snapname);
     }
 
     # remove 'unusedX' settings if we re-add a volume
@@ -3612,6 +3611,47 @@ sub scan_volids {
     }
 
     return $volid_hash;
+}
+
+sub get_used_paths {
+    my ($vmid, $storecfg, $conf, $scan_snapshots, $skip_drive) = @_;
+
+    my $used_path = {};
+
+    my $scan_config = sub {
+	my ($cref, $snapname) = @_;
+
+	foreach my $key (keys %$cref) {
+	    my $value = $cref->{$key};
+	    if (valid_drivename($key)) {
+		next if $skip_drive && $key eq $skip_drive;
+		my $drive = parse_drive($key, $value);
+		next if !$drive || !$drive->{file} || drive_is_cdrom($drive);
+		if ($drive->{file} =~ m!^/!) {
+		    $used_path->{$drive->{file}}++; # = 1;
+		} else {
+		    my ($storeid, $volname) = PVE::Storage::parse_volume_id($drive->{file}, 1);
+		    next if !$storeid;
+		    my $scfg = PVE::Storage::storage_config($storecfg, $storeid, 1);
+		    next if !$scfg;
+		    my $path = PVE::Storage::path($storecfg, $drive->{file}, $snapname);
+		    $used_path->{$path}++; # = 1;
+		}
+	    }
+	}
+    };
+
+    &$scan_config($conf);
+
+    undef $skip_drive;
+
+    if ($scan_snapshots) {
+	foreach my $snapname (keys %{$conf->{snapshots}}) {
+	    &$scan_config($conf->{snapshots}->{$snapname}, $snapname);
+	}
+    }
+
+    return $used_path;
 }
 
 sub update_disksize {

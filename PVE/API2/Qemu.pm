@@ -660,10 +660,19 @@ my $delete_drive = sub {
 
     if (!PVE::QemuServer::drive_is_cdrom($drive)) {
 	my $volid = $drive->{file};
+
 	if (&$vm_is_volid_owner($storecfg, $vmid, $volid)) {
-	    if ($force || $key =~ m/^unused/) {
-		# fixme: aliases!!
-		eval { PVE::Storage::vdisk_free($storecfg, $volid); };
+	    if ($force || $key =~ m/^unused/) {	   
+		eval { 
+		    # check if the disk is really unused 
+		    my $used_paths = PVE::QemuServer::get_used_paths($vmid, $storecfg, $conf, 1, $key);
+		    my $path = PVE::Storage::path($storecfg, $volid); 
+
+		    die "unable to delete '$volid' - volume is still in use (snapshot?)\n"
+			if $used_paths->{$path};
+
+		    PVE::Storage::vdisk_free($storecfg, $volid); 
+		};
 		die $@ if $@;
 	    } else {
 		PVE::QemuServer::add_unused_volume($conf, $volid, $vmid);
