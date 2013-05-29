@@ -2023,46 +2023,10 @@ __PACKAGE__->register_method({
 		    foreach my $opt (keys %$drives) {
 			my $drive = $drives->{$opt};
 
-			my $newvolid;
-			if (!$drive->{full}) {
-			    print "create linked clone of drive $opt ($drive->{file})\n";
-			    $newvolid = PVE::Storage::vdisk_clone($storecfg,  $drive->{file}, $newid);
-			    push @$newvollist, $newvolid;
+			my $newdrive = PVE::QemuServer::clone_disk($storecfg, $vmid, $running, $opt, $drive, $snapname,
+								   $newid, $storage, $format, $drive->{full}, $newvollist);
 
-			} else {
-			    my ($storeid, $volname) = PVE::Storage::parse_volume_id($drive->{file});
-			    $storeid = $storage if $storage;
-
-			    my $fmt = undef;
-			    if($format){
-				$fmt = $format;
-			    }else{
-				my $defformat = PVE::Storage::storage_default_format($storecfg, $storeid);
-				$fmt = $drive->{format} || $defformat;
-			    }
-
-			    my ($size) = PVE::Storage::volume_size_info($storecfg, $drive->{file}, 3);
-
-			    print "create full clone of drive $opt ($drive->{file})\n";
-			    $newvolid = PVE::Storage::vdisk_alloc($storecfg, $storeid, $newid, $fmt, undef, ($size/1024));
-			    push @$newvollist, $newvolid;
-
-			    if(!$running || $snapname){
-				PVE::QemuServer::qemu_img_convert($drive->{file}, $newvolid, $size, $snapname);
-			    }else{
-				PVE::QemuServer::qemu_drive_mirror($vmid, $opt, $newvolid, $newid);
-			    }
-
-			}
-
-			my ($size) = PVE::Storage::volume_size_info($storecfg, $newvolid, 3);
-			my $disk = $drive;
-			$disk->{full} = undef;
-			$disk->{format} = undef;
-			$disk->{file} = $newvolid;
-			$disk->{size} = $size;
-
-			$newconf->{$opt} = PVE::QemuServer::print_drive($vmid, $disk);
+			$newconf->{$opt} = PVE::QemuServer::print_drive($vmid, $newdrive);
 
 			PVE::QemuServer::update_config_nolock($newid, $newconf, 1);
 		    }

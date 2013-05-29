@@ -4563,8 +4563,8 @@ sub template_create {
 
 	my $voliddst = PVE::Storage::vdisk_create_base($storecfg, $volid);
 	$drive->{file} = $voliddst;
-	$conf->{$ds} = PVE::QemuServer::print_drive($vmid, $drive);
-	PVE::QemuServer::update_config_nolock($vmid, $conf, 1);
+	$conf->{$ds} = print_drive($vmid, $drive);
+	update_config_nolock($vmid, $conf, 1);
     });
 }
 
@@ -4639,22 +4639,26 @@ sub qemu_drive_mirror {
     if ($dst_storeid) {
 	my $dst_scfg = PVE::Storage::storage_config($storecfg, $dst_storeid);
 
-	my $format = undef;
+	my $format;
         if ($dst_volname =~ m/\.(raw|qcow2)$/){
 	    $format = $1;
 	}
 
 	my $dst_path = PVE::Storage::path($storecfg, $dst_volid);
 
-	if($format){
-	    #fixme : sometime drive-mirror timeout, but works fine after. (I have see the problem with big volume > 200GB), so we need to eval
-	    eval{ PVE::QemuServer::vm_mon_cmd($vmid, "drive-mirror", timeout => 10, device => "drive-$drive", mode => "existing", sync => "full", target => $dst_path, format => $format); };
-	}else{
-	    eval{ PVE::QemuServer::vm_mon_cmd($vmid, "drive-mirror", timeout => 10, device => "drive-$drive", mode => "existing", sync => "full", target => $dst_path); };
+	if ($format) {
+	    #fixme : sometime drive-mirror timeout, but works fine after. 
+	    # (I have see the problem with big volume > 200GB), so we need to eval
+	    eval { vm_mon_cmd($vmid, "drive-mirror", timeout => 10, device => "drive-$drive", mode => "existing", 
+			      sync => "full", target => $dst_path, format => $format); };
+	} else {
+	    eval { vm_mon_cmd($vmid, "drive-mirror", timeout => 10, device => "drive-$drive", mode => "existing", 
+			      sync => "full", target => $dst_path); };
 	}
-	eval{
+
+	eval {
 	    while (1) {
-		my $stats = PVE::QemuServer::vm_mon_cmd($vmid, "query-block-jobs");
+		my $stats = vm_mon_cmd($vmid, "query-block-jobs");
 		my $stat = @$stats[0];
 		die "mirroring job seem to have die. Maybe do you have bad sectors?" if !$stat;
 		die "error job is not mirroring" if $stat->{type} ne "mirror";
@@ -4674,31 +4678,72 @@ sub qemu_drive_mirror {
 			vm_suspend($vmid,1);
 			$count = 0;
 			$frozen = 1;
-		    }else {
+		    } else {
 			$count++ unless $frozen;
 		    }
-		}
-		elsif ($frozen) {
-			vm_resume($vmid,1);
-			$count = 0;
+		} elsif ($frozen) {
+		    vm_resume($vmid,1);
+		    $count = 0;
 		}
 		$old_len = $stat->{offset};
 		sleep 1;
 	    }
 	};
 	if (my $err = $@) {
-	    eval { PVE::QemuServer::vm_mon_cmd($vmid, "block-job-cancel", device => "drive-$drive"); };
+	    eval { vm_mon_cmd($vmid, "block-job-cancel", device => "drive-$drive"); };
 	    die "mirroring error: $err";
 	}
 
-	if($vmiddst != $vmid){
+	if ($vmiddst != $vmid){
 	    #if we clone a disk for a new target vm, we don't switch the disk
-	    PVE::QemuServer::vm_mon_cmd($vmid, "block-job-cancel", device => "drive-$drive");
-	}else{
+	    vm_mon_cmd($vmid, "block-job-cancel", device => "drive-$drive");
+	} else {
 	    #if source and destination are on the same guest
-	    PVE::QemuServer::vm_mon_cmd($vmid, "block-job-complete", device => "drive-$drive");
+	    vm_mon_cmd($vmid, "block-job-complete", device => "drive-$drive");
 	}
     }
+}
+
+sub clone_disk {
+    my ($storecfg, $vmid, $running, $drivename, $drive, $snapname, 
+	$newvmid, $storage, $format, $full, $newvollist) = @_;
+
+    my $newvolid;
+
+    if (!$full) {
+	print "create linked clone of drive $drivename ($drive->{file})\n";
+	$newvolid = PVE::Storage::vdisk_clone($storecfg,  $drive->{file}, $newvmid);
+	push @$newvollist, $newvolid;
+    } else {
+	my ($storeid, $volname) = PVE::Storage::parse_volume_id($drive->{file});
+	$storeid = $storage if $storage;
+
+	if (!$format)  {
+	    my $defformat = PVE::Storage::storage_default_format($storecfg, $storeid);
+	    $format = $drive->{format} || $defformat;
+	}
+
+	my ($size) = PVE::Storage::volume_size_info($storecfg, $drive->{file}, 3);
+
+	print "create full clone of drive $drivename ($drive->{file})\n";
+	$newvolid = PVE::Storage::vdisk_alloc($storecfg, $storeid, $newvmid, $format, undef, ($size/1024));
+	push @$newvollist, $newvolid;
+
+	if (!$running || $snapname) {
+	    qemu_img_convert($drive->{file}, $newvolid, $size, $snapname);
+	} else {
+	    qemu_drive_mirror($vmid, $drivename, $newvolid, $newvmid);
+	}	
+    }
+
+    my ($size) = PVE::Storage::volume_size_info($storecfg, $newvolid, 3);
+
+    my $disk = $drive;
+    $disk->{format} = undef;
+    $disk->{file} = $newvolid;
+    $disk->{size} = $size;
+
+    return $disk;
 }
 
 1;
