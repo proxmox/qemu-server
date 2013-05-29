@@ -2075,28 +2075,30 @@ __PACKAGE__->register_method({
 __PACKAGE__->register_method({
     name => 'move_vm',
     path => '{vmid}/move',
-    method => 'PUT',
+    method => 'POST',
     protected => 1,
     proxyto => 'node',
     description => "Move volume to different storage.",
     permissions => {
-        check => ['perm', '/vms/{vmid}', [ 'VM.Config.Disk' ]],
+	description => "You need 'VM.Config.Disk' permissions on /vms/{vmid}, " .
+	    "and 'Datastore.AllocateSpace' permissions on the storage.",
+	check => 
+	[ 'and',
+	  ['perm', '/vms/{vmid}', [ 'VM.Config.Disk' ]],
+	  ['perm', '/storage/{storage}', [ 'Datastore.AllocateSpace' ]],
+	],
     },
     parameters => {
         additionalProperties => 0,
         properties => {
 	    node => get_standard_option('pve-node'),
 	    vmid => get_standard_option('pve-vmid'),
-	    skiplock => get_standard_option('skiplock'),
 	    disk => {
 	        type => 'string',
 		description => "The disk you want to move.",
-	         enum => [PVE::QemuServer::disknames()],
+		enum => [ PVE::QemuServer::disknames() ],
 	    },
-            storage => {
-                type => 'string',
-                description => "Target Storage.",
-            },
+            storage => get_standard_option('pve-storage-id', { description => "Target Storage." }),
             format => {
                 type => 'string',
                 description => "Target Format.",
@@ -2111,7 +2113,10 @@ __PACKAGE__->register_method({
 	    },
 	},
     },
-    returns => { type => 'null'},
+    returns => {
+	type => 'string',
+	description => "the task ID.",
+    },
     code => sub {
 	my ($param) = @_;
 
@@ -2131,10 +2136,6 @@ __PACKAGE__->register_method({
 
 	my $format = extract_param($param, 'format');
 
-	my $skiplock = extract_param($param, 'skiplock');
-	raise_param_exc({ skiplock => "Only root may use this option." })
-	    if $skiplock && $authuser ne 'root@pam';
-
 	my $storecfg = PVE::Storage::config();
 
 	my $updatefn =  sub {
@@ -2143,39 +2144,30 @@ __PACKAGE__->register_method({
 
 	    die "checksum missmatch (file change by other user?)\n"
 		if $digest && $digest ne $conf->{digest};
-	    PVE::QemuServer::check_lock($conf) if !$skiplock;
 
 	    die "disk '$disk' does not exist\n" if !$conf->{$disk};
 
 	    my $drive = PVE::QemuServer::parse_drive($disk, $conf->{$disk});
 
-	    my $volid = $drive->{file};
-
-	    die "disk '$disk' has no associated volume\n" if !$volid;
+	    my $volid = $drive->{file} || die "disk '$disk' has no associated volume\n";
 
 	    die "you can't move a cdrom\n" if PVE::QemuServer::drive_is_cdrom($drive);
 
-	    my $oldfmt = undef;
+	    my $oldfmt;
 	    my ($oldstoreid, $oldvolname) = PVE::Storage::parse_volume_id($volid);
 	    if ($oldvolname =~ m/\.(raw|qcow2|vmdk)$/){
 		$oldfmt = $1;
 	    }
 
-	    die "you can't move on the same storage with same format" if ($oldstoreid eq $storeid && (!$format || $oldfmt eq $format));
-
-	    $rpcenv->check($authuser, "/storage/$storeid", ['Datastore.AllocateSpace']);
-
-	    $drive->{full} = 1;
-
-	    my $drives = {};
-	    my $vollist = [];
-
- 	    $drives->{$disk} = $drive;
-	    push @$vollist, $drive->{file};
+	    die "you can't move on the same storage with same format\n" if $oldstoreid eq $storeid && 
+                (!$format || !$oldfmt || $oldfmt eq $format);
 
 	    PVE::Cluster::log_msg('info', $authuser, "move disk VM $vmid: move --disk $disk --storage $storeid");
 
 	    my $running = PVE::QemuServer::check_running($vmid);
+
+	    PVE::Storage::activate_volumes($storecfg, [ $drive->{file} ]);
+
 	    my $realcmd = sub {
 
 		my $newvollist = [];
@@ -2183,7 +2175,12 @@ __PACKAGE__->register_method({
 		eval {
 		    local $SIG{INT} = $SIG{TERM} = $SIG{QUIT} = $SIG{HUP} = sub { die "interrupted by signal\n"; };
 
-		    &$clone_disks($storecfg, $storeid, $vollist, $newvollist, $drives, undef, $format, $vmid, $vmid, $conf, $running);
+		    my $newdrive = PVE::QemuServer::clone_disk($storecfg, $vmid, $running, $disk, $drive, undef,
+							       $vmid, $storeid, $format, 1, $newvollist);
+
+		    $conf->{$disk} = PVE::QemuServer::print_drive($vmid, $newdrive);
+
+		    PVE::QemuServer::update_config_nolock($vmid, $conf, 1);
 		};
 		if (my $err = $@) {
 
@@ -2197,8 +2194,8 @@ __PACKAGE__->register_method({
 
             return $rpcenv->fork_worker('qmmove', $vmid, $authuser, $realcmd);
 	};
-	PVE::QemuServer::lock_config($vmid, $updatefn);
-	return undef;
+
+	return PVE::QemuServer::lock_config($vmid, $updatefn);
     }});
 
 __PACKAGE__->register_method({
