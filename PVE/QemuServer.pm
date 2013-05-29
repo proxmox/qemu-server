@@ -4718,10 +4718,14 @@ sub clone_disk {
 	my ($storeid, $volname) = PVE::Storage::parse_volume_id($drive->{file});
 	$storeid = $storage if $storage;
 
-	if (!$format)  {
-	    my $defformat = PVE::Storage::storage_default_format($storecfg, $storeid);
-	    $format = $drive->{format} || $defformat;
+	my ($defFormat, $validFormats) = PVE::Storage::storage_default_format($storecfg, $storeid);
+	if (!$format) {
+	    $format = $drive->{format} || $defFormat;
 	}
+
+	# test if requested format is supported - else use default
+	my $supported = grep { $_ eq $format } @$validFormats;
+	$format = $defFormat if !$supported;
 
 	my ($size) = PVE::Storage::volume_size_info($storecfg, $drive->{file}, 3);
 
