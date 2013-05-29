@@ -1,3 +1,9 @@
+qemu-server (3.0-17) unstable; urgency=low
+
+  * implement storage migration ("qm move")
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 29 May 2013 13:01:16 +0200
+
 qemu-server (3.0-16) unstable; urgency=low
 
   * fix bug 395: correctly handle unused disk with storage alias
