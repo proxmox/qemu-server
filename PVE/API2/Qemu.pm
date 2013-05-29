@@ -2099,7 +2099,7 @@ __PACKAGE__->register_method({
 		enum => [ PVE::QemuServer::disknames() ],
 	    },
             storage => get_standard_option('pve-storage-id', { description => "Target Storage." }),
-            format => {
+            'format' => {
                 type => 'string',
                 description => "Target Format.",
                 enum => [ 'raw', 'qcow2', 'vmdk' ],
@@ -2180,6 +2180,8 @@ __PACKAGE__->register_method({
 
 		    $conf->{$disk} = PVE::QemuServer::print_drive($vmid, $newdrive);
 
+		    PVE::QemuServer::add_unused_volume($conf, $volid);
+		    
 		    PVE::QemuServer::update_config_nolock($vmid, $conf, 1);
 		};
 		if (my $err = $@) {
