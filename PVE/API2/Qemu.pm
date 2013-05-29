@@ -2000,7 +2000,11 @@ __PACKAGE__->register_method({
 	    if ($param->{name}) {
 		$newconf->{name} = $param->{name};
 	    } else {
-		$newconf->{name} = "Copy-of-$oldconf->{name}";
+		if ($oldconf->{name}) {
+		    $newconf->{name} = "Copy-of-$oldconf->{name}";
+		} else {
+		    $newconf->{name} = "Copy-of-VM-$vmid";
+		}
 	    }
 
 	    if ($param->{description}) {
