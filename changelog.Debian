@@ -1,3 +1,11 @@
+qemu-server (3.0-18) unstable; urgency=low
+
+  * imlement delete flag for move_disk
+  
+  * API: rename move to move_disk
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 31 May 2013 10:57:50 +0200
+
 qemu-server (3.0-17) unstable; urgency=low
 
   * implement storage migration ("qm move")
