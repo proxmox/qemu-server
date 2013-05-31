@@ -2105,6 +2105,12 @@ __PACKAGE__->register_method({
                 enum => [ 'raw', 'qcow2', 'vmdk' ],
                 optional => 1,
             },
+	    delete => {
+		type => 'boolean',
+		description => "Delete the original disk after successful copy. By default the original disk is kept as unused disk.",
+		optional => 1,
+		default => 0,
+	    },
 	    digest => {
 		type => 'string',
 		description => 'Prevent changes if current configuration file has different SHA1 digest. This can be used to prevent concurrent modifications.',
@@ -2149,12 +2155,12 @@ __PACKAGE__->register_method({
 
 	    my $drive = PVE::QemuServer::parse_drive($disk, $conf->{$disk});
 
-	    my $volid = $drive->{file} || die "disk '$disk' has no associated volume\n";
+	    my $old_volid = $drive->{file} || die "disk '$disk' has no associated volume\n";
 
 	    die "you can't move a cdrom\n" if PVE::QemuServer::drive_is_cdrom($drive);
 
 	    my $oldfmt;
-	    my ($oldstoreid, $oldvolname) = PVE::Storage::parse_volume_id($volid);
+	    my ($oldstoreid, $oldvolname) = PVE::Storage::parse_volume_id($old_volid);
 	    if ($oldvolname =~ m/\.(raw|qcow2|vmdk)$/){
 		$oldfmt = $1;
 	    }
@@ -2180,8 +2186,8 @@ __PACKAGE__->register_method({
 
 		    $conf->{$disk} = PVE::QemuServer::print_drive($vmid, $newdrive);
 
-		    PVE::QemuServer::add_unused_volume($conf, $volid);
-		    
+		    PVE::QemuServer::add_unused_volume($conf, $old_volid) if !$param->{delete};
+		   
 		    PVE::QemuServer::update_config_nolock($vmid, $conf, 1);
 		};
 		if (my $err = $@) {
@@ -2192,6 +2198,11 @@ __PACKAGE__->register_method({
                     }
 		    die "storage migration failed: $err";
                 }
+
+		if ($param->{delete}) {
+		    eval { PVE::Storage::vdisk_free($storecfg, $old_volid); };
+		    warn $@ if $@;
+		}
 	    };
 
             return $rpcenv->fork_worker('qmmove', $vmid, $authuser, $realcmd);
