@@ -2073,8 +2073,8 @@ __PACKAGE__->register_method({
     }});
 
 __PACKAGE__->register_method({
-    name => 'move_vm',
-    path => '{vmid}/move',
+    name => 'move_vm_disk',
+    path => '{vmid}/move_disk',
     method => 'POST',
     protected => 1,
     proxyto => 'node',

@@ -359,7 +359,7 @@ my $cmddef = {
 
     resize => [ "PVE::API2::Qemu", 'resize_vm', ['vmid', 'disk', 'size'], { node => $nodename } ],
 
-    move => [ "PVE::API2::Qemu", 'move_vm', ['vmid', 'disk', 'storage'], { node => $nodename }, $upid_exit ],
+    move_disk => [ "PVE::API2::Qemu", 'move_vm_disk', ['vmid', 'disk', 'storage'], { node => $nodename }, $upid_exit ],
 
     unlink => [ "PVE::API2::Qemu", 'unlink', ['vmid', 'idlist'], { node => $nodename } ],
 
