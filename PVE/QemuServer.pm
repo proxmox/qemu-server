@@ -4688,18 +4688,20 @@ sub qemu_drive_mirror {
 		$old_len = $stat->{offset};
 		sleep 1;
 	    }
+	
+	    if ($vmiddst == $vmid) {
+		# switch the disk if source and destination are on the same guest 
+		vm_mon_cmd($vmid, "block-job-complete", device => "drive-$drive");
+	    }
 	};
 	if (my $err = $@) {
 	    eval { vm_mon_cmd($vmid, "block-job-cancel", device => "drive-$drive"); };
 	    die "mirroring error: $err";
 	}
 
-	if ($vmiddst != $vmid){
-	    #if we clone a disk for a new target vm, we don't switch the disk
+	if ($vmiddst != $vmid) {
+	    # if we clone a disk for a new target vm, we don't switch the disk
 	    vm_mon_cmd($vmid, "block-job-cancel", device => "drive-$drive");
-	} else {
-	    #if source and destination are on the same guest
-	    vm_mon_cmd($vmid, "block-job-complete", device => "drive-$drive");
 	}
     }
 }
