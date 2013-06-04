@@ -4406,7 +4406,7 @@ sub snapshot_create {
     };
     my $err = $@;
 
-    eval { gqa_unfreezefs($vmid) if $running && $freezefs; };
+    eval { qga_unfreezefs($vmid) if $running && $freezefs; };
     warn $@ if $@;
 
     eval { vm_mon_cmd($vmid, "savevm-end") if $running; };
