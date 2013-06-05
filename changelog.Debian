@@ -1,3 +1,13 @@
+qemu-server (3.0-19) unstable; urgency=low
+
+  * config: implement new 'machine' configuration
+  
+  * migrate:  pass --machine parameter to remote 'qm start' command
+
+  * snapshot: store/use 'machine' confifiguration
+  
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 05 Jun 2013 10:27:47 +0200
+
 qemu-server (3.0-18) unstable; urgency=low
 
   * imlement delete flag for move_disk
