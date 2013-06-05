@@ -139,6 +139,7 @@ sub prepare {
     if (my $pid = PVE::QemuServer::check_running($vmid)) {
 	die "cant migrate running VM without --online\n" if !$online;
 	$running = $pid;
+	$self->{forcemachine} = PVE::QemuServer::get_current_qemu_machine($vmid);
     }
 
     if (my $loc_res = PVE::QemuServer::check_local_resources($conf, 1)) {
@@ -312,6 +313,10 @@ sub phase2 {
     ## start on remote node
     my $cmd = [@{$self->{rem_ssh}}, 'qm', 'start',
                $vmid, '--stateuri', 'tcp', '--skiplock', '--migratedfrom', $nodename];
+
+    if ($self->{forcemachine}) {
+	push @$cmd, '--machine', $self->{forcemachine};
+    }
 
     PVE::Tools::run_command($cmd, outfunc => sub {
 	my $line = shift;
