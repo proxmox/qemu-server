@@ -2219,7 +2219,7 @@ sub foreach_volid {
 }
 
 sub config_to_command {
-    my ($storecfg, $vmid, $conf, $defaults) = @_;
+    my ($storecfg, $vmid, $conf, $defaults, $forcemachine) = @_;
 
     my $cmd = [];
     my $globalFlags = [];
@@ -2384,8 +2384,9 @@ sub config_to_command {
 	die "No accelerator found!\n" if !$cpuinfo->{hvm};
     }
 
-    if ($conf->{machine}) {
-	push @$machineFlags, "type=$conf->{machine}";
+    my $machine_type = $forcemachine || $conf->{machine};
+    if ($machine_type) {
+	push @$machineFlags, "type=${machine_type}";
     }
 
     if ($conf->{startdate}) {
@@ -2972,7 +2973,7 @@ sub qga_unfreezefs {
 }
 
 sub vm_start {
-    my ($storecfg, $vmid, $statefile, $skiplock, $migratedfrom, $paused) = @_;
+    my ($storecfg, $vmid, $statefile, $skiplock, $migratedfrom, $paused, $forcemachine) = @_;
 
     lock_config($vmid, sub {
 	my $conf = load_config($vmid, $migratedfrom);
@@ -2988,7 +2989,7 @@ sub vm_start {
 	# set environment variable useful inside network script
 	$ENV{PVE_MIGRATED_FROM} = $migratedfrom if $migratedfrom;
 
-	my ($cmd, $vollist) = config_to_command($storecfg, $vmid, $conf, $defaults);
+	my ($cmd, $vollist) = config_to_command($storecfg, $vmid, $conf, $defaults, $forcemachine);
 
 	my $migrate_port = 0;
 
