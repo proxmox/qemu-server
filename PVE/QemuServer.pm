@@ -4764,4 +4764,21 @@ sub clone_disk {
     return $disk;
 }
 
+# this only works if VM is running
+sub get_current_qemu_machine {
+    my ($vmid) = @_;
+
+    my $cmd = { execute => 'query-machines', arguments => {} };
+    my $res = PVE::QemuServer::vm_qmp_command($vmid, $cmd); 
+
+    my ($current, $default);
+    foreach my $e (@$res) {
+	$default = $e->{name} if $e->{'is-default'};
+	$current = $e->{name} if $e->{'is-current'};
+    }
+
+    # fallback to the default machine if current is not supported by qemu
+    return $current || $default || 'pc';
+}
+
 1;
