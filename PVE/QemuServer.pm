@@ -421,6 +421,13 @@ EODESCR
 	type => 'string', format => 'pve-volume-id',
 	description => "Reference to a volume which stores the VM state. This is used internally for snapshots.",
     },
+    machine => {
+	description => "Specific the Qemu machine type.",
+	type => 'string',
+	pattern => '(pc|pc(-i440fx)?-\d+\.\d+|q35|pc-q35-\d+\.\d+)',
+	maxLength => 40,
+	optional => 1,
+    },
 };
 
 # what about other qemu settings ?
@@ -2375,6 +2382,10 @@ sub config_to_command {
 	push @$machineFlags, 'accel=tcg';
     } else {
 	die "No accelerator found!\n" if !$cpuinfo->{hvm};
+    }
+
+    if ($conf->{machine}) {
+	push @$machineFlags, "type=$conf->{machine}";
     }
 
     if ($conf->{startdate}) {
