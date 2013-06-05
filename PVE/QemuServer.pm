@@ -4252,6 +4252,10 @@ my $snapshot_prepare = sub {
 	$snap->{snaptime} = time();
 	$snap->{description} = $comment if $comment;
 
+	# always overwrite machine if we save vmstate. This makes sure we
+	# can restore it later using correct machine type
+	$snap->{machine} = get_current_qemu_machine($vmid) if $snap->{vmstate};
+
 	update_config_nolock($vmid, $conf, 1);
     };
 
@@ -4327,17 +4331,26 @@ sub snapshot_rollback {
 	    delete $conf->{lock};
 	}
 
+	my $forcemachine;
+
 	if (!$prepare) {
+	    my $has_machine_config = defined($conf->{machine});
+
 	    # copy snapshot config to current config
 	    $conf = &$snapshot_apply_config($conf, $snap);
 	    $conf->{parent} = $snapname;
+
+	    $forcemachine = $conf->{machine};
+	    # we remove the 'machine' configuration if not explicitly specified 
+	    # in the original config.
+	    delete $conf->{machine} if $snap->{vmstate} && !$has_machine_config;
 	}
 
  	update_config_nolock($vmid, $conf, 1);
 
 	if (!$prepare && $snap->{vmstate}) {
 	    my $statefile = PVE::Storage::path($storecfg, $snap->{vmstate});
-	    vm_start($storecfg, $vmid, $statefile);
+	    vm_start($storecfg, $vmid, $statefile, undef, undef, undef, $forcemachine);
 	}
     };
 
