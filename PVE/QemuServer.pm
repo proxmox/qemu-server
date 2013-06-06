@@ -4340,7 +4340,9 @@ sub snapshot_rollback {
 	    $conf = &$snapshot_apply_config($conf, $snap);
 	    $conf->{parent} = $snapname;
 
-	    $forcemachine = $conf->{machine};
+	    # Note: old code did not store 'machine', so we try to be smart
+	    # and guess the snapshot was generated with kvm 1.4 (pc-i440fx-1.4).
+	    $forcemachine = $conf->{machine} || 'pc-i440fx-1.4';
 	    # we remove the 'machine' configuration if not explicitly specified 
 	    # in the original config.
 	    delete $conf->{machine} if $snap->{vmstate} && !$has_machine_config;
