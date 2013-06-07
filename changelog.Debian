@@ -1,3 +1,11 @@
+qemu-server (3.0-20) unstable; urgency=low
+
+  * new API to update VM config: this one is fully asynchronous.
+  
+  * snapshot rollback: use pc-i440fx-1.4 as default
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 07 Jun 2013 11:44:16 +0200
+
 qemu-server (3.0-19) unstable; urgency=low
 
   * config: implement new 'machine' configuration
