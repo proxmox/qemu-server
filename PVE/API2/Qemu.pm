@@ -839,6 +839,192 @@ my $vmconfig_update_net = sub {
     die "error hotplug $opt" if !PVE::QemuServer::vm_deviceplug($storecfg, $conf, $vmid, $opt, $net);
 };
 
+# POST/PUT {vmid}/config implementation
+#
+# The original API used PUT (idempotent) an we assumed that all operations
+# are fast. But it turned out that almost any configuration change can
+# involve hot-plug actions, or disk alloc/free. Such actions can take long
+# time to complete and have side effects (not idempotent).
+#
+# The new implementation uses POST and forks a worker process. We added 
+# a new option 'background_delay'. If specified we wait up to
+# 'background_delay' second for the worker task to complete. It returns null 
+# if the task is finished within that time, else we return the UPID.
+ 
+my $update_vm_api  = sub {
+    my ($param, $sync) = @_;
+
+    my $rpcenv = PVE::RPCEnvironment::get();
+
+    my $authuser = $rpcenv->get_user();
+
+    my $node = extract_param($param, 'node');
+
+    my $vmid = extract_param($param, 'vmid');
+
+    my $digest = extract_param($param, 'digest');
+
+    my $background_delay = extract_param($param, 'background_delay');
+
+    my @paramarr = (); # used for log message
+    foreach my $key (keys %$param) {
+	push @paramarr, "-$key", $param->{$key};
+    }
+
+    my $skiplock = extract_param($param, 'skiplock');
+    raise_param_exc({ skiplock => "Only root may use this option." })
+	if $skiplock && $authuser ne 'root@pam';
+
+    my $delete_str = extract_param($param, 'delete');
+
+    my $force = extract_param($param, 'force');
+
+    die "no options specified\n" if !$delete_str && !scalar(keys %$param);
+
+    my $storecfg = PVE::Storage::config();
+
+    my $defaults = PVE::QemuServer::load_defaults();
+
+    &$resolve_cdrom_alias($param);
+
+    # now try to verify all parameters
+
+    my @delete = ();
+    foreach my $opt (PVE::Tools::split_list($delete_str)) {
+	$opt = 'ide2' if $opt eq 'cdrom';
+	raise_param_exc({ delete => "you can't use '-$opt' and " .
+			      "-delete $opt' at the same time" })
+	    if defined($param->{$opt});
+	
+	if (!PVE::QemuServer::option_exists($opt)) {
+	    raise_param_exc({ delete => "unknown option '$opt'" });
+	}
+
+	push @delete, $opt;
+    }
+
+    foreach my $opt (keys %$param) {
+	if (PVE::QemuServer::valid_drivename($opt)) {
+	    # cleanup drive path
+	    my $drive = PVE::QemuServer::parse_drive($opt, $param->{$opt});
+	    PVE::QemuServer::cleanup_drive_path($opt, $storecfg, $drive);
+	    $param->{$opt} = PVE::QemuServer::print_drive($vmid, $drive);
+	} elsif ($opt =~ m/^net(\d+)$/) {
+	    # add macaddr
+	    my $net = PVE::QemuServer::parse_net($param->{$opt});
+	    $param->{$opt} = PVE::QemuServer::print_net($net);
+	}
+    }
+
+    &$check_vm_modify_config_perm($rpcenv, $authuser, $vmid, undef, [@delete]);
+
+    &$check_vm_modify_config_perm($rpcenv, $authuser, $vmid, undef, [keys %$param]);
+
+    &$check_storage_access($rpcenv, $authuser, $storecfg, $vmid, $param);
+
+    my $updatefn =  sub {
+
+	my $conf = PVE::QemuServer::load_config($vmid);
+
+	die "checksum missmatch (file change by other user?)\n"
+	    if $digest && $digest ne $conf->{digest};
+
+	PVE::QemuServer::check_lock($conf) if !$skiplock;
+	
+	if ($param->{memory} || defined($param->{balloon})) {
+	    my $maxmem = $param->{memory} || $conf->{memory} || $defaults->{memory};
+	    my $balloon = defined($param->{balloon}) ?  $param->{balloon} : $conf->{balloon};
+	    
+	    die "balloon value too large (must be smaller than assigned memory)\n"
+		if $balloon && $balloon > $maxmem;
+	}
+
+	PVE::Cluster::log_msg('info', $authuser, "update VM $vmid: " . join (' ', @paramarr));
+
+	my $worker = sub {
+
+	    print "update VM $vmid: " . join (' ', @paramarr) . "\n";
+
+	    foreach my $opt (@delete) { # delete
+		$conf = PVE::QemuServer::load_config($vmid); # update/reload
+		&$vmconfig_delete_option($rpcenv, $authuser, $conf, $storecfg, $vmid, $opt, $force);
+	    }
+
+	    my $running = PVE::QemuServer::check_running($vmid);
+	    
+	    foreach my $opt (keys %$param) { # add/change
+		
+		$conf = PVE::QemuServer::load_config($vmid); # update/reload
+		
+		next if $conf->{$opt} && ($param->{$opt} eq $conf->{$opt}); # skip if nothing changed
+
+		if (PVE::QemuServer::valid_drivename($opt)) {
+
+		    &$vmconfig_update_disk($rpcenv, $authuser, $conf, $storecfg, $vmid,
+					   $opt, $param->{$opt}, $force);
+
+		} elsif ($opt =~ m/^net(\d+)$/) { #nics
+
+		    &$vmconfig_update_net($rpcenv, $authuser, $conf, $storecfg, $vmid,
+					  $opt, $param->{$opt});
+
+		} else {
+
+		    if($opt eq 'tablet' && $param->{$opt} == 1){
+			PVE::QemuServer::vm_deviceplug(undef, $conf, $vmid, $opt);
+		    } elsif($opt eq 'tablet' && $param->{$opt} == 0){
+			PVE::QemuServer::vm_deviceunplug($vmid, $conf, $opt);
+		    }
+
+		    $conf->{$opt} = $param->{$opt};
+		    PVE::QemuServer::update_config_nolock($vmid, $conf, 1);
+		}
+	    }
+
+	    # allow manual ballooning if shares is set to zero
+	    if ($running && defined($param->{balloon}) &&
+		defined($conf->{shares}) && ($conf->{shares} == 0)) {
+		my $balloon = $param->{'balloon'} || $conf->{memory} || $defaults->{memory};
+		PVE::QemuServer::vm_mon_cmd($vmid, "balloon", value => $balloon*1024*1024);
+	    }
+	};
+
+	if ($sync) {
+	    &$worker();
+	    return undef;
+	} else {
+	    my $upid = $rpcenv->fork_worker('qmconfig', $vmid, $authuser, $worker);
+
+	    if ($background_delay) {
+
+		# Note: It would be better to do that in the Event based HTTPServer
+		# to avoid blocking call to sleep. 
+
+		my $end_time = time() + $background_delay;
+
+		my $task = PVE::Tools::upid_decode($upid);
+
+		my $running = 1;
+		while (time() < $end_time) {
+		    $running = PVE::ProcFSTools::check_process_running($task->{pid}, $task->{pstart});
+		    last if !$running;
+		    sleep(1); # this gets interrupted when child process ends
+		}
+
+		if (!$running) {
+		    my $status = PVE::Tools::upid_read_status($upid);
+		    return undef if $status eq 'OK';
+		    die $status;
+		}
+	    } 
+
+	    return $upid;
+	}
+    };
+
+    return PVE::QemuServer::lock_config($vmid, $updatefn);
+};
+
 my $vm_config_perm_list = [
 	    'VM.Config.Disk',
 	    'VM.Config.CDROM',
@@ -850,12 +1036,12 @@ my $vm_config_perm_list = [
     ];
 
 __PACKAGE__->register_method({
-    name => 'update_vm',
+    name => 'update_vm_async',
     path => '{vmid}/config',
-    method => 'PUT',
+    method => 'POST',
     protected => 1,
     proxyto => 'node',
-    description => "Set virtual machine options.",
+    description => "Set virtual machine options (asynchrounous API).",
     permissions => {
 	check => ['perm', '/vms/{vmid}', $vm_config_perm_list, any => 1],
     },
@@ -882,147 +1068,66 @@ __PACKAGE__->register_method({
 		    description => 'Prevent changes if current configuration file has different SHA1 digest. This can be used to prevent concurrent modifications.',
 		    maxLength => 40,
 		    optional => 1,
-		}
+		},
+		background_delay => {
+		    type => 'integer',
+		    description => "Time to wait for the task to finish. We return 'null' if the task finish within that time.",
+		    minimum => 1,
+		    maximum => 30,
+		    optional => 1,
+		},
 	    }),
     },
-    returns => { type => 'null'},
+    returns => {
+	type => 'string',
+	optional => 1,
+    },
+    code => $update_vm_api,
+});
+
+__PACKAGE__->register_method({
+    name => 'update_vm',
+    path => '{vmid}/config',
+    method => 'PUT',
+    protected => 1,
+    proxyto => 'node',
+    description => "Set virtual machine options (synchrounous API) - You should consider using the POST method instead for any actions involving hotplug or storage allocation.",
+    permissions => {
+	check => ['perm', '/vms/{vmid}', $vm_config_perm_list, any => 1],
+    },
+    parameters => {
+    	additionalProperties => 0,
+	properties => PVE::QemuServer::json_config_properties(
+	    {
+		node => get_standard_option('pve-node'),
+		vmid => get_standard_option('pve-vmid'),
+		skiplock => get_standard_option('skiplock'),
+		delete => {
+		    type => 'string', format => 'pve-configid-list',
+		    description => "A list of settings you want to delete.",
+		    optional => 1,
+		},
+		force => {
+		    type => 'boolean',
+		    description => $opt_force_description,
+		    optional => 1,
+		    requires => 'delete',
+		},
+		digest => {
+		    type => 'string',
+		    description => 'Prevent changes if current configuration file has different SHA1 digest. This can be used to prevent concurrent modifications.',
+		    maxLength => 40,
+		    optional => 1,
+		},
+	    }),
+    },
+    returns => { type => 'null' },
     code => sub {
 	my ($param) = @_;
-
-	my $rpcenv = PVE::RPCEnvironment::get();
-
-	my $authuser = $rpcenv->get_user();
-
-	my $node = extract_param($param, 'node');
-
-	my $vmid = extract_param($param, 'vmid');
-
-	my $digest = extract_param($param, 'digest');
-
-	my @paramarr = (); # used for log message
-	foreach my $key (keys %$param) {
-	    push @paramarr, "-$key", $param->{$key};
-	}
-
-	my $skiplock = extract_param($param, 'skiplock');
-	raise_param_exc({ skiplock => "Only root may use this option." })
-	    if $skiplock && $authuser ne 'root@pam';
-
-	my $delete_str = extract_param($param, 'delete');
-
-	my $force = extract_param($param, 'force');
-
-	die "no options specified\n" if !$delete_str && !scalar(keys %$param);
-
-	my $storecfg = PVE::Storage::config();
-
-	my $defaults = PVE::QemuServer::load_defaults();
-
-	&$resolve_cdrom_alias($param);
-
-	# now try to verify all parameters
-
-	my @delete = ();
-	foreach my $opt (PVE::Tools::split_list($delete_str)) {
-	    $opt = 'ide2' if $opt eq 'cdrom';
-	    raise_param_exc({ delete => "you can't use '-$opt' and " .
-				  "-delete $opt' at the same time" })
-		if defined($param->{$opt});
-
-	    if (!PVE::QemuServer::option_exists($opt)) {
-		raise_param_exc({ delete => "unknown option '$opt'" });
-	    }
-
-	    push @delete, $opt;
-	}
-
-	foreach my $opt (keys %$param) {
-	    if (PVE::QemuServer::valid_drivename($opt)) {
-		# cleanup drive path
-		my $drive = PVE::QemuServer::parse_drive($opt, $param->{$opt});
-		PVE::QemuServer::cleanup_drive_path($opt, $storecfg, $drive);
-		$param->{$opt} = PVE::QemuServer::print_drive($vmid, $drive);
-	    } elsif ($opt =~ m/^net(\d+)$/) {
-		# add macaddr
-		my $net = PVE::QemuServer::parse_net($param->{$opt});
-		$param->{$opt} = PVE::QemuServer::print_net($net);
-	    }
-	}
-
-	&$check_vm_modify_config_perm($rpcenv, $authuser, $vmid, undef, [@delete]);
-
-	&$check_vm_modify_config_perm($rpcenv, $authuser, $vmid, undef, [keys %$param]);
-
-	&$check_storage_access($rpcenv, $authuser, $storecfg, $vmid, $param);
-
-	my $updatefn =  sub {
-
-	    my $conf = PVE::QemuServer::load_config($vmid);
-
-	    die "checksum missmatch (file change by other user?)\n"
-		if $digest && $digest ne $conf->{digest};
-
-	    PVE::QemuServer::check_lock($conf) if !$skiplock;
-
-	    if ($param->{memory} || defined($param->{balloon})) {
-		my $maxmem = $param->{memory} || $conf->{memory} || $defaults->{memory};
-		my $balloon = defined($param->{balloon}) ?  $param->{balloon} : $conf->{balloon};
-
-		die "balloon value too large (must be smaller than assigned memory)\n"
-		    if $balloon && $balloon > $maxmem;
-	    }
-
-	    PVE::Cluster::log_msg('info', $authuser, "update VM $vmid: " . join (' ', @paramarr));
-
-	    foreach my $opt (@delete) { # delete
-		$conf = PVE::QemuServer::load_config($vmid); # update/reload
-		&$vmconfig_delete_option($rpcenv, $authuser, $conf, $storecfg, $vmid, $opt, $force);
-	    }
-
-	    my $running = PVE::QemuServer::check_running($vmid);
-
-	    foreach my $opt (keys %$param) { # add/change
-
-		$conf = PVE::QemuServer::load_config($vmid); # update/reload
-
-		next if $conf->{$opt} && ($param->{$opt} eq $conf->{$opt}); # skip if nothing changed
-
-		if (PVE::QemuServer::valid_drivename($opt)) {
-
-		    &$vmconfig_update_disk($rpcenv, $authuser, $conf, $storecfg, $vmid,
-					   $opt, $param->{$opt}, $force);
-
-		} elsif ($opt =~ m/^net(\d+)$/) { #nics
-
-		    &$vmconfig_update_net($rpcenv, $authuser, $conf, $storecfg, $vmid,
-					  $opt, $param->{$opt});
-
-		} else {
-
-		    if($opt eq 'tablet' && $param->{$opt} == 1){
-			PVE::QemuServer::vm_deviceplug(undef, $conf, $vmid, $opt);
-		    }elsif($opt eq 'tablet' && $param->{$opt} == 0){
-			PVE::QemuServer::vm_deviceunplug($vmid, $conf, $opt);
-		    }
-
-		    $conf->{$opt} = $param->{$opt};
-		    PVE::QemuServer::update_config_nolock($vmid, $conf, 1);
-		}
-	    }
-
-	    # allow manual ballooning if shares is set to zero
-	    if ($running && defined($param->{balloon}) &&
-		defined($conf->{shares}) && ($conf->{shares} == 0)) {
-		my $balloon = $param->{'balloon'} || $conf->{memory} || $defaults->{memory};
-		PVE::QemuServer::vm_mon_cmd($vmid, "balloon", value => $balloon*1024*1024);
-	    }
-
-	};
-
-	PVE::QemuServer::lock_config($vmid, $updatefn);
-
+	&$update_vm_api($param, 1);
 	return undef;
-    }});
+    }
+});
 
 
 __PACKAGE__->register_method({
