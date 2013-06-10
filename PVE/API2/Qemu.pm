@@ -130,25 +130,28 @@ my $create_disks = sub {
 
 	    my ($storeid, $volname) = PVE::Storage::parse_volume_id($volid, 1);
 
-	    my $foundvolid = undef;
+	    my $foundvolid = 1;
+	    my $volid_is_new = 1; 
 
-	    if ($storeid) {
-		PVE::Storage::activate_volumes($storecfg, [ $volid ]);
-		my $dl = PVE::Storage::vdisk_list($storecfg, $storeid, undef);
-
-		PVE::Storage::foreach_volid($dl, sub {
-		    my ($volumeid) = @_;
-		    if($volumeid eq $volid) {
-			$foundvolid = 1;
-			return;
-		    }
-	        });
+	    if ($conf->{$ds}) { 
+		my $olddrive = PVE::QemuServer::parse_drive($ds, $conf->{$ds}); 
+		$volid_is_new = undef if $olddrive->{file} && $olddrive->{file} eq $volid; 
 	    }
 
-	    die "image '$path' does not exists\n" if (!(-f $path || -b $path || $foundvolid));
+	    if($volid_is_new){
 
-	    my ($size) = PVE::Storage::volume_size_info($storecfg, $volid, 1);
-	    $disk->{size} = $size;
+		PVE::Storage::activate_volumes($storecfg, [ $volid ]) if $storeid;
+		my $size = undef;
+		eval {
+		    $size = PVE::Storage::volume_size_info($storecfg, $volid);
+		    die if !$size;
+		    $disk->{size} = $size;
+		};
+		$foundvolid = undef if $@;
+
+		die "volume $volid does not exists\n" if (!(-f $path || -b $path || $foundvolid));
+	    }
+
 	    $res->{$ds} = PVE::QemuServer::print_drive($vmid, $disk);
 	}
     });
