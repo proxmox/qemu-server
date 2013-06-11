@@ -2771,7 +2771,7 @@ sub qemu_bridgeadd {
     while (my ($k, $v) = each %$bridges) {
 	$bridgeid = $k;
     }
-    return if $bridgeid < 1;
+    return if !$bridgeid || $bridgeid < 1;
     my $bridge = "pci.$bridgeid";
     my $devices_list = vm_devices_list($vmid);
 
