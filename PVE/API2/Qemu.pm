@@ -128,16 +128,16 @@ my $create_disks = sub {
 
 	    my $path = $rpcenv->check_volume_access($authuser, $storecfg, $vmid, $volid);
 
-	    my ($storeid, $volname) = PVE::Storage::parse_volume_id($volid, 1);
+	    my $volid_is_new = 1;
 
-	    my $volid_is_new = 1; 
-
-	    if ($conf->{$ds}) { 
-		my $olddrive = PVE::QemuServer::parse_drive($ds, $conf->{$ds}); 
-		$volid_is_new = undef if $olddrive->{file} && $olddrive->{file} eq $volid; 
+	    if ($conf->{$ds}) {
+		my $olddrive = PVE::QemuServer::parse_drive($ds, $conf->{$ds});
+		$volid_is_new = undef if $olddrive->{file} && $olddrive->{file} eq $volid;
 	    }
 
 	    if ($volid_is_new) {
+
+		my ($storeid, $volname) = PVE::Storage::parse_volume_id($volid, 1);
 
 		PVE::Storage::activate_volumes($storecfg, [ $volid ]) if $storeid;
 
@@ -662,16 +662,16 @@ my $delete_drive = sub {
 	my $volid = $drive->{file};
 
 	if (&$vm_is_volid_owner($storecfg, $vmid, $volid)) {
-	    if ($force || $key =~ m/^unused/) {	   
-		eval { 
-		    # check if the disk is really unused 
+	    if ($force || $key =~ m/^unused/) {
+		eval {
+		    # check if the disk is really unused
 		    my $used_paths = PVE::QemuServer::get_used_paths($vmid, $storecfg, $conf, 1, $key);
-		    my $path = PVE::Storage::path($storecfg, $volid); 
+		    my $path = PVE::Storage::path($storecfg, $volid);
 
 		    die "unable to delete '$volid' - volume is still in use (snapshot?)\n"
 			if $used_paths->{$path};
 
-		    PVE::Storage::vdisk_free($storecfg, $volid); 
+		    PVE::Storage::vdisk_free($storecfg, $volid);
 		};
 		die $@ if $@;
 	    } else {
@@ -845,11 +845,11 @@ my $vmconfig_update_net = sub {
 # involve hot-plug actions, or disk alloc/free. Such actions can take long
 # time to complete and have side effects (not idempotent).
 #
-# The new implementation uses POST and forks a worker process. We added 
+# The new implementation uses POST and forks a worker process. We added
 # a new option 'background_delay'. If specified we wait up to
-# 'background_delay' second for the worker task to complete. It returns null 
+# 'background_delay' second for the worker task to complete. It returns null
 # if the task is finished within that time, else we return the UPID.
- 
+
 my $update_vm_api  = sub {
     my ($param, $sync) = @_;
 
@@ -894,7 +894,7 @@ my $update_vm_api  = sub {
 	raise_param_exc({ delete => "you can't use '-$opt' and " .
 			      "-delete $opt' at the same time" })
 	    if defined($param->{$opt});
-	
+
 	if (!PVE::QemuServer::option_exists($opt)) {
 	    raise_param_exc({ delete => "unknown option '$opt'" });
 	}
@@ -929,11 +929,11 @@ my $update_vm_api  = sub {
 	    if $digest && $digest ne $conf->{digest};
 
 	PVE::QemuServer::check_lock($conf) if !$skiplock;
-	
+
 	if ($param->{memory} || defined($param->{balloon})) {
 	    my $maxmem = $param->{memory} || $conf->{memory} || $defaults->{memory};
 	    my $balloon = defined($param->{balloon}) ?  $param->{balloon} : $conf->{balloon};
-	    
+
 	    die "balloon value too large (must be smaller than assigned memory)\n"
 		if $balloon && $balloon > $maxmem;
 	}
@@ -950,11 +950,11 @@ my $update_vm_api  = sub {
 	    }
 
 	    my $running = PVE::QemuServer::check_running($vmid);
-	    
+
 	    foreach my $opt (keys %$param) { # add/change
-		
+
 		$conf = PVE::QemuServer::load_config($vmid); # update/reload
-		
+
 		next if $conf->{$opt} && ($param->{$opt} eq $conf->{$opt}); # skip if nothing changed
 
 		if (PVE::QemuServer::valid_drivename($opt)) {
@@ -997,7 +997,7 @@ my $update_vm_api  = sub {
 	    if ($background_delay) {
 
 		# Note: It would be better to do that in the Event based HTTPServer
-		# to avoid blocking call to sleep. 
+		# to avoid blocking call to sleep.
 
 		my $end_time = time() + $background_delay;
 
@@ -1015,7 +1015,7 @@ my $update_vm_api  = sub {
 		    return undef if $status eq 'OK';
 		    die $status;
 		}
-	    } 
+	    }
 
 	    return $upid;
 	}
@@ -1877,7 +1877,7 @@ __PACKAGE__->register_method({
 	type => "object",
 	properties => {
 	    hasFeature => { type => 'boolean' },
-	    nodes => { 	
+	    nodes => {
 		type => 'array',
 		items => { type => 'string' },
 	    }
@@ -1907,11 +1907,11 @@ __PACKAGE__->register_method({
 
 	my $nodelist = PVE::QemuServer::shared_nodes($conf, $storecfg);
 	my $hasFeature = PVE::QemuServer::has_feature($feature, $conf, $storecfg, $snapname, $running);
-	
+
 	return {
 	    hasFeature => $hasFeature,
 	    nodes => [ keys %$nodelist ],
-	}; 
+	};
     }});
 
 __PACKAGE__->register_method({
@@ -2188,7 +2188,7 @@ __PACKAGE__->register_method({
     permissions => {
 	description => "You need 'VM.Config.Disk' permissions on /vms/{vmid}, " .
 	    "and 'Datastore.AllocateSpace' permissions on the storage.",
-	check => 
+	check =>
 	[ 'and',
 	  ['perm', '/vms/{vmid}', [ 'VM.Config.Disk' ]],
 	  ['perm', '/storage/{storage}', [ 'Datastore.AllocateSpace' ]],
@@ -2271,7 +2271,7 @@ __PACKAGE__->register_method({
 		$oldfmt = $1;
 	    }
 
-	    die "you can't move on the same storage with same format\n" if $oldstoreid eq $storeid && 
+	    die "you can't move on the same storage with same format\n" if $oldstoreid eq $storeid &&
                 (!$format || !$oldfmt || $oldfmt eq $format);
 
 	    PVE::Cluster::log_msg('info', $authuser, "move disk VM $vmid: move --disk $disk --storage $storeid");
@@ -2293,7 +2293,7 @@ __PACKAGE__->register_method({
 		    $conf->{$disk} = PVE::QemuServer::print_drive($vmid, $newdrive);
 
 		    PVE::QemuServer::add_unused_volume($conf, $old_volid) if !$param->{delete};
-		   
+
 		    PVE::QemuServer::update_config_nolock($vmid, $conf, 1);
 		};
 		if (my $err = $@) {
