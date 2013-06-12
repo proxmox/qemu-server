@@ -766,9 +766,13 @@ my $vmconfig_update_disk = sub {
                &$safe_num_ne($drive->{iops}, $old_drive->{iops}) ||
                &$safe_num_ne($drive->{iops_rd}, $old_drive->{iops_rd}) ||
                &$safe_num_ne($drive->{iops_wr}, $old_drive->{iops_wr})) {
-               PVE::QemuServer::qemu_block_set_io_throttle($vmid,"drive-$opt", $drive->{mbps}*1024*1024,
-							   $drive->{mbps_rd}*1024*1024, $drive->{mbps_wr}*1024*1024,
-							   $drive->{iops}, $drive->{iops_rd}, $drive->{iops_wr})
+               PVE::QemuServer::qemu_block_set_io_throttle($vmid,"drive-$opt", 
+							   ($drive->{mbps} || 0)*1024*1024,
+							   ($drive->{mbps_rd} || 0)*1024*1024, 
+							   ($drive->{mbps_wr} || 0)*1024*1024,
+							   $drive->{iops} || 0, 
+							   $drive->{iops_rd} || 0, 
+							   $drive->{iops_wr} || 0)
 		   if !PVE::QemuServer::drive_is_cdrom($drive);
             }
 	}

@@ -2803,13 +2803,6 @@ sub qemu_block_set_io_throttle {
 
     return if !check_running($vmid) ;
 
-    $bps = 0 if !$bps;
-    $bps_rd = 0 if !$bps_rd;
-    $bps_wr = 0 if !$bps_wr;
-    $iops = 0 if !$iops;
-    $iops_rd = 0 if !$iops_rd;
-    $iops_wr = 0 if !$iops_wr;
-
     vm_mon_cmd($vmid, "block_set_io_throttle", device => $deviceid, bps => int($bps), bps_rd => int($bps_rd), bps_wr => int($bps_wr), iops => int($iops), iops_rd => int($iops_rd), iops_wr => int($iops_wr));
 
 }
