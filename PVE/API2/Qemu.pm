@@ -1411,7 +1411,13 @@ __PACKAGE__->register_method({
 		}
 	    };
 	    
-	    eval { PVE::Tools::run_command($cmd, errfunc => $parser, outfunc => sub{}); };
+	    eval { 
+		# kill socat if we do not get any connection within $timeout seconds
+		local $SIG{ALRM} = sub { die "got timeout\n" if $conn_count <= 0; };
+		alarm($timeout);
+
+		PVE::Tools::run_command($cmd, errfunc => $parser, outfunc => sub{}); 
+	    };
 	    if (my $err = $@) {
 		die $err if $err !~ m/client exit$/;
 	    }
