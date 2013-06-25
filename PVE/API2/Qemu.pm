@@ -1405,10 +1405,9 @@ __PACKAGE__->register_method({
 		print "$line\n";
 		if ($line =~ /successfully connected from/) {
 		    $conn_count++;
-		} elsif ($line =~ /exiting with status/) {
+		} elsif ($line =~ /N exiting with status/ || $line =~ m/N exit\(/) {
 		    $conn_count--;
-		    # Note: counting connections seems unreliable here
-		    die "client exit\n"; # if $conn_count <= 0;
+		    die "client exit\n" if $conn_count <= 0;
 		}
 	    };
 	    
