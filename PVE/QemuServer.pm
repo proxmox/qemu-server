@@ -335,8 +335,8 @@ EODESC
     vga => {
 	optional => 1,
 	type => 'string',
-	description => "Select VGA type. If you want to use high resolution modes (>= 1280x1024x16) then you should use option 'std' or 'vmware'. Default is 'std' for win8/win7/w2k8, and 'cirrur' for other OS types",
-	enum => [qw(std cirrus vmware)],
+	description => "Select VGA type. If you want to use high resolution modes (>= 1280x1024x16) then you should use option 'std' or 'vmware'. Default is 'std' for win8/win7/w2k8, and 'cirrur' for other OS types. Option 'qxl' enables the SPICE display sever.",
+	enum => [qw(std cirrus vmware qxl)],
     },
     watchdog => {
 	optional => 1,
@@ -2414,6 +2414,22 @@ sub config_to_command {
 	push @$devices, '-device', 'virtserialport,chardev=qga0,name=org.qemu.guest_agent.0';
     }
 
+    if ($vga eq 'qxl') {
+	my $pciaddr = print_pci_addr("spice", $bridges);
+
+	# todo: enable tls
+	#my $x509 = "x509-key-file=/etc/pve/local/pve-ssl.key";
+	#$x509 .= ",x509-cert-file=/etc/pve/local/pve-ssl.pem";
+	#$x509 .= ",x509-cacert-file=/etc/pve/pve-root-ca.pem";
+
+	my $socket = spice_socket($vmid);
+
+	push @$cmd, '-spice', "disable-ticketing,unix=$socket";
+	push @$cmd, '-device', "virtio-serial,id=spice$pciaddr";
+	push @$cmd, '-chardev', "spicevmc,id=vdagent,name=vdagent";
+	push @$cmd, '-device', "virtserialport,chardev=vdagent,name=com.redhat.spice.0";
+    }
+
     # enable balloon by default, unless explicitly disabled
     if (!defined($conf->{balloon}) || $conf->{balloon}) {
 	$pciaddr = print_pci_addr("balloon0", $bridges);
@@ -2535,6 +2551,11 @@ sub config_to_command {
 sub vnc_socket {
     my ($vmid) = @_;
     return "${var_run_tmpdir}/$vmid.vnc";
+}
+
+sub spice_socket {
+    my ($vmid) = @_;
+    return "${var_run_tmpdir}/$vmid.spice"; 
 }
 
 sub qmp_socket {
@@ -3405,6 +3426,7 @@ sub print_pci_addr {
 	scsihw1 => { bus => 0, addr => 6 },
 	ahci0 => { bus => 0, addr => 7 },
 	qga0 => { bus => 0, addr => 8 },
+	spice => { bus => 0, addr => 9 },
 	virtio0 => { bus => 0, addr => 10 },
 	virtio1 => { bus => 0, addr => 11 },
 	virtio2 => { bus => 0, addr => 12 },
