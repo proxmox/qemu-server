@@ -2424,7 +2424,7 @@ sub config_to_command {
 
 	my $socket = spice_socket($vmid);
 
-	push @$cmd, '-spice', "disable-ticketing,unix=$socket";
+	push @$cmd, '-spice', "unix=$socket";
 	push @$cmd, '-device', "virtio-serial,id=spice$pciaddr";
 	push @$cmd, '-chardev', "spicevmc,id=vdagent,name=vdagent";
 	push @$cmd, '-device', "virtserialport,chardev=vdagent,name=com.redhat.spice.0";
