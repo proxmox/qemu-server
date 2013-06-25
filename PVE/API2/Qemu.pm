@@ -1371,6 +1371,9 @@ __PACKAGE__->register_method({
 
 	my $ticket = PVE::AccessControl::assemble_spice_ticket($authuser, $authpath);
 
+	# limit ticket length to 59 charachters
+	$ticket = substr($ticket, 0, 59);
+
 	my $timeout = 10;
 
 	# Note: this only works if VM is on local node
