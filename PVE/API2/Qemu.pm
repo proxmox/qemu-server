@@ -1388,7 +1388,7 @@ __PACKAGE__->register_method({
 	return {
 	    type => 'spice',
 	    host => $proxyticket,
-	    proxy => $host,
+	    proxy => "http://$host:3128",
 	    port => 0, # not used for now
 	    password => $ticket
 	};
