@@ -1474,6 +1474,10 @@ __PACKAGE__->register_method({
 
 	$status->{ha} = &$vm_is_ha_managed($param->{vmid});
 
+	if ($conf->{vga} && ($conf->{vga} eq 'qxl')) {
+	    $status->{spice} = 1;
+	}
+
 	return $status;
     }});
 
