@@ -1389,7 +1389,7 @@ __PACKAGE__->register_method({
 	    type => 'spice',
 	    host => $proxyticket,
 	    proxy => "http://$host:3128",
-	    port => 0, # not used for now
+	    port => 1, # not used for now
 	    password => $ticket
 	};
     }});
