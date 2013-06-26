@@ -1325,7 +1325,7 @@ __PACKAGE__->register_method({
 __PACKAGE__->register_method({
     name => 'spiceproxy',
     path => '{vmid}/spiceproxy',
-    method => 'GET', # fixme: should be POST, but howto handle that in the HTML client
+    method => 'GET',
     protected => 1,
     proxyto => 'node', # fixme: use direct connections or ssh tunnel?
     permissions => {
@@ -1344,6 +1344,7 @@ __PACKAGE__->register_method({
 	properties => {
 	    type => { type => 'string' },
 	    password => { type => 'string' },
+	    proxy => { type => 'string' },
 	    host => { type => 'string' },
 	    port => { type => 'integer' },
 	},
@@ -1358,8 +1359,6 @@ __PACKAGE__->register_method({
 	my $vmid = $param->{vmid};
 	my $node = $param->{node};
 
-	my $port = PVE::Tools::next_vnc_port();
-
         my $remip;
 
 	# Note: we currectly use "proxyto => 'node'", so this code will never trigger
@@ -1367,12 +1366,7 @@ __PACKAGE__->register_method({
             $remip = PVE::Cluster::remote_node_ip($node);
         }
 
-	my $authpath = "/vms/$vmid";
-
-	my $ticket = PVE::AccessControl::assemble_spice_ticket($authuser, $authpath);
-
-	# limit ticket length to 59 charachters
-	$ticket = substr($ticket, 0, 59);
+	my ($ticket, $proxyticket) = PVE::AccessControl::assemble_spice_ticket($authuser, $vmid, $node);
 
 	my $timeout = 10;
 
@@ -1380,54 +1374,12 @@ __PACKAGE__->register_method({
 	PVE::QemuServer::vm_mon_cmd($vmid, "set_password", protocol => 'spice', password => $ticket);
 	PVE::QemuServer::vm_mon_cmd($vmid, "expire_password", protocol => 'spice', time => "+30");
 
-	my $remcmd = []; #fixme
-
-	my $realcmd = sub {
-	    my $upid = shift;
-
-	    syslog('info', "starting spice proxy $upid\n");
-	
-	    my $socket = PVE::QemuServer::spice_socket($vmid);
-	
-	    my $cmd = ['/usr/bin/socat', '-d', '-d', 
-		       "TCP-LISTEN:$port,reuseaddr,fork" ];
-
-	    if ($remip) {
-		push @$cmd, "EXEC:'ssh root@$remip socat STDIO UNIX-CONNECT:$socket";
-	    } else {
-		push @$cmd, "UNIX-CONNECT:$socket";
-	    }
-
-	    my $conn_count = 0;
-
-	    my $parser = sub {
-		my $line = shift;
-		print "$line\n";
-		if ($line =~ /successfully connected from/) {
-		    $conn_count++;
-		} elsif ($line =~ /N exiting with status/ || $line =~ m/N exit\(/) {
-		    $conn_count--;
-		    die "client exit\n" if $conn_count <= 0;
-		}
-	    };
-	    
-	    eval { 
-		# kill socat if we do not get any connection within $timeout seconds
-		local $SIG{ALRM} = sub { die "got timeout\n" if $conn_count <= 0; };
-		alarm($timeout);
-
-		PVE::Tools::run_command($cmd, errfunc => $parser, outfunc => sub{}); 
-	    };
-	    if (my $err = $@) {
-		die $err if $err !~ m/client exit$/;
-	    }
-
-	    return;
-	};
-
-	my $upid = $rpcenv->fork_worker('spiceproxy', $vmid, $authuser, $realcmd);
-
-	PVE::Tools::wait_for_vnc_port($port);
+	# allow access for group www-data to the spice socket,
+	# so that spiceproxy can access it
+	my $socket =  PVE::QemuServer::spice_socket($vmid);
+	my $gid = getgrnam('www-data') || die "getgrnam failed - $!\n";
+	chown 0, $gid, $socket;
+	chmod 0770, $socket;
 
 	# fimxe: ??
 	my $host = `hostname -f` || PVE::INotify::nodename();
@@ -1435,10 +1387,10 @@ __PACKAGE__->register_method({
 
 	return {
 	    type => 'spice',
-	    host => $host,
-	    port => $port,
-	    password => $ticket,
-	    upid => $upid,
+	    host => $proxyticket,
+	    proxy => $host,
+	    port => 0, # not used for now
+	    password => $ticket
 	};
     }});
 
