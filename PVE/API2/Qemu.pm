@@ -1390,7 +1390,8 @@ __PACKAGE__->register_method({
 	    host => $proxyticket,
 	    proxy => "http://$host:3128",
 	    port => 1, # not used for now
-	    password => $ticket
+	    password => $ticket,
+	    'delete-this-file' => 1,
 	};
     }});
 
