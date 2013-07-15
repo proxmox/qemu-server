@@ -1050,7 +1050,7 @@ sub print_drivedevice_full {
         my $path = '';
         if (drive_is_cdrom($drive)) {
               $devicetype = 'cd';
-          } else {
+	} else {
               if ($drive->{file} =~ m|^/|) {
                   $path = $drive->{file};
               } else {
@@ -1058,10 +1058,9 @@ sub print_drivedevice_full {
               }
 
 	      if($path =~ m/^iscsi\:\/\//){
-		 $devicetype = 'generic';
-	      }
-	      else {
-		 $devicetype = 'block' if path_is_scsi($path);
+		  $devicetype = 'generic';
+	      } else {
+		  $devicetype = 'block' if path_is_scsi($path);
 	      }
          }
 
