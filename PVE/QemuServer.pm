@@ -2398,6 +2398,8 @@ sub config_to_command {
 
     push @$cpuFlags , '+x2apic' if !$nokvm;
 
+    push @$cpuFlags, '+sep' if $cpu eq 'kvm64' || $cpu eq 'kvm32';
+
     $cpu .= ",".join(',', @$cpuFlags) if scalar(@$cpuFlags);
 
     push @$cmd, '-cpu', $cpu;
