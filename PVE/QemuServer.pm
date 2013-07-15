@@ -925,7 +925,7 @@ sub parse_drive {
     return undef if $res->{backup} && $res->{backup} !~ m/^(yes|no)$/;
     return undef if $res->{aio} && $res->{aio} !~ m/^(native|threads)$/;
 
-    
+
     return undef if $res->{mbps_rd} && $res->{mbps};
     return undef if $res->{mbps_wr} && $res->{mbps};
 
@@ -941,7 +941,7 @@ sub parse_drive {
 
 
     if ($res->{size}) {
-	return undef if !defined($res->{size} = &$parse_size($res->{size})); 
+	return undef if !defined($res->{size} = &$parse_size($res->{size}));
     }
 
     if ($res->{media} && ($res->{media} eq 'cdrom')) {
@@ -1624,12 +1624,12 @@ sub parse_vm_config {
     my @lines = split(/\n/, $raw);
     foreach my $line (@lines) {
 	next if $line =~ m/^\s*$/;
-	
+
 	if ($line =~ m/^\[([a-z][a-z0-9_\-]+)\]\s*$/i) {
 	    my $snapname = $1;
 	    $conf->{description} = $descr if $descr;
 	    $descr = '';
-	    $conf = $res->{snapshots}->{$snapname} = {}; 
+	    $conf = $res->{snapshots}->{$snapname} = {};
 	    next;
 	}
 
@@ -1734,7 +1734,7 @@ sub write_vm_config {
 	    delete $conf->{$key};
 	}
     }
-  
+
     my $generate_raw_config = sub {
 	my ($conf) = @_;
 
@@ -1854,7 +1854,7 @@ sub shared_nodes {
     my $nodelist = PVE::Cluster::get_nodelist();
     my $nodehash = { map { $_ => 1 } @$nodelist };
     my $nodename = PVE::INotify::nodename();
-  
+
     foreach_drive($conf, sub {
 	my ($ds, $drive) = @_;
 
@@ -2113,13 +2113,13 @@ sub vmstatus {
 
 	my $info = $resp->{'return'};
 	return if !$info->{max_mem};
-	
+
 	my $d = $res->{$vmid};
 
 	# use memory assigned to VM
 	$d->{maxmem} = $info->{max_mem};
 	$d->{balloon} = $info->{actual};
-	
+
 	if (defined($info->{total_mem}) && defined($info->{free_mem})) {
 	    $d->{mem} = $info->{total_mem} - $info->{free_mem};
 	    $d->{freemem} = $info->{free_mem};
@@ -2188,14 +2188,14 @@ sub foreach_drive {
 
 sub foreach_volid {
     my ($conf, $func) = @_;
-    
+
     my $volhash = {};
 
     my $test_volid = sub {
 	my ($volid, $is_cdrom) = @_;
 
 	return if !$volid;
-	
+
 	$volhash->{$volid} = $is_cdrom || 0;
     };
 
@@ -2214,7 +2214,7 @@ sub foreach_volid {
     }
 
     foreach my $volid (keys %$volhash) {
-	&$func($volid, $volhash->{$volid});	
+	&$func($volid, $volhash->{$volid});
     }
 }
 
@@ -2367,7 +2367,7 @@ sub config_to_command {
 	    }
 	}
 
-	if ($ost eq 'win7' || $ost eq 'win8' || $ost eq 'w2k8' || 
+	if ($ost eq 'win7' || $ost eq 'win8' || $ost eq 'w2k8' ||
 	    $ost eq 'wvista') {
 	    push @$globalFlags, 'kvm-pit.lost_tick_policy=discard';
 	    push @$cmd, '-no-hpet';
@@ -2406,7 +2406,7 @@ sub config_to_command {
 
     push @$cpuFlags, '+sep' if $cpu eq 'kvm64' || $cpu eq 'kvm32';
 
-    $cpu .= ",".join(',', @$cpuFlags) if scalar(@$cpuFlags);
+    $cpu .= "," . join(',', @$cpuFlags) if scalar(@$cpuFlags);
 
     push @$cmd, '-cpu', $cpu;
 
@@ -2552,9 +2552,9 @@ sub config_to_command {
     }
 
     push @$cmd, @$devices;
-    push @$cmd, '-rtc', join(',', @$rtcFlags) 
+    push @$cmd, '-rtc', join(',', @$rtcFlags)
 	if scalar(@$rtcFlags);
-    push @$cmd, '-machine', join(',', @$machineFlags) 
+    push @$cmd, '-machine', join(',', @$machineFlags)
 	if scalar(@$machineFlags);
     push @$cmd, '-global', join(',', @$globalFlags)
 	if scalar(@$globalFlags);
@@ -2569,7 +2569,7 @@ sub vnc_socket {
 
 sub spice_socket {
     my ($vmid) = @_;
-    return "${var_run_tmpdir}/$vmid.spice"; 
+    return "${var_run_tmpdir}/$vmid.spice";
 }
 
 sub qmp_socket {
@@ -3068,11 +3068,11 @@ sub vm_start {
 	else{
 
 	    if (!$statefile && (!defined($conf->{balloon}) || $conf->{balloon})) {
-		vm_mon_cmd_nocheck($vmid, "balloon", value => $conf->{balloon}*1024*1024) 
+		vm_mon_cmd_nocheck($vmid, "balloon", value => $conf->{balloon}*1024*1024)
 		    if $conf->{balloon};
-		vm_mon_cmd_nocheck($vmid, 'qom-set', 
-			    path => "machine/peripheral/balloon0", 
-			    property => "guest-stats-polling-interval", 
+		vm_mon_cmd_nocheck($vmid, 'qom-set',
+			    path => "machine/peripheral/balloon0",
+			    property => "guest-stats-polling-interval",
 			    value => 2);
 	    }
 	}
@@ -3103,7 +3103,7 @@ sub vm_qmp_command {
 	$timeout = $cmd->{arguments}->{timeout};
 	delete $cmd->{arguments}->{timeout};
     }
- 
+
     eval {
 	die "VM $vmid not running\n" if !check_running($vmid, $nocheck);
 	my $sname = qmp_socket($vmid);
@@ -3697,7 +3697,7 @@ sub get_used_paths {
 
 sub update_disksize {
     my ($vmid, $conf, $volid_hash) = @_;
- 
+
     my $changes;
 
     my $used = {};
@@ -3707,7 +3707,7 @@ sub update_disksize {
     # to the same path).
 
     my $usedpath = {};
-    
+
     # update size info
     foreach my $opt (keys %$conf) {
 	if (valid_drivename($opt)) {
@@ -3716,7 +3716,7 @@ sub update_disksize {
 	    next if !$volid;
 
 	    $used->{$volid} = 1;
-	    if ($volid_hash->{$volid} && 
+	    if ($volid_hash->{$volid} &&
 		(my $path = $volid_hash->{$volid}->{path})) {
 		$usedpath->{$path} = 1;
 	    }
@@ -3738,7 +3738,7 @@ sub update_disksize {
 	next if $opt !~ m/^unused\d+$/;
 	my $volid = $conf->{$opt};
 	my $path = $volid_hash->{$volid}->{path} if $volid_hash->{$volid};
-	if ($used->{$volid} || ($path && $usedpath->{$path})) { 
+	if ($used->{$volid} || ($path && $usedpath->{$path})) {
 	    $changes = 1;
 	    delete $conf->{$opt};
 	}
@@ -3769,7 +3769,7 @@ sub rescan {
 	my ($vmid) = @_;
 
 	my $conf = load_config($vmid);
-	    
+
 	check_lock($conf);
 
 	my $vm_volids = {};
@@ -3796,7 +3796,7 @@ sub rescan {
 		&$updatefn($vmid);
 	    } else {
 		lock_config($vmid, $updatefn, $vmid);
-	    }    
+	    }
 	}
     }
 }
@@ -3818,7 +3818,7 @@ sub restore_vma_archive {
 	} else {
 	    die "unknown compression method '$comp'\n";
 	}
-	
+
     }
 
     my $tmpdir = "/var/tmp/vzdumptmp$$";
@@ -3877,7 +3877,7 @@ sub restore_vma_archive {
 		$devinfo->{$devname}->{format} = $format;
 		$devinfo->{$devname}->{storeid} = $storeid;
 
-		# check permission on storage 
+		# check permission on storage
 		my $pool = $opts->{pool}; # todo: do we need that?
 		if ($user ne 'root@pam') {
 		    $rpcenv->check($user, "/storage/$storeid", ['Datastore.AllocateSpace']);
@@ -3888,14 +3888,14 @@ sub restore_vma_archive {
 	}
 
 	foreach my $devname (keys %$devinfo) {
-	    die "found no device mapping information for device '$devname'\n" 
-		if !$devinfo->{$devname}->{virtdev};	    
+	    die "found no device mapping information for device '$devname'\n"
+		if !$devinfo->{$devname}->{virtdev};
 	}
 
 	my $cfg = cfs_read_file('storage.cfg');
 
 	# create empty/temp config
-	if ($oldconf) { 
+	if ($oldconf) {
 	    PVE::Tools::file_set_contents($conffile, "memory: 128\n");
 	    foreach_drive($oldconf, sub {
 		my ($ds, $drive) = @_;
@@ -3936,7 +3936,7 @@ sub restore_vma_archive {
 
 	    my $write_zeros = 1;
 	    # fixme: what other storages types initialize volumes with zero?
-	    if ($scfg->{type} eq 'dir' || $scfg->{type} eq 'nfs' || 
+	    if ($scfg->{type} eq 'dir' || $scfg->{type} eq 'nfs' ||
 		$scfg->{type} eq 'sheepdog' || $scfg->{type} eq 'rbd') {
 		$write_zeros = 0;
 	    }
@@ -3954,7 +3954,7 @@ sub restore_vma_archive {
 
 	my $cookie = { netcount => 0 };
 	while (defined(my $line = <$fh>)) {
-	    restore_update_config_line($outfd, $cookie, $vmid, $map, $line, $opts->{unique});  
+	    restore_update_config_line($outfd, $cookie, $vmid, $map, $line, $opts->{unique});
 	}
 
 	$fh->close();
@@ -3987,7 +3987,7 @@ sub restore_vma_archive {
 		close($fifofh);
 	    }
 	};
- 
+
 	print "restore vma archive: $cmd\n";
 	run_command($cmd, input => $input, outfunc => $parser, afterfork => $openfifo);
     };
@@ -4111,7 +4111,7 @@ sub restore_tar_archive {
 
 	my $cookie = { netcount => 0 };
 	while (defined (my $line = <$srcfd>)) {
-	    restore_update_config_line($outfd, $cookie, $vmid, $map, $line, $opts->{unique});  
+	    restore_update_config_line($outfd, $cookie, $vmid, $map, $line, $opts->{unique});
 	}
 
 	$srcfd->close();
@@ -4159,7 +4159,7 @@ my $snapshot_copy_config = sub {
 	next if $k eq 'digest';
 	next if $k eq 'description';
 	next if $k =~ m/^unused\d+$/;
-		
+
 	$dest->{$k} = $source->{$k};
     }
 };
@@ -4198,7 +4198,7 @@ sub foreach_writable_storage {
 	my $volid = $drive->{file};
 
 	my ($sid, $volname) = PVE::Storage::parse_volume_id($volid, 1);
-	$sidhash->{$sid} = $sid if $sid;	
+	$sidhash->{$sid} = $sid if $sid;
     }
 
     foreach my $sid (sort keys %$sidhash) {
@@ -4208,7 +4208,7 @@ sub foreach_writable_storage {
 
 my $alloc_vmstate_volid = sub {
     my ($storecfg, $vmid, $conf, $snapname) = @_;
-    
+
     # Note: we try to be smart when selecting a $target storage
 
     my $target;
@@ -4256,15 +4256,15 @@ my $snapshot_prepare = sub {
 
 	my $conf = load_config($vmid);
 
-	die "you can't take a snapshot if it's a template\n" 
+	die "you can't take a snapshot if it's a template\n"
 	    if is_template($conf);
 
 	check_lock($conf);
 
 	$conf->{lock} = 'snapshot';
 
-	die "snapshot name '$snapname' already used\n" 
-	    if defined($conf->{snapshots}->{$snapname}); 
+	die "snapshot name '$snapname' already used\n"
+	    if defined($conf->{snapshots}->{$snapname});
 
 	my $storecfg = PVE::Storage::config();
 	die "snapshot feature is not available" if !has_feature('snapshot', $conf, $storecfg);
@@ -4300,16 +4300,16 @@ my $snapshot_commit = sub {
 
 	my $conf = load_config($vmid);
 
-	die "missing snapshot lock\n" 
-	    if !($conf->{lock} && $conf->{lock} eq 'snapshot'); 
+	die "missing snapshot lock\n"
+	    if !($conf->{lock} && $conf->{lock} eq 'snapshot');
 
 	my $snap = $conf->{snapshots}->{$snapname};
 
-	die "snapshot '$snapname' does not exist\n" if !defined($snap); 
+	die "snapshot '$snapname' does not exist\n" if !defined($snap);
 
-	die "wrong snapshot state\n" 
-	    if !($snap->{snapstate} && $snap->{snapstate} eq "prepare"); 
-	
+	die "wrong snapshot state\n"
+	    if !($snap->{snapstate} && $snap->{snapstate} eq "prepare");
+
 	delete $snap->{snapstate};
 	delete $conf->{lock};
 
@@ -4331,7 +4331,7 @@ sub snapshot_rollback {
     my $prepare = 1;
 
     my $storecfg = PVE::Storage::config();
- 
+
     my $updatefn = sub {
 
 	my $conf = load_config($vmid);
@@ -4340,9 +4340,9 @@ sub snapshot_rollback {
 
 	$snap = $conf->{snapshots}->{$snapname};
 
-	die "snapshot '$snapname' does not exist\n" if !defined($snap); 
+	die "snapshot '$snapname' does not exist\n" if !defined($snap);
 
-	die "unable to rollback to incomplete snapshot (snapstate = $snap->{snapstate})\n" 
+	die "unable to rollback to incomplete snapshot (snapstate = $snap->{snapstate})\n"
 	    if $snap->{snapstate};
 
 	if ($prepare) {
@@ -4372,7 +4372,7 @@ sub snapshot_rollback {
 	    # Note: old code did not store 'machine', so we try to be smart
 	    # and guess the snapshot was generated with kvm 1.4 (pc-i440fx-1.4).
 	    $forcemachine = $conf->{machine} || 'pc-i440fx-1.4';
-	    # we remove the 'machine' configuration if not explicitly specified 
+	    # we remove the 'machine' configuration if not explicitly specified
 	    # in the original config.
 	    delete $conf->{machine} if $snap->{vmstate} && !$has_machine_config;
 	}
@@ -4386,7 +4386,7 @@ sub snapshot_rollback {
     };
 
     lock_config($vmid, $updatefn);
-    
+
     foreach_drive($snap, sub {
 	my ($ds, $drive) = @_;
 
@@ -4438,7 +4438,7 @@ sub snapshot_create {
 
 	if ($running) {
 	    if ($snap->{vmstate}) {
-		my $path = PVE::Storage::path($storecfg, $snap->{vmstate});	
+		my $path = PVE::Storage::path($storecfg, $snap->{vmstate});
 		vm_mon_cmd($vmid, "savevm-start", statefile => $path);
 		&$savevm_wait($vmid);
 	    } else {
@@ -4447,7 +4447,7 @@ sub snapshot_create {
 	};
 
 	qga_freezefs($vmid) if $running && $freezefs;
- 
+
 	foreach_drive($snap, sub {
 	    my ($ds, $drive) = @_;
 
@@ -4498,7 +4498,7 @@ sub snapshot_delete {
 	    }
 	}
     };
- 
+
     my $updatefn =  sub {
 	my ($remove_drive) = @_;
 
@@ -4506,13 +4506,13 @@ sub snapshot_delete {
 
 	if (!$drivehash) {
 	    check_lock($conf);
-	    die "you can't delete a snapshot if vm is a template\n" 
+	    die "you can't delete a snapshot if vm is a template\n"
 		if is_template($conf);
 	}
 
 	$snap = $conf->{snapshots}->{$snapname};
 
-	die "snapshot '$snapname' does not exist\n" if !defined($snap); 
+	die "snapshot '$snapname' does not exist\n" if !defined($snap);
 
 	# remove parent refs
 	&$unlink_parent($conf, $snap->{parent});
@@ -4677,7 +4677,7 @@ sub qemu_img_format {
 	return $1;
     } elsif ($scfg->{type} eq 'iscsi') {
 	return "host_device";
-    } else { 
+    } else {
 	return "raw";
     }
 }
@@ -4703,12 +4703,12 @@ sub qemu_drive_mirror {
 	my $dst_path = PVE::Storage::path($storecfg, $dst_volid);
 
 	if ($format) {
-	    #fixme : sometime drive-mirror timeout, but works fine after. 
+	    #fixme : sometime drive-mirror timeout, but works fine after.
 	    # (I have see the problem with big volume > 200GB), so we need to eval
-	    eval { vm_mon_cmd($vmid, "drive-mirror", timeout => 10, device => "drive-$drive", mode => "existing", 
+	    eval { vm_mon_cmd($vmid, "drive-mirror", timeout => 10, device => "drive-$drive", mode => "existing",
 			      sync => "full", target => $dst_path, format => $format); };
 	} else {
-	    eval { vm_mon_cmd($vmid, "drive-mirror", timeout => 10, device => "drive-$drive", mode => "existing", 
+	    eval { vm_mon_cmd($vmid, "drive-mirror", timeout => 10, device => "drive-$drive", mode => "existing",
 			      sync => "full", target => $dst_path); };
 	}
 
@@ -4744,9 +4744,9 @@ sub qemu_drive_mirror {
 		$old_len = $stat->{offset};
 		sleep 1;
 	    }
-	
+
 	    if ($vmiddst == $vmid) {
-		# switch the disk if source and destination are on the same guest 
+		# switch the disk if source and destination are on the same guest
 		vm_mon_cmd($vmid, "block-job-complete", device => "drive-$drive");
 	    }
 	};
@@ -4763,7 +4763,7 @@ sub qemu_drive_mirror {
 }
 
 sub clone_disk {
-    my ($storecfg, $vmid, $running, $drivename, $drive, $snapname, 
+    my ($storecfg, $vmid, $running, $drivename, $drive, $snapname,
 	$newvmid, $storage, $format, $full, $newvollist) = @_;
 
     my $newvolid;
@@ -4795,7 +4795,7 @@ sub clone_disk {
 	    qemu_img_convert($drive->{file}, $newvolid, $size, $snapname);
 	} else {
 	    qemu_drive_mirror($vmid, $drivename, $newvolid, $newvmid);
-	}	
+	}
     }
 
     my ($size) = PVE::Storage::volume_size_info($storecfg, $newvolid, 3);
@@ -4813,7 +4813,7 @@ sub get_current_qemu_machine {
     my ($vmid) = @_;
 
     my $cmd = { execute => 'query-machines', arguments => {} };
-    my $res = PVE::QemuServer::vm_qmp_command($vmid, $cmd); 
+    my $res = PVE::QemuServer::vm_qmp_command($vmid, $cmd);
 
     my ($current, $default);
     foreach my $e (@$res) {
