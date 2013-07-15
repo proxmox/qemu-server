@@ -1017,8 +1017,11 @@ sub scsi_inquiry {
     }
 
     my $res = {};
-    ($res->{device}, $res->{removable}, $res->{venodor},
+    (my $byte0, my $byte1, $res->{vendor},
      $res->{product}, $res->{revision}) = unpack("C C x6 A8 A16 A4", $buf);
+
+    $res->{removable} = $byte1 & 128 ? 1 : 0;
+    $res->{type} = $byte0 & 31;
 
     return $res;
 }
@@ -1060,7 +1063,13 @@ sub print_drivedevice_full {
 	      if($path =~ m/^iscsi\:\/\//){
 		  $devicetype = 'generic';
 	      } else {
-		  $devicetype = 'block' if path_is_scsi($path);
+		  if (my $info = path_is_scsi($path)) {
+		      if ($info->{type} == 0) {
+			  $devicetype = 'block';
+		      } elsif ($info->{type} == 1) { # tape
+			  $devicetype = 'generic';
+		      }
+		  }
 	      }
          }
 
