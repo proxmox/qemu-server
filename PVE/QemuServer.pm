@@ -995,7 +995,7 @@ sub scsi_inquiry {
 
     my $buf = "\x00" x 36;
     my $sensebuf = "\x00" x 8;
-    my $cmd = pack("C x3 C x11", 0x12, 36);
+    my $cmd = pack("C x3 C x1", 0x12, 36);
 
     # see /usr/include/scsi/sg.h
     my $sg_io_hdr_t = "i i C C s I P P P I I i P C C C C S S i I I";
