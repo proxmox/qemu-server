@@ -2225,6 +2225,7 @@ sub config_to_command {
     my $globalFlags = [];
     my $machineFlags = [];
     my $rtcFlags = [];
+    my $cpuFlags = [];
     my $devices = [];
     my $pciaddr = '';
     my $bridges = {};
@@ -2318,10 +2319,7 @@ sub config_to_command {
     $sockets = $conf->{sockets} if  $conf->{sockets};
 
     my $cores = $conf->{cores} || 1;
-
     push @$cmd, '-smp', "sockets=$sockets,cores=$cores";
-
-    push @$cmd, '-cpu', $conf->{cpu} if $conf->{cpu};
 
     push @$cmd, '-nodefaults';
 
@@ -2395,6 +2393,15 @@ sub config_to_command {
 	push @$rtcFlags, 'base=localtime';
     }
 
+    my $cpu = $nokvm ? "qemu64" : "kvm64";
+    $cpu = $conf->{cpu} if $conf->{cpu};
+
+    push @$cpuFlags , '+x2apic' if !$nokvm;
+
+    $cpu .= ",".join(',', @$cpuFlags) if scalar(@$cpuFlags);
+
+    push @$cmd, '-cpu', $cpu;
+
     push @$cmd, '-S' if $conf->{freeze};
 
     # set keyboard layout
@@ -2423,7 +2430,6 @@ sub config_to_command {
 	#$x509 .= ",x509-cacert-file=/etc/pve/pve-root-ca.pem";
 
 	my $socket = spice_socket($vmid);
-
 	push @$cmd, '-spice', "unix=$socket";
 	push @$cmd, '-device', "virtio-serial,id=spice$pciaddr";
 	push @$cmd, '-chardev', "spicevmc,id=vdagent,name=vdagent";
