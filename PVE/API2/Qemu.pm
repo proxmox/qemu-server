@@ -1346,7 +1346,7 @@ __PACKAGE__->register_method({
 	    password => { type => 'string' },
 	    proxy => { type => 'string' },
 	    host => { type => 'string' },
-	    port => { type => 'integer' },
+	    'tls-port' => { type => 'integer' },
 	},
     },
     code => sub {
@@ -1371,25 +1371,27 @@ __PACKAGE__->register_method({
 	my $timeout = 10;
 
 	# Note: this only works if VM is on local node
+	my $port = PVE::QemuServer::spice_port($vmid);
 	PVE::QemuServer::vm_mon_cmd($vmid, "set_password", protocol => 'spice', password => $ticket);
 	PVE::QemuServer::vm_mon_cmd($vmid, "expire_password", protocol => 'spice', time => "+30");
-
-	# allow access for group www-data to the spice socket,
-	# so that spiceproxy can access it
-	my $socket =  PVE::QemuServer::spice_socket($vmid);
-	my $gid = getgrnam('www-data') || die "getgrnam failed - $!\n";
-	chown 0, $gid, $socket;
-	chmod 0770, $socket;
 
 	# fimxe: ??
 	my $host = `hostname -f` || PVE::INotify::nodename();
 	chomp $host;
 
+	my $subject = "OU=PVE Cluster Node, O=Proxmox Virtual Environment, CN=$host";
+
+	my $cacert = PVE::Tools::file_get_contents("/etc/pve/pve-root-ca.pem", 8192);
+	$cacert =~ s/\n/\\n/g;
+
 	return {
 	    type => 'spice',
-	    host => $proxyticket,
+	    title => "VM $vmid",
+	    host => $proxyticket, # this break tls hostname verification, so we need to use 'host-subject'
 	    proxy => "http://$host:3128",
-	    port => 1, # not used for now
+	    'tls-port' => $port,
+	    'host-subject' => $subject,
+	    ca => $cacert,
 	    password => $ticket,
 	    'delete-this-file' => 1,
 	};

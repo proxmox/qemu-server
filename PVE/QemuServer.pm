@@ -2440,13 +2440,15 @@ sub config_to_command {
     if ($vga eq 'qxl') {
 	my $pciaddr = print_pci_addr("spice", $bridges);
 
-	# todo: enable tls
-	#my $x509 = "x509-key-file=/etc/pve/local/pve-ssl.key";
-	#$x509 .= ",x509-cert-file=/etc/pve/local/pve-ssl.pem";
-	#$x509 .= ",x509-cacert-file=/etc/pve/pve-root-ca.pem";
+	my $x509 = "x509-key-file=/etc/pve/local/pve-ssl.key" .
+	    ",x509-cert-file=/etc/pve/local/pve-ssl.pem" .
+	    ",x509-cacert-file=/etc/pve/pve-root-ca.pem";
+	
+	my $port = PVE::Tools::next_unused_port(61000, 61099);
 
-	my $socket = spice_socket($vmid);
-	push @$cmd, '-spice', "unix=$socket";
+	push @$cmd, '-spice', "tls-port=$port,addr=127.0.0.1,$x509,tls-ciphers=DES-CBC3-SHA";
+
+
 	push @$cmd, '-device', "virtio-serial,id=spice$pciaddr";
 	push @$cmd, '-chardev', "spicevmc,id=vdagent,name=vdagent";
 	push @$cmd, '-device', "virtserialport,chardev=vdagent,name=com.redhat.spice.0";
@@ -2575,9 +2577,12 @@ sub vnc_socket {
     return "${var_run_tmpdir}/$vmid.vnc";
 }
 
-sub spice_socket {
+sub spice_port {
     my ($vmid) = @_;
-    return "${var_run_tmpdir}/$vmid.spice";
+
+    my $res = vm_mon_cmd($vmid, 'query-spice');
+
+    return $res->{'tls-port'} || $res->{'port'} || die "no spice port\n";
 }
 
 sub qmp_socket {
