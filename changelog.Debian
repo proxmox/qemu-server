@@ -1,3 +1,13 @@
+qemu-server (3.0-24) unstable; urgency=low
+  
+  * spiceproxy API: allow client to choose proxy address
+  
+  * spiceproxy API: read cert subject name directly using Net::SSLeay
+  
+  * spice: use TLS (encrypt whole traffic)
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 18 Jul 2013 08:14:46 +0200
+
 qemu-server (3.0-23) unstable; urgency=low
 
   * allow to pass SCSI generic devices to guests, for example "scsi0: /dev/sg5"
