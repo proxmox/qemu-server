@@ -1338,9 +1338,15 @@ __PACKAGE__->register_method({
 	properties => {
 	    node => get_standard_option('pve-node'),
 	    vmid => get_standard_option('pve-vmid'),
+	    proxy => {
+		description => "This can be used by the client to specify the proxy server. All nodes in a cluster runs 'spiceproxy', so it is up to the client to choose one. By default, we return the node where the VM is currently running. As resonable setting is to use same node you use to connect to the API (This is window.location.host for the JS GUI).",
+		type => 'string', format => 'dns-name',
+		optional => 1,
+	    },
 	},
     },
     returns => {
+	description => "Returned values can be directly passed to the 'remote-viewer' application.",
     	additionalProperties => 1,
 	properties => {
 	    type => { type => 'string' },
@@ -1359,26 +1365,21 @@ __PACKAGE__->register_method({
 
 	my $vmid = $param->{vmid};
 	my $node = $param->{node};
-
-        my $remip;
-
-	# Note: we currectly use "proxyto => 'node'", so this code will never trigger
-        if ($node ne 'localhost' && $node ne PVE::INotify::nodename()) {
-            $remip = PVE::Cluster::remote_node_ip($node);
-        }
+	my $proxy = $param->{proxy};
 
 	my ($ticket, $proxyticket) = PVE::AccessControl::assemble_spice_ticket($authuser, $vmid, $node);
 
 	my $timeout = 10;
 
-	# Note: this only works if VM is on local node
 	my $port = PVE::QemuServer::spice_port($vmid);
 	PVE::QemuServer::vm_mon_cmd($vmid, "set_password", protocol => 'spice', password => $ticket);
 	PVE::QemuServer::vm_mon_cmd($vmid, "expire_password", protocol => 'spice', time => "+30");
 
-	# fimxe: ??
-	my $host = `hostname -f` || PVE::INotify::nodename();
-	chomp $host;
+	if (!$proxy) {
+	    my $host = `hostname -f` || PVE::INotify::nodename();
+	    chomp $host;
+	    $proxy = $host;
+	}
 
 	# read x509 subject
 	my $filename = "/etc/pve/local/pve-ssl.pem";
@@ -1400,7 +1401,7 @@ __PACKAGE__->register_method({
 	    type => 'spice',
 	    title => "VM $vmid",
 	    host => $proxyticket, # this break tls hostname verification, so we need to use 'host-subject'
-	    proxy => "http://$host:3128",
+	    proxy => "http://$proxy:3128",
 	    'tls-port' => $port,
 	    'host-subject' => $subject,
 	    ca => $cacert,
