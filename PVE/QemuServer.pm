@@ -535,7 +535,7 @@ PVE::JSONSchema::register_standard_option("pve-qm-virtio", $virtiodesc);
 my $usbdesc = {
     optional => 1,
     type => 'string', format => 'pve-qm-usb-device',
-    typetext => 'host=HOSTUSBDEVICE',
+    typetext => 'host=HOSTUSBDEVICE|spice',
     description => <<EODESCR,
 Configure an USB device (n is 0 to 4). This can be used to
 pass-through usb devices to the guest. HOSTUSBDEVICE syntax is:
@@ -546,6 +546,8 @@ pass-through usb devices to the guest. HOSTUSBDEVICE syntax is:
 You can use the 'lsusb -t' command to list existing usb devices.
 
 Note: This option allows direct access to host hardware. So it is no longer possible to migrate such machines - use with special care.
+
+The value 'spice' can be used to add a usb redirection devices for spice.
 
 EODESCR
 };
@@ -1411,6 +1413,9 @@ sub parse_usb_device {
 	    $found = 1;
 	    $res->{hostbus} = $1;
 	    $res->{hostport} = $2;
+	} elsif ($v =~ m/^spice$/) {
+	    $found = 1;
+	    $res->{spice} = 1;
 	} else {
 	    return undef;
 	}
@@ -2297,6 +2302,10 @@ sub config_to_command {
 	    push @$devices, '-device', "usb-host,vendorid=0x$d->{vendorid},productid=0x$d->{productid}";
 	} elsif (defined($d->{hostbus}) && defined($d->{hostport})) {
 	    push @$devices, '-device', "usb-host,hostbus=$d->{hostbus},hostport=$d->{hostport}";
+	} elsif ($d->{spice}) {
+	    # usb redir support for spice
+	    push @$devices, '-chardev', "spicevmc,id=usbredirchardev$i,name=usbredir";
+	    push @$devices, '-device', "usb-redir,chardev=usbredirchardev$i,id=usbredirdev$i,bus=ehci.0";
 	}
     }
 
