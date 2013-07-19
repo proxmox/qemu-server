@@ -1,6 +1,8 @@
 qemu-server (3.0-25) unstable; urgency=low
 
   * support usb redirection devices for spice (usb[n]: spice)
+  
+  * disable tablet device by default for spice
 
  -- Proxmox Support Team <support@proxmox.com>  Fri, 19 Jul 2013 09:38:25 +0200
 

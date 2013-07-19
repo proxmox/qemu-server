@@ -377,7 +377,7 @@ EODESCR
 	optional => 1,
 	type => 'boolean',
 	default => 1,
-	description => "Enable/disable the usb tablet device. This device is usually needed to allow absolute mouse positioning. Else the mouse runs out of sync with normal vnc clients. If you're running lots of console-only guests on one host, you may consider disabling this to save some context switches.",
+	description => "Enable/disable the usb tablet device. This device is usually needed to allow absolute mouse positioning with VNC. Else the mouse runs out of sync with normal VNC clients. If you're running lots of console-only guests on one host, you may consider disabling this to save some context switches. This is turned of by default if you use spice (vga=qxl).",
     },
     migrate_speed => {
 	optional => 1,
@@ -2282,8 +2282,26 @@ sub config_to_command {
     # include usb device config
     push @$devices, '-readconfig', '/usr/share/qemu-server/pve-usb.cfg' if $use_usb2;
 
+    my $vga = $conf->{vga};
+    if (!$vga) {
+	if ($conf->{ostype} && ($conf->{ostype} eq 'win8' || 
+				$conf->{ostype} eq 'win7' || 
+				$conf->{ostype} eq 'w2k8')) {
+	    $vga = 'std';
+	} else {
+	    $vga = 'cirrus';
+	}
+    }
+
     # enable absolute mouse coordinates (needed by vnc)
-    my $tablet = defined($conf->{tablet}) ? $conf->{tablet} : $defaults->{tablet};
+    my $tablet;
+    if (defined($conf->{tablet})) {
+	$tablet = $conf->{tablet};
+    } else {
+	$tablet = $defaults->{tablet};
+	$tablet = 0 if $vga eq 'qxl'; # disable for spice because it is not needed
+    }
+
     push @$devices, '-device', 'usb-tablet,id=tablet,bus=uhci.0,port=1' if $tablet;
 
     # host pci devices
@@ -2354,15 +2372,6 @@ sub config_to_command {
     push @$cmd, '-no-acpi' if defined($conf->{acpi}) && $conf->{acpi} == 0;
 
     push @$cmd, '-no-reboot' if  defined($conf->{reboot}) && $conf->{reboot} == 0;
-
-    my $vga = $conf->{vga};
-    if (!$vga) {
-	if ($conf->{ostype} && ($conf->{ostype} eq 'win8' || $conf->{ostype} eq 'win7' || $conf->{ostype} eq 'w2k8')) {
-	    $vga = 'std';
-	} else {
-	    $vga = 'cirrus';
-	}
-    }
 
     push @$cmd, '-vga', $vga if $vga; # for kvm 77 and later
 
