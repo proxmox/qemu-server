@@ -1381,18 +1381,8 @@ __PACKAGE__->register_method({
 	    $proxy = $host;
 	}
 
-	# read x509 subject
 	my $filename = "/etc/pve/local/pve-ssl.pem";
-	my $bio = Net::SSLeay::BIO_new_file($filename, 'r');
-	my $x509 = Net::SSLeay::PEM_read_bio_X509($bio);
-	Net::SSLeay::BIO_free($bio);
-	my $nameobj =  Net::SSLeay::X509_get_subject_name($x509);
-	my $subject = Net::SSLeay::X509_NAME_oneline($nameobj);
-	Net::SSLeay::X509_free($x509);
-
-	# remote-viewer wants comma as seperator (not '/')
-	$subject =~ s!^/!!;
-	$subject =~ s!/(\w+=)!,$1!g;
+	my $subject = PVE::QemuServer::read_x509_subject_spice($filename);
 
 	my $cacert = PVE::Tools::file_get_contents("/etc/pve/pve-root-ca.pem", 8192);
 	$cacert =~ s/\n/\\n/g;
