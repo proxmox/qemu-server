@@ -2457,15 +2457,10 @@ sub config_to_command {
 
     if ($vga eq 'qxl') {
 	my $pciaddr = print_pci_addr("spice", $bridges);
-
-	my $x509 = "x509-key-file=/etc/pve/local/pve-ssl.key" .
-	    ",x509-cert-file=/etc/pve/local/pve-ssl.pem" .
-	    ",x509-cacert-file=/etc/pve/pve-root-ca.pem";
 	
 	my $port = PVE::Tools::next_unused_port(61000, 61099);
 
-	push @$cmd, '-spice', "tls-port=$port,addr=127.0.0.1,$x509,tls-ciphers=DES-CBC3-SHA";
-
+	push @$cmd, '-spice', "tls-port=$port,addr=127.0.0.1,tls-ciphers=DES-CBC3-SHA";
 
 	push @$cmd, '-device', "virtio-serial,id=spice$pciaddr";
 	push @$cmd, '-chardev', "spicevmc,id=vdagent,name=vdagent";
