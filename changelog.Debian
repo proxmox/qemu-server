@@ -1,3 +1,9 @@
+qemu-server (3.0-26) unstable; urgency=low
+
+  * remove spice cert paths (depend on pve-qemu-kvm >= 1.4-16)
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 23 Jul 2013 10:08:33 +0200
+
 qemu-server (3.0-25) unstable; urgency=low
 
   * support usb redirection devices for spice (usb[n]: spice)
