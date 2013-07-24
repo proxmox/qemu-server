@@ -2455,12 +2455,13 @@ sub config_to_command {
 	push @$devices, '-device', 'virtserialport,chardev=qga0,name=org.qemu.guest_agent.0';
     }
 
+    my $spice_port;
     if ($vga eq 'qxl') {
 	my $pciaddr = print_pci_addr("spice", $bridges);
 
-	my $port = PVE::Tools::next_unused_port(61000, 61099);
+	$spice_port = PVE::Tools::next_unused_port(61000, 61099);
 
-	push @$cmd, '-spice', "tls-port=$port,addr=127.0.0.1,tls-ciphers=DES-CBC3-SHA,seamless-migration=on";
+	push @$cmd, '-spice', "tls-port=${spice_port},addr=127.0.0.1,tls-ciphers=DES-CBC3-SHA,seamless-migration=on";
 
 	push @$cmd, '-device', "virtio-serial,id=spice$pciaddr";
 	push @$cmd, '-chardev', "spicevmc,id=vdagent,name=vdagent";
@@ -2582,7 +2583,7 @@ sub config_to_command {
     push @$cmd, '-global', join(',', @$globalFlags)
 	if scalar(@$globalFlags);
 
-    return wantarray ? ($cmd, $vollist) : $cmd;
+    return wantarray ? ($cmd, $vollist, $spice_port) : $cmd;
 }
 
 sub vnc_socket {
@@ -2593,7 +2594,7 @@ sub vnc_socket {
 sub spice_port {
     my ($vmid) = @_;
 
-    my $res = vm_mon_cmd_nocheck($vmid, 'query-spice');
+    my $res = vm_mon_cmd($vmid, 'query-spice');
 
     return $res->{'tls-port'} || $res->{'port'} || die "no spice port\n";
 }
@@ -3027,7 +3028,7 @@ sub qga_unfreezefs {
 }
 
 sub vm_start {
-    my ($storecfg, $vmid, $statefile, $skiplock, $migratedfrom, $paused, $forcemachine) = @_;
+    my ($storecfg, $vmid, $statefile, $skiplock, $migratedfrom, $paused, $forcemachine, $spice_ticket) = @_;
 
     lock_config($vmid, sub {
 	my $conf = load_config($vmid, $migratedfrom);
@@ -3043,7 +3044,7 @@ sub vm_start {
 	# set environment variable useful inside network script
 	$ENV{PVE_MIGRATED_FROM} = $migratedfrom if $migratedfrom;
 
-	my ($cmd, $vollist) = config_to_command($storecfg, $vmid, $conf, $defaults, $forcemachine);
+	my ($cmd, $vollist, $spice_port) = config_to_command($storecfg, $vmid, $conf, $defaults, $forcemachine);
 
 	my $migrate_port = 0;
 
@@ -3085,22 +3086,22 @@ sub vm_start {
 	    warn $@ if $@;
 	}
 
-	if($migratedfrom) {
+	if ($migratedfrom) {
 	    my $capabilities = {};
 	    $capabilities->{capability} =  "xbzrle";
 	    $capabilities->{state} = JSON::true;
 	    eval { vm_mon_cmd_nocheck($vmid, "migrate-set-capabilities", capabilities => [$capabilities]); };
-	    if($conf->{vga} eq 'qxl'){
-	        my $spice_port = PVE::QemuServer::spice_port($vmid);
-	        print "spice listens on port $spice_port\n" if $spice_port;
-		if($spiceticket){
-		    PVE::QemuServer::vm_mon_cmd_nocheck($vmid, "set_password", protocol => 'spice', password => $spiceticket);
-		    PVE::QemuServer::vm_mon_cmd_nocheck($vmid, "expire_password", protocol => 'spice', time => "+5");
+	    warn $@ if $@;
+	    
+	    if ($spice_port) {
+	        print "spice listens on port $spice_port\n";
+		if ($spice_ticket) {
+		    PVE::QemuServer::vm_mon_cmd_nocheck($vmid, "set_password", protocol => 'spice', password => $spice_ticket);
+		    PVE::QemuServer::vm_mon_cmd_nocheck($vmid, "expire_password", protocol => 'spice', time => "+30");
 		}
 	    }
 
-	}
-	else{
+	} else {
 
 	    if (!$statefile && (!defined($conf->{balloon}) || $conf->{balloon})) {
 		vm_mon_cmd_nocheck($vmid, "balloon", value => $conf->{balloon}*1024*1024)
