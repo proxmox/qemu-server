@@ -1480,9 +1480,7 @@ __PACKAGE__->register_method({
 
 	$status->{ha} = &$vm_is_ha_managed($param->{vmid});
 
-	if ($conf->{vga} && ($conf->{vga} eq 'qxl')) {
-	    $status->{spice} = 1;
-	}
+	$status->{spice} = 1 if PVE::QemuServer::vga_conf_has_spice($conf->{vga});
 
 	return $status;
     }});

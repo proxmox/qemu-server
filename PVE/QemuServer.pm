@@ -2231,6 +2231,12 @@ sub foreach_volid {
     }
 }
 
+sub vga_conf_has_spice {
+    my ($vga) = @_;
+
+    return $vga && ($vga eq 'qxl');
+}
+
 sub config_to_command {
     my ($storecfg, $vmid, $conf, $defaults, $forcemachine) = @_;
 
@@ -2299,7 +2305,7 @@ sub config_to_command {
 	$tablet = $conf->{tablet};
     } else {
 	$tablet = $defaults->{tablet};
-	$tablet = 0 if $vga eq 'qxl'; # disable for spice because it is not needed
+	$tablet = 0 if vga_conf_has_spice($vga); # disable for spice because it is not needed
     }
 
     push @$devices, '-device', 'usb-tablet,id=tablet,bus=uhci.0,port=1' if $tablet;
@@ -2456,7 +2462,7 @@ sub config_to_command {
     }
 
     my $spice_port;
-    if ($vga eq 'qxl') {
+    if (vga_conf_has_spice($vga)) {
 	my $pciaddr = print_pci_addr("spice", $bridges);
 
 	$spice_port = PVE::Tools::next_unused_port(61000, 61099);

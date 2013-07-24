@@ -309,13 +309,12 @@ sub phase2 {
 
     my $rport;
 
-    my $spice_port;
     my $nodename = PVE::INotify::nodename();
 
     ## start on remote node
     my $cmd = [@{$self->{rem_ssh}}];
 
-    if($conf->{vga} eq 'qxl'){
+    if (PVE::QemuServer::vga_conf_has_spice($conf->{vga})) {
 	my $res = PVE::QemuServer::vm_mon_cmd($vmid, 'query-spice');
 	push @$cmd, 'SPICETICKET='.$res->{ticket} if $res->{ticket};
     }
@@ -327,13 +326,15 @@ sub phase2 {
 	push @$cmd, '--machine', $self->{forcemachine};
     }
 
+    my $spice_port;
+
     PVE::Tools::run_command($cmd, outfunc => sub {
 	my $line = shift;
 
 	if ($line =~ m/^migration listens on port (\d+)$/) {
-	    $rport = $1;
+	    $rport = int($1);
 	}elsif ($line =~ m/^spice listens on port (\d+)$/) {
-	    $spice_port = $1;
+	    $spice_port = int($1);
 	}
     }, errfunc => sub {
 	my $line = shift;
@@ -390,20 +391,22 @@ sub phase2 {
     eval {
 	PVE::QemuServer::vm_mon_cmd_nocheck($vmid, "migrate-set-cache-size", value => $cachesize);
     };
-
-    if($conf->{vga} eq 'qxl'){
+	
+    if (PVE::QemuServer::vga_conf_has_spice($conf->{vga})) {
 	my $rpcenv = PVE::RPCEnvironment::get();
 	my $authuser = $rpcenv->get_user();
 
-	my ($ticket, $proxyticket) = PVE::AccessControl::assemble_spice_ticket($authuser, $vmid, $self->{node});
+	my (undef, $proxyticket) = PVE::AccessControl::assemble_spice_ticket($authuser, $vmid, $self->{node});
 
-	my $filename = "/etc/pve/nodes/".$self->{node}."/pve-ssl.pem";
+	my $filename = "/etc/pve/nodes/$self->{node}/pve-ssl.pem";
         my $subject = PVE::QemuServer::read_x509_subject_spice($filename);
 
 	$self->log('info', "spice client_migrate_info");
 
 	eval {
-	    PVE::QemuServer::vm_mon_cmd_nocheck($vmid, "client_migrate_info", protocol => 'spice', hostname => $proxyticket, 'tls-port' => int($spice_port), 'cert-subject' => $subject);
+	    PVE::QemuServer::vm_mon_cmd_nocheck($vmid, "client_migrate_info", protocol => 'spice', 
+						hostname => $proxyticket, 'tls-port' => $spice_port, 
+						'cert-subject' => $subject);
 	};
 	$self->log('info', "client_migrate_info error: $@") if $@;
 
@@ -580,7 +583,7 @@ sub phase3_cleanup {
     }
 
     my $timer = 0;
-    if($conf->{vga} eq 'qxl'){
+    if (PVE::QemuServer::vga_conf_has_spice($conf->{vga})) {
         $self->log('info', "Waiting for spice server migration");
 	while (1) {
 	    my $res = PVE::QemuServer::vm_mon_cmd_nocheck($vmid, 'query-spice');
