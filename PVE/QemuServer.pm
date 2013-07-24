@@ -2457,10 +2457,10 @@ sub config_to_command {
 
     if ($vga eq 'qxl') {
 	my $pciaddr = print_pci_addr("spice", $bridges);
-	
+
 	my $port = PVE::Tools::next_unused_port(61000, 61099);
 
-	push @$cmd, '-spice', "tls-port=$port,addr=127.0.0.1,tls-ciphers=DES-CBC3-SHA";
+	push @$cmd, '-spice', "tls-port=$port,addr=127.0.0.1,tls-ciphers=DES-CBC3-SHA,seamless-migration=on";
 
 	push @$cmd, '-device', "virtio-serial,id=spice$pciaddr";
 	push @$cmd, '-chardev', "spicevmc,id=vdagent,name=vdagent";
@@ -2593,7 +2593,7 @@ sub vnc_socket {
 sub spice_port {
     my ($vmid) = @_;
 
-    my $res = vm_mon_cmd($vmid, 'query-spice');
+    my $res = vm_mon_cmd_nocheck($vmid, 'query-spice');
 
     return $res->{'tls-port'} || $res->{'port'} || die "no spice port\n";
 }
@@ -3090,6 +3090,15 @@ sub vm_start {
 	    $capabilities->{capability} =  "xbzrle";
 	    $capabilities->{state} = JSON::true;
 	    eval { vm_mon_cmd_nocheck($vmid, "migrate-set-capabilities", capabilities => [$capabilities]); };
+	    if($conf->{vga} eq 'qxl'){
+	        my $spice_port = PVE::QemuServer::spice_port($vmid);
+	        print "spice listens on port $spice_port\n" if $spice_port;
+		if($spiceticket){
+		    PVE::QemuServer::vm_mon_cmd_nocheck($vmid, "set_password", protocol => 'spice', password => $spiceticket);
+		    PVE::QemuServer::vm_mon_cmd_nocheck($vmid, "expire_password", protocol => 'spice', time => "+5");
+		}
+	    }
+
 	}
 	else{
 

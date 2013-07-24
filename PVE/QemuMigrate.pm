@@ -11,6 +11,7 @@ use PVE::Cluster;
 use PVE::Storage;
 use PVE::QemuServer;
 use Time::HiRes qw( usleep );
+use PVE::RPCEnvironment;
 
 use base qw(PVE::AbstractMigrate);
 
@@ -308,11 +309,19 @@ sub phase2 {
 
     my $rport;
 
+    my $spice_port;
     my $nodename = PVE::INotify::nodename();
 
     ## start on remote node
-    my $cmd = [@{$self->{rem_ssh}}, 'qm', 'start',
-               $vmid, '--stateuri', 'tcp', '--skiplock', '--migratedfrom', $nodename];
+    my $cmd = [@{$self->{rem_ssh}}];
+
+    if($conf->{vga} eq 'qxl'){
+	my $res = PVE::QemuServer::vm_mon_cmd($vmid, 'query-spice');
+	push @$cmd, 'SPICETICKET='.$res->{ticket} if $res->{ticket};
+    }
+
+    push @$cmd , 'qm', 'start', $vmid, '--stateuri', 'tcp', '--skiplock', '--migratedfrom', $nodename;
+
 
     if ($self->{forcemachine}) {
 	push @$cmd, '--machine', $self->{forcemachine};
@@ -323,6 +332,8 @@ sub phase2 {
 
 	if ($line =~ m/^migration listens on port (\d+)$/) {
 	    $rport = $1;
+	}elsif ($line =~ m/^spice listens on port (\d+)$/) {
+	    $spice_port = $1;
 	}
     }, errfunc => sub {
 	my $line = shift;
@@ -379,6 +390,24 @@ sub phase2 {
     eval {
 	PVE::QemuServer::vm_mon_cmd_nocheck($vmid, "migrate-set-cache-size", value => $cachesize);
     };
+
+    if($conf->{vga} eq 'qxl'){
+	my $rpcenv = PVE::RPCEnvironment::get();
+	my $authuser = $rpcenv->get_user();
+
+	my ($ticket, $proxyticket) = PVE::AccessControl::assemble_spice_ticket($authuser, $vmid, $self->{node});
+
+	my $filename = "/etc/pve/nodes/".$self->{node}."/pve-ssl.pem";
+        my $subject = PVE::QemuServer::read_x509_subject_spice($filename);
+
+	$self->log('info', "spice client_migrate_info");
+
+	eval {
+	    PVE::QemuServer::vm_mon_cmd_nocheck($vmid, "client_migrate_info", protocol => 'spice', hostname => $proxyticket, 'tls-port' => int($spice_port), 'cert-subject' => $subject);
+	};
+	$self->log('info', "client_migrate_info error: $@") if $@;
+
+    }
 
     eval {
         PVE::QemuServer::vm_mon_cmd_nocheck($vmid, "migrate", uri => "tcp:localhost:$lport");
@@ -548,6 +577,18 @@ sub phase3_cleanup {
 	    $self->log('err', $err);
 	    $self->{errors} = 1;
 	}
+    }
+
+    my $timer = 0;
+    if($conf->{vga} eq 'qxl'){
+        $self->log('info', "Waiting for spice server migration");
+	while (1) {
+	    my $res = PVE::QemuServer::vm_mon_cmd_nocheck($vmid, 'query-spice');
+	    last if int($res->{'migrated'}) == 1;
+	    last if $timer > 50;
+	    $timer ++;
+	    usleep(200000);
+        }
     }
 
     # always stop local VM
