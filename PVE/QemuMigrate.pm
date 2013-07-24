@@ -314,13 +314,13 @@ sub phase2 {
     ## start on remote node
     my $cmd = [@{$self->{rem_ssh}}];
 
+    my $spice_ticket;
     if (PVE::QemuServer::vga_conf_has_spice($conf->{vga})) {
 	my $res = PVE::QemuServer::vm_mon_cmd($vmid, 'query-spice');
-	push @$cmd, 'SPICETICKET='.$res->{ticket} if $res->{ticket};
+	$spice_ticket = $res->{ticket};
     }
 
     push @$cmd , 'qm', 'start', $vmid, '--stateuri', 'tcp', '--skiplock', '--migratedfrom', $nodename;
-
 
     if ($self->{forcemachine}) {
 	push @$cmd, '--machine', $self->{forcemachine};
@@ -328,7 +328,9 @@ sub phase2 {
 
     my $spice_port;
 
-    PVE::Tools::run_command($cmd, outfunc => sub {
+    # Note: We try to keep $spice_ticket secret (do not pass via command line parameter)
+    # instead we pipe it through STDIN
+    PVE::Tools::run_command($cmd, input => $spice_ticket, outfunc => sub {
 	my $line = shift;
 
 	if ($line =~ m/^migration listens on port (\d+)$/) {

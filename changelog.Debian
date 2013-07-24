@@ -1,6 +1,8 @@
 qemu-server (3.0-26) unstable; urgency=low
 
   * remove spice cert paths (depend on pve-qemu-kvm >= 1.4-16)
+  
+  * implement spice seamless migration
 
  -- Proxmox Support Team <support@proxmox.com>  Tue, 23 Jul 2013 10:08:33 +0200
 

@@ -1534,6 +1534,14 @@ __PACKAGE__->register_method({
 	raise_param_exc({ migratedfrom => "Only root may use this option." })
 	    if $migratedfrom && $authuser ne 'root@pam';
 
+	# read spice ticket from STDIN
+	my $spice_ticket;
+	if ($stateuri && ($stateuri eq 'tcp') && $migratedfrom && ($rpcenv->{type} eq 'cli')) {
+	    my $line = <>;
+	    chomp $line;
+	    $spice_ticket = $line if $line;
+	}
+
 	my $storecfg = PVE::Storage::config();
 
 	if (&$vm_is_ha_managed($vmid) && !$stateuri &&
@@ -1562,7 +1570,8 @@ __PACKAGE__->register_method({
 
 		syslog('info', "start VM $vmid: $upid\n");
 
-		PVE::QemuServer::vm_start($storecfg, $vmid, $stateuri, $skiplock, $migratedfrom, undef, $machine);
+		PVE::QemuServer::vm_start($storecfg, $vmid, $stateuri, $skiplock, $migratedfrom, undef, 
+					  $machine, $spice_ticket);
 
 		return;
 	    };
