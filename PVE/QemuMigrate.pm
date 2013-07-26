@@ -76,7 +76,9 @@ sub finish_command_pipe {
 sub fork_tunnel {
     my ($self, $nodeip, $lport, $rport) = @_;
 
-    my $cmd = [@{$self->{rem_ssh}}, '-L', "$lport:localhost:$rport",
+    my @localtunnelinfo = (defined $lport) ? qw(-L $lport:localhost:$rport) : ();
+
+    my $cmd = [@{$self->{rem_ssh}}, @localtunnelinfo,
 	       'qm', 'mtunnel' ];
 
     my $tunnel = $self->fork_command_pipe($cmd);
@@ -307,8 +309,8 @@ sub phase2 {
 
     $self->log('info', "starting VM $vmid on remote node '$self->{node}'");
 
+    my $raddr;
     my $rport;
-
     my $nodename = PVE::INotify::nodename();
 
     ## start on remote node
@@ -333,9 +335,15 @@ sub phase2 {
     PVE::Tools::run_command($cmd, input => $spice_ticket, outfunc => sub {
 	my $line = shift;
 
-	if ($line =~ m/^migration listens on port (\d+)$/) {
+	if ($line =~ m/^migration listens on tcp:([\d\.]+|localhost):(\d+)$/) {
+	    $raddr = $1;
+	    $rport = int($2);
+	}
+	elsif ($line =~ m/^migration listens on port (\d+)$/) {
+	    $raddr = "localhost";
 	    $rport = int($1);
-	}elsif ($line =~ m/^spice listens on port (\d+)$/) {
+	}
+        elsif ($line =~ m/^spice listens on port (\d+)$/) {
 	    $spice_port = int($1);
 	}
     }, errfunc => sub {
@@ -343,18 +351,16 @@ sub phase2 {
 	$self->log('info', $line);
     });
 
-    die "unable to detect remote migration port\n" if !$rport;
-
-    $self->log('info', "starting migration tunnel");
+    die "unable to detect remote migration address\n" if !$raddr;
 
     ## create tunnel to remote port
-    my $lport = PVE::Tools::next_migrate_port();
+    $self->log('info', "starting ssh migration tunnel");
+    my $lport = ($raddr eq "localhost") ? PVE::Tools::next_migrate_port() : undef;
     $self->{tunnel} = $self->fork_tunnel($self->{nodeip}, $lport, $rport);
 
-    $self->log('info', "starting online/live migration on port $lport");
-    # start migration
-
     my $start = time();
+    $self->log('info', "starting online/live migration on $raddr:$rport");
+    $self->{livemigration} = 1;
 
     # load_defaults
     my $defaults = PVE::QemuServer::load_defaults();
@@ -415,9 +421,10 @@ sub phase2 {
     }
 
     eval {
-        PVE::QemuServer::vm_mon_cmd_nocheck($vmid, "migrate", uri => "tcp:localhost:$lport");
+        PVE::QemuServer::vm_mon_cmd_nocheck($vmid, "migrate", uri => "tcp:$raddr:$rport");
     };
     my $merr = $@;
+    $self->log('info', "migrate uri => tcp:$raddr:$rport failed: $merr") if $merr;
 
     my $lstat = 0;
     my $usleep = 2000000;
@@ -569,8 +576,8 @@ sub phase3_cleanup {
     die "Failed to move config to node '$self->{node}' - rename failed: $!\n"
         if !rename($conffile, $newconffile);
 
-    # now that config file is move, we can resume vm on target if livemigrate
-    if ($self->{tunnel}) {
+    if ($self->{livemigration}) {
+	# now that config file is move, we can resume vm on target if livemigrate
 	my $cmd = [@{$self->{rem_ssh}}, 'qm', 'resume', $vmid, '--skiplock'];
 	eval{ PVE::Tools::run_command($cmd, outfunc => sub {}, 
 		errfunc => sub {

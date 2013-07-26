@@ -3053,11 +3053,17 @@ sub vm_start {
 	my ($cmd, $vollist, $spice_port) = config_to_command($storecfg, $vmid, $conf, $defaults, $forcemachine);
 
 	my $migrate_port = 0;
-
+	my $migrate_uri;
 	if ($statefile) {
 	    if ($statefile eq 'tcp') {
+		my $localip = "localhost";
+		my $datacenterconf = PVE::Cluster::cfs_read_file('datacenter.cfg');
+		if ($datacenterconf->{migration_unsecure}) {
+			my $nodename = PVE::INotify::nodename();
+			$localip = PVE::Cluster::remote_node_ip($nodename, 1);
+		}
 		$migrate_port = PVE::Tools::next_migrate_port();
-		my $migrate_uri = "tcp:localhost:${migrate_port}";
+		$migrate_uri = "tcp:${localip}:${migrate_port}";
 		push @$cmd, '-incoming', $migrate_uri;
 		push @$cmd, '-S';
 	    } else {
@@ -3085,7 +3091,7 @@ sub vm_start {
 	my $err = $@;
 	die "start failed: $err" if $err;
 
-	print "migration listens on port $migrate_port\n" if $migrate_port;
+	print "migration listens on $migrate_uri\n" if $migrate_uri;
 
 	if ($statefile && $statefile ne 'tcp')  {
 	    eval { vm_mon_cmd_nocheck($vmid, "cont"); };
