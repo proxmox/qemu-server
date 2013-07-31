@@ -336,6 +336,7 @@ __PACKAGE__->register_method ({
 	properties => {
 	    vmid => get_standard_option('pve-vmid'),
 	    iface => {
+		description => "Select the serial device. By default we simply use the first suitable device.",
 		type => 'string',
 		optional => 1,
 		enum => [qw(serial0 serial1 serial2 serial3)], 
