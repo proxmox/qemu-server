@@ -1273,6 +1273,8 @@ __PACKAGE__->register_method({
 	my $vmid = $param->{vmid};
 	my $node = $param->{node};
 
+	my $conf = PVE::QemuServer::load_config($vmid); # check if VM exists
+
 	my $authpath = "/vms/$vmid";
 
 	my $ticket = PVE::AccessControl::assemble_vnc_ticket($authuser, $authpath);
@@ -1283,13 +1285,13 @@ __PACKAGE__->register_method({
 	my $port = PVE::Tools::next_vnc_port();
 
 	my $remip;
+	my $remcmd = [];
 
 	if ($node ne 'localhost' && $node ne PVE::INotify::nodename()) {
 	    $remip = PVE::Cluster::remote_node_ip($node);
+	    # NOTE: kvm VNC traffic is already TLS encrypted
+	    $remcmd = ['/usr/bin/ssh', '-T', '-o', 'BatchMode=yes', $remip];
 	}
-
-	# NOTE: kvm VNC traffic is already TLS encrypted
-	my $remcmd = $remip ? ['/usr/bin/ssh', '-T', '-o', 'BatchMode=yes', $remip] : [];
 
 	my $timeout = 10;
 
@@ -1298,12 +1300,24 @@ __PACKAGE__->register_method({
 
 	    syslog('info', "starting vnc proxy $upid\n");
 
-	    my $qmcmd = [@$remcmd, "/usr/sbin/qm", 'vncproxy', $vmid];
+	    my $cmd;
 
-	    my $qmstr = join(' ', @$qmcmd);
+	    if ($conf->{vga} =~ m/^serial\d+$/) {
 
-	    # also redirect stderr (else we get RFB protocol errors)
-	    my $cmd = ['/bin/nc', '-l', '-p', $port, '-w', $timeout, '-c', "$qmstr 2>/dev/null"];
+		my $termcmd = [ '/usr/sbin/qm', 'terminal', $vmid, '-iface', $conf->{vga} ];
+		#my $termcmd = "/usr/bin/qm terminal -iface $conf->{vga}";
+		$cmd = ['/usr/bin/vncterm', '-rfbport', $port,
+			'-timeout', $timeout, '-authpath', $authpath, 
+			'-perm', 'Sys.Console', '-c', @$remcmd, @$termcmd];
+	    } else {
+
+		my $qmcmd = [@$remcmd, "/usr/sbin/qm", 'vncproxy', $vmid];
+
+		my $qmstr = join(' ', @$qmcmd);
+
+		# also redirect stderr (else we get RFB protocol errors)
+		$cmd = ['/bin/nc', '-l', '-p', $port, '-w', $timeout, '-c', "$qmstr 2>/dev/null"];
+	    }
 
 	    PVE::Tools::run_command($cmd);
 

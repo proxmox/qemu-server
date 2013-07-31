@@ -335,8 +335,8 @@ EODESC
     vga => {
 	optional => 1,
 	type => 'string',
-	description => "Select VGA type. If you want to use high resolution modes (>= 1280x1024x16) then you should use option 'std' or 'vmware'. Default is 'std' for win8/win7/w2k8, and 'cirrur' for other OS types. Option 'qxl' enables the SPICE display sever.",
-	enum => [qw(std cirrus vmware qxl)],
+	description => "Select VGA type. If you want to use high resolution modes (>= 1280x1024x16) then you should use option 'std' or 'vmware'. Default is 'std' for win8/win7/w2k8, and 'cirrur' for other OS types. Option 'qxl' enables the SPICE display sever. You can also run without any graphic card using a serial devive as terminal.",
+	enum => [qw(std cirrus vmware qxl serial0 serial1 serial2 serial3)],
     },
     watchdog => {
 	optional => 1,
@@ -2306,6 +2306,7 @@ sub config_to_command {
     } else {
 	$tablet = $defaults->{tablet};
 	$tablet = 0 if vga_conf_has_spice($vga); # disable for spice because it is not needed
+	$tablet = 0 if $vga =~ m/^serial\d+$/; # disable if we use serial terminal (no vga card)
     }
 
     push @$devices, '-device', 'usb-tablet,id=tablet,bus=uhci.0,port=1' if $tablet;
@@ -2385,7 +2386,7 @@ sub config_to_command {
 
     push @$cmd, '-no-reboot' if  defined($conf->{reboot}) && $conf->{reboot} == 0;
 
-    push @$cmd, '-vga', $vga if $vga; # for kvm 77 and later
+    push @$cmd, '-vga', $vga if $vga && $vga !~ m/^serial\d+$/; # for kvm 77 and later
 
     # time drift fix
     my $tdf = defined($conf->{tdf}) ? $conf->{tdf} : $defaults->{tdf};
