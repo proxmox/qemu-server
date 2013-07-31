@@ -574,9 +574,9 @@ PVE::JSONSchema::register_standard_option("pve-qm-hostpci", $hostpcidesc);
 my $serialdesc = {
 	optional => 1,
 	type => 'string',
-	pattern => '/dev/ttyS\d+',
+	pattern => '(/dev/ttyS\d+|socket)',
 	description =>  <<EODESCR,
-Map host serial devices (n is 0 to 3).
+Create a serial device inside the VM (n is 0 to 3), and pass through a host serial device, or create a unix socket on the host side (use 'qm terminal' to open a terminal connection).
 
 Note: This option allows direct access to host hardware. So it is no longer possible to migrate such machines - use with special care.
 
@@ -2336,9 +2336,15 @@ sub config_to_command {
     # serial devices
     for (my $i = 0; $i < $MAX_SERIAL_PORTS; $i++)  {
 	if (my $path = $conf->{"serial$i"}) {
-	    die "no such serial device\n" if ! -c $path;
-	    push @$devices, '-chardev', "tty,id=serial$i,path=$path";
-	    push @$devices, '-device', "isa-serial,chardev=serial$i";
+	    if ($path eq 'socket') {
+		my $socket = "/var/run/qemu-server/${vmid}.serial$i";
+		push @$devices, '-chardev', "socket,id=serial$i,path=$socket,server,nowait";
+		push @$devices, '-device', "isa-serial,chardev=serial$i";
+	    } else {
+		die "no such serial device\n" if ! -c $path;
+		push @$devices, '-chardev', "tty,id=serial$i,path=$path";
+		push @$devices, '-device', "isa-serial,chardev=serial$i";
+	    }
 	}
     }
 
