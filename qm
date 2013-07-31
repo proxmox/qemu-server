@@ -326,6 +326,58 @@ __PACKAGE__->register_method ({
 	return undef;
     }});
 
+__PACKAGE__->register_method ({
+    name => 'terminal', 
+    path => 'terminal', 
+    method => 'POST',
+    description => "Open a terminal using a serial device (The VM need to have a serial device configured, for example 'serial0: socket')",
+    parameters => {
+    	additionalProperties => 0,
+	properties => {
+	    vmid => get_standard_option('pve-vmid'),
+	    iface => {
+		type => 'string',
+		optional => 1,
+		enum => [qw(serial0 serial1 serial2 serial3)], 
+	    }
+	},
+    },
+    returns => { type => 'null'},
+    code => sub {
+	my ($param) = @_;
+
+	my $vmid = $param->{vmid};
+
+	my $conf = PVE::QemuServer::load_config ($vmid); # check if VM exists
+
+	my $iface = $param->{iface};
+
+	if ($iface) { 
+	    die "serial interface '$iface' is not configured\n" if !$conf->{$iface};
+	    die "wrong serial type on interface '$iface'\n" if $conf->{$iface} ne 'socket';
+	} else {
+	    foreach my $opt (qw(serial0 serial1 serial2 serial3)) {
+		if ($conf->{$opt} && ($conf->{$opt} eq 'socket')) {
+		    $iface = $opt;
+		    last;
+		}
+	    }
+	    die "unable to find a serial interface\n" if !$iface;
+	}
+
+	die "VM $vmid not running\n" if !PVE::QemuServer::check_running($vmid);
+
+	my $socket = "/var/run/qemu-server/${vmid}.$iface";
+
+	my $cmd = "socat UNIX-CONNECT:$socket STDIO,raw,echo=0,escape=0x0f";
+
+	print "starting serial terminal on interface $iface (press control-O to exit)\n";
+
+	system($cmd);
+
+	return undef;
+    }});
+
 my $cmddef = {
     list => [ "PVE::API2::Qemu", 'vmlist', [],
 	     { node => $nodename }, sub {
@@ -413,6 +465,8 @@ my $cmddef = {
     monitor  => [ __PACKAGE__, 'monitor', ['vmid']],
 
     mtunnel => [ __PACKAGE__, 'mtunnel', []],	
+
+    terminal => [ __PACKAGE__, 'terminal', ['vmid']],
 };
 
 my $cmd = shift;

@@ -3,7 +3,7 @@ Version: @@VERSION@@-@@PKGRELEASE@@
 Section: admin
 Priority: optional
 Architecture: @@ARCH@@
-Depends: libc6 (>= 2.7-18), perl (>= 5.10.0-19), libterm-readline-gnu-perl, pve-qemu-kvm (>= 1.4-16), netcat-traditional, libpve-storage-perl, pve-cluster, redhat-cluster-pve, libjson-perl, libjson-xs-perl, libio-multiplex-perl, libnet-ssleay-perl
+Depends: libc6 (>= 2.7-18), perl (>= 5.10.0-19), libterm-readline-gnu-perl, pve-qemu-kvm (>= 1.4-16), netcat-traditional, libpve-storage-perl, pve-cluster, redhat-cluster-pve, libjson-perl, libjson-xs-perl, libio-multiplex-perl, libnet-ssleay-perl, socat
 Conflicts: netcat-openbsd
 Maintainer: Proxmox Support Team <support@proxmox.com>
 Description: Qemu Server Tools
