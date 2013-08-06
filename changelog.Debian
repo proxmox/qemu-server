@@ -1,3 +1,9 @@
+qemu-server (3.0-29) unstable; urgency=low
+
+  * vncproxy: load config from correct node
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 06 Aug 2013 08:15:59 +0200
+
 qemu-server (3.0-28) unstable; urgency=low
 
   * allow to use a socket for serial devices
