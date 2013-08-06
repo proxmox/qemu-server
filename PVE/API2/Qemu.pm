@@ -1273,7 +1273,7 @@ __PACKAGE__->register_method({
 	my $vmid = $param->{vmid};
 	my $node = $param->{node};
 
-	my $conf = PVE::QemuServer::load_config($vmid); # check if VM exists
+	my $conf = PVE::QemuServer::load_config($vmid, $node); # check if VM exists
 
 	my $authpath = "/vms/$vmid";
 
