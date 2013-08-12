@@ -1551,9 +1551,10 @@ __PACKAGE__->register_method({
 	# read spice ticket from STDIN
 	my $spice_ticket;
 	if ($stateuri && ($stateuri eq 'tcp') && $migratedfrom && ($rpcenv->{type} eq 'cli')) {
-	    my $line = <>;
-	    chomp $line;
-	    $spice_ticket = $line if $line;
+	    if (my $line = <>) {
+		chomp $line;
+		$spice_ticket = $line;
+	    }
 	}
 
 	my $storecfg = PVE::Storage::config();
