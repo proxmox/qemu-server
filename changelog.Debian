@@ -1,3 +1,9 @@
+qemu-server (3.0-30) unstable; urgency=low
+
+  * fix bugs in migration code (wrong qw() usage)
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 12 Aug 2013 09:49:20 +0200
+
 qemu-server (3.0-29) unstable; urgency=low
 
   * vncproxy: load config from correct node
