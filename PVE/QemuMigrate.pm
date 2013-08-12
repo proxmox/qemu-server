@@ -76,10 +76,9 @@ sub finish_command_pipe {
 sub fork_tunnel {
     my ($self, $nodeip, $lport, $rport) = @_;
 
-    my @localtunnelinfo = (defined $lport) ? qw(-L $lport:localhost:$rport) : ();
+    my @localtunnelinfo = $lport ? ('-L' , "$lport:localhost:$rport" ) : ();
 
-    my $cmd = [@{$self->{rem_ssh}}, @localtunnelinfo,
-	       'qm', 'mtunnel' ];
+    my $cmd = [@{$self->{rem_ssh}}, @localtunnelinfo, 'qm', 'mtunnel' ];
 
     my $tunnel = $self->fork_command_pipe($cmd);
 
