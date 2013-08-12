@@ -1551,7 +1551,7 @@ __PACKAGE__->register_method({
 	# read spice ticket from STDIN
 	my $spice_ticket;
 	if ($stateuri && ($stateuri eq 'tcp') && $migratedfrom && ($rpcenv->{type} eq 'cli')) {
-	    if (my $line = <>) {
+	    if (defined(my $line = <>)) {
 		chomp $line;
 		$spice_ticket = $line;
 	    }
