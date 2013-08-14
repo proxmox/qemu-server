@@ -587,7 +587,7 @@ EODESCR
 my $paralleldesc= {
 	optional => 1,
 	type => 'string',
-	pattern => '/dev/parport\d+',
+        pattern => '/dev/parport\d+|/dev/usb/lp\d+',
 	description =>  <<EODESCR,
 Map host parallel devices (n is 0 to 2).
 
