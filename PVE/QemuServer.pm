@@ -2353,7 +2353,7 @@ sub config_to_command {
     for (my $i = 0; $i < $MAX_PARALLEL_PORTS; $i++)  {
 	if (my $path = $conf->{"parallel$i"}) {
 	    die "no such parallel device\n" if ! -c $path;
-	    my $devtype = $path =~ m!^/dev/usb/lp! ? 'tty' : 'parallel';
+	    my $devtype = $path =~ m!^/dev/usb/lp! ? 'tty' : 'parport';
 	    push @$devices, '-chardev', "$devtype,id=parallel$i,path=$path";
 	    push @$devices, '-device', "isa-parallel,chardev=parallel$i";
 	}
