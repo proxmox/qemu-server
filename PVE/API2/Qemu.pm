@@ -1302,7 +1302,7 @@ __PACKAGE__->register_method({
 
 	    my $cmd;
 
-	    if ($conf->{vga} =~ m/^serial\d+$/) {
+	    if ($conf->{vga} && ($conf->{vga} =~ m/^serial\d+$/)) {
 
 		my $termcmd = [ '/usr/sbin/qm', 'terminal', $vmid, '-iface', $conf->{vga} ];
 		#my $termcmd = "/usr/bin/qm terminal -iface $conf->{vga}";
