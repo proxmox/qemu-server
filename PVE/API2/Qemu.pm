@@ -702,17 +702,17 @@ my $vmconfig_delete_option = sub {
     }
 
     my $unplugwarning = "";
-    if($conf->{ostype} && $conf->{ostype} eq 'l26'){
+    if ($conf->{ostype} && $conf->{ostype} eq 'l26') {
 	$unplugwarning = "<br>verify that you have acpiphp && pci_hotplug modules loaded in your guest VM";
-    }elsif($conf->{ostype} && $conf->{ostype} eq 'l24'){
+    } elsif ($conf->{ostype} && $conf->{ostype} eq 'l24') {
 	$unplugwarning = "<br>kernel 2.4 don't support hotplug, please disable hotplug in options";
-    }elsif(!$conf->{ostype} || ($conf->{ostype} && $conf->{ostype} eq 'other')){
+    } elsif (!$conf->{ostype} || ($conf->{ostype} && $conf->{ostype} eq 'other')) {
 	$unplugwarning = "<br>verify that your guest support acpi hotplug";
     }
 
-    if($opt eq 'tablet'){
+    if ($opt eq 'tablet') {
 	PVE::QemuServer::vm_deviceplug(undef, $conf, $vmid, $opt);
-    }else{
+    } else {
         die "error hot-unplug $opt $unplugwarning" if !PVE::QemuServer::vm_deviceunplug($vmid, $conf, $opt);
     }
 
@@ -768,12 +768,12 @@ my $vmconfig_update_disk = sub {
                &$safe_num_ne($drive->{iops}, $old_drive->{iops}) ||
                &$safe_num_ne($drive->{iops_rd}, $old_drive->{iops_rd}) ||
                &$safe_num_ne($drive->{iops_wr}, $old_drive->{iops_wr})) {
-               PVE::QemuServer::qemu_block_set_io_throttle($vmid,"drive-$opt", 
+               PVE::QemuServer::qemu_block_set_io_throttle($vmid,"drive-$opt",
 							   ($drive->{mbps} || 0)*1024*1024,
-							   ($drive->{mbps_rd} || 0)*1024*1024, 
+							   ($drive->{mbps_rd} || 0)*1024*1024,
 							   ($drive->{mbps_wr} || 0)*1024*1024,
-							   $drive->{iops} || 0, 
-							   $drive->{iops_rd} || 0, 
+							   $drive->{iops} || 0,
+							   $drive->{iops_rd} || 0,
 							   $drive->{iops_wr} || 0)
 		   if !PVE::QemuServer::drive_is_cdrom($drive);
             }
@@ -1307,7 +1307,7 @@ __PACKAGE__->register_method({
 		my $termcmd = [ '/usr/sbin/qm', 'terminal', $vmid, '-iface', $conf->{vga} ];
 		#my $termcmd = "/usr/bin/qm terminal -iface $conf->{vga}";
 		$cmd = ['/usr/bin/vncterm', '-rfbport', $port,
-			'-timeout', $timeout, '-authpath', $authpath, 
+			'-timeout', $timeout, '-authpath', $authpath,
 			'-perm', 'Sys.Console', '-c', @$remcmd, @$termcmd];
 	    } else {
 
@@ -1585,7 +1585,7 @@ __PACKAGE__->register_method({
 
 		syslog('info', "start VM $vmid: $upid\n");
 
-		PVE::QemuServer::vm_start($storecfg, $vmid, $stateuri, $skiplock, $migratedfrom, undef, 
+		PVE::QemuServer::vm_start($storecfg, $vmid, $stateuri, $skiplock, $migratedfrom, undef,
 					  $machine, $spice_ticket);
 
 		return;
