@@ -19,6 +19,8 @@ export PERLDIR=${PREFIX}/share/perl5
 PERLINCDIR=${PERLDIR}/asm-x86_64
 
 ARCH:=$(shell dpkg-architecture -qDEB_BUILD_ARCH)
+GITVERSION:=$(shell cat .git/refs/heads/master)
+
 DEB=${PACKAGE}_${VERSION}-${PKGREL}_${ARCH}.deb
 
 all: ${DEB}
@@ -103,6 +105,7 @@ deb ${DEB}: ${PKGSOURCES}
 	install -D -m 0644 copyright build/${DOCDIR}/${PACKAGE}/copyright
 	install -m 0644 changelog.Debian build/${DOCDIR}/${PACKAGE}/
 	gzip -9 build/${DOCDIR}/${PACKAGE}/changelog.Debian
+	echo "git clone git://git.proxmox.com/git/qemu-server.git\\ngit checkout ${GITVERSION}" > build/${DOCDIR}/${PACKAGE}/SOURCE
 	dpkg-deb --build build	
 	mv build.deb ${DEB}
 	lintian ${DEB}
