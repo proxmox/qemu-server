@@ -697,7 +697,7 @@ my $vmconfig_delete_option = sub {
 
 	my $drive = PVE::QemuServer::parse_drive($opt, $conf->{$opt});
 	if (my $sid = &$test_deallocate_drive($storecfg, $vmid, $opt, $drive, $force)) {
-	    $rpcenv->check($authuser, "/storage/$sid", ['Datastore.Allocate']);
+	    $rpcenv->check($authuser, "/storage/$sid", ['Datastore.AllocateSpace']);
 	}
     }
 
