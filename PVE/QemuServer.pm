@@ -3992,7 +3992,7 @@ sub restore_vma_archive {
 
 	    my $write_zeros = 1;
 	    # fixme: what other storages types initialize volumes with zero?
-	    if ($scfg->{type} eq 'dir' || $scfg->{type} eq 'nfs' ||
+	    if ($scfg->{type} eq 'dir' || $scfg->{type} eq 'nfs' || $scfg->{type} eq 'glusterfs' ||
 		$scfg->{type} eq 'sheepdog' || $scfg->{type} eq 'rbd') {
 		$write_zeros = 0;
 	    }
