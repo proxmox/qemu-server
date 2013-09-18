@@ -590,17 +590,20 @@ sub phase3_cleanup {
 	}
     }
 
-    my $timer = 0;
-    if (PVE::QemuServer::vga_conf_has_spice($conf->{vga})) {
-        $self->log('info', "Waiting for spice server migration");
-	while (1) {
-	    my $res = PVE::QemuServer::vm_mon_cmd_nocheck($vmid, 'query-spice');
-	    last if int($res->{'migrated'}) == 1;
-	    last if $timer > 50;
-	    $timer ++;
-	    usleep(200000);
-        }
-    }
+    eval {
+
+	my $timer = 0;
+	if (PVE::QemuServer::vga_conf_has_spice($conf->{vga}) && $self->{running}) {
+	    $self->log('info', "Waiting for spice server migration");
+	    while (1) {
+		my $res = PVE::QemuServer::vm_mon_cmd_nocheck($vmid, 'query-spice');
+		last if int($res->{'migrated'}) == 1;
+		last if $timer > 50;
+		$timer ++;
+		usleep(200000);
+ 	    }
+	}
+    };
 
     # always stop local VM
     eval { PVE::QemuServer::vm_stop($self->{storecfg}, $vmid, 1, 1); };
