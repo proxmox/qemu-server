@@ -244,7 +244,7 @@ my $confdesc = {
     ostype => {
 	optional => 1,
 	type => 'string',
-        enum => [qw(other wxp w2k w2k3 w2k8 wvista win7 win8 l24 l26)],
+        enum => [qw(other wxp w2k w2k3 w2k8 wvista win7 win8 l24 l26 solaris)],
 	description => <<EODESC,
 Used to enable special optimization/features for specific
 operating systems:
@@ -259,8 +259,9 @@ win7   => Microsoft Windows 7
 win8   => Microsoft Windows 8/2012
 l24    => Linux 2.4 Kernel
 l26    => Linux 2.6/3.X Kernel
+solaris => solaris/opensolaris/openindiania kernel
 
-other|l24|l26                       ... no special behaviour
+other|l24|l26|solaris                       ... no special behaviour
 wxp|w2k|w2k3|w2k8|wvista|win7|win8  ... use --localtime switch
 EODESC
     },
@@ -2396,7 +2397,7 @@ sub config_to_command {
     my $useLocaltime = $conf->{localtime};
 
     if (my $ost = $conf->{ostype}) {
-	# other, wxp, w2k, w2k3, w2k8, wvista, win7, win8, l24, l26
+	# other, wxp, w2k, w2k3, w2k8, wvista, win7, win8, l24, l26, solaris
 
 	if ($ost =~ m/^w/) { # windows
 	    $useLocaltime = 1 if !defined($conf->{localtime});
@@ -2442,7 +2443,9 @@ sub config_to_command {
     my $cpu = $nokvm ? "qemu64" : "kvm64";
     $cpu = $conf->{cpu} if $conf->{cpu};
 
-    push @$cpuFlags , '+x2apic' if !$nokvm;
+    push @$cpuFlags , '+x2apic' if !$nokvm && $conf->{ostype} ne 'solaris';
+
+    push @$cpuFlags , '-x2apic' if $conf->{ostype} eq 'solaris';
 
     push @$cpuFlags, '+sep' if $cpu eq 'kvm64' || $cpu eq 'kvm32';
 
