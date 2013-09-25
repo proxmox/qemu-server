@@ -338,7 +338,7 @@ EODESC
 	optional => 1,
 	type => 'string',
 	description => "Select VGA type. If you want to use high resolution modes (>= 1280x1024x16) then you should use option 'std' or 'vmware'. Default is 'std' for win8/win7/w2k8, and 'cirrur' for other OS types. Option 'qxl' enables the SPICE display sever. You can also run without any graphic card using a serial devive as terminal.",
-	enum => [qw(std cirrus vmware qxl serial0 serial1 serial2 serial3)],
+	enum => [qw(std cirrus vmware qxl serial0 serial1 serial2 serial3 qxl2 qxl3 qxl4)],
     },
     watchdog => {
 	optional => 1,
@@ -2236,7 +2236,7 @@ sub foreach_volid {
 sub vga_conf_has_spice {
     my ($vga) = @_;
 
-    return $vga && ($vga eq 'qxl');
+    return $vga && ($vga =~ m/^qxl/);
 }
 
 sub config_to_command {
@@ -2291,6 +2291,16 @@ sub config_to_command {
     push @$devices, '-readconfig', '/usr/share/qemu-server/pve-usb.cfg' if $use_usb2;
 
     my $vga = $conf->{vga};
+
+    my $qxlnum = 0;
+    if (vga_conf_has_spice($vga)) {
+        $qxlnum = 1;
+        if($vga =~ m/^qxl(\d+)$/){
+            $qxlnum = $1;
+        }
+        $vga = 'qxl';
+    }
+
     if (!$vga) {
 	if ($conf->{ostype} && ($conf->{ostype} eq 'win8' || 
 				$conf->{ostype} eq 'win7' || 
@@ -2475,6 +2485,19 @@ sub config_to_command {
 
     my $spice_port;
     if (vga_conf_has_spice($vga)) {
+
+	if($qxlnum > 1 && $conf->{ostype} && $conf->{ostype} eq 'l26'){
+	    push @$cmd, '-global', 'qxl-vga.ram_size=134217728';
+	    push @$cmd, '-global', 'qxl-vga.vram_size=67108864';
+	}
+
+	if($qxlnum > 1 &&  $conf->{ostype} && $conf->{ostype} =~ m/^w/){
+	    for(my $i = 1; $i < $qxlnum; $i++){
+		my $pciaddr = print_pci_addr("vga$i", $bridges);
+		push @$cmd, '-device', "qxl,id=vga$i,ram_size=67108864,vram_size=33554432$pciaddr";
+	    }
+	}
+
 	my $pciaddr = print_pci_addr("spice", $bridges);
 
 	$spice_port = PVE::Tools::next_unused_port(61000, 61099);
@@ -3515,6 +3538,9 @@ sub print_pci_addr {
 	net3 => { bus => 0, addr => 21 },
 	net4 => { bus => 0, addr => 22 },
 	net5 => { bus => 0, addr => 23 },
+	vga1 => { bus => 0, addr => 24 },
+	vga2 => { bus => 0, addr => 25 },
+	vga3 => { bus => 0, addr => 26 },
 	#addr29 : usb-host (pve-usb.cfg)
 	'pci.1' => { bus => 0, addr => 30 },
 	'pci.2' => { bus => 0, addr => 31 },
