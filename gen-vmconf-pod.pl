@@ -1,8 +1,9 @@
-#!/usr/bin/perl -w
+#!/usr/bin/perl
 
 package main;
 
 use strict;
+use warnings;
 use PVE::Tools;
 use PVE::Cluster;
 use PVE::PodParser;

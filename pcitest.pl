@@ -1,8 +1,9 @@
-#!/usr/bin/perl -w
+#!/usr/bin/perl
 
 # this is some experimental code to test pci pass through
 
 use strict;
+use warnings;
 use IO::Dir;
 use IO::File;
 use Time::HiRes qw(usleep);

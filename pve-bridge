@@ -1,6 +1,7 @@
-#!/usr/bin/perl -w
+#!/usr/bin/perl
 
 use strict;
+use warnings;
 use PVE::QemuServer;
 use PVE::Tools qw(run_command);
 use PVE::Network;

@@ -1,6 +1,7 @@
 package PVE::QMPClient;
 
 use strict;
+use warnings;
 use PVE::QemuServer;
 use IO::Multiplex;
 use POSIX qw(EINTR EAGAIN);

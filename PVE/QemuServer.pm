@@ -1,6 +1,7 @@
 package PVE::QemuServer;
 
 use strict;
+use warnings;
 use POSIX;
 use IO::Handle;
 use IO::Select;
