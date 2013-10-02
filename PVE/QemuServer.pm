@@ -2236,7 +2236,9 @@ sub foreach_volid {
 sub vga_conf_has_spice {
     my ($vga) = @_;
 
-    return $vga && ($vga =~ m/^qxl/);
+    return 0 if !$vga || $vga !~ m/^qxl([234])?$/;
+
+    return $1 || 1;
 }
 
 sub config_to_command {
@@ -2292,14 +2294,8 @@ sub config_to_command {
 
     my $vga = $conf->{vga};
 
-    my $qxlnum = 0;
-    if (vga_conf_has_spice($vga)) {
-        $qxlnum = 1;
-        if($vga =~ m/^qxl(\d+)$/){
-            $qxlnum = $1;
-        }
-        $vga = 'qxl';
-    }
+    my $qxlnum = vga_conf_has_spice($vga);
+    $vga = 'qxl' if $qxlnum;
 
     if (!$vga) {
 	if ($conf->{ostype} && ($conf->{ostype} eq 'win8' || 
@@ -2317,7 +2313,7 @@ sub config_to_command {
 	$tablet = $conf->{tablet};
     } else {
 	$tablet = $defaults->{tablet};
-	$tablet = 0 if vga_conf_has_spice($vga); # disable for spice because it is not needed
+	$tablet = 0 if $qxlnum; # disable for spice because it is not needed
 	$tablet = 0 if $vga =~ m/^serial\d+$/; # disable if we use serial terminal (no vga card)
     }
 
@@ -2484,17 +2480,18 @@ sub config_to_command {
     }
 
     my $spice_port;
-    if (vga_conf_has_spice($vga)) {
 
-	if($qxlnum > 1 && $conf->{ostype} && $conf->{ostype} eq 'l26'){
-	    push @$cmd, '-global', 'qxl-vga.ram_size=134217728';
-	    push @$cmd, '-global', 'qxl-vga.vram_size=67108864';
-	}
-
-	if($qxlnum > 1 &&  $conf->{ostype} && $conf->{ostype} =~ m/^w/){
-	    for(my $i = 1; $i < $qxlnum; $i++){
-		my $pciaddr = print_pci_addr("vga$i", $bridges);
-		push @$cmd, '-device', "qxl,id=vga$i,ram_size=67108864,vram_size=33554432$pciaddr";
+    if ($qxlnum) {
+	if ($qxlnum > 1) {
+	    if ($conf->{ostype} && $conf->{ostype} =~ m/^w/){
+		for(my $i = 1; $i < $qxlnum; $i++){
+		    my $pciaddr = print_pci_addr("vga$i", $bridges);
+		    push @$cmd, '-device', "qxl,id=vga$i,ram_size=67108864,vram_size=33554432$pciaddr";
+		}
+	    } else {
+		# assume other OS works like Linux
+		push @$cmd, '-global', 'qxl-vga.ram_size=134217728';
+		push @$cmd, '-global', 'qxl-vga.vram_size=67108864';
 	    }
 	}
 
