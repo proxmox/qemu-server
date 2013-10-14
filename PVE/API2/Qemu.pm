@@ -2188,7 +2188,9 @@ __PACKAGE__->register_method({
 		    my $net = PVE::QemuServer::parse_net($value);
 		    $net->{macaddr} =  PVE::Tools::random_ether_addr();
 		    $newconf->{$opt} = PVE::QemuServer::print_net($net);
-		} elsif (my $drive = PVE::QemuServer::parse_drive($opt, $value)) {
+		} elsif (PVE::QemuServer::valid_drivename($opt)) {
+		    my $drive = PVE::QemuServer::parse_drive($opt, $value);
+		    die "unable to parse drive options for '$opt'\n" if !$drive;
 		    if (PVE::QemuServer::drive_is_cdrom($drive)) {
 			$newconf->{$opt} = $value; # simply copy configuration
 		    } else {
