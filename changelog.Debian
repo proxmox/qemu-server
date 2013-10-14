@@ -1,3 +1,9 @@
+qemu-server (3.1-8) unstable; urgency=low
+
+  * clone: correctly check drive options (avoid feature is not available bug)
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 14 Oct 2013 07:36:26 +0200
+
 qemu-server (3.1-7) unstable; urgency=low
 
   * spice: add multi-monitors support
