@@ -2252,6 +2252,9 @@ __PACKAGE__->register_method({
 		    PVE::QemuServer::update_config_nolock($newid, $newconf, 1);
 
                     if ($target) {
+			# always deactivate volumes - avoid lvm LVs to be active on several nodes
+			PVE::Storage::deactivate_volumes($storecfg, $vollist);
+
 			my $newconffile = PVE::QemuServer::config_file($newid, $target);
 			die "Failed to move config to node '$target' - rename failed: $!\n"
 			    if !rename($conffile, $newconffile);
