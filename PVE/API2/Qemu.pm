@@ -494,6 +494,7 @@ __PACKAGE__->register_method({
 	    { subdir => 'monitor' },
 	    { subdir => 'snapshot' },
 	    { subdir => 'spiceproxy' },
+	    { subdir => 'sendkey' },
 	    ];
 
 	return $res;
