@@ -1835,6 +1835,7 @@ sub check_local_resources {
     $loc_res = 1 if $conf->{hostpci}; # old syntax
 
     foreach my $k (keys %$conf) {
+	next if $k =~ m/^usb/ && ($conf->{$k} eq 'spice');
 	$loc_res = 1 if $k =~ m/^(usb|hostpci|serial|parallel)\d+$/;
     }
 
