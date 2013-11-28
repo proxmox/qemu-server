@@ -2451,6 +2451,8 @@ sub config_to_command {
     my $cpu = $nokvm ? "qemu64" : "kvm64";
     $cpu = $conf->{cpu} if $conf->{cpu};
 
+    push @$cpuFlags , '+lahf_lm' if $cpu eq 'kvm64';
+
     push @$cpuFlags , '+x2apic' if !$nokvm && $conf->{ostype} ne 'solaris';
 
     push @$cpuFlags , '-x2apic' if $conf->{ostype} eq 'solaris';
