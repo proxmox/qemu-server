@@ -4734,7 +4734,7 @@ sub qemu_img_convert {
 	my $dst_path = PVE::Storage::path($storecfg, $dst_volid);
 
 	my $cmd = [];
-	push @$cmd, '/usr/bin/qemu-img', 'convert', '-t', 'writeback', '-p', '-C';
+	push @$cmd, '/usr/bin/qemu-img', 'convert', '-t', 'writeback', '-p', '-n';
 	push @$cmd, '-s', $snapname if($snapname && $src_format eq "qcow2");
 	push @$cmd, '-f', $src_format, '-O', $dst_format, $src_path, $dst_path;
 
