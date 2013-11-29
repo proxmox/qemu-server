@@ -1,5 +1,11 @@
-qemu-server (3.1-9) unstable; urgency=low
+qemu-server (3.1-10) unstable; urgency=low
 
+  * add +lahf_lm flag to kvm64 cpudef
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 29 Nov 2013 09:18:39 +0100
+
+qemu-server (3.1-9) unstable; urgency=low
+  
   * clone: deactivate volumes after clone to other node
 
  -- Proxmox Support Team <support@proxmox.com>  Tue, 19 Nov 2013 08:17:35 +0100
