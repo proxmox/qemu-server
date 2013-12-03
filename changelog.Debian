@@ -1,3 +1,9 @@
+qemu-server (3.1-11) unstable; urgency=low
+
+  * depend on pve-qemu-kvm >= 1.7-1
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 03 Dec 2013 10:48:33 +0100
+
 qemu-server (3.1-10) unstable; urgency=low
 
   * add +lahf_lm flag to kvm64 cpudef
