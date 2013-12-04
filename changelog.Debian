@@ -3,6 +3,9 @@ qemu-server (3.1-11) unstable; urgency=low
   * depend on pve-qemu-kvm >= 1.7-1
   
   * fix 'qm unlink' command syntax
+  
+  * add 'pvscsi' to the list of scsi controllers (emulate the VMware
+    PVSCSI device)
 
  -- Proxmox Support Team <support@proxmox.com>  Tue, 03 Dec 2013 10:48:33 +0100
 

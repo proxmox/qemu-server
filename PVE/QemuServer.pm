@@ -234,7 +234,7 @@ my $confdesc = {
 	optional => 1,
 	type => 'string',
 	description => "scsi controller model",
-	enum => [qw(lsi virtio-scsi-pci megasas)],
+	enum => [qw(lsi virtio-scsi-pci megasas pvscsi)],
 	default => 'lsi',
     },
     description => {
