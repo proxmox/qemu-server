@@ -415,7 +415,7 @@ my $cmddef = {
 
     move_disk => [ "PVE::API2::Qemu", 'move_vm_disk', ['vmid', 'disk', 'storage'], { node => $nodename }, $upid_exit ],
 
-    unlink => [ "PVE::API2::Qemu", 'unlink', ['vmid', 'idlist'], { node => $nodename } ],
+    unlink => [ "PVE::API2::Qemu", 'unlink', ['vmid'], { node => $nodename } ],
 
     config => [ "PVE::API2::Qemu", 'vm_config', ['vmid'], 
 		{ node => $nodename }, sub {
