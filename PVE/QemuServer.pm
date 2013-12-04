@@ -234,7 +234,7 @@ my $confdesc = {
 	optional => 1,
 	type => 'string',
 	description => "scsi controller model",
-	enum => [qw(lsi virtio-scsi-pci megasas pvscsi)],
+	enum => [qw(lsi lsi53c810 virtio-scsi-pci megasas pvscsi)],
 	default => 'lsi',
     },
     description => {
@@ -1050,7 +1050,7 @@ sub print_drivedevice_full {
 	my $pciaddr = print_pci_addr("$drive->{interface}$drive->{index}", $bridges);
 	$device = "virtio-blk-pci,drive=drive-$drive->{interface}$drive->{index},id=$drive->{interface}$drive->{index}$pciaddr";
     } elsif ($drive->{interface} eq 'scsi') {
-	$maxdev = ($conf->{scsihw} && $conf->{scsihw} ne 'lsi') ? 256 : 7;
+	$maxdev = ($conf->{scsihw} && ($conf->{scsihw} !~ m/^lsi/)) ? 256 : 7;
 	my $controller = int($drive->{index} / $maxdev);
 	my $unit = $drive->{index} % $maxdev;
 	my $devicetype = 'hd';
@@ -1077,8 +1077,8 @@ sub print_drivedevice_full {
 	      }
          }
 
-        if (!$conf->{scsihw} || $conf->{scsihw} eq 'lsi'){
-            $device = "scsi-$devicetype,bus=scsihw$controller.0,scsi-id=$unit,drive=drive-$drive->{interface}$drive->{index},id=$drive->{interface}$drive->{index}" if !$conf->{scsihw} || $conf->{scsihw} eq 'lsi';
+        if (!$conf->{scsihw} || ($conf->{scsihw} =~ m/^lsi/)){
+            $device = "scsi-$devicetype,bus=scsihw$controller.0,scsi-id=$unit,drive=drive-$drive->{interface}$drive->{index},id=$drive->{interface}$drive->{index}";
         } else {
             $device = "scsi-$devicetype,bus=scsihw$controller.0,channel=0,scsi-id=0,lun=$drive->{index},drive=drive-$drive->{interface}$drive->{index},id=$drive->{interface}$drive->{index}";
         }
@@ -2551,7 +2551,7 @@ sub config_to_command {
 
         if ($drive->{interface} eq 'scsi') {
 
-	    my $maxdev = ($scsihw ne 'lsi') ? 256 : 7;
+	    my $maxdev = ($scsihw !~ m/^lsi/) ? 256 : 7;
 	    my $controller = int($drive->{index} / $maxdev);
 	    $pciaddr = print_pci_addr("scsihw$controller", $bridges);
 	    push @$devices, '-device', "$scsihw,id=scsihw$controller$pciaddr" if !$scsicontroller->{$controller};
@@ -2708,7 +2708,7 @@ sub vm_deviceplug {
     }
 
     if ($deviceid =~ m/^(scsi)(\d+)$/) {
-        return 1 if ($conf->{scsihw} && $conf->{scsihw} ne 'lsi'); #virtio-scsi not yet support hotplug
+        return 1 if ($conf->{scsihw} && ($conf->{scsihw} !~ m/^lsi/)); #virtio-scsi not yet support hotplug
         return undef if !qemu_findorcreatescsihw($storecfg,$conf, $vmid, $device);
         return undef if !qemu_driveadd($storecfg, $vmid, $device);
         my $devicefull = print_drivedevice_full($storecfg, $conf, $vmid, $device);
@@ -2853,7 +2853,7 @@ sub qemu_devicedelverify {
 sub qemu_findorcreatescsihw {
     my ($storecfg, $conf, $vmid, $device) = @_;
 
-    my $maxdev = ($conf->{scsihw} && $conf->{scsihw} ne 'lsi') ? 256 : 7;
+    my $maxdev = ($conf->{scsihw} && ($conf->{scsihw} !~ m/^lsi/)) ? 256 : 7;
     my $controller = int($device->{index} / $maxdev);
     my $scsihwid="scsihw$controller";
     my $devices_list = vm_devices_list($vmid);

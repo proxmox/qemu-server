@@ -7,6 +7,9 @@ qemu-server (3.1-11) unstable; urgency=low
   * add 'pvscsi' to the list of scsi controllers (emulate the VMware
     PVSCSI device)
 
+  * add 'lsi53c810' to the list of scsi controllers (supported on some 
+    very old Windows NT versions)
+
   * add 'vmxnet3' to the list of available network card models (emulate
     VMware paravirtualized network card)
   
