@@ -9,6 +9,8 @@ qemu-server (3.1-11) unstable; urgency=low
 
   * add 'vmxnet3' to the list of available network card models (emulate
     VMware paravirtualized network card)
+  
+  * add drive option 'discard'
 
  -- Proxmox Support Team <support@proxmox.com>  Tue, 03 Dec 2013 10:48:33 +0100
 
