@@ -763,14 +763,26 @@ my $vmconfig_update_disk = sub {
                &$safe_num_ne($drive->{mbps_wr}, $old_drive->{mbps_wr}) ||
                &$safe_num_ne($drive->{iops}, $old_drive->{iops}) ||
                &$safe_num_ne($drive->{iops_rd}, $old_drive->{iops_rd}) ||
-               &$safe_num_ne($drive->{iops_wr}, $old_drive->{iops_wr})) {
+               &$safe_num_ne($drive->{iops_wr}, $old_drive->{iops_wr}) ||
+               &$safe_num_ne($drive->{mbps_max}, $old_drive->{mbps_max}) ||
+               &$safe_num_ne($drive->{mbps_rd_max}, $old_drive->{mbps_rd_max}) ||
+               &$safe_num_ne($drive->{mbps_wr_max}, $old_drive->{mbps_wr_max}) ||
+               &$safe_num_ne($drive->{iops_max}, $old_drive->{iops_max}) ||
+               &$safe_num_ne($drive->{iops_rd_max}, $old_drive->{iops_rd_max}) ||
+               &$safe_num_ne($drive->{iops_wr_max}, $old_drive->{iops_wr_max})) {
                PVE::QemuServer::qemu_block_set_io_throttle($vmid,"drive-$opt",
 							   ($drive->{mbps} || 0)*1024*1024,
 							   ($drive->{mbps_rd} || 0)*1024*1024,
 							   ($drive->{mbps_wr} || 0)*1024*1024,
 							   $drive->{iops} || 0,
 							   $drive->{iops_rd} || 0,
-							   $drive->{iops_wr} || 0)
+							   $drive->{iops_wr} || 0,
+							   ($drive->{mbps_max} || 0)*1024*1024,
+							   ($drive->{mbps_rd_max} || 0)*1024*1024,
+							   ($drive->{mbps_wr_max} || 0)*1024*1024,
+							   $drive->{iops_max} || 0,
+							   $drive->{iops_rd_max} || 0,
+							   $drive->{iops_wr_max} || 0)
 		   if !PVE::QemuServer::drive_is_cdrom($drive);
             }
 	}

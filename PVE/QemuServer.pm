@@ -887,7 +887,7 @@ sub parse_drive {
     foreach my $p (split (/,/, $data)) {
 	next if $p =~ m/^\s*$/;
 
-	if ($p =~ m/^(file|volume|cyls|heads|secs|trans|media|snapshot|cache|format|rerror|werror|backup|aio|bps|mbps|bps_rd|mbps_rd|bps_wr|mbps_wr|iops|iops_rd|iops_wr|size|discard)=(.+)$/) {
+	if ($p =~ m/^(file|volume|cyls|heads|secs|trans|media|snapshot|cache|format|rerror|werror|backup|aio|bps|mbps|mbps_max|bps_rd|mbps_rd|mbps_rd_max|bps_wr|mbps_wr|mbps_wr_max|iops|iops_max|iops_rd|iops_rd_max|iops_wr|iops_wr_max|size|discard)=(.+)$/) {
 	    my ($k, $v) = ($1, $2);
 
 	    $k = 'file' if $k eq 'volume';
@@ -934,14 +934,22 @@ sub parse_drive {
     return undef if $res->{mbps_wr} && $res->{mbps};
 
     return undef if $res->{mbps} && $res->{mbps} !~ m/^\d+(\.\d+)?$/;
+    return undef if $res->{mbps_max} && $res->{mbps_max} !~ m/^\d+(\.\d+)?$/;
     return undef if $res->{mbps_rd} && $res->{mbps_rd} !~ m/^\d+(\.\d+)?$/;
+    return undef if $res->{mbps_rd_max} && $res->{mbps_rd_max} !~ m/^\d+(\.\d+)?$/;
     return undef if $res->{mbps_wr} && $res->{mbps_wr} !~ m/^\d+(\.\d+)?$/;
+    return undef if $res->{mbps_wr_max} && $res->{mbps_wr_max} !~ m/^\d+(\.\d+)?$/;
 
     return undef if $res->{iops_rd} && $res->{iops};
     return undef if $res->{iops_wr} && $res->{iops};
+
+
     return undef if $res->{iops} && $res->{iops} !~ m/^\d+$/;
+    return undef if $res->{iops_max} && $res->{iops_max} !~ m/^\d+$/;
     return undef if $res->{iops_rd} && $res->{iops_rd} !~ m/^\d+$/;
+    return undef if $res->{iops_rd_max} && $res->{iops_rd_max} !~ m/^\d+$/;
     return undef if $res->{iops_wr} && $res->{iops_wr} !~ m/^\d+$/;
+    return undef if $res->{iops_wr_max} && $res->{iops_wr_max} !~ m/^\d+$/;
 
 
     if ($res->{size}) {
@@ -962,13 +970,13 @@ sub parse_drive {
     return $res;
 }
 
-my @qemu_drive_options = qw(heads secs cyls trans media format cache snapshot rerror werror aio discard iops iops_rd iops_wr);
+my @qemu_drive_options = qw(heads secs cyls trans media format cache snapshot rerror werror aio discard iops iops_rd iops_wr iops_max iops_rd_max iops_wr_max);
 
 sub print_drive {
     my ($vmid, $drive) = @_;
 
     my $opts = '';
-    foreach my $o (@qemu_drive_options, 'mbps', 'mbps_rd', 'mbps_wr', 'backup') {
+    foreach my $o (@qemu_drive_options, 'mbps', 'mbps_rd', 'mbps_wr', 'mbps_max', 'mbps_rd_max', 'mbps_wr_max', 'backup') {
 	$opts .= ",$o=$drive->{$o}" if $drive->{$o};
     }
 
