@@ -14,6 +14,8 @@ qemu-server (3.1-11) unstable; urgency=low
     VMware paravirtualized network card)
   
   * add drive option 'discard'
+  
+  * add support for new qemu throttling burst max parameters.
 
  -- Proxmox Support Team <support@proxmox.com>  Tue, 03 Dec 2013 10:48:33 +0100
 
