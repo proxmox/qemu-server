@@ -1348,9 +1348,9 @@ __PACKAGE__->register_method({
 __PACKAGE__->register_method({
     name => 'spiceproxy',
     path => '{vmid}/spiceproxy',
-    method => 'GET',
+    method => 'POST',
     protected => 1,
-    proxyto => 'node', # fixme: use direct connections or ssh tunnel?
+    proxyto => 'node',
     permissions => {
 	check => ['perm', '/vms/{vmid}', [ 'VM.Console' ]],
     },
