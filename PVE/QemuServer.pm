@@ -2508,7 +2508,7 @@ sub config_to_command {
 
 	my $pciaddr = print_pci_addr("spice", $bridges);
 
-	$spice_port = PVE::Tools::next_unused_port(61000, 61099);
+	$spice_port = PVE::Tools::next_spice_port();
 
 	push @$cmd, '-spice', "tls-port=${spice_port},addr=127.0.0.1,tls-ciphers=DES-CBC3-SHA,seamless-migration=on";
 
