@@ -406,7 +406,7 @@ sub phase2 {
 	my (undef, $proxyticket) = PVE::AccessControl::assemble_spice_ticket($authuser, $vmid, $self->{node});
 
 	my $filename = "/etc/pve/nodes/$self->{node}/pve-ssl.pem";
-        my $subject = PVE::QemuServer::read_x509_subject_spice($filename);
+        my $subject =  PVE::AccessControl::read_x509_subject_spice($filename);
 
 	$self->log('info', "spice client_migrate_info");
 

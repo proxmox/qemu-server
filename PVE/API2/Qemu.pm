@@ -1360,24 +1360,10 @@ __PACKAGE__->register_method({
 	properties => {
 	    node => get_standard_option('pve-node'),
 	    vmid => get_standard_option('pve-vmid'),
-	    proxy => {
-		description => "This can be used by the client to specify the proxy server. All nodes in a cluster runs 'spiceproxy', so it is up to the client to choose one. By default, we return the node where the VM is currently running. As resonable setting is to use same node you use to connect to the API (This is window.location.hostname for the JS GUI).",
-		type => 'string', format => 'dns-name',
-		optional => 1,
-	    },
+	    proxy => get_standard_option('spice-proxy', { optional => 1 }),
 	},
     },
-    returns => {
-	description => "Returned values can be directly passed to the 'remote-viewer' application.",
-    	additionalProperties => 1,
-	properties => {
-	    type => { type => 'string' },
-	    password => { type => 'string' },
-	    proxy => { type => 'string' },
-	    host => { type => 'string' },
-	    'tls-port' => { type => 'integer' },
-	},
-    },
+    returns => get_standard_option('remote-viewer-config'),
     code => sub {
 	my ($param) = @_;
 
@@ -1389,37 +1375,17 @@ __PACKAGE__->register_method({
 	my $node = $param->{node};
 	my $proxy = $param->{proxy};
 
-	my ($ticket, $proxyticket) = PVE::AccessControl::assemble_spice_ticket($authuser, $vmid, $node);
-
-	my $timeout = 10;
+	my $title = "VM $vmid";
 
 	my $port = PVE::QemuServer::spice_port($vmid);
+
+	my ($ticket, undef, $remote_viewer_config) = 
+	    PVE::AccessControl::remote_viewer_config($authuser, $vmid, $node, $proxy, $title, $port);
+	
 	PVE::QemuServer::vm_mon_cmd($vmid, "set_password", protocol => 'spice', password => $ticket);
 	PVE::QemuServer::vm_mon_cmd($vmid, "expire_password", protocol => 'spice', time => "+30");
-
-	if (!$proxy) {
-	    my $host = `hostname -f` || PVE::INotify::nodename();
-	    chomp $host;
-	    $proxy = $host;
-	}
-
-	my $filename = "/etc/pve/local/pve-ssl.pem";
-	my $subject = PVE::QemuServer::read_x509_subject_spice($filename);
-
-	my $cacert = PVE::Tools::file_get_contents("/etc/pve/pve-root-ca.pem", 8192);
-	$cacert =~ s/\n/\\n/g;
-
-	return {
-	    type => 'spice',
-	    title => "VM $vmid",
-	    host => $proxyticket, # this break tls hostname verification, so we need to use 'host-subject'
-	    proxy => "http://$proxy:3128",
-	    'tls-port' => $port,
-	    'host-subject' => $subject,
-	    ca => $cacert,
-	    password => $ticket,
-	    'delete-this-file' => 1,
-	};
+	
+	return $remote_viewer_config;
     }});
 
 __PACKAGE__->register_method({
