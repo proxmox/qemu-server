@@ -558,13 +558,17 @@ PVE::JSONSchema::register_standard_option("pve-qm-usb", $usbdesc);
 my $hostpcidesc = {
         optional => 1,
         type => 'string', format => 'pve-qm-hostpci',
-        typetext => "HOSTPCIDEVICE",
+        typetext => "[host=]HOSTPCIDEVICE [,driver=kvm|vfio] [,rombar=on|off]",
         description => <<EODESCR,
 Map host pci devices. HOSTPCIDEVICE syntax is:
 
 'bus:dev.func' (hexadecimal numbers)
 
 You can us the 'lspci' command to list existing pci devices.
+
+The 'rombar' option determines whether or not the device's ROM will be visible in the guest's memory map (default is 'on').
+
+The 'driver' option is currently ignored.
 
 Note: This option allows direct access to host hardware. So it is no longer possible to migrate such machines - use with special care.
 
@@ -1209,13 +1213,26 @@ sub parse_hostpci {
 
     return undef if !$value;
 
-    my $res = {};
 
-    if ($value =~ m/^[a-f0-9]{2}:[a-f0-9]{2}\.[a-f0-9]$/) {
-       $res->{pciid} = $value;
-    } else {
-       return undef;
+    my @list = split(/,/, $value);
+    my $found;
+
+    my $res = {};
+    foreach my $kv (@list) {
+
+	if ($kv =~ m/^(host=)?([a-f0-9]{2}:[a-f0-9]{2}\.[a-f0-9])$/) {
+	    $found = 1;
+	    $res->{pciid} = $2;
+	} elsif ($kv =~ m/^driver=(kvm|vfio)$/) {
+	    $res->{driver} = $1;
+	} elsif ($kv =~ m/^rombar=(on|off)$/) {
+	    $res->{rombar} = $1;
+	} else {
+	    warn "unknown hostpci setting '$kv'\n";
+	}
     }
+
+    return undef if !$found;
 
     return $res;
 }
@@ -2333,7 +2350,8 @@ sub config_to_command {
           my $d = parse_hostpci($conf->{"hostpci$i"});
           next if !$d;
 	  $pciaddr = print_pci_addr("hostpci$i", $bridges);
-          push @$devices, '-device', "pci-assign,host=$d->{pciid},id=hostpci$i$pciaddr";
+	  my $rombar = $d->{rombar} && $d->{rombar} eq 'off' ? ",rombar=0" : ""; 
+          push @$devices, '-device', "pci-assign,host=$d->{pciid},id=hostpci$i$pciaddr$rombar";
     }
 
     # usb devices
