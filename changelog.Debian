@@ -1,3 +1,9 @@
+qemu-server (3.1-13) unstable; urgency=low
+
+  * pci passthrough: new option to disable device ROM (rombar=off)
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 13 Dec 2013 11:45:46 +0100
+
 qemu-server (3.1-12) unstable; urgency=low
 
   * spiceproxy: use POST instead of GET
