@@ -300,6 +300,13 @@ EODESC
 	minimum => 1,
 	default => 1,
     },
+    maxcpus => {
+	optional => 1,
+	type => 'integer',
+	description => "Maximum cpus for hotplug.",
+	minimum => 1,
+	default => 1,
+    },
     acpi => {
 	optional => 1,
 	type => 'boolean',
@@ -1741,6 +1748,9 @@ sub write_vm_config {
 	delete $conf->{smp};
     }
 
+    if ($conf->{maxcpus} && $conf->{sockets}){
+	delete $conf->{sockets};
+    }
     my $used_volids = {};
 
     my $cleanup_config = sub {
@@ -2403,7 +2413,13 @@ sub config_to_command {
     $sockets = $conf->{sockets} if  $conf->{sockets};
 
     my $cores = $conf->{cores} || 1;
-    push @$cmd, '-smp', "sockets=$sockets,cores=$cores";
+    my $maxcpus = $conf->{maxcpus} if $conf->{maxcpus};
+
+    if($maxcpus){
+	push @$cmd, '-smp', "cpus=$cores,maxcpus=$maxcpus";
+    }else{
+	push @$cmd, '-smp', "sockets=$sockets,cores=$cores";
+    }
 
     push @$cmd, '-nodefaults';
 
