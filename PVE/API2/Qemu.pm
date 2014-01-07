@@ -988,6 +988,10 @@ my $update_vm_api  = sub {
 		    } elsif($opt eq 'tablet' && $param->{$opt} == 0){
 			PVE::QemuServer::vm_deviceunplug($vmid, $conf, $opt);
 		    }
+		
+		    if($opt eq 'cores' && $conf->{maxcpus}){
+			PVE::QemuServer::qemu_cpu_hotplug($vmid, $conf, $param->{$opt});
+		    }
 
 		    $conf->{$opt} = $param->{$opt};
 		    PVE::QemuServer::update_config_nolock($vmid, $conf, 1);

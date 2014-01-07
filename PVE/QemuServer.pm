@@ -2943,6 +2943,26 @@ sub qemu_netdevdel {
     return 1;
 }
 
+sub qemu_cpu_hotplug {
+    my ($vmid, $conf, $cores) = @_;
+
+    die "new cores config is not defined" if !$cores;
+    die "you can't add more cores than maxcpus" if $conf->{maxcpus} && ($cores > $conf->{maxcpus});
+    return if !check_running($vmid);
+
+    my $currentcores = $conf->{cores} if $conf->{cores};
+    die "current cores is not defined" if !$currentcores;
+    die "maxcpus is not defined" if !$conf->{maxcpus};
+    raise_param_exc({ 'cores' => "online cpu unplug is not yet possible" }) if($cores < $currentcores);
+
+    my $currentrunningcores = vm_mon_cmd($vmid, "query-cpus");
+    raise_param_exc({ 'cores' => "cores number if running vm is different than configuration" }) if scalar (@{$currentrunningcores}) != $currentcores;
+
+    for(my $i = $currentcores; $i < $cores; $i++){
+	vm_mon_cmd($vmid, "cpu-add", id => int($i));
+    }
+}
+
 sub qemu_block_set_io_throttle {
     my ($vmid, $deviceid, $bps, $bps_rd, $bps_wr, $iops, $iops_rd, $iops_wr) = @_;
 
