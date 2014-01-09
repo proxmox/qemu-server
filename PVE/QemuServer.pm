@@ -3094,6 +3094,32 @@ sub qga_unfreezefs {
     #need to impplement call to qemu-ga
 }
 
+sub PVE::QemuServer::set_migration_caps { 
+    my ($vmid) = @_; 
+
+    my @capabilities = ();
+    my $cap_ref = \@capabilities;
+
+    my $enabled_cap = {
+       "auto-converge" => 1,
+       "xbzrle" => 0,
+       "x-rdma-pin-all" => 0,
+       "zero-blocks" => 0,
+    };
+
+    my $supported_capabilities = PVE::QemuServer::vm_mon_cmd_nocheck($vmid, "query-migrate-capabilities");
+
+    for my $supported_capability (@$supported_capabilities){
+	if($enabled_cap->{$supported_capability->{capability}} eq 1){
+	    my $capability->{capability} = $supported_capability->{capability};
+	    $capability->{state} = JSON::true;
+	    push(@$cap_ref,$capability);
+        }
+    }
+
+    PVE::QemuServer::vm_mon_cmd_nocheck($vmid, "migrate-set-capabilities", capabilities => $cap_ref);
+} 
+
 sub vm_start {
     my ($storecfg, $vmid, $statefile, $skiplock, $migratedfrom, $paused, $forcemachine, $spice_ticket) = @_;
 
@@ -3160,12 +3186,12 @@ sub vm_start {
 	}
 
 	if ($migratedfrom) {
-	    my $capabilities = {};
-	    $capabilities->{capability} =  "xbzrle";
-	    $capabilities->{state} = JSON::true;
-	    eval { vm_mon_cmd_nocheck($vmid, "migrate-set-capabilities", capabilities => [$capabilities]); };
+
+	    eval {
+		PVE::QemuServer::set_migration_caps($vmid);
+	    };
 	    warn $@ if $@;
-	    
+
 	    if ($spice_port) {
 	        print "spice listens on port $spice_port\n";
 		if ($spice_ticket) {

@@ -385,13 +385,10 @@ sub phase2 {
 	$self->log('info', "migrate_set_downtime error: $@") if $@;
     }
 
-    my $capabilities = {};
-    $capabilities->{capability} =  "xbzrle";
-    $capabilities->{state} = JSON::false;
-
     eval {
-	PVE::QemuServer::vm_mon_cmd_nocheck($vmid, "migrate-set-capabilities", capabilities => [$capabilities]);
+	PVE::QemuServer::set_migration_caps($vmid);
     };
+    warn $@ if $@;
 
     #set cachesize 10% of the total memory
     my $cachesize = int($conf->{memory}*1048576/10);
