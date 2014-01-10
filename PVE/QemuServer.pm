@@ -3094,31 +3094,31 @@ sub qga_unfreezefs {
     #need to impplement call to qemu-ga
 }
 
-sub PVE::QemuServer::set_migration_caps { 
+sub set_migration_caps { 
     my ($vmid) = @_; 
 
-    my @capabilities = ();
-    my $cap_ref = \@capabilities;
+    my $cap_ref = [];
 
     my $enabled_cap = {
-       "auto-converge" => 1,
-       "xbzrle" => 0,
-       "x-rdma-pin-all" => 0,
-       "zero-blocks" => 0,
+	"auto-converge" => 1,
+	"xbzrle" => 0,
+	"x-rdma-pin-all" => 0,
+	"zero-blocks" => 0,
     };
 
-    my $supported_capabilities = PVE::QemuServer::vm_mon_cmd_nocheck($vmid, "query-migrate-capabilities");
+    my $supported_capabilities = vm_mon_cmd_nocheck($vmid, "query-migrate-capabilities");
 
-    for my $supported_capability (@$supported_capabilities){
-	if($enabled_cap->{$supported_capability->{capability}} eq 1){
-	    my $capability->{capability} = $supported_capability->{capability};
-	    $capability->{state} = JSON::true;
-	    push(@$cap_ref,$capability);
+    for my $supported_capability (@$supported_capabilities) {
+	if ($enabled_cap->{$supported_capability->{capability}} eq 1) {
+	    push @$cap_ref, {
+		capability => $supported_capability->{capability},
+		state => JSON::true,
+	    };
         }
     }
 
-    PVE::QemuServer::vm_mon_cmd_nocheck($vmid, "migrate-set-capabilities", capabilities => $cap_ref);
-} 
+    vm_mon_cmd_nocheck($vmid, "migrate-set-capabilities", capabilities => $cap_ref);
+}
 
 sub vm_start {
     my ($storecfg, $vmid, $statefile, $skiplock, $migratedfrom, $paused, $forcemachine, $spice_ticket) = @_;
