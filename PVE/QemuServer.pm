@@ -1748,9 +1748,10 @@ sub write_vm_config {
 	delete $conf->{smp};
     }
 
-    if ($conf->{maxcpus} && $conf->{sockets}){
+    if ($conf->{maxcpus} && $conf->{sockets}) {
 	delete $conf->{sockets};
     }
+
     my $used_volids = {};
 
     my $cleanup_config = sub {
@@ -2334,8 +2335,8 @@ sub config_to_command {
     $vga = 'qxl' if $qxlnum;
 
     if (!$vga) {
-	if ($conf->{ostype} && ($conf->{ostype} eq 'win8' || 
-				$conf->{ostype} eq 'win7' || 
+	if ($conf->{ostype} && ($conf->{ostype} eq 'win8' ||
+				$conf->{ostype} eq 'win7' ||
 				$conf->{ostype} eq 'w2k8')) {
 	    $vga = 'std';
 	} else {
@@ -2360,7 +2361,7 @@ sub config_to_command {
           my $d = parse_hostpci($conf->{"hostpci$i"});
           next if !$d;
 	  $pciaddr = print_pci_addr("hostpci$i", $bridges);
-	  my $rombar = $d->{rombar} && $d->{rombar} eq 'off' ? ",rombar=0" : ""; 
+	  my $rombar = $d->{rombar} && $d->{rombar} eq 'off' ? ",rombar=0" : "";
           push @$devices, '-device', "pci-assign,host=$d->{pciid},id=hostpci$i$pciaddr$rombar";
     }
 
@@ -2415,9 +2416,9 @@ sub config_to_command {
     my $cores = $conf->{cores} || 1;
     my $maxcpus = $conf->{maxcpus} if $conf->{maxcpus};
 
-    if($maxcpus){
+    if ($maxcpus) {
 	push @$cmd, '-smp', "cpus=$cores,maxcpus=$maxcpus";
-    }else{
+    } else {
 	push @$cmd, '-smp', "sockets=$sockets,cores=$cores";
     }
 
@@ -2947,18 +2948,21 @@ sub qemu_cpu_hotplug {
     my ($vmid, $conf, $cores) = @_;
 
     die "new cores config is not defined" if !$cores;
-    die "you can't add more cores than maxcpus" if $conf->{maxcpus} && ($cores > $conf->{maxcpus});
+    die "you can't add more cores than maxcpus"
+	if $conf->{maxcpus} && ($cores > $conf->{maxcpus});
     return if !check_running($vmid);
 
     my $currentcores = $conf->{cores} if $conf->{cores};
     die "current cores is not defined" if !$currentcores;
     die "maxcpus is not defined" if !$conf->{maxcpus};
-    raise_param_exc({ 'cores' => "online cpu unplug is not yet possible" }) if($cores < $currentcores);
+    raise_param_exc({ 'cores' => "online cpu unplug is not yet possible" })
+	if($cores < $currentcores);
 
     my $currentrunningcores = vm_mon_cmd($vmid, "query-cpus");
-    raise_param_exc({ 'cores' => "cores number if running vm is different than configuration" }) if scalar (@{$currentrunningcores}) != $currentcores;
+    raise_param_exc({ 'cores' => "cores number if running vm is different than configuration" })
+	if scalar (@{$currentrunningcores}) != $currentcores;
 
-    for(my $i = $currentcores; $i < $cores; $i++){
+    for(my $i = $currentcores; $i < $cores; $i++) {
 	vm_mon_cmd($vmid, "cpu-add", id => int($i));
     }
 }
@@ -3130,8 +3134,8 @@ sub qga_unfreezefs {
     #need to impplement call to qemu-ga
 }
 
-sub set_migration_caps { 
-    my ($vmid) = @_; 
+sub set_migration_caps {
+    my ($vmid) = @_;
 
     my $cap_ref = [];
 
