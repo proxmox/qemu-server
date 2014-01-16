@@ -1379,7 +1379,8 @@ __PACKAGE__->register_method({
 	my $node = $param->{node};
 	my $proxy = $param->{proxy};
 
-	my $title = "VM $vmid";
+    my $conf = PVE::QemuServer::load_config($vmid, $node);
+    my $title = "VM $vmid - $conf->{'name'}",
 
 	my $port = PVE::QemuServer::spice_port($vmid);
 
