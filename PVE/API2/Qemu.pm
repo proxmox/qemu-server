@@ -2387,6 +2387,13 @@ __PACKAGE__->register_method({
 		    PVE::QemuServer::add_unused_volume($conf, $old_volid) if !$param->{delete};
 
 		    PVE::QemuServer::update_config_nolock($vmid, $conf, 1);
+
+		    eval { 
+			# try to deactivate volumes - avoid lvm LVs to be active on several nodes
+			PVE::Storage::deactivate_volumes($storecfg, [ $newdrive->{file} ]) 
+			    if !$running;
+		    };
+		    warn $@ if $@;
 		};
 		if (my $err = $@) {
 
