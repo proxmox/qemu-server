@@ -1,3 +1,13 @@
+qemu-server (3.1-14) unstable; urgency=low
+
+  * deactivate volume after move_disk
+  
+  * add cpu_hotplug (and maxcpus config)
+  
+  * migration : enable auto-converge capability
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 29 Jan 2014 06:49:16 +0100
+
 qemu-server (3.1-13) unstable; urgency=low
 
   * pci passthrough: new option to disable device ROM (rombar=off)
