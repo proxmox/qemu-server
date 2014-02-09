@@ -482,7 +482,10 @@ sub phase2 {
 		$self->log('info', "migration status: $stat->{status} (transferred ${trans}, " .
 			   "remaining ${rem}), total ${total})");
 
-		#$self->log('info', "migration xbzrle cachesize: ${xbzrlecachesize} transferred ${xbzrlebytes} pages ${xbzrlepages} cachemiss ${xbzrlecachemiss} overflow ${xbzrleoverflow}");
+		if (${xbzrlecachesize}) {
+		    $self->log('info', "migration xbzrle cachesize: ${xbzrlecachesize} transferred ${xbzrlebytes} pages ${xbzrlepages} cachemiss ${xbzrlecachemiss} overflow ${xbzrleoverflow}");
+		}
+
 		if (($lastrem  && $rem > $lastrem ) || ($rem == 0)) {
 		    $downtimecounter++;
 		}
