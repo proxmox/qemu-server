@@ -1,3 +1,9 @@
+qemu-server (3.1-15) unstable; urgency=low
+
+  * correctly disable unwanted migrate features (xbzrle).
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 10 Feb 2014 08:06:29 +0100
+
 qemu-server (3.1-14) unstable; urgency=low
   
   * Add title of VM to Spice Client
