@@ -3151,8 +3151,8 @@ sub set_migration_caps {
     for my $supported_capability (@$supported_capabilities) {
 	push @$cap_ref, {
 	    capability => $supported_capability->{capability},
-	    state => ($enabled_cap->{$supported_capability->{capability}}) ? JSON::true : JSON::false,
-	    };
+	    state => $enabled_cap->{$supported_capability->{capability}} ? JSON::true : JSON::false,
+	};
     }
 
     vm_mon_cmd_nocheck($vmid, "migrate-set-capabilities", capabilities => $cap_ref);
