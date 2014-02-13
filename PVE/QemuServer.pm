@@ -575,8 +575,6 @@ You can us the 'lspci' command to list existing pci devices.
 
 The 'rombar' option determines whether or not the device's ROM will be visible in the guest's memory map (default is 'on').
 
-The 'driver' option is currently ignored.
-
 Note: This option allows direct access to host hardware. So it is no longer possible to migrate such machines - use with special care.
 
 Experimental: user reported problems with this option.
@@ -2417,7 +2415,8 @@ sub config_to_command {
           next if !$d;
 	  $pciaddr = print_pci_addr("hostpci$i", $bridges);
 	  my $rombar = $d->{rombar} && $d->{rombar} eq 'off' ? ",rombar=0" : "";
-          push @$devices, '-device', "pci-assign,host=$d->{pciid},id=hostpci$i$pciaddr$rombar";
+	  my $driver = $d->{driver} && $d->{driver} eq 'vfio' ? "vfio-pci" : "pci-assign";
+	  push @$devices, '-device', "$driver,host=$d->{pciid},id=hostpci$i$pciaddr$rombar";
     }
 
     # usb devices
@@ -3271,7 +3270,13 @@ sub vm_start {
           my $info = pci_device_info("0000:$d->{pciid}");
           die "IOMMU not present\n" if !check_iommu_support();
           die "no pci device info for device '$d->{pciid}'\n" if !$info;
-          die "can't unbind pci device '$d->{pciid}'\n" if !pci_dev_bind_to_stub($info);
+
+          if ($d->{driver} && $d->{driver} eq "vfio") {
+              die "can't unbind/bind pci group to vfio '$d->{pciid}'\n" if !pci_dev_group_bind_to_vfio($d->{pciid});
+          } else {
+              die "can't unbind/bind to stub pci device '$d->{pciid}'\n" if !pci_dev_bind_to_stub($info);
+          }
+
           die "can't reset pci device '$d->{pciid}'\n" if !pci_dev_reset($info);
         }
 
@@ -3664,6 +3669,61 @@ sub pci_dev_bind_to_stub {
     }
 
     return -d $testdir;
+}
+
+sub pci_dev_bind_to_vfio {
+    my ($dev) = @_;
+
+    my $name = $dev->{name};
+
+    my $vfio_basedir = "$pcisysfs/drivers/vfio-pci";
+
+    if (!-d $vfio_basedir) {
+	system("/sbin/modprobe vfio-pci >/dev/null 2>/dev/null");
+    }
+    die "Cannot find vfio-pci module!\n" if !-d $vfio_basedir;
+
+    my $testdir = "$vfio_basedir/$name";
+    return 1 if -d $testdir;
+
+    my $data = "$dev->{vendor} $dev->{product}";
+    return undef if !file_write("$vfio_basedir/new_id", $data);
+
+    my $fn = "$pcisysfs/devices/$name/driver/unbind";
+    if (!file_write($fn, $name)) {
+	return undef if -f $fn;
+    }
+
+    $fn = "$vfio_basedir/bind";
+    if (! -d $testdir) {
+	return undef if !file_write($fn, $name);
+    }
+
+    return -d $testdir;
+}
+
+sub pci_dev_group_bind_to_vfio {
+    my ($pciid) = @_;
+
+    my $vfio_basedir = "$pcisysfs/drivers/vfio-pci";
+
+    if (!-d $vfio_basedir) {
+	system("/sbin/modprobe vfio-pci >/dev/null 2>/dev/null");
+    }
+    die "Cannot find vfio-pci module!\n" if !-d $vfio_basedir;
+
+    # get IOMMU group devices
+    opendir(my $D, "$pcisysfs/devices/0000:$pciid/iommu_group/devices/") || die "Cannot open iommu_group: $!\n";
+      my @devs = grep /^0000:/, readdir($D);
+    closedir($D);
+
+    foreach my $pciid (@devs) {
+	$pciid =~ m/^([:\.\da-f]+)$/ or die "PCI ID $pciid not valid!\n";
+	my $info = pci_device_info($1);
+	pci_dev_bind_to_vfio($info) || die "Cannot bind $pciid to vfio\n";
+    }
+
+    return 1;
 }
 
 sub print_pci_addr {
