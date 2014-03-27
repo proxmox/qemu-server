@@ -2504,7 +2504,7 @@ sub config_to_command {
 
     $cpu .= "," . join(',', @$cpuFlags) if scalar(@$cpuFlags);
 
-    push @$cmd, '-cpu', $cpu;
+    push @$cmd, '-cpu', $cpu.",enforce";
 
     push @$cmd, '-S' if $conf->{freeze};
 
