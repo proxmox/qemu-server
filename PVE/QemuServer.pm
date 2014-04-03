@@ -2504,7 +2504,9 @@ sub config_to_command {
 
     $cpu .= "," . join(',', @$cpuFlags) if scalar(@$cpuFlags);
 
-    push @$cmd, '-cpu', $cpu.",enforce";
+    # Note: enforce needs kernel 3.10, so we do not use it for now
+    # push @$cmd, '-cpu', "$cpu,enforce";
+    push @$cmd, '-cpu', $cpu;
 
     push @$cmd, '-S' if $conf->{freeze};
 
