@@ -233,7 +233,9 @@ sub archive {
 	$speed = $opts->{bwlimit}*1024; 
     }
 
-    if (PVE::QemuServer::is_template($self->{vmlist}->{$vmid})) {
+    my $diskcount = scalar(@{$task->{disks}});
+
+    if (PVE::QemuServer::is_template($self->{vmlist}->{$vmid}) || !$diskcount) {
 	my @pathlist;
 	foreach my $di (@{$task->{disks}}) {
 	    if ($di->{type} eq 'block' || $di->{type} eq 'file') {
@@ -241,6 +243,10 @@ sub archive {
 	    } else {
 		die "implement me";
 	    }
+	}
+
+	if (!$diskcount) {
+	    $self->loginfo("backup contains no disks");
 	}
 
 	my $outcmd;
