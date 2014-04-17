@@ -1,4 +1,4 @@
-RELEASE=3.1
+RELEASE=3.2
 
 VERSION=3.1
 PACKAGE=qemu-server
