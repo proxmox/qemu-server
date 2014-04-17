@@ -1,8 +1,10 @@
 qemu-server (3.1-16) unstable; urgency=low
 
   * fix bug #502: allow creation of empty vma archives
+  
+  * fix bug #510: move_disk - don't delete disk if used in a previous snasphot
 
- -- Proxmox Support Team <support@proxmox.com>  Mon, 14 Apr 2014 11:22:54 +0200
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 17 Apr 2014 09:29:26 +0200
 
 qemu-server (3.1-15) unstable; urgency=low
 
