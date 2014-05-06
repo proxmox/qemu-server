@@ -18,6 +18,7 @@ use PVE::RPCEnvironment;
 use PVE::AccessControl;
 use PVE::INotify;
 use PVE::Network;
+use PVE::API2::Firewall::VM;
 
 use Data::Dumper; # fixme: remove
 
@@ -495,10 +496,16 @@ __PACKAGE__->register_method({
 	    { subdir => 'snapshot' },
 	    { subdir => 'spiceproxy' },
 	    { subdir => 'sendkey' },
+	    { subdir => 'firewall' },
 	    ];
 
 	return $res;
     }});
+
+__PACKAGE__->register_method ({
+    subclass => "PVE::API2::Firewall::VM",  
+    path => '{vmid}/firewall',
+});
 
 __PACKAGE__->register_method({
     name => 'rrd',
