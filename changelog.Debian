@@ -1,3 +1,9 @@
+qemu-server (3.1-17) unstable; urgency=low
+
+  * depend on pve-firewall package
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 06 May 2014 11:28:26 +0200
+
 qemu-server (3.1-16) unstable; urgency=low
 
   * fix bug #502: allow creation of empty vma archives
