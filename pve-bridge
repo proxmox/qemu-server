@@ -30,6 +30,6 @@ PVE::Network::tap_create($iface, $net->{bridge});
 
 PVE::Network::tap_rate_limit($iface, $net->{rate}) if $net->{rate};
 
-PVE::Network::tap_plug($iface, $net->{bridge}, $net->{tag});
+PVE::Network::tap_plug($iface, $net->{bridge}, $net->{tag}, $net->{firewall});
 
 exit 0;

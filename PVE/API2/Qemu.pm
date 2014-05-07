@@ -838,9 +838,9 @@ my $vmconfig_update_net = sub {
 		    PVE::Network::tap_rate_limit($iface, $newnet->{rate});
 		}
 
-		if(($newnet->{bridge} ne $oldnet->{bridge}) || ($newnet->{tag} ne $oldnet->{tag})){
-		    eval{PVE::Network::tap_unplug($iface, $oldnet->{bridge}, $oldnet->{tag});};
-		    PVE::Network::tap_plug($iface, $newnet->{bridge}, $newnet->{tag});
+		if(($newnet->{bridge} ne $oldnet->{bridge}) || ($newnet->{tag} ne $oldnet->{tag}) || ($newnet->{firewall} ne $oldnet->{firewall})){
+		    eval{PVE::Network::tap_unplug($iface, $oldnet->{bridge}, $oldnet->{tag}, $oldnet->{firewall});};
+		    PVE::Network::tap_plug($iface, $newnet->{bridge}, $newnet->{tag}, $newnet->{firewall});
 		}
 
 	    }else{
