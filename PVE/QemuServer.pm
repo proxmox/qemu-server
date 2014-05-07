@@ -1202,7 +1202,7 @@ sub print_netdev_full {
     my $vmname = $conf->{name} || "vm$vmid";
 
     if ($net->{bridge}) {
-        return "type=tap,id=$netid,ifname=${ifname},script=/var/lib/qemu-server/pve-bridge$vhostparam";
+        return "type=tap,id=$netid,ifname=${ifname},script=/var/lib/qemu-server/pve-bridge,downscript=/var/lib/qemu-server/pve-bridgedown$vhostparam";
     } else {
         return "type=user,id=$netid,hostname=$vmname";
     }

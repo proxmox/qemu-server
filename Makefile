@@ -81,6 +81,7 @@ install: ${PKGSOURCES}
 	install -D -m 0755 qmupdate ${DESTDIR}${VARLIBDIR}/qmupdate
 	install -D -m 0755 qemu.init.d ${DESTDIR}/etc/init.d/${PACKAGE}
 	install -m 0755 pve-bridge ${DESTDIR}${VARLIBDIR}/pve-bridge
+	install -m 0755 pve-bridgedown ${DESTDIR}${VARLIBDIR}/pve-bridgedown
 	install -s -m 0755 vmtar ${DESTDIR}${LIBDIR}
 	install -s -m 0755 sparsecp ${DESTDIR}${LIBDIR}
 	install -m 0755 qmextract ${DESTDIR}${LIBDIR}

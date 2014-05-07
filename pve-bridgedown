@@ -1,0 +1,16 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+use PVE::Network;
+
+my $iface = shift;
+
+die "no interface specified\n" if !$iface;
+
+die "got strange interface name '$iface'\n" 
+    if $iface !~ m/^tap(\d+)i(\d+)$/;
+
+PVE::Network::tap_unplug($iface);
+
+exit 0;
