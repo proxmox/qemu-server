@@ -1284,6 +1284,7 @@ sub print_net {
     $res .= ",bridge=$net->{bridge}" if $net->{bridge};
     $res .= ",rate=$net->{rate}" if $net->{rate};
     $res .= ",tag=$net->{tag}" if $net->{tag};
+    $res .= ",firewall=$net->{firewall}" if $net->{firewall};
 
     return $res;
 }
