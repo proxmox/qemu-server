@@ -1125,6 +1125,20 @@ sub print_drivedevice_full {
     return $device;
 }
 
+sub get_initiator_name {
+    my $initiator = undef;
+
+    open (FILE, '/etc/iscsi/initiatorname.iscsi') or return undef;
+    while (<FILE>) {
+	next unless m/^\s*InitiatorName\s*=\s*([\.\-:\w]+)/;
+	$initiator = $1;
+	last;
+    }
+    close FILE;
+    
+    return $initiator;
+}
+
 sub print_drive_full {
     my ($storecfg, $vmid, $drive) = @_;
 
@@ -2612,8 +2626,17 @@ sub config_to_command {
            push @$devices, '-device', "ahci,id=ahci$controller,multifunction=on$pciaddr" if !$ahcicontroller->{$controller};
            $ahcicontroller->{$controller}=1;
         }
+	
+	my $drive_cmd = print_drive_full($storecfg, $vmid, $drive);
+	push @$devices, '-drive',$drive_cmd;
 
-	push @$devices, '-drive',print_drive_full($storecfg, $vmid, $drive);
+	# Add iscsi option
+	my $iscsi_opts = undef;
+	if ($drive_cmd =~ m|^file=iscsi://|) {
+	    my $initiator = get_initiator_name(); # return undef or string
+	    $iscsi_opts =  "initiator-name=$initiator" if $initiator;
+	}
+	push @$devices, '-iscsi',$iscsi_opts if $iscsi_opts;
 	push @$devices, '-device',print_drivedevice_full($storecfg, $conf, $vmid, $drive, $bridges);
     });
 
