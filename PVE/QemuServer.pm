@@ -1126,16 +1126,16 @@ sub print_drivedevice_full {
 }
 
 sub get_initiator_name {
-    my $initiator = undef;
+    my $initiator;
 
-    open (FILE, '/etc/iscsi/initiatorname.iscsi') or return undef;
-    while (<FILE>) {
-	next unless m/^\s*InitiatorName\s*=\s*([\.\-:\w]+)/;
+    my $fh = IO::File->new('/etc/iscsi/initiatorname.iscsi') || return undef;
+    while (defined(my $line = <$fh>)) {
+	next if $line !~ m/^\s*InitiatorName\s*=\s*([\.\-:\w]+)/;
 	$initiator = $1;
 	last;
     }
-    close FILE;
-    
+    $fh->close();
+
     return $initiator;
 }
 
@@ -2626,7 +2626,7 @@ sub config_to_command {
            push @$devices, '-device', "ahci,id=ahci$controller,multifunction=on$pciaddr" if !$ahcicontroller->{$controller};
            $ahcicontroller->{$controller}=1;
         }
-	
+
 	my $drive_cmd = print_drive_full($storecfg, $vmid, $drive);
 	push @$devices, '-drive',$drive_cmd;
 
@@ -2636,8 +2636,8 @@ sub config_to_command {
 	    my $initiator = get_initiator_name(); # return undef or string
 	    $iscsi_opts =  "initiator-name=$initiator" if $initiator;
 	}
-	push @$devices, '-iscsi',$iscsi_opts if $iscsi_opts;
-	push @$devices, '-device',print_drivedevice_full($storecfg, $conf, $vmid, $drive, $bridges);
+	push @$devices, '-iscsi', $iscsi_opts if $iscsi_opts;
+	push @$devices, '-device', print_drivedevice_full($storecfg, $conf, $vmid, $drive, $bridges);
     });
 
     push @$cmd, '-m', $conf->{memory} || $defaults->{memory};
@@ -4183,7 +4183,7 @@ sub restore_vma_archive {
 		my ($dev_id, $size, $devname) = ($1, $2, $3);
 		$devinfo->{$devname} = { size => $size, dev_id => $dev_id };
 	    } elsif ($line =~ m/^CTIME: /) {
-		# we correctly received the vma config, so we can disable 
+		# we correctly received the vma config, so we can disable
 		# the timeout now for disk allocation (set to 10 minutes, so
 		# that we always timeout if something goes wrong)
 		alarm(600);
