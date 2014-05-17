@@ -2590,6 +2590,11 @@ sub config_to_command {
     my $ahcicontroller = {};
     my $scsihw = defined($conf->{scsihw}) ? $conf->{scsihw} : $defaults->{scsihw};
 
+    # Add iscsi initiator name if available
+    if (my $initiator = get_initiator_name()) {
+	push @$devices, '-iscsi', "initiator-name=$initiator";
+    }
+
     foreach_drive($conf, sub {
 	my ($ds, $drive) = @_;
 
@@ -2629,14 +2634,6 @@ sub config_to_command {
 
 	my $drive_cmd = print_drive_full($storecfg, $vmid, $drive);
 	push @$devices, '-drive',$drive_cmd;
-
-	# Add iscsi option
-	my $iscsi_opts = undef;
-	if ($drive_cmd =~ m|^file=iscsi://|) {
-	    my $initiator = get_initiator_name(); # return undef or string
-	    $iscsi_opts =  "initiator-name=$initiator" if $initiator;
-	}
-	push @$devices, '-iscsi', $iscsi_opts if $iscsi_opts;
 	push @$devices, '-device', print_drivedevice_full($storecfg, $conf, $vmid, $drive, $bridges);
     });
 
