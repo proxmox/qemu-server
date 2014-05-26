@@ -75,6 +75,7 @@ install: ${PKGSOURCES}
 	install -d ${DESTDIR}/usr/share/man/man5
 	install -d ${DESTDIR}/usr/share/${PACKAGE}
 	install -m 0644 pve-usb.cfg ${DESTDIR}/usr/share/${PACKAGE}
+	install -m 0644 pve-q35.cfg ${DESTDIR}/usr/share/${PACKAGE}
 	make -C PVE install
 	install -m 0755 qm ${DESTDIR}${SBINDIR}
 	install -m 0755 qmrestore ${DESTDIR}${SBINDIR}

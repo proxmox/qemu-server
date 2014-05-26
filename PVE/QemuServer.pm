@@ -2331,6 +2331,7 @@ sub config_to_command {
 
     my $have_ovz = -f '/proc/vz/vestat';
 
+    my $q35 = 1 if($conf->{machine} && $conf->{machine} =~ m/q35/);
     push @$cmd, '/usr/bin/kvm';
 
     push @$cmd, '-id', $vmid;
@@ -2348,16 +2349,20 @@ sub config_to_command {
 
     push @$cmd, '-daemonize';
 
-    $pciaddr = print_pci_addr("piix3", $bridges);
-    push @$devices, '-device', "piix3-usb-uhci,id=uhci$pciaddr.0x2";
+    if($q35){
+        push @$devices, '-readconfig', '/usr/share/qemu-server/pve-q35.cfg';
+    }else{
+        $pciaddr = print_pci_addr("piix3", $bridges);
+        push @$devices, '-device', "piix3-usb-uhci,id=uhci$pciaddr.0x2";
 
-    my $use_usb2 = 0;
-    for (my $i = 0; $i < $MAX_USB_DEVICES; $i++)  {
-	next if !$conf->{"usb$i"};
-	$use_usb2 = 1;
+        my $use_usb2 = 0;
+            for (my $i = 0; $i < $MAX_USB_DEVICES; $i++)  {
+                next if !$conf->{"usb$i"};
+                $use_usb2 = 1;
+            }
+            # include usb device config
+            push @$devices, '-readconfig', '/usr/share/qemu-server/pve-usb.cfg' if $use_usb2;
     }
-    # include usb device config
-    push @$devices, '-readconfig', '/usr/share/qemu-server/pve-usb.cfg' if $use_usb2;
 
     my $vga = $conf->{vga};
 
@@ -2384,7 +2389,8 @@ sub config_to_command {
 	$tablet = 0 if $vga =~ m/^serial\d+$/; # disable if we use serial terminal (no vga card)
     }
 
-    push @$devices, '-device', 'usb-tablet,id=tablet,bus=uhci.0,port=1' if $tablet;
+    my $usbbus = $q35 ? "ehci" : "uhci";
+    push @$devices, '-device', "usb-tablet,id=tablet,bus=$usbbus.0,port=1" if $tablet;
 
     # host pci devices
     for (my $i = 0; $i < $MAX_HOSTPCI_DEVICES; $i++)  {
@@ -2671,12 +2677,13 @@ sub config_to_command {
          push @$devices, '-device', $netdevicefull;
     }
 
-    #bridges
-    while (my ($k, $v) = each %$bridges) {
-	$pciaddr = print_pci_addr("pci.$k");
-	unshift @$devices, '-device', "pci-bridge,id=pci.$k,chassis_nr=$k$pciaddr" if $k > 0;
+    if(!$q35){
+	#bridges
+	while (my ($k, $v) = each %$bridges) {
+	    $pciaddr = print_pci_addr("pci.$k");
+	    unshift @$devices, '-device', "pci-bridge,id=pci.$k,chassis_nr=$k$pciaddr" if $k > 0;
+	}
     }
-
 
     # hack: virtio with fairsched is unreliable, so we do not use fairsched
     # when the VM uses virtio devices.
@@ -2756,9 +2763,10 @@ sub vm_deviceplug {
     my ($storecfg, $conf, $vmid, $deviceid, $device) = @_;
 
     return 1 if !check_running($vmid);
-
+    my $q35 = 1 if ($conf->{machine} && $conf->{machine} =~ m/q35/);
     if ($deviceid eq 'tablet') {
-	my $devicefull = "usb-tablet,id=tablet,bus=uhci.0,port=1";
+	my $usbbus = $q35 ? "ehci" : "uhci";
+	my $devicefull = "usb-tablet,id=tablet,bus=$usbbus.0,port=1";
 	qemu_deviceadd($vmid, $devicefull);
 	return 1;
     }
@@ -2809,7 +2817,8 @@ sub vm_deviceplug {
         }
     }
 
-    if ($deviceid =~ m/^(pci\.)(\d+)$/) {
+    
+    if (!$q35 && $deviceid =~ m/^(pci\.)(\d+)$/) {
 	my $bridgeid = $2;
 	my $pciaddr = print_pci_addr($deviceid);
 	my $devicefull = "pci-bridge,id=pci.$bridgeid,chassis_nr=$bridgeid$pciaddr";
