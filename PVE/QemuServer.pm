@@ -478,7 +478,7 @@ my $nic_model_list_txt = join(' ', sort @$nic_model_list);
 my $netdesc = {
     optional => 1,
     type => 'string', format => 'pve-qm-net',
-    typetext => "MODEL=XX:XX:XX:XX:XX:XX [,bridge=<dev>][,rate=<mbps>][,tag=<vlanid>][,firewall=0|1]",
+    typetext => "MODEL=XX:XX:XX:XX:XX:XX [,bridge=<dev>][,queues=<nbqueues>][,rate=<mbps>][,tag=<vlanid>][,firewall=0|1]",
     description => <<EODESCR,
 Specify network devices.
 
@@ -1190,6 +1190,11 @@ sub print_netdevice_full {
     my $extra = ($bootorder !~ m/n/) ? "romfile=," : '';
     my $pciaddr = print_pci_addr("$netid", $bridges);
     my $tmpstr = "$device,${extra}mac=$net->{macaddr},netdev=$netid$pciaddr,id=$netid";
+    if ($net->{queues} && $net->{queues} > 1 && $net->{model} eq 'virtio'){
+	#Consider we have N queues, the number of vectors needed is 2*N + 2 (plus one config interrupt and control vq)
+	my $vectors = $net->{queues} * 2 + 2;
+	$tmpstr .= ",vectors=$vectors,mq=on";
+    }
     $tmpstr .= ",bootindex=$net->{bootindex}" if $net->{bootindex} ;
     return $tmpstr;
 }
@@ -1215,11 +1220,17 @@ sub print_netdev_full {
 
     my $vmname = $conf->{name} || "vm$vmid";
 
+    my $netdev = "";
+
     if ($net->{bridge}) {
-        return "type=tap,id=$netid,ifname=${ifname},script=/var/lib/qemu-server/pve-bridge,downscript=/var/lib/qemu-server/pve-bridgedown$vhostparam";
+        $netdev = "type=tap,id=$netid,ifname=${ifname},script=/var/lib/qemu-server/pve-bridge,downscript=/var/lib/qemu-server/pve-bridgedown$vhostparam";
     } else {
-        return "type=user,id=$netid,hostname=$vmname";
+        $netdev = "type=user,id=$netid,hostname=$vmname";
     }
+
+    $netdev .= ",queues=$net->{queues}" if ($net->{queues} && $net->{model} eq 'virtio');
+
+    return $netdev;
 }
 
 sub drive_is_cdrom {
@@ -1273,6 +1284,8 @@ sub parse_net {
 	    $res->{macaddr} = $mac;
 	} elsif ($kvp =~ m/^bridge=(\S+)$/) {
 	    $res->{bridge} = $1;
+	} elsif ($kvp =~ m/^queues=(\d+)$/) {
+	    $res->{queues} = $1;
 	} elsif ($kvp =~ m/^rate=(\d+(\.\d+)?)$/) {
 	    $res->{rate} = $1;
         } elsif ($kvp =~ m/^tag=(\d+)$/) {
