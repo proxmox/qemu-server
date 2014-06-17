@@ -45,9 +45,7 @@ my $upid_exit = sub {
 my $nodename = PVE::INotify::nodename();
 
 sub run_vnc_proxy {
-    my ($vmid) = @_;
-
-    my $path = PVE::QemuServer::vnc_socket($vmid);
+    my ($path) = @_;
 
     my $c;
     while ( ++$c < 10 && !-e $path ) { sleep(1); }
@@ -165,8 +163,17 @@ __PACKAGE__->register_method ({
 	my ($param) = @_;
 
 	my $vmid = $param->{vmid};
+	my $vnc_socket = PVE::QemuServer::vnc_socket($vmid);
 
-	run_vnc_proxy ($vmid);
+	if (my $ticket = $ENV{LC_PVE_TICKET}) {  # NOTE: ssh on debian only pass LC_* variables
+	    PVE::QemuServer::vm_mon_cmd($vmid, "change", device => 'vnc', target => "unix:$vnc_socket,password");
+	    PVE::QemuServer::vm_mon_cmd($vmid, "set_password", protocol => 'vnc', password => $ticket);
+	    PVE::QemuServer::vm_mon_cmd($vmid, "expire_password", protocol => 'vnc', time => "+30");
+	} else {
+	    PVE::QemuServer::vm_mon_cmd($vmid, "change", device => 'vnc', target => "unix:$vnc_socket,x509,password");
+	}
+
+	run_vnc_proxy($vnc_socket);
 
 	return undef;
     }});

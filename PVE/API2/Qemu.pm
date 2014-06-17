@@ -1270,11 +1270,6 @@ __PACKAGE__->register_method({
 	properties => {
 	    node => get_standard_option('pve-node'),
 	    vmid => get_standard_option('pve-vmid'),
-	    unsecure => {
-		optional => 1,
-		type => 'boolean',
-		description => "disables x509 auth",
-	    },
 	    websocket => {
 		optional => 1,
 		type => 'boolean',
@@ -1301,8 +1296,7 @@ __PACKAGE__->register_method({
 
 	my $vmid = $param->{vmid};
 	my $node = $param->{node};
-	my $unsecure = $param->{unsecure} // 0;
-	my $websocket = $param->{websocket} // 0;
+	my $websocket = $param->{websocket};
 
 	my $conf = PVE::QemuServer::load_config($vmid, $node); # check if VM exists
 
@@ -1335,7 +1329,7 @@ __PACKAGE__->register_method({
 
 	    if ($conf->{vga} && ($conf->{vga} =~ m/^serial\d+$/)) {
 
-		die "Unsecure mode is not supported in vga serial mode!" if $unsecure;
+		die "Websocket mode is not supported in vga serial mode!" if $websocket;
 
 		my $termcmd = [ '/usr/sbin/qm', 'terminal', $vmid, '-iface', $conf->{vga} ];
 		#my $termcmd = "/usr/bin/qm terminal -iface $conf->{vga}";
@@ -1343,40 +1337,6 @@ __PACKAGE__->register_method({
 			'-timeout', $timeout, '-authpath', $authpath,
 			'-perm', 'Sys.Console', '-c', @$remcmd, @$termcmd];
 	    } else {
-
-		my $vnc_socket = PVE::QemuServer::vnc_socket($vmid);
-
-		if (defined $remip) {
-		    my $perlcode = "";
-		    if ($unsecure) {
-			$perlcode = qq|
-				use PVE::QemuServer;
-
-				PVE::QemuServer::vm_mon_cmd($vmid, "change", device => "vnc", target => "unix:$vnc_socket,password");
-
-				PVE::QemuServer::vm_mon_cmd($vmid, "set_password", protocol => "vnc", password => "$ticket");
-
-				PVE::QemuServer::vm_mon_cmd($vmid, "expire_password", protocol => "vnc", time => "+30");
-				|;
-		    } else {
-			$perlcode = qq|
-				use PVE::QemuServer;
-
-				PVE::QemuServer::vm_mon_cmd($vmid, "change", device => "vnc", target => "unix:$vnc_socket,x509,password");
-				|;
-		    }
-
-		    PVE::Tools::run_command([@$remcmd, 'perl', '-'], input => $perlcode, outfunc => sub {print shift;}, errfunc => sub {print STDERR shift;});
-
-		} else {
-		    if ($unsecure) {
-			PVE::QemuServer::vm_mon_cmd($vmid, "change", device => 'vnc', target => "unix:$vnc_socket,password");
-			PVE::QemuServer::vm_mon_cmd($vmid, "set_password", protocol => 'vnc', password => $ticket);
-			PVE::QemuServer::vm_mon_cmd($vmid, "expire_password", protocol => 'vnc', time => "+30");
-		    } else {
-			PVE::QemuServer::vm_mon_cmd($vmid, "change", device => 'vnc', target => "unix:$vnc_socket,x509,password");
-		    }
-		}
 
 		my $qmcmd = [@$remcmd, "/usr/sbin/qm", 'vncproxy', $vmid];
 
@@ -1386,7 +1346,8 @@ __PACKAGE__->register_method({
 		$cmd = ['/bin/nc', '-l', '-p', $port, '-w', $timeout, '-c', "$qmstr 2>/dev/null"];
 
 		if ($websocket) {
-		    $cmd = ["/usr/share/novnc/utils/wsproxy.py", '--run-once', "--timeout=$timeout", "--idle-timeout=$timeout", '--ssl-only', '--cert', '/etc/pve/local/pve-ssl.pem', '--key', '/etc/pve/local/pve-ssl.key', $port, '--', @$cmd];
+		    $ENV{LC_PVE_TICKET} = $ticket;
+		    $cmd = ["/usr/share/novnc-pve/utils/wsproxy.py", '--run-once', "--timeout=$timeout", "--idle-timeout=$timeout", '--ssl-only', '--cert', '/etc/pve/local/pve-ssl.pem', '--key', '/etc/pve/local/pve-ssl.key', $port, '--', @$cmd];
 		}
 	    }
 
