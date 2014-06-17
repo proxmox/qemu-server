@@ -446,6 +446,12 @@ sub phase2 {
 	    }
 	    die "too many query migrate failures - aborting\n";
 	}
+
+        if ($stat->{status} =~ m/^(setup)$/im) {
+            sleep(1);
+            next;
+        }
+
 	if ($stat->{status} =~ m/^(active|completed|failed|cancelled)$/im) {
 	    $merr = undef;
 	    $err_count = 0;
