@@ -1059,6 +1059,23 @@ sub path_is_scsi {
     return $res;
 }
 
+sub machine_type_is_q35 {
+    my ($conf) = @_;
+ 
+    return $conf->{machine} && ($conf->{machine} =~ m/q35/) ? 1 : 0;
+}
+
+sub print_tabletdevice_full {
+    my ($conf) = @_;
+ 
+    my $q35 = machine_type_is_q35($conf);
+
+    # we use uhci for old VMs because tablet driver was buggy in older qemu
+    my $usbbus = $q35 ? "ehci" : "uhci";
+    
+    return "usb-tablet,id=tablet,bus=$usbbus.0,port=1";
+}
+
 sub print_drivedevice_full {
     my ($storecfg, $conf, $vmid, $drive, $bridges) = @_;
 
@@ -2331,7 +2348,8 @@ sub config_to_command {
 
     my $have_ovz = -f '/proc/vz/vestat';
 
-    my $q35 = 1 if($conf->{machine} && $conf->{machine} =~ m/q35/);
+    my $q35 = machine_type_is_q35($conf);
+
     push @$cmd, '/usr/bin/kvm';
 
     push @$cmd, '-id', $vmid;
@@ -2349,19 +2367,21 @@ sub config_to_command {
 
     push @$cmd, '-daemonize';
 
-    if($q35){
+    if ($q35) {
+	# the q35 chipset support native usb2, so we enable usb controller 
+	# by default for this machine type
         push @$devices, '-readconfig', '/usr/share/qemu-server/pve-q35.cfg';
-    }else{
+    } else {
         $pciaddr = print_pci_addr("piix3", $bridges);
         push @$devices, '-device', "piix3-usb-uhci,id=uhci$pciaddr.0x2";
 
         my $use_usb2 = 0;
-            for (my $i = 0; $i < $MAX_USB_DEVICES; $i++)  {
-                next if !$conf->{"usb$i"};
-                $use_usb2 = 1;
-            }
-            # include usb device config
-            push @$devices, '-readconfig', '/usr/share/qemu-server/pve-usb.cfg' if $use_usb2;
+	for (my $i = 0; $i < $MAX_USB_DEVICES; $i++)  {
+	    next if !$conf->{"usb$i"};
+	    $use_usb2 = 1;
+	}
+	# include usb device config
+	push @$devices, '-readconfig', '/usr/share/qemu-server/pve-usb.cfg' if $use_usb2;
     }
 
     my $vga = $conf->{vga};
@@ -2389,8 +2409,7 @@ sub config_to_command {
 	$tablet = 0 if $vga =~ m/^serial\d+$/; # disable if we use serial terminal (no vga card)
     }
 
-    my $usbbus = $q35 ? "ehci" : "uhci";
-    push @$devices, '-device', "usb-tablet,id=tablet,bus=$usbbus.0,port=1" if $tablet;
+    push @$devices, '-device', print_tabletdevice_full($conf) if $tablet;
 
     # host pci devices
     for (my $i = 0; $i < $MAX_HOSTPCI_DEVICES; $i++)  {
@@ -2677,8 +2696,8 @@ sub config_to_command {
          push @$devices, '-device', $netdevicefull;
     }
 
-    if(!$q35){
-	#bridges
+    if (!$q35) {
+	# add pci bridges
 	while (my ($k, $v) = each %$bridges) {
 	    $pciaddr = print_pci_addr("pci.$k");
 	    unshift @$devices, '-device', "pci-bridge,id=pci.$k,chassis_nr=$k$pciaddr" if $k > 0;
@@ -2763,11 +2782,11 @@ sub vm_deviceplug {
     my ($storecfg, $conf, $vmid, $deviceid, $device) = @_;
 
     return 1 if !check_running($vmid);
-    my $q35 = 1 if ($conf->{machine} && $conf->{machine} =~ m/q35/);
+
+    my $q35 = machine_type_is_q35($conf);
+
     if ($deviceid eq 'tablet') {
-	my $usbbus = $q35 ? "ehci" : "uhci";
-	my $devicefull = "usb-tablet,id=tablet,bus=$usbbus.0,port=1";
-	qemu_deviceadd($vmid, $devicefull);
+	qemu_deviceadd($vmid, print_tabletdevice_full($conf));
 	return 1;
     }
 
