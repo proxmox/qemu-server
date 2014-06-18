@@ -1370,7 +1370,6 @@ __PACKAGE__->register_method({
     name => 'vncwebsocket',
     path => '{vmid}/vncwebsocket',
     method => 'GET',
-    proxyto => 'node',
     permissions => {
 	check => ['perm', '/vms/{vmid}', [ 'VM.Console' ]],
     },
