@@ -1338,17 +1338,14 @@ __PACKAGE__->register_method({
 			'-perm', 'Sys.Console', '-c', @$remcmd, @$termcmd];
 	    } else {
 
+		$ENV{LC_PVE_TICKET} = $ticket if $websocket; # set ticket with "qm vncproxy"
+
 		my $qmcmd = [@$remcmd, "/usr/sbin/qm", 'vncproxy', $vmid];
 
 		my $qmstr = join(' ', @$qmcmd);
 
 		# also redirect stderr (else we get RFB protocol errors)
 		$cmd = ['/bin/nc', '-l', '-p', $port, '-w', $timeout, '-c', "$qmstr 2>/dev/null"];
-
-		if ($websocket) {
-		    $ENV{LC_PVE_TICKET} = $ticket;
-		    $cmd = ["/usr/share/novnc-pve/utils/wsproxy.py", '--run-once', "--timeout=$timeout", "--idle-timeout=$timeout", '--ssl-only', '--cert', '/etc/pve/local/pve-ssl.pem', '--key', '/etc/pve/local/pve-ssl.key', $port, '--', @$cmd];
-		}
 	    }
 
 	    PVE::Tools::run_command($cmd);
@@ -1367,6 +1364,55 @@ __PACKAGE__->register_method({
 	    upid => $upid,
 	    cert => $sslcert,
 	};
+    }});
+
+__PACKAGE__->register_method({
+    name => 'vncwebsocket',
+    path => '{vmid}/vncwebsocket',
+    method => 'GET',
+    proxyto => 'node',
+    permissions => {
+	check => ['perm', '/vms/{vmid}', [ 'VM.Console' ]],
+    },
+    description => "Opens a weksocket for VNV traffic.",
+    parameters => {
+    	additionalProperties => 0,
+	properties => {
+	    node => get_standard_option('pve-node'),
+	    vmid => get_standard_option('pve-vmid'),
+	    port => {
+		description => "Port number returned by previous vncproxy call.",
+		type => 'integer',
+		minimum => 5900,
+		maximum => 5999,
+	    },
+	},
+    },
+    returns => {
+	type => "object",
+	properties => {
+	    port => { type => 'string' },
+	},
+    },
+    code => sub {
+	my ($param) = @_;
+
+	my $rpcenv = PVE::RPCEnvironment::get();
+
+	my $authuser = $rpcenv->get_user();
+
+	my $vmid = $param->{vmid};
+	my $node = $param->{node};
+
+	my $conf = PVE::QemuServer::load_config($vmid, $node); # VM exists ?
+
+	# Note: VNC ports are acessible from outside, so we do not gain any
+	# security if we verify that $param->{port} belongs to VM $vmid. This
+	# check is done by verifying the VNC ticket (inside VNC protocol).
+
+	my $port = $param->{port};
+	
+	return { port => $port };
     }});
 
 __PACKAGE__->register_method({
@@ -1399,8 +1445,8 @@ __PACKAGE__->register_method({
 	my $node = $param->{node};
 	my $proxy = $param->{proxy};
 
-    my $conf = PVE::QemuServer::load_config($vmid, $node);
-    my $title = "VM $vmid - $conf->{'name'}",
+	my $conf = PVE::QemuServer::load_config($vmid, $node);
+	my $title = "VM $vmid - $conf->{'name'}",
 
 	my $port = PVE::QemuServer::spice_port($vmid);
 
