@@ -22,7 +22,7 @@ use PVE::SafeSyslog;
 use Storable qw(dclone);
 use PVE::Exception qw(raise raise_param_exc);
 use PVE::Storage;
-use PVE::Tools qw(run_command lock_file lock_file_full file_read_firstline);
+use PVE::Tools qw(run_command lock_file lock_file_full file_read_firstline dir_glob_foreach);
 use PVE::JSONSchema qw(get_standard_option);
 use PVE::Cluster qw(cfs_register_file cfs_read_file cfs_write_file cfs_lock_file);
 use PVE::INotify;
@@ -1267,9 +1267,15 @@ sub parse_hostpci {
     my $res = {};
     foreach my $kv (@list) {
 
-	if ($kv =~ m/^(host=)?([a-f0-9]{2}:[a-f0-9]{2}\.[a-f0-9])$/) {
+	if ($kv =~ m/^(host=)?([a-f0-9]{2}:[a-f0-9]{2})(\.([a-f0-9]))?$/) {
 	    $found = 1;
-	    $res->{pciid} = $2;
+	    if(defined($4)){
+		push @{$res->{pciid}}, { id => $2 , function => $4};
+
+	    }else{
+		my $pcidevices = lspci($2);
+	        $res->{pciid} = $pcidevices->{$2};
+	    }
 	} elsif ($kv =~ m/^driver=(kvm|vfio)$/) {
 	    $res->{driver} = $1;
 	} elsif ($kv =~ m/^rombar=(on|off)$/) {
@@ -2430,9 +2436,26 @@ sub config_to_command {
 	my $driver = $d->{driver} && $d->{driver} eq 'vfio' ? "vfio-pci" : "pci-assign";
 	my $xvga = $d->{'x-vga'} && $d->{'x-vga'} eq 'on' ? ",x-vga=on" : "";
 	$driver = "vfio-pci" if $xvga ne '';
+	my $pcidevices = $d->{pciid};
+	my $multifunction = 1 if @$pcidevices > 1;
 
-	push @$devices, '-device', "$driver,host=$d->{pciid},id=hostpci$i$pciaddr$rombar$xvga";
+	my $j=0;
+        foreach my $pcidevice (@$pcidevices) {
 
+	    my $id = "hostpci$i";
+	    $id .= ".$j" if $multifunction;
+	    my $addr = $pciaddr;
+	    $addr .= ".$j" if $multifunction;
+	    my $devicestr = "$driver,host=$pcidevice->{id}.$pcidevice->{function},id=$id$addr";
+
+	    if($j == 0){
+		$devicestr .= "$rombar$xvga";
+		$devicestr .= ",multifunction=on" if $multifunction;
+	    }
+
+	    push @$devices, '-device', $devicestr;
+	    $j++;
+	}
     }
 
     # usb devices
@@ -5165,6 +5188,19 @@ sub get_current_qemu_machine {
 
     # fallback to the default machine if current is not supported by qemu
     return $current || $default || 'pc';
+}
+
+sub lspci {
+
+    my $devices = {};
+
+    dir_glob_foreach("$pcisysfs/devices", '[a-f0-9]{4}:([a-f0-9]{2}:[a-f0-9]{2})\.([0-9])', sub {
+            my (undef, $id, $function) = @_;
+	    my $res = { id => $id, function => $function};
+	    push @{$devices->{$id}}, $res;
+    });
+
+    return $devices;
 }
 
 1;
