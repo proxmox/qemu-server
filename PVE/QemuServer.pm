@@ -565,7 +565,7 @@ PVE::JSONSchema::register_standard_option("pve-qm-usb", $usbdesc);
 my $hostpcidesc = {
         optional => 1,
         type => 'string', format => 'pve-qm-hostpci',
-        typetext => "[host=]HOSTPCIDEVICE [,driver=kvm|vfio] [,rombar=on|off]",
+        typetext => "[host=]HOSTPCIDEVICE [,driver=kvm|vfio] [,rombar=on|off] [,pcie=0|1] [,x-vga=on|off]",
         description => <<EODESCR,
 Map host pci devices. HOSTPCIDEVICE syntax is:
 
@@ -1274,6 +1274,10 @@ sub parse_hostpci {
 	    $res->{driver} = $1;
 	} elsif ($kv =~ m/^rombar=(on|off)$/) {
 	    $res->{rombar} = $1;
+	} elsif ($kv =~ m/^x-vga=(on|off)$/) {
+	    $res->{'x-vga'} = $1;
+	} elsif ($kv =~ m/^pcie=(\d+)$/) {
+	    $res->{pcie} = 1 if $1 == 1;
 	} else {
 	    warn "unknown hostpci setting '$kv'\n";
 	}
@@ -2411,12 +2415,24 @@ sub config_to_command {
 
     # host pci devices
     for (my $i = 0; $i < $MAX_HOSTPCI_DEVICES; $i++)  {
-          my $d = parse_hostpci($conf->{"hostpci$i"});
-          next if !$d;
-	  $pciaddr = print_pci_addr("hostpci$i", $bridges);
-	  my $rombar = $d->{rombar} && $d->{rombar} eq 'off' ? ",rombar=0" : "";
-	  my $driver = $d->{driver} && $d->{driver} eq 'vfio' ? "vfio-pci" : "pci-assign";
-	  push @$devices, '-device', "$driver,host=$d->{pciid},id=hostpci$i$pciaddr$rombar";
+	my $d = parse_hostpci($conf->{"hostpci$i"});
+	next if !$d;
+
+	my $pcie = $d->{pcie};
+	if($pcie){
+	    die "q35 machine model is not enabled" if !$q35;
+	    $pciaddr = print_pcie_addr("hostpci$i");
+	}else{
+	    $pciaddr = print_pci_addr("hostpci$i", $bridges);
+	}
+
+	my $rombar = $d->{rombar} && $d->{rombar} eq 'off' ? ",rombar=0" : "";
+	my $driver = $d->{driver} && $d->{driver} eq 'vfio' ? "vfio-pci" : "pci-assign";
+	my $xvga = $d->{'x-vga'} && $d->{'x-vga'} eq 'on' ? ",x-vga=on" : "";
+	$driver = "vfio-pci" if $xvga ne '';
+
+	push @$devices, '-device', "$driver,host=$d->{pciid},id=hostpci$i$pciaddr$rombar$xvga";
+
     }
 
     # usb devices
@@ -3803,6 +3819,26 @@ sub print_pci_addr {
 	   my $bus = $devices->{$id}->{bus};
 	   $res = ",bus=pci.$bus,addr=$addr";
 	   $bridges->{$bus} = 1 if $bridges;
+    }
+    return $res;
+
+}
+
+sub print_pcie_addr {
+    my ($id) = @_;
+
+    my $res = '';
+    my $devices = {
+	hostpci0 => { bus => "ich9-pcie-port-1", addr => 0 },
+	hostpci1 => { bus => "ich9-pcie-port-2", addr => 0 },
+	hostpci2 => { bus => "ich9-pcie-port-3", addr => 0 },
+	hostpci3 => { bus => "ich9-pcie-port-4", addr => 0 },
+    };
+
+    if (defined($devices->{$id}->{bus}) && defined($devices->{$id}->{addr})) {
+	   my $addr = sprintf("0x%x", $devices->{$id}->{addr});
+	   my $bus = $devices->{$id}->{bus};
+	   $res = ",bus=$bus,addr=$addr";
     }
     return $res;
 
