@@ -3306,17 +3306,22 @@ sub vm_start {
         for (my $i = 0; $i < $MAX_HOSTPCI_DEVICES; $i++)  {
           my $d = parse_hostpci($conf->{"hostpci$i"});
           next if !$d;
-          my $info = pci_device_info("0000:$d->{pciid}");
-          die "IOMMU not present\n" if !check_iommu_support();
-          die "no pci device info for device '$d->{pciid}'\n" if !$info;
+	  my $pcidevices = $d->{pciid};
+	  foreach my $pcidevice (@$pcidevices) {
+		my $pciid = $pcidevice->{id}.".".$pcidevice->{function};
 
-          if ($d->{driver} && $d->{driver} eq "vfio") {
-              die "can't unbind/bind pci group to vfio '$d->{pciid}'\n" if !pci_dev_group_bind_to_vfio($d->{pciid});
-          } else {
-              die "can't unbind/bind to stub pci device '$d->{pciid}'\n" if !pci_dev_bind_to_stub($info);
-          }
+		my $info = pci_device_info("0000:$pciid");
+		die "IOMMU not present\n" if !check_iommu_support();
+		die "no pci device info for device '$pciid'\n" if !$info;
 
-          die "can't reset pci device '$d->{pciid}'\n" if !pci_dev_reset($info);
+		if ($d->{driver} && $d->{driver} eq "vfio") {
+		    die "can't unbind/bind pci group to vfio '$pciid'\n" if !pci_dev_group_bind_to_vfio($pciid);
+		} else {
+		    die "can't unbind/bind to stub pci device '$pciid'\n" if !pci_dev_bind_to_stub($info);
+		}
+
+		die "can't reset pci device '$pciid'\n" if !pci_dev_reset($info);
+	  }
         }
 
 	PVE::Storage::activate_volumes($storecfg, $vollist);
