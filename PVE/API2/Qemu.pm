@@ -1373,7 +1373,7 @@ __PACKAGE__->register_method({
     permissions => {
 	check => ['perm', '/vms/{vmid}', [ 'VM.Console' ]],
     },
-    description => "Opens a weksocket for VNV traffic.",
+    description => "Opens a weksocket for VNC traffic.",
     parameters => {
     	additionalProperties => 0,
 	properties => {
