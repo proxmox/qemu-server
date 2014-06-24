@@ -1,3 +1,9 @@
+qemu-server (3.1-21) unstable; urgency=low
+
+  * protect websocket API with vncticket
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 24 Jun 2014 17:43:25 +0200
+
 qemu-server (3.1-20) unstable; urgency=low
 
   * vncwebsocket: do not proxy connection (not required)
