@@ -1371,6 +1371,7 @@ __PACKAGE__->register_method({
     path => '{vmid}/vncwebsocket',
     method => 'GET',
     permissions => {
+	description => "You also need to pass a valid ticket (vncticket).",
 	check => ['perm', '/vms/{vmid}', [ 'VM.Console' ]],
     },
     description => "Opens a weksocket for VNC traffic.",
@@ -1379,6 +1380,11 @@ __PACKAGE__->register_method({
 	properties => {
 	    node => get_standard_option('pve-node'),
 	    vmid => get_standard_option('pve-vmid'),
+	    vncticket => {
+		description => "Ticket from previous call to vncproxy.",
+		type => 'string',
+		maxLength => 512,
+	    },
 	    port => {
 		description => "Port number returned by previous vncproxy call.",
 		type => 'integer',
@@ -1402,6 +1408,10 @@ __PACKAGE__->register_method({
 
 	my $vmid = $param->{vmid};
 	my $node = $param->{node};
+
+	my $authpath = "/vms/$vmid";
+
+	PVE::AccessControl::verify_vnc_ticket($param->{vncticket}, $authuser, $authpath);
 
 	my $conf = PVE::QemuServer::load_config($vmid, $node); # VM exists ?
 
