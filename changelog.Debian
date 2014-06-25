@@ -1,3 +1,9 @@
+qemu-server (3.1-23) unstable; urgency=low
+
+  * vncproxy: remove check if VM is running
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 25 Jun 2014 09:56:02 +0200
+
 qemu-server (3.1-22) unstable; urgency=low
 
   * hostpci: add pci multifunction support
