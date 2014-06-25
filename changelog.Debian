@@ -1,3 +1,11 @@
+qemu-server (3.1-22) unstable; urgency=low
+
+  * hostpci: add pci multifunction support
+  
+  * hostpci: add pcie and x-vga passthrough
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 25 Jun 2014 09:31:30 +0200
+
 qemu-server (3.1-21) unstable; urgency=low
 
   * protect websocket API with vncticket
