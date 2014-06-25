@@ -1348,8 +1348,6 @@ __PACKAGE__->register_method({
 		$cmd = ['/bin/nc', '-l', '-p', $port, '-w', $timeout, '-c', "$qmstr 2>/dev/null"];
 	    }
 
-	    die "VM $vmid not running\n" if !PVE::QemuServer::check_running($vmid);
-
 	    PVE::Tools::run_command($cmd);
 
 	    return;
