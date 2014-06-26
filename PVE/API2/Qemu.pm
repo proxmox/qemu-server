@@ -4,6 +4,7 @@ use strict;
 use warnings;
 use Cwd 'abs_path';
 use Net::SSLeay;
+use UUID;
 
 use PVE::Cluster qw (cfs_read_file cfs_write_file);;
 use PVE::SafeSyslog;
@@ -429,6 +430,14 @@ __PACKAGE__->register_method({
 
 		    if (!$conf->{bootdisk} && $firstdisk) {
 			$conf->{bootdisk} = $firstdisk;
+		    }
+
+		    # auto generate uuid if user did not specify smbios1 option
+		    if (!$conf->{smbios1}) {
+			my ($uuid, $uuid_str);
+			UUID::generate($uuid);
+			UUID::unparse($uuid, $uuid_str);
+			$conf->{smbios1} = "uuid=$uuid_str";
 		    }
 
 		    PVE::QemuServer::update_config_nolock($vmid, $conf);
