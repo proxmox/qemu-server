@@ -437,6 +437,13 @@ EODESCR
 	maxLength => 40,
 	optional => 1,
     },
+    smbios1 => {
+	description => "Specify SMBIOS type 1 fields.",
+	type => 'string', format => 'pve-qm-smbios1',
+	typetext => "[manufacturer=str][,product=str][,version=str][,serial=str] [,uuid=uuid][,sku=str][,family=str]",
+	maxLength => 256,
+	optional => 1,
+    },
 };
 
 # what about other qemu settings ?
@@ -1370,6 +1377,45 @@ sub add_unused_volume {
     $config->{$key} = $volid;
 
     return $key;
+}
+
+my $valid_smbios1_options = {
+    manufacturer => '\S+',
+    product => '\S+',
+    version => '\S+',
+    serial => '\S+',
+    uuid => '[a-fA-F0-9]{8}(?:-[a-fA-F0-9]{4}){3}-[a-fA-F0-9]{12}',
+    sku => '\S+',
+    family => '\S+',
+};
+
+# smbios: [manufacturer=str][,product=str][,version=str][,serial=str][,uuid=uuid][,sku=str][,family=str]
+sub parse_smbios1 {
+    my ($data) = @_;
+
+    my $res = {};
+
+    foreach my $kvp (split(/,/, $data)) {
+	return undef if $kvp !~ m/^(\S+)=(.+)$/;
+	my ($k, $v) = split(/=/, $kvp);
+	return undef if !defined($k) || !defined($v);
+	return undef if !$valid_smbios1_options->{$k};
+	return undef if $v !~ m/^$valid_smbios1_options->{$k}$/;
+	$res->{$k} = $v;
+    }
+
+    return $res;
+}
+
+PVE::JSONSchema::register_format('pve-qm-smbios1', \&verify_smbios1);
+sub verify_smbios1 {
+    my ($value, $noerr) = @_;
+
+    return $value if parse_smbios1($value);
+
+    return undef if $noerr;
+
+    die "unable to parse smbios (type 1) options\n";
 }
 
 PVE::JSONSchema::register_format('pve-qm-bootdisk', \&verify_bootdisk);
@@ -2374,6 +2420,10 @@ sub config_to_command {
     push @$cmd, '-pidfile' , pidfile_name($vmid);
 
     push @$cmd, '-daemonize';
+
+    if ($conf->{smbios1}) {
+	push @$cmd, '-smbios', "type=1,$conf->{smbios1}";
+    }
 
     if ($q35) {
 	# the q35 chipset support native usb2, so we enable usb controller 
