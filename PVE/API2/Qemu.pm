@@ -192,7 +192,7 @@ my $check_vm_modify_config_perm = sub {
 	} elsif ($opt eq 'args' || $opt eq 'lock') {
 	    die "only root can set '$opt' config\n";
 	} elsif ($opt eq 'cpu' || $opt eq 'kvm' || $opt eq 'acpi' || $opt eq 'machine' ||
-		 $opt eq 'vga' || $opt eq 'watchdog' || $opt eq 'tablet') {
+		 $opt eq 'vga' || $opt eq 'watchdog' || $opt eq 'tablet' || $opt eq 'smbios1') {
 	    $rpcenv->check_vm_perm($authuser, $vmid, $pool, ['VM.Config.HWType']);
 	} elsif ($opt =~ m/^net\d+$/) {
 	    $rpcenv->check_vm_perm($authuser, $vmid, $pool, ['VM.Config.Network']);
