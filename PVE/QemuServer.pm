@@ -3370,7 +3370,7 @@ sub vm_start {
 		    die "can't unbind/bind to stub pci device '$pciid'\n" if !pci_dev_bind_to_stub($info);
 		}
 
-		die "can't reset pci device '$pciid'\n" if !pci_dev_reset($info);
+		die "can't reset pci device '$pciid'\n" if $info->{has_fl_reset} and !pci_dev_reset($info);
 	  }
         }
 
