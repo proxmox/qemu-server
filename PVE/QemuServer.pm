@@ -4935,10 +4935,12 @@ sub snapshot_delete {
 	die "snapshot '$snapname' does not exist\n" if !defined($snap);
 
 	# remove parent refs
-	&$unlink_parent($conf, $snap->{parent});
-	foreach my $sn (keys %{$conf->{snapshots}}) {
-	    next if $sn eq $snapname;
-	    &$unlink_parent($conf->{snapshots}->{$sn}, $snap->{parent});
+	if (!$prepare) {
+	    &$unlink_parent($conf, $snap->{parent});
+	    foreach my $sn (keys %{$conf->{snapshots}}) {
+		next if $sn eq $snapname;
+		&$unlink_parent($conf->{snapshots}->{$sn}, $snap->{parent});
+	    }
 	}
 
 	if ($remove_drive) {
