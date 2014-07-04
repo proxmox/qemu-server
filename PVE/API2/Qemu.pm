@@ -2128,7 +2128,6 @@ __PACKAGE__->register_method({
 		description => "Add the new VM to the specified pool.",
 	    },
             snapname => get_standard_option('pve-snapshot-name', {
- 		requires => 'full',
 		optional => 1,
             }),
 	    storage => get_standard_option('pve-storage-id', {
@@ -2262,10 +2261,14 @@ __PACKAGE__->register_method({
 		    if (PVE::QemuServer::drive_is_cdrom($drive)) {
 			$newconf->{$opt} = $value; # simply copy configuration
 		    } else {
-			if ($param->{full} || !PVE::Storage::volume_is_base($storecfg,  $drive->{file})) {
+			if ($param->{full}) {
 			    die "Full clone feature is not available"
 				if !PVE::Storage::volume_has_feature($storecfg, 'copy', $drive->{file}, $snapname, $running);
 			    $drive->{full} = 1;
+			} else {
+			    # not full means clone instead of copy
+			    die "Linked clone feature is not available"
+				if !PVE::Storage::volume_has_feature($storecfg, 'clone', $drive->{file}, $snapname, $running);
 			}
 			$drives->{$opt} = $drive;
 			push @$vollist, $drive->{file};
