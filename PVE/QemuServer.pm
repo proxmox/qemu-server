@@ -5190,7 +5190,7 @@ sub clone_disk {
 
     if (!$full) {
 	print "create linked clone of drive $drivename ($drive->{file})\n";
-	$newvolid = PVE::Storage::vdisk_clone($storecfg,  $drive->{file}, $newvmid);
+	$newvolid = PVE::Storage::vdisk_clone($storecfg,  $drive->{file}, $newvmid, $snapname);
 	push @$newvollist, $newvolid;
     } else {
 	my ($storeid, $volname) = PVE::Storage::parse_volume_id($drive->{file});
