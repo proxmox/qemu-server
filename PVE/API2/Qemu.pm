@@ -2724,9 +2724,6 @@ __PACKAGE__->register_method({
 
 	    die "you can't resize a cdrom\n" if PVE::QemuServer::drive_is_cdrom($drive);
 
-	    die "you can't online resize a virtio windows bootdisk\n"
-		if PVE::QemuServer::check_running($vmid) && $conf->{bootdisk} eq $disk && $conf->{ostype} =~ m/^w/ && $disk =~ m/^virtio/;
-
 	    my ($storeid, $volname) = PVE::Storage::parse_volume_id($volid);
 
 	    $rpcenv->check($authuser, "/storage/$storeid", ['Datastore.AllocateSpace']);
