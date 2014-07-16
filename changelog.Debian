@@ -1,3 +1,10 @@
+qemu-server (3.1-25) unstable; urgency=low
+
+  * allow resize of virtio windows boot disk (virtio-win-0.1-74 have 
+    fixed the resize bug)
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 16 Jul 2014 12:48:03 +0200
+
 qemu-server (3.1-24) unstable; urgency=low
 
   * new option smbios1: specify SMBIOS type 1 fields (uuid, ...)
