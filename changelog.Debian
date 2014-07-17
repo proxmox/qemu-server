@@ -1,3 +1,9 @@
+qemu-server (3.1-26) unstable; urgency=low
+
+  * enable linked clones from snapshots (ceph)
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 17 Jul 2014 09:28:47 +0200
+
 qemu-server (3.1-25) unstable; urgency=low
 
   * allow resize of virtio windows boot disk (virtio-win-0.1-74 have 
