@@ -2468,7 +2468,7 @@ sub config_to_command {
     }
 
     push @$devices, '-device', print_tabletdevice_full($conf) if $tablet;
-
+    
     # host pci devices
     for (my $i = 0; $i < $MAX_HOSTPCI_DEVICES; $i++)  {
 	my $d = parse_hostpci($conf->{"hostpci$i"});
@@ -2485,6 +2485,8 @@ sub config_to_command {
 	my $rombar = $d->{rombar} && $d->{rombar} eq 'off' ? ",rombar=0" : "";
 	my $driver = $d->{driver} && $d->{driver} eq 'vfio' ? "vfio-pci" : "pci-assign";
 	my $xvga = $d->{'x-vga'} && $d->{'x-vga'} eq 'on' ? ",x-vga=on" : "";
+	push @$cpuFlags, 'kvm=off' if $xvga && $xvga ne '';
+
 	$driver = "vfio-pci" if $xvga ne '';
 	my $pcidevices = $d->{pciid};
 	my $multifunction = 1 if @$pcidevices > 1;
