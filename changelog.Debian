@@ -1,3 +1,9 @@
+qemu-server (3.1-28) unstable; urgency=low
+
+  * disable kvm cpu signature if x-vga is enabled
+  
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 24 Jul 2014 06:52:25 +0200
+
 qemu-server (3.1-27) unstable; urgency=low
 
   * pci passthrough: Reset device only if has_fl_reset is defined
