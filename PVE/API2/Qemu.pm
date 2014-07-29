@@ -1674,7 +1674,7 @@ __PACKAGE__->register_method({
 	    node => get_standard_option('pve-node'),
 	    vmid => get_standard_option('pve-vmid'),
 	    skiplock => get_standard_option('skiplock'),
-	    migratedfrom => get_standard_option('pve-node',{ optional => 1 }),
+	    migratedfrom => get_standard_option('pve-node', { optional => 1 }),
 	    timeout => {
 		description => "Wait maximal timeout seconds.",
 		type => 'integer',
@@ -1718,7 +1718,7 @@ __PACKAGE__->register_method({
 
 	my $storecfg = PVE::Storage::config();
 
-	if (&$vm_is_ha_managed($vmid) && $rpcenv->{type} ne 'ha') {
+	if (&$vm_is_ha_managed($vmid) && ($rpcenv->{type} ne 'ha') && !defined($migratedfrom)) {
 
 	    my $hacmd = sub {
 		my $upid = shift;
