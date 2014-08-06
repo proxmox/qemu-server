@@ -1,3 +1,11 @@
+qemu-server (3.1-30) unstable; urgency=low
+
+  * bump max hostpci to 4
+  
+  * set vga=none if x-vga passthrough is enabled
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 06 Aug 2014 09:41:36 +0200
+
 qemu-server (3.1-29) unstable; urgency=low
 
   * vm_stop: do not use ha commands if $migratedfrom is set
