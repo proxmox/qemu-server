@@ -2485,8 +2485,10 @@ sub config_to_command {
 	my $rombar = $d->{rombar} && $d->{rombar} eq 'off' ? ",rombar=0" : "";
 	my $driver = $d->{driver} && $d->{driver} eq 'vfio' ? "vfio-pci" : "pci-assign";
 	my $xvga = $d->{'x-vga'} && $d->{'x-vga'} eq 'on' ? ",x-vga=on" : "";
-	push @$cpuFlags, 'kvm=off' if $xvga && $xvga ne '';
-
+	if ($xvga && $xvga ne '') {
+	    push @$cpuFlags, 'kvm=off';
+	    $vga = 'none';
+	}
 	$driver = "vfio-pci" if $xvga ne '';
 	my $pcidevices = $d->{pciid};
 	my $multifunction = 1 if @$pcidevices > 1;
