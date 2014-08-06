@@ -474,7 +474,7 @@ my $MAX_SATA_DISKS = 6;
 my $MAX_USB_DEVICES = 5;
 my $MAX_NETS = 32;
 my $MAX_UNUSED_DISKS = 8;
-my $MAX_HOSTPCI_DEVICES = 2;
+my $MAX_HOSTPCI_DEVICES = 4;
 my $MAX_SERIAL_PORTS = 4;
 my $MAX_PARALLEL_PORTS = 3;
 
@@ -3855,6 +3855,8 @@ sub print_pci_addr {
 	vga1 => { bus => 0, addr => 24 },
 	vga2 => { bus => 0, addr => 25 },
 	vga3 => { bus => 0, addr => 26 },
+	hostpci2 => { bus => 0, addr => 27 },
+	hostpci3 => { bus => 0, addr => 28 },
 	#addr29 : usb-host (pve-usb.cfg)
 	'pci.1' => { bus => 0, addr => 30 },
 	'pci.2' => { bus => 0, addr => 31 },
