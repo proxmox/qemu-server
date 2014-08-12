@@ -2694,11 +2694,11 @@ sub config_to_command {
 
 	$spice_port = PVE::Tools::next_spice_port();
 
-	push @$cmd, '-spice', "tls-port=${spice_port},addr=127.0.0.1,tls-ciphers=DES-CBC3-SHA,seamless-migration=on";
+	push @$devices, '-spice', "tls-port=${spice_port},addr=127.0.0.1,tls-ciphers=DES-CBC3-SHA,seamless-migration=on";
 
-	push @$cmd, '-device', "virtio-serial,id=spice$pciaddr";
-	push @$cmd, '-chardev', "spicevmc,id=vdagent,name=vdagent";
-	push @$cmd, '-device', "virtserialport,chardev=vdagent,name=com.redhat.spice.0";
+	push @$devices, '-device', "virtio-serial,id=spice$pciaddr";
+	push @$devices, '-chardev', "spicevmc,id=vdagent,name=vdagent";
+	push @$devices, '-device', "virtserialport,chardev=vdagent,name=com.redhat.spice.0";
     }
 
     # enable balloon by default, unless explicitly disabled
