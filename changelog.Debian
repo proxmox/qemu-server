@@ -1,3 +1,9 @@
+qemu-server (3.1-33) unstable; urgency=low
+
+  * clone_vm: auto generate new uuid
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 26 Aug 2014 09:23:58 +0200
+
 qemu-server (3.1-32) unstable; urgency=low
 
   *  add Broadwell cpu model
