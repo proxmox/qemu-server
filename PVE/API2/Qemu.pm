@@ -2279,6 +2279,14 @@ __PACKAGE__->register_method({
 		}
 	    }
 
+            # auto generate a new uuid
+            my ($uuid, $uuid_str);
+            UUID::generate($uuid);
+            UUID::unparse($uuid, $uuid_str);
+	    my $smbios1 = PVE::QemuServer::parse_smbios1($newconf->{smbios1} || '');
+	    $smbios1->{uuid} = $uuid_str; 
+	    $newconf->{smbios1} = PVE::QemuServer::print_smbios1($smbios1);
+
 	    delete $newconf->{template};
 
 	    if ($param->{name}) {

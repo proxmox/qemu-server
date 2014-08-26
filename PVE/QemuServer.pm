@@ -1407,6 +1407,19 @@ sub parse_smbios1 {
     return $res;
 }
 
+sub print_smbios1 {
+    my ($smbios1) = @_;
+
+    my $data = '';
+    foreach my $k (keys %$smbios1) {
+	next if !defined($smbios1->{$k});
+	next if !$valid_smbios1_options->{$k};
+	$data .= ',' if $data;
+	$data .= "$k=$smbios1->{$k}";
+    }
+    return $data;
+}
+
 PVE::JSONSchema::register_format('pve-qm-smbios1', \&verify_smbios1);
 sub verify_smbios1 {
     my ($value, $noerr) = @_;
