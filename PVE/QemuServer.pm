@@ -2921,7 +2921,6 @@ sub vm_deviceplug {
     }
 
     if ($deviceid =~ m/^(scsi)(\d+)$/) {
-        return 1 if ($conf->{scsihw} && ($conf->{scsihw} !~ m/^lsi/)); #virtio-scsi not yet support hotplug
         return undef if !qemu_findorcreatescsihw($storecfg,$conf, $vmid, $device);
         return undef if !qemu_driveadd($storecfg, $vmid, $device);
         my $devicefull = print_drivedevice_full($storecfg, $conf, $vmid, $device);
