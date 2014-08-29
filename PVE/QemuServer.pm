@@ -2876,7 +2876,14 @@ sub vm_devices_list {
     foreach my $pcibus (@$res) {
 	foreach my $device (@{$pcibus->{devices}}) {
 	    next if !$device->{'qdev_id'};
-	    $devices->{$device->{'qdev_id'}} = $device;
+	    $devices->{$device->{'qdev_id'}} = 1;
+	}
+    }
+
+    my $resblock = vm_mon_cmd($vmid, 'query-block');
+    foreach my $block (@$resblock) {
+	if($block->{device} =~ m/^drive-(\S+)/){
+		$devices->{$1} = 1;
 	}
     }
 
