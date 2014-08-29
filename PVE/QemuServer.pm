@@ -4741,6 +4741,8 @@ my $snapshot_commit = sub {
 	die "missing snapshot lock\n"
 	    if !($conf->{lock} && $conf->{lock} eq 'snapshot');
 
+	my $has_machine_config = defined($conf->{machine});
+
 	my $snap = $conf->{snapshots}->{$snapname};
 
 	die "snapshot '$snapname' does not exist\n" if !defined($snap);
@@ -4752,6 +4754,8 @@ my $snapshot_commit = sub {
 	delete $conf->{lock};
 
 	my $newconf = &$snapshot_apply_config($conf, $snap);
+
+	delete $newconf->{machine} if !$has_machine_config;
 
 	$newconf->{parent} = $snapname;
 
