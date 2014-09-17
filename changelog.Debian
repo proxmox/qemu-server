@@ -1,3 +1,9 @@
+qemu-server (3.1-35) unstable; urgency=low
+
+  * fix bug #542: return VMID as integer
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 17 Sep 2014 15:52:34 +0200
+
 qemu-server (3.1-34) unstable; urgency=low
 
   * hotplug: allow scsi and virtio-scsi disk hotplug|unplug
