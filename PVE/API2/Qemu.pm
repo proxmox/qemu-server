@@ -243,7 +243,7 @@ __PACKAGE__->register_method({
 	    next if !$rpcenv->check($authuser, "/vms/$vmid", [ 'VM.Audit' ], 1);
 
 	    my $data = $vmstatus->{$vmid};
-	    $data->{vmid} = $vmid;
+	    $data->{vmid} = int($vmid);
 	    push @$res, $data;
 	}
 
