@@ -152,6 +152,12 @@ mkdir $lock_dir;
 my $pcisysfs = "/sys/bus/pci";
 
 my $confdesc = {
+    iothread => {
+	optional => 1,
+	type => 'boolean',
+	description => "Enable iothread dataplane.",
+	default => 0,
+    },
     onboot => {
 	optional => 1,
 	type => 'boolean',
@@ -1090,6 +1096,7 @@ sub print_drivedevice_full {
     if ($drive->{interface} eq 'virtio') {
 	my $pciaddr = print_pci_addr("$drive->{interface}$drive->{index}", $bridges);
 	$device = "virtio-blk-pci,drive=drive-$drive->{interface}$drive->{index},id=$drive->{interface}$drive->{index}$pciaddr";
+	$device .= ",iothread=iothread0" if $conf->{iothread};
     } elsif ($drive->{interface} eq 'scsi') {
 	$maxdev = ($conf->{scsihw} && ($conf->{scsihw} !~ m/^lsi/)) ? 256 : 7;
 	my $controller = int($drive->{index} / $maxdev);
@@ -2437,6 +2444,8 @@ sub config_to_command {
     if ($conf->{smbios1}) {
 	push @$cmd, '-smbios', "type=1,$conf->{smbios1}";
     }
+
+    push @$cmd, '-object', "iothread,id=iothread0" if $conf->{iothread};
 
     if ($q35) {
 	# the q35 chipset support native usb2, so we enable usb controller 
