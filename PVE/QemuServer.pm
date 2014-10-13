@@ -1199,6 +1199,9 @@ sub print_drive_full {
 
     $opts .= ",cache=none" if !$drive->{cache} && !drive_is_cdrom($drive);
 
+    my $detectzeroes = $drive->{discard} ? "unmap" : "on";
+    $opts .= ",detect-zeroes=$detectzeroes" if !drive_is_cdrom($drive);
+
     my $pathinfo = $path ? "file=$path," : '';
 
     return "${pathinfo}if=none,id=drive-$drive->{interface}$drive->{index}$opts";
