@@ -1,3 +1,9 @@
+qemu-server (3.3-1) unstable; urgency=low
+
+  * enable write zeroes optimisations
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 13 Oct 2014 10:35:49 +0200
+
 qemu-server (3.1-35) unstable; urgency=low
 
   * fix bug #542: return VMID as integer
