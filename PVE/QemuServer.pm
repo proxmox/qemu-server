@@ -1837,6 +1837,7 @@ sub parse_vm_config {
     my $res = {
 	digest => Digest::SHA::sha1_hex($raw),
 	snapshots => {},
+	pending => {}
     };
 
     $filename =~ m|/qemu-server/(\d+)\.conf$|
@@ -1851,7 +1852,11 @@ sub parse_vm_config {
     foreach my $line (@lines) {
 	next if $line =~ m/^\s*$/;
 
-	if ($line =~ m/^\[([a-z][a-z0-9_\-]+)\]\s*$/i) {
+	if ($line =~ m/^\[PENDING\]\s*$/i) {
+	    $conf = $res->{pending} = {};
+	    next;
+
+	}elsif ($line =~ m/^\[([a-z][a-z0-9_\-]+)\]\s*$/i) {
 	    my $snapname = $1;
 	    $conf->{description} = $descr if $descr;
 	    $descr = '';
@@ -1872,6 +1877,12 @@ sub parse_vm_config {
 	    my $key = $1;
 	    my $value = $2;
 	    $conf->{$key} = $value;
+	} elsif ($line =~ m/^(delete):\s*(.*\S)\s*$/) {
+	    my $key = $1;
+	    my $value = $2;
+	    foreach my $opt (split(/,/, $value)) {
+		$conf->{del}->{$opt} = 1;
+	    }
 	} elsif ($line =~ m/^([a-z][a-z_]*\d*):\s*(\S+)\s*$/) {
 	    my $key = $1;
 	    my $value = $2;
