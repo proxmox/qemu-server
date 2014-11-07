@@ -5146,11 +5146,12 @@ sub qemu_img_format {
 }
 
 sub qemu_drive_mirror {
-    my ($vmid, $drive, $dst_volid, $vmiddst, $maxwait) = @_;
+    my ($vmid, $drive, $dst_volid, $vmiddst) = @_;
 
-    my $count = 1;
+    my $count = 0;
     my $old_len = 0;
     my $frozen = undef;
+    my $maxwait = 120;
 
     my $storecfg = PVE::Storage::config();
     my ($dst_storeid, $dst_volname) = PVE::Storage::parse_volume_id($dst_volid, 1);
@@ -5186,23 +5187,19 @@ sub qemu_drive_mirror {
 		my $total = $stat->{len};
 		my $remaining = $total - $transferred;
 		my $percent = sprintf "%.2f", ($transferred * 100 / $total);
+		my $busy = $stat->{busy};
 
-                print "transferred: $transferred bytes remaining: $remaining bytes total: $total bytes progression: $percent %\n";
+                print "transferred: $transferred bytes remaining: $remaining bytes total: $total bytes progression: $percent % busy: $busy\n";
 
-		last if ($stat->{len} == $stat->{offset});
-		if ($old_len == $stat->{offset}) {
-		    if ($maxwait && $count > $maxwait) {
-		    # if writes to disk occurs the disk needs to be freezed
-		    # to be able to complete the migration
+		if ($stat->{len} == $stat->{offset}) {
+		    last if $busy eq 'false';
+		    if ($count > $maxwait) {
+		        # if too much writes to disk occurs at the end of migration
+		        #the disk needs to be freezed to be able to complete the migration
 			vm_suspend($vmid,1);
-			$count = 0;
 			$frozen = 1;
-		    } else {
-			$count++ unless $frozen;
 		    }
-		} elsif ($frozen) {
-		    vm_resume($vmid,1);
-		    $count = 0;
+		    $count ++
 		}
 		$old_len = $stat->{offset};
 		sleep 1;
@@ -5212,6 +5209,9 @@ sub qemu_drive_mirror {
 		# switch the disk if source and destination are on the same guest
 		vm_mon_cmd($vmid, "block-job-complete", device => "drive-$drive");
 	    }
+
+	    vm_resume($vmid, 1) if $frozen;
+	    
 	};
 	if (my $err = $@) {
 	    eval { vm_mon_cmd($vmid, "block-job-cancel", device => "drive-$drive"); };
