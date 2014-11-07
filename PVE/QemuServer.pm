@@ -5215,12 +5215,24 @@ sub qemu_drive_mirror {
 	};
 	if (my $err = $@) {
 	    eval { vm_mon_cmd($vmid, "block-job-cancel", device => "drive-$drive"); };
+	    while (1) {
+		my $stats = vm_mon_cmd($vmid, "query-block-jobs");
+		my $stat = @$stats[0];
+		last if !$stat;
+		sleep 1;
+	    }
 	    die "mirroring error: $err";
 	}
 
 	if ($vmiddst != $vmid) {
 	    # if we clone a disk for a new target vm, we don't switch the disk
 	    vm_mon_cmd($vmid, "block-job-cancel", device => "drive-$drive");
+	    while (1) {
+		my $stats = vm_mon_cmd($vmid, "query-block-jobs");
+		my $stat = @$stats[0];
+		last if !$stat;
+		sleep 1;
+	    }
 	}
     }
 }
