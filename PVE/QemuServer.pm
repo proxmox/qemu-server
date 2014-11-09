@@ -5192,7 +5192,16 @@ sub qemu_drive_mirror {
                 print "transferred: $transferred bytes remaining: $remaining bytes total: $total bytes progression: $percent % busy: $busy\n";
 
 		if ($stat->{len} == $stat->{offset}) {
-		    last if $busy eq 'false';
+		    if ($busy eq 'false'){
+
+			last if $vmiddst != $vmid;
+
+			# try to switch the disk if source and destination are on the same guest
+			eval { vm_mon_cmd($vmid, "block-job-complete", device => "drive-$drive") };
+			last if !$@;
+			die $@ if $@ !~ m/cannot be completed/; 
+		    }
+
 		    if ($count > $maxwait) {
 		        # if too much writes to disk occurs at the end of migration
 		        #the disk needs to be freezed to be able to complete the migration
@@ -5203,11 +5212,6 @@ sub qemu_drive_mirror {
 		}
 		$old_len = $stat->{offset};
 		sleep 1;
-	    }
-
-	    if ($vmiddst == $vmid) {
-		# switch the disk if source and destination are on the same guest
-		vm_mon_cmd($vmid, "block-job-complete", device => "drive-$drive");
 	    }
 
 	    vm_resume($vmid, 1) if $frozen;
