@@ -1,6 +1,12 @@
+qemu-server (3.3-3) unstable; urgency=low
+
+  * drive-mirror: further improvments
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 10 Nov 2014 06:32:04 +0100
+
 qemu-server (3.3-2) unstable; urgency=low
 
-  * drive-mirror : wait that busy eq false before block-job-complete
+  * drive-mirror: wait that busy eq false before block-job-complete
 
  -- Proxmox Support Team <support@proxmox.com>  Fri, 07 Nov 2014 15:35:55 +0100
 
