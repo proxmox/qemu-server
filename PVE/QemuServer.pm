@@ -1072,18 +1072,18 @@ sub path_is_scsi {
 
 sub machine_type_is_q35 {
     my ($conf) = @_;
- 
+
     return $conf->{machine} && ($conf->{machine} =~ m/q35/) ? 1 : 0;
 }
 
 sub print_tabletdevice_full {
     my ($conf) = @_;
- 
+
     my $q35 = machine_type_is_q35($conf);
 
     # we use uhci for old VMs because tablet driver was buggy in older qemu
     my $usbbus = $q35 ? "ehci" : "uhci";
-    
+
     return "usb-tablet,id=tablet,bus=$usbbus.0,port=1";
 }
 
@@ -2451,7 +2451,7 @@ sub config_to_command {
     push @$cmd, '-object', "iothread,id=iothread0" if $conf->{iothread};
 
     if ($q35) {
-	# the q35 chipset support native usb2, so we enable usb controller 
+	# the q35 chipset support native usb2, so we enable usb controller
 	# by default for this machine type
         push @$devices, '-readconfig', '/usr/share/qemu-server/pve-q35.cfg';
     } else {
@@ -2493,7 +2493,7 @@ sub config_to_command {
     }
 
     push @$devices, '-device', print_tabletdevice_full($conf) if $tablet;
-    
+
     # host pci devices
     for (my $i = 0; $i < $MAX_HOSTPCI_DEVICES; $i++)  {
 	my $d = parse_hostpci($conf->{"hostpci$i"});
@@ -2959,7 +2959,7 @@ sub vm_deviceplug {
         }
     }
 
-    
+
     if (!$q35 && $deviceid =~ m/^(pci\.)(\d+)$/) {
 	my $bridgeid = $2;
 	my $pciaddr = print_pci_addr($deviceid);
@@ -5192,14 +5192,14 @@ sub qemu_drive_mirror {
                 print "transferred: $transferred bytes remaining: $remaining bytes total: $total bytes progression: $percent % busy: $busy\n";
 
 		if ($stat->{len} == $stat->{offset}) {
-		    if ($busy eq 'false'){
+		    if ($busy eq 'false') {
 
 			last if $vmiddst != $vmid;
 
 			# try to switch the disk if source and destination are on the same guest
 			eval { vm_mon_cmd($vmid, "block-job-complete", device => "drive-$drive") };
 			last if !$@;
-			die $@ if $@ !~ m/cannot be completed/; 
+			die $@ if $@ !~ m/cannot be completed/;
 		    }
 
 		    if ($count > $maxwait) {
@@ -5215,11 +5215,11 @@ sub qemu_drive_mirror {
 	    }
 
 	    vm_resume($vmid, 1) if $frozen;
-	    
+
 	};
 	if (my $err = $@) {
-	    eval { 
-		vm_mon_cmd($vmid, "block-job-cancel", device => "drive-$drive"); 
+	    eval {
+		vm_mon_cmd($vmid, "block-job-cancel", device => "drive-$drive");
 		while (1) {
 		    my $stats = vm_mon_cmd($vmid, "query-block-jobs");
 		    my $stat = @$stats[0];
