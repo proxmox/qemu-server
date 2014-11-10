@@ -5154,84 +5154,70 @@ sub qemu_drive_mirror {
     my $maxwait = 120;
 
     my $storecfg = PVE::Storage::config();
-    my ($dst_storeid, $dst_volname) = PVE::Storage::parse_volume_id($dst_volid, 1);
+    my ($dst_storeid, $dst_volname) = PVE::Storage::parse_volume_id($dst_volid);
 
-    if ($dst_storeid) {
-	my $dst_scfg = PVE::Storage::storage_config($storecfg, $dst_storeid);
+    my $dst_scfg = PVE::Storage::storage_config($storecfg, $dst_storeid);
 
-	my $format;
-        if ($dst_volname =~ m/\.(raw|qcow2)$/){
-	    $format = $1;
-	}
+    my $format;
+    if ($dst_volname =~ m/\.(raw|qcow2)$/){
+	$format = $1;
+    }
 
-	my $dst_path = PVE::Storage::path($storecfg, $dst_volid);
+    my $dst_path = PVE::Storage::path($storecfg, $dst_volid);
 
-	if ($format) {
-	    #fixme : sometime drive-mirror timeout, but works fine after.
-	    # (I have see the problem with big volume > 200GB), so we need to eval
-	    eval { vm_mon_cmd($vmid, "drive-mirror", timeout => 10, device => "drive-$drive", mode => "existing",
-			      sync => "full", target => $dst_path, format => $format); };
-	} else {
-	    eval { vm_mon_cmd($vmid, "drive-mirror", timeout => 10, device => "drive-$drive", mode => "existing",
-			      sync => "full", target => $dst_path); };
-	}
+    if ($format) {
+	#fixme : sometime drive-mirror timeout, but works fine after.
+	# (I have see the problem with big volume > 200GB), so we need to eval
+	eval { vm_mon_cmd($vmid, "drive-mirror", timeout => 10, device => "drive-$drive", mode => "existing",
+			  sync => "full", target => $dst_path, format => $format); };
+    } else {
+	eval { vm_mon_cmd($vmid, "drive-mirror", timeout => 10, device => "drive-$drive", mode => "existing",
+			  sync => "full", target => $dst_path); };
+    }
 
-	eval {
-	    while (1) {
-		my $stats = vm_mon_cmd($vmid, "query-block-jobs");
-		my $stat = @$stats[0];
-		die "mirroring job seem to have die. Maybe do you have bad sectors?" if !$stat;
-		die "error job is not mirroring" if $stat->{type} ne "mirror";
+    eval {
+	while (1) {
+	    my $stats = vm_mon_cmd($vmid, "query-block-jobs");
+	    my $stat = @$stats[0];
+	    die "mirroring job seem to have die. Maybe do you have bad sectors?" if !$stat;
+	    die "error job is not mirroring" if $stat->{type} ne "mirror";
 
-		my $transferred = $stat->{offset};
-		my $total = $stat->{len};
-		my $remaining = $total - $transferred;
-		my $percent = sprintf "%.2f", ($transferred * 100 / $total);
-		my $busy = $stat->{busy};
+	    my $transferred = $stat->{offset};
+	    my $total = $stat->{len};
+	    my $remaining = $total - $transferred;
+	    my $percent = sprintf "%.2f", ($transferred * 100 / $total);
+	    my $busy = $stat->{busy};
 
-                print "transferred: $transferred bytes remaining: $remaining bytes total: $total bytes progression: $percent % busy: $busy\n";
+	    print "transferred: $transferred bytes remaining: $remaining bytes total: $total bytes progression: $percent % busy: $busy\n";
+	    
+	    if ($stat->{len} == $stat->{offset}) {
+		if ($busy eq 'false') {
 
-		if ($stat->{len} == $stat->{offset}) {
-		    if ($busy eq 'false') {
-
-			last if $vmiddst != $vmid;
-
-			# try to switch the disk if source and destination are on the same guest
-			eval { vm_mon_cmd($vmid, "block-job-complete", device => "drive-$drive") };
-			last if !$@;
-			die $@ if $@ !~ m/cannot be completed/;
-		    }
-
-		    if ($count > $maxwait) {
-		        # if too much writes to disk occurs at the end of migration
-		        #the disk needs to be freezed to be able to complete the migration
-			vm_suspend($vmid,1);
-			$frozen = 1;
-		    }
-		    $count ++
+		    last if $vmiddst != $vmid;
+		    
+		    # try to switch the disk if source and destination are on the same guest
+		    eval { vm_mon_cmd($vmid, "block-job-complete", device => "drive-$drive") };
+		    last if !$@;
+		    die $@ if $@ !~ m/cannot be completed/;
 		}
-		$old_len = $stat->{offset};
-		sleep 1;
+
+		if ($count > $maxwait) {
+		    # if too much writes to disk occurs at the end of migration
+		    #the disk needs to be freezed to be able to complete the migration
+		    vm_suspend($vmid,1);
+		    $frozen = 1;
+		}
+		$count ++
 	    }
-
-	    vm_resume($vmid, 1) if $frozen;
-
-	};
-	if (my $err = $@) {
-	    eval {
-		vm_mon_cmd($vmid, "block-job-cancel", device => "drive-$drive");
-		while (1) {
-		    my $stats = vm_mon_cmd($vmid, "query-block-jobs");
-		    my $stat = @$stats[0];
-		    last if !$stat;
-		    sleep 1;
-		}
-	    };
-	    die "mirroring error: $err";
+	    $old_len = $stat->{offset};
+	    sleep 1;
 	}
 
-	if ($vmiddst != $vmid) {
-	    # if we clone a disk for a new target vm, we don't switch the disk
+	vm_resume($vmid, 1) if $frozen;
+
+    };
+    if (my $err = $@) {
+	eval {
 	    vm_mon_cmd($vmid, "block-job-cancel", device => "drive-$drive");
 	    while (1) {
 		my $stats = vm_mon_cmd($vmid, "query-block-jobs");
@@ -5239,6 +5225,18 @@ sub qemu_drive_mirror {
 		last if !$stat;
 		sleep 1;
 	    }
+	};
+	die "mirroring error: $err";
+    }
+
+    if ($vmiddst != $vmid) {
+	# if we clone a disk for a new target vm, we don't switch the disk
+	vm_mon_cmd($vmid, "block-job-cancel", device => "drive-$drive");
+	while (1) {
+	    my $stats = vm_mon_cmd($vmid, "query-block-jobs");
+	    my $stat = @$stats[0];
+	    last if !$stat;
+	    sleep 1;
 	}
     }
 }
