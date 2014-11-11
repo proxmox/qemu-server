@@ -1847,22 +1847,24 @@ sub parse_vm_config {
 
     my $conf = $res;
     my $descr = '';
+    my $section = '';
 
     my @lines = split(/\n/, $raw);
     foreach my $line (@lines) {
 	next if $line =~ m/^\s*$/;
 
 	if ($line =~ m/^\[PENDING\]\s*$/i) {
+	    $section = 'pending';
 	    $conf->{description} = $descr if $descr;
 	    $descr = '';
-	    $conf = $res->{pending} = {};
+	    $conf = $res->{$section} = {};
 	    next;
 
 	} elsif ($line =~ m/^\[([a-z][a-z0-9_\-]+)\]\s*$/i) {
-	    my $snapname = $1;
+	    $section = $1;
 	    $conf->{description} = $descr if $descr;
 	    $descr = '';
-	    $conf = $res->{snapshots}->{$snapname} = {};
+	    $conf = $res->{snapshots}->{$section} = {};
 	    next;
 	}
 
@@ -1879,9 +1881,8 @@ sub parse_vm_config {
 	    my $key = $1;
 	    my $value = $2;
 	    $conf->{$key} = $value;
-	} elsif ($line =~ m/^(delete):\s*(.*\S)\s*$/) {
-	    my $key = $1;
-	    my $value = $2;
+	} elsif (($section eq 'pending') && ($line =~ m/^delete:\s*(.*\S)\s*$/)) {
+	    my $value = $1;
 	    foreach my $opt (split(/,/, $value)) {
 		$conf->{del}->{$opt} = 1;
 	    }
