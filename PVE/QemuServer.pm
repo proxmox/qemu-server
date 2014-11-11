@@ -1881,10 +1881,12 @@ sub parse_vm_config {
 	    my $key = $1;
 	    my $value = $2;
 	    $conf->{$key} = $value;
-	} elsif (($section eq 'pending') && ($line =~ m/^delete:\s*(.*\S)\s*$/)) {
+	} elsif ($line =~ m/^delete:\s*(.*\S)\s*$/) {
 	    my $value = $1;
-	    foreach my $opt (split(/,/, $value)) {
-		$conf->{del}->{$opt} = 1;
+	    if ($section eq 'pending') {
+		$conf->{delete} = $value; # we parse this later
+	    } else {
+		warn "vm $vmid - propertry 'delete' is only allowed in [PENDING]\n";
 	    }
 	} elsif ($line =~ m/^([a-z][a-z_]*\d*):\s*(\S+)\s*$/) {
 	    my $key = $1;
@@ -1948,12 +1950,18 @@ sub write_vm_config {
     my $used_volids = {};
 
     my $cleanup_config = sub {
-	my ($cref, $snapname) = @_;
+	my ($cref, $pending, $snapname) = @_;
 
 	foreach my $key (keys %$cref) {
 	    next if $key eq 'digest' || $key eq 'description' || $key eq 'snapshots' ||
-		$key eq 'snapstate';
+		$key eq 'snapstate' || $key eq 'pending';
 	    my $value = $cref->{$key};
+	    if ($key eq 'delete') {
+		die "propertry 'delete' is only allowed in [PENDING]\n"
+		    if !$pending;
+		# fixme: check syntax?
+		next;
+	    }
 	    eval { $value = check_type($key, $value); };
 	    die "unable to parse value of '$key' - $@" if $@;
 
@@ -1967,8 +1975,12 @@ sub write_vm_config {
     };
 
     &$cleanup_config($conf);
+
+    &$cleanup_config($conf->{pending}, 1);
+
     foreach my $snapname (keys %{$conf->{snapshots}}) {
-	&$cleanup_config($conf->{snapshots}->{$snapname}, $snapname);
+	die "internal error" if $snapname eq 'pending';
+	&$cleanup_config($conf->{snapshots}->{$snapname}, undef, $snapname);
     }
 
     # remove 'unusedX' settings if we re-add a volume
@@ -1991,13 +2003,19 @@ sub write_vm_config {
 	}
 
 	foreach my $key (sort keys %$conf) {
-	    next if $key eq 'digest' || $key eq 'description' || $key eq 'snapshots';
+	    next if $key eq 'digest' || $key eq 'description' || $key eq 'pending' || $key eq 'snapshots';
 	    $raw .= "$key: $conf->{$key}\n";
 	}
 	return $raw;
     };
 
     my $raw = &$generate_raw_config($conf);
+
+    if (scalar(keys %{$conf->{pending}})){
+	$raw .= "\n[PENDING]\n";
+	$raw .= &$generate_raw_config($conf->{pending});
+    }
+
     foreach my $snapname (sort keys %{$conf->{snapshots}}) {
 	$raw .= "\n[$snapname]\n";
 	$raw .= &$generate_raw_config($conf->{snapshots}->{$snapname});
