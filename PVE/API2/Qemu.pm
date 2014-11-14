@@ -37,6 +37,73 @@ my $resolve_cdrom_alias = sub {
     }
 };
 
+my $vm_is_volid_owner = sub {
+    my ($storecfg, $vmid, $volid) =@_;
+
+    if ($volid !~  m|^/|) {
+	my ($path, $owner);
+	eval { ($path, $owner) = PVE::Storage::path($storecfg, $volid); };
+	if ($owner && ($owner == $vmid)) {
+	    return 1;
+	}
+    }
+
+    return undef;
+};
+
+my $test_deallocate_drive = sub {
+    my ($storecfg, $vmid, $key, $drive, $force) = @_;
+
+    if (!PVE::QemuServer::drive_is_cdrom($drive)) {
+	my $volid = $drive->{file};
+	if (&$vm_is_volid_owner($storecfg, $vmid, $volid)) {
+	    if ($force || $key =~ m/^unused/) {
+		my $sid = PVE::Storage::parse_volume_id($volid);
+		return $sid;
+	    }
+	}
+    }
+
+    return undef;
+};
+
+my $pending_delete_option = sub {
+    my ($conf, $key) = @_;
+
+    delete $conf->{pending}->{$key};
+    my $pending_delete_hash = { $key => 1 };
+    foreach my $opt (PVE::Tools::split_list($conf->{pending}->{delete})) {
+	$pending_delete_hash->{$opt} = 1;
+    }
+    $conf->{pending}->{delete} = join(',', keys %$pending_delete_hash);
+};
+
+my $pending_undelete_option = sub {
+    my ($conf, $key) = @_;
+
+    my $pending_delete_hash = {};
+    foreach my $opt (PVE::Tools::split_list($conf->{pending}->{delete})) {
+	$pending_delete_hash->{$opt} = 1;
+    }
+    delete $pending_delete_hash->{$key};
+
+    my @keylist = keys %$pending_delete_hash;
+    if (scalar(@keylist)) {
+	$conf->{pending}->{delete} = join(',', @keylist);
+    } else {
+	delete $conf->{pending}->{delete};
+    }
+};
+
+my $register_unused_drive = sub {
+    my ($storecfg, $vmid, $conf, $drive) = @_;
+    if (!PVE::QemuServer::drive_is_cdrom($drive)) {
+	my $volid = $drive->{file};
+	if (&$vm_is_volid_owner($storecfg, $vmid, $volid)) {
+	    PVE::QemuServer::add_unused_volume($conf, $volid, $vmid);
+	}
+    }
+};
 
 my $check_storage_access = sub {
    my ($rpcenv, $authuser, $storecfg, $vmid, $settings, $default_storage) = @_;
@@ -639,36 +706,6 @@ __PACKAGE__->register_method({
 	return $conf;
     }});
 
-my $vm_is_volid_owner = sub {
-    my ($storecfg, $vmid, $volid) =@_;
-
-    if ($volid !~  m|^/|) {
-	my ($path, $owner);
-	eval { ($path, $owner) = PVE::Storage::path($storecfg, $volid); };
-	if ($owner && ($owner == $vmid)) {
-	    return 1;
-	}
-    }
-
-    return undef;
-};
-
-my $test_deallocate_drive = sub {
-    my ($storecfg, $vmid, $key, $drive, $force) = @_;
-
-    if (!PVE::QemuServer::drive_is_cdrom($drive)) {
-	my $volid = $drive->{file};
-	if (&$vm_is_volid_owner($storecfg, $vmid, $volid)) {
-	    if ($force || $key =~ m/^unused/) {
-		my $sid = PVE::Storage::parse_volume_id($volid);
-		return $sid;
-	    }
-	}
-    }
-
-    return undef;
-};
-
 my $delete_drive = sub {
     my ($conf, $storecfg, $vmid, $key, $drive, $force) = @_;
 
@@ -868,6 +905,48 @@ my $vmconfig_update_net = sub {
     die "error hotplug $opt" if !PVE::QemuServer::vm_deviceplug($storecfg, $conf, $vmid, $opt, $net);
 };
 
+my $vmconfig_apply_pending = sub {
+    my ($vmid, $conf, $storecfg, $running) = @_;
+
+    my @delete = PVE::Tools::split_list($conf->{pending}->{delete});
+    foreach my $opt (@delete) { # delete
+	die "internal error" if $opt =~ m/^unused/;
+	$conf = PVE::QemuServer::load_config($vmid); # update/reload
+	if (!defined($conf->{$opt})) {
+	    &$pending_undelete_option($conf, $opt);
+	    PVE::QemuServer::update_config_nolock($vmid, $conf, 1);
+	} elsif (PVE::QemuServer::valid_drivename($opt)) {
+	    &$register_unused_drive($storecfg, $vmid, $conf, PVE::QemuServer::parse_drive($opt, $conf->{$opt}));
+	    &$pending_undelete_option($conf, $opt);
+	    delete $conf->{$opt};
+	    PVE::QemuServer::update_config_nolock($vmid, $conf, 1);
+	} else {
+	    &$pending_undelete_option($conf, $opt);
+	    delete $conf->{$opt};
+	    PVE::QemuServer::update_config_nolock($vmid, $conf, 1);
+	}
+    }
+
+    $conf = PVE::QemuServer::load_config($vmid); # update/reload
+
+    foreach my $opt (keys %{$conf->{pending}}) { # add/change
+	$conf = PVE::QemuServer::load_config($vmid); # update/reload
+
+	if (defined($conf->{$opt}) && ($conf->{$opt} eq $conf->{pending}->{$opt})) {
+	    # skip if nothing changed
+	} elsif (PVE::QemuServer::valid_drivename($opt)) {
+	    &$register_unused_drive($storecfg, $vmid, $conf, PVE::QemuServer::parse_drive($opt, $conf->{$opt}))
+		if defined($conf->{$opt});
+	    $conf->{$opt} = $conf->{pending}->{$opt};
+	} else {
+	    $conf->{$opt} = $conf->{pending}->{$opt};
+	}
+
+	delete $conf->{pending}->{$opt};
+	PVE::QemuServer::update_config_nolock($vmid, $conf, 1);
+    }
+};
+
 # POST/PUT {vmid}/config implementation
 #
 # The original API used PUT (idempotent) an we assumed that all operations
@@ -951,44 +1030,6 @@ my $update_vm_api  = sub {
 
     &$check_storage_access($rpcenv, $authuser, $storecfg, $vmid, $param);
 
-    my $pending_delete_option = sub {
-	my ($conf, $key) = @_;
-
-	delete $conf->{pending}->{$key};
-	my $pending_delete_hash = { $key => 1 };
-	foreach my $opt (PVE::Tools::split_list($conf->{pending}->{delete})) {
-	    $pending_delete_hash->{$opt} = 1;
-	}
-	$conf->{pending}->{delete} = join(',', keys %$pending_delete_hash);
-    };
-
-    my $pending_undelete_option = sub {
-	my ($conf, $key) = @_;
-
-	my $pending_delete_hash = {};
-	foreach my $opt (PVE::Tools::split_list($conf->{pending}->{delete})) {
-	    $pending_delete_hash->{$opt} = 1;
-	}
-	delete $pending_delete_hash->{$key};
-
-	my @keylist = keys %$pending_delete_hash;
-	if (scalar(@keylist)) {
-	    $conf->{pending}->{delete} = join(',', @keylist);
-	} else {
-	    delete $conf->{pending}->{delete};
-	}
-    };
-
-    my $register_unused_drive = sub {
-	my ($conf, $drive) = @_;
-	if (!PVE::QemuServer::drive_is_cdrom($drive)) {
-	    my $volid = $drive->{file};
-	    if (&$vm_is_volid_owner($storecfg, $vmid, $volid)) {
-		PVE::QemuServer::add_unused_volume($conf, $volid, $vmid);
-	    }
-	}
-    };
-
     my $updatefn =  sub {
 
 	my $conf = PVE::QemuServer::load_config($vmid);
@@ -1027,7 +1068,7 @@ my $update_vm_api  = sub {
 		    }
 		} elsif (PVE::QemuServer::valid_drivename($opt)) {
 		    $rpcenv->check_vm_perm($authuser, $vmid, undef, ['VM.Config.Disk']);
-		    &$register_unused_drive($conf, PVE::QemuServer::parse_drive($opt, $conf->{pending}->{$opt}))
+		    &$register_unused_drive($storecfg, $vmid, $conf, PVE::QemuServer::parse_drive($opt, $conf->{pending}->{$opt}))
 			if defined($conf->{pending}->{$opt});
 		    &$pending_delete_option($conf, $opt);
 		    PVE::QemuServer::update_config_nolock($vmid, $conf, 1);
@@ -1048,7 +1089,7 @@ my $update_vm_api  = sub {
 		    } else {
 			$rpcenv->check_vm_perm($authuser, $vmid, undef, ['VM.Config.Disk']);
 		    }
-		    &$register_unused_drive($conf, PVE::QemuServer::parse_drive($opt, $conf->{pending}->{$opt}))
+		    &$register_unused_drive($storecfg, $vmid, $conf, PVE::QemuServer::parse_drive($opt, $conf->{pending}->{$opt}))
 			if defined($conf->{pending}->{$opt});
 
 		    &$create_disks($rpcenv, $authuser, $conf->{pending}, $storecfg, $vmid, undef, {$opt => $param->{$opt}});
@@ -1072,9 +1113,15 @@ my $update_vm_api  = sub {
 
 	    return if !scalar(keys %{$conf->{pending}});
 
-	    return; # TODO: apply changes
-
 	    my $running = PVE::QemuServer::check_running($vmid);
+	    die "implement me - vm is running" if $running; # fixme: if $conf->{hotplug};
+
+	    # apply pending changes
+
+	    $conf = PVE::QemuServer::load_config($vmid); # update/reload
+	    &$vmconfig_apply_pending($vmid, $conf, $storecfg, $running);
+
+	    return; # TODO: remove old code below
 
 	    foreach my $opt (keys %$param) { # add/change
 
