@@ -951,6 +951,44 @@ my $update_vm_api  = sub {
 
     &$check_storage_access($rpcenv, $authuser, $storecfg, $vmid, $param);
 
+    my $pending_delete_option = sub {
+	my ($conf, $key) = @_;
+
+	delete $conf->{pending}->{$key};
+	my $pending_delete_hash = { $key => 1 };
+	foreach my $opt (PVE::Tools::split_list($conf->{pending}->{delete})) {
+	    $pending_delete_hash->{$opt} = 1;
+	}
+	$conf->{pending}->{delete} = join(',', keys %$pending_delete_hash);
+    };
+
+    my $pending_undelete_option = sub {
+	my ($conf, $key) = @_;
+
+	my $pending_delete_hash = {};
+	foreach my $opt (PVE::Tools::split_list($conf->{pending}->{delete})) {
+	    $pending_delete_hash->{$opt} = 1;
+	}
+	delete $pending_delete_hash->{$key};
+
+	my @keylist = keys %$pending_delete_hash;
+	if (scalar(@keylist)) {
+	    $conf->{pending}->{delete} = join(',', @keylist);
+	} else {
+	    delete $conf->{pending}->{delete};
+	}
+    };
+
+    my $register_unused_drive = sub {
+	my ($conf, $drive) = @_;
+	if (!PVE::QemuServer::drive_is_cdrom($drive)) {
+	    my $volid = $drive->{file};
+	    if (&$vm_is_volid_owner($storecfg, $vmid, $volid)) {
+		PVE::QemuServer::add_unused_volume($conf, $volid, $vmid);
+	    }
+	}
+    };
+
     my $updatefn =  sub {
 
 	my $conf = PVE::QemuServer::load_config($vmid);
@@ -960,6 +998,7 @@ my $update_vm_api  = sub {
 
 	PVE::QemuServer::check_lock($conf) if !$skiplock;
 
+	# fixme: wrong place? howto handle pending changes? @delete ?
 	if ($param->{memory} || defined($param->{balloon})) {
 	    my $maxmem = $param->{memory} || $conf->{memory} || $defaults->{memory};
 	    my $balloon = defined($param->{balloon}) ?  $param->{balloon} : $conf->{balloon};
@@ -974,10 +1013,66 @@ my $update_vm_api  = sub {
 
 	    print "update VM $vmid: " . join (' ', @paramarr) . "\n";
 
-	    foreach my $opt (@delete) { # delete
+	    # write updates to pending section
+
+	    foreach my $opt (@delete) {
 		$conf = PVE::QemuServer::load_config($vmid); # update/reload
-		&$vmconfig_delete_option($rpcenv, $authuser, $conf, $storecfg, $vmid, $opt, $force);
+		if ($opt =~ m/^unused/) {
+		    $rpcenv->check_vm_perm($authuser, $vmid, undef, ['VM.Config.Disk']);
+		    my $drive = PVE::QemuServer::parse_drive($opt, $conf->{$opt});
+		    if (my $sid = &$test_deallocate_drive($storecfg, $vmid, $opt, $drive, $force)) {
+			$rpcenv->check($authuser, "/storage/$sid", ['Datastore.AllocateSpace']);
+			&$delete_drive($conf, $storecfg, $vmid, $opt, $drive);
+			PVE::QemuServer::update_config_nolock($vmid, $conf, 1);
+		    }
+		} elsif (PVE::QemuServer::valid_drivename($opt)) {
+		    $rpcenv->check_vm_perm($authuser, $vmid, undef, ['VM.Config.Disk']);
+		    &$register_unused_drive($conf, PVE::QemuServer::parse_drive($opt, $conf->{pending}->{$opt}))
+			if defined($conf->{pending}->{$opt});
+		    &$pending_delete_option($conf, $opt);
+		    PVE::QemuServer::update_config_nolock($vmid, $conf, 1);
+		} else {
+		    &$pending_delete_option($conf, $opt);
+		    PVE::QemuServer::update_config_nolock($vmid, $conf, 1);
+		}
 	    }
+
+	    foreach my $opt (keys %$param) { # add/change
+		$conf = PVE::QemuServer::load_config($vmid); # update/reload
+		next if defined($conf->{pending}->{$opt}) && ($param->{$opt} eq $conf->{pending}->{$opt}); # skip if nothing changed
+
+		if (PVE::QemuServer::valid_drivename($opt)) {
+		    my $drive = PVE::QemuServer::parse_drive($opt, $param->{$opt});
+		    if (PVE::QemuServer::drive_is_cdrom($drive)) { # CDROM
+			$rpcenv->check_vm_perm($authuser, $vmid, undef, ['VM.Config.CDROM']);
+		    } else {
+			$rpcenv->check_vm_perm($authuser, $vmid, undef, ['VM.Config.Disk']);
+		    }
+		    &$register_unused_drive($conf, PVE::QemuServer::parse_drive($opt, $conf->{pending}->{$opt}))
+			if defined($conf->{pending}->{$opt});
+
+		    &$create_disks($rpcenv, $authuser, $conf->{pending}, $storecfg, $vmid, undef, {$opt => $param->{$opt}});
+		} else {
+		    $conf->{pending}->{$opt} = $param->{$opt};
+		}
+		&$pending_undelete_option($conf, $opt);
+		PVE::QemuServer::update_config_nolock($vmid, $conf, 1);
+	    }
+
+	    # remove pending changes when nothing changed
+	    my $changes;
+	    $conf = PVE::QemuServer::load_config($vmid); # update/reload
+	    foreach my $opt (keys %{$conf->{pending}}) { # add/change
+		if (defined($conf->{$opt}) && ($conf->{pending}->{$opt} eq  $conf->{$opt})) {
+		    $changes = 1;
+		    delete $conf->{pending}->{$opt};
+		}
+	    }
+	    PVE::QemuServer::update_config_nolock($vmid, $conf, 1) if $changes;
+
+	    return if !scalar(keys %{$conf->{pending}});
+
+	    return; # TODO: apply changes
 
 	    my $running = PVE::QemuServer::check_running($vmid);
 
