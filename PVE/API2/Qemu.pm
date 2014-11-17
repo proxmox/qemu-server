@@ -945,10 +945,9 @@ my $update_vm_api  = sub {
 
 	PVE::QemuServer::check_lock($conf) if !$skiplock;
 
-	# fixme: wrong place? howto handle pending changes? @delete ?
 	if ($param->{memory} || defined($param->{balloon})) {
-	    my $maxmem = $param->{memory} || $conf->{memory} || $defaults->{memory};
-	    my $balloon = defined($param->{balloon}) ?  $param->{balloon} : $conf->{balloon};
+	    my $maxmem = $param->{memory} || $conf->{pending}->{memory} || $conf->{memory} || $defaults->{memory};
+	    my $balloon = defined($param->{balloon}) ? $param->{balloon} : $conf->{pending}->{balloon} || $conf->{balloon};
 
 	    die "balloon value too large (must be smaller than assigned memory)\n"
 		if $balloon && $balloon > $maxmem;
