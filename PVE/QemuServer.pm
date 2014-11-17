@@ -3547,11 +3547,56 @@ sub set_migration_caps {
     vm_mon_cmd_nocheck($vmid, "migrate-set-capabilities", capabilities => $cap_ref);
 }
 
+sub vmconfig_hotplug_pending {
+    my ($vmid, $conf, $storecfg) = @_;
+
+    my $defaults = PVE::QemuServer::load_defaults();
+
+    # commit values which do not have any impact on running VM first
+
+    my $changes = 0;
+    foreach my $opt (keys %{$conf->{pending}}) { # add/change
+	if ($opt eq 'name' || $opt eq 'hotplug' || $opt eq 'onboot' || $opt eq 'shares') {
+	    $conf->{$opt} = $conf->{pending}->{$opt};
+	    delete $conf->{pending}->{$opt};
+	    $changes = 1;
+	}
+    }
+
+    if ($changes) {
+	update_config_nolock($vmid, $conf, 1);
+	$conf = load_config($vmid); # update/reload
+    }
+
+    $changes = 0;
+
+    # allow manual ballooning if shares is set to zero
+
+    if (defined($conf->{pending}->{balloon}) && defined($conf->{shares}) && ($conf->{shares} == 0)) {
+	my $balloon = $conf->{pending}->{balloon} || $conf->{memory} || $defaults->{memory};
+	vm_mon_cmd($vmid, "balloon", value => $balloon*1024*1024);
+	$conf->{balloon} = $conf->{pending}->{balloon};
+	delete $conf->{pending}->{balloon};
+	$changes = 1;
+    }
+
+    if ($changes) {
+	update_config_nolock($vmid, $conf, 1);
+	$conf = load_config($vmid); # update/reload
+    }
+
+    return if !$conf->{hotplug};
+
+    # fixme: implement disk/network hotplug here
+
+}
 
 sub vmconfig_apply_pending {
     my ($vmid, $conf, $storecfg, $running) = @_;
 
-    die "implement me - vm is running" if $running; # fixme: if $conf->{hotplug};
+    return vmconfig_hotplug_pending($vmid, $conf, $storecfg) if $running;
+
+    # cold plug
 
     my @delete = PVE::Tools::split_list($conf->{pending}->{delete});
     foreach my $opt (@delete) { # delete
