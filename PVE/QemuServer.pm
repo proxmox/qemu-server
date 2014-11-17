@@ -1433,6 +1433,59 @@ sub add_unused_volume {
     return $key;
 }
 
+sub vm_is_volid_owner {
+    my ($storecfg, $vmid, $volid) = @_;
+
+    if ($volid !~  m|^/|) {
+	my ($path, $owner);
+	eval { ($path, $owner) = PVE::Storage::path($storecfg, $volid); };
+	if ($owner && ($owner == $vmid)) {
+	    return 1;
+	}
+    }
+
+    return undef;
+}
+
+sub vmconfig_delete_pending_option {
+    my ($conf, $key) = @_;
+
+    delete $conf->{pending}->{$key};
+    my $pending_delete_hash = { $key => 1 };
+    foreach my $opt (PVE::Tools::split_list($conf->{pending}->{delete})) {
+	$pending_delete_hash->{$opt} = 1;
+    }
+    $conf->{pending}->{delete} = join(',', keys %$pending_delete_hash);
+}
+
+sub vmconfig_undelete_pending_option {
+    my ($conf, $key) = @_;
+
+    my $pending_delete_hash = {};
+    foreach my $opt (PVE::Tools::split_list($conf->{pending}->{delete})) {
+	$pending_delete_hash->{$opt} = 1;
+    }
+    delete $pending_delete_hash->{$key};
+
+    my @keylist = keys %$pending_delete_hash;
+    if (scalar(@keylist)) {
+	$conf->{pending}->{delete} = join(',', @keylist);
+    } else {
+	delete $conf->{pending}->{delete};
+    }
+}
+
+sub vmconfig_register_unused_drive {
+    my ($storecfg, $vmid, $conf, $drive) = @_;
+
+    if (!drive_is_cdrom($drive)) {
+	my $volid = $drive->{file};
+	if (vm_is_volid_owner($storecfg, $vmid, $volid)) {
+	    add_unused_volume($conf, $volid, $vmid);
+	}
+    }
+}
+
 my $valid_smbios1_options = {
     manufacturer => '\S+',
     product => '\S+',
@@ -3494,6 +3547,51 @@ sub set_migration_caps {
     vm_mon_cmd_nocheck($vmid, "migrate-set-capabilities", capabilities => $cap_ref);
 }
 
+
+sub vmconfig_apply_pending {
+    my ($vmid, $conf, $storecfg, $running) = @_;
+
+    die "implement me - vm is running" if $running; # fixme: if $conf->{hotplug};
+
+    my @delete = PVE::Tools::split_list($conf->{pending}->{delete});
+    foreach my $opt (@delete) { # delete
+	die "internal error" if $opt =~ m/^unused/;
+	$conf = load_config($vmid); # update/reload
+	if (!defined($conf->{$opt})) {
+	    vmconfig_undelete_pending_option($conf, $opt);
+	    update_config_nolock($vmid, $conf, 1);
+	} elsif (valid_drivename($opt)) {
+	    vmconfig_register_unused_drive($storecfg, $vmid, $conf, parse_drive($opt, $conf->{$opt}));
+	    vmconfig_undelete_pending_option($conf, $opt);
+	    delete $conf->{$opt};
+	    update_config_nolock($vmid, $conf, 1);
+	} else {
+	    vmconfig_undelete_pending_option($conf, $opt);
+	    delete $conf->{$opt};
+	    update_config_nolock($vmid, $conf, 1);
+	}
+    }
+
+    $conf = load_config($vmid); # update/reload
+
+    foreach my $opt (keys %{$conf->{pending}}) { # add/change
+	$conf = load_config($vmid); # update/reload
+
+	if (defined($conf->{$opt}) && ($conf->{$opt} eq $conf->{pending}->{$opt})) {
+	    # skip if nothing changed
+	} elsif (valid_drivename($opt)) {
+	    vmconfig_register_unused_drive($storecfg, $vmid, $conf, parse_drive($opt, $conf->{$opt}))
+		if defined($conf->{$opt});
+	    $conf->{$opt} = $conf->{pending}->{$opt};
+	} else {
+	    $conf->{$opt} = $conf->{pending}->{$opt};
+	}
+
+	delete $conf->{pending}->{$opt};
+	update_config_nolock($vmid, $conf, 1);
+    }
+}
+
 sub vm_start {
     my ($storecfg, $vmid, $statefile, $skiplock, $migratedfrom, $paused, $forcemachine, $spice_ticket) = @_;
 
@@ -3505,6 +3603,11 @@ sub vm_start {
 	check_lock($conf) if !$skiplock;
 
 	die "VM $vmid already running\n" if check_running($vmid, undef, $migratedfrom);
+
+	if (!$statefile && scalar(keys %{$conf->{pending}})) {
+	    vmconfig_apply_pending($vmid, $conf, $storecfg, 0);
+	    $conf = load_config($vmid); # update/reload
+	}
 
 	my $defaults = load_defaults();
 
