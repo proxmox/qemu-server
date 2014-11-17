@@ -2588,6 +2588,12 @@ sub config_to_command {
     my $cores = $conf->{cores} || 1;
     my $maxcpus = $conf->{maxcpus} if $conf->{maxcpus};
 
+    my $total_cores = $sockets * $cores;
+    my $allowed_cores = $cpuinfo->{cpus};
+
+    die "MAX $allowed_cores Cores allowed per VM on this Node"
+	if ($allowed_cores < $total_cores);
+
     if ($maxcpus) {
 	push @$cmd, '-smp', "cpus=$cores,maxcpus=$maxcpus";
     } else {
