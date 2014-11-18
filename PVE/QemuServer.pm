@@ -3095,7 +3095,6 @@ sub vm_devices_list {
     my ($vmid) = @_;
 
     my $res = vm_mon_cmd($vmid, 'query-pci');
-
     my $devices = {};
     foreach my $pcibus (@$res) {
 	foreach my $device (@{$pcibus->{devices}}) {
@@ -3111,6 +3110,14 @@ sub vm_devices_list {
 	}
     }
 
+    my $resmice = vm_mon_cmd($vmid, 'query-mice');
+    foreach my $mice (@$resmice) {
+	if ($mice->{name} eq 'QEMU HID Tablet') {
+	    $devices->{tablet} = 1;
+	    last;
+	}
+    }
+
     return $devices;
 }
 
@@ -3121,15 +3128,15 @@ sub vm_deviceplug {
 
     my $q35 = machine_type_is_q35($conf);
 
-    if ($deviceid eq 'tablet') {
-	qemu_deviceadd($vmid, print_tabletdevice_full($conf));
-	return 1;
-    }
-
     return 1 if !$conf->{hotplug};
 
     my $devices_list = vm_devices_list($vmid);
     return 1 if defined($devices_list->{$deviceid});
+
+    if ($deviceid eq 'tablet') {
+	qemu_deviceadd($vmid, print_tabletdevice_full($conf));
+	return 1;
+    }
 
     qemu_bridgeadd($storecfg, $conf, $vmid, $deviceid); #add bridge if we need it for the device
 
@@ -3188,15 +3195,15 @@ sub vm_deviceunplug {
 
     return 1 if !check_running ($vmid);
 
-    if ($deviceid eq 'tablet') {
-	qemu_devicedel($vmid, $deviceid);
-	return 1;
-    }
-
     return 1 if !$conf->{hotplug};
 
     my $devices_list = vm_devices_list($vmid);
     return 1 if !defined($devices_list->{$deviceid});
+
+    if ($deviceid eq 'tablet') {
+	qemu_devicedel($vmid, $deviceid);
+	return 1;
+    }
 
     die "can't unplug bootdisk" if $conf->{bootdisk} && $conf->{bootdisk} eq $deviceid;
 
@@ -3587,8 +3594,48 @@ sub vmconfig_hotplug_pending {
 
     return if !$conf->{hotplug};
 
-    # fixme: implement disk/network hotplug here
+    my @delete = PVE::Tools::split_list($conf->{pending}->{delete});
+    foreach my $opt (@delete) {
+	if ($opt eq 'tablet') {
+	    if ($defaults->{tablet}) {
+		PVE::QemuServer::vm_deviceplug($storecfg, $conf, $vmid, $opt);
+	    } else {
+		PVE::QemuServer::vm_deviceunplug($vmid, $conf, $opt);
+	    }
+	} else {
+	    # skip non-hot-pluggable options
+	    next;
+	}
 
+	# save new config if hotplug was successful
+	delete $conf->{$opt};
+	vmconfig_undelete_pending_option($conf, $opt);
+	update_config_nolock($vmid, $conf, 1);
+
+	$conf = load_config($vmid); # update/reload
+    }
+
+    foreach my $opt (keys %{$conf->{pending}}) {
+	my $value = $conf->{pending}->{$opt};
+
+	if ($opt eq 'tablet') {
+	    if ($value == 1) {
+		PVE::QemuServer::vm_deviceplug($storecfg, $conf, $vmid, $opt);
+	    } elsif ($value == 0) {
+		PVE::QemuServer::vm_deviceunplug($vmid, $conf, $opt);
+	    }
+	} else {
+	    # skip non-hot-pluggable options
+	    next;
+	}
+
+	# save new config if hotplug was successful
+	$conf->{$opt} = $value;
+	delete $conf->{pending}->{$opt};
+	update_config_nolock($vmid, $conf, 1);
+
+	$conf = load_config($vmid); # update/reload
+    }
 }
 
 sub vmconfig_apply_pending {
