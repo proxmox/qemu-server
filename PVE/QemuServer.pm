@@ -3589,7 +3589,7 @@ sub set_migration_caps {
 sub vmconfig_hotplug_pending {
     my ($vmid, $conf, $storecfg) = @_;
 
-    my $defaults = PVE::QemuServer::load_defaults();
+    my $defaults = load_defaults();
 
     # commit values which do not have any impact on running VM first
 
@@ -3630,9 +3630,9 @@ sub vmconfig_hotplug_pending {
     foreach my $opt (@delete) {
 	if ($opt eq 'tablet') {
 	    if ($defaults->{tablet}) {
-		PVE::QemuServer::vm_deviceplug($storecfg, $conf, $vmid, $opt);
+		vm_deviceplug($storecfg, $conf, $vmid, $opt);
 	    } else {
-		PVE::QemuServer::vm_deviceunplug($vmid, $conf, $opt);
+		vm_deviceunplug($vmid, $conf, $opt);
 	    }
 	} else {
 	    # skip non-hot-pluggable options
@@ -3652,9 +3652,9 @@ sub vmconfig_hotplug_pending {
 
 	if ($opt eq 'tablet') {
 	    if ($value == 1) {
-		PVE::QemuServer::vm_deviceplug($storecfg, $conf, $vmid, $opt);
+		vm_deviceplug($storecfg, $conf, $vmid, $opt);
 	    } elsif ($value == 0) {
-		PVE::QemuServer::vm_deviceunplug($vmid, $conf, $opt);
+		vm_deviceunplug($vmid, $conf, $opt);
 	    }
 	} else {
 	    # skip non-hot-pluggable options
@@ -3800,15 +3800,15 @@ sub vm_start {
 	if ($migratedfrom) {
 
 	    eval {
-		PVE::QemuServer::set_migration_caps($vmid);
+		set_migration_caps($vmid);
 	    };
 	    warn $@ if $@;
 
 	    if ($spice_port) {
 	        print "spice listens on port $spice_port\n";
 		if ($spice_ticket) {
-		    PVE::QemuServer::vm_mon_cmd_nocheck($vmid, "set_password", protocol => 'spice', password => $spice_ticket);
-		    PVE::QemuServer::vm_mon_cmd_nocheck($vmid, "expire_password", protocol => 'spice', time => "+30");
+		    vm_mon_cmd_nocheck($vmid, "set_password", protocol => 'spice', password => $spice_ticket);
+		    vm_mon_cmd_nocheck($vmid, "expire_password", protocol => 'spice', time => "+30");
 		}
 	    }
 
@@ -4875,7 +4875,7 @@ sub restore_tar_archive {
     my $storecfg = cfs_read_file('storage.cfg');
 
     # destroy existing data - keep empty config
-    my $vmcfgfn = PVE::QemuServer::config_file($vmid);
+    my $vmcfgfn = config_file($vmid);
     destroy_vm($storecfg, $vmid, 1) if -f $vmcfgfn;
 
     my $tocmd = "/usr/lib/qemu-server/qmextract";
@@ -5691,7 +5691,7 @@ sub get_current_qemu_machine {
     my ($vmid) = @_;
 
     my $cmd = { execute => 'query-machines', arguments => {} };
-    my $res = PVE::QemuServer::vm_qmp_command($vmid, $cmd);
+    my $res = vm_qmp_command($vmid, $cmd);
 
     my ($current, $default);
     foreach my $e (@$res) {
