@@ -961,7 +961,10 @@ my $update_vm_api  = sub {
 
 	    # write updates to pending section
 
+	    my $modified = {}; # record what $option we modify
+
 	    foreach my $opt (@delete) {
+		$modified->{$opt} = 1;
 		$conf = PVE::QemuServer::load_config($vmid); # update/reload
 		if ($opt =~ m/^unused/) {
 		    $rpcenv->check_vm_perm($authuser, $vmid, undef, ['VM.Config.Disk']);
@@ -984,6 +987,7 @@ my $update_vm_api  = sub {
 	    }
 
 	    foreach my $opt (keys %$param) { # add/change
+		$modified->{$opt} = 1;
 		$conf = PVE::QemuServer::load_config($vmid); # update/reload
 		next if defined($conf->{pending}->{$opt}) && ($param->{$opt} eq $conf->{pending}->{$opt}); # skip if nothing changed
 
@@ -1017,8 +1021,14 @@ my $update_vm_api  = sub {
 	    # apply pending changes
 
 	    $conf = PVE::QemuServer::load_config($vmid); # update/reload
-	    PVE::QemuServer::vmconfig_apply_pending($vmid, $conf, $storecfg, $running);
 
+	    if ($running) {
+		my $errors = {};
+		PVE::QemuServer::vmconfig_hotplug_pending($vmid, $conf, $storecfg, $modified, $errors);
+		raise_param_exc($errors) if scalar(keys %$errors);
+	    } else {
+		PVE::QemuServer::vmconfig_apply_pending($vmid, $conf, $storecfg, $running);
+	    }
 	    return; # TODO: remove old code below
 
 	    foreach my $opt (keys %$param) { # add/change

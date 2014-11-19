@@ -3387,22 +3387,25 @@ sub qemu_netdevdel {
 sub qemu_cpu_hotplug {
     my ($vmid, $conf, $cores) = @_;
 
-    die "new cores config is not defined" if !$cores;
-    die "you can't add more cores than maxcpus"
-	if $conf->{maxcpus} && ($cores > $conf->{maxcpus});
-    return if !check_running($vmid);
+    my $sockets = $conf->{sockets} || 1;
+    die "cpu hotplug only works with one socket\n"
+	if $sockets > 1;
 
-    my $currentcores = $conf->{cores} if $conf->{cores};
-    die "current cores is not defined" if !$currentcores;
-    die "maxcpus is not defined" if !$conf->{maxcpus};
-    raise_param_exc({ 'cores' => "online cpu unplug is not yet possible" })
-	if($cores < $currentcores);
+    die "maxcpus is not defined\n"
+	if !$conf->{maxcpus};
+
+    die "you can't add more cores than maxcpus\n"
+	if $cores > $conf->{maxcpus};
+
+    my $currentcores = $conf->{cores} || 1;
+    die "online cpu unplug is not yet possible\n"
+	if $cores < $currentcores;
 
     my $currentrunningcores = vm_mon_cmd($vmid, "query-cpus");
-    raise_param_exc({ 'cores' => "cores number if running vm is different than configuration" })
-	if scalar (@{$currentrunningcores}) != $currentcores;
+    die "cores number if running vm is different than configuration\n"
+	if scalar(@{$currentrunningcores}) != $currentcores;
 
-    for(my $i = $currentcores; $i < $cores; $i++) {
+    for (my $i = $currentcores; $i < $cores; $i++) {
 	vm_mon_cmd($vmid, "cpu-add", id => int($i));
     }
 }
@@ -3586,12 +3589,23 @@ sub set_migration_caps {
     vm_mon_cmd_nocheck($vmid, "migrate-set-capabilities", capabilities => $cap_ref);
 }
 
+# hotplug changes in [PENDING]
+# $selection hash can be used to only apply specified options, for
+# example: { cores => 1 } (only apply changed 'cores')
+# $errors ref is used to return error messages
 sub vmconfig_hotplug_pending {
-    my ($vmid, $conf, $storecfg) = @_;
+    my ($vmid, $conf, $storecfg, $selection, $errors) = @_;
 
     my $defaults = load_defaults();
 
     # commit values which do not have any impact on running VM first
+    # Note: those option cannot raise errors, we we do not care about
+    # $selection and always apply them.
+
+    my $add_error = sub {
+	my ($opt, $msg) = @_;
+	$errors->{$opt} = "hotplug problem - $msg";
+    };
 
     my $changes = 0;
     foreach my $opt (keys %{$conf->{pending}}) { # add/change
@@ -3607,73 +3621,78 @@ sub vmconfig_hotplug_pending {
 	$conf = load_config($vmid); # update/reload
     }
 
-    $changes = 0;
-
-    # allow manual ballooning if shares is set to zero
-
-    if (defined($conf->{pending}->{balloon}) && defined($conf->{shares}) && ($conf->{shares} == 0)) {
-	my $balloon = $conf->{pending}->{balloon} || $conf->{memory} || $defaults->{memory};
-	vm_mon_cmd($vmid, "balloon", value => $balloon*1024*1024);
-	$conf->{balloon} = $conf->{pending}->{balloon};
-	delete $conf->{pending}->{balloon};
-	$changes = 1;
-    }
-
-    if ($changes) {
-	update_config_nolock($vmid, $conf, 1);
-	$conf = load_config($vmid); # update/reload
-    }
-
-    return if !$conf->{hotplug};
+    my $hotplug = defined($conf->{hotplug}) ? $conf->{hotplug} : $defaults->{hotplug};
 
     my @delete = PVE::Tools::split_list($conf->{pending}->{delete});
     foreach my $opt (@delete) {
-	if ($opt eq 'tablet') {
-	    if ($defaults->{tablet}) {
-		vm_deviceplug($storecfg, $conf, $vmid, $opt);
+	next if $selection && !$selection->{$opt};
+	my $skip;
+	eval {
+	    if ($opt eq 'tablet') {
+		return undef if !$hotplug;
+		if ($defaults->{tablet}) {
+		    vm_deviceplug($storecfg, $conf, $vmid, $opt);
+		} else {
+		    vm_deviceunplug($vmid, $conf, $opt);
+		}
+	    } elsif ($opt eq 'cores') {
+		return undef if !$hotplug;
+		qemu_cpu_hotplug($vmid, $conf, 1);
 	    } else {
-		vm_deviceunplug($vmid, $conf, $opt);
+		$skip = 1; # skip non-hot-pluggable options
+		return undef;
 	    }
-	} else {
-	    # skip non-hot-pluggable options
-	    next;
+	};
+	if (my $err = $@) {
+	    &$add_error($opt, $err);
+	} elsif (!$skip) {
+	    # save new config if hotplug was successful
+	    delete $conf->{$opt};
+	    vmconfig_undelete_pending_option($conf, $opt);
+	    update_config_nolock($vmid, $conf, 1);
+	    $conf = load_config($vmid); # update/reload
 	}
-
-	# save new config if hotplug was successful
-	delete $conf->{$opt};
-	vmconfig_undelete_pending_option($conf, $opt);
-	update_config_nolock($vmid, $conf, 1);
-
-	$conf = load_config($vmid); # update/reload
     }
 
     foreach my $opt (keys %{$conf->{pending}}) {
+	next if $selection && !$selection->{$opt};
 	my $value = $conf->{pending}->{$opt};
-
-	if ($opt eq 'tablet') {
-	    if ($value == 1) {
-		vm_deviceplug($storecfg, $conf, $vmid, $opt);
-	    } elsif ($value == 0) {
-		vm_deviceunplug($vmid, $conf, $opt);
+	my $skip;
+	eval {
+	    if ($opt eq 'tablet') {
+		return undef if !$hotplug;
+		if ($value == 1) {
+		    vm_deviceplug($storecfg, $conf, $vmid, $opt);
+		} elsif ($value == 0) {
+		    vm_deviceunplug($vmid, $conf, $opt);
+		}
+	    } elsif ($opt eq 'cores') {
+		return undef if !$hotplug;
+		qemu_cpu_hotplug($vmid, $conf, $value);
+	    } elsif ($opt eq 'balloon') {
+		return undef if !(defined($conf->{shares}) && ($conf->{shares} == 0));
+		# allow manual ballooning if shares is set to zero
+		my $balloon = $conf->{pending}->{balloon} || $conf->{memory} || $defaults->{memory};
+		vm_mon_cmd($vmid, "balloon", value => $balloon*1024*1024);
+	    } else {
+		$skip = 1; # skip non-hot-pluggable options
+		return undef;
 	    }
-	} else {
-	    # skip non-hot-pluggable options
-	    next;
+	};
+	if (my $err = $@) {
+	    &$add_error($opt, $err);
+	} elsif (!$skip) {
+	    # save new config if hotplug was successful
+	    $conf->{$opt} = $value;
+	    delete $conf->{pending}->{$opt};
+	    update_config_nolock($vmid, $conf, 1);
+	    $conf = load_config($vmid); # update/reload
 	}
-
-	# save new config if hotplug was successful
-	$conf->{$opt} = $value;
-	delete $conf->{pending}->{$opt};
-	update_config_nolock($vmid, $conf, 1);
-
-	$conf = load_config($vmid); # update/reload
     }
 }
 
 sub vmconfig_apply_pending {
-    my ($vmid, $conf, $storecfg, $running) = @_;
-
-    return vmconfig_hotplug_pending($vmid, $conf, $storecfg) if $running;
+    my ($vmid, $conf, $storecfg) = @_;
 
     # cold plug
 
@@ -3729,7 +3748,7 @@ sub vm_start {
 	die "VM $vmid already running\n" if check_running($vmid, undef, $migratedfrom);
 
 	if (!$statefile && scalar(keys %{$conf->{pending}})) {
-	    vmconfig_apply_pending($vmid, $conf, $storecfg, 0);
+	    vmconfig_apply_pending($vmid, $conf, $storecfg);
 	    $conf = load_config($vmid); # update/reload
 	}
 
