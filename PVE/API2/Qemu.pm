@@ -1006,14 +1006,8 @@ my $update_vm_api  = sub {
 	    }
 
 	    # remove pending changes when nothing changed
-	    my $changes;
 	    $conf = PVE::QemuServer::load_config($vmid); # update/reload
-	    foreach my $opt (keys %{$conf->{pending}}) { # add/change
-		if (defined($conf->{$opt}) && ($conf->{pending}->{$opt} eq  $conf->{$opt})) {
-		    $changes = 1;
-		    delete $conf->{pending}->{$opt};
-		}
-	    }
+	    my $changes = PVE::QemuServer::vmconfig_cleanup_pending($conf);
 	    PVE::QemuServer::update_config_nolock($vmid, $conf, 1) if $changes;
 
 	    return if !scalar(keys %{$conf->{pending}});

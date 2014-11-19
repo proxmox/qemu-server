@@ -1486,6 +1486,38 @@ sub vmconfig_register_unused_drive {
     }
 }
 
+sub vmconfig_cleanup_pending {
+    my ($conf) = @_;
+
+    # remove pending changes when nothing changed
+    my $changes;
+    foreach my $opt (keys %{$conf->{pending}}) {
+	if (defined($conf->{$opt}) && ($conf->{pending}->{$opt} eq  $conf->{$opt})) {
+	    $changes = 1;
+	    delete $conf->{pending}->{$opt};
+	}
+    }
+
+    # remove delete if option is not set
+    my $pending_delete_hash = {};
+    foreach my $opt (PVE::Tools::split_list($conf->{pending}->{delete})) {
+	if (defined($conf->{$opt})) {
+	    $pending_delete_hash->{$opt} = 1;
+	} else {
+	    $changes = 1;
+	}
+    }
+
+    my @keylist = keys %$pending_delete_hash;
+    if (scalar(@keylist)) {
+	$conf->{pending}->{delete} = join(',', @keylist);
+    } else {
+	delete $conf->{pending}->{delete};
+    }
+
+    return $changes;
+}
+
 my $valid_smbios1_options = {
     manufacturer => '\S+',
     product => '\S+',
