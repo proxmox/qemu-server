@@ -4935,6 +4935,20 @@ sub snapshot_create {
     eval { vm_mon_cmd($vmid, "savevm-end") if $running; };
     warn $@ if $@;
 
+    #savevm-end is async, we need to wait
+    if($running) {
+	for(;;) {
+	    my $stat = vm_mon_cmd_nocheck($vmid, "query-savevm");
+	    if (!$stat->{bytes}) {
+		last;
+	    } else {
+		print "savevm not yet finished\n";
+		sleep(1);
+		next;
+	    }
+	}
+    }
+
     if ($err) {
 	warn "snapshot create failed: starting cleanup\n";
 	eval { snapshot_delete($vmid, $snapname, 0, $drivehash); };
