@@ -624,7 +624,7 @@ __PACKAGE__->register_method({
     path => '{vmid}/config',
     method => 'GET',
     proxyto => 'node',
-    description => "Get virtual machine configuration.",
+    description => "Get current virtual machine configuration. This does not include pending configuration changes (see 'pending' API).",
     permissions => {
 	check => ['perm', '/vms/{vmid}', [ 'VM.Audit' ]],
     },
@@ -650,8 +650,92 @@ __PACKAGE__->register_method({
 	my $conf = PVE::QemuServer::load_config($param->{vmid});
 
 	delete $conf->{snapshots};
+	delete $conf->{pending};
 
 	return $conf;
+    }});
+
+__PACKAGE__->register_method({
+    name => 'vm_pending',
+    path => '{vmid}/pending',
+    method => 'GET',
+    proxyto => 'node',
+    description => "Get virtual machine configuration, including pending changes.",
+    permissions => {
+	check => ['perm', '/vms/{vmid}', [ 'VM.Audit' ]],
+    },
+    parameters => {
+	additionalProperties => 0,
+	properties => {
+	    node => get_standard_option('pve-node'),
+	    vmid => get_standard_option('pve-vmid'),
+	},
+    },
+    returns => {
+	type => "array",
+	items => {
+	    type => "object",
+	    properties => {
+		key => {
+		    description => "Configuration option name.",
+		    type => 'string',
+		},
+		value => {
+		    description => "Current value.",
+		    type => 'string',
+		    optional => 1,
+		},
+		pending => {
+		    description => "Pending value.",
+		    type => 'string',
+		    optional => 1,
+		},
+		delete => {
+		    description => "Indicated a pending delete request.",
+		    type => 'boolean',
+		    optional => 1,
+		},
+	    },
+	},
+    },
+    code => sub {
+	my ($param) = @_;
+
+	my $conf = PVE::QemuServer::load_config($param->{vmid});
+
+	my $pending_delete_hash = {};
+	foreach my $opt (PVE::Tools::split_list($conf->{pending}->{delete})) {
+	    $pending_delete_hash->{$opt} = 1;
+	}
+
+	my $res = [];
+
+	foreach my $opt (keys $conf) {
+	    next if ref($conf->{$opt});
+	    my $item = { key => $opt };
+	    $item->{value} = $conf->{$opt} if defined($conf->{$opt});
+	    $item->{pending} = $conf->{pending}->{$opt} if defined($conf->{pending}->{$opt});
+	    $item->{delete} = 1 if $pending_delete_hash->{$opt};
+	    push @$res, $item;
+	}
+
+	foreach my $opt (keys $conf->{pending}) {
+	    next if $opt eq 'delete';
+	    next if ref($conf->{pending}->{$opt}); # just to be sure
+	    next if $conf->{$opt};
+	    my $item = { key => $opt };
+	    $item->{pending} = $conf->{pending}->{$opt};
+	    push @$res, $item;
+	}
+
+	foreach my $opt (PVE::Tools::split_list($conf->{pending}->{delete})) {
+	    next if $conf->{pending}->{$opt}; # just to be sure
+	    next if $conf->{$opt};
+	    my $item = { key => $opt, delete => 1};
+	    push @$res, $item;
+	}
+
+	return $res;
     }});
 
 my $delete_drive = sub {

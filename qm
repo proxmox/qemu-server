@@ -437,6 +437,33 @@ my $cmddef = {
 		    }
 		}],
 	
+    pending => [ "PVE::API2::Qemu", 'vm_pending', ['vmid'],
+		{ node => $nodename }, sub {
+		    my $data = shift;
+		    foreach my $item (sort { $a->{key} cmp $b->{key}} @$data) {
+			my $k = $item->{key};
+			next if $k eq 'digest';
+			my $v = $item->{value};
+			my $p = $item->{pending};
+			if ($k eq 'description') {
+			    $v = PVE::Tools::encode_text($v) if defined($v);
+			    $p = PVE::Tools::encode_text($p) if defined($p);
+			}
+			if (defined($v)) {
+			    if ($item->{delete}) {
+				print "del $k: $v\n";
+			    } elsif (defined($p)) {
+				print "cur $k: $v\n";
+				print "new $k: $p\n";
+			    } else {
+				print "cur $k: $v\n";
+			    }
+			} elsif (defined($p)) {
+			    print "new $k: $p\n";
+			}
+		    }
+		}],
+
     showcmd => [ __PACKAGE__, 'showcmd', ['vmid']],
 
     status => [ __PACKAGE__, 'status', ['vmid']],
