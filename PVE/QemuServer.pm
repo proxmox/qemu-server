@@ -2591,7 +2591,7 @@ sub config_to_command {
     my $total_cores = $sockets * $cores;
     my $allowed_cores = $cpuinfo->{cpus};
 
-    die "MAX $allowed_cores Cores allowed per VM on this Node"
+    die "MAX $allowed_cores cores allowed per VM on this node\n"
 	if ($allowed_cores < $total_cores);
 
     if ($maxcpus) {
@@ -4935,9 +4935,9 @@ sub snapshot_create {
     eval { vm_mon_cmd($vmid, "savevm-end") if $running; };
     warn $@ if $@;
 
-    #savevm-end is async, we need to wait
-    if($running) {
-	for(;;) {
+    # savevm-end is async, we need to wait
+    if ($running) {
+	for (;;) {
 	    my $stat = vm_mon_cmd_nocheck($vmid, "query-savevm");
 	    if (!$stat->{bytes}) {
 		last;
@@ -5190,7 +5190,7 @@ sub qemu_drive_mirror {
 
     #fixme : sometime drive-mirror timeout, but works fine after.
     # (I have see the problem with big volume > 200GB), so we need to eval
-    eval { vm_mon_cmd($vmid, "drive-mirror", %$opts); }; 
+    eval { vm_mon_cmd($vmid, "drive-mirror", %$opts); };
     # ignore errors here
 
     eval {
@@ -5207,12 +5207,12 @@ sub qemu_drive_mirror {
 	    my $busy = $stat->{busy};
 
 	    print "transferred: $transferred bytes remaining: $remaining bytes total: $total bytes progression: $percent % busy: $busy\n";
-	    
+
 	    if ($stat->{len} == $stat->{offset}) {
 		if ($busy eq 'false') {
 
 		    last if $vmiddst != $vmid;
-		    
+
 		    # try to switch the disk if source and destination are on the same guest
 		    eval { vm_mon_cmd($vmid, "block-job-complete", device => "drive-$drive") };
 		    last if !$@;
@@ -5247,7 +5247,7 @@ sub qemu_drive_mirror {
     };
 
     if ($err) {
-	eval { &$cancel_job(); }; 
+	eval { &$cancel_job(); };
 	die "mirroring error: $err";
     }
 

@@ -512,7 +512,7 @@ __PACKAGE__->register_method({
     }});
 
 __PACKAGE__->register_method ({
-    subclass => "PVE::API2::Firewall::VM",  
+    subclass => "PVE::API2::Firewall::VM",
     path => '{vmid}/firewall',
 });
 
@@ -1004,7 +1004,7 @@ my $update_vm_api  = sub {
 		    } elsif($opt eq 'tablet' && $param->{$opt} == 0){
 			PVE::QemuServer::vm_deviceunplug($vmid, $conf, $opt);
 		    }
-		
+
 		    if($opt eq 'cores' && $conf->{maxcpus}){
 			PVE::QemuServer::qemu_cpu_hotplug($vmid, $conf, $param->{$opt});
 		    }
@@ -1429,7 +1429,7 @@ __PACKAGE__->register_method({
 	# check is done by verifying the VNC ticket (inside VNC protocol).
 
 	my $port = $param->{port};
-	
+
 	return { port => $port };
     }});
 
@@ -1468,12 +1468,12 @@ __PACKAGE__->register_method({
 
 	my $port = PVE::QemuServer::spice_port($vmid);
 
-	my ($ticket, undef, $remote_viewer_config) = 
+	my ($ticket, undef, $remote_viewer_config) =
 	    PVE::AccessControl::remote_viewer_config($authuser, $vmid, $node, $proxy, $title, $port);
-	
+
 	PVE::QemuServer::vm_mon_cmd($vmid, "set_password", protocol => 'spice', password => $ticket);
 	PVE::QemuServer::vm_mon_cmd($vmid, "expire_password", protocol => 'spice', time => "+30");
-	
+
 	return $remote_viewer_config;
     }});
 
@@ -2284,7 +2284,7 @@ __PACKAGE__->register_method({
             UUID::generate($uuid);
             UUID::unparse($uuid, $uuid_str);
 	    my $smbios1 = PVE::QemuServer::parse_smbios1($newconf->{smbios1} || '');
-	    $smbios1->{uuid} = $uuid_str; 
+	    $smbios1->{uuid} = $uuid_str;
 	    $newconf->{smbios1} = PVE::QemuServer::print_smbios1($smbios1);
 
 	    delete $newconf->{template};
@@ -2484,9 +2484,9 @@ __PACKAGE__->register_method({
 
 		    PVE::QemuServer::update_config_nolock($vmid, $conf, 1);
 
-		    eval { 
+		    eval {
 			# try to deactivate volumes - avoid lvm LVs to be active on several nodes
-			PVE::Storage::deactivate_volumes($storecfg, [ $newdrive->{file} ]) 
+			PVE::Storage::deactivate_volumes($storecfg, [ $newdrive->{file} ])
 			    if !$running;
 		    };
 		    warn $@ if $@;
