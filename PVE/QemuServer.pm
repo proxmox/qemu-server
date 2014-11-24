@@ -3630,26 +3630,24 @@ sub vmconfig_hotplug_pending {
     my @delete = PVE::Tools::split_list($conf->{pending}->{delete});
     foreach my $opt (@delete) {
 	next if $selection && !$selection->{$opt};
-	my $skip;
 	eval {
 	    if ($opt eq 'tablet') {
-		return undef if !$hotplug;
+		die "skip\n" if !$hotplug;
 		if ($defaults->{tablet}) {
 		    vm_deviceplug($storecfg, $conf, $vmid, $opt);
 		} else {
 		    vm_deviceunplug($vmid, $conf, $opt);
 		}
 	    } elsif ($opt eq 'cores') {
-		return undef if !$hotplug;
+		die "skip\n" if !$hotplug;
 		qemu_cpu_hotplug($vmid, $conf, 1);
 	    } else {
-		$skip = 1; # skip non-hot-pluggable options
-		return undef;
+		die "skip\n";
 	    }
 	};
 	if (my $err = $@) {
-	    &$add_error($opt, $err);
-	} elsif (!$skip) {
+	    &$add_error($opt, $err) if $err ne "skip\n";
+	} else {
 	    # save new config if hotplug was successful
 	    delete $conf->{$opt};
 	    vmconfig_undelete_pending_option($conf, $opt);
@@ -3661,31 +3659,29 @@ sub vmconfig_hotplug_pending {
     foreach my $opt (keys %{$conf->{pending}}) {
 	next if $selection && !$selection->{$opt};
 	my $value = $conf->{pending}->{$opt};
-	my $skip;
 	eval {
 	    if ($opt eq 'tablet') {
-		return undef if !$hotplug;
+		die "skip\n" if !$hotplug;
 		if ($value == 1) {
 		    vm_deviceplug($storecfg, $conf, $vmid, $opt);
 		} elsif ($value == 0) {
 		    vm_deviceunplug($vmid, $conf, $opt);
 		}
 	    } elsif ($opt eq 'cores') {
-		return undef if !$hotplug;
+		die "skip\n" if !$hotplug;
 		qemu_cpu_hotplug($vmid, $conf, $value);
 	    } elsif ($opt eq 'balloon') {
-		return undef if !(defined($conf->{shares}) && ($conf->{shares} == 0));
+		die "skip\n" if !(defined($conf->{shares}) && ($conf->{shares} == 0));
 		# allow manual ballooning if shares is set to zero
 		my $balloon = $conf->{pending}->{balloon} || $conf->{memory} || $defaults->{memory};
 		vm_mon_cmd($vmid, "balloon", value => $balloon*1024*1024);
 	    } else {
-		$skip = 1; # skip non-hot-pluggable options
-		return undef;
+		die "skip\n";  # skip non-hot-pluggable options
 	    }
 	};
 	if (my $err = $@) {
-	    &$add_error($opt, $err);
-	} elsif (!$skip) {
+	    &$add_error($opt, $err) if $err ne "skip\n";
+	} else {
 	    # save new config if hotplug was successful
 	    $conf->{$opt} = $value;
 	    delete $conf->{pending}->{$opt};
