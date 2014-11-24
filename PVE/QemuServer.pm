@@ -3170,7 +3170,7 @@ sub vm_deviceplug {
 	return 1;
     }
 
-    qemu_bridgeadd($storecfg, $conf, $vmid, $deviceid); #add bridge if we need it for the device
+    qemu_add_pci_bridge($storecfg, $conf, $vmid, $deviceid); # add PCI bridge if we need it for the device
 
     if ($deviceid =~ m/^(virtio)(\d+)$/) {
         return undef if !qemu_driveadd($storecfg, $vmid, $device);
@@ -3347,23 +3347,27 @@ sub qemu_findorcreatescsihw {
     return 1;
 }
 
-sub qemu_bridgeadd {
+sub qemu_add_pci_bridge {
     my ($storecfg, $conf, $vmid, $device) = @_;
 
     my $bridges = {};
-    my $bridgeid = undef;
+
+    my $bridgeid;
+
     print_pci_addr($device, $bridges);
 
     while (my ($k, $v) = each %$bridges) {
 	$bridgeid = $k;
     }
-    return if !$bridgeid || $bridgeid < 1;
+    return if !defined($bridgeid) || $bridgeid < 1;
+
     my $bridge = "pci.$bridgeid";
     my $devices_list = vm_devices_list($vmid);
 
-    if(!defined($devices_list->{$bridge})) {
+    if (!defined($devices_list->{$bridge})) {
 	return undef if !vm_deviceplug($storecfg, $conf, $vmid, $bridge);
     }
+
     return 1;
 }
 
