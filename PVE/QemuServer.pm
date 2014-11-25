@@ -3153,6 +3153,7 @@ sub vm_devices_list {
     return $devices;
 }
 
+# fixme: this should raise exceptions on error!
 sub vm_deviceplug {
     my ($storecfg, $conf, $vmid, $deviceid, $device) = @_;
 
@@ -3194,7 +3195,7 @@ sub vm_deviceplug {
         return undef if !qemu_findorcreatescsihw($storecfg,$conf, $vmid, $device);
         return undef if !qemu_driveadd($storecfg, $vmid, $device);
         my $devicefull = print_drivedevice_full($storecfg, $conf, $vmid, $device);
-        if(!qemu_deviceadd($vmid, $devicefull)) {
+        if(!qemu_deviceadd($vmid, $devicefull)) { # fixme: use qemu_deviceaddverify?
            qemu_drivedel($vmid, $deviceid);
            return undef;
         }
@@ -3222,6 +3223,7 @@ sub vm_deviceplug {
     return 1;
 }
 
+# fixme: this should raise exceptions on error!
 sub vm_deviceunplug {
     my ($vmid, $conf, $deviceid) = @_;
 
@@ -3641,6 +3643,9 @@ sub vmconfig_hotplug_pending {
 	    } elsif ($opt eq 'cores') {
 		die "skip\n" if !$hotplug;
 		qemu_cpu_hotplug($vmid, $conf, 1);
+	    } elsif ($opt =~ m/^net(\d+)$/) {
+		die "skip\n" if !$hotplug;
+		vm_deviceunplug($vmid, $conf, $opt);
 	    } else {
 		die "skip\n";
 	    }
@@ -3675,6 +3680,9 @@ sub vmconfig_hotplug_pending {
 		# allow manual ballooning if shares is set to zero
 		my $balloon = $conf->{pending}->{balloon} || $conf->{memory} || $defaults->{memory};
 		vm_mon_cmd($vmid, "balloon", value => $balloon*1024*1024);
+	    } elsif ($opt =~ m/^net(\d+)$/) { 
+		# some changes can be done without hotplug
+		vmconfig_update_net($storecfg, $conf, $vmid, $opt, $value);
 	    } else {
 		die "skip\n";  # skip non-hot-pluggable options
 	    }
@@ -3733,6 +3741,63 @@ sub vmconfig_apply_pending {
 	delete $conf->{pending}->{$opt};
 	update_config_nolock($vmid, $conf, 1);
     }
+}
+
+my $safe_num_ne = sub {
+    my ($a, $b) = @_;
+
+    return 0 if !defined($a) && !defined($b);
+    return 1 if !defined($a);
+    return 1 if !defined($b);
+
+    return $a != $b;
+};
+
+my $safe_string_ne = sub {
+    my ($a, $b) = @_;
+
+    return 0 if !defined($a) && !defined($b);
+    return 1 if !defined($a);
+    return 1 if !defined($b);
+
+    return $a ne $b;
+};
+
+sub vmconfig_update_net {
+    my ($storecfg, $conf, $vmid, $opt, $value) = @_;
+
+    my $newnet = parse_net($value);
+
+    if ($conf->{$opt}) {
+	my $oldnet = parse_net($conf->{$opt});
+
+	if (&$safe_string_ne($oldnet->{model}, $newnet->{model}) ||
+	    &$safe_string_ne($oldnet->{macaddr}, $newnet->{macaddr}) ||
+	    &$safe_num_ne($oldnet->{queues}, $newnet->{queues}) ||
+	    !($newnet->{bridge} && $oldnet->{bridge})) { # bridge/nat mode change
+
+            # for non online change, we try to hot-unplug
+	    die "skip\n" if !$conf->{hotplug};
+	    vm_deviceunplug($vmid, $conf, $opt);
+	} else {
+
+	    die "internal error" if $opt !~ m/net(\d+)/;
+	    my $iface = "tap${vmid}i$1";
+		
+	    if (&$safe_num_ne($oldnet->{rate}, $newnet->{rate})) {
+		PVE::Network::tap_rate_limit($iface, $newnet->{rate});
+	    }
+
+	    if(&$safe_string_ne($oldnet->{bridge}, $newnet->{bridge}) ||
+	       &$safe_num_ne($oldnet->{tag}, $newnet->{tag}) ||
+	       &$safe_num_ne($oldnet->{firewall}, $newnet->{firewall})) {
+		PVE::Network::tap_unplug($iface);
+		PVE::Network::tap_plug($iface, $newnet->{bridge}, $newnet->{tag}, $newnet->{firewall});
+	    }
+	}
+    }
+    
+    vm_deviceplug($storecfg, $conf, $vmid, $opt, $newnet);
 }
 
 sub vm_start {

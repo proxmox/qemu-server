@@ -897,46 +897,6 @@ my $vmconfig_update_disk = sub {
     }
 };
 
-my $vmconfig_update_net = sub {
-    my ($rpcenv, $authuser, $conf, $storecfg, $vmid, $opt, $value) = @_;
-
-    if ($conf->{$opt} && PVE::QemuServer::check_running($vmid)) {
-	my $oldnet = PVE::QemuServer::parse_net($conf->{$opt});
-	my $newnet = PVE::QemuServer::parse_net($value);
-
-	if($oldnet->{model} ne $newnet->{model}){
-	    #if model change, we try to hot-unplug
-            die "error hot-unplug $opt for update" if !PVE::QemuServer::vm_deviceunplug($vmid, $conf, $opt);
-	}else{
-
-	    if($newnet->{bridge} && $oldnet->{bridge}){
-		my $iface = "tap".$vmid."i".$1 if $opt =~ m/net(\d+)/;
-
-		if($newnet->{rate} ne $oldnet->{rate}){
-		    PVE::Network::tap_rate_limit($iface, $newnet->{rate});
-		}
-
-		if(($newnet->{bridge} ne $oldnet->{bridge}) || ($newnet->{tag} ne $oldnet->{tag}) || ($newnet->{firewall} ne $oldnet->{firewall})){
-		    PVE::Network::tap_unplug($iface);
-		    PVE::Network::tap_plug($iface, $newnet->{bridge}, $newnet->{tag}, $newnet->{firewall});
-		}
-
-	    }else{
-		#if bridge/nat mode change, we try to hot-unplug
-		die "error hot-unplug $opt for update" if !PVE::QemuServer::vm_deviceunplug($vmid, $conf, $opt);
-	    }
-	}
-
-    }
-    $conf->{$opt} = $value;
-    PVE::QemuServer::update_config_nolock($vmid, $conf, 1);
-    $conf = PVE::QemuServer::load_config($vmid); # update/reload
-
-    my $net = PVE::QemuServer::parse_net($conf->{$opt});
-
-    die "error hotplug $opt" if !PVE::QemuServer::vm_deviceplug($storecfg, $conf, $vmid, $opt, $net);
-};
-
 # POST/PUT {vmid}/config implementation
 #
 # The original API used PUT (idempotent) an we assumed that all operations
@@ -1128,8 +1088,8 @@ my $update_vm_api  = sub {
 
 		} elsif ($opt =~ m/^net(\d+)$/) { #nics
 
-		    &$vmconfig_update_net($rpcenv, $authuser, $conf, $storecfg, $vmid,
-					  $opt, $param->{$opt});
+		    # &$vmconfig_update_net($rpcenv, $authuser, $conf, $storecfg, $vmid,
+		    #			  $opt, $param->{$opt});
 
 		} else {
 

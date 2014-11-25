@@ -20,10 +20,14 @@ my $migratedfrom = $ENV{PVE_MIGRATED_FROM};
 
 my $conf = PVE::QemuServer::load_config($vmid, $migratedfrom);
 
-die "unable to get network config '$netid'\n"
-    if !$conf->{$netid};
+my $netconf = $conf->{$netid};
 
-my $net = PVE::QemuServer::parse_net($conf->{$netid});
+$netconf = $conf->{pending}->{$netid} if !$migratedfrom && defined($conf->{pending}->{$netid}); 
+ 
+die "unable to get network config '$netid'\n"
+    if !defined($netconf);
+
+my $net = PVE::QemuServer::parse_net($netconf);
 die "unable to parse network config '$netid'\n" if !$net;
 
 PVE::Network::tap_create($iface, $net->{bridge});
