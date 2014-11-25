@@ -3153,73 +3153,80 @@ sub vm_devices_list {
     return $devices;
 }
 
-# fixme: this should raise exceptions on error!
 sub vm_deviceplug {
     my ($storecfg, $conf, $vmid, $deviceid, $device) = @_;
 
-    return 1 if !check_running($vmid);
+    die "internal error" if !$conf->{hotplug};
 
     my $q35 = machine_type_is_q35($conf);
-
-    return 1 if !$conf->{hotplug};
 
     my $devices_list = vm_devices_list($vmid);
     return 1 if defined($devices_list->{$deviceid});
 
-    if ($deviceid eq 'tablet') {
-	qemu_deviceadd($vmid, print_tabletdevice_full($conf));
-	return 1;
-    }
-
     qemu_add_pci_bridge($storecfg, $conf, $vmid, $deviceid); # add PCI bridge if we need it for the device
 
-    if ($deviceid =~ m/^(virtio)(\d+)$/) {
-        return undef if !qemu_driveadd($storecfg, $vmid, $device);
+    if ($deviceid eq 'tablet') {
+
+	qemu_deviceadd($vmid, print_tabletdevice_full($conf));
+
+    } elsif ($deviceid =~ m/^(virtio)(\d+)$/) {
+
+        qemu_driveadd($storecfg, $vmid, $device);
         my $devicefull = print_drivedevice_full($storecfg, $conf, $vmid, $device);
+
         qemu_deviceadd($vmid, $devicefull);
-        if(!qemu_deviceaddverify($vmid, $deviceid)) {
+	eval { qemu_deviceaddverify($vmid, $deviceid); };
+	if (my $err = $@) {
 	    eval { qemu_drivedel($vmid, $deviceid); };
 	    warn $@ if $@;
-	    return undef;
+	    die $err;
         }
-    }
 
-    if ($deviceid =~ m/^(scsihw)(\d+)$/) {
+    } elsif ($deviceid =~ m/^(scsihw)(\d+)$/) {
+
         my $scsihw = defined($conf->{scsihw}) ? $conf->{scsihw} : "lsi";
         my $pciaddr = print_pci_addr($deviceid);
         my $devicefull = "$scsihw,id=$deviceid$pciaddr";
-        qemu_deviceadd($vmid, $devicefull);
-        return undef if(!qemu_deviceaddverify($vmid, $deviceid));
-    }
 
-    if ($deviceid =~ m/^(scsi)(\d+)$/) {
-        return undef if !qemu_findorcreatescsihw($storecfg,$conf, $vmid, $device);
-        return undef if !qemu_driveadd($storecfg, $vmid, $device);
-        my $devicefull = print_drivedevice_full($storecfg, $conf, $vmid, $device);
-        if(!qemu_deviceadd($vmid, $devicefull)) { # fixme: use qemu_deviceaddverify?
+        qemu_deviceadd($vmid, $devicefull);
+        qemu_deviceaddverify($vmid, $deviceid);
+
+    } elsif ($deviceid =~ m/^(scsi)(\d+)$/) {
+
+        qemu_findorcreatescsihw($storecfg,$conf, $vmid, $device);
+        qemu_driveadd($storecfg, $vmid, $device);
+        
+	my $devicefull = print_drivedevice_full($storecfg, $conf, $vmid, $device);
+	eval { qemu_deviceadd($vmid, $devicefull); };
+	if (my $err = $@) {
 	    eval { qemu_drivedel($vmid, $deviceid); };
 	    warn $@ if $@;
-	    return undef;
+	    die $err;
         }
-    }
 
-    if ($deviceid =~ m/^(net)(\d+)$/) {
+    } elsif ($deviceid =~ m/^(net)(\d+)$/) {
+
         return undef if !qemu_netdevadd($vmid, $conf, $device, $deviceid);
         my $netdevicefull = print_netdevice_full($vmid, $conf, $device, $deviceid);
         qemu_deviceadd($vmid, $netdevicefull);
-        if(!qemu_deviceaddverify($vmid, $deviceid)) {
-           qemu_netdevdel($vmid, $deviceid);
-           return undef;
+        eval { qemu_deviceaddverify($vmid, $deviceid); };
+	if (my $err = $@) {
+	    eval { qemu_netdevdel($vmid, $deviceid); };
+	    warn $@ if $@;
+	    die $err;
         }
-    }
 
+    } elsif (!$q35 && $deviceid =~ m/^(pci\.)(\d+)$/) {
 
-    if (!$q35 && $deviceid =~ m/^(pci\.)(\d+)$/) {
 	my $bridgeid = $2;
 	my $pciaddr = print_pci_addr($deviceid);
 	my $devicefull = "pci-bridge,id=pci.$bridgeid,chassis_nr=$bridgeid$pciaddr";
+	
 	qemu_deviceadd($vmid, $devicefull);
-	return undef if !qemu_deviceaddverify($vmid, $deviceid);
+	qemu_deviceaddverify($vmid, $deviceid);
+
+    } else {
+	die "can't hotplug device '$deviceid'\n";	
     }
 
     return 1;
@@ -3275,26 +3282,24 @@ sub qemu_deviceadd {
     my %options =  split(/[=,]/, $devicefull);
 
     vm_mon_cmd($vmid, "device_add" , %options);
-    return 1;
 }
 
 sub qemu_devicedel {
-    my($vmid, $deviceid) = @_;
+    my ($vmid, $deviceid) = @_;
 
     my $ret = vm_mon_cmd($vmid, "device_del", id => $deviceid);
 }
 
 sub qemu_driveadd {
-    my($storecfg, $vmid, $device) = @_;
+    my ($storecfg, $vmid, $device) = @_;
 
     my $drive = print_drive_full($storecfg, $vmid, $device);
     my $ret = vm_human_monitor_command($vmid, "drive_add auto $drive");
+
     # If the command succeeds qemu prints: "OK"
-    if ($ret !~ m/OK/s) {
-        syslog("err", "adding drive failed: $ret");
-        return undef;
-    }
-    return 1;
+    return 1 if $ret =~ m/OK/s;
+
+    die "adding drive failed: $ret\n";
 }
 
 sub qemu_drivedel {
@@ -3312,15 +3317,15 @@ sub qemu_drivedel {
 }
 
 sub qemu_deviceaddverify {
-    my ($vmid,$deviceid) = @_;
+    my ($vmid, $deviceid) = @_;
 
     for (my $i = 0; $i <= 5; $i++) {
          my $devices_list = vm_devices_list($vmid);
          return 1 if defined($devices_list->{$deviceid});
          sleep 1;
     }
-    syslog("err", "error on hotplug device $deviceid");
-    return undef;
+
+    die "error on hotplug device '$deviceid'\n";
 }
 
 
@@ -3348,8 +3353,9 @@ sub qemu_findorcreatescsihw {
     my $devices_list = vm_devices_list($vmid);
 
     if(!defined($devices_list->{$scsihwid})) {
-       return undef if !vm_deviceplug($storecfg, $conf, $vmid, $scsihwid);
+	vm_deviceplug($storecfg, $conf, $vmid, $scsihwid);
     }
+
     return 1;
 }
 
@@ -3365,13 +3371,13 @@ sub qemu_add_pci_bridge {
     while (my ($k, $v) = each %$bridges) {
 	$bridgeid = $k;
     }
-    return if !defined($bridgeid) || $bridgeid < 1;
+    return 1 if !defined($bridgeid) || $bridgeid < 1;
 
     my $bridge = "pci.$bridgeid";
     my $devices_list = vm_devices_list($vmid);
 
     if (!defined($devices_list->{$bridge})) {
-	return undef if !vm_deviceplug($storecfg, $conf, $vmid, $bridge);
+	vm_deviceplug($storecfg, $conf, $vmid, $bridge);
     }
 
     return 1;
