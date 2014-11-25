@@ -3655,6 +3655,8 @@ sub vmconfig_hotplug_pending {
 	    } elsif ($opt =~ m/^net(\d+)$/) {
 		die "skip\n" if !$hotplug;
 		vm_deviceunplug($vmid, $conf, $opt);
+	    } elsif (valid_drivename($opt)) {
+		die "skip\n"; # we do not allow to hot-remove disk?		
 	    } else {
 		die "skip\n";
 	    }
@@ -3692,6 +3694,9 @@ sub vmconfig_hotplug_pending {
 	    } elsif ($opt =~ m/^net(\d+)$/) { 
 		# some changes can be done without hotplug
 		vmconfig_update_net($storecfg, $conf, $vmid, $opt, $value);
+	    } elsif (valid_drivename($opt)) {
+		# some changes can be done without hotplug
+		vmconfig_update_disk($storecfg, $conf, $vmid, $opt, $value, 1);
 	    } else {
 		die "skip\n";  # skip non-hot-pluggable options
 	    }
@@ -3807,6 +3812,93 @@ sub vmconfig_update_net {
     }
     
     vm_deviceplug($storecfg, $conf, $vmid, $opt, $newnet);
+}
+
+sub vmconfig_update_disk {
+    my ($storecfg, $conf, $vmid, $opt, $value, $force) = @_;
+
+    # fixme: do we need force?
+
+    my $drive = parse_drive($opt, $value);
+
+    if ($conf->{$opt}) {
+
+	if (my $old_drive = parse_drive($opt, $conf->{$opt}))  {
+
+	    my $media = $drive->{media} || 'disk';
+	    my $oldmedia = $old_drive->{media} || 'disk';
+	    die "unable to change media type\n" if $media ne $oldmedia;
+
+	    if (!drive_is_cdrom($old_drive)) {
+
+		if ($drive->{file} ne $old_drive->{file}) {  
+
+		    die "skip\n" if !$conf->{hotplug};
+
+		    # unplug and register as unused
+		    vm_deviceunplug($vmid, $conf, $opt);
+		    vmconfig_register_unused_drive($storecfg, $vmid, $conf, $old_drive)
+       
+		} else {
+		    # update existing disk
+
+		    # skip non hotpluggable value
+		    if (&$safe_num_ne($drive->{discard}, $old_drive->{discard}) || 
+			&$safe_string_ne($drive->{cache}, $old_drive->{cache})) {
+			die "skip\n";
+		    }
+
+		    # apply throttle
+		    if (&$safe_num_ne($drive->{mbps}, $old_drive->{mbps}) ||
+			&$safe_num_ne($drive->{mbps_rd}, $old_drive->{mbps_rd}) ||
+			&$safe_num_ne($drive->{mbps_wr}, $old_drive->{mbps_wr}) ||
+			&$safe_num_ne($drive->{iops}, $old_drive->{iops}) ||
+			&$safe_num_ne($drive->{iops_rd}, $old_drive->{iops_rd}) ||
+			&$safe_num_ne($drive->{iops_wr}, $old_drive->{iops_wr}) ||
+			&$safe_num_ne($drive->{mbps_max}, $old_drive->{mbps_max}) ||
+			&$safe_num_ne($drive->{mbps_rd_max}, $old_drive->{mbps_rd_max}) ||
+			&$safe_num_ne($drive->{mbps_wr_max}, $old_drive->{mbps_wr_max}) ||
+			&$safe_num_ne($drive->{iops_max}, $old_drive->{iops_max}) ||
+			&$safe_num_ne($drive->{iops_rd_max}, $old_drive->{iops_rd_max}) ||
+			&$safe_num_ne($drive->{iops_wr_max}, $old_drive->{iops_wr_max})) {
+			
+			qemu_block_set_io_throttle($vmid,"drive-$opt",
+						   ($drive->{mbps} || 0)*1024*1024,
+						   ($drive->{mbps_rd} || 0)*1024*1024,
+						   ($drive->{mbps_wr} || 0)*1024*1024,
+						   $drive->{iops} || 0,
+						   $drive->{iops_rd} || 0,
+						   $drive->{iops_wr} || 0,
+						   ($drive->{mbps_max} || 0)*1024*1024,
+						   ($drive->{mbps_rd_max} || 0)*1024*1024,
+						   ($drive->{mbps_wr_max} || 0)*1024*1024,
+						   $drive->{iops_max} || 0,
+						   $drive->{iops_rd_max} || 0,
+						   $drive->{iops_wr_max} || 0);
+
+		    }
+		    
+		    return 1;
+	        }
+	    }
+	}
+    }
+
+    if (drive_is_cdrom($drive)) { # cdrom
+
+	if ($drive->{file} eq 'none') {
+	    vm_mon_cmd($vmid, "eject",force => JSON::true,device => "drive-$opt");
+	} else {
+	    my $path = get_iso_path($storecfg, $vmid, $drive->{file});
+	    vm_mon_cmd($vmid, "eject", force => JSON::true,device => "drive-$opt"); # force eject if locked
+	    vm_mon_cmd($vmid, "change", device => "drive-$opt",target => "$path") if $path;
+	}
+
+    } else { 
+	die "skip\n" if !$conf->{hotplug};
+	# hotplug new disks
+	vm_deviceplug($storecfg, $conf, $vmid, $opt, $drive);
+    }
 }
 
 sub vm_start {

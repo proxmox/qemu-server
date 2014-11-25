@@ -807,96 +807,6 @@ my $vmconfig_delete_option = sub {
     PVE::QemuServer::update_config_nolock($vmid, $conf, 1);
 };
 
-my $safe_num_ne = sub {
-    my ($a, $b) = @_;
-
-    return 0 if !defined($a) && !defined($b);
-    return 1 if !defined($a);
-    return 1 if !defined($b);
-
-    return $a != $b;
-};
-
-my $vmconfig_update_disk = sub {
-    my ($rpcenv, $authuser, $conf, $storecfg, $vmid, $opt, $value, $force) = @_;
-
-    my $drive = PVE::QemuServer::parse_drive($opt, $value);
-
-    if (PVE::QemuServer::drive_is_cdrom($drive)) { #cdrom
-	$rpcenv->check_vm_perm($authuser, $vmid, undef, ['VM.Config.CDROM']);
-    } else {
-	$rpcenv->check_vm_perm($authuser, $vmid, undef, ['VM.Config.Disk']);
-    }
-
-    if ($conf->{$opt}) {
-
-	if (my $old_drive = PVE::QemuServer::parse_drive($opt, $conf->{$opt}))  {
-
-	    my $media = $drive->{media} || 'disk';
-	    my $oldmedia = $old_drive->{media} || 'disk';
-	    die "unable to change media type\n" if $media ne $oldmedia;
-
-	    if (!PVE::QemuServer::drive_is_cdrom($old_drive) &&
-		($drive->{file} ne $old_drive->{file})) {  # delete old disks
-
-		&$vmconfig_delete_option($rpcenv, $authuser, $conf, $storecfg, $vmid, $opt, $force);
-		$conf = PVE::QemuServer::load_config($vmid); # update/reload
-	    }
-
-            if(&$safe_num_ne($drive->{mbps}, $old_drive->{mbps}) ||
-               &$safe_num_ne($drive->{mbps_rd}, $old_drive->{mbps_rd}) ||
-               &$safe_num_ne($drive->{mbps_wr}, $old_drive->{mbps_wr}) ||
-               &$safe_num_ne($drive->{iops}, $old_drive->{iops}) ||
-               &$safe_num_ne($drive->{iops_rd}, $old_drive->{iops_rd}) ||
-               &$safe_num_ne($drive->{iops_wr}, $old_drive->{iops_wr}) ||
-               &$safe_num_ne($drive->{mbps_max}, $old_drive->{mbps_max}) ||
-               &$safe_num_ne($drive->{mbps_rd_max}, $old_drive->{mbps_rd_max}) ||
-               &$safe_num_ne($drive->{mbps_wr_max}, $old_drive->{mbps_wr_max}) ||
-               &$safe_num_ne($drive->{iops_max}, $old_drive->{iops_max}) ||
-               &$safe_num_ne($drive->{iops_rd_max}, $old_drive->{iops_rd_max}) ||
-               &$safe_num_ne($drive->{iops_wr_max}, $old_drive->{iops_wr_max})) {
-               PVE::QemuServer::qemu_block_set_io_throttle($vmid,"drive-$opt",
-							   ($drive->{mbps} || 0)*1024*1024,
-							   ($drive->{mbps_rd} || 0)*1024*1024,
-							   ($drive->{mbps_wr} || 0)*1024*1024,
-							   $drive->{iops} || 0,
-							   $drive->{iops_rd} || 0,
-							   $drive->{iops_wr} || 0,
-							   ($drive->{mbps_max} || 0)*1024*1024,
-							   ($drive->{mbps_rd_max} || 0)*1024*1024,
-							   ($drive->{mbps_wr_max} || 0)*1024*1024,
-							   $drive->{iops_max} || 0,
-							   $drive->{iops_rd_max} || 0,
-							   $drive->{iops_wr_max} || 0)
-		   if !PVE::QemuServer::drive_is_cdrom($drive);
-            }
-	}
-    }
-
-    &$create_disks($rpcenv, $authuser, $conf, $storecfg, $vmid, undef, {$opt => $value});
-    PVE::QemuServer::update_config_nolock($vmid, $conf, 1);
-
-    $conf = PVE::QemuServer::load_config($vmid); # update/reload
-    $drive = PVE::QemuServer::parse_drive($opt, $conf->{$opt});
-
-    if (PVE::QemuServer::drive_is_cdrom($drive)) { # cdrom
-
-	if (PVE::QemuServer::check_running($vmid)) {
-	    if ($drive->{file} eq 'none') {
-		PVE::QemuServer::vm_mon_cmd($vmid, "eject",force => JSON::true,device => "drive-$opt");
-	    } else {
-		my $path = PVE::QemuServer::get_iso_path($storecfg, $vmid, $drive->{file});
-		PVE::QemuServer::vm_mon_cmd($vmid, "eject",force => JSON::true,device => "drive-$opt"); #force eject if locked
-		PVE::QemuServer::vm_mon_cmd($vmid, "change",device => "drive-$opt",target => "$path") if $path;
-	    }
-	}
-
-    } else { # hotplug new disks
-
-	die "error hotplug $opt" if !PVE::QemuServer::vm_deviceplug($storecfg, $conf, $vmid, $opt, $drive);
-    }
-};
-
 # POST/PUT {vmid}/config implementation
 #
 # The original API used PUT (idempotent) an we assumed that all operations
@@ -1083,8 +993,8 @@ my $update_vm_api  = sub {
 
 		if (PVE::QemuServer::valid_drivename($opt)) {
 
-		    &$vmconfig_update_disk($rpcenv, $authuser, $conf, $storecfg, $vmid,
-					   $opt, $param->{$opt}, $force);
+		    #&$vmconfig_update_disk($rpcenv, $authuser, $conf, $storecfg, $vmid,
+		    #			   $opt, $param->{$opt}, $force);
 
 		} elsif ($opt =~ m/^net(\d+)$/) { #nics
 
