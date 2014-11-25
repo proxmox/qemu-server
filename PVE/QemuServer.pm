@@ -3178,8 +3178,9 @@ sub vm_deviceplug {
         my $devicefull = print_drivedevice_full($storecfg, $conf, $vmid, $device);
         qemu_deviceadd($vmid, $devicefull);
         if(!qemu_deviceaddverify($vmid, $deviceid)) {
-           qemu_drivedel($vmid, $deviceid);
-           return undef;
+	    eval { qemu_drivedel($vmid, $deviceid); };
+	    warn $@ if $@;
+	    return undef;
         }
     }
 
@@ -3196,8 +3197,9 @@ sub vm_deviceplug {
         return undef if !qemu_driveadd($storecfg, $vmid, $device);
         my $devicefull = print_drivedevice_full($storecfg, $conf, $vmid, $device);
         if(!qemu_deviceadd($vmid, $devicefull)) { # fixme: use qemu_deviceaddverify?
-           qemu_drivedel($vmid, $deviceid);
-           return undef;
+	    eval { qemu_drivedel($vmid, $deviceid); };
+	    warn $@ if $@;
+	    return undef;
         }
     }
 
@@ -3227,39 +3229,40 @@ sub vm_deviceplug {
 sub vm_deviceunplug {
     my ($vmid, $conf, $deviceid) = @_;
 
-    return 1 if !check_running ($vmid);
-
-    return 1 if !$conf->{hotplug};
+    die "internal error" if !$conf->{hotplug};
 
     my $devices_list = vm_devices_list($vmid);
     return 1 if !defined($devices_list->{$deviceid});
 
-    if ($deviceid eq 'tablet') {
-	qemu_devicedel($vmid, $deviceid);
-	return 1;
-    }
-
     die "can't unplug bootdisk" if $conf->{bootdisk} && $conf->{bootdisk} eq $deviceid;
 
-    if ($deviceid =~ m/^(virtio)(\d+)$/) {
+    if ($deviceid eq 'tablet') {
+
+	qemu_devicedel($vmid, $deviceid);
+
+    } elsif ($deviceid =~ m/^(virtio)(\d+)$/) {
+
         qemu_devicedel($vmid, $deviceid);
-        return undef if !qemu_devicedelverify($vmid, $deviceid);
-        return undef if !qemu_drivedel($vmid, $deviceid);
-    }
+        qemu_devicedelverify($vmid, $deviceid);
+        qemu_drivedel($vmid, $deviceid);
+   
+    } elsif ($deviceid =~ m/^(lsi)(\d+)$/) {
+    
+	qemu_devicedel($vmid, $deviceid);
+    
+    } elsif ($deviceid =~ m/^(scsi)(\d+)$/) {
 
-    if ($deviceid =~ m/^(lsi)(\d+)$/) {
-        return undef if !qemu_devicedel($vmid, $deviceid);
-    }
-
-    if ($deviceid =~ m/^(scsi)(\d+)$/) {
-        return undef if !qemu_devicedel($vmid, $deviceid);
-        return undef if !qemu_drivedel($vmid, $deviceid);
-    }
-
-    if ($deviceid =~ m/^(net)(\d+)$/) {
         qemu_devicedel($vmid, $deviceid);
-        return undef if !qemu_devicedelverify($vmid, $deviceid);
-        return undef if !qemu_netdevdel($vmid, $deviceid);
+        qemu_drivedel($vmid, $deviceid);
+    
+    } elsif ($deviceid =~ m/^(net)(\d+)$/) {
+
+        qemu_devicedel($vmid, $deviceid);
+        qemu_devicedelverify($vmid, $deviceid);
+        qemu_netdevdel($vmid, $deviceid);
+
+    } else {
+	die "can't unplug device '$deviceid'\n";
     }
 
     return 1;
@@ -3277,8 +3280,8 @@ sub qemu_deviceadd {
 
 sub qemu_devicedel {
     my($vmid, $deviceid) = @_;
+
     my $ret = vm_mon_cmd($vmid, "device_del", id => $deviceid);
-    return 1;
 }
 
 sub qemu_driveadd {
@@ -3299,14 +3302,13 @@ sub qemu_drivedel {
 
     my $ret = vm_human_monitor_command($vmid, "drive_del drive-$deviceid");
     $ret =~ s/^\s+//;
-    if ($ret =~ m/Device \'.*?\' not found/s) {
-        # NB: device not found errors mean the drive was auto-deleted and we ignore the error
-    }
-    elsif ($ret ne "") {
-      syslog("err", "deleting drive $deviceid failed : $ret");
-      return undef;
-    }
-    return 1;
+    
+    return 1 if $ret eq "";
+  
+    # NB: device not found errors mean the drive was auto-deleted and we ignore the error
+    return 1 if $ret =~ m/Device \'.*?\' not found/s; 
+    
+    die "deleting drive $deviceid failed : $ret\n";
 }
 
 sub qemu_deviceaddverify {
@@ -3323,16 +3325,18 @@ sub qemu_deviceaddverify {
 
 
 sub qemu_devicedelverify {
-    my ($vmid,$deviceid) = @_;
+    my ($vmid, $deviceid) = @_;
 
-    #need to verify the device is correctly remove as device_del is async and empty return is not reliable
+    # need to verify that the device is correctly removed as device_del 
+    # is async and empty return is not reliable
+
     for (my $i = 0; $i <= 5; $i++) {
          my $devices_list = vm_devices_list($vmid);
          return 1 if !defined($devices_list->{$deviceid});
          sleep 1;
     }
-    syslog("err", "error on hot-unplugging device $deviceid");
-    return undef;
+
+    die "error on hot-unplugging device '$deviceid'\n";
 }
 
 sub qemu_findorcreatescsihw {
@@ -3387,7 +3391,6 @@ sub qemu_netdevdel {
     my ($vmid, $deviceid) = @_;
 
     vm_mon_cmd($vmid, "netdev_del", id => $deviceid);
-    return 1;
 }
 
 sub qemu_cpu_hotplug {
