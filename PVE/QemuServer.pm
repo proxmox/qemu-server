@@ -3808,10 +3808,16 @@ sub vmconfig_update_net {
 		PVE::Network::tap_unplug($iface);
 		PVE::Network::tap_plug($iface, $newnet->{bridge}, $newnet->{tag}, $newnet->{firewall});
 	    }
+
+	    return 1;
 	}
     }
     
-    vm_deviceplug($storecfg, $conf, $vmid, $opt, $newnet);
+    if ($conf->{hotplug}) {
+	vm_deviceplug($storecfg, $conf, $vmid, $opt, $newnet);
+    } else {
+	die "skip\n";
+    }
 }
 
 sub vmconfig_update_disk {
