@@ -188,6 +188,34 @@ my $create_disks = sub {
     return $vollist;
 };
 
+my $delete_drive = sub {
+    my ($conf, $storecfg, $vmid, $key, $drive, $force) = @_;
+
+    if (!PVE::QemuServer::drive_is_cdrom($drive)) {
+	my $volid = $drive->{file};
+
+	if (PVE::QemuServer::vm_is_volid_owner($storecfg, $vmid, $volid)) {
+	    if ($force || $key =~ m/^unused/) {
+		eval {
+		    # check if the disk is really unused
+		    my $used_paths = PVE::QemuServer::get_used_paths($vmid, $storecfg, $conf, 1, $key);
+		    my $path = PVE::Storage::path($storecfg, $volid);
+
+		    die "unable to delete '$volid' - volume is still in use (snapshot?)\n"
+			if $used_paths->{$path};
+
+		    PVE::Storage::vdisk_free($storecfg, $volid);
+		};
+		die $@ if $@;
+	    } else {
+		PVE::QemuServer::add_unused_volume($conf, $volid, $vmid);
+	    }
+	}
+    }
+
+    delete $conf->{$key};
+};
+
 my $check_vm_modify_config_perm = sub {
     my ($rpcenv, $authuser, $vmid, $pool, $key_list) = @_;
 
@@ -738,75 +766,6 @@ __PACKAGE__->register_method({
 	return $res;
     }});
 
-my $delete_drive = sub {
-    my ($conf, $storecfg, $vmid, $key, $drive, $force) = @_;
-
-    if (!PVE::QemuServer::drive_is_cdrom($drive)) {
-	my $volid = $drive->{file};
-
-	if (PVE::QemuServer::vm_is_volid_owner($storecfg, $vmid, $volid)) {
-	    if ($force || $key =~ m/^unused/) {
-		eval {
-		    # check if the disk is really unused
-		    my $used_paths = PVE::QemuServer::get_used_paths($vmid, $storecfg, $conf, 1, $key);
-		    my $path = PVE::Storage::path($storecfg, $volid);
-
-		    die "unable to delete '$volid' - volume is still in use (snapshot?)\n"
-			if $used_paths->{$path};
-
-		    PVE::Storage::vdisk_free($storecfg, $volid);
-		};
-		die $@ if $@;
-	    } else {
-		PVE::QemuServer::add_unused_volume($conf, $volid, $vmid);
-	    }
-	}
-    }
-
-    delete $conf->{$key};
-};
-
-my $vmconfig_delete_option = sub {
-    my ($rpcenv, $authuser, $conf, $storecfg, $vmid, $opt, $force) = @_;
-
-    return if !defined($conf->{$opt});
-
-    my $isDisk = PVE::QemuServer::valid_drivename($opt)|| ($opt =~ m/^unused/);
-
-    if ($isDisk) {
-	$rpcenv->check_vm_perm($authuser, $vmid, undef, ['VM.Config.Disk']);
-
-	my $drive = PVE::QemuServer::parse_drive($opt, $conf->{$opt});
-	if (my $sid = &$test_deallocate_drive($storecfg, $vmid, $opt, $drive, $force)) {
-	    $rpcenv->check($authuser, "/storage/$sid", ['Datastore.AllocateSpace']);
-	}
-    }
-
-    my $unplugwarning = "";
-    if ($conf->{ostype} && $conf->{ostype} eq 'l26') {
-	$unplugwarning = "<br>verify that you have acpiphp && pci_hotplug modules loaded in your guest VM";
-    } elsif ($conf->{ostype} && $conf->{ostype} eq 'l24') {
-	$unplugwarning = "<br>kernel 2.4 don't support hotplug, please disable hotplug in options";
-    } elsif (!$conf->{ostype} || ($conf->{ostype} && $conf->{ostype} eq 'other')) {
-	$unplugwarning = "<br>verify that your guest support acpi hotplug";
-    }
-
-    if ($opt eq 'tablet') {
-	PVE::QemuServer::vm_deviceplug(undef, $conf, $vmid, $opt);
-    } else {
-        die "error hot-unplug $opt $unplugwarning" if !PVE::QemuServer::vm_deviceunplug($vmid, $conf, $opt);
-    }
-
-    if ($isDisk) {
-	my $drive = PVE::QemuServer::parse_drive($opt, $conf->{$opt});
-	&$delete_drive($conf, $storecfg, $vmid, $opt, $drive, $force);
-    } else {
-	delete $conf->{$opt};
-    }
-
-    PVE::QemuServer::update_config_nolock($vmid, $conf, 1);
-};
-
 # POST/PUT {vmid}/config implementation
 #
 # The original API used PUT (idempotent) an we assumed that all operations
@@ -983,47 +942,8 @@ my $update_vm_api  = sub {
 	    } else {
 		PVE::QemuServer::vmconfig_apply_pending($vmid, $conf, $storecfg, $running);
 	    }
-	    return; # TODO: remove old code below
 
-	    foreach my $opt (keys %$param) { # add/change
-
-		$conf = PVE::QemuServer::load_config($vmid); # update/reload
-
-		next if $conf->{$opt} && ($param->{$opt} eq $conf->{$opt}); # skip if nothing changed
-
-		if (PVE::QemuServer::valid_drivename($opt)) {
-
-		    #&$vmconfig_update_disk($rpcenv, $authuser, $conf, $storecfg, $vmid,
-		    #			   $opt, $param->{$opt}, $force);
-
-		} elsif ($opt =~ m/^net(\d+)$/) { #nics
-
-		    # &$vmconfig_update_net($rpcenv, $authuser, $conf, $storecfg, $vmid,
-		    #			  $opt, $param->{$opt});
-
-		} else {
-
-		    if($opt eq 'tablet' && $param->{$opt} == 1){
-			PVE::QemuServer::vm_deviceplug(undef, $conf, $vmid, $opt);
-		    } elsif($opt eq 'tablet' && $param->{$opt} == 0){
-			PVE::QemuServer::vm_deviceunplug($vmid, $conf, $opt);
-		    }
-
-		    if($opt eq 'cores' && $conf->{maxcpus}){
-			PVE::QemuServer::qemu_cpu_hotplug($vmid, $conf, $param->{$opt});
-		    }
-
-		    $conf->{$opt} = $param->{$opt};
-		    PVE::QemuServer::update_config_nolock($vmid, $conf, 1);
-		}
-	    }
-
-	    # allow manual ballooning if shares is set to zero
-	    if ($running && defined($param->{balloon}) &&
-		defined($conf->{shares}) && ($conf->{shares} == 0)) {
-		my $balloon = $param->{'balloon'} || $conf->{memory} || $defaults->{memory};
-		PVE::QemuServer::vm_mon_cmd($vmid, "balloon", value => $balloon*1024*1024);
-	    }
+	    return;
 	};
 
 	if ($sync) {
