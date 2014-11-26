@@ -20,7 +20,7 @@ use Data::Dumper;
 # Note: kvm can onyl handle 1 connection, so we close connections asap
 
 sub new {
-    my ($class, $eventcb, $qga) = @_;
+    my ($class, $eventcb) = @_;
 
     my $mux = new IO::Multiplex;
 
@@ -34,7 +34,6 @@ sub new {
     }, $class;
 
     $self->{eventcb} = $eventcb if $eventcb;
-    $self->{qga} = $qga if $qga;
 
     $mux->set_callback_object($self);
 
@@ -106,9 +105,17 @@ sub cmd {
 };
 
 my $cmdid_seq = 0;
+my $cmdid_seq_qga = 0;
 my $next_cmdid = sub {
-    $cmdid_seq++;
-    return "$$"."0".$cmdid_seq;
+    my ($qga) = @_;
+
+    if($qga){
+	$cmdid_seq_qga++;
+	return "$$"."0".$cmdid_seq_qga;
+    } else {
+	$cmdid_seq++;
+	return "$$:$cmdid_seq";
+    }
 };
 
 my $close_connection = sub {
@@ -124,9 +131,9 @@ my $close_connection = sub {
 };
 
 my $open_connection = sub {
-    my ($self, $vmid, $timeout) = @_;
+    my ($self, $vmid, $timeout, $qga) = @_;
 
-    my $sname = PVE::QemuServer::qmp_socket($vmid, $self->{qga});
+    my $sname = PVE::QemuServer::qmp_socket($vmid, $qga);
 
     $timeout = 1 if !$timeout;
 
@@ -181,7 +188,7 @@ my $check_queue = sub {
 	eval {
 
 	    my $cmd = $self->{current}->{$vmid} = shift @{$self->{queue}->{$vmid}};
-	    $cmd->{id} = &$next_cmdid();
+	    $cmd->{id} = &$next_cmdid($cmd->{qga});
 
 	    my $fd = -1;
 	    if ($cmd->{execute} eq 'add-fd' || $cmd->{execute} eq 'getfd') {
@@ -191,7 +198,7 @@ my $check_queue = sub {
 
 	    my $qmpcmd = undef;
 
-	    if($self->{qga}){
+	    if($self->{current}->{$vmid}->{qga}){
 
 		my $qmpcmdid =to_json({
 		    execute => 'guest-sync',
@@ -243,10 +250,14 @@ sub queue_execute {
     foreach my $vmid (keys %{$self->{queue}}) {
 	next if !scalar(@{$self->{queue}->{$vmid}}); # no commands for the VM
 
-	eval {
-	    my $fh = &$open_connection($self, $vmid, $timeout);
+	if ($self->{queue}->{$vmid}[0]->{execute} =~ /^guest\-+/){
+	    $self->{queue}->{$vmid}[0]->{qga} = "1";
+	}
 
-	    if(!$self->{qga}){
+	eval {  
+	    my $fh = &$open_connection($self, $vmid, $timeout, $self->{queue}->{$vmid}[0]->{qga});
+
+	    if(!$self->{queue}->{$vmid}[0]->{qga}){
 		my $cmd = { execute => 'qmp_capabilities', arguments => {} };
 		unshift @{$self->{queue}->{$vmid}}, $cmd;
 	    }
@@ -292,35 +303,35 @@ sub mux_close {
 sub mux_input {
     my ($self, $mux, $fh, $input) = @_;
 
-    my $raw;
-
-    if($self->{qga}){
-	return if $$input !~ s/^([^\n]+}\n[^\n]+})\n(.*)$/$2/so;
-	$raw = $1;
-    }else{
-	return if $$input !~ s/^([^\n]+})\r?\n(.*)$/$2/so;
-	$raw = $1;
-    }
-
-    my $vmid = $self->{fhs_lookup}->{$fh};
+    my $vmid = $self->{fhs_lookup}->{$fh};    
     if (!$vmid) {
 	warn "internal error - unable to lookup vmid";
 	return;
+    }
+ 
+    my $curcmd = $self->{current}->{$vmid};
+    die "unable to lookup current command for VM $vmid\n" if !$curcmd;
+
+    my $raw;
+
+    if ($curcmd->{qga}) {
+	return if $$input !~ s/^([^\n]+}\n[^\n]+})\n(.*)$/$2/so;
+	$raw = $1;
+    } else {
+	return if $$input !~ s/^([^\n]+})\r?\n(.*)$/$2/so;
+	$raw = $1;
     }
 
     eval {
 	my @jsons = split("\n", $raw);
 
-	if($self->{qga}){
+	if ($curcmd->{qga}) {
 
 	    die "response is not complete" if @jsons != 2 ;
 
 	    my $obj = from_json($jsons[0]);
 	    my $cmdid = $obj->{return};
 	    die "received responsed without command id\n" if !$cmdid;
-
-	    my $curcmd = $self->{current}->{$vmid};
-	    die "unable to lookup current command for VM $vmid\n" if !$curcmd;
 
 	    delete $self->{current}->{$vmid};
 

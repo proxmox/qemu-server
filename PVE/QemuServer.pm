@@ -3459,13 +3459,6 @@ sub vm_start {
     });
 }
 
-sub vm_qga_cmd {
-    my ($vmid, $execute, %params) = @_;
-
-    my $cmd = { execute => $execute, arguments => \%params };
-    vm_qmp_command($vmid, $cmd, undef, 1);
-}
-
 sub vm_mon_cmd {
     my ($vmid, $execute, %params) = @_;
 
@@ -3481,7 +3474,7 @@ sub vm_mon_cmd_nocheck {
 }
 
 sub vm_qmp_command {
-    my ($vmid, $cmd, $nocheck, $qga) = @_;
+    my ($vmid, $cmd, $nocheck) = @_;
 
     my $res;
 
@@ -3493,12 +3486,13 @@ sub vm_qmp_command {
 
     eval {
 	die "VM $vmid not running\n" if !check_running($vmid, $nocheck);
+	my $qga = ($cmd->{execute} =~ /^guest\-+/)?1:0;
 	my $sname = qmp_socket($vmid, $qga);
 	if (-e $sname) {
-	    my $qmpclient = PVE::QMPClient->new(undef, $qga);
+	    my $qmpclient = PVE::QMPClient->new();
 
 	    $res = $qmpclient->cmd($vmid, $cmd, $timeout);
-	} elsif (-e "${var_run_tmpdir}/$vmid.mon" && !$qga) {
+	} elsif (-e "${var_run_tmpdir}/$vmid.mon") {
 	    die "can't execute complex command on old monitor - stop/start your vm to fix the problem\n"
 		if scalar(%{$cmd->{arguments}});
 	    vm_monitor_command($vmid, $cmd->{execute}, $nocheck);
