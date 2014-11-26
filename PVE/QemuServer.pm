@@ -3614,11 +3614,15 @@ sub vm_stop {
 	}
 
 	$timeout = 60 if !defined($timeout);
-
+	my $config = load_config($vmid);
+	
 	eval {
 	    if ($shutdown) {
-		$nocheck ? vm_mon_cmd_nocheck($vmid, "system_powerdown") : vm_mon_cmd($vmid, "system_powerdown");
-
+		if($config->{agent}){
+		    vm_mon_cmd($vmid,"guest-shutdown");
+		} else {
+		    $nocheck ? vm_mon_cmd_nocheck($vmid, "system_powerdown") : vm_mon_cmd($vmid, "system_powerdown");
+		}
 	    } else {
 		$nocheck ? vm_mon_cmd_nocheck($vmid, "quit") : vm_mon_cmd($vmid, "quit");
 	    }

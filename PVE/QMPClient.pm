@@ -87,7 +87,8 @@ sub cmd {
 		 $cmd->{execute} eq 'query-block-jobs' ||
 		 $cmd->{execute} eq 'backup-cancel' ||
 		 $cmd->{execute} eq 'query-savevm' ||
-		 $cmd->{execute} eq 'delete-drive-snapshot' ||
+		 $cmd->{execute} eq 'delete-drive-snapshot' || 
+		 $cmd->{execute} eq 'guest-shutdown' ||
 		 $cmd->{execute} eq 'snapshot-drive'  ) {
 	    $timeout = 10*60; # 10 mins ?
 	} else {
@@ -261,7 +262,6 @@ sub queue_execute {
 		my $cmd = { execute => 'qmp_capabilities', arguments => {} };
 		unshift @{$self->{queue}->{$vmid}}, $cmd;
 	    }
-
 	    $self->{mux}->set_timeout($fh, $timeout);
 	};
 	if (my $err = $@) {
@@ -295,7 +295,11 @@ sub mux_close {
     my $vmid = $self->{fhs_lookup}->{$fh} || 'undef';
     return if !defined($vmid);
 
-    $self->{errors}->{$vmid} = "client closed connection\n" if !$self->{errors}->{$vmid};
+    if(!$self->{no_answer}){
+	$self->{errors}->{$vmid} = "client closed connection\n" if !$self->{errors}->{$vmid};  
+    } else {
+	delete $self->{no_anwser}; 
+    }
 }
 
 # mux_input is called when input is available on one of
@@ -399,6 +403,42 @@ sub mux_timeout {
     }
 
     &$check_queue($self);
+}
+
+sub mux_eof {
+    my ($self, $mux, $fh, $input) = @_;
+ 
+    my $vmid = $self->{fhs_lookup}->{$fh};
+    if(check_no_answer($self->{current}->{$vmid}->{execute})){
+	my @jsons = split("\n", $$input);
+
+	my $obj = from_json($jsons[0]);
+
+	my $cmdid = $obj->{return};
+	die "received responsed without command id\n" if !$cmdid;
+
+	my $curcmd = $self->{current}->{$vmid};
+	die "unable to lookup current command for VM $vmid\n" if !$curcmd;
+
+	delete $self->{current}->{$vmid};
+
+	$self->{no_answer} = 1;
+      }
+}
+
+sub check_no_answer {
+    my($cmd) = @_;
+
+    if ($cmd eq 'guest-shutdown'){
+	return 1;
+    } elsif ($cmd eq 'guest-suspend-ram'){
+	return 1;
+    } elsif ($cmd eq 'guest-suspend-disk'){
+	return 1;
+    } elsif ($cmd eq 'guest-suspend-hybrid'){
+	return 1;
+    }
+    return 0;
 }
 
 1;
