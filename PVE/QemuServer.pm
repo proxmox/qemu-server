@@ -3613,12 +3613,12 @@ sub vm_stop {
 	eval {
 	    if ($shutdown) {
 		if ($config->{agent}) {
-		    $nocheck ? vm_mon_cmd_nocheck($vmid, "guest-shutdown") : vm_mon_cmd($vmid, "guest-shutdown");
+		    vm_qmp_command($vmid, { execute => "guest-shutdown" }, $nocheck);
 		} else {
-		    $nocheck ? vm_mon_cmd_nocheck($vmid, "system_powerdown") : vm_mon_cmd($vmid, "system_powerdown");
+		    vm_qmp_command($vmid, { execute => "system_powerdown" }, $nocheck);
 		}
 	    } else {
-		$nocheck ? vm_mon_cmd_nocheck($vmid, "quit") : vm_mon_cmd($vmid, "quit");
+		vm_qmp_command($vmid, { execute => "quit" }, $nocheck);
 	    }
 	};
 	my $err = $@;
