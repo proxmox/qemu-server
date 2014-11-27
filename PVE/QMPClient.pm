@@ -15,9 +15,9 @@ use Data::Dumper;
 # Qemu Monitor Protocol (QMP) client.
 #
 # This implementation uses IO::Multiplex (libio-multiplex-perl) and
-# allows you to issue qmp commands to different VMs in parallel.
+# allows you to issue qmp and qga commands to different VMs in parallel.
 
-# Note: kvm can onyl handle 1 connection, so we close connections asap
+# Note: qemu can onyl handle 1 connection, so we close connections asap
 
 sub new {
     my ($class, $eventcb) = @_;
@@ -26,11 +26,8 @@ sub new {
 
     my $self = bless {
 	mux => $mux,
-	fhs => {}, # $vmid => fh
-	fhs_lookup => {}, # $fh => $vmid
-	queue => {},
-	current => {},
-	errors => {},
+	queue_lookup => {}, # $fh => $queue_info
+	queue_info => {},
     }, $class;
 
     $self->{eventcb} = $eventcb if $eventcb;
@@ -44,6 +41,33 @@ sub new {
     return $self;
 }
 
+# Note: List of special QGA command. Those commands can close the connection
+# without sending a response.
+
+my $qga_allow_close_cmds = {
+    'guest-shutdown' => 1,
+    'guest-suspend-ram' => 1,
+    'guest-suspend-disk' => 1,
+    'guest-suspend-hybrid' => 1,
+};
+
+my $push_cmd_to_queue = sub {
+    my ($self, $vmid, $cmd) = @_;
+
+    my $execute = $cmd->{execute} || die "no command name specified";
+
+    my $qga = ($execute =~ /^guest\-+/) ? 1 : 0;
+ 
+    my $sname = PVE::QemuServer::qmp_socket($vmid, $qga);
+
+    $self->{queue_info}->{$sname} = { qga => $qga, vmid => $vmid, sname => $sname, cmds => [] } 
+        if !$self->{queue_info}->{$sname};
+
+    push @{$self->{queue_info}->{$sname}->{cmds}}, $cmd;
+
+    return $self->{queue_info}->{$sname};
+};
+
 # add a single command to the queue for later execution
 # with queue_execute()
 sub queue_cmd {
@@ -54,7 +78,9 @@ sub queue_cmd {
     $cmd->{arguments} = \%params;
     $cmd->{callback} = $callback;
 
-    push @{$self->{queue}->{$vmid}}, $cmd;
+    &$push_cmd_to_queue($self, $vmid, $cmd);
+
+    return undef;
 }
 
 # execute a single command
@@ -68,12 +94,12 @@ sub cmd {
 	$result = $resp->{'return'};
     };
 
-    die "no command specified" if !($cmd &&  $cmd->{execute});
+    die "no command specified" if !($cmd && $cmd->{execute});
 
     $cmd->{callback} = $callback;
     $cmd->{arguments} = {} if !defined($cmd->{arguments});
 
-    $self->{queue}->{$vmid} = [ $cmd ];
+    my $queue_info = &$push_cmd_to_queue($self, $vmid, $cmd);
 
     if (!$timeout) {
 	# hack: monitor sometime blocks
@@ -98,15 +124,16 @@ sub cmd {
 
     $self->queue_execute($timeout);
 
-    my $cmdstr = $cmd->{execute} || '';
-    die "VM $vmid qmp command '$cmdstr' failed - $self->{errors}->{$vmid}"
-	if defined($self->{errors}->{$vmid});
+
+    die "VM $vmid qmp command '$cmd->{execute}' failed - $queue_info->{error}"
+	if defined($queue_info->{error});
 
     return $result;
 };
 
 my $cmdid_seq = 0;
 my $cmdid_seq_qga = 0;
+
 my $next_cmdid = sub {
     my ($qga) = @_;
 
@@ -119,20 +146,33 @@ my $next_cmdid = sub {
     }
 };
 
+my $lookup_queue_info = sub {
+    my ($self, $fh, $noerr) = @_;
+
+    my $queue_info = $self->{queue_lookup}->{$fh};    
+    if (!$queue_info) {
+	warn "internal error - unable to lookup queue info" if !$noerr;
+	return undef;
+    }
+    return $queue_info;
+};
+
 my $close_connection = sub {
-    my ($self, $vmid) = @_;
+    my ($self, $queue_info) = @_;
 
-    my $fh = $self->{fhs}->{$vmid};
-    return if !$fh;
-
-    delete $self->{fhs}->{$vmid};
-    delete $self->{fhs_lookup}->{$fh};
-
-    $self->{mux}->close($fh);
+    if (my $fh = delete $queue_info->{fh}) {
+	delete $self->{queue_lookup}->{$fh};
+	$self->{mux}->close($fh);	
+    } 
 };
 
 my $open_connection = sub {
-    my ($self, $vmid, $timeout, $qga) = @_;
+    my ($self, $queue_info, $timeout) = @_;
+
+    die "duplicate call to open" if defined($queue_info->{fh});
+
+    my $vmid = $queue_info->{vmid};
+    my $qga = $queue_info->{qga};
 
     my $sname = PVE::QemuServer::qmp_socket($vmid, $qga);
 
@@ -141,23 +181,29 @@ my $open_connection = sub {
     my $fh;
     my $starttime = [gettimeofday];
     my $count = 0;
+
+    my $sotype = $qga ? 'qga' : 'qmp';
+
     for (;;) {
 	$count++;
 	$fh = IO::Socket::UNIX->new(Peer => $sname, Blocking => 0, Timeout => 1);
 	last if $fh;
 	if ($! != EINTR && $! != EAGAIN) {
-	    die "unable to connect to VM $vmid socket - $!\n";
+	    die "unable to connect to VM $vmid $sotype socket - $!\n";
 	}
 	my $elapsed = tv_interval($starttime, [gettimeofday]);
 	if ($elapsed >= $timeout) {
-	    die "unable to connect to VM $vmid socket - timeout after $count retries\n";
+	    die "unable to connect to VM $vmid $sotype socket - timeout after $count retries\n";
 	}
 	usleep(100000);
     }
 
-    $self->{fhs}->{$vmid} = $fh;
-    $self->{fhs_lookup}->{$fh} = $vmid;
+    $queue_info->{fh} = $fh;
+
+    $self->{queue_lookup}->{$fh} = $queue_info;
+
     $self->{mux}->add($fh);
+    $self->{mux}->set_timeout($fh, $timeout);
 
     return $fh;
 };
@@ -167,29 +213,32 @@ my $check_queue = sub {
 
     my $running = 0;
 
-    foreach my $vmid (keys %{$self->{queue}}) {
-	my $fh = $self->{fhs}->{$vmid};
+    foreach my $sname (keys %{$self->{queue_info}}) {
+	my $queue_info = $self->{queue_info}->{$sname};
+	my $fh = $queue_info->{fh};
 	next if !$fh;
 
-	if ($self->{errors}->{$vmid}) {
-	    &$close_connection($self, $vmid);
+	my $qga = $queue_info->{qga};
+
+	if ($queue_info->{error}) {
+	    &$close_connection($self, $queue_info);
 	    next;
 	}
 
-	if ($self->{current}->{$vmid}) { # command running, waiting for response
+	if ($queue_info->{current}) { # command running, waiting for response
 	    $running++;
 	    next;
 	}
 
-	if (!scalar(@{$self->{queue}->{$vmid}})) { # no more commands for the VM
-	    &$close_connection($self, $vmid);
+	if (!scalar(@{$queue_info->{cmds}})) { # no more commands
+	    &$close_connection($self, $queue_info);
 	    next;
 	}
 
 	eval {
 
-	    my $cmd = $self->{current}->{$vmid} = shift @{$self->{queue}->{$vmid}};
-	    $cmd->{id} = &$next_cmdid($cmd->{qga});
+	    my $cmd = $queue_info->{current} = shift @{$queue_info->{cmds}};
+	    $cmd->{id} = &$next_cmdid($qga);
 
 	    my $fd = -1;
 	    if ($cmd->{execute} eq 'add-fd' || $cmd->{execute} eq 'getfd') {
@@ -197,21 +246,14 @@ my $check_queue = sub {
 		delete $cmd->{arguments}->{fd};
 	    }
 
-	    my $qmpcmd = undef;
+	    my $qmpcmd;
 
-	    if($self->{current}->{$vmid}->{qga}){
+	    if ($qga) {
 
-		my $qmpcmdid =to_json({
-		    execute => 'guest-sync',
-		    arguments => { id => int($cmd->{id})}});
+		$qmpcmd = to_json({ execute => 'guest-sync', arguments => { id => int($cmd->{id})}}) .
+		    to_json({ execute => $cmd->{execute}, arguments => $cmd->{arguments}});
 
-		$qmpcmd = to_json({
-		    execute => $cmd->{execute},
-		    arguments => $cmd->{arguments}});
-
-		$qmpcmd = $qmpcmdid.$qmpcmd;
-
-	    }else{
+	    } else {
 
 		$qmpcmd = to_json({
 		    execute => $cmd->{execute},
@@ -227,7 +269,7 @@ my $check_queue = sub {
 	    }
 	};
 	if (my $err = $@) {
-	    $self->{errors}->{$vmid} = $err;
+	    $queue_info->{error} = $err;
 	} else {
 	    $running++;
 	}
@@ -244,29 +286,25 @@ sub queue_execute {
 
     $timeout = 3 if !$timeout;
 
-    $self->{current} = {};
-    $self->{errors} = {};
-
     # open all necessary connections
-    foreach my $vmid (keys %{$self->{queue}}) {
-	next if !scalar(@{$self->{queue}->{$vmid}}); # no commands for the VM
-
-	if ($self->{queue}->{$vmid}[0]->{execute} =~ /^guest\-+/){
-	    $self->{queue}->{$vmid}[0]->{qga} = "1";
-	}
+    foreach my $sname (keys %{$self->{queue_info}}) {
+	my $queue_info = $self->{queue_info}->{$sname};
+	next if !scalar(@{$queue_info->{cmds}}); # no commands
+	
+	$queue_info->{error} = undef;
+	$queue_info->{current} = undef;
 
 	eval {  
-	    my $fh = &$open_connection($self, $vmid, $timeout, $self->{queue}->{$vmid}[0]->{qga});
+	    &$open_connection($self, $queue_info, $timeout);
 
-	    if(!$self->{queue}->{$vmid}[0]->{qga}){
-		my $cmd = { execute => 'qmp_capabilities', arguments => {} };
-		unshift @{$self->{queue}->{$vmid}}, $cmd;
+	    if (!$queue_info->{qga}) {
+		my $cap_cmd = { execute => 'qmp_capabilities', arguments => {} };
+		unshift @{$queue_info->{cmds}}, $cap_cmd;
 	    }
-	    $self->{mux}->set_timeout($fh, $timeout);
 	};
 	if (my $err = $@) {
 	    warn $err;
-	    $self->{errors}->{$vmid} = $err;
+	    $queue_info->{error} = $err;
 	}
     }
 
@@ -282,24 +320,21 @@ sub queue_execute {
     }
 
     # make sure we close everything
-    foreach my $vmid (keys %{$self->{fhs}}) {
-	&$close_connection($self, $vmid);
+    foreach my $sname (keys %{$self->{queue_info}}) {
+	&$close_connection($self, $self->{queue_info}->{$sname});
     }
 
-    $self->{queue} = $self->{current} = $self->{fhs} = $self->{fhs_lookup} = {};
+    $self->{queue_info} = $self->{queue_lookup} = {};
 }
 
 sub mux_close {
     my ($self, $mux, $fh) = @_;
 
-    my $vmid = $self->{fhs_lookup}->{$fh} || 'undef';
-    return if !defined($vmid);
+    my $queue_info = &$lookup_queue_info($self, $fh, 1); 
+    return if !$queue_info;
 
-    if(!$self->{no_answer}){
-	$self->{errors}->{$vmid} = "client closed connection\n" if !$self->{errors}->{$vmid};  
-    } else {
-	delete $self->{no_anwser}; 
-    }
+    $queue_info->{error} = "client closed connection\n" 
+	if !$queue_info->{error};
 }
 
 # mux_input is called when input is available on one of
@@ -307,18 +342,19 @@ sub mux_close {
 sub mux_input {
     my ($self, $mux, $fh, $input) = @_;
 
-    my $vmid = $self->{fhs_lookup}->{$fh};    
-    if (!$vmid) {
-	warn "internal error - unable to lookup vmid";
-	return;
-    }
- 
-    my $curcmd = $self->{current}->{$vmid};
-    die "unable to lookup current command for VM $vmid\n" if !$curcmd;
+    my $queue_info = &$lookup_queue_info($self, $fh); 
+    return if !$queue_info;
 
+    my $sname = $queue_info->{sname};    
+    my $vmid = $queue_info->{vmid};    
+    my $qga = $queue_info->{qga};
+
+    my $curcmd = $queue_info->{current};
+    die "unable to lookup current command for VM $vmid ($sname)\n" if !$curcmd;
+ 
     my $raw;
 
-    if ($curcmd->{qga}) {
+    if ($qga) {
 	return if $$input !~ s/^([^\n]+}\n[^\n]+})\n(.*)$/$2/so;
 	$raw = $1;
     } else {
@@ -329,15 +365,15 @@ sub mux_input {
     eval {
 	my @jsons = split("\n", $raw);
 
-	if ($curcmd->{qga}) {
+	if ($qga) {
 
 	    die "response is not complete" if @jsons != 2 ;
 
 	    my $obj = from_json($jsons[0]);
-	    my $cmdid = $obj->{return};
+	    my $cmdid = $obj->{'return'};
 	    die "received responsed without command id\n" if !$cmdid;
-
-	    delete $self->{current}->{$vmid};
+	    
+	    delete $queue_info->{current};
 
 	    if ($curcmd->{id} ne $cmdid) {
 		die "got wrong command id '$cmdid' (expected $curcmd->{id})\n";
@@ -373,10 +409,7 @@ sub mux_input {
 	    my $cmdid = $obj->{id};
 	    die "received responsed without command id\n" if !$cmdid;
 
-	    my $curcmd = $self->{current}->{$vmid};
-	    die "unable to lookup current command for VM $vmid\n" if !$curcmd;
-
-	    delete $self->{current}->{$vmid};
+	    delete $queue_info->{current};
 
 	    if ($curcmd->{id} ne $cmdid) {
 		die "got wrong command id '$cmdid' (expected $curcmd->{id})\n";
@@ -388,7 +421,7 @@ sub mux_input {
 	}
     };
     if (my $err = $@) {
-	$self->{errors}->{$vmid} = $err;
+	$queue_info->{error} = $err;
     }
 
     &$check_queue($self);
@@ -398,8 +431,8 @@ sub mux_input {
 sub mux_timeout {
     my ($self, $mux, $fh) = @_;
 
-    if (my $vmid = $self->{fhs_lookup}->{$fh}) {
-	$self->{errors}->{$vmid} = "got timeout\n";
+    if (my $queue_info = &$lookup_queue_info($self, $fh)) { 
+	$queue_info->{error} = "got timeout\n";
     }
 
     &$check_queue($self);
@@ -408,37 +441,31 @@ sub mux_timeout {
 sub mux_eof {
     my ($self, $mux, $fh, $input) = @_;
  
-    my $vmid = $self->{fhs_lookup}->{$fh};
-    if(check_no_answer($self->{current}->{$vmid}->{execute})){
-	my @jsons = split("\n", $$input);
+    my $queue_info = &$lookup_queue_info($self, $fh);
+    return if !$queue_info;
+
+    my $sname = $queue_info->{sname};    
+    my $vmid = $queue_info->{vmid};    
+    my $qga = $queue_info->{qga};
+  
+    my $curcmd = $queue_info->{current};
+    die "unable to lookup current command for VM $vmid ($sname)\n" if !$curcmd;
+
+    if ($qga && $qga_allow_close_cmds->{$curcmd->{execute}}) {
+
+	return if $$input !~ s/^([^\n]+})\n(.*)$/$2/so;
+
+	my @jsons = split("\n", $1);
 
 	my $obj = from_json($jsons[0]);
 
-	my $cmdid = $obj->{return};
+	my $cmdid = $obj->{'return'};
 	die "received responsed without command id\n" if !$cmdid;
 
-	my $curcmd = $self->{current}->{$vmid};
-	die "unable to lookup current command for VM $vmid\n" if !$curcmd;
+	delete $queue_info->{current};
 
-	delete $self->{current}->{$vmid};
-
-	$self->{no_answer} = 1;
-      }
-}
-
-sub check_no_answer {
-    my($cmd) = @_;
-
-    if ($cmd eq 'guest-shutdown'){
-	return 1;
-    } elsif ($cmd eq 'guest-suspend-ram'){
-	return 1;
-    } elsif ($cmd eq 'guest-suspend-disk'){
-	return 1;
-    } elsif ($cmd eq 'guest-suspend-hybrid'){
-	return 1;
+	&$close_connection($self, $queue_info);
     }
-    return 0;
 }
 
 1;
