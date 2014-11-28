@@ -122,8 +122,7 @@ sub cmd {
 	}
     }
 
-    $self->queue_execute($timeout);
-
+    $self->queue_execute($timeout, 2);
 
     die "VM $vmid qmp command '$cmd->{execute}' failed - $queue_info->{error}"
 	if defined($queue_info->{error});
@@ -162,7 +161,7 @@ my $close_connection = sub {
 
     if (my $fh = delete $queue_info->{fh}) {
 	delete $self->{queue_lookup}->{$fh};
-	$self->{mux}->close($fh);	
+	$self->{mux}->close($fh);
     } 
 };
 
@@ -281,8 +280,9 @@ my $check_queue = sub {
 };
 
 # execute all queued command
+
 sub queue_execute {
-    my ($self, $timeout) = @_;
+    my ($self, $timeout, $noerr) = @_;
 
     $timeout = 3 if !$timeout;
 
@@ -303,7 +303,6 @@ sub queue_execute {
 	    }
 	};
 	if (my $err = $@) {
-	    warn $err;
 	    $queue_info->{error} = $err;
 	}
     }
@@ -320,11 +319,22 @@ sub queue_execute {
     }
 
     # make sure we close everything
+    my $errors = '';
     foreach my $sname (keys %{$self->{queue_info}}) {
-	&$close_connection($self, $self->{queue_info}->{$sname});
+	my $queue_info = $self->{queue_info}->{$sname};
+	&$close_connection($self, $queue_info);
+	if ($queue_info->{error}) {
+	    if ($noerr) {
+		warn $queue_info->{error} if $noerr < 2;
+	    } else {
+		$errors .= $queue_info->{error}
+	    }
+	}
     }
 
     $self->{queue_info} = $self->{queue_lookup} = {};
+
+    die $errors if $errors;
 }
 
 sub mux_close {
@@ -337,8 +347,7 @@ sub mux_close {
 	if !$queue_info->{error};
 }
 
-# mux_input is called when input is available on one of
-# the descriptors.
+# mux_input is called when input is available on one of the descriptors.
 sub mux_input {
     my ($self, $mux, $fh, $input) = @_;
 
@@ -370,14 +379,15 @@ sub mux_input {
 	    die "response is not complete" if @jsons != 2 ;
 
 	    my $obj = from_json($jsons[0]);
+
 	    my $cmdid = $obj->{'return'};
 	    die "received responsed without command id\n" if !$cmdid;
 	    
-	    delete $queue_info->{current};
-
 	    if ($curcmd->{id} ne $cmdid) {
 		die "got wrong command id '$cmdid' (expected $curcmd->{id})\n";
 	    }
+
+	    delete $queue_info->{current};
 
 	    $obj = from_json($jsons[1]);
 
@@ -409,11 +419,11 @@ sub mux_input {
 	    my $cmdid = $obj->{id};
 	    die "received responsed without command id\n" if !$cmdid;
 
-	    delete $queue_info->{current};
-
 	    if ($curcmd->{id} ne $cmdid) {
 		die "got wrong command id '$cmdid' (expected $curcmd->{id})\n";
 	    }
+
+	    delete $queue_info->{current};
 
 	    if (my $callback = $curcmd->{callback}) {
 		&$callback($vmid, $obj);
@@ -433,6 +443,7 @@ sub mux_timeout {
 
     if (my $queue_info = &$lookup_queue_info($self, $fh)) { 
 	$queue_info->{error} = "got timeout\n";
+	$self->{mux}->inbuffer($fh, ''); # clear to avoid warnings
     }
 
     &$check_queue($self);
@@ -440,7 +451,7 @@ sub mux_timeout {
 
 sub mux_eof {
     my ($self, $mux, $fh, $input) = @_;
- 
+
     my $queue_info = &$lookup_queue_info($self, $fh);
     return if !$queue_info;
 
@@ -455,16 +466,29 @@ sub mux_eof {
 
 	return if $$input !~ s/^([^\n]+})\n(.*)$/$2/so;
 
-	my @jsons = split("\n", $1);
+	my $raw = $1;
 
-	my $obj = from_json($jsons[0]);
+	eval {
+	    my $obj = from_json($raw);
 
-	my $cmdid = $obj->{'return'};
-	die "received responsed without command id\n" if !$cmdid;
+	    my $cmdid = $obj->{'return'};
+	    die "received responsed without command id\n" if !$cmdid;
 
-	delete $queue_info->{current};
+	    delete $queue_info->{current};
+
+	    if (my $callback = $curcmd->{callback}) {
+		&$callback($vmid, undef);
+	    }
+	};
+	if (my $err = $@) {
+	    $queue_info->{error} = $err;
+	}
 
 	&$close_connection($self, $queue_info);
+
+	if (scalar(@{$queue_info->{cmds}}) && !$queue_info->{error}) {
+	    $queue_info->{error} = "Got EOF but command queue is not empty.\n";
+	}
     }
 }
 
