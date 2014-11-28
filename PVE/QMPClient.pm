@@ -364,10 +364,10 @@ sub mux_input {
     my $raw;
 
     if ($qga) {
-	return if $$input !~ s/^([^\n]+}\n[^\n]+})\n(.*)$/$2/so;
+	return if $$input !~ s/^([^\n]+}\r?\n[^\n]+})\r?\n(.*)$/$2/so;
 	$raw = $1;
     } else {
-	return if $$input !~ s/^([^\n]+})\r?\n(.*)$/$2/so;
+	return if $$input !~ s/^(.*})\r?\n(.*)$/$2/so;
 	$raw = $1;
     }
 
@@ -464,7 +464,7 @@ sub mux_eof {
 
     if ($qga && $qga_allow_close_cmds->{$curcmd->{execute}}) {
 
-	return if $$input !~ s/^([^\n]+})\n(.*)$/$2/so;
+	return if $$input !~ s/^([^\n]+})\r?\n(.*)$/$2/so;
 
 	my $raw = $1;
 
