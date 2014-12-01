@@ -1,3 +1,21 @@
+qemu-server (3.3-5) unstable; urgency=low
+
+  * drive-mirror: cleanups, avoid division by zero bug
+
+  * shutdown by Qemu Guest Agent if the agent flag is set
+
+  * savevm-end : wait that savevm is finished
+   
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 01 Dec 2014 09:31:17 +0100
+
+qemu-server (3.3-4) unstable; urgency=low
+
+  * serial: allow to pass arbitrary device names
+  
+  * Add check if host has enough real CPUs for starting VM
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 24 Nov 2014 07:42:10 +0100
+
 qemu-server (3.3-3) unstable; urgency=low
 
   * drive-mirror: further improvments
