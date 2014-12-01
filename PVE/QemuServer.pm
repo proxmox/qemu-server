@@ -598,9 +598,9 @@ PVE::JSONSchema::register_standard_option("pve-qm-hostpci", $hostpcidesc);
 my $serialdesc = {
 	optional => 1,
 	type => 'string',
-	pattern => '(/dev/ttyS\d+|socket)',
+	pattern => '(/dev/.+|socket)',
 	description =>  <<EODESCR,
-Create a serial device inside the VM (n is 0 to 3), and pass through a host serial device, or create a unix socket on the host side (use 'qm terminal' to open a terminal connection).
+Create a serial device inside the VM (n is 0 to 3), and pass through a host serial device (i.e. /dev/ttyS0), or create a unix socket on the host side (use 'qm terminal' to open a terminal connection).
 
 Note: This option allows direct access to host hardware. So it is no longer possible to migrate such machines - use with special care.
 
