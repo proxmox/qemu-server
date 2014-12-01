@@ -5200,13 +5200,15 @@ sub qemu_drive_mirror {
 	    die "mirroring job seem to have die. Maybe do you have bad sectors?" if !$stat;
 	    die "error job is not mirroring" if $stat->{type} ne "mirror";
 
-	    my $transferred = $stat->{offset};
-	    my $total = $stat->{len};
-	    my $remaining = $total - $transferred;
-	    my $percent = sprintf "%.2f", ($transferred * 100 / $total);
 	    my $busy = $stat->{busy};
 
-	    print "transferred: $transferred bytes remaining: $remaining bytes total: $total bytes progression: $percent % busy: $busy\n";
+	    if (my $total = $stat->{len}) {
+		my $transferred = $stat->{offset} || 0;
+		my $remaining = $total - $transferred;
+		my $percent = sprintf "%.2f", ($transferred * 100 / $total);
+		
+		print "transferred: $transferred bytes remaining: $remaining bytes total: $total bytes progression: $percent % busy: $busy\n";
+	    }
 
 	    if ($stat->{len} == $stat->{offset}) {
 		if ($busy eq 'false') {
