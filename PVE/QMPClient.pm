@@ -107,6 +107,9 @@ sub cmd {
 	    $timeout = 60*60; # 1 hour
 	} elsif ($cmd->{execute} =~ m/^(eject|change)/) {
 	    $timeout = 60; # note: cdrom mount command is slow
+	} elsif ($cmd->{execute} eq 'guest-fsfreeze-freeze' ||
+		 $cmd->{execute} eq 'guest-fsfreeze-thaw') {
+	    $timeout = 10;
 	} elsif ($cmd->{execute} eq 'savevm-start' ||
 		 $cmd->{execute} eq 'savevm-end' ||
 		 $cmd->{execute} eq 'query-backup' ||
@@ -249,7 +252,8 @@ my $check_queue = sub {
 
 	    if ($qga) {
 
-		$qmpcmd = to_json({ execute => 'guest-sync', arguments => { id => int($cmd->{id})}}) .
+		$qmpcmd = to_json({ execute => 'guest-sync-delimited', 
+				    arguments => { id => int($cmd->{id})}}) .
 		    to_json({ execute => $cmd->{execute}, arguments => $cmd->{arguments}});
 
 	    } else {
@@ -364,7 +368,7 @@ sub mux_input {
     my $raw;
 
     if ($qga) {
-	return if $$input !~ s/^([^\n]+}\r?\n[^\n]+})\r?\n(.*)$/$2/so;
+	return if $$input !~ s/^.*\xff([^\n]+}\r?\n[^\n]+})\r?\n(.*)$/$2/so;
 	$raw = $1;
     } else {
 	return if $$input !~ s/^(.*})\r?\n(.*)$/$2/so;
@@ -382,6 +386,9 @@ sub mux_input {
 
 	    my $cmdid = $obj->{'return'};
 	    die "received responsed without command id\n" if !$cmdid;
+
+	    # skip results fro previous commands
+	    return if $cmdid < $curcmd->{id};
 	    
 	    if ($curcmd->{id} ne $cmdid) {
 		die "got wrong command id '$cmdid' (expected $curcmd->{id})\n";
@@ -464,7 +471,7 @@ sub mux_eof {
 
     if ($qga && $qga_allow_close_cmds->{$curcmd->{execute}}) {
 
-	return if $$input !~ s/^([^\n]+})\r?\n(.*)$/$2/so;
+	return if $$input !~ s/^.*\xff([^\n]+})\r?\n(.*)$/$2/so;
 
 	my $raw = $1;
 
