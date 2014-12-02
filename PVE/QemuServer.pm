@@ -3313,18 +3313,6 @@ sub qemu_volume_snapshot_delete {
     vm_mon_cmd($vmid, "delete-drive-snapshot", device => $deviceid, name => $snap);
 }
 
-sub qga_freezefs {
-    my ($vmid) = @_;
-
-    #need to impplement call to qemu-ga
-}
-
-sub qga_unfreezefs {
-    my ($vmid) = @_;
-
-    #need to impplement call to qemu-ga
-}
-
 sub set_migration_caps {
     my ($vmid) = @_;
 
@@ -4898,6 +4886,13 @@ sub snapshot_create {
 
     my $running = check_running($vmid);
 
+    my $config = load_config($vmid); 
+       
+    if ($running && $config->{agent}) {
+	eval { vm_mon_cmd($vmid, "guest-fsfreeze-freeze"); };
+	warn "guest-fsfreeze-freeze problems - $@" if $@;
+    }
+	    
     eval {
 	# create internal snapshots of all drives
 
@@ -4913,8 +4908,6 @@ sub snapshot_create {
  	    }
 	};
 
-	qga_freezefs($vmid) if $running && $freezefs;
-
 	foreach_drive($snap, sub {
 	    my ($ds, $drive) = @_;
 
@@ -4929,14 +4922,16 @@ sub snapshot_create {
     };
     my $err = $@;
 
-    eval { qga_unfreezefs($vmid) if $running && $freezefs; };
-    warn $@ if $@;
-
-    eval { vm_mon_cmd($vmid, "savevm-end") if $running; };
-    warn $@ if $@;
-
-    # savevm-end is async, we need to wait
     if ($running) {
+	eval { vm_mon_cmd($vmid, "savevm-end")  };
+	warn $@ if $@;
+
+	if ($config->{agent}) {
+	    eval { vm_mon_cmd($vmid, "guest-fsfreeze-thaw"); }; 
+	    warn "guest-fsfreeze-thaw problems - $@" if $@;
+	}
+
+	# savevm-end is async, we need to wait
 	for (;;) {
 	    my $stat = vm_mon_cmd_nocheck($vmid, "query-savevm");
 	    if (!$stat->{bytes}) {
