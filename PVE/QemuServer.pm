@@ -4888,7 +4888,7 @@ sub snapshot_create {
 
     my $config = load_config($vmid); 
        
-    if ($running && $config->{agent}) {
+    if ($running && $freezefs && $config->{agent}) {
 	eval { vm_mon_cmd($vmid, "guest-fsfreeze-freeze"); };
 	warn "guest-fsfreeze-freeze problems - $@" if $@;
     }
@@ -4926,7 +4926,7 @@ sub snapshot_create {
 	eval { vm_mon_cmd($vmid, "savevm-end")  };
 	warn $@ if $@;
 
-	if ($config->{agent}) {
+	if ($freezefs && $config->{agent}) {
 	    eval { vm_mon_cmd($vmid, "guest-fsfreeze-thaw"); }; 
 	    warn "guest-fsfreeze-thaw problems - $@" if $@;
 	}
