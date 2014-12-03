@@ -306,6 +306,12 @@ EODESC
 	minimum => 1,
 	default => 1,
     },
+    numa => {
+	optional => 1,
+	type => 'boolean',
+	description => "Enable/disable Numa.",
+	default => 0,
+    },
     maxcpus => {
 	optional => 1,
 	type => 'integer',
@@ -2686,7 +2692,28 @@ sub config_to_command {
     # push @$cmd, '-cpu', "$cpu,enforce";
     push @$cmd, '-cpu', $cpu;
 
+    my $memory =  $conf->{memory} || $defaults->{memory};    
+    push @$cmd, '-m', $memory;
+
+    if($conf->{numa}){
+
+	my $numa_memory = ($memory / $sockets)."M";
+
+	for (my $i = 0; $i < $sockets; $i++)  {
+
+	    my $cpustart = ($cores * $i);
+	    my $cpuend = ($cpustart + $cores - 1) if $cores && $cores > 1;
+	    my $cpus = $cpustart;
+	    $cpus .= "-$cpuend" if $cpuend;
+
+	    push @$cmd, '-object', "memory-backend-ram,size=$numa_memory,id=ram-node$i";
+	    push @$cmd, '-numa', "node,nodeid=$i,cpus=$cpus,memdev=ram-node$i";
+	}
+    }
+
     push @$cmd, '-S' if $conf->{freeze};
+
+
 
     # set keyboard layout
     my $kb = $conf->{keyboard} || $defaults->{keyboard};
@@ -2797,8 +2824,6 @@ sub config_to_command {
 	push @$devices, '-drive',$drive_cmd;
 	push @$devices, '-device', print_drivedevice_full($storecfg, $conf, $vmid, $drive, $bridges);
     });
-
-    push @$cmd, '-m', $conf->{memory} || $defaults->{memory};
 
     for (my $i = 0; $i < $MAX_NETS; $i++) {
          next if !$conf->{"net$i"};
