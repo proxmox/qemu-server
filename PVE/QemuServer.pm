@@ -489,6 +489,19 @@ my $MAX_UNUSED_DISKS = 8;
 my $MAX_HOSTPCI_DEVICES = 4;
 my $MAX_SERIAL_PORTS = 4;
 my $MAX_PARALLEL_PORTS = 3;
+my $MAX_NUMA = 8;
+
+my $numadesc = {
+    optional => 1,
+    type => 'string', format => 'pve-qm-numanode',
+    typetext => "cpus=<id[-id],memory=<mb>[[,hostnodes=<id[-id]>][,policy=<preferred|bind|interleave>]]",
+    description => "numa topology",
+};
+PVE::JSONSchema::register_standard_option("pve-qm-numanode", $numadesc);
+
+for (my $i = 0; $i < $MAX_NUMA; $i++)  {
+    $confdesc->{"numa$i"} = $numadesc;
+}
 
 my $nic_model_list = ['rtl8139', 'ne2k_pci', 'e1000',  'pcnet',  'virtio',
 		      'ne2k_isa', 'i82551', 'i82557b', 'i82559er', 'vmxnet3'];
@@ -1278,6 +1291,31 @@ sub drive_is_cdrom {
 
 }
 
+sub parse_numa {
+    my ($data) = @_;
+
+    my $res = {};
+
+    foreach my $kvp (split(/,/, $data)) {
+
+	if ($kvp =~ m/^memory=(\S+)$/) {
+	    $res->{memory} = $1;
+	} elsif ($kvp =~ m/^policy=(preferred|bind|interleave)$/) {
+	    $res->{policy} = $1;
+	} elsif ($kvp =~ m/^cpus=(\d+)(-(\d+))?$/) {
+	    $res->{cpus}->{start} = $1;
+	    $res->{cpus}->{end} = $3;
+	} elsif ($kvp =~ m/^hostnodes=(\d+)(-(\d+))?$/) {
+	    $res->{hostnodes}->{start} = $1;
+	    $res->{hostnodes}->{end} = $3;
+	} else {
+	    return undef;
+	}
+    }
+
+    return $res;
+}
+
 sub parse_hostpci {
     my ($value) = @_;
 
@@ -1456,6 +1494,17 @@ sub verify_bootdisk {
     return undef if $noerr;
 
     die "invalid boot disk '$value'\n";
+}
+
+PVE::JSONSchema::register_format('pve-qm-numanode', \&verify_numa);
+sub verify_numa {
+    my ($value, $noerr) = @_;
+
+    return $value if parse_numa($value);
+
+    return undef if $noerr;
+
+    die "unable to parse numa options\n";
 }
 
 PVE::JSONSchema::register_format('pve-qm-net', \&verify_net);
@@ -2697,17 +2746,68 @@ sub config_to_command {
 
     if($conf->{numa}){
 
-	my $numa_memory = ($memory / $sockets)."M";
+	my $numa_totalmemory = undef;
+	for (my $i = 0; $i < $MAX_NUMA; $i++) {
+	    next if !$conf->{"numa$i"};
+	    my $numa = parse_numa($conf->{"numa$i"});
+	    next if !$numa;
+	    #memory
+	    die "missing numa node$i memory value" if !$numa->{memory};
+	    my $numa_memory = $numa->{memory};
+	    $numa_totalmemory += $numa_memory;
+	    my $numa_object = "memory-backend-ram,id=ram-node$i,size=$numa_memory"."M";
 
-	for (my $i = 0; $i < $sockets; $i++)  {
+	    #cpus
+	    my $cpus_start = $numa->{cpus}->{start};
+	    die "missing numa node$i cpus" if !defined($cpus_start);
+	    my $cpus_end = $numa->{cpus}->{end} if defined($numa->{cpus}->{end});
+	    my $cpus = $cpus_start;
+	    if (defined($cpus_end)) {
+		$cpus .= "-$cpus_end";
+		die "numa node$i :  cpu range $cpus is incorrect" if $cpus_end <= $cpus_start;
+	    }
 
-	    my $cpustart = ($cores * $i);
-	    my $cpuend = ($cpustart + $cores - 1) if $cores && $cores > 1;
-	    my $cpus = $cpustart;
-	    $cpus .= "-$cpuend" if $cpuend;
+	    #hostnodes
+	    my $hostnodes_start = $numa->{hostnodes}->{start};
+	    if (defined($hostnodes_start)) {
+		my $hostnodes_end = $numa->{hostnodes}->{end} if defined($numa->{hostnodes}->{end});
+		my $hostnodes = $hostnodes_start;
+		if (defined($hostnodes_end)) {
+		    $hostnodes .= "-$hostnodes_end";
+		    die "host node $hostnodes range is incorrect" if $hostnodes_end <= $hostnodes_start;
+		}
 
-	    push @$cmd, '-object', "memory-backend-ram,size=$numa_memory,id=ram-node$i";
+		my $hostnodes_end_range = defined($hostnodes_end) ? $hostnodes_end : $hostnodes_start;
+		for (my $i = $hostnodes_start; $i <= $hostnodes_end_range; $i++ ) {
+		    die "host numa node$i don't exist" if !(-d "/sys/devices/system/node/node$i/");
+		}
+
+		#policy
+		my $policy = $numa->{policy};
+		die "you need to define a policy for hostnode $hostnodes" if !$policy;
+		$numa_object .= ",host-nodes=$hostnodes,policy=$policy";	
+	    }
+
+	    push @$cmd, '-object', $numa_object;
 	    push @$cmd, '-numa', "node,nodeid=$i,cpus=$cpus,memdev=ram-node$i";
+	}
+	die "total memory for NUMA nodes must be equal to vm memory" if $numa_totalmemory && $numa_totalmemory != $memory;
+
+	#if no custom tology, we split memory and cores across numa nodes
+	if(!$numa_totalmemory) {
+
+	    my $numa_memory = ($memory / $sockets)."M";
+
+	    for (my $i = 0; $i < $sockets; $i++)  {
+
+		my $cpustart = ($cores * $i);
+		my $cpuend = ($cpustart + $cores - 1) if $cores && $cores > 1;
+		my $cpus = $cpustart;
+		$cpus .= "-$cpuend" if $cpuend;
+
+		push @$cmd, '-object', "memory-backend-ram,size=$numa_memory,id=ram-node$i";
+		push @$cmd, '-numa', "node,nodeid=$i,cpus=$cpus,memdev=ram-node$i";
+	    }
 	}
     }
 
