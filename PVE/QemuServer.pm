@@ -4876,19 +4876,22 @@ my $savevm_wait = sub {
 };
 
 sub snapshot_create {
-    my ($vmid, $snapname, $save_vmstate, $freezefs, $comment) = @_;
+    my ($vmid, $snapname, $save_vmstate, $comment) = @_;
 
     my $snap = &$snapshot_prepare($vmid, $snapname, $save_vmstate, $comment);
 
-    $freezefs = $save_vmstate = 0 if !$snap->{vmstate}; # vm is not running
-
-    my $drivehash = {};
-
-    my $running = check_running($vmid);
+    $save_vmstate = 0 if !$snap->{vmstate}; # vm is not running
 
     my $config = load_config($vmid); 
        
-    if ($running && $freezefs && $config->{agent}) {
+    my $running = check_running($vmid);
+
+    my $freezefs = $running && $config->{agent}; 
+    $freezefs = 0 if $snap->{vmstate}; # not needed if we save RAM
+
+    my $drivehash = {};
+
+    if ($freezefs) {
 	eval { vm_mon_cmd($vmid, "guest-fsfreeze-freeze"); };
 	warn "guest-fsfreeze-freeze problems - $@" if $@;
     }
@@ -4926,7 +4929,7 @@ sub snapshot_create {
 	eval { vm_mon_cmd($vmid, "savevm-end")  };
 	warn $@ if $@;
 
-	if ($freezefs && $config->{agent}) {
+	if ($freezefs) {
 	    eval { vm_mon_cmd($vmid, "guest-fsfreeze-thaw"); }; 
 	    warn "guest-fsfreeze-thaw problems - $@" if $@;
 	}
