@@ -2741,62 +2741,64 @@ sub config_to_command {
     # push @$cmd, '-cpu', "$cpu,enforce";
     push @$cmd, '-cpu', $cpu;
 
-    my $memory =  $conf->{memory} || $defaults->{memory};    
+    my $memory =  $conf->{memory} || $defaults->{memory};
     push @$cmd, '-m', $memory;
 
-    if($conf->{numa}){
+    if ($conf->{numa}) {
 
 	my $numa_totalmemory = undef;
 	for (my $i = 0; $i < $MAX_NUMA; $i++) {
 	    next if !$conf->{"numa$i"};
 	    my $numa = parse_numa($conf->{"numa$i"});
 	    next if !$numa;
-	    #memory
-	    die "missing numa node$i memory value" if !$numa->{memory};
+	    # memory
+	    die "missing numa node$i memory value\n" if !$numa->{memory};
 	    my $numa_memory = $numa->{memory};
 	    $numa_totalmemory += $numa_memory;
 	    my $numa_object = "memory-backend-ram,id=ram-node$i,size=$numa_memory"."M";
 
-	    #cpus
+	    # cpus
 	    my $cpus_start = $numa->{cpus}->{start};
-	    die "missing numa node$i cpus" if !defined($cpus_start);
+	    die "missing numa node$i cpus\n" if !defined($cpus_start);
 	    my $cpus_end = $numa->{cpus}->{end} if defined($numa->{cpus}->{end});
 	    my $cpus = $cpus_start;
 	    if (defined($cpus_end)) {
 		$cpus .= "-$cpus_end";
-		die "numa node$i :  cpu range $cpus is incorrect" if $cpus_end <= $cpus_start;
+		die "numa node$i :  cpu range $cpus is incorrect\n" if $cpus_end <= $cpus_start;
 	    }
 
-	    #hostnodes
+	    # hostnodes
 	    my $hostnodes_start = $numa->{hostnodes}->{start};
 	    if (defined($hostnodes_start)) {
 		my $hostnodes_end = $numa->{hostnodes}->{end} if defined($numa->{hostnodes}->{end});
 		my $hostnodes = $hostnodes_start;
 		if (defined($hostnodes_end)) {
 		    $hostnodes .= "-$hostnodes_end";
-		    die "host node $hostnodes range is incorrect" if $hostnodes_end <= $hostnodes_start;
+		    die "host node $hostnodes range is incorrect\n" if $hostnodes_end <= $hostnodes_start;
 		}
 
 		my $hostnodes_end_range = defined($hostnodes_end) ? $hostnodes_end : $hostnodes_start;
 		for (my $i = $hostnodes_start; $i <= $hostnodes_end_range; $i++ ) {
-		    die "host numa node$i don't exist" if !(-d "/sys/devices/system/node/node$i/");
+		    die "host numa node$i don't exist\n" if ! -d "/sys/devices/system/node/node$i/";
 		}
 
-		#policy
+		# policy
 		my $policy = $numa->{policy};
-		die "you need to define a policy for hostnode $hostnodes" if !$policy;
-		$numa_object .= ",host-nodes=$hostnodes,policy=$policy";	
+		die "you need to define a policy for hostnode $hostnodes\n" if !$policy;
+		$numa_object .= ",host-nodes=$hostnodes,policy=$policy";
 	    }
 
 	    push @$cmd, '-object', $numa_object;
 	    push @$cmd, '-numa', "node,nodeid=$i,cpus=$cpus,memdev=ram-node$i";
 	}
-	die "total memory for NUMA nodes must be equal to vm memory" if $numa_totalmemory && $numa_totalmemory != $memory;
+
+	die "total memory for NUMA nodes must be equal to vm memory\n"
+	    if $numa_totalmemory && $numa_totalmemory != $memory;
 
 	#if no custom tology, we split memory and cores across numa nodes
 	if(!$numa_totalmemory) {
 
-	    my $numa_memory = ($memory / $sockets)."M";
+	    my $numa_memory = ($memory / $sockets) . "M";
 
 	    for (my $i = 0; $i < $sockets; $i++)  {
 
@@ -2812,8 +2814,6 @@ sub config_to_command {
     }
 
     push @$cmd, '-S' if $conf->{freeze};
-
-
 
     # set keyboard layout
     my $kb = $conf->{keyboard} || $defaults->{keyboard};
@@ -3722,7 +3722,7 @@ sub vm_stop {
 
 	$timeout = 60 if !defined($timeout);
 	my $config = load_config($vmid);
-	
+
 	eval {
 	    if ($shutdown) {
 		if ($config->{agent}) {
@@ -5007,11 +5007,11 @@ sub snapshot_create {
 
     $save_vmstate = 0 if !$snap->{vmstate}; # vm is not running
 
-    my $config = load_config($vmid); 
-       
+    my $config = load_config($vmid);
+
     my $running = check_running($vmid);
 
-    my $freezefs = $running && $config->{agent}; 
+    my $freezefs = $running && $config->{agent};
     $freezefs = 0 if $snap->{vmstate}; # not needed if we save RAM
 
     my $drivehash = {};
@@ -5020,7 +5020,7 @@ sub snapshot_create {
 	eval { vm_mon_cmd($vmid, "guest-fsfreeze-freeze"); };
 	warn "guest-fsfreeze-freeze problems - $@" if $@;
     }
-	    
+
     eval {
 	# create internal snapshots of all drives
 
@@ -5055,7 +5055,7 @@ sub snapshot_create {
 	warn $@ if $@;
 
 	if ($freezefs) {
-	    eval { vm_mon_cmd($vmid, "guest-fsfreeze-thaw"); }; 
+	    eval { vm_mon_cmd($vmid, "guest-fsfreeze-thaw"); };
 	    warn "guest-fsfreeze-thaw problems - $@" if $@;
 	}
 
@@ -5329,7 +5329,7 @@ sub qemu_drive_mirror {
 		my $transferred = $stat->{offset} || 0;
 		my $remaining = $total - $transferred;
 		my $percent = sprintf "%.2f", ($transferred * 100 / $total);
-		
+
 		print "transferred: $transferred bytes remaining: $remaining bytes total: $total bytes progression: $percent % busy: $busy\n";
 	    }
 
