@@ -1,3 +1,13 @@
+qemu-server (3.3-6) unstable; urgency=low
+
+  * API change: snapshot_create - remove unused freezefs flag.
+  
+  * snapshot_create: call fsfreeze if agent flag is set
+
+  * qmpclient: use guest-sync-delimited
+  
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 04 Dec 2014 12:34:50 +0100
+
 qemu-server (3.3-5) unstable; urgency=low
 
   * drive-mirror: cleanups, avoid division by zero bug
