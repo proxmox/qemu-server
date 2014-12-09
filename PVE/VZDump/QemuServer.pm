@@ -286,8 +286,8 @@ sub archive {
     my $resume_on_backup;
 
     my $skiplock = 1;
-
-    if (!PVE::QemuServer::check_running($vmid)) {
+    my $vm_is_running = PVE::QemuServer::check_running($vmid);
+    if (!$vm_is_running) {
 	eval {
 	    $self->loginfo("starting kvm to execute backup task");
 	    PVE::QemuServer::vm_start($self->{storecfg}, $vmid, undef, 
@@ -380,8 +380,22 @@ sub archive {
 
 	$qmpclient->queue_cmd($vmid, $add_fd_cb, 'getfd', 
 			      fd => $outfileno, fdname => "backup");
+
+	if ($self->{vmlist}->{$vmid}->{agent} && $vm_is_running){
+	    eval {PVE::QemuServer::vm_mon_cmd($vmid,"guest-fsfreeze-freeze");};
+	    if (my $err = $@) {
+		$self->logerr($err);
+	    }  
+	}
+	
 	$qmpclient->queue_execute();
 
+	if ($self->{vmlist}->{$vmid}->{agent} && $vm_is_running ){
+	    eval {PVE::QemuServer::vm_mon_cmd($vmid,"guest-fsfreeze-thaw");};
+	    if (my $err = $@) {
+		$self->logerr($err);
+	    }
+	}
 	die $qmpclient->{errors}->{$vmid} if $qmpclient->{errors}->{$vmid};    
 
 	if ($cpid) {
