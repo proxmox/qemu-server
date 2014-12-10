@@ -19,7 +19,7 @@ use base qw (PVE::VZDump::Plugin);
 
 sub new {
     my ($class, $vzdump) = @_;
-    
+
     PVE::VZDump::check_bin('qm');
 
     my $self = bless { vzdump => $vzdump };
@@ -55,7 +55,7 @@ sub prepare {
 
     $task->{hostname} = $conf->{name};
 
-    my $hostname = PVE::INotify::nodename(); 
+    my $hostname = PVE::INotify::nodename();
 
     my $vollist = [];
     my $drivehash = {};
@@ -67,7 +67,7 @@ sub prepare {
 	if (defined($drive->{backup}) && $drive->{backup} eq "no") {
 	    $self->loginfo("exclude disk '$ds' (backup=no)");
 	    return;
-	}	   
+	}
 
 	my $volid = $drive->{file};
 
@@ -80,7 +80,7 @@ sub prepare {
 
     foreach my $ds (sort keys %$drivehash) {
 	my $drive = $drivehash->{$ds};
- 
+
 	my $volid = $drive->{file};
 
 	my $path;
@@ -102,7 +102,7 @@ sub prepare {
 	};
 	die "no such volume '$volid'\n" if $@;
 
-	my $diskinfo = { path => $path , volid => $volid, storeid => $storeid, 
+	my $diskinfo = { path => $path , volid => $volid, storeid => $storeid,
 			 format => $format, virtdev => $ds, qmdevice => "drive-$ds" };
 
 	if (-b $path) {
@@ -119,8 +119,8 @@ sub vm_status {
     my ($self, $vmid) = @_;
 
     my $running = PVE::QemuServer::check_running($vmid) ? 1 : 0;
-  
-    return wantarray ? ($running, $running ? 'running' : 'stopped') : $running; 
+
+    return wantarray ? ($running, $running ? 'running' : 'stopped') : $running;
 }
 
 sub lock_vm {
@@ -215,7 +215,7 @@ sub assemble {
 
     close ($outfd) if $outfd;
     close ($conffd) if $conffd;
-    
+
     die $err if $err;
 }
 
@@ -230,7 +230,7 @@ sub archive {
 
     my $speed = 0;
     if ($opts->{bwlimit}) {
-	$speed = $opts->{bwlimit}*1024; 
+	$speed = $opts->{bwlimit}*1024;
     }
 
     my $diskcount = scalar(@{$task->{disks}});
@@ -251,9 +251,9 @@ sub archive {
 
 	my $outcmd;
 	if ($comp) {
-	    $outcmd = "exec:$comp"; 
+	    $outcmd = "exec:$comp";
 	} else {
-	    $outcmd = "exec:cat"; 
+	    $outcmd = "exec:cat";
 	}
 
 	$outcmd .= ">$filename" if !$opts->{stdout};
@@ -290,7 +290,7 @@ sub archive {
     if (!$vm_is_running) {
 	eval {
 	    $self->loginfo("starting kvm to execute backup task");
-	    PVE::QemuServer::vm_start($self->{storecfg}, $vmid, undef, 
+	    PVE::QemuServer::vm_start($self->{storecfg}, $vmid, undef,
 				      $skiplock, undef, 1);
 	    if ($self->{vm_was_running}) {
 		$resume_on_backup = 1;
@@ -339,30 +339,30 @@ sub archive {
 		    my $fd = fileno(STDIN);
 		    close STDIN;
 		    POSIX::close(0) if $fd != 0;
-		    die "unable to redirect STDIN - $!" 
+		    die "unable to redirect STDIN - $!"
 			if !open(STDIN, "<&", $pipefd[0]);
-		
+
 		    # redirect STDOUT
 		    $fd = fileno(STDOUT);
 		    close STDOUT;
 		    POSIX::close (1) if $fd != 1;
 
-		    die "unable to redirect STDOUT - $!" 
+		    die "unable to redirect STDOUT - $!"
 			if !open(STDOUT, ">&", fileno($outfh));
-		    
+
 		    exec($comp);
 		    die "fork compressor '$comp' failed\n";
 		};
 		if (my $err = $@) {
 		    $self->logerr($err);
-		    POSIX::_exit(1); 
+		    POSIX::_exit(1);
 		}
-		POSIX::_exit(0); 
-		kill(-9, $$); 
+		POSIX::_exit(0);
+		kill(-9, $$);
 	    } else {
 		POSIX::close($pipefd[0]);
 		$outfileno = $pipefd[1];
-	    } 
+	    }
 	} else {
 	    $outfileno = fileno($outfh);
 	}
@@ -370,36 +370,36 @@ sub archive {
  	my $add_fd_cb = sub {
 	    my ($vmid, $resp) = @_;
 
-	    $qmpclient->queue_cmd($vmid, $backup_cb, 'backup', 
-				  'backup-file' => "/dev/fdname/backup", 
-				  speed => $speed, 
+	    $qmpclient->queue_cmd($vmid, $backup_cb, 'backup',
+				  'backup-file' => "/dev/fdname/backup",
+				  speed => $speed,
 				  'config-file' => $conffile,
 				  devlist => $devlist);
 	};
 
 
-	$qmpclient->queue_cmd($vmid, $add_fd_cb, 'getfd', 
+	$qmpclient->queue_cmd($vmid, $add_fd_cb, 'getfd',
 			      fd => $outfileno, fdname => "backup");
 
 	if ($self->{vmlist}->{$vmid}->{agent} && $vm_is_running){
-	    eval {PVE::QemuServer::vm_mon_cmd($vmid,"guest-fsfreeze-freeze");};
-	    if (my $err = $@) {
-		$self->logerr($err);
-	    }  
-	}
-	
-	$qmpclient->queue_execute();
-
-	if ($self->{vmlist}->{$vmid}->{agent} && $vm_is_running ){
-	    eval {PVE::QemuServer::vm_mon_cmd($vmid,"guest-fsfreeze-thaw");};
+	    eval { PVE::QemuServer::vm_mon_cmd($vmid, "guest-fsfreeze-freeze"); };
 	    if (my $err = $@) {
 		$self->logerr($err);
 	    }
 	}
-	die $qmpclient->{errors}->{$vmid} if $qmpclient->{errors}->{$vmid};    
+
+	$qmpclient->queue_execute();
+
+	if ($self->{vmlist}->{$vmid}->{agent} && $vm_is_running ){
+	    eval { PVE::QemuServer::vm_mon_cmd($vmid, "guest-fsfreeze-thaw"); };
+	    if (my $err = $@) {
+		$self->logerr($err);
+	    }
+	}
+	die $qmpclient->{errors}->{$vmid} if $qmpclient->{errors}->{$vmid};
 
 	if ($cpid) {
-	    POSIX::close($outfileno) == 0 || 
+	    POSIX::close($outfileno) == 0 ||
 		die "close output file handle failed\n";
 	}
 
@@ -415,7 +415,7 @@ sub archive {
 	my $status;
 	my $starttime = time ();
 	my $last_per = -1;
-	my $last_total = 0; 
+	my $last_total = 0;
 	my $last_zero = 0;
 	my $last_transferred = 0;
 	my $last_time = time();
@@ -428,7 +428,7 @@ sub archive {
 	    my $per = $total ? int(($transferred * 100)/$total) : 0;
 	    my $zero = $status->{'zero-bytes'} || 0;
 	    my $zero_per = $total ? int(($zero * 100)/$total) : 0;
-		    
+
 	    die "got unexpected uuid\n" if !$status->{uuid} || ($status->{uuid} ne $uuid);
 
 	    my $ctime = time();
@@ -438,9 +438,9 @@ sub archive {
 	    my $wbytes = $rbytes - ($zero - $last_zero);
 
 	    my $timediff = ($ctime - $last_time) || 1; # fixme
-	    my $mbps_read = ($rbytes > 0) ? 
+	    my $mbps_read = ($rbytes > 0) ?
 		int(($rbytes/$timediff)/(1000*1000)) : 0;
-	    my $mbps_write = ($wbytes > 0) ? 
+	    my $mbps_write = ($wbytes > 0) ?
 		int(($wbytes/$timediff)/(1000*1000)) : 0;
 
 	    my $statusline = "status: $per% ($transferred/$total), " .
@@ -461,7 +461,7 @@ sub archive {
 	    if ($per != $last_per && ($timediff > 2)) {
 		$self->loginfo($statusline);
 		$last_per = $per;
-		$last_total = $total if $total; 
+		$last_total = $total if $total;
 		$last_zero = $zero if $zero;
 		$last_transferred = $transferred if $transferred;
 		$last_time = $ctime;
@@ -500,11 +500,11 @@ sub archive {
 			       " - keep VM running");
 	    }
 	}
-    } 
+    }
 
     if ($err) {
-	if ($cpid) { 
-	    kill(9, $cpid); 
+	if ($cpid) {
+	    kill(9, $cpid);
 	    waitpid($cpid, 0);
 	}
 	die $err;
@@ -515,7 +515,7 @@ sub archive {
 	my $ec = $stat >> 8;
 	my $signal = $stat & 127;
 	if ($ec || $signal) {
-	    die "$comp failed - wrong exit status $ec" . 
+	    die "$comp failed - wrong exit status $ec" .
 		($signal ? " (signal $signal)\n" : "\n");
 	}
     }
