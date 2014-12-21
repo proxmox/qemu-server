@@ -3721,11 +3721,10 @@ sub vm_stop {
 	}
 
 	$timeout = 60 if !defined($timeout);
-	my $config = load_config($vmid);
 
 	eval {
 	    if ($shutdown) {
-		if ($config->{agent}) {
+		if (!$nocheck && $conf->{agent}) {
 		    vm_qmp_command($vmid, { execute => "guest-shutdown" }, $nocheck);
 		} else {
 		    vm_qmp_command($vmid, { execute => "system_powerdown" }, $nocheck);
