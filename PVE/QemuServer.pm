@@ -4193,7 +4193,7 @@ sub vm_stop {
 
 	eval {
 	    if ($shutdown) {
-		if (!$nocheck && $conf->{agent}) {
+		if (defined($conf) && $conf->{agent}) {
 		    vm_qmp_command($vmid, { execute => "guest-shutdown" }, $nocheck);
 		} else {
 		    vm_qmp_command($vmid, { execute => "system_powerdown" }, $nocheck);
