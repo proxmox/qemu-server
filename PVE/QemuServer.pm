@@ -3652,6 +3652,10 @@ sub vmconfig_hotplug_pending {
 	    } elsif ($opt eq 'cores') {
 		die "skip\n" if !$hotplug;
 		qemu_cpu_hotplug($vmid, $conf, 1);
+            } elsif ($opt eq 'balloon') {
+		#enable balloon device is not hotpluggable
+		die "skip\n" if ((defined($conf->{balloon})) && ($conf->{balloon} == 0));
+            } elsif ($opt eq 'shares') {
 	    } elsif ($opt =~ m/^net(\d+)$/) {
 		die "skip\n" if !$hotplug;
 		vm_deviceunplug($vmid, $conf, $opt);
@@ -3689,10 +3693,15 @@ sub vmconfig_hotplug_pending {
 		die "skip\n" if !$hotplug;
 		qemu_cpu_hotplug($vmid, $conf, $value);
 	    } elsif ($opt eq 'balloon') {
-		die "skip\n" if !(defined($conf->{shares}) && ($conf->{shares} == 0));
+		# disable balloning device is not hotpluggable
+		die "skip\n" if ((defined($conf->{pending}->{balloon})) && ($conf->{pending}->{balloon} == 0));
+		# enable balloning device is not hotpluggable
+		die "skip\n" if ((defined($conf->{balloon})) && ($conf->{balloon} == 0));
 		# allow manual ballooning if shares is set to zero
-		my $balloon = $conf->{pending}->{balloon} || $conf->{memory} || $defaults->{memory};
-		vm_mon_cmd($vmid, "balloon", value => $balloon*1024*1024);
+		if (!(defined($conf->{shares}) && ($conf->{shares} == 0))) {
+		    my $balloon = $conf->{pending}->{balloon} || $conf->{memory} || $defaults->{memory};
+		    vm_mon_cmd($vmid, "balloon", value => $balloon*1024*1024);
+		}
 	    } elsif ($opt =~ m/^net(\d+)$/) { 
 		# some changes can be done without hotplug
 		vmconfig_update_net($storecfg, $conf, $vmid, $opt, $value);
