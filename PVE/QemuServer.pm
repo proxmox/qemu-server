@@ -3656,7 +3656,9 @@ sub vmconfig_hotplug_pending {
 		die "skip\n" if !$hotplug;
 		vm_deviceunplug($vmid, $conf, $opt);
 	    } elsif (valid_drivename($opt)) {
-		die "skip\n"; # we do not allow to hot-remove disk?		
+		die "skip\n" if !$hotplug;
+		vm_deviceunplug($vmid, $conf, $opt);
+		vmconfig_register_unused_drive($storecfg, $vmid, $conf, parse_drive($opt, $conf->{$opt}));
 	    } else {
 		die "skip\n";
 	    }
