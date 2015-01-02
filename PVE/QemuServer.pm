@@ -3656,7 +3656,7 @@ sub vmconfig_hotplug_pending {
 		die "skip\n" if !$hotplug;
 		vm_deviceunplug($vmid, $conf, $opt);
 	    } elsif (valid_drivename($opt)) {
-		die "skip\n" if !$hotplug;
+		die "skip\n" if !$hotplug || $opt =~ m/(ide|sata)(\d+)/;
 		vm_deviceunplug($vmid, $conf, $opt);
 		vmconfig_register_unused_drive($storecfg, $vmid, $conf, parse_drive($opt, $conf->{$opt}));
 	    } else {
@@ -3903,7 +3903,7 @@ sub vmconfig_update_disk {
 	}
 
     } else { 
-	die "skip\n" if !$conf->{hotplug};
+	die "skip\n" if !$conf->{hotplug} || $opt =~ m/(ide|sata)(\d+)/;   
 	# hotplug new disks
 	vm_deviceplug($storecfg, $conf, $vmid, $opt, $drive);
     }
