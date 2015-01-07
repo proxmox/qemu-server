@@ -662,6 +662,12 @@ __PACKAGE__->register_method({
 	properties => {
 	    node => get_standard_option('pve-node'),
 	    vmid => get_standard_option('pve-vmid'),
+            current => {
+                description => "Get current values (instead of pending values).",
+                optional => 1,
+		default => 0,
+		type => 'boolean',
+            },
 	},
     },
     returns => {
@@ -679,6 +685,19 @@ __PACKAGE__->register_method({
 	my $conf = PVE::QemuServer::load_config($param->{vmid});
 
 	delete $conf->{snapshots};
+
+	if (!$param->{current}) {
+	    foreach my $opt (keys $conf->{pending}) {
+		next if $opt eq 'delete';
+		my $value = $conf->{pending}->{$opt};
+		next if ref($value); # just to be sure
+		$conf->{$opt} = $value;
+	    }
+	    foreach my $opt (PVE::Tools::split_list($conf->{pending}->{delete})) {
+		delete $conf->{$opt} if $conf->{$opt};
+	    }
+	}
+
 	delete $conf->{pending};
 
 	return $conf;
