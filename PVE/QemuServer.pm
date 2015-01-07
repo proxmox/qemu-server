@@ -3604,6 +3604,14 @@ sub set_migration_caps {
     vm_mon_cmd_nocheck($vmid, "migrate-set-capabilities", capabilities => $cap_ref);
 }
 
+my $fast_plug_option = {
+    'name' => 1,
+    'hotplug' => 1,
+    'onboot' => 1, 
+    'shares' => 1,
+    'startup' => 1,
+};
+
 # hotplug changes in [PENDING]
 # $selection hash can be used to only apply specified options, for
 # example: { cores => 1 } (only apply changed 'cores')
@@ -3624,7 +3632,7 @@ sub vmconfig_hotplug_pending {
 
     my $changes = 0;
     foreach my $opt (keys %{$conf->{pending}}) { # add/change
-	if ($opt eq 'name' || $opt eq 'hotplug' || $opt eq 'onboot' || $opt eq 'shares') {
+	if ($fast_plug_option->{$opt}) {
 	    $conf->{$opt} = $conf->{pending}->{$opt};
 	    delete $conf->{pending}->{$opt};
 	    $changes = 1;
@@ -3653,9 +3661,10 @@ sub vmconfig_hotplug_pending {
 		die "skip\n" if !$hotplug;
 		qemu_cpu_hotplug($vmid, $conf, 1);
             } elsif ($opt eq 'balloon') {
-		#enable balloon device is not hotpluggable
-		die "skip\n" if ((defined($conf->{balloon})) && ($conf->{balloon} == 0));
-            } elsif ($opt eq 'shares') {
+		# enable balloon device is not hotpluggable
+		die "skip\n" if !defined($conf->{balloon}) || $conf->{balloon};
+	    } elsif ($fast_plug_option->{$opt}) {
+		# do nothing
 	    } elsif ($opt =~ m/^net(\d+)$/) {
 		die "skip\n" if !$hotplug;
 		vm_deviceunplug($vmid, $conf, $opt);
@@ -3693,10 +3702,11 @@ sub vmconfig_hotplug_pending {
 		die "skip\n" if !$hotplug;
 		qemu_cpu_hotplug($vmid, $conf, $value);
 	    } elsif ($opt eq 'balloon') {
-		# disable balloning device is not hotpluggable
-		die "skip\n" if ((defined($conf->{pending}->{balloon})) && ($conf->{pending}->{balloon} == 0));
-		# enable balloning device is not hotpluggable
-		die "skip\n" if ((defined($conf->{balloon})) && ($conf->{balloon} == 0));
+		# enable/disable balloning device is not hotpluggable
+		my $old_balloon_enabled =  !defined($conf->{balloon}) || $conf->{balloon};
+		my $new_balloon_enabled =  !defined($conf->{pending}->{balloon}) || $conf->{pending}->{balloon};		
+		die "skip\n" if $old_balloon_enabled != $new_balloon_enabled;
+
 		# allow manual ballooning if shares is set to zero
 		if (!(defined($conf->{shares}) && ($conf->{shares} == 0))) {
 		    my $balloon = $conf->{pending}->{balloon} || $conf->{memory} || $defaults->{memory};
