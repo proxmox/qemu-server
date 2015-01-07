@@ -536,6 +536,7 @@ __PACKAGE__->register_method({
 
 	my $res = [
 	    { subdir => 'config' },
+	    { subdir => 'pending' },
 	    { subdir => 'status' },
 	    { subdir => 'unlink' },
 	    { subdir => 'vncproxy' },
