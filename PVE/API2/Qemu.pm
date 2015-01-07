@@ -824,9 +824,11 @@ my $update_vm_api  = sub {
 
     my $delete_str = extract_param($param, 'delete');
 
+    my $revert_str = extract_param($param, 'revert');
+
     my $force = extract_param($param, 'force');
 
-    die "no options specified\n" if !$delete_str && !scalar(keys %$param);
+    die "no options specified\n" if !$delete_str && !$revert_str && !scalar(keys %$param);
 
     my $storecfg = PVE::Storage::config();
 
@@ -836,12 +838,30 @@ my $update_vm_api  = sub {
 
     # now try to verify all parameters
 
+    my $revert = {};
+    foreach my $opt (PVE::Tools::split_list($revert_str)) {
+	if (!PVE::QemuServer::option_exists($opt)) {
+	    raise_param_exc({ revert => "unknown option '$opt'" });
+	}
+
+	raise_param_exc({ delete => "you can't use '-$opt' and " .
+			      "-revert $opt' at the same time" })
+	    if defined($param->{$opt});
+
+	$revert->{$opt} = 1;
+    }
+
     my @delete = ();
     foreach my $opt (PVE::Tools::split_list($delete_str)) {
 	$opt = 'ide2' if $opt eq 'cdrom';
+
 	raise_param_exc({ delete => "you can't use '-$opt' and " .
 			      "-delete $opt' at the same time" })
 	    if defined($param->{$opt});
+
+	raise_param_exc({ revert => "you can't use '-delete $opt' and " .
+			      "-revert $opt' at the same time" })
+	    if $revert->{$opt};
 
 	if (!PVE::QemuServer::option_exists($opt)) {
 	    raise_param_exc({ delete => "unknown option '$opt'" });
@@ -877,6 +897,14 @@ my $update_vm_api  = sub {
 	    if $digest && $digest ne $conf->{digest};
 
 	PVE::QemuServer::check_lock($conf) if !$skiplock;
+
+	foreach my $opt (keys %$revert) {
+	    if (defined($conf->{$opt})) {
+		$param->{$opt} = $conf->{$opt};
+	    } elsif (defined($conf->{pending}->{$opt})) {
+		push @delete, $opt;
+	    }
+	}
 
 	if ($param->{memory} || defined($param->{balloon})) {
 	    my $maxmem = $param->{memory} || $conf->{pending}->{memory} || $conf->{memory} || $defaults->{memory};
