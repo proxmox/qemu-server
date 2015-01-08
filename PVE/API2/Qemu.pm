@@ -1062,6 +1062,11 @@ __PACKAGE__->register_method({
 		    description => "A list of settings you want to delete.",
 		    optional => 1,
 		},
+		revert => {
+		    type => 'string', format => 'pve-configid-list',
+		    description => "Revert a pending change.",
+		    optional => 1,
+		},
 		force => {
 		    type => 'boolean',
 		    description => $opt_force_description,
@@ -1110,6 +1115,11 @@ __PACKAGE__->register_method({
 		delete => {
 		    type => 'string', format => 'pve-configid-list',
 		    description => "A list of settings you want to delete.",
+		    optional => 1,
+		},
+		revert => {
+		    type => 'string', format => 'pve-configid-list',
+		    description => "Revert a pending change.",
 		    optional => 1,
 		},
 		force => {
