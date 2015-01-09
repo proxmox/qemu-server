@@ -226,7 +226,7 @@ my $check_vm_modify_config_perm = sub {
 	next if PVE::QemuServer::valid_drivename($opt);
 
 	if ($opt eq 'sockets' || $opt eq 'cores' ||
-	    $opt eq 'cpu' || $opt eq 'smp' ||
+	    $opt eq 'cpu' || $opt eq 'smp' || $opt eq 'vcpus' ||
 	    $opt eq 'cpulimit' || $opt eq 'cpuunits') {
 	    $rpcenv->check_vm_perm($authuser, $vmid, $pool, ['VM.Config.CPU']);
 	} elsif ($opt eq 'boot' || $opt eq 'bootdisk') {

@@ -312,12 +312,12 @@ EODESC
 	description => "Enable/disable Numa.",
 	default => 0,
     },
-    maxcpus => {
+    vcpus => {
 	optional => 1,
 	type => 'integer',
-	description => "Maximum cpus for hotplug.",
+	description => "Number of hotplugged vcpus.",
 	minimum => 1,
-	default => 1,
+	default => 0,
     },
     acpi => {
 	optional => 1,
@@ -2029,10 +2029,6 @@ sub write_vm_config {
 	delete $conf->{smp};
     }
 
-    if ($conf->{maxcpus} && $conf->{sockets}) {
-	delete $conf->{sockets};
-    }
-
     my $used_volids = {};
 
     my $cleanup_config = sub {
@@ -2759,19 +2755,17 @@ sub config_to_command {
     $sockets = $conf->{sockets} if  $conf->{sockets};
 
     my $cores = $conf->{cores} || 1;
-    my $maxcpus = $conf->{maxcpus} if $conf->{maxcpus};
 
-    my $total_cores = $sockets * $cores;
-    my $allowed_cores = $cpuinfo->{cpus};
+    my $maxcpus = $sockets * $cores;
 
-    die "MAX $allowed_cores cores allowed per VM on this node\n"
-	if ($allowed_cores < $total_cores);
+    my $vcpus = $conf->{vcpus} ? $conf->{vcpus} : $maxcpus;
 
-    if ($maxcpus) {
-	push @$cmd, '-smp', "cpus=$cores,maxcpus=$maxcpus";
-    } else {
-	push @$cmd, '-smp', "sockets=$sockets,cores=$cores";
-    }
+    my $allowed_vcpus = $cpuinfo->{cpus};
+
+    die "MAX $maxcpus vcpus allowed per VM on this node\n"
+	if ($allowed_vcpus < $maxcpus);
+
+    push @$cmd, '-smp', "$vcpus,sockets=$sockets,cores=$cores,maxcpus=$maxcpus";
 
     push @$cmd, '-nodefaults';
 
