@@ -2780,7 +2780,7 @@ sub config_to_command {
 	$i++;
     }
 
-    push @$cmd, '-boot', "menu=on";
+    push @$cmd, '-boot', "menu=on,strict=on,reboot-timeout=1000";
 
     push @$cmd, '-no-acpi' if defined($conf->{acpi}) && $conf->{acpi} == 0;
 
