@@ -3410,27 +3410,28 @@ sub qemu_netdevdel {
 }
 
 sub qemu_cpu_hotplug {
-    my ($vmid, $conf, $cores) = @_;
+    my ($vmid, $conf, $vcpus) = @_;
 
-    my $sockets = $conf->{sockets} || 1;
-    die "cpu hotplug only works with one socket\n"
-	if $sockets > 1;
+    my $sockets = 1;
+    $sockets = $conf->{smp} if $conf->{smp}; # old style - no longer iused
+    $sockets = $conf->{sockets} if  $conf->{sockets};
+    my $cores = $conf->{cores} || 1;
+    my $maxcpus = $sockets * $cores;
 
-    die "maxcpus is not defined\n"
-	if !$conf->{maxcpus};
+    $vcpus = $maxcpus if !$vcpus;
 
-    die "you can't add more cores than maxcpus\n"
-	if $cores > $conf->{maxcpus};
+    die "you can't add more vcpus than maxcpus\n"
+	if $vcpus > $maxcpus;
 
-    my $currentcores = $conf->{cores} || 1;
+    my $currentvcpus = $conf->{vcpus} || $maxcpus;
     die "online cpu unplug is not yet possible\n"
-	if $cores < $currentcores;
+	if $vcpus < $currentvcpus;
 
-    my $currentrunningcores = vm_mon_cmd($vmid, "query-cpus");
-    die "cores number if running vm is different than configuration\n"
-	if scalar(@{$currentrunningcores}) != $currentcores;
+    my $currentrunningvcpus = vm_mon_cmd($vmid, "query-cpus");
+    die "vcpus in running vm is different than configuration\n"
+	if scalar(@{$currentrunningvcpus}) != $currentvcpus;
 
-    for (my $i = $currentcores; $i < $cores; $i++) {
+    for (my $i = $currentvcpus; $i < $vcpus; $i++) {
 	vm_mon_cmd($vmid, "cpu-add", id => int($i));
     }
 }
@@ -3667,9 +3668,9 @@ sub vmconfig_hotplug_pending {
 		} else {
 		    vm_deviceunplug($vmid, $conf, $opt);
 		}
-	    } elsif ($opt eq 'cores') {
+	    } elsif ($opt eq 'vcpus') {
 		die "skip\n" if !$hotplug;
-		qemu_cpu_hotplug($vmid, $conf, 1);
+		qemu_cpu_hotplug($vmid, $conf, undef);
             } elsif ($opt eq 'balloon') {
 		# enable balloon device is not hotpluggable
 		die "skip\n" if !defined($conf->{balloon}) || $conf->{balloon};
@@ -3708,7 +3709,7 @@ sub vmconfig_hotplug_pending {
 		} elsif ($value == 0) {
 		    vm_deviceunplug($vmid, $conf, $opt);
 		}
-	    } elsif ($opt eq 'cores') {
+	    } elsif ($opt eq 'vcpus') {
 		die "skip\n" if !$hotplug;
 		qemu_cpu_hotplug($vmid, $conf, $value);
 	    } elsif ($opt eq 'balloon') {
