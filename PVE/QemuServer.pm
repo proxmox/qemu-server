@@ -1236,11 +1236,8 @@ sub print_netdevice_full {
          $device = 'virtio-net-pci';
      };
 
-    # qemu > 0.15 always try to boot from network - we disable that by
-    # not loading the pxe rom file
-    my $extra = ($bootorder !~ m/n/) ? "romfile=," : '';
     my $pciaddr = print_pci_addr("$netid", $bridges);
-    my $tmpstr = "$device,${extra}mac=$net->{macaddr},netdev=$netid$pciaddr,id=$netid";
+    my $tmpstr = "$device,mac=$net->{macaddr},netdev=$netid$pciaddr,id=$netid";
     if ($net->{queues} && $net->{queues} > 1 && $net->{model} eq 'virtio'){
 	#Consider we have N queues, the number of vectors needed is 2*N + 2 (plus one config interrupt and control vq)
 	my $vectors = $net->{queues} * 2 + 2;
