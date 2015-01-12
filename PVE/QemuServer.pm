@@ -3700,8 +3700,8 @@ sub vmconfig_hotplug_pending {
 		qemu_cpu_hotplug($vmid, $conf, $value);
 	    } elsif ($opt eq 'balloon') {
 		# enable/disable balloning device is not hotpluggable
-		my $old_balloon_enabled =  !defined($conf->{balloon}) || $conf->{balloon};
-		my $new_balloon_enabled =  !defined($conf->{pending}->{balloon}) || $conf->{pending}->{balloon};		
+		my $old_balloon_enabled =  !!(!defined($conf->{balloon}) || $conf->{balloon});
+		my $new_balloon_enabled =  !!(!defined($conf->{pending}->{balloon}) || $conf->{pending}->{balloon});		
 		die "skip\n" if $old_balloon_enabled != $new_balloon_enabled;
 
 		# allow manual ballooning if shares is set to zero
