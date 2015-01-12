@@ -770,7 +770,7 @@ __PACKAGE__->register_method({
 	foreach my $opt (keys $conf->{pending}) {
 	    next if $opt eq 'delete';
 	    next if ref($conf->{pending}->{$opt}); # just to be sure
-	    next if $conf->{$opt};
+	    next if defined($conf->{$opt});
 	    my $item = { key => $opt };
 	    $item->{pending} = $conf->{pending}->{$opt};
 	    push @$res, $item;
