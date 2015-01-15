@@ -1,3 +1,13 @@
+qemu-server (3.3-9) unstable; urgency=low
+
+  * pending api : fix parsing 0 value
+
+  * fix test for ballon hotplug
+
+  * set boot strict=on to prevent booting from not listed boot devices
+  
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 15 Jan 2015 06:23:10 +0100
+
 qemu-server (3.3-8) unstable; urgency=low
 
   * new 'pending changes' API
