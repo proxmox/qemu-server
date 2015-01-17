@@ -504,7 +504,8 @@ for (my $i = 0; $i < $MAX_NUMA; $i++)  {
 }
 
 my $nic_model_list = ['rtl8139', 'ne2k_pci', 'e1000',  'pcnet',  'virtio',
-		      'ne2k_isa', 'i82551', 'i82557b', 'i82559er', 'vmxnet3'];
+		      'ne2k_isa', 'i82551', 'i82557b', 'i82559er', 'vmxnet3',
+		      'e1000-82540em', 'e1000-82544gc', 'e1000-82545em'];
 my $nic_model_list_txt = join(' ', sort @$nic_model_list);
 
 my $netdesc = {
@@ -1360,7 +1361,7 @@ sub parse_net {
 
     foreach my $kvp (split(/,/, $data)) {
 
-	if ($kvp =~ m/^(ne2k_pci|e1000|rtl8139|pcnet|virtio|ne2k_isa|i82551|i82557b|i82559er|vmxnet3)(=([0-9a-f]{2}(:[0-9a-f]{2}){5}))?$/i) {
+	if ($kvp =~ m/^(ne2k_pci|e1000|e1000-82540em|e1000-82544gc|e1000-82545em|rtl8139|pcnet|virtio|ne2k_isa|i82551|i82557b|i82559er|vmxnet3)(=([0-9a-f]{2}(:[0-9a-f]{2}){5}))?$/i) {
 	    my $model = lc($1);
 	    my $mac = defined($3) ? uc($3) : PVE::Tools::random_ether_addr();
 	    $res->{model} = $model;
