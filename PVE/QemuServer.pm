@@ -494,7 +494,7 @@ my $MAX_NUMA = 8;
 my $numadesc = {
     optional => 1,
     type => 'string', format => 'pve-qm-numanode',
-    typetext => "cpus=<id[-id],memory=<mb>[[,hostnodes=<id[-id]>][,policy=<preferred|bind|interleave>]]",
+    typetext => "cpus=<id[-id],memory=<mb>[[,hostnodes=<id[-id]>] [,policy=<preferred|bind|interleave>]]",
     description => "numa topology",
 };
 PVE::JSONSchema::register_standard_option("pve-qm-numanode", $numadesc);
@@ -511,7 +511,7 @@ my $nic_model_list_txt = join(' ', sort @$nic_model_list);
 my $netdesc = {
     optional => 1,
     type => 'string', format => 'pve-qm-net',
-    typetext => "MODEL=XX:XX:XX:XX:XX:XX [,bridge=<dev>][,queues=<nbqueues>][,rate=<mbps>][,tag=<vlanid>][,firewall=0|1]",
+    typetext => "MODEL=XX:XX:XX:XX:XX:XX [,bridge=<dev>][,queues=<nbqueues>][,rate=<mbps>] [,tag=<vlanid>][,firewall=0|1],link_down=0|1]",
     description => <<EODESCR,
 Specify network devices.
 
@@ -1374,8 +1374,10 @@ sub parse_net {
 	    $res->{rate} = $1;
         } elsif ($kvp =~ m/^tag=(\d+)$/) {
             $res->{tag} = $1;
-        } elsif ($kvp =~ m/^firewall=(\d+)$/) {
+        } elsif ($kvp =~ m/^firewall=([01])$/) {
 	    $res->{firewall} = $1;
+	} elsif ($kvp =~ m/^link_down=([01])$/) {
+	    $res->{link_down} = $1;
 	} else {
 	    return undef;
 	}
@@ -1395,7 +1397,8 @@ sub print_net {
     $res .= ",bridge=$net->{bridge}" if $net->{bridge};
     $res .= ",rate=$net->{rate}" if $net->{rate};
     $res .= ",tag=$net->{tag}" if $net->{tag};
-    $res .= ",firewall=$net->{firewall}" if $net->{firewall};
+    $res .= ",firewall=1" if $net->{firewall};
+    $res .= ",link_down=1" if $net->{link_down};
 
     return $res;
 }
@@ -3381,6 +3384,13 @@ sub qemu_add_pci_bridge {
     return 1;
 }
 
+sub qemu_set_link_status {
+    my ($vmid, $device, $up) = @_;
+
+    vm_mon_cmd($vmid, "set_link", name => $device, 
+	       up => $up ? JSON::true : JSON::false);
+}
+
 sub qemu_netdevadd {
     my ($vmid, $conf, $device, $deviceid) = @_;
 
@@ -3821,11 +3831,15 @@ sub vmconfig_update_net {
 		PVE::Network::tap_rate_limit($iface, $newnet->{rate});
 	    }
 
-	    if(&$safe_string_ne($oldnet->{bridge}, $newnet->{bridge}) ||
-	       &$safe_num_ne($oldnet->{tag}, $newnet->{tag}) ||
-	       &$safe_num_ne($oldnet->{firewall}, $newnet->{firewall})) {
+	    if (&$safe_string_ne($oldnet->{bridge}, $newnet->{bridge}) ||
+		&$safe_num_ne($oldnet->{tag}, $newnet->{tag}) ||
+		&$safe_num_ne($oldnet->{firewall}, $newnet->{firewall})) {
 		PVE::Network::tap_unplug($iface);
 		PVE::Network::tap_plug($iface, $newnet->{bridge}, $newnet->{tag}, $newnet->{firewall});
+	    }
+
+	    if (&$safe_string_ne($oldnet->{link_down}, $newnet->{link_down})) {
+		qemu_set_link_status($vmid, $opt, !$newnet->{link_down});
 	    }
 
 	    return 1;
@@ -4031,6 +4045,12 @@ sub vm_start {
 			    path => "machine/peripheral/balloon0",
 			    property => "guest-stats-polling-interval",
 			    value => 2);
+	    }
+
+	    foreach my $opt (keys %$conf) {
+		next if $opt !~  m/^net\d+$/;
+		my $nicconf = parse_net($conf->{$opt});
+		qemu_set_link_status($vmid, $opt, 0) if $nicconf->{link_down};
 	    }
 	}
     });

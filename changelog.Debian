@@ -1,6 +1,8 @@
 qemu-server (3.3-10) unstable; urgency=low
 
   * Support additional e1000 variants for VM machines
+  
+  * Add link_down flag to network config
 
  -- Proxmox Support Team <support@proxmox.com>  Tue, 20 Jan 2015 07:15:48 +0100
 
