@@ -174,7 +174,7 @@ my $confdesc = {
         optional => 1,
         type => 'boolean',
         description => "Allow hotplug for disk and network device",
-        default => 0,
+        default => 1,
     },
     reboot => {
 	optional => 1,
@@ -3154,10 +3154,18 @@ sub vm_devices_list {
     return $devices;
 }
 
+sub hotplug_enabled {
+    my ($conf) = @_;
+
+    my $default = $confdesc->{'hotplug'}->{default};
+
+    return defined($conf->{hotplug}) ? $conf->{hotplug} : $default;
+}
+
 sub vm_deviceplug {
     my ($storecfg, $conf, $vmid, $deviceid, $device) = @_;
 
-    die "internal error" if !$conf->{hotplug};
+    die "internal error" if !hotplug_enabled($conf);
 
     my $q35 = machine_type_is_q35($conf);
 
@@ -3237,7 +3245,7 @@ sub vm_deviceplug {
 sub vm_deviceunplug {
     my ($vmid, $conf, $deviceid) = @_;
 
-    die "internal error" if !$conf->{hotplug};
+    die "internal error" if !hotplug_enabled($conf);
 
     my $devices_list = vm_devices_list($vmid);
     return 1 if !defined($devices_list->{$deviceid});
@@ -3652,7 +3660,7 @@ sub vmconfig_hotplug_pending {
 	$conf = load_config($vmid); # update/reload
     }
 
-    my $hotplug = defined($conf->{hotplug}) ? $conf->{hotplug} : $defaults->{hotplug};
+    my $hotplug = hotplug_enabled($conf);
 
     my @delete = PVE::Tools::split_list($conf->{pending}->{delete});
     foreach my $opt (@delete) {
@@ -3811,6 +3819,8 @@ sub vmconfig_update_net {
 
     my $newnet = parse_net($value);
 
+    my $hotplug = hotplug_enabled($conf);
+
     if ($conf->{$opt}) {
 	my $oldnet = parse_net($conf->{$opt});
 
@@ -3820,7 +3830,7 @@ sub vmconfig_update_net {
 	    !($newnet->{bridge} && $oldnet->{bridge})) { # bridge/nat mode change
 
             # for non online change, we try to hot-unplug
-	    die "skip\n" if !$conf->{hotplug};
+	    die "skip\n" if !$hotplug;
 	    vm_deviceunplug($vmid, $conf, $opt);
 	} else {
 
@@ -3846,7 +3856,7 @@ sub vmconfig_update_net {
 	}
     }
     
-    if ($conf->{hotplug}) {
+    if ($hotplug) {
 	vm_deviceplug($storecfg, $conf, $vmid, $opt, $newnet);
     } else {
 	die "skip\n";
@@ -3860,6 +3870,8 @@ sub vmconfig_update_disk {
 
     my $drive = parse_drive($opt, $value);
 
+    my $hotplug = hotplug_enabled($conf);
+
     if ($conf->{$opt}) {
 
 	if (my $old_drive = parse_drive($opt, $conf->{$opt}))  {
@@ -3872,7 +3884,7 @@ sub vmconfig_update_disk {
 
 		if ($drive->{file} ne $old_drive->{file}) {  
 
-		    die "skip\n" if !$conf->{hotplug};
+		    die "skip\n" if !$hotplug;
 
 		    # unplug and register as unused
 		    vm_deviceunplug($vmid, $conf, $opt);
@@ -3934,7 +3946,7 @@ sub vmconfig_update_disk {
 	}
 
     } else { 
-	die "skip\n" if !$conf->{hotplug} || $opt =~ m/(ide|sata)(\d+)/;   
+	die "skip\n" if !$hotplug || $opt =~ m/(ide|sata)(\d+)/;   
 	# hotplug new disks
 	vm_deviceplug($storecfg, $conf, $vmid, $opt, $drive);
     }
