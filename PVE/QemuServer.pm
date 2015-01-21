@@ -4173,7 +4173,7 @@ sub get_vm_volumes {
 }
 
 sub vm_stop_cleanup {
-    my ($storecfg, $vmid, $conf, $keepActive) = @_;
+    my ($storecfg, $vmid, $conf, $keepActive, $apply_pending_changes) = @_;
 
     eval {
 	fairsched_rmnod($vmid); # try to destroy group
@@ -4182,10 +4182,12 @@ sub vm_stop_cleanup {
 	    my $vollist = get_vm_volumes($conf);
 	    PVE::Storage::deactivate_volumes($storecfg, $vollist);
 	}
-
+	
 	foreach my $ext (qw(mon qmp pid vnc qga)) {
 	    unlink "/var/run/qemu-server/${vmid}.$ext";
 	}
+	
+	vmconfig_apply_pending($vmid, $conf, $storecfg) if $apply_pending_changes;
     };
     warn $@ if $@; # avoid errors - just warn
 }
@@ -4202,7 +4204,7 @@ sub vm_stop {
 	my $pid = check_running($vmid, $nocheck, $migratedfrom);
 	kill 15, $pid if $pid;
 	my $conf = load_config($vmid, $migratedfrom);
-	vm_stop_cleanup($storecfg, $vmid, $conf, $keepActive);
+	vm_stop_cleanup($storecfg, $vmid, $conf, $keepActive, 0);
 	return;
     }
 
@@ -4251,7 +4253,7 @@ sub vm_stop {
 		    die "VM quit/powerdown failed - got timeout\n";
 		}
 	    } else {
-		vm_stop_cleanup($storecfg, $vmid, $conf, $keepActive) if $conf;
+		vm_stop_cleanup($storecfg, $vmid, $conf, $keepActive, 1) if $conf;
 		return;
 	    }
 	} else {
@@ -4278,7 +4280,7 @@ sub vm_stop {
 	    sleep 1;
 	}
 
-	vm_stop_cleanup($storecfg, $vmid, $conf, $keepActive) if $conf;
+	vm_stop_cleanup($storecfg, $vmid, $conf, $keepActive, 1) if $conf;
    });
 }
 
