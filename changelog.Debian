@@ -1,3 +1,9 @@
+qemu-server (3.3-11) unstable; urgency=low
+
+  * enable hotplug by default
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 21 Jan 2015 08:53:10 +0100
+
 qemu-server (3.3-10) unstable; urgency=low
 
   * Support additional e1000 variants for VM machines
