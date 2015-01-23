@@ -1,3 +1,9 @@
+qemu-server (3.3-12) unstable; urgency=low
+
+  * add new vcpus option
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 23 Jan 2015 08:04:44 +0100
+
 qemu-server (3.3-11) unstable; urgency=low
 
   * enable hotplug by default
