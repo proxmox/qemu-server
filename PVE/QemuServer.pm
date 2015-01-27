@@ -172,9 +172,9 @@ my $confdesc = {
     },
     hotplug => {
         optional => 1,
-        type => 'boolean',
-        description => "Allow hotplug for disk and network device",
-        default => 1,
+        type => 'string', format => 'pve-hotplug-features',
+        description => "Selectively enable hotplug features. This is a comma separated list of hotplug features: 'network', 'disk', 'cpu', 'memory' and 'usb'. Use '0' to disable hotplug completely. Value '1' is an alias for the default 'network,disk,usb'.",
+        default => 'network,disk,usb',
     },
     reboot => {
 	optional => 1,
@@ -869,6 +869,36 @@ sub create_conf_nolock {
     }
 
     PVE::Tools::file_set_contents($filename, $data);
+}
+
+sub parse_hotplug_features {
+    my ($data) = @_;
+
+    my $res = {};
+
+    return $res if $data eq '0';
+    
+    $data = $confdesc->{hotplug}->{default} if $data eq '1';
+
+    foreach my $feature (split(/,/, $data)) {
+	if ($feature =~ m/^(network|disk|cpu|memory|usb)$/) {
+	    $res->{$1} = 1;
+	} else {
+	    warn "ignoring unknown hotplug feature '$feature'\n";
+	}
+    }
+    return $res;
+}
+
+PVE::JSONSchema::register_format('pve-hotplug-features', \&pve_verify_hotplug_features);
+sub pve_verify_hotplug_features {
+    my ($value, $noerr) = @_;
+
+    return $value if parse_hotplug_features($value);
+
+    return undef if $noerr;
+
+    die "unable to parse hotplug option\n";
 }
 
 my $parse_size = sub {
@@ -3148,18 +3178,8 @@ sub vm_devices_list {
     return $devices;
 }
 
-sub hotplug_enabled {
-    my ($conf) = @_;
-
-    my $default = $confdesc->{'hotplug'}->{default};
-
-    return defined($conf->{hotplug}) ? $conf->{hotplug} : $default;
-}
-
 sub vm_deviceplug {
     my ($storecfg, $conf, $vmid, $deviceid, $device) = @_;
-
-    die "internal error" if !hotplug_enabled($conf);
 
     my $q35 = machine_type_is_q35($conf);
 
@@ -3238,8 +3258,6 @@ sub vm_deviceplug {
 # fixme: this should raise exceptions on error!
 sub vm_deviceunplug {
     my ($vmid, $conf, $deviceid) = @_;
-
-    die "internal error" if !hotplug_enabled($conf);
 
     my $devices_list = vm_devices_list($vmid);
     return 1 if !defined($devices_list->{$deviceid});
@@ -3655,21 +3673,21 @@ sub vmconfig_hotplug_pending {
 	$conf = load_config($vmid); # update/reload
     }
 
-    my $hotplug = hotplug_enabled($conf);
+    my $hotplug_features = parse_hotplug_features(defined($conf->{hotplug}) ? $conf->{hotplug} : '1');
 
     my @delete = PVE::Tools::split_list($conf->{pending}->{delete});
     foreach my $opt (@delete) {
 	next if $selection && !$selection->{$opt};
 	eval {
 	    if ($opt eq 'tablet') {
-		die "skip\n" if !$hotplug;
+		die "skip\n" if !$hotplug_features->{usb};
 		if ($defaults->{tablet}) {
 		    vm_deviceplug($storecfg, $conf, $vmid, $opt);
 		} else {
 		    vm_deviceunplug($vmid, $conf, $opt);
 		}
 	    } elsif ($opt eq 'vcpus') {
-		die "skip\n" if !$hotplug;
+		die "skip\n" if !$hotplug_features->{cpu};
 		qemu_cpu_hotplug($vmid, $conf, undef);
             } elsif ($opt eq 'balloon') {
 		# enable balloon device is not hotpluggable
@@ -3677,10 +3695,10 @@ sub vmconfig_hotplug_pending {
 	    } elsif ($fast_plug_option->{$opt}) {
 		# do nothing
 	    } elsif ($opt =~ m/^net(\d+)$/) {
-		die "skip\n" if !$hotplug;
+		die "skip\n" if !$hotplug_features->{network};
 		vm_deviceunplug($vmid, $conf, $opt);
 	    } elsif (valid_drivename($opt)) {
-		die "skip\n" if !$hotplug || $opt =~ m/(ide|sata)(\d+)/;
+		die "skip\n" if !$hotplug_features->{disk} || $opt =~ m/(ide|sata)(\d+)/;
 		vm_deviceunplug($vmid, $conf, $opt);
 		vmconfig_register_unused_drive($storecfg, $vmid, $conf, parse_drive($opt, $conf->{$opt}));
 	    } else {
@@ -3703,14 +3721,14 @@ sub vmconfig_hotplug_pending {
 	my $value = $conf->{pending}->{$opt};
 	eval {
 	    if ($opt eq 'tablet') {
-		die "skip\n" if !$hotplug;
+		die "skip\n" if !$hotplug_features->{usb};
 		if ($value == 1) {
 		    vm_deviceplug($storecfg, $conf, $vmid, $opt);
 		} elsif ($value == 0) {
 		    vm_deviceunplug($vmid, $conf, $opt);
 		}
 	    } elsif ($opt eq 'vcpus') {
-		die "skip\n" if !$hotplug;
+		die "skip\n" if !$hotplug_features->{cpu};
 		qemu_cpu_hotplug($vmid, $conf, $value);
 	    } elsif ($opt eq 'balloon') {
 		# enable/disable balloning device is not hotpluggable
@@ -3725,10 +3743,12 @@ sub vmconfig_hotplug_pending {
 		}
 	    } elsif ($opt =~ m/^net(\d+)$/) { 
 		# some changes can be done without hotplug
-		vmconfig_update_net($storecfg, $conf, $vmid, $opt, $value);
+		vmconfig_update_net($storecfg, $conf, $hotplug_features->{network}, 
+				    $vmid, $opt, $value);
 	    } elsif (valid_drivename($opt)) {
 		# some changes can be done without hotplug
-		vmconfig_update_disk($storecfg, $conf, $vmid, $opt, $value, 1);
+		vmconfig_update_disk($storecfg, $conf, $hotplug_features->{disk},
+				     $vmid, $opt, $value, 1);
 	    } else {
 		die "skip\n";  # skip non-hot-pluggable options
 	    }
@@ -3810,11 +3830,9 @@ my $safe_string_ne = sub {
 };
 
 sub vmconfig_update_net {
-    my ($storecfg, $conf, $vmid, $opt, $value) = @_;
+    my ($storecfg, $conf, $hotplug, $vmid, $opt, $value) = @_;
 
     my $newnet = parse_net($value);
-
-    my $hotplug = hotplug_enabled($conf);
 
     if ($conf->{$opt}) {
 	my $oldnet = parse_net($conf->{$opt});
@@ -3859,13 +3877,11 @@ sub vmconfig_update_net {
 }
 
 sub vmconfig_update_disk {
-    my ($storecfg, $conf, $vmid, $opt, $value, $force) = @_;
+    my ($storecfg, $conf, $hotplug, $vmid, $opt, $value, $force) = @_;
 
     # fixme: do we need force?
 
     my $drive = parse_drive($opt, $value);
-
-    my $hotplug = hotplug_enabled($conf);
 
     if ($conf->{$opt}) {
 
