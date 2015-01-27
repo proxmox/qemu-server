@@ -1,3 +1,9 @@
+qemu-server (3.3-13) unstable; urgency=low
+
+  * hotplug config: allow to enable specific features
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 27 Jan 2015 12:39:21 +0100
+
 qemu-server (3.3-12) unstable; urgency=low
 
   * add new vcpus option
