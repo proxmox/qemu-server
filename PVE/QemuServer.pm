@@ -880,7 +880,7 @@ sub parse_hotplug_features {
     
     $data = $confdesc->{hotplug}->{default} if $data eq '1';
 
-    foreach my $feature (split(/,/, $data)) {
+    foreach my $feature (PVE::Tools::split_list($data)) {
 	if ($feature =~ m/^(network|disk|cpu|memory|usb)$/) {
 	    $res->{$1} = 1;
 	} else {
