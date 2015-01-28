@@ -490,6 +490,8 @@ my $MAX_HOSTPCI_DEVICES = 4;
 my $MAX_SERIAL_PORTS = 4;
 my $MAX_PARALLEL_PORTS = 3;
 my $MAX_NUMA = 8;
+my $MAX_MEM = 4194304;
+my $STATICMEM = 1024;
 
 my $numadesc = {
     optional => 1,
@@ -2625,6 +2627,7 @@ sub config_to_command {
     my $have_ovz = -f '/proc/vz/vestat';
 
     my $q35 = machine_type_is_q35($conf);
+    my $hotplug_features = parse_hotplug_features(defined($conf->{hotplug}) ? $conf->{hotplug} : '1');
 
     push @$cmd, '/usr/bin/kvm';
 
@@ -2883,8 +2886,24 @@ sub config_to_command {
     # push @$cmd, '-cpu', "$cpu,enforce";
     push @$cmd, '-cpu', $cpu;
 
-    my $memory =  $conf->{memory} || $defaults->{memory};
-    push @$cmd, '-m', $memory;
+    my $memory = $conf->{memory} || $defaults->{memory};
+    my $static_memory = 0;
+    my $dimm_memory = 0;
+
+    if ($hotplug_features->{memory}) {
+	die "Numa need to be enabled for memory hotplug" if !$conf->{numa};
+	die "Total memory is bigger than $MAX_MEM MB" if $memory > $MAX_MEM;
+	die "memory should be a multiple of 128!" if ($memory % 128 != 0);
+	$static_memory = $STATICMEM;
+	die "minimum memory must be $static_memory"."MB" if($memory < $static_memory);
+	$dimm_memory = $memory - $static_memory;
+	push @$cmd, '-m', "size=".$static_memory.",slots=255,maxmem=".$MAX_MEM."M";
+
+    } else {
+
+	$static_memory = $memory;
+	push @$cmd, '-m', $static_memory;
+    }
 
     if ($conf->{numa}) {
 
@@ -2934,13 +2953,13 @@ sub config_to_command {
 	    push @$cmd, '-numa', "node,nodeid=$i,cpus=$cpus,memdev=ram-node$i";
 	}
 
-	die "total memory for NUMA nodes must be equal to vm memory\n"
-	    if $numa_totalmemory && $numa_totalmemory != $memory;
+	die "total memory for NUMA nodes must be equal to vm static memory\n"
+	    if $numa_totalmemory && $numa_totalmemory != $static_memory;
 
 	#if no custom tology, we split memory and cores across numa nodes
 	if(!$numa_totalmemory) {
 
-	    my $numa_memory = ($memory / $sockets) . "M";
+	    my $numa_memory = ($static_memory / $sockets) . "M";
 
 	    for (my $i = 0; $i < $sockets; $i++)  {
 
@@ -2952,6 +2971,29 @@ sub config_to_command {
 		push @$cmd, '-object', "memory-backend-ram,size=$numa_memory,id=ram-node$i";
 		push @$cmd, '-numa', "node,nodeid=$i,cpus=$cpus,memdev=ram-node$i";
 	    }
+	}
+    }
+
+    if ($hotplug_features->{memory}) {
+	my $dimm_id = 0;
+	my $dimm_size = 512;
+	my $current_size = $static_memory;
+	for (my $j = 0; $j < 8; $j++) {
+	    for (my $i = 0; $i < 32; $i++) {
+		my $name = "dimm${dimm_id}";
+		$dimm_id++;
+		last if $current_size >= $memory;
+		my $numanode = $i % $sockets;
+		push @$cmd, "-object" , "memory-backend-ram,id=mem-$name,size=$dimm_size"."M";
+		push @$cmd, "-device", "pc-dimm,id=$name,memdev=mem-$name,node=$numanode";
+		$current_size += $dimm_size;
+		#if dimm_memory is not aligned to dimm map
+		if($current_size > $memory) {
+		    $conf->{memory} = $current_size;
+		    update_config_nolock($vmid, $conf, 1);
+		}
+	     }
+	     $dimm_size *= 2;
 	}
     }
 
@@ -3311,6 +3353,22 @@ sub qemu_devicedel {
     my $ret = vm_mon_cmd($vmid, "device_del", id => $deviceid);
 }
 
+sub qemu_objectadd {
+    my($vmid, $objectid, $qomtype) = @_;
+
+    vm_mon_cmd($vmid, "object-add", id => $objectid, "qom-type" => $qomtype);
+
+    return 1;
+}
+
+sub qemu_objectdel {
+    my($vmid, $objectid) = @_;
+
+    vm_mon_cmd($vmid, "object-del", id => $objectid);
+
+    return 1;
+}
+
 sub qemu_driveadd {
     my ($storecfg, $vmid, $device) = @_;
 
@@ -3452,6 +3510,60 @@ sub qemu_cpu_hotplug {
     for (my $i = $currentvcpus; $i < $vcpus; $i++) {
 	vm_mon_cmd($vmid, "cpu-add", id => int($i));
     }
+}
+
+sub qemu_memory_hotplug {
+    my ($vmid, $conf, $defaults, $opt, $value) = @_;
+
+    return $value if !check_running($vmid);
+ 
+    my $memory = $conf->{memory} || $defaults->{memory};
+    $value = $defaults->{memory} if !$value; 
+    return $value if $value == $memory;
+
+    my $static_memory = $STATICMEM;
+    my $dimm_memory = $memory - $static_memory;
+
+    die "memory can't be lower than $static_memory MB" if $value < $static_memory;
+    die "memory unplug is not yet available" if $value < $memory;
+    die "memory should be a multiple of 128!\n" if ($value % 128 != 0);
+    die "you cannot add more memory than $MAX_MEM MB!\n" if $memory > $MAX_MEM;
+
+
+    my $sockets = 1;
+    $sockets = $conf->{sockets} if $conf->{sockets};
+
+    my $dimm_id = 0;
+    my $current_size = $static_memory;
+    my $dimm_size = 512;
+    for (my $j = 0; $j < 8; $j++) {
+	for (my $i = 0; $i < 32; $i++) {
+	    my $name = "dimm${dimm_id}";
+	    $dimm_id++;
+	    $current_size += $dimm_size;
+	    next if $current_size <= $memory;
+	    my $numanode = $i % $sockets;
+
+	    eval { vm_mon_cmd($vmid, "object-add", 'qom-type' => "memory-backend-ram", id => "mem-$name", props => { size => int($dimm_size*1024*1024) } ) };
+	    if (my $err = $@) {
+	        eval { qemu_objectdel($vmid, "mem-$name"); };
+	        die $err;
+	    }
+
+	    eval { vm_mon_cmd($vmid, "device_add", driver => "pc-dimm", id => "$name", memdev => "mem-$name", node => $numanode) };
+	    if (my $err = $@) {
+	        eval { qemu_objectdel($vmid, "mem-$name"); };
+	        die $err;
+	    }
+	    #update conf after each succesful module hotplug
+	    $conf->{$opt} = $current_size;
+	    update_config_nolock($vmid, $conf, 1);
+
+	    return $current_size if $current_size >= $value;
+	}
+	$dimm_size *= 2;
+    }
+
 }
 
 sub qemu_block_set_io_throttle {
@@ -3701,6 +3813,9 @@ sub vmconfig_hotplug_pending {
 		die "skip\n" if !$hotplug_features->{disk} || $opt =~ m/(ide|sata)(\d+)/;
 		vm_deviceunplug($vmid, $conf, $opt);
 		vmconfig_register_unused_drive($storecfg, $vmid, $conf, parse_drive($opt, $conf->{$opt}));
+	    } elsif ($opt =~ m/^memory$/) {
+		die "skip\n" if !$hotplug_features->{memory};
+		qemu_memory_hotplug($vmid, $conf, $defaults, $opt);
 	    } else {
 		die "skip\n";
 	    }
@@ -3749,6 +3864,9 @@ sub vmconfig_hotplug_pending {
 		# some changes can be done without hotplug
 		vmconfig_update_disk($storecfg, $conf, $hotplug_features->{disk},
 				     $vmid, $opt, $value, 1);
+	    } elsif ($opt =~ m/^memory$/) { #dimms
+		die "skip\n" if !$hotplug_features->{memory};
+		$value = qemu_memory_hotplug($vmid, $conf, $defaults, $opt, $value);
 	    } else {
 		die "skip\n";  # skip non-hot-pluggable options
 	    }
