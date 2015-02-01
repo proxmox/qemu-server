@@ -4600,6 +4600,11 @@ sub pci_dev_group_bind_to_vfio {
 
     foreach my $pciid (@devs) {
 	$pciid =~ m/^([:\.\da-f]+)$/ or die "PCI ID $pciid not valid!\n";
+
+        # pci bridges, switches or root ports are not supported
+        # they have a pci_bus subdirectory so skip them
+        next if (-e "$pcisysfs/devices/$pciid/pci_bus");
+
 	my $info = pci_device_info($1);
 	pci_dev_bind_to_vfio($info) || die "Cannot bind $pciid to vfio\n";
     }
