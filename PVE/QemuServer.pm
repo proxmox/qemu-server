@@ -600,7 +600,7 @@ PVE::JSONSchema::register_standard_option("pve-qm-usb", $usbdesc);
 my $hostpcidesc = {
         optional => 1,
         type => 'string', format => 'pve-qm-hostpci',
-        typetext => "[host=]HOSTPCIDEVICE [,driver=kvm|vfio] [,rombar=on|off] [,pcie=0|1] [,x-vga=on|off]",
+        typetext => "[host=]HOSTPCIDEVICE [,driver=kvm|vfio] [,rombar=on|off] [,pcie=0|1] [,x-vga=on|off] [,romfile=full-filepath]",
         description => <<EODESCR,
 Map host pci devices. HOSTPCIDEVICE syntax is:
 
@@ -1375,6 +1375,8 @@ sub parse_hostpci {
 	    $res->{'x-vga'} = $1;
 	} elsif ($kv =~ m/^pcie=(\d+)$/) {
 	    $res->{pcie} = 1 if $1 == 1;
+	} elsif ($kv =~ m/^romfile=(.+)$/) {
+	    $res->{romfile} = $1;
 	} else {
 	    warn "unknown hostpci setting '$kv'\n";
 	}
@@ -2712,6 +2714,7 @@ sub config_to_command {
 	my $rombar = $d->{rombar} && $d->{rombar} eq 'off' ? ",rombar=0" : "";
 	my $driver = $d->{driver} && $d->{driver} eq 'vfio' ? "vfio-pci" : "pci-assign";
 	my $xvga = $d->{'x-vga'} && $d->{'x-vga'} eq 'on' ? ",x-vga=on" : "";
+	my $romfile = $d->{romfile} ? ",romfile=$d->{romfile}" : "";
 	if ($xvga && $xvga ne '') {
 	    push @$cpuFlags, 'kvm=off';
 	    $vga = 'none';
@@ -2730,7 +2733,7 @@ sub config_to_command {
 	    my $devicestr = "$driver,host=$pcidevice->{id}.$pcidevice->{function},id=$id$addr";
 
 	    if($j == 0){
-		$devicestr .= "$rombar$xvga";
+		$devicestr .= "$rombar$xvga$romfile";
 		$devicestr .= ",multifunction=on" if $multifunction;
 	    }
 
