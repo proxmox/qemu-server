@@ -2550,6 +2550,27 @@ sub vmstatus {
     return $res;
 }
 
+sub foreach_dimm {
+    my ($conf, $vmid, $memory, $sockets, $func) = @_;
+
+    my $dimm_id = 0;
+    my $current_size = 1024;
+    my $dimm_size = 512;
+    return if $current_size == $memory;
+
+    for (my $j = 0; $j < 8; $j++) {
+	for (my $i = 0; $i < 32; $i++) {
+	    my $name = "dimm${dimm_id}";
+	    $dimm_id++;
+	    my $numanode = $i % $sockets;
+	    $current_size += $dimm_size;
+	    &$func($conf, $vmid, $name, $dimm_size, $numanode, $current_size, $memory);
+	    return  $current_size if $current_size >= $memory;
+	}
+	$dimm_size *= 2;
+    }
+}
+
 sub foreach_drive {
     my ($conf, $func) = @_;
 
@@ -2893,7 +2914,6 @@ sub config_to_command {
     if ($hotplug_features->{memory}) {
 	die "Numa need to be enabled for memory hotplug" if !$conf->{numa};
 	die "Total memory is bigger than $MAX_MEM MB" if $memory > $MAX_MEM;
-	die "memory should be a multiple of 128!" if ($memory % 128 != 0);
 	$static_memory = $STATICMEM;
 	die "minimum memory must be $static_memory"."MB" if($memory < $static_memory);
 	$dimm_memory = $memory - $static_memory;
@@ -2975,26 +2995,17 @@ sub config_to_command {
     }
 
     if ($hotplug_features->{memory}) {
-	my $dimm_id = 0;
-	my $dimm_size = 512;
-	my $current_size = $static_memory;
-	for (my $j = 0; $j < 8; $j++) {
-	    for (my $i = 0; $i < 32; $i++) {
-		my $name = "dimm${dimm_id}";
-		$dimm_id++;
-		last if $current_size >= $memory;
-		my $numanode = $i % $sockets;
-		push @$cmd, "-object" , "memory-backend-ram,id=mem-$name,size=$dimm_size"."M";
-		push @$cmd, "-device", "pc-dimm,id=$name,memdev=mem-$name,node=$numanode";
-		$current_size += $dimm_size;
-		#if dimm_memory is not aligned to dimm map
-		if($current_size > $memory) {
-		    $conf->{memory} = $current_size;
-		    update_config_nolock($vmid, $conf, 1);
-		}
-	     }
-	     $dimm_size *= 2;
-	}
+	foreach_dimm($conf, $vmid, $memory, $sockets, sub {
+	    my ($conf, $vmid, $name, $dimm_size, $numanode, $current_size, $memory) = @_;
+	    push @$cmd, "-object" , "memory-backend-ram,id=mem-$name,size=$dimm_size"."M";
+	    push @$cmd, "-device", "pc-dimm,id=$name,memdev=mem-$name,node=$numanode";
+
+	    #if dimm_memory is not aligned to dimm map
+	    if($current_size > $memory) {
+	         $conf->{memory} = $current_size;
+	         update_config_nolock($vmid, $conf, 1);
+	    }
+	});
     }
 
     push @$cmd, '-S' if $conf->{freeze};
@@ -3526,23 +3537,16 @@ sub qemu_memory_hotplug {
 
     die "memory can't be lower than $static_memory MB" if $value < $static_memory;
     die "memory unplug is not yet available" if $value < $memory;
-    die "memory should be a multiple of 128!\n" if ($value % 128 != 0);
     die "you cannot add more memory than $MAX_MEM MB!\n" if $memory > $MAX_MEM;
 
 
     my $sockets = 1;
     $sockets = $conf->{sockets} if $conf->{sockets};
 
-    my $dimm_id = 0;
-    my $current_size = $static_memory;
-    my $dimm_size = 512;
-    for (my $j = 0; $j < 8; $j++) {
-	for (my $i = 0; $i < 32; $i++) {
-	    my $name = "dimm${dimm_id}";
-	    $dimm_id++;
-	    $current_size += $dimm_size;
-	    next if $current_size <= $memory;
-	    my $numanode = $i % $sockets;
+    foreach_dimm($conf, $vmid, $value, $sockets, sub {
+	my ($conf, $vmid, $name, $dimm_size, $numanode, $current_size, $memory) = @_;
+
+	    return if $current_size <= $conf->{memory};
 
 	    eval { vm_mon_cmd($vmid, "object-add", 'qom-type' => "memory-backend-ram", id => "mem-$name", props => { size => int($dimm_size*1024*1024) } ) };
 	    if (my $err = $@) {
@@ -3556,14 +3560,9 @@ sub qemu_memory_hotplug {
 	        die $err;
 	    }
 	    #update conf after each succesful module hotplug
-	    $conf->{$opt} = $current_size;
+	    $conf->{memory} = $current_size;
 	    update_config_nolock($vmid, $conf, 1);
-
-	    return $current_size if $current_size >= $value;
-	}
-	$dimm_size *= 2;
-    }
-
+    });
 }
 
 sub qemu_block_set_io_throttle {
