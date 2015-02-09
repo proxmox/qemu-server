@@ -3746,7 +3746,6 @@ sub set_migration_caps {
 
 my $fast_plug_option = {
     'name' => 1,
-    'hotplug' => 1,
     'onboot' => 1, 
     'shares' => 1,
     'startup' => 1,
@@ -3790,7 +3789,9 @@ sub vmconfig_hotplug_pending {
     foreach my $opt (@delete) {
 	next if $selection && !$selection->{$opt};
 	eval {
-	    if ($opt eq 'tablet') {
+	    if ($opt eq 'hotplug') {
+		die "skip\n" if ($conf->{hotplug} =~ /memory/);
+	    } elsif ($opt eq 'tablet') {
 		die "skip\n" if !$hotplug_features->{usb};
 		if ($defaults->{tablet}) {
 		    vm_deviceplug($storecfg, $conf, $vmid, $opt);
@@ -3834,7 +3835,9 @@ sub vmconfig_hotplug_pending {
 	next if $selection && !$selection->{$opt};
 	my $value = $conf->{pending}->{$opt};
 	eval {
-	    if ($opt eq 'tablet') {
+	    if ($opt eq 'hotplug') {
+		die "skip\n" if ($value =~ /memory/) || ($value !~ /memory/ && $conf->{hotplug} =~ /memory/);
+	    } elsif ($opt eq 'tablet') {
 		die "skip\n" if !$hotplug_features->{usb};
 		if ($value == 1) {
 		    vm_deviceplug($storecfg, $conf, $vmid, $opt);
