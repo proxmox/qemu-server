@@ -1,3 +1,9 @@
+qemu-server (3.3-15) unstable; urgency=low
+
+  * code cleanup: add foreach_dimm sub
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 09 Feb 2015 07:05:05 +0100
+
 qemu-server (3.3-14) unstable; urgency=low
 
   * include memory hotplug patch
