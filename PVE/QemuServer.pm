@@ -3384,7 +3384,7 @@ sub qemu_driveadd {
     my ($storecfg, $vmid, $device) = @_;
 
     my $drive = print_drive_full($storecfg, $vmid, $device);
-    my $ret = vm_human_monitor_command($vmid, "drive_add auto $drive");
+    my $ret = vm_human_monitor_command($vmid, "drive_add auto \"$drive\"");
 
     # If the command succeeds qemu prints: "OK"
     return 1 if $ret =~ m/OK/s;
