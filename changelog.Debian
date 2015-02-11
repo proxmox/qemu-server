@@ -1,3 +1,10 @@
+qemu-server (3.3-16) unstable; urgency=low
+
+  * QemuServer: fix wrong binding of pci root ports, bridges or switches
+    to vfio
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 11 Feb 2015 06:32:14 +0100
+
 qemu-server (3.3-15) unstable; urgency=low
 
   * code cleanup: add foreach_dimm sub
