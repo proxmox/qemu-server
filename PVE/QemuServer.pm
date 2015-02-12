@@ -1431,6 +1431,7 @@ sub print_net {
     $res .= ",tag=$net->{tag}" if $net->{tag};
     $res .= ",firewall=1" if $net->{firewall};
     $res .= ",link_down=1" if $net->{link_down};
+    $res .= ",queues=$net->{queues}" if $net->{queues};
 
     return $res;
 }
