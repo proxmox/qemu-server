@@ -2912,12 +2912,12 @@ sub config_to_command {
     my $dimm_memory = 0;
 
     if ($hotplug_features->{memory}) {
-	die "Numa need to be enabled for memory hotplug" if !$conf->{numa};
-	die "Total memory is bigger than $MAX_MEM MB" if $memory > $MAX_MEM;
+	die "Numa need to be enabled for memory hotplug\n" if !$conf->{numa};
+	die "Total memory is bigger than ${MAX_MEM}MB\n" if $memory > $MAX_MEM;
 	$static_memory = $STATICMEM;
-	die "minimum memory must be $static_memory"."MB" if($memory < $static_memory);
+	die "minimum memory must be ${static_memory}MB\n" if($memory < $static_memory);
 	$dimm_memory = $memory - $static_memory;
-	push @$cmd, '-m', "size=".$static_memory.",slots=255,maxmem=".$MAX_MEM."M";
+	push @$cmd, '-m', "size=${static_memory},slots=255,maxmem=${MAX_MEM}M";
 
     } else {
 
@@ -2936,7 +2936,7 @@ sub config_to_command {
 	    die "missing numa node$i memory value\n" if !$numa->{memory};
 	    my $numa_memory = $numa->{memory};
 	    $numa_totalmemory += $numa_memory;
-	    my $numa_object = "memory-backend-ram,id=ram-node$i,size=$numa_memory"."M";
+	    my $numa_object = "memory-backend-ram,id=ram-node$i,size=${numa_memory}M";
 
 	    # cpus
 	    my $cpus_start = $numa->{cpus}->{start};
@@ -2997,7 +2997,7 @@ sub config_to_command {
     if ($hotplug_features->{memory}) {
 	foreach_dimm($conf, $vmid, $memory, $sockets, sub {
 	    my ($conf, $vmid, $name, $dimm_size, $numanode, $current_size, $memory) = @_;
-	    push @$cmd, "-object" , "memory-backend-ram,id=mem-$name,size=$dimm_size"."M";
+	    push @$cmd, "-object" , "memory-backend-ram,id=mem-$name,size=${dimm_size}M";
 	    push @$cmd, "-device", "pc-dimm,id=$name,memdev=mem-$name,node=$numanode";
 
 	    #if dimm_memory is not aligned to dimm map
