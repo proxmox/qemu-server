@@ -1,3 +1,13 @@
+qemu-server (3.3-17) unstable; urgency=low
+
+  * fix CDROM hotplug
+  
+  * This fix hotplug for devices behind bridges
+  
+  * check possibility to rollback a snapshot early
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 12 Feb 2015 08:19:02 +0100
+
 qemu-server (3.3-16) unstable; urgency=low
 
   * QemuServer: fix wrong binding of pci root ports, bridges or switches
