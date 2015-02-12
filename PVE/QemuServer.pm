@@ -3208,8 +3208,8 @@ sub vm_devices_list {
     my $devices = {};
     foreach my $pcibus (@$res) {
 	foreach my $device (@{$pcibus->{devices}}) {
+	    next if !$device->{'qdev_id'};
 	    if ($device->{'pci_bridge'}) {
-
 		$devices->{$device->{'qdev_id'}} = 1;
 		foreach my $bridge_device (@{$device->{'pci_bridge'}->{devices}}) {
 		    next if !$bridge_device->{'qdev_id'};
@@ -3217,7 +3217,6 @@ sub vm_devices_list {
 		    $devices->{$device->{'qdev_id'}}++;
 		}
 	    } else {
-		next if !$device->{'qdev_id'};
 		$devices->{$device->{'qdev_id'}} = 1;
 	    }
 	}
