@@ -4062,25 +4062,23 @@ sub vmconfig_update_disk {
 		    
 		    return 1;
 	        }
+
+	    } else { # cdrom
+		
+		if ($drive->{file} eq 'none') {
+		    vm_mon_cmd($vmid, "eject",force => JSON::true,device => "drive-$opt");
+		} else {
+		    my $path = get_iso_path($storecfg, $vmid, $drive->{file});
+		    vm_mon_cmd($vmid, "eject", force => JSON::true,device => "drive-$opt"); # force eject if locked
+		    vm_mon_cmd($vmid, "change", device => "drive-$opt",target => "$path") if $path;
+		}
 	    }
 	}
     }
 
-    if (drive_is_cdrom($drive)) { # cdrom
-
-	if ($drive->{file} eq 'none') {
-	    vm_mon_cmd($vmid, "eject",force => JSON::true,device => "drive-$opt");
-	} else {
-	    my $path = get_iso_path($storecfg, $vmid, $drive->{file});
-	    vm_mon_cmd($vmid, "eject", force => JSON::true,device => "drive-$opt"); # force eject if locked
-	    vm_mon_cmd($vmid, "change", device => "drive-$opt",target => "$path") if $path;
-	}
-
-    } else { 
-	die "skip\n" if !$hotplug || $opt =~ m/(ide|sata)(\d+)/;   
-	# hotplug new disks
-	vm_deviceplug($storecfg, $conf, $vmid, $opt, $drive);
-    }
+    die "skip\n" if !$hotplug || $opt =~ m/(ide|sata)(\d+)/;   
+    # hotplug new disks
+    vm_deviceplug($storecfg, $conf, $vmid, $opt, $drive);
 }
 
 sub vm_start {
