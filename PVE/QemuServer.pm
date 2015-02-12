@@ -5551,21 +5551,40 @@ my $snapshot_commit = sub {
 sub snapshot_rollback {
     my ($vmid, $snapname) = @_;
 
-    my $snap;
-
     my $prepare = 1;
 
     my $storecfg = PVE::Storage::config();
 
-    my $updatefn = sub {
+    my $conf = load_config($vmid);
 
-	my $conf = load_config($vmid);
+    my $get_snapshot_config = sub {
 
 	die "you can't rollback if vm is a template\n" if is_template($conf);
 
-	$snap = $conf->{snapshots}->{$snapname};
+	my $res = $conf->{snapshots}->{$snapname};
 
-	die "snapshot '$snapname' does not exist\n" if !defined($snap);
+	die "snapshot '$snapname' does not exist\n" if !defined($res);
+
+	return $res;
+    };
+
+    my $snap = &$get_snapshot_config();
+
+    foreach_drive($snap, sub {
+	my ($ds, $drive) = @_;
+
+	return if drive_is_cdrom($drive);
+
+	my $volid = $drive->{file};
+
+	PVE::Storage::volume_rollback_is_possible($storecfg, $volid, $snapname);
+    });
+
+    my $updatefn = sub {
+
+	$conf = load_config($vmid);
+
+	$snap = &$get_snapshot_config();
 
 	die "unable to rollback to incomplete snapshot (snapstate = $snap->{snapstate})\n"
 	    if $snap->{snapstate};
