@@ -1,3 +1,9 @@
+qemu-server (3.3-19) unstable; urgency=low
+
+  * commit pending values when changing CDROM
+
+ -- Proxmox Support Team <support@proxmox.com>  Sat, 14 Feb 2015 09:24:03 +0100
+
 qemu-server (3.3-18) unstable; urgency=low
 
   * bugfix : add missing queues nic option in print_net
