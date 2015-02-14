@@ -4082,6 +4082,8 @@ sub vmconfig_update_disk {
 		    vm_mon_cmd($vmid, "eject", force => JSON::true,device => "drive-$opt"); # force eject if locked
 		    vm_mon_cmd($vmid, "change", device => "drive-$opt",target => "$path") if $path;
 		}
+		
+		return 1;
 	    }
 	}
     }
