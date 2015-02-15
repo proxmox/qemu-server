@@ -3755,6 +3755,7 @@ sub set_migration_caps {
 }
 
 my $fast_plug_option = {
+    'lock' => 1,
     'name' => 1,
     'onboot' => 1, 
     'shares' => 1,
