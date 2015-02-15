@@ -1,3 +1,9 @@
+qemu-server (3.3-20) unstable; urgency=low
+
+  * correctly set an remove lock (fix "qm unlock")
+
+ -- Proxmox Support Team <support@proxmox.com>  Sun, 15 Feb 2015 09:05:40 +0100
+
 qemu-server (3.3-19) unstable; urgency=low
 
   * commit pending values when changing CDROM
