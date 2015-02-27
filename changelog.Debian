@@ -1,3 +1,9 @@
+qemu-server (4.0-1) unstable; urgency=medium
+
+  * updated for debian jessie
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 27 Feb 2015 13:00:56 +0100
+
 qemu-server (3.3-20) unstable; urgency=low
 
   * correctly set an remove lock (fix "qm unlock")
