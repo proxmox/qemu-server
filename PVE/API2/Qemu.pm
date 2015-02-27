@@ -687,7 +687,7 @@ __PACKAGE__->register_method({
 	delete $conf->{snapshots};
 
 	if (!$param->{current}) {
-	    foreach my $opt (keys $conf->{pending}) {
+	    foreach my $opt (keys %{$conf->{pending}}) {
 		next if $opt eq 'delete';
 		my $value = $conf->{pending}->{$opt};
 		next if ref($value); # just to be sure
@@ -758,7 +758,7 @@ __PACKAGE__->register_method({
 
 	my $res = [];
 
-	foreach my $opt (keys $conf) {
+	foreach my $opt (keys %$conf) {
 	    next if ref($conf->{$opt});
 	    my $item = { key => $opt };
 	    $item->{value} = $conf->{$opt} if defined($conf->{$opt});
@@ -767,7 +767,7 @@ __PACKAGE__->register_method({
 	    push @$res, $item;
 	}
 
-	foreach my $opt (keys $conf->{pending}) {
+	foreach my $opt (keys %{$conf->{pending}}) {
 	    next if $opt eq 'delete';
 	    next if ref($conf->{pending}->{$opt}); # just to be sure
 	    next if defined($conf->{$opt});
