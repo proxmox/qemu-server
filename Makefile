@@ -4,6 +4,8 @@ VERSION=4.0
 PACKAGE=qemu-server
 PKGREL=1
 
+CFLAGS= -O2 -Werror -Wall -Wtype-limits -Wl,-z,relro 
+
 DESTDIR=
 PREFIX=/usr
 BINDIR=${PREFIX}/bin
@@ -32,15 +34,14 @@ dinstall: deb
 control: control.in
 	sed -e s/@@VERSION@@/${VERSION}/ -e s/@@PKGRELEASE@@/${PKGREL}/ -e s/@@ARCH@@/${ARCH}/<$< >$@
 
-
 vzsyscalls.ph: vzsyscalls.h
 	 h2ph -d . vzsyscalls.h
 
 vmtar: vmtar.c utils.c
-	gcc -O2 -Werror -Wall -Wtype-limits -o vmtar vmtar.c
+	gcc ${CFLAGS} -o vmtar vmtar.c
 
 sparsecp: sparsecp.c utils.c
-	gcc -O2 -Werror -Wall -Wtype-limits -o sparsecp sparsecp.c
+	gcc ${CFLAGS} -o sparsecp sparsecp.c
 
 %.1.gz: %.1.pod
 	rm -f $@
@@ -62,7 +63,7 @@ qmrestore.1.pod: qmrestore
 vm.conf.5.pod: gen-vmconf-pod.pl PVE/QemuServer.pm 
 	perl -I. ./gen-vmconf-pod.pl >$@
 
-PKGSOURCES=qm qm.1.gz qm.1.pod qmrestore qmrestore.1.pod qmrestore.1.gz qmextract sparsecp vmtar qemu.init.d qmupdate control vm.conf.5.pod vm.conf.5.gz
+PKGSOURCES=qm qm.1.gz qm.1.pod qmrestore qmrestore.1.pod qmrestore.1.gz qmextract sparsecp vmtar control vm.conf.5.pod vm.conf.5.gz
 
 .PHONY: install
 install: ${PKGSOURCES}
@@ -79,12 +80,11 @@ install: ${PKGSOURCES}
 	make -C PVE install
 	install -m 0755 qm ${DESTDIR}${SBINDIR}
 	install -m 0755 qmrestore ${DESTDIR}${SBINDIR}
-	install -D -m 0755 qmupdate ${DESTDIR}${VARLIBDIR}/qmupdate
-	install -D -m 0755 qemu.init.d ${DESTDIR}/etc/init.d/${PACKAGE}
 	install -m 0755 pve-bridge ${DESTDIR}${VARLIBDIR}/pve-bridge
 	install -m 0755 pve-bridgedown ${DESTDIR}${VARLIBDIR}/pve-bridgedown
 	install -s -m 0755 vmtar ${DESTDIR}${LIBDIR}
 	install -s -m 0755 sparsecp ${DESTDIR}${LIBDIR}
+	install -D -m 0644 modules-load.conf ${DESTDIR}/etc/modules-load.d/qemu-server.conf
 	install -m 0755 qmextract ${DESTDIR}${LIBDIR}
 	install -m 0644 qm.1.gz ${DESTDIR}/usr/share/man/man1/
 	install -m 0644 qm.1.pod ${DESTDIR}/${PODDIR}
@@ -101,9 +101,7 @@ deb ${DEB}: ${PKGSOURCES}
 	perl -I. ./qm verifyapi
 	install -d -m 0755 build/DEBIAN
 	install -m 0644 control build/DEBIAN
-	install -m 0755 postinst build/DEBIAN
-	install -m 0755 postrm build/DEBIAN
-	echo "/etc/init.d/${PACKAGE}" >>build/DEBIAN/conffiles
+	echo "/etc/modules-load.d/qemu-server.conf" >>build/DEBIAN/conffiles
 	install -D -m 0644 copyright build/${DOCDIR}/${PACKAGE}/copyright
 	install -m 0644 changelog.Debian build/${DOCDIR}/${PACKAGE}/
 	gzip -9 build/${DOCDIR}/${PACKAGE}/changelog.Debian
