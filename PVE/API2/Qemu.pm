@@ -1500,16 +1500,6 @@ __PACKAGE__->register_method({
 	return $res;
     }});
 
-my $vm_is_ha_managed = sub {
-    my ($vmid) = @_;
-
-    my $cc = PVE::Cluster::cfs_read_file('cluster.conf');
-    if (PVE::Cluster::cluster_conf_lookup_pvevm($cc, 0, $vmid, 1)) {
-	return 1;
-    }
-    return 0;
-};
-
 __PACKAGE__->register_method({
     name => 'vm_status',
     path => '{vmid}/status/current',
@@ -1537,7 +1527,7 @@ __PACKAGE__->register_method({
 	my $vmstatus = PVE::QemuServer::vmstatus($param->{vmid}, 1);
 	my $status = $vmstatus->{$param->{vmid}};
 
-	$status->{ha} = &$vm_is_ha_managed($param->{vmid});
+	$status->{ha} = PVE::Cluster::vm_is_ha_managed($param->{vmid});
 
 	$status->{spice} = 1 if PVE::QemuServer::vga_conf_has_spice($conf->{vga});
 
@@ -1604,7 +1594,7 @@ __PACKAGE__->register_method({
 
 	my $storecfg = PVE::Storage::config();
 
-	if (&$vm_is_ha_managed($vmid) && !$stateuri &&
+	if (PVE::Cluster::vm_is_ha_managed($vmid) && !$stateuri &&
 	    $rpcenv->{type} ne 'ha') {
 
 	    my $hacmd = sub {
@@ -1700,7 +1690,7 @@ __PACKAGE__->register_method({
 
 	my $storecfg = PVE::Storage::config();
 
-	if (&$vm_is_ha_managed($vmid) && ($rpcenv->{type} ne 'ha') && !defined($migratedfrom)) {
+	if (PVE::Cluster::vm_is_ha_managed($vmid) && ($rpcenv->{type} ne 'ha') && !defined($migratedfrom)) {
 
 	    my $hacmd = sub {
 		my $upid = shift;
@@ -2572,7 +2562,7 @@ __PACKAGE__->register_method({
 	my $storecfg = PVE::Storage::config();
 	PVE::QemuServer::check_storage_availability($storecfg, $conf, $target);
 
-	if (&$vm_is_ha_managed($vmid) && $rpcenv->{type} ne 'ha') {
+	if (PVE::Cluster::vm_is_ha_managed($vmid) && $rpcenv->{type} ne 'ha') {
 
 	    my $hacmd = sub {
 		my $upid = shift;
