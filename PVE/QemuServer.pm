@@ -3865,7 +3865,7 @@ sub vmconfig_hotplug_pending {
 		die "skip\n" if $old_balloon_enabled != $new_balloon_enabled;
 
 		# allow manual ballooning if shares is set to zero
-		if (!(defined($conf->{shares}) && ($conf->{shares} == 0))) {
+		if ((defined($conf->{shares}) && ($conf->{shares} == 0))) {
 		    my $balloon = $conf->{pending}->{balloon} || $conf->{memory} || $defaults->{memory};
 		    vm_mon_cmd($vmid, "balloon", value => $balloon*1024*1024);
 		}
