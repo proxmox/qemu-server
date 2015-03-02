@@ -1,3 +1,9 @@
+qemu-server (3.4-1) unstable; urgency=low
+
+  * fix max allowed vcpus error message
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 02 Mar 2015 06:51:01 +0100
+
 qemu-server (3.3-20) unstable; urgency=low
 
   * correctly set an remove lock (fix "qm unlock")
