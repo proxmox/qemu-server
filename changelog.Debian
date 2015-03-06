@@ -1,3 +1,13 @@
+qemu-server (3.4-2) unstable; urgency=low
+
+  * balloon: use qom-get for guest balloon statistics
+  
+  * drive_add : escape \ character
+  
+  * bugfix : allow manual balloning if shares = 0
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 06 Mar 2015 09:55:01 +0100
+
 qemu-server (3.4-1) unstable; urgency=low
 
   * fix max allowed vcpus error message
