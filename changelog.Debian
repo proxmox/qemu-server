@@ -1,3 +1,13 @@
+qemu-server (4.0-2) unstable; urgency=medium
+
+  * balloon: use qom-get for guest balloon statistics
+
+  * drive_add: escape \ character
+
+  * bugfix: allow manual balloning if shares = 0
+  
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 06 Mar 2015 10:21:52 +0100
+
 qemu-server (4.0-1) unstable; urgency=medium
 
   * updated for debian jessie
