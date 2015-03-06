@@ -2490,17 +2490,12 @@ sub vmstatus {
 	my ($vmid, $resp) = @_;
 
 	my $info = $resp->{'return'};
-	return if !$info->{max_mem};
-
 	my $d = $res->{$vmid};
 
-	# use memory assigned to VM
-	$d->{maxmem} = $info->{max_mem};
-	$d->{balloon} = $info->{actual};
-
-	if (defined($info->{total_mem}) && defined($info->{free_mem})) {
-	    $d->{mem} = $info->{total_mem} - $info->{free_mem};
-	    $d->{freemem} = $info->{free_mem};
+	if (defined($info->{stats}->{"stat-total-memory"}) && defined($info->{stats}->{"stat-free-memory"})) {
+	    $d->{balloon} = int($info->{stats}->{"stat-total-memory"}/1024/1024);
+	    $d->{freemem} = int($info->{stats}->{"stat-free-memory"}/1024/1024);
+	    $d->{mem} = $d->{maxmem} - $d->{freemem};
 	}
 
     };
@@ -2524,7 +2519,13 @@ sub vmstatus {
 	$qmpclient->queue_cmd($vmid, $blockstatscb, 'query-blockstats');
 	# this fails if ballon driver is not loaded, so this must be
 	# the last commnand (following command are aborted if this fails).
-	$qmpclient->queue_cmd($vmid, $ballooncb, 'query-balloon');
+	# maybe is it fixed by
+	#http://git.qemu.org/?p=qemu.git;a=commit;h=38dbd48b247ebe05bdc6ef52ccdc60cc21274877
+
+	$qmpclient->queue_cmd($vmid, $ballooncb, 'qom-get',  
+			      path => "machine/peripheral/balloon0", 
+			      property => "guest-stats");
+
 
 	my $status = 'unknown';
 	if (!defined($status = $resp->{'return'}->{status})) {
