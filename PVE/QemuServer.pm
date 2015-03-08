@@ -2402,6 +2402,7 @@ sub vmstatus {
 
 	$d->{cpus} = ($conf->{sockets} || 1) * ($conf->{cores} || 1);
 	$d->{cpus} = $cpucount if $d->{cpus} > $cpucount;
+	$d->{cpus} = $conf->{vcpus} if $conf->{vcpus};
 
 	$d->{name} = $conf->{name} || "VM $vmid";
 	$d->{maxmem} = $conf->{memory} ? $conf->{memory}*(1024*1024) : 0;
