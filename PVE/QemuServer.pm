@@ -4197,10 +4197,6 @@ sub vm_start {
 	    if (!$statefile && (!defined($conf->{balloon}) || $conf->{balloon})) {
 		vm_mon_cmd_nocheck($vmid, "balloon", value => $conf->{balloon}*1024*1024)
 		    if $conf->{balloon};
-		vm_mon_cmd_nocheck($vmid, 'qom-set',
-			    path => "machine/peripheral/balloon0",
-			    property => "guest-stats-polling-interval",
-			    value => 2);
 	    }
 
 	    foreach my $opt (keys %$conf) {
@@ -4209,6 +4205,12 @@ sub vm_start {
 		qemu_set_link_status($vmid, $opt, 0) if $nicconf->{link_down};
 	    }
 	}
+	
+	vm_mon_cmd_nocheck($vmid, 'qom-set',
+		    path => "machine/peripheral/balloon0",
+		    property => "guest-stats-polling-interval",
+		    value => 2) if (!defined($conf->{balloon}) || $conf->{balloon});
+
     });
 }
 
