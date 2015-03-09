@@ -1,7 +1,5 @@
 qemu-server (4.0-2) unstable; urgency=medium
 
-  * balloon: use qom-get for guest balloon statistics
-
   * drive_add: escape \ character
 
   * bugfix: allow manual balloning if shares = 0
