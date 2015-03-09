@@ -1,6 +1,8 @@
 qemu-server (3.4-3) unstable; urgency=low
 
   * vmstatus: use vcpus if defined
+  
+  * always setup balloon polling interval
 
  -- Proxmox Support Team <support@proxmox.com>  Mon, 09 Mar 2015 08:20:22 +0100
 
