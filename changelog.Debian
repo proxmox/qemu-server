@@ -2,6 +2,8 @@ qemu-server (4.0-3) unstable; urgency=medium
 
   * vmstatus: use vcpus if defined
 
+  * balloon: use qom-get for guest balloon statistics
+
  -- Proxmox Support Team <support@proxmox.com>  Mon, 09 Mar 2015 08:22:47 +0100
 
 qemu-server (4.0-2) unstable; urgency=medium
