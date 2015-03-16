@@ -2917,9 +2917,7 @@ sub config_to_command {
 
     $cpu .= "," . join(',', @$cpuFlags) if scalar(@$cpuFlags);
 
-    # Note: enforce needs kernel 3.10, so we do not use it for now
-    # push @$cmd, '-cpu', "$cpu,enforce";
-    push @$cmd, '-cpu', $cpu;
+    push @$cmd, '-cpu', "$cpu,enforce";
 
     my $memory = $conf->{memory} || $defaults->{memory};
     my $static_memory = 0;
