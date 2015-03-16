@@ -2909,6 +2909,11 @@ sub config_to_command {
 
     push @$cpuFlags, '+sep' if $cpu eq 'kvm64' || $cpu eq 'kvm32';
 
+    if (qemu_machine_feature_enabled ($machine_type, $kvmver, 2, 3)) {
+
+	push @$cpuFlags , '+kvm_pv_unhalt' if !$nokvm;
+    }
+
     $cpu .= "," . join(',', @$cpuFlags) if scalar(@$cpuFlags);
 
     # Note: enforce needs kernel 3.10, so we do not use it for now
