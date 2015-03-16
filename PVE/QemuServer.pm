@@ -2866,7 +2866,11 @@ sub config_to_command {
 	    push @$globalFlags, 'kvm-pit.lost_tick_policy=discard';
 	    push @$cmd, '-no-hpet';
 	    #push @$cpuFlags , 'hv_vapic" if !$nokvm;  #fixme, my win2008R2 hang at boot with this
-	    push @$cpuFlags , 'hv_spinlocks=0xffff' if !$nokvm;
+	    if (qemu_machine_feature_enabled ($machine_type, $kvmver, 2, 3)) {
+		push @$cpuFlags , 'hv_spinlocks=0x1fff' if !$nokvm;
+	    } else { 
+		push @$cpuFlags , 'hv_spinlocks=0xffff' if !$nokvm;
+	    }
 	}
 
 	if ($ost eq 'win7' || $ost eq 'win8') {
