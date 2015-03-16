@@ -2651,6 +2651,7 @@ sub config_to_command {
 
     my $q35 = machine_type_is_q35($conf);
     my $hotplug_features = parse_hotplug_features(defined($conf->{hotplug}) ? $conf->{hotplug} : '1');
+    my $machine_type = $forcemachine || $conf->{machine};
 
     push @$cmd, '/usr/bin/kvm';
 
@@ -2881,7 +2882,6 @@ sub config_to_command {
 	die "No accelerator found!\n" if !$cpuinfo->{hvm};
     }
 
-    my $machine_type = $forcemachine || $conf->{machine};
     if ($machine_type) {
 	push @$machineFlags, "type=${machine_type}";
     }
@@ -6115,6 +6115,28 @@ sub get_current_qemu_machine {
 
     # fallback to the default machine if current is not supported by qemu
     return $current || $default || 'pc';
+}
+
+sub qemu_machine_feature_enabled {
+    my ($machine, $kvmver, $version_major, $version_minor) = @_;
+
+    my $current_major;
+    my $current_minor;
+
+    if ($machine && $machine =~ m/^(pc(-i440fx|-q35)?-(\d+)\.(\d+))/) {
+
+	$current_major = $3;
+	$current_minor = $4;
+
+    } elsif ($kvmver =~ m/^(\d+)\.(\d+)/) {
+
+	$current_major = $1;
+	$current_minor = $2;
+    }
+
+    return 1 if $current_major >= $version_major && $current_minor >= $version_minor;
+
+
 }
 
 sub lspci {
