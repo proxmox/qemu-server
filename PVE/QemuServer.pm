@@ -2912,6 +2912,7 @@ sub config_to_command {
     if (qemu_machine_feature_enabled ($machine_type, $kvmver, 2, 3)) {
 
 	push @$cpuFlags , '+kvm_pv_unhalt' if !$nokvm;
+	push @$cpuFlags , '+kvm_pv_eoi' if !$nokvm;
     }
 
     $cpu .= "," . join(',', @$cpuFlags) if scalar(@$cpuFlags);
