@@ -3153,6 +3153,11 @@ sub config_to_command {
 
     if (!$q35) {
 	# add pci bridges
+        if (qemu_machine_feature_enabled ($machine_type, $kvmver, 2, 3)) {
+	   $bridges->{1} = 1;
+	   $bridges->{2} = 1;
+	}
+
 	while (my ($k, $v) = each %$bridges) {
 	    $pciaddr = print_pci_addr("pci.$k");
 	    unshift @$devices, '-device', "pci-bridge,id=pci.$k,chassis_nr=$k$pciaddr" if $k > 0;
