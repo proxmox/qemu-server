@@ -1,3 +1,9 @@
+qemu-server (4.0-4) unstable; urgency=medium
+
+  * add qemu cpu flags optimisations for kernel 3.10
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 17 Mar 2015 08:58:56 +0100
+
 qemu-server (4.0-3) unstable; urgency=medium
 
   * vmstatus: use vcpus if defined
