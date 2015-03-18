@@ -3353,15 +3353,17 @@ sub vm_deviceunplug {
         qemu_devicedelverify($vmid, $deviceid);
         qemu_drivedel($vmid, $deviceid);
    
-    } elsif ($deviceid =~ m/^(lsi)(\d+)$/) {
+    } elsif ($deviceid =~ m/^(scsihw)(\d+)$/) {
     
 	qemu_devicedel($vmid, $deviceid);
+	qemu_devicedelverify($vmid, $deviceid);
     
     } elsif ($deviceid =~ m/^(scsi)(\d+)$/) {
 
         qemu_devicedel($vmid, $deviceid);
         qemu_drivedel($vmid, $deviceid);
-    
+	qemu_deletescsihw($conf, $vmid, $deviceid);  
+
     } elsif ($deviceid =~ m/^(net)(\d+)$/) {
 
         qemu_devicedel($vmid, $deviceid);
@@ -3472,6 +3474,31 @@ sub qemu_findorcreatescsihw {
     if(!defined($devices_list->{$scsihwid})) {
 	vm_deviceplug($storecfg, $conf, $vmid, $scsihwid);
     }
+
+    return 1;
+}
+
+sub qemu_deletescsihw {
+    my ($conf, $vmid, $opt) = @_;
+
+    my $device = parse_drive($opt, $conf->{$opt});
+
+    my $maxdev = ($conf->{scsihw} && ($conf->{scsihw} !~ m/^lsi/)) ? 256 : 7;
+    my $controller = int($device->{index} / $maxdev);
+
+    my $devices_list = vm_devices_list($vmid);
+    foreach my $opt (keys %{$devices_list}) {
+	if (PVE::QemuServer::valid_drivename($opt)) {
+	    my $drive = PVE::QemuServer::parse_drive($opt, $conf->{$opt});
+	    if($drive->{interface} eq 'scsi' && $drive->{index} < (($maxdev-1)*($controller+1))) {
+		return 1;
+	    }
+	}
+    }
+
+    my $scsihwid="scsihw$controller";
+
+    vm_deviceunplug($vmid, $conf, $scsihwid);
 
     return 1;
 }
