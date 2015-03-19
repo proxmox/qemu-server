@@ -152,12 +152,6 @@ mkdir $lock_dir;
 my $pcisysfs = "/sys/bus/pci";
 
 my $confdesc = {
-    iothread => {
-	optional => 1,
-	type => 'boolean',
-	description => "Enable iothread dataplane.",
-	default => 0,
-    },
     onboot => {
 	optional => 1,
 	type => 'boolean',
@@ -571,7 +565,7 @@ PVE::JSONSchema::register_standard_option("pve-qm-sata", $satadesc);
 my $virtiodesc = {
     optional => 1,
     type => 'string', format => 'pve-qm-drive',
-    typetext => '[volume=]volume,] [,media=cdrom|disk] [,cyls=c,heads=h,secs=s[,trans=t]] [,snapshot=on|off] [,cache=none|writethrough|writeback|unsafe|directsync] [,format=f] [,backup=yes|no] [,rerror=ignore|report|stop] [,werror=enospc|ignore|report|stop] [,aio=native|threads]  [,discard=ignore|on]',
+    typetext => '[volume=]volume,] [,media=cdrom|disk] [,cyls=c,heads=h,secs=s[,trans=t]] [,snapshot=on|off] [,cache=none|writethrough|writeback|unsafe|directsync] [,format=f] [,backup=yes|no] [,rerror=ignore|report|stop] [,werror=enospc|ignore|report|stop] [,aio=native|threads]  [,discard=ignore|on] [,iothread=on]',
     description => "Use volume as VIRTIO hard disk (n is 0 to " . ($MAX_VIRTIO_DISKS - 1) . ").",
 };
 PVE::JSONSchema::register_standard_option("pve-qm-virtio", $virtiodesc);
@@ -940,7 +934,7 @@ my $format_size = sub {
 # ideX = [volume=]volume-id[,media=d][,cyls=c,heads=h,secs=s[,trans=t]]
 #        [,snapshot=on|off][,cache=on|off][,format=f][,backup=yes|no]
 #        [,rerror=ignore|report|stop][,werror=enospc|ignore|report|stop]
-#        [,aio=native|threads][,discard=ignore|on]
+#        [,aio=native|threads][,discard=ignore|on][,iothread=on]
 
 sub parse_drive {
     my ($key, $data) = @_;
@@ -961,7 +955,7 @@ sub parse_drive {
     foreach my $p (split (/,/, $data)) {
 	next if $p =~ m/^\s*$/;
 
-	if ($p =~ m/^(file|volume|cyls|heads|secs|trans|media|snapshot|cache|format|rerror|werror|backup|aio|bps|mbps|mbps_max|bps_rd|mbps_rd|mbps_rd_max|bps_wr|mbps_wr|mbps_wr_max|iops|iops_max|iops_rd|iops_rd_max|iops_wr|iops_wr_max|size|discard)=(.+)$/) {
+	if ($p =~ m/^(file|volume|cyls|heads|secs|trans|media|snapshot|cache|format|rerror|werror|backup|aio|bps|mbps|mbps_max|bps_rd|mbps_rd|mbps_rd_max|bps_wr|mbps_wr|mbps_wr_max|iops|iops_max|iops_rd|iops_rd_max|iops_wr|iops_wr_max|size|discard|iothread)=(.+)$/) {
 	    my ($k, $v) = ($1, $2);
 
 	    $k = 'file' if $k eq 'volume';
@@ -1003,6 +997,7 @@ sub parse_drive {
     return undef if $res->{backup} && $res->{backup} !~ m/^(yes|no)$/;
     return undef if $res->{aio} && $res->{aio} !~ m/^(native|threads)$/;
     return undef if $res->{discard} && $res->{discard} !~ m/^(ignore|on)$/;
+    return undef if $res->{iothread} && $res->{iothread} !~ m/^(on)$/;
 
     return undef if $res->{mbps_rd} && $res->{mbps};
     return undef if $res->{mbps_wr} && $res->{mbps};
@@ -1050,7 +1045,7 @@ sub print_drive {
     my ($vmid, $drive) = @_;
 
     my $opts = '';
-    foreach my $o (@qemu_drive_options, 'mbps', 'mbps_rd', 'mbps_wr', 'mbps_max', 'mbps_rd_max', 'mbps_wr_max', 'backup') {
+    foreach my $o (@qemu_drive_options, 'mbps', 'mbps_rd', 'mbps_wr', 'mbps_max', 'mbps_rd_max', 'mbps_wr_max', 'backup', 'iothread') {
 	$opts .= ",$o=$drive->{$o}" if $drive->{$o};
     }
 
@@ -1148,7 +1143,7 @@ sub print_drivedevice_full {
     if ($drive->{interface} eq 'virtio') {
 	my $pciaddr = print_pci_addr("$drive->{interface}$drive->{index}", $bridges);
 	$device = "virtio-blk-pci,drive=drive-$drive->{interface}$drive->{index},id=$drive->{interface}$drive->{index}$pciaddr";
-	$device .= ",iothread=iothread0" if $conf->{iothread};
+	$device .= ",iothread=iothread-$drive->{interface}$drive->{index}" if $drive->{iothread};
     } elsif ($drive->{interface} eq 'scsi') {
 	$maxdev = ($conf->{scsihw} && ($conf->{scsihw} !~ m/^lsi/)) ? 256 : 7;
 	my $controller = int($drive->{index} / $maxdev);
@@ -2674,8 +2669,6 @@ sub config_to_command {
 	push @$cmd, '-smbios', "type=1,$conf->{smbios1}";
     }
 
-    push @$cmd, '-object', "iothread,id=iothread0" if $conf->{iothread};
-
     if ($q35) {
 	# the q35 chipset support native usb2, so we enable usb controller
 	# by default for this machine type
@@ -3109,6 +3102,10 @@ sub config_to_command {
 		$drive->{bootindex} = $bootindex_hash->{c} if $conf->{bootdisk} && ($conf->{bootdisk} eq $ds);
 		$bootindex_hash->{c} += 1;
 	    }
+	}
+
+	if($drive->{interface} eq 'virtio'){
+           push @$cmd, '-object', "iothread,id=iothread-$ds" if $drive->{iothread};
 	}
 
         if ($drive->{interface} eq 'scsi') {
