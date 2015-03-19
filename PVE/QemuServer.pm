@@ -3270,6 +3270,8 @@ sub vm_deviceplug {
 
     } elsif ($deviceid =~ m/^(virtio)(\d+)$/) {
 
+	qemu_iothread_add($vmid, $deviceid, $device);
+
         qemu_driveadd($storecfg, $vmid, $device);
         my $devicefull = print_drivedevice_full($storecfg, $conf, $vmid, $device);
 
@@ -3349,7 +3351,8 @@ sub vm_deviceunplug {
         qemu_devicedel($vmid, $deviceid);
         qemu_devicedelverify($vmid, $deviceid);
         qemu_drivedel($vmid, $deviceid);
-   
+	qemu_iothread_del($conf, $vmid, $deviceid);
+
     } elsif ($deviceid =~ m/^(scsihw)(\d+)$/) {
     
 	qemu_devicedel($vmid, $deviceid);
@@ -3387,6 +3390,25 @@ sub qemu_devicedel {
     my ($vmid, $deviceid) = @_;
 
     my $ret = vm_mon_cmd($vmid, "device_del", id => $deviceid);
+}
+
+sub qemu_iothread_add {
+    my($vmid, $deviceid, $device) = @_;
+
+    if ($device->{iothread}) {
+	my $iothreads = vm_iothreads_list($vmid);
+	qemu_objectadd($vmid, "iothread-$deviceid", "iothread") if !$iothreads->{"iothread-$deviceid"};
+    }
+}
+
+sub qemu_iothread_del {
+    my($conf, $vmid, $deviceid) = @_;
+
+    my $device = parse_drive($deviceid, $conf->{$deviceid});
+    if ($device->{iothread}) {
+	my $iothreads = vm_iothreads_list($vmid);
+	qemu_objectdel($vmid, "iothread-$deviceid") if $iothreads->{"iothread-$deviceid"};
+    }
 }
 
 sub qemu_objectadd {
@@ -4078,6 +4100,7 @@ sub vmconfig_update_disk {
 
 		    # skip non hotpluggable value
 		    if (&$safe_num_ne($drive->{discard}, $old_drive->{discard}) || 
+			&$safe_string_ne($drive->{iothread}, $old_drive->{iothread}) ||
 			&$safe_string_ne($drive->{cache}, $old_drive->{cache})) {
 			die "skip\n";
 		    }
@@ -6189,6 +6212,19 @@ sub lspci {
     });
 
     return $devices;
+}
+
+sub vm_iothreads_list {
+    my ($vmid) = @_;
+
+    my $res = vm_mon_cmd($vmid, 'query-iothreads');
+
+    my $iothreads = {};
+    foreach my $iothread (@$res) {
+	$iothreads->{ $iothread->{id} } = $iothread->{"thread-id"};
+    }
+
+    return $iothreads;
 }
 
 1;
