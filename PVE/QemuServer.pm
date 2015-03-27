@@ -3304,11 +3304,13 @@ sub vm_deviceplug {
 	    die $err;
         }
 
-    } elsif ($deviceid =~ m/^(scsihw)(\d+)$/) {
+    } elsif ($deviceid =~ m/^(virtioscsi|scsihw)(\d+)$/) {
 
         my $scsihw = defined($conf->{scsihw}) ? $conf->{scsihw} : "lsi";
         my $pciaddr = print_pci_addr($deviceid);
-        my $devicefull = "$scsihw,id=$deviceid$pciaddr";
+	my $scsihw_type = $scsihw =~ m/^virtio-scsi-single/ ? "virtio-scsi-pci" : $scsihw; 
+
+        my $devicefull = "$scsihw_type,id=$deviceid$pciaddr";
 
         qemu_deviceadd($vmid, $devicefull);
         qemu_deviceaddverify($vmid, $deviceid);
@@ -3374,7 +3376,7 @@ sub vm_deviceunplug {
         qemu_drivedel($vmid, $deviceid);
 	qemu_iothread_del($conf, $vmid, $deviceid);
 
-    } elsif ($deviceid =~ m/^(scsihw)(\d+)$/) {
+    } elsif ($deviceid =~ m/^(virtioscsi|scsihw)(\d+)$/) {
     
 	qemu_devicedel($vmid, $deviceid);
 	qemu_devicedelverify($vmid, $deviceid);
@@ -3506,9 +3508,19 @@ sub qemu_devicedelverify {
 sub qemu_findorcreatescsihw {
     my ($storecfg, $conf, $vmid, $device) = @_;
 
-    my $maxdev = ($conf->{scsihw} && ($conf->{scsihw} !~ m/^lsi/)) ? 256 : 7;
+    my $maxdev = 0;
+    if ($conf->{scsihw} && ($conf->{scsihw} =~ m/^lsi/)) {
+        $maxdev = 7;
+    } elsif ($conf->{scsihw} && ($conf->{scsihw} =~ m/^virtio-scsi-single/)) {
+        $maxdev = 1;
+    } else {
+        $maxdev = 256;
+    }
+
     my $controller = int($device->{index} / $maxdev);
-    my $scsihwid="scsihw$controller";
+    my $controller_prefix = ($conf->{scsihw} && $conf->{scsihw} =~ m/^virtio-scsi-single/) ? "virtioscsi" : "scsihw";
+
+    my $scsihwid="$controller_prefix$controller";
     my $devices_list = vm_devices_list($vmid);
 
     if(!defined($devices_list->{$scsihwid})) {
@@ -3522,6 +3534,11 @@ sub qemu_deletescsihw {
     my ($conf, $vmid, $opt) = @_;
 
     my $device = parse_drive($opt, $conf->{$opt});
+
+    if ($conf->{scsihw} && ($conf->{scsihw} =~ m/^virtio-scsi-single/)) {
+	vm_deviceunplug($vmid, $conf, "virtioscsi$device->{index}");
+	return 1;
+    }
 
     my $maxdev = ($conf->{scsihw} && ($conf->{scsihw} !~ m/^lsi/)) ? 256 : 7;
     my $controller = int($device->{index} / $maxdev);
