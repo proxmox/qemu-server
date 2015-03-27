@@ -20,6 +20,7 @@ use PVE::AccessControl;
 use PVE::INotify;
 use PVE::Network;
 use PVE::API2::Firewall::VM;
+use PVE::HA::Config;
 
 use Data::Dumper; # fixme: remove
 
@@ -1527,7 +1528,7 @@ __PACKAGE__->register_method({
 	my $vmstatus = PVE::QemuServer::vmstatus($param->{vmid}, 1);
 	my $status = $vmstatus->{$param->{vmid}};
 
-	$status->{ha} = PVE::Cluster::vm_is_ha_managed($param->{vmid});
+	$status->{ha} = PVE::HA::Config::vm_is_ha_managed($param->{vmid});
 
 	$status->{spice} = 1 if PVE::QemuServer::vga_conf_has_spice($conf->{vga});
 
@@ -1594,7 +1595,7 @@ __PACKAGE__->register_method({
 
 	my $storecfg = PVE::Storage::config();
 
-	if (PVE::Cluster::vm_is_ha_managed($vmid) && !$stateuri &&
+	if (PVE::HA::Config::vm_is_ha_managed($vmid) && !$stateuri &&
 	    $rpcenv->{type} ne 'ha') {
 
 	    my $hacmd = sub {
@@ -1602,7 +1603,7 @@ __PACKAGE__->register_method({
 
 		my $service = "pvevm:$vmid";
 
-		my $cmd = ['clusvcadm', '-e', $service, '-m', $node];
+		my $cmd = ['ha-manager', 'enable', $service];
 
 		print "Executing HA start for VM $vmid\n";
 
@@ -1690,14 +1691,14 @@ __PACKAGE__->register_method({
 
 	my $storecfg = PVE::Storage::config();
 
-	if (PVE::Cluster::vm_is_ha_managed($vmid) && ($rpcenv->{type} ne 'ha') && !defined($migratedfrom)) {
+	if (PVE::HA::Config::vm_is_ha_managed($vmid) && ($rpcenv->{type} ne 'ha') && !defined($migratedfrom)) {
 
 	    my $hacmd = sub {
 		my $upid = shift;
 
 		my $service = "pvevm:$vmid";
 
-		my $cmd = ['clusvcadm', '-d', $service];
+		my $cmd = ['ha-manager', 'disable', $service];
 
 		print "Executing HA stop for VM $vmid\n";
 
@@ -2562,14 +2563,14 @@ __PACKAGE__->register_method({
 	my $storecfg = PVE::Storage::config();
 	PVE::QemuServer::check_storage_availability($storecfg, $conf, $target);
 
-	if (PVE::Cluster::vm_is_ha_managed($vmid) && $rpcenv->{type} ne 'ha') {
+	if (PVE::HA::Config::vm_is_ha_managed($vmid) && $rpcenv->{type} ne 'ha') {
 
 	    my $hacmd = sub {
 		my $upid = shift;
 
 		my $service = "pvevm:$vmid";
 
-		my $cmd = ['clusvcadm', '-M', $service, '-m', $target];
+		my $cmd = ['ha-manager', 'migrate', $service, $target];
 
 		print "Executing HA migrate for VM $vmid to node $target\n";
 
