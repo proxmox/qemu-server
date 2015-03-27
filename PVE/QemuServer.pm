@@ -1145,17 +1145,8 @@ sub print_drivedevice_full {
 	$device = "virtio-blk-pci,drive=drive-$drive->{interface}$drive->{index},id=$drive->{interface}$drive->{index}$pciaddr";
 	$device .= ",iothread=iothread-$drive->{interface}$drive->{index}" if $drive->{iothread};
     } elsif ($drive->{interface} eq 'scsi') {
-	if ($conf->{scsihw} && ($conf->{scsihw} =~ m/^lsi/)) {
-	    $maxdev = 7;
-	} elsif ($conf->{scsihw} && ($conf->{scsihw} =~ m/^virtio-scsi-single/)) {
-	    $maxdev = 1;
-	} else {
-	    $maxdev = 256;
-	}
 
-	my $controller = int($drive->{index} / $maxdev);
-        my $controller_prefix = ($conf->{scsihw} && $conf->{scsihw} =~ m/^virtio-scsi-single/) ? "virtioscsi" : "scsihw";
-
+	my ($maxdev, $controller, $controller_prefix) = scsihw_infos($conf, $drive);
 	my $unit = $drive->{index} % $maxdev;
 	my $devicetype = 'hd';
         my $path = '';
@@ -3119,17 +3110,8 @@ sub config_to_command {
 
         if ($drive->{interface} eq 'scsi') {
 
-	    my $maxdev = 0;
-	    if ($scsihw =~ m/^lsi/) {
-		$maxdev = 7;
-	    } elsif ($scsihw =~ m/^virtio-scsi-single/) {
-		$maxdev = 1;
-	    } else {
-		$maxdev = 256;
-	    }
+	    my ($maxdev, $controller, $controller_prefix) = scsihw_infos($conf, $drive);
 
-	    my $controller = int($drive->{index} / $maxdev);
-	    my $controller_prefix = $scsihw =~ m/^virtio-scsi-single/ ? "virtioscsi" : "scsihw";
 	    $pciaddr = print_pci_addr("$controller_prefix$controller", $bridges);
 	    my $scsihw_type = $scsihw =~ m/^virtio-scsi-single/ ? "virtio-scsi-pci" : $scsihw; 
 	    push @$devices, '-device', "$scsihw_type,id=$controller_prefix$controller$pciaddr" if !$scsicontroller->{$controller};
@@ -3508,17 +3490,7 @@ sub qemu_devicedelverify {
 sub qemu_findorcreatescsihw {
     my ($storecfg, $conf, $vmid, $device) = @_;
 
-    my $maxdev = 0;
-    if ($conf->{scsihw} && ($conf->{scsihw} =~ m/^lsi/)) {
-        $maxdev = 7;
-    } elsif ($conf->{scsihw} && ($conf->{scsihw} =~ m/^virtio-scsi-single/)) {
-        $maxdev = 1;
-    } else {
-        $maxdev = 256;
-    }
-
-    my $controller = int($device->{index} / $maxdev);
-    my $controller_prefix = ($conf->{scsihw} && $conf->{scsihw} =~ m/^virtio-scsi-single/) ? "virtioscsi" : "scsihw";
+    my ($maxdev, $controller, $controller_prefix) = scsihw_infos($conf, $device);
 
     my $scsihwid="$controller_prefix$controller";
     my $devices_list = vm_devices_list($vmid);
@@ -3540,8 +3512,7 @@ sub qemu_deletescsihw {
 	return 1;
     }
 
-    my $maxdev = ($conf->{scsihw} && ($conf->{scsihw} !~ m/^lsi/)) ? 256 : 7;
-    my $controller = int($device->{index} / $maxdev);
+    my ($maxdev, $controller, $controller_prefix) = scsihw_infos($conf, $device);
 
     my $devices_list = vm_devices_list($vmid);
     foreach my $opt (keys %{$devices_list}) {
@@ -6298,4 +6269,22 @@ sub vm_iothreads_list {
     return $iothreads;
 }
 
+sub scsihw_infos {
+    my ($conf, $drive) = @_;
+
+    my $maxdev = 0;
+
+    if ($conf->{scsihw} && ($conf->{scsihw} =~ m/^lsi/)) {
+        $maxdev = 7;
+    } elsif ($conf->{scsihw} && ($conf->{scsihw} =~ m/^virtio-scsi-single/)) {
+        $maxdev = 1;
+    } else {
+        $maxdev = 256;
+    }
+
+    my $controller = int($drive->{index} / $maxdev);
+    my $controller_prefix = ($conf->{scsihw} && $conf->{scsihw} =~ m/^virtio-scsi-single/) ? "virtioscsi" : "scsihw";
+
+    return ($maxdev, $controller, $controller_prefix);
+}
 1;
