@@ -873,7 +873,7 @@ sub parse_hotplug_features {
     my $res = {};
 
     return $res if $data eq '0';
-    
+
     $data = $confdesc->{hotplug}->{default} if $data eq '1';
 
     foreach my $feature (PVE::Tools::split_list($data)) {
@@ -2863,7 +2863,7 @@ sub config_to_command {
 		push @$cpuFlags , 'hv_vapic' if !$nokvm;
 		push @$cpuFlags , 'hv_time' if !$nokvm;
 
-	    } else { 
+	    } else {
 		push @$cpuFlags , 'hv_spinlocks=0xffff' if !$nokvm;
 	    }
 	}
@@ -3113,7 +3113,7 @@ sub config_to_command {
 	    my ($maxdev, $controller, $controller_prefix) = scsihw_infos($conf, $drive);
 
 	    $pciaddr = print_pci_addr("$controller_prefix$controller", $bridges);
-	    my $scsihw_type = $scsihw =~ m/^virtio-scsi-single/ ? "virtio-scsi-pci" : $scsihw; 
+	    my $scsihw_type = $scsihw =~ m/^virtio-scsi-single/ ? "virtio-scsi-pci" : $scsihw;
 	    push @$devices, '-device', "$scsihw_type,id=$controller_prefix$controller$pciaddr" if !$scsicontroller->{$controller};
 	    $scsicontroller->{$controller}=1;
         }
@@ -3290,7 +3290,7 @@ sub vm_deviceplug {
 
         my $scsihw = defined($conf->{scsihw}) ? $conf->{scsihw} : "lsi";
         my $pciaddr = print_pci_addr($deviceid);
-	my $scsihw_type = $scsihw eq 'virtio-scsi-single' ? "virtio-scsi-pci" : $scsihw; 
+	my $scsihw_type = $scsihw eq 'virtio-scsi-single' ? "virtio-scsi-pci" : $scsihw;
 
         my $devicefull = "$scsihw_type,id=$deviceid$pciaddr";
 
@@ -3301,7 +3301,7 @@ sub vm_deviceplug {
 
         qemu_findorcreatescsihw($storecfg,$conf, $vmid, $device);
         qemu_driveadd($storecfg, $vmid, $device);
-        
+
 	my $devicefull = print_drivedevice_full($storecfg, $conf, $vmid, $device);
 	eval { qemu_deviceadd($vmid, $devicefull); };
 	if (my $err = $@) {
@@ -3327,12 +3327,12 @@ sub vm_deviceplug {
 	my $bridgeid = $2;
 	my $pciaddr = print_pci_addr($deviceid);
 	my $devicefull = "pci-bridge,id=pci.$bridgeid,chassis_nr=$bridgeid$pciaddr";
-	
+
 	qemu_deviceadd($vmid, $devicefull);
 	qemu_deviceaddverify($vmid, $deviceid);
 
     } else {
-	die "can't hotplug device '$deviceid'\n";	
+	die "can't hotplug device '$deviceid'\n";
     }
 
     return 1;
@@ -3359,15 +3359,15 @@ sub vm_deviceunplug {
 	qemu_iothread_del($conf, $vmid, $deviceid);
 
     } elsif ($deviceid =~ m/^(virtioscsi|scsihw)(\d+)$/) {
-    
+
 	qemu_devicedel($vmid, $deviceid);
 	qemu_devicedelverify($vmid, $deviceid);
-    
+
     } elsif ($deviceid =~ m/^(scsi)(\d+)$/) {
 
         qemu_devicedel($vmid, $deviceid);
         qemu_drivedel($vmid, $deviceid);
-	qemu_deletescsihw($conf, $vmid, $deviceid);  
+	qemu_deletescsihw($conf, $vmid, $deviceid);
 
     } elsif ($deviceid =~ m/^(net)(\d+)$/) {
 
@@ -3450,12 +3450,12 @@ sub qemu_drivedel {
 
     my $ret = vm_human_monitor_command($vmid, "drive_del drive-$deviceid");
     $ret =~ s/^\s+//;
-    
+
     return 1 if $ret eq "";
-  
+
     # NB: device not found errors mean the drive was auto-deleted and we ignore the error
-    return 1 if $ret =~ m/Device \'.*?\' not found/s; 
-    
+    return 1 if $ret =~ m/Device \'.*?\' not found/s;
+
     die "deleting drive $deviceid failed : $ret\n";
 }
 
@@ -3475,7 +3475,7 @@ sub qemu_deviceaddverify {
 sub qemu_devicedelverify {
     my ($vmid, $deviceid) = @_;
 
-    # need to verify that the device is correctly removed as device_del 
+    # need to verify that the device is correctly removed as device_del
     # is async and empty return is not reliable
 
     for (my $i = 0; $i <= 5; $i++) {
@@ -3558,7 +3558,7 @@ sub qemu_add_pci_bridge {
 sub qemu_set_link_status {
     my ($vmid, $device, $up) = @_;
 
-    vm_mon_cmd($vmid, "set_link", name => $device, 
+    vm_mon_cmd($vmid, "set_link", name => $device,
 	       up => $up ? JSON::true : JSON::false);
 }
 
@@ -3609,9 +3609,9 @@ sub qemu_memory_hotplug {
     my ($vmid, $conf, $defaults, $opt, $value) = @_;
 
     return $value if !check_running($vmid);
- 
+
     my $memory = $conf->{memory} || $defaults->{memory};
-    $value = $defaults->{memory} if !$value; 
+    $value = $defaults->{memory} if !$value;
     return $value if $value == $memory;
 
     my $static_memory = $STATICMEM;
@@ -3829,7 +3829,7 @@ sub set_migration_caps {
 my $fast_plug_option = {
     'lock' => 1,
     'name' => 1,
-    'onboot' => 1, 
+    'onboot' => 1,
     'shares' => 1,
     'startup' => 1,
 };
@@ -3933,7 +3933,7 @@ sub vmconfig_hotplug_pending {
 	    } elsif ($opt eq 'balloon') {
 		# enable/disable balloning device is not hotpluggable
 		my $old_balloon_enabled =  !!(!defined($conf->{balloon}) || $conf->{balloon});
-		my $new_balloon_enabled =  !!(!defined($conf->{pending}->{balloon}) || $conf->{pending}->{balloon});		
+		my $new_balloon_enabled =  !!(!defined($conf->{pending}->{balloon}) || $conf->{pending}->{balloon});
 		die "skip\n" if $old_balloon_enabled != $new_balloon_enabled;
 
 		# allow manual ballooning if shares is set to zero
@@ -3941,9 +3941,9 @@ sub vmconfig_hotplug_pending {
 		    my $balloon = $conf->{pending}->{balloon} || $conf->{memory} || $defaults->{memory};
 		    vm_mon_cmd($vmid, "balloon", value => $balloon*1024*1024);
 		}
-	    } elsif ($opt =~ m/^net(\d+)$/) { 
+	    } elsif ($opt =~ m/^net(\d+)$/) {
 		# some changes can be done without hotplug
-		vmconfig_update_net($storecfg, $conf, $hotplug_features->{network}, 
+		vmconfig_update_net($storecfg, $conf, $hotplug_features->{network},
 				    $vmid, $opt, $value);
 	    } elsif (valid_drivename($opt)) {
 		# some changes can be done without hotplug
@@ -4052,7 +4052,7 @@ sub vmconfig_update_net {
 
 	    die "internal error" if $opt !~ m/net(\d+)/;
 	    my $iface = "tap${vmid}i$1";
-		
+
 	    if (&$safe_num_ne($oldnet->{rate}, $newnet->{rate})) {
 		PVE::Network::tap_rate_limit($iface, $newnet->{rate});
 	    }
@@ -4071,7 +4071,7 @@ sub vmconfig_update_net {
 	    return 1;
 	}
     }
-    
+
     if ($hotplug) {
 	vm_deviceplug($storecfg, $conf, $vmid, $opt, $newnet);
     } else {
@@ -4096,19 +4096,19 @@ sub vmconfig_update_disk {
 
 	    if (!drive_is_cdrom($old_drive)) {
 
-		if ($drive->{file} ne $old_drive->{file}) {  
+		if ($drive->{file} ne $old_drive->{file}) {
 
 		    die "skip\n" if !$hotplug;
 
 		    # unplug and register as unused
 		    vm_deviceunplug($vmid, $conf, $opt);
 		    vmconfig_register_unused_drive($storecfg, $vmid, $conf, $old_drive)
-       
+
 		} else {
 		    # update existing disk
 
 		    # skip non hotpluggable value
-		    if (&$safe_num_ne($drive->{discard}, $old_drive->{discard}) || 
+		    if (&$safe_num_ne($drive->{discard}, $old_drive->{discard}) ||
 			&$safe_string_ne($drive->{iothread}, $old_drive->{iothread}) ||
 			&$safe_string_ne($drive->{cache}, $old_drive->{cache})) {
 			die "skip\n";
@@ -4127,7 +4127,7 @@ sub vmconfig_update_disk {
 			&$safe_num_ne($drive->{iops_max}, $old_drive->{iops_max}) ||
 			&$safe_num_ne($drive->{iops_rd_max}, $old_drive->{iops_rd_max}) ||
 			&$safe_num_ne($drive->{iops_wr_max}, $old_drive->{iops_wr_max})) {
-			
+
 			qemu_block_set_io_throttle($vmid,"drive-$opt",
 						   ($drive->{mbps} || 0)*1024*1024,
 						   ($drive->{mbps_rd} || 0)*1024*1024,
@@ -4143,12 +4143,12 @@ sub vmconfig_update_disk {
 						   $drive->{iops_wr_max} || 0);
 
 		    }
-		    
+
 		    return 1;
 	        }
 
 	    } else { # cdrom
-		
+
 		if ($drive->{file} eq 'none') {
 		    vm_mon_cmd($vmid, "eject",force => JSON::true,device => "drive-$opt");
 		} else {
@@ -4156,13 +4156,13 @@ sub vmconfig_update_disk {
 		    vm_mon_cmd($vmid, "eject", force => JSON::true,device => "drive-$opt"); # force eject if locked
 		    vm_mon_cmd($vmid, "change", device => "drive-$opt",target => "$path") if $path;
 		}
-		
+
 		return 1;
 	    }
 	}
     }
 
-    die "skip\n" if !$hotplug || $opt =~ m/(ide|sata)(\d+)/;   
+    die "skip\n" if !$hotplug || $opt =~ m/(ide|sata)(\d+)/;
     # hotplug new disks
     vm_deviceplug($storecfg, $conf, $vmid, $opt, $drive);
 }
@@ -4276,7 +4276,7 @@ sub vm_start {
 		qemu_set_link_status($vmid, $opt, 0) if $nicconf->{link_down};
 	    }
 	}
-	
+
 	vm_mon_cmd_nocheck($vmid, 'qom-set',
 		    path => "machine/peripheral/balloon0",
 		    property => "guest-stats-polling-interval",
@@ -4399,11 +4399,11 @@ sub vm_stop_cleanup {
 	    my $vollist = get_vm_volumes($conf);
 	    PVE::Storage::deactivate_volumes($storecfg, $vollist);
 	}
-	
+
 	foreach my $ext (qw(mon qmp pid vnc qga)) {
 	    unlink "/var/run/qemu-server/${vmid}.$ext";
 	}
-	
+
 	vmconfig_apply_pending($vmid, $conf, $storecfg) if $apply_pending_changes;
     };
     warn $@ if $@; # avoid errors - just warn
@@ -4707,7 +4707,7 @@ sub print_pci_addr {
 	#addr2 : first videocard
 	balloon0 => { bus => 0, addr => 3 },
 	watchdog => { bus => 0, addr => 4 },
-	scsihw0 => { bus => 0, addr => 5 }, 
+	scsihw0 => { bus => 0, addr => 5 },
 	'pci.3' => { bus => 0, addr => 5 }, #can also be used for virtio-scsi-single bridge
 	scsihw1 => { bus => 0, addr => 6 },
 	ahci0 => { bus => 0, addr => 7 },
