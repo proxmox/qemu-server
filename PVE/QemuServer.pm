@@ -234,7 +234,7 @@ my $confdesc = {
 	optional => 1,
 	type => 'string',
 	description => "scsi controller model",
-	enum => [qw(lsi lsi53c810 virtio-scsi-pci megasas pvscsi)],
+	enum => [qw(lsi lsi53c810 virtio-scsi-pci virtio-scsi-single megasas pvscsi)],
 	default => 'lsi',
     },
     description => {
@@ -1145,8 +1145,17 @@ sub print_drivedevice_full {
 	$device = "virtio-blk-pci,drive=drive-$drive->{interface}$drive->{index},id=$drive->{interface}$drive->{index}$pciaddr";
 	$device .= ",iothread=iothread-$drive->{interface}$drive->{index}" if $drive->{iothread};
     } elsif ($drive->{interface} eq 'scsi') {
-	$maxdev = ($conf->{scsihw} && ($conf->{scsihw} !~ m/^lsi/)) ? 256 : 7;
+	if ($conf->{scsihw} && ($conf->{scsihw} =~ m/^lsi/)) {
+	    $maxdev = 7;
+	} elsif ($conf->{scsihw} && ($conf->{scsihw} =~ m/^virtio-scsi-single/)) {
+	    $maxdev = 1;
+	} else {
+	    $maxdev = 256;
+	}
+
 	my $controller = int($drive->{index} / $maxdev);
+        my $controller_prefix = ($conf->{scsihw} && $conf->{scsihw} =~ m/^virtio-scsi-single/) ? "virtioscsi" : "scsihw";
+
 	my $unit = $drive->{index} % $maxdev;
 	my $devicetype = 'hd';
         my $path = '';
@@ -1173,9 +1182,9 @@ sub print_drivedevice_full {
          }
 
         if (!$conf->{scsihw} || ($conf->{scsihw} =~ m/^lsi/)){
-            $device = "scsi-$devicetype,bus=scsihw$controller.0,scsi-id=$unit,drive=drive-$drive->{interface}$drive->{index},id=$drive->{interface}$drive->{index}";
+            $device = "scsi-$devicetype,bus=$controller_prefix$controller.0,scsi-id=$unit,drive=drive-$drive->{interface}$drive->{index},id=$drive->{interface}$drive->{index}";
         } else {
-            $device = "scsi-$devicetype,bus=scsihw$controller.0,channel=0,scsi-id=0,lun=$drive->{index},drive=drive-$drive->{interface}$drive->{index},id=$drive->{interface}$drive->{index}";
+            $device = "scsi-$devicetype,bus=$controller_prefix$controller.0,channel=0,scsi-id=0,lun=$drive->{index},drive=drive-$drive->{interface}$drive->{index},id=$drive->{interface}$drive->{index}";
         }
 
     } elsif ($drive->{interface} eq 'ide'){
@@ -3110,10 +3119,20 @@ sub config_to_command {
 
         if ($drive->{interface} eq 'scsi') {
 
-	    my $maxdev = ($scsihw !~ m/^lsi/) ? 256 : 7;
+	    my $maxdev = 0;
+	    if ($scsihw =~ m/^lsi/) {
+		$maxdev = 7;
+	    } elsif ($scsihw =~ m/^virtio-scsi-single/) {
+		$maxdev = 1;
+	    } else {
+		$maxdev = 256;
+	    }
+
 	    my $controller = int($drive->{index} / $maxdev);
-	    $pciaddr = print_pci_addr("scsihw$controller", $bridges);
-	    push @$devices, '-device', "$scsihw,id=scsihw$controller$pciaddr" if !$scsicontroller->{$controller};
+	    my $controller_prefix = $scsihw =~ m/^virtio-scsi-single/ ? "virtioscsi" : "scsihw";
+	    $pciaddr = print_pci_addr("$controller_prefix$controller", $bridges);
+	    my $scsihw_type = $scsihw =~ m/^virtio-scsi-single/ ? "virtio-scsi-pci" : $scsihw; 
+	    push @$devices, '-device', "$scsihw_type,id=$controller_prefix$controller$pciaddr" if !$scsicontroller->{$controller};
 	    $scsicontroller->{$controller}=1;
         }
 
@@ -3154,6 +3173,8 @@ sub config_to_command {
 	   $bridges->{1} = 1;
 	   $bridges->{2} = 1;
 	}
+
+	$bridges->{3} = 1 if $scsihw =~ m/^virtio-scsi-single/;
 
 	while (my ($k, $v) = each %$bridges) {
 	    $pciaddr = print_pci_addr("pci.$k");
@@ -4698,7 +4719,8 @@ sub print_pci_addr {
 	#addr2 : first videocard
 	balloon0 => { bus => 0, addr => 3 },
 	watchdog => { bus => 0, addr => 4 },
-	scsihw0 => { bus => 0, addr => 5 },
+	scsihw0 => { bus => 0, addr => 5 }, 
+	'pci.3' => { bus => 0, addr => 5 }, #can also be used for virtio-scsi-single bridge
 	scsihw1 => { bus => 0, addr => 6 },
 	ahci0 => { bus => 0, addr => 7 },
 	qga0 => { bus => 0, addr => 8 },
@@ -4761,6 +4783,38 @@ sub print_pci_addr {
 	'virtio13' => { bus => 2, addr => 8 },
 	'virtio14' => { bus => 2, addr => 9 },
 	'virtio15' => { bus => 2, addr => 10 },
+	'virtioscsi0' => { bus => 3, addr => 1 },
+	'virtioscsi1' => { bus => 3, addr => 2 },
+	'virtioscsi2' => { bus => 3, addr => 3 },
+	'virtioscsi3' => { bus => 3, addr => 4 },
+	'virtioscsi4' => { bus => 3, addr => 5 },
+	'virtioscsi5' => { bus => 3, addr => 6 },
+	'virtioscsi6' => { bus => 3, addr => 7 },
+	'virtioscsi7' => { bus => 3, addr => 8 },
+	'virtioscsi8' => { bus => 3, addr => 9 },
+	'virtioscsi9' => { bus => 3, addr => 10 },
+	'virtioscsi10' => { bus => 3, addr => 11 },
+	'virtioscsi11' => { bus => 3, addr => 12 },
+	'virtioscsi12' => { bus => 3, addr => 13 },
+	'virtioscsi13' => { bus => 3, addr => 14 },
+	'virtioscsi14' => { bus => 3, addr => 15 },
+	'virtioscsi15' => { bus => 3, addr => 16 },
+	'virtioscsi16' => { bus => 3, addr => 17 },
+	'virtioscsi17' => { bus => 3, addr => 18 },
+	'virtioscsi18' => { bus => 3, addr => 19 },
+	'virtioscsi19' => { bus => 3, addr => 20 },
+	'virtioscsi20' => { bus => 3, addr => 21 },
+	'virtioscsi21' => { bus => 3, addr => 22 },
+	'virtioscsi22' => { bus => 3, addr => 23 },
+	'virtioscsi23' => { bus => 3, addr => 24 },
+	'virtioscsi24' => { bus => 3, addr => 25 },
+	'virtioscsi25' => { bus => 3, addr => 26 },
+	'virtioscsi26' => { bus => 3, addr => 27 },
+	'virtioscsi27' => { bus => 3, addr => 28 },
+	'virtioscsi28' => { bus => 3, addr => 29 },
+	'virtioscsi29' => { bus => 3, addr => 30 },
+	'virtioscsi30' => { bus => 3, addr => 31 },
+
     };
 
     if (defined($devices->{$id}->{bus}) && defined($devices->{$id}->{addr})) {
