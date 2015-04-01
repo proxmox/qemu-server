@@ -549,7 +549,7 @@ PVE::JSONSchema::register_standard_option("pve-qm-ide", $idedesc);
 my $scsidesc = {
     optional => 1,
     type => 'string', format => 'pve-qm-drive',
-    typetext => '[volume=]volume,] [,media=cdrom|disk] [,cyls=c,heads=h,secs=s[,trans=t]] [,snapshot=on|off] [,cache=none|writethrough|writeback|unsafe|directsync] [,format=f] [,backup=yes|no] [,rerror=ignore|report|stop] [,werror=enospc|ignore|report|stop] [,aio=native|threads] [,discard=ignore|on]',
+    typetext => '[volume=]volume,] [,media=cdrom|disk] [,cyls=c,heads=h,secs=s[,trans=t]] [,snapshot=on|off] [,cache=none|writethrough|writeback|unsafe|directsync] [,format=f] [,backup=yes|no] [,rerror=ignore|report|stop] [,werror=enospc|ignore|report|stop] [,aio=native|threads] [,discard=ignore|on] [,iothread=on]',
     description => "Use volume as SCSI hard disk or CD-ROM (n is 0 to " . ($MAX_SCSI_DISKS - 1) . ").",
 };
 PVE::JSONSchema::register_standard_option("pve-qm-scsi", $scsidesc);
@@ -3114,7 +3114,14 @@ sub config_to_command {
 
 	    $pciaddr = print_pci_addr("$controller_prefix$controller", $bridges);
 	    my $scsihw_type = $scsihw =~ m/^virtio-scsi-single/ ? "virtio-scsi-pci" : $scsihw;
-	    push @$devices, '-device', "$scsihw_type,id=$controller_prefix$controller$pciaddr" if !$scsicontroller->{$controller};
+
+	    my $iothread = '';
+	    if($conf->{scsihw} && $conf->{scsihw} eq "virtio-scsi-single" && $drive->{iothread}){
+		$iothread .= ",iothread=iothread-$controller_prefix$controller";
+		push @$cmd, '-object', "iothread,id=iothread-$controller_prefix$controller";
+	    }
+
+	    push @$devices, '-device', "$scsihw_type,id=$controller_prefix$controller$pciaddr$iothread" if !$scsicontroller->{$controller};
 	    $scsicontroller->{$controller}=1;
         }
 
@@ -3288,11 +3295,17 @@ sub vm_deviceplug {
 
     } elsif ($deviceid =~ m/^(virtioscsi|scsihw)(\d+)$/) {
 
+
         my $scsihw = defined($conf->{scsihw}) ? $conf->{scsihw} : "lsi";
         my $pciaddr = print_pci_addr($deviceid);
 	my $scsihw_type = $scsihw eq 'virtio-scsi-single' ? "virtio-scsi-pci" : $scsihw;
 
         my $devicefull = "$scsihw_type,id=$deviceid$pciaddr";
+
+	if($deviceid =~ m/^virtioscsi(\d+)$/ && $device->{iothread}) {
+	    qemu_iothread_add($vmid, $deviceid, $device);
+	    $devicefull .= ",iothread=iothread-$deviceid";
+	}
 
         qemu_deviceadd($vmid, $devicefull);
         qemu_deviceaddverify($vmid, $deviceid);
@@ -3362,6 +3375,7 @@ sub vm_deviceunplug {
 
 	qemu_devicedel($vmid, $deviceid);
 	qemu_devicedelverify($vmid, $deviceid);
+	qemu_iothread_del($conf, $vmid, $deviceid);
 
     } elsif ($deviceid =~ m/^(scsi)(\d+)$/) {
 
@@ -3496,7 +3510,7 @@ sub qemu_findorcreatescsihw {
     my $devices_list = vm_devices_list($vmid);
 
     if(!defined($devices_list->{$scsihwid})) {
-	vm_deviceplug($storecfg, $conf, $vmid, $scsihwid);
+	vm_deviceplug($storecfg, $conf, $vmid, $scsihwid, $device);
     }
 
     return 1;
