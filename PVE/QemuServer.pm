@@ -549,7 +549,7 @@ PVE::JSONSchema::register_standard_option("pve-qm-ide", $idedesc);
 my $scsidesc = {
     optional => 1,
     type => 'string', format => 'pve-qm-drive',
-    typetext => '[volume=]volume,] [,media=cdrom|disk] [,cyls=c,heads=h,secs=s[,trans=t]] [,snapshot=on|off] [,cache=none|writethrough|writeback|unsafe|directsync] [,format=f] [,backup=yes|no] [,rerror=ignore|report|stop] [,werror=enospc|ignore|report|stop] [,aio=native|threads] [,discard=ignore|on] [,iothread=on]',
+    typetext => '[volume=]volume,] [,media=cdrom|disk] [,cyls=c,heads=h,secs=s[,trans=t]] [,snapshot=on|off] [,cache=none|writethrough|writeback|unsafe|directsync] [,format=f] [,backup=yes|no] [,rerror=ignore|report|stop] [,werror=enospc|ignore|report|stop] [,aio=native|threads] [,discard=ignore|on] [,iothread=on] [,queues=<nbqueues>]',
     description => "Use volume as SCSI hard disk or CD-ROM (n is 0 to " . ($MAX_SCSI_DISKS - 1) . ").",
 };
 PVE::JSONSchema::register_standard_option("pve-qm-scsi", $scsidesc);
@@ -955,7 +955,7 @@ sub parse_drive {
     foreach my $p (split (/,/, $data)) {
 	next if $p =~ m/^\s*$/;
 
-	if ($p =~ m/^(file|volume|cyls|heads|secs|trans|media|snapshot|cache|format|rerror|werror|backup|aio|bps|mbps|mbps_max|bps_rd|mbps_rd|mbps_rd_max|bps_wr|mbps_wr|mbps_wr_max|iops|iops_max|iops_rd|iops_rd_max|iops_wr|iops_wr_max|size|discard|iothread)=(.+)$/) {
+	if ($p =~ m/^(file|volume|cyls|heads|secs|trans|media|snapshot|cache|format|rerror|werror|backup|aio|bps|mbps|mbps_max|bps_rd|mbps_rd|mbps_rd_max|bps_wr|mbps_wr|mbps_wr_max|iops|iops_max|iops_rd|iops_rd_max|iops_wr|iops_wr_max|size|discard|iothread|queues)=(.+)$/) {
 	    my ($k, $v) = ($1, $2);
 
 	    $k = 'file' if $k eq 'volume';
@@ -998,6 +998,7 @@ sub parse_drive {
     return undef if $res->{aio} && $res->{aio} !~ m/^(native|threads)$/;
     return undef if $res->{discard} && $res->{discard} !~ m/^(ignore|on)$/;
     return undef if $res->{iothread} && $res->{iothread} !~ m/^(on)$/;
+    return undef if $res->{queues} && ($res->{queues} !~ m/^\d+$/ || $res->{queues} < 2);
 
     return undef if $res->{mbps_rd} && $res->{mbps};
     return undef if $res->{mbps_wr} && $res->{mbps};
@@ -1045,7 +1046,7 @@ sub print_drive {
     my ($vmid, $drive) = @_;
 
     my $opts = '';
-    foreach my $o (@qemu_drive_options, 'mbps', 'mbps_rd', 'mbps_wr', 'mbps_max', 'mbps_rd_max', 'mbps_wr_max', 'backup', 'iothread') {
+    foreach my $o (@qemu_drive_options, 'mbps', 'mbps_rd', 'mbps_wr', 'mbps_max', 'mbps_rd_max', 'mbps_wr_max', 'backup', 'iothread', 'queues') {
 	$opts .= ",$o=$drive->{$o}" if $drive->{$o};
     }
 
@@ -3128,7 +3129,12 @@ sub config_to_command {
 		push @$cmd, '-object', "iothread,id=iothread-$controller_prefix$controller";
 	    }
 
-	    push @$devices, '-device', "$scsihw_type,id=$controller_prefix$controller$pciaddr$iothread" if !$scsicontroller->{$controller};
+	    my $queues = '';
+	    if($conf->{scsihw} && $conf->{scsihw} eq "virtio-scsi-single" && $drive->{queues}){
+		$queues = ",num_queues=$drive->{queues}";
+	    } 
+
+	    push @$devices, '-device', "$scsihw_type,id=$controller_prefix$controller$pciaddr$iothread$queues" if !$scsicontroller->{$controller};
 	    $scsicontroller->{$controller}=1;
         }
 
@@ -3312,6 +3318,10 @@ sub vm_deviceplug {
 	if($deviceid =~ m/^virtioscsi(\d+)$/ && $device->{iothread}) {
 	    qemu_iothread_add($vmid, $deviceid, $device);
 	    $devicefull .= ",iothread=iothread-$deviceid";
+	}
+
+	if($deviceid =~ m/^virtioscsi(\d+)$/ && $device->{queues}) {
+	    $devicefull .= ",num_queues=$device->{queues}";
 	}
 
         qemu_deviceadd($vmid, $devicefull);
@@ -4135,6 +4145,7 @@ sub vmconfig_update_disk {
 		    # skip non hotpluggable value
 		    if (&$safe_num_ne($drive->{discard}, $old_drive->{discard}) ||
 			&$safe_string_ne($drive->{iothread}, $old_drive->{iothread}) ||
+			&$safe_string_ne($drive->{queues}, $old_drive->{queues}) ||
 			&$safe_string_ne($drive->{cache}, $old_drive->{cache})) {
 			die "skip\n";
 		    }
