@@ -1229,8 +1229,15 @@ sub print_drive_full {
 	$opts .= ",$o=" . int($v*1024*1024) if $v;
     }
 
-    # use linux-aio by default (qemu default is threads)
-    $opts .= ",aio=native" if !$drive->{aio};
+    # aio native works only with O_DIRECT
+    if (!$drive->{aio}) {
+	if(!$drive->{cache} || $drive->{cache} eq 'none' || $drive->{cache} eq 'directsync') {
+	    $opts .= ",aio=native";
+	} else {
+	    $opts .= ",aio=threads";
+	}
+    }
+
 
     my $path;
     my $volid = $drive->{file};
