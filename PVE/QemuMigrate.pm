@@ -247,7 +247,7 @@ sub sync_disks {
 	    my ($sid, $volname) = PVE::Storage::parse_volume_id($volid);
 	    my $scfg =  PVE::Storage::storage_config($self->{storecfg}, $sid);
 
-	    die "can't migrate '$volid' - storagy type '$scfg->{type}' not supported\n"
+	    die "can't migrate '$volid' - storage type '$scfg->{type}' not supported\n"
 		if $scfg->{type} ne 'dir';
 
 	    # if file, check if a backing file exist
