@@ -1,3 +1,9 @@
+qemu-server (4.0-6) unstable; urgency=medium
+
+  * fix ha resource names
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 17 Apr 2015 13:11:12 +0200
+
 qemu-server (4.0-5) unstable; urgency=medium
 
   * use new pve-ha-manager
