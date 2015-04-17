@@ -1601,7 +1601,7 @@ __PACKAGE__->register_method({
 	    my $hacmd = sub {
 		my $upid = shift;
 
-		my $service = "pvevm:$vmid";
+		my $service = "vm:$vmid";
 
 		my $cmd = ['ha-manager', 'enable', $service];
 
@@ -1696,7 +1696,7 @@ __PACKAGE__->register_method({
 	    my $hacmd = sub {
 		my $upid = shift;
 
-		my $service = "pvevm:$vmid";
+		my $service = "vm:$vmid";
 
 		my $cmd = ['ha-manager', 'disable', $service];
 
@@ -2568,7 +2568,7 @@ __PACKAGE__->register_method({
 	    my $hacmd = sub {
 		my $upid = shift;
 
-		my $service = "pvevm:$vmid";
+		my $service = "vm:$vmid";
 
 		my $cmd = ['ha-manager', 'migrate', $service, $target];
 
