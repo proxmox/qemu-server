@@ -248,10 +248,10 @@ sub sync_disks {
 	    my $scfg =  PVE::Storage::storage_config($self->{storecfg}, $sid);
 
 	    die "can't migrate '$volid' - storage type '$scfg->{type}' not supported\n"
-		if $scfg->{type} ne 'dir';
+		if (!($scfg->{type} eq 'dir' || $scfg->{type} eq 'zfspool') && (!$sharedvm));
 
 	    # if file, check if a backing file exist
-	    if (($scfg->{type} eq 'dir') && (!$sharedvm)) {
+	    if (!($scfg->{type} eq 'dir' || $scfg->{type} eq 'zfspool') && (!$sharedvm)) {
 		my (undef, undef, undef, $parent) = PVE::Storage::volume_size_info($self->{storecfg}, $volid, 1);
 		die "can't migrate '$volid' as it's a clone of '$parent'" if $parent;
 	    }
