@@ -1,3 +1,9 @@
+qemu-server (3.4-5) unstable; urgency=low
+
+  * implement offline migration on zfs
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 27 Apr 2015 10:37:48 +0200
+
 qemu-server (3.4-4) unstable; urgency=low
 
   * fix bug #617: change command arrangement (fix tc rate limit for OVS)
