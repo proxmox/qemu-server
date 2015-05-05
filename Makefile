@@ -101,6 +101,7 @@ deb ${DEB}: ${PKGSOURCES}
 	perl -I. ./qm verifyapi
 	install -d -m 0755 build/DEBIAN
 	install -m 0644 control build/DEBIAN
+	install -m 0644 triggers build/DEBIAN
 	echo "/etc/modules-load.d/qemu-server.conf" >>build/DEBIAN/conffiles
 	install -D -m 0644 copyright build/${DOCDIR}/${PACKAGE}/copyright
 	install -m 0644 changelog.Debian build/${DOCDIR}/${PACKAGE}/
