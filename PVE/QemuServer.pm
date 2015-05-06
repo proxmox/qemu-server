@@ -31,6 +31,8 @@ use PVE::QMPClient;
 use PVE::RPCEnvironment;
 use Time::HiRes qw(gettimeofday);
 
+my $qemu_snap_storage = {rbd => 1, sheepdog => 1};
+
 my $cpuinfo = PVE::ProcFSTools::read_cpuinfo();
 
 # Note about locking: we use flock on the config file protect
@@ -3777,12 +3779,11 @@ sub qemu_volume_snapshot {
 
     my $running = check_running($vmid);
 
-    return if !PVE::Storage::volume_snapshot($storecfg, $volid, $snap, $running);
-
-    return if !$running;
-
-    vm_mon_cmd($vmid, "snapshot-drive", device => $deviceid, name => $snap);
-
+    if ($running && do_snapshots_with_qemu($storecfg, $volid)){
+	vm_mon_cmd($vmid, "snapshot-drive", device => $deviceid, name => $snap);
+    } else {
+	PVE::Storage::volume_snapshot($storecfg, $volid, $snap);
+    }
 }
 
 sub qemu_volume_snapshot_delete {
@@ -5771,6 +5772,22 @@ my $savevm_wait = sub {
 	}
     }
 };
+
+sub do_snapshots_with_qemu {
+    my ($storecfg, $volid) = @_;
+
+    my $storage_name = PVE::Storage::parse_volume_id($volid);
+
+    if ($qemu_snap_storage->{$storecfg->{ids}->{$storage_name}->{type}} ){
+	return 1;
+    }
+
+    if ($volid =~ m/\.(qcow2|qed)$/){
+	return 1;
+    }
+
+    return undef;
+}
 
 sub snapshot_create {
     my ($vmid, $snapname, $save_vmstate, $comment) = @_;
