@@ -3,8 +3,7 @@ Version: @@VERSION@@-@@PKGRELEASE@@
 Section: admin
 Priority: optional
 Architecture: @@ARCH@@
-Depends: libc6 (>= 2.7-18), perl (>= 5.10.0-19), libterm-readline-gnu-perl, pve-qemu-kvm (>= 2.2-1), netcat-traditional, libpve-access-control, libpve-storage-perl, pve-cluster, libjson-perl, libjson-xs-perl, libio-multiplex-perl, libnet-ssleay-perl, socat, pve-firewall, libuuid-perl, pve-ha-manager
-Conflicts: netcat-openbsd
+Depends: libc6 (>= 2.7-18), perl (>= 5.10.0-19), libterm-readline-gnu-perl, pve-qemu-kvm (>= 2.2-1), netcat6, libpve-access-control, libpve-storage-perl, pve-cluster, libjson-perl, libjson-xs-perl, libio-multiplex-perl, libnet-ssleay-perl, socat, pve-firewall, libuuid-perl, pve-ha-manager
 Maintainer: Proxmox Support Team <support@proxmox.com>
 Description: Qemu Server Tools
  This package contains the Qemu Server tools used by Proxmox VE

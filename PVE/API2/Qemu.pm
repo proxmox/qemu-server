@@ -1337,7 +1337,7 @@ __PACKAGE__->register_method({
 		my $qmstr = join(' ', @$qmcmd);
 
 		# also redirect stderr (else we get RFB protocol errors)
-		$cmd = ['/bin/nc', '-l', '-p', $port, '-w', $timeout, '-c', "$qmstr 2>/dev/null"];
+		$cmd = ['/bin/nc6', '-l', '-p', $port, '-w', $timeout, '-e', "$qmstr 2>/dev/null"];
 	    }
 
 	    PVE::Tools::run_command($cmd);
