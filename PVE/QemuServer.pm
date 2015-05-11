@@ -5982,14 +5982,16 @@ sub qemu_drive_mirror {
 
     my $dst_path = PVE::Storage::path($storecfg, $dst_volid);
 
-    my $opts = { timeout => 10, device => "drive-$drive", mode => "existing", sync => "full", target => $dst_path };
+    #drive-mirror is doing lseek on source image before starting, and this can take a lot of time for big nfs volume
+    #during this time, qmp socket is hanging
+    #http://lists.nongnu.org/archive/html/qemu-devel/2015-05/msg01838.html
+    #so we need to setup a big timeout
+    my $opts = { timeout => 14400, device => "drive-$drive", mode => "existing", sync => "full", target => $dst_path };
     $opts->{format} = $format if $format;
 
-    #fixme : sometime drive-mirror timeout, but works fine after.
-    # (I have see the problem with big volume > 200GB), so we need to eval
-    eval { vm_mon_cmd($vmid, "drive-mirror", %$opts); };
-    # ignore errors here
+    print "drive mirror is starting : this step can take some minutes/hours, depend of disk size and storage speed\n";
 
+    vm_mon_cmd($vmid, "drive-mirror", %$opts);
     eval {
 	while (1) {
 	    my $stats = vm_mon_cmd($vmid, "query-block-jobs");
