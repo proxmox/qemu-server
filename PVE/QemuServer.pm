@@ -6080,11 +6080,6 @@ sub qemu_img_format {
 sub qemu_drive_mirror {
     my ($vmid, $drive, $dst_volid, $vmiddst) = @_;
 
-    my $count = 0;
-    my $old_len = 0;
-    my $frozen = undef;
-    my $maxwait = 120;
-
     my $storecfg = PVE::Storage::config();
     my ($dst_storeid, $dst_volname) = PVE::Storage::parse_volume_id($dst_volid);
 
@@ -6113,39 +6108,29 @@ sub qemu_drive_mirror {
 	    die "error job is not mirroring" if $stat->{type} ne "mirror";
 
 	    my $busy = $stat->{busy};
+	    my $ready = $stat->{ready};
 
 	    if (my $total = $stat->{len}) {
 		my $transferred = $stat->{offset} || 0;
 		my $remaining = $total - $transferred;
 		my $percent = sprintf "%.2f", ($transferred * 100 / $total);
 
-		print "transferred: $transferred bytes remaining: $remaining bytes total: $total bytes progression: $percent % busy: $busy\n";
+		print "transferred: $transferred bytes remaining: $remaining bytes total: $total bytes progression: $percent % busy: $busy ready: $ready \n";
 	    }
 
-	    if ($stat->{len} == $stat->{offset}) {
-		if ($busy eq 'false') {
 
-		    last if $vmiddst != $vmid;
+	    if ($stat->{ready} eq 'true') {
 
-		    # try to switch the disk if source and destination are on the same guest
-		    eval { vm_mon_cmd($vmid, "block-job-complete", device => "drive-$drive") };
-		    last if !$@;
-		    die $@ if $@ !~ m/cannot be completed/;
-		}
+		last if $vmiddst != $vmid;
 
-		if ($count > $maxwait) {
-		    # if too much writes to disk occurs at the end of migration
-		    #the disk needs to be freezed to be able to complete the migration
-		    vm_suspend($vmid,1);
-		    $frozen = 1;
-		}
-		$count ++
+		# try to switch the disk if source and destination are on the same guest
+		eval { vm_mon_cmd($vmid, "block-job-complete", device => "drive-$drive") };
+		last if !$@;
+		die $@ if $@ !~ m/cannot be completed/;
 	    }
-	    $old_len = $stat->{offset};
 	    sleep 1;
 	}
 
-	vm_resume($vmid, 1) if $frozen;
 
     };
     my $err = $@;
