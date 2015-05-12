@@ -354,7 +354,8 @@ sub phase2 {
 
     ## create tunnel to remote port
     $self->log('info', "starting ssh migration tunnel");
-    my $lport = ($raddr eq "localhost") ? PVE::Tools::next_migrate_port() : undef;
+    my $pfamily = PVE::Tools::get_host_address_family($nodename);
+    my $lport = ($raddr eq "localhost") ? PVE::Tools::next_migrate_port($pfamily) : undef;
     $self->{tunnel} = $self->fork_tunnel($self->{nodeip}, $lport, $rport);
 
     my $start = time();

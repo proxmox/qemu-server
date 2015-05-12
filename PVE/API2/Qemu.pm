@@ -1299,16 +1299,18 @@ __PACKAGE__->register_method({
 	$sslcert = PVE::Tools::file_get_contents("/etc/pve/pve-root-ca.pem", 8192)
 	    if !$sslcert;
 
-	my $port = PVE::Tools::next_vnc_port();
-
-	my $remip;
+	my ($remip, $family);
 	my $remcmd = [];
 
 	if ($node ne 'localhost' && $node ne PVE::INotify::nodename()) {
-	    $remip = PVE::Cluster::remote_node_ip($node);
+	    ($remip, $family) = PVE::Cluster::remote_node_ip($node);
 	    # NOTE: kvm VNC traffic is already TLS encrypted or is known unsecure
 	    $remcmd = ['/usr/bin/ssh', '-T', '-o', 'BatchMode=yes', $remip];
+	} else {
+	    $family = PVE::Tools::get_host_address_family($node);
 	}
+
+	my $port = PVE::Tools::next_vnc_port($family);
 
 	my $timeout = 10;
 

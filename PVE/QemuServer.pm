@@ -3020,7 +3020,9 @@ sub config_to_command {
 
 	my $pciaddr = print_pci_addr("spice", $bridges);
 
-	$spice_port = PVE::Tools::next_spice_port();
+	my $nodename = PVE::INotify::nodename();
+	my $pfamily = PVE::Tools::get_host_address_family($nodename);
+	$spice_port = PVE::Tools::next_spice_port($pfamily);
 
 	push @$devices, '-spice', "tls-port=${spice_port},addr=127.0.0.1,tls-ciphers=DES-CBC3-SHA,seamless-migration=on";
 
@@ -4194,11 +4196,12 @@ sub vm_start {
 	    if ($statefile eq 'tcp') {
 		my $localip = "localhost";
 		my $datacenterconf = PVE::Cluster::cfs_read_file('datacenter.cfg');
+		my $nodename = PVE::INotify::nodename();
 		if ($datacenterconf->{migration_unsecure}) {
-			my $nodename = PVE::INotify::nodename();
 			$localip = PVE::Cluster::remote_node_ip($nodename, 1);
 		}
-		$migrate_port = PVE::Tools::next_migrate_port();
+		my $pfamily = PVE::Tools::get_host_address_family($nodename);
+		$migrate_port = PVE::Tools::next_migrate_port($pfamily);
 		$migrate_uri = "tcp:${localip}:${migrate_port}";
 		push @$cmd, '-incoming', $migrate_uri;
 		push @$cmd, '-S';
