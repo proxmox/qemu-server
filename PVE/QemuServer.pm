@@ -4202,7 +4202,7 @@ sub vm_start {
 		}
 		my $pfamily = PVE::Tools::get_host_address_family($nodename);
 		$migrate_port = PVE::Tools::next_migrate_port($pfamily);
-		$migrate_uri = "tcp:${localip}:${migrate_port}";
+		$migrate_uri = "tcp:[${localip}]:${migrate_port}";
 		push @$cmd, '-incoming', $migrate_uri;
 		push @$cmd, '-S';
 	    } else {
