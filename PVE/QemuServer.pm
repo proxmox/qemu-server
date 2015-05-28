@@ -2618,6 +2618,15 @@ sub config_to_command {
     my $hotplug_features = parse_hotplug_features(defined($conf->{hotplug}) ? $conf->{hotplug} : '1');
     my $machine_type = $forcemachine || $conf->{machine};
 
+    my $cpuunits = defined($conf->{cpuunits}) ?
+            $conf->{cpuunits} : $defaults->{cpuunits};
+
+    push @$cmd, '/usr/bin/systemd-run';
+    push @$cmd, '--scope';
+    push @$cmd, '--slice', "qemu";
+    push @$cmd, '--unit', $vmid;
+    push @$cmd, '-p', "CPUShares=$cpuunits";
+
     push @$cmd, '/usr/bin/kvm';
 
     push @$cmd, '-id', $vmid;
