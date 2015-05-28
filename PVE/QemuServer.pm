@@ -67,6 +67,17 @@ PVE::JSONSchema::register_standard_option('pve-snapshot-name', {
 
 #no warnings 'redefine';
 
+sub cgroups_write {
+   my ($controller, $vmid, $option, $value) = @_;
+
+   my $root_path = "/sys/fs/cgroup/";
+   my $vm_path = $root_path.$controller."/qemu.slice/$vmid.scope";
+   return if !$vm_path;
+
+   PVE::ProcFSTools::write_proc_entry("$vm_path/$option", $value);
+
+}
+
 unless(defined(&_VZSYSCALLS_H_)) {
     eval 'sub _VZSYSCALLS_H_ () {1;}' unless defined(&_VZSYSCALLS_H_);
     require 'sys/syscall.ph';
@@ -3906,6 +3917,8 @@ sub vmconfig_hotplug_pending {
 	    } elsif ($opt =~ m/^memory$/) {
 		die "skip\n" if !$hotplug_features->{memory};
 		qemu_memory_hotplug($vmid, $conf, $defaults, $opt);
+	    } elsif ($opt eq 'cpuunits') {
+		cgroups_write("cpu", $vmid, "cpu.shares", $defaults->{cpuunits});
 	    } else {
 		die "skip\n";
 	    }
@@ -3959,6 +3972,8 @@ sub vmconfig_hotplug_pending {
 	    } elsif ($opt =~ m/^memory$/) { #dimms
 		die "skip\n" if !$hotplug_features->{memory};
 		$value = qemu_memory_hotplug($vmid, $conf, $defaults, $opt, $value);
+	    } elsif ($opt eq 'cpuunits') {
+		cgroups_write("cpu", $vmid, "cpu.shares", $conf->{pending}->{$opt});
 	    } else {
 		die "skip\n";  # skip non-hot-pluggable options
 	    }
