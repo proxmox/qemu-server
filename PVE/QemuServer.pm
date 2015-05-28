@@ -78,78 +78,6 @@ sub cgroups_write {
 
 }
 
-unless(defined(&_VZSYSCALLS_H_)) {
-    eval 'sub _VZSYSCALLS_H_ () {1;}' unless defined(&_VZSYSCALLS_H_);
-    require 'sys/syscall.ph';
-    if(defined(&__x86_64__)) {
-	eval 'sub __NR_fairsched_vcpus () {499;}' unless defined(&__NR_fairsched_vcpus);
-	eval 'sub __NR_fairsched_mknod () {504;}' unless defined(&__NR_fairsched_mknod);
-	eval 'sub __NR_fairsched_rmnod () {505;}' unless defined(&__NR_fairsched_rmnod);
-	eval 'sub __NR_fairsched_chwt () {506;}' unless defined(&__NR_fairsched_chwt);
-	eval 'sub __NR_fairsched_mvpr () {507;}' unless defined(&__NR_fairsched_mvpr);
-	eval 'sub __NR_fairsched_rate () {508;}' unless defined(&__NR_fairsched_rate);
-	eval 'sub __NR_setluid () {501;}' unless defined(&__NR_setluid);
-	eval 'sub __NR_setublimit () {502;}' unless defined(&__NR_setublimit);
-    }
-    elsif(defined( &__i386__) ) {
-	eval 'sub __NR_fairsched_mknod () {500;}' unless defined(&__NR_fairsched_mknod);
-	eval 'sub __NR_fairsched_rmnod () {501;}' unless defined(&__NR_fairsched_rmnod);
-	eval 'sub __NR_fairsched_chwt () {502;}' unless defined(&__NR_fairsched_chwt);
-	eval 'sub __NR_fairsched_mvpr () {503;}' unless defined(&__NR_fairsched_mvpr);
-	eval 'sub __NR_fairsched_rate () {504;}' unless defined(&__NR_fairsched_rate);
-	eval 'sub __NR_fairsched_vcpus () {505;}' unless defined(&__NR_fairsched_vcpus);
-	eval 'sub __NR_setluid () {511;}' unless defined(&__NR_setluid);
-	eval 'sub __NR_setublimit () {512;}' unless defined(&__NR_setublimit);
-    } else {
-	die("no fairsched syscall for this arch");
-    }
-    require 'asm/ioctl.ph';
-    eval 'sub KVM_GET_API_VERSION () { &_IO(0xAE, 0x);}' unless defined(&KVM_GET_API_VERSION);
-}
-
-sub fairsched_mknod {
-    my ($parent, $weight, $desired) = @_;
-
-    return syscall(&__NR_fairsched_mknod, int($parent), int($weight), int($desired));
-}
-
-sub fairsched_rmnod {
-    my ($id) = @_;
-
-    return syscall(&__NR_fairsched_rmnod, int($id));
-}
-
-sub fairsched_mvpr {
-    my ($pid, $newid) = @_;
-
-    return syscall(&__NR_fairsched_mvpr, int($pid), int($newid));
-}
-
-sub fairsched_vcpus {
-    my ($id, $vcpus) = @_;
-
-    return syscall(&__NR_fairsched_vcpus, int($id), int($vcpus));
-}
-
-sub fairsched_rate {
-    my ($id, $op, $rate) = @_;
-
-    return syscall(&__NR_fairsched_rate, int($id), int($op), int($rate));
-}
-
-use constant FAIRSCHED_SET_RATE  => 0;
-use constant FAIRSCHED_DROP_RATE => 1;
-use constant FAIRSCHED_GET_RATE  => 2;
-
-sub fairsched_cpulimit {
-    my ($id, $limit) = @_;
-
-    my $cpulim1024 = int($limit * 1024 / 100);
-    my $op = $cpulim1024 ? FAIRSCHED_SET_RATE : FAIRSCHED_DROP_RATE;
-
-    return fairsched_rate($id, $op, $cpulim1024);
-}
-
 my $nodename = PVE::INotify::nodename();
 
 mkdir "/etc/pve/nodes/$nodename";
@@ -3168,19 +3096,6 @@ sub config_to_command {
 	}
     }
 
-    # hack: virtio with fairsched is unreliable, so we do not use fairsched
-    # when the VM uses virtio devices.
-    if (!$use_virtio && $have_ovz) {
-
-	my $cpuunits = defined($conf->{cpuunits}) ?
-	    $conf->{cpuunits} : $defaults->{cpuunits};
-
-	push @$cmd, '-cpuunits', $cpuunits if $cpuunits;
-
-	# fixme: cpulimit is currently ignored
-	#push @$cmd, '-cpulimit', $conf->{cpulimit} if $conf->{cpulimit};
-    }
-
     # add custom args
     if ($conf->{args}) {
 	my $aa = PVE::Tools::split_args($conf->{args});
@@ -4417,7 +4332,6 @@ sub vm_stop_cleanup {
     my ($storecfg, $vmid, $conf, $keepActive, $apply_pending_changes) = @_;
 
     eval {
-	fairsched_rmnod($vmid); # try to destroy group
 
 	if (!$keepActive) {
 	    my $vollist = get_vm_volumes($conf);
@@ -4573,7 +4487,6 @@ sub vm_destroy {
 	check_lock($conf) if !$skiplock;
 
 	if (!check_running($vmid)) {
-	    fairsched_rmnod($vmid); # try to destroy group
 	    destroy_vm($storecfg, $vmid);
 	} else {
 	    die "VM $vmid is running - destroy failed\n";
