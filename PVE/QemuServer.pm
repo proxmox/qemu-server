@@ -70,11 +70,8 @@ PVE::JSONSchema::register_standard_option('pve-snapshot-name', {
 sub cgroups_write {
    my ($controller, $vmid, $option, $value) = @_;
 
-   my $root_path = "/sys/fs/cgroup/";
-   my $vm_path = $root_path.$controller."/qemu.slice/$vmid.scope";
-   return if !$vm_path;
-
-   PVE::ProcFSTools::write_proc_entry("$vm_path/$option", $value);
+   my $path = "/sys/fs/cgroup/$controller/qemu.slice/$vmid.scope/$option";
+   PVE::ProcFSTools::write_proc_entry($path, $value);
 
 }
 
