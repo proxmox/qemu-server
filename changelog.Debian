@@ -1,3 +1,9 @@
+qemu-server (4.0-11) unstable; urgency=medium
+
+  * activate-noawait pve-api-updates
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 01 Jun 2015 12:36:15 +0200
+
 qemu-server (4.0-10) unstable; urgency=medium
 
   * implement cgroups through systemd-run
