@@ -123,7 +123,7 @@ my $confdesc = {
     cpulimit => {
 	optional => 1,
 	type => 'integer',
-	description => "Limit of CPU usage in per cent. Note if the computer has 2 CPUs, it has total of 200% CPU time. Value '0' indicates no CPU limit.\n\nNOTE: This option is currently ignored.",
+	description => "Limit of CPU usage in per cent. Note if the computer has 2 CPUs, it has total of 200% CPU time. Value '0' indicates no CPU limit.\n\n.",
 	minimum => 0,
 	default => 0,
     },
@@ -2562,6 +2562,10 @@ sub config_to_command {
     push @$cmd, '--slice', "qemu";
     push @$cmd, '--unit', $vmid;
     push @$cmd, '-p', "CPUShares=$cpuunits";
+    if ($conf->{cpulimit}) {
+	my $cpulimit = $conf->{cpulimit} * 100;
+	push @$cmd, '-p', "CPUQuota=$cpulimit"."\%";
+    }
 
     push @$cmd, '/usr/bin/kvm';
 
@@ -3831,6 +3835,8 @@ sub vmconfig_hotplug_pending {
 		qemu_memory_hotplug($vmid, $conf, $defaults, $opt);
 	    } elsif ($opt eq 'cpuunits') {
 		cgroups_write("cpu", $vmid, "cpu.shares", $defaults->{cpuunits});
+	    } elsif ($opt eq 'cpulimit') {
+		cgroups_write("cpu", $vmid, "cpu.cfs_quota_us", -1);
 	    } else {
 		die "skip\n";
 	    }
@@ -3886,6 +3892,9 @@ sub vmconfig_hotplug_pending {
 		$value = qemu_memory_hotplug($vmid, $conf, $defaults, $opt, $value);
 	    } elsif ($opt eq 'cpuunits') {
 		cgroups_write("cpu", $vmid, "cpu.shares", $conf->{pending}->{$opt});
+	    } elsif ($opt eq 'cpulimit') {
+		my $cpulimit = $conf->{pending}->{$opt} == 0 ? -1 : $conf->{pending}->{$opt} * 100000;
+		cgroups_write("cpu", $vmid, "cpu.cfs_quota_us", $cpulimit);
 	    } else {
 		die "skip\n";  # skip non-hot-pluggable options
 	    }
