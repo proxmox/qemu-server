@@ -122,9 +122,10 @@ my $confdesc = {
     },
     cpulimit => {
 	optional => 1,
-	type => 'integer',
-	description => "Limit of CPU usage in per cent. Note if the computer has 2 CPUs, it has total of 200% CPU time. Value '0' indicates no CPU limit.\n\n.",
+	type => 'number',
+	description => "Limit of CPU usage. Note if the computer has 2 CPUs, it has total of '2' CPU time. Value '0' indicates no CPU limit.",
 	minimum => 0,
+	maximum => 128,
 	default => 0,
     },
     cpuunits => {
@@ -2563,8 +2564,8 @@ sub config_to_command {
     push @$cmd, '--unit', $vmid;
     push @$cmd, '-p', "CPUShares=$cpuunits";
     if ($conf->{cpulimit}) {
-	my $cpulimit = $conf->{cpulimit} * 100;
-	push @$cmd, '-p', "CPUQuota=$cpulimit"."\%";
+	my $cpulimit = int($conf->{cpulimit} * 100);
+	push @$cmd, '-p', "CPUQuota=$cpulimit\%";
     }
 
     push @$cmd, '/usr/bin/kvm';
@@ -3893,7 +3894,7 @@ sub vmconfig_hotplug_pending {
 	    } elsif ($opt eq 'cpuunits') {
 		cgroups_write("cpu", $vmid, "cpu.shares", $conf->{pending}->{$opt});
 	    } elsif ($opt eq 'cpulimit') {
-		my $cpulimit = $conf->{pending}->{$opt} == 0 ? -1 : $conf->{pending}->{$opt} * 100000;
+		my $cpulimit = $conf->{pending}->{$opt} == 0 ? -1 : int($conf->{pending}->{$opt} * 100000);
 		cgroups_write("cpu", $vmid, "cpu.cfs_quota_us", $cpulimit);
 	    } else {
 		die "skip\n";  # skip non-hot-pluggable options
