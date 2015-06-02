@@ -1164,16 +1164,6 @@ sub print_drive_full {
 	$opts .= ",$o=" . int($v*1024*1024) if $v;
     }
 
-    # aio native works only with O_DIRECT
-    if (!$drive->{aio}) {
-	if(!$drive->{cache} || $drive->{cache} eq 'none' || $drive->{cache} eq 'directsync') {
-	    $opts .= ",aio=native";
-	} else {
-	    $opts .= ",aio=threads";
-	}
-    }
-
-
     my $path;
     my $volid = $drive->{file};
     if (drive_is_cdrom($drive)) {
@@ -1186,7 +1176,23 @@ sub print_drive_full {
 	}
     }
 
-    $opts .= ",cache=none" if !$drive->{cache} && !drive_is_cdrom($drive);
+    my $cache_direct = 0;
+
+    if (my $cache = $drive->{cache}) {
+	$cache_direct = $cache =~ /^(?:off|none|directsync)$/;
+    } elsif (!drive_is_cdrom($drive)) {
+	$opts .= ",cache=none";
+	$cache_direct = 1;
+    }
+
+    # aio native works only with O_DIRECT
+    if (!$drive->{aio}) {
+	if($cache_direct) {
+	    $opts .= ",aio=native";
+	} else {
+	    $opts .= ",aio=threads";
+	}
+    }
 
     my $detectzeroes = $drive->{discard} ? "unmap" : "on";
     $opts .= ",detect-zeroes=$detectzeroes" if !drive_is_cdrom($drive);
