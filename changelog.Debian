@@ -1,3 +1,13 @@
+qemu-server (4.0-12) unstable; urgency=medium
+
+  * remove outdated host_device format
+
+  * parse_drive: do not overwrite configured format
+
+  * fix aio O_DIRECT check for cdrom drives
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 10 Jun 2015 10:32:09 +0200
+
 qemu-server (4.0-11) unstable; urgency=medium
 
   * activate-noawait pve-api-updates
