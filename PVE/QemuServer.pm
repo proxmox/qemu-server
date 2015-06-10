@@ -913,10 +913,6 @@ sub parse_drive {
 
     return undef if !$res->{file};
 
-    if($res->{file} =~ m/\.(raw|cow|qcow|qcow2|vmdk|cloop)$/){
-	$res->{format} = $1;
-    }
-
     return undef if $res->{cache} &&
 	$res->{cache} !~ m/^(off|none|writethrough|writeback|unsafe|directsync)$/;
     return undef if $res->{snapshot} && $res->{snapshot} !~ m/^(on|off)$/;
@@ -925,7 +921,7 @@ sub parse_drive {
     return undef if $res->{secs} && $res->{secs} !~ m/^\d+$/;
     return undef if $res->{media} && $res->{media} !~ m/^(disk|cdrom)$/;
     return undef if $res->{trans} && $res->{trans} !~ m/^(none|lba|auto)$/;
-    return undef if $res->{format} && $res->{format} !~ m/^(raw|cow|qcow|qcow2|vmdk|cloop)$/;
+    return undef if $res->{format} && $res->{format} !~ m/^(raw|cow|qcow|qed|qcow2|vmdk|cloop)$/;
     return undef if $res->{rerror} && $res->{rerror} !~ m/^(ignore|report|stop)$/;
     return undef if $res->{werror} && $res->{werror} !~ m/^(enospc|ignore|report|stop)$/;
     return undef if $res->{backup} && $res->{backup} !~ m/^(yes|no)$/;
@@ -1153,27 +1149,34 @@ sub get_initiator_name {
 sub print_drive_full {
     my ($storecfg, $vmid, $drive) = @_;
 
+    my $path;
+    my $volid = $drive->{file};
+    my $format;
+    
+    if (drive_is_cdrom($drive)) {
+	$path = get_iso_path($storecfg, $vmid, $volid);
+    } else {
+	my ($storeid, $volname) = PVE::Storage::parse_volume_id($volid, 1);
+	if ($storeid) {
+	    $path = PVE::Storage::path($storecfg, $volid);
+	    my $scfg = PVE::Storage::storage_config($storecfg, $storeid);
+	    $format = qemu_img_format($scfg, $volname);
+	} else {
+	    $path = $volid;
+	}
+   }
+
     my $opts = '';
     foreach my $o (@qemu_drive_options) {
 	next if $o eq 'bootindex';
 	$opts .= ",$o=$drive->{$o}" if $drive->{$o};
     }
 
+    $opts .= ",format=$format" if $format && !$drive->{format};
+
     foreach my $o (qw(bps bps_rd bps_wr)) {
 	my $v = $drive->{"m$o"};
 	$opts .= ",$o=" . int($v*1024*1024) if $v;
-    }
-
-    my $path;
-    my $volid = $drive->{file};
-    if (drive_is_cdrom($drive)) {
-	$path = get_iso_path($storecfg, $vmid, $volid);
-    } else {
-	if ($volid =~ m|^/|) {
-	    $path = $volid;
-	} else {
-	    $path = PVE::Storage::path($storecfg, $volid);
-	}
     }
 
     my $cache_direct = 0;
@@ -6021,7 +6024,7 @@ sub qemu_img_convert {
 sub qemu_img_format {
     my ($scfg, $volname) = @_;
 
-    if ($scfg->{path} && $volname =~ m/\.(raw|qcow2|qed|vmdk)$/) {
+    if ($scfg->{path} && $volname =~ m/\.(raw|cow|qcow|qcow2|qed|vmdk|cloop)$/) {
 	return $1;
     } elsif ($scfg->{type} eq 'iscsi') {
 	return "host_device";
@@ -6038,10 +6041,7 @@ sub qemu_drive_mirror {
 
     my $dst_scfg = PVE::Storage::storage_config($storecfg, $dst_storeid);
 
-    my $format;
-    if ($dst_volname =~ m/\.(raw|qcow2)$/){
-	$format = $1;
-    }
+    my $format = qemu_img_format($dst_scfg, $dst_volname);
 
     my $dst_path = PVE::Storage::path($storecfg, $dst_volid);
 
@@ -6127,7 +6127,8 @@ sub clone_disk {
 
 	my ($defFormat, $validFormats) = PVE::Storage::storage_default_format($storecfg, $storeid);
 	if (!$format) {
-	    $format = $drive->{format} || $defFormat;
+	    my $scfg = PVE::Storage::storage_config($storecfg, $storeid);
+	    $format = qemu_img_format($scfg, $volname);
 	}
 
 	# test if requested format is supported - else use default
