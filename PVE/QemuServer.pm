@@ -6026,8 +6026,6 @@ sub qemu_img_format {
 
     if ($scfg->{path} && $volname =~ m/\.(raw|cow|qcow|qcow2|qed|vmdk|cloop)$/) {
 	return $1;
-    } elsif ($scfg->{type} eq 'iscsi') {
-	return "host_device";
     } else {
 	return "raw";
     }
