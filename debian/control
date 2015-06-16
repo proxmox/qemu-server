@@ -13,6 +13,7 @@ Homepage: http://www.proxmox.com
 Package: qemu-server
 Architecture: any
 Depends: dbus,
+         genisoimage,
          libc6 (>= 2.7-18),
          libio-multiplex-perl,
          libjson-perl,

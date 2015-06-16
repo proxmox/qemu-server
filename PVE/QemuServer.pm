@@ -22,7 +22,7 @@ use PVE::SafeSyslog;
 use Storable qw(dclone);
 use PVE::Exception qw(raise raise_param_exc);
 use PVE::Storage;
-use PVE::Tools qw(run_command lock_file lock_file_full file_read_firstline dir_glob_foreach);
+use PVE::Tools qw(run_command lock_file lock_file_full file_read_firstline dir_glob_foreach $IPV6RE);
 use PVE::JSONSchema qw(get_standard_option);
 use PVE::Cluster qw(cfs_register_file cfs_read_file cfs_write_file cfs_lock_file);
 use PVE::INotify;
@@ -33,6 +33,7 @@ use PVE::RPCEnvironment;
 use PVE::QemuServer::PCI qw(print_pci_addr print_pcie_addr);
 use PVE::QemuServer::Memory;
 use PVE::QemuServer::USB qw(parse_usb_device);
+use PVE::QemuServer::Cloudinit;
 use Time::HiRes qw(gettimeofday);
 use File::Copy qw(copy);
 use URI::Escape;
@@ -534,6 +535,29 @@ EODESCR
 	description => "Select BIOS implementation.",
 	default => 'seabios',
     },
+    searchdomain => {
+	optional => 1,
+	type => 'string',
+	description => "cloud-init: Sets DNS search domains for a container. Create will automatically use the setting from the host if neither searchdomain nor nameserver are set.",
+    },
+    nameserver => {
+	optional => 1,
+	type => 'string', format => 'address-list',
+	description => "cloud-init: Sets DNS server IP address for a container. Create will automatically use the setting from the host if neither searchdomain nor nameserver are set.",
+    },
+    sshkeys => {
+	optional => 1,
+	type => 'string',
+	format => 'urlencoded',
+	description => "cloud-init : Setup public SSH keys (one key per line, " .
+			"OpenSSH format).",
+    },
+    hostname => {
+	optional => 1,
+	description => "cloud-init: Hostname to use instead of the vm-name + search-domain.",
+	type => 'string', format => 'dns-name',
+	maxLength => 255,
+    },
 };
 
 # what about other qemu settings ?
@@ -693,8 +717,60 @@ my $netdesc = {
 
 PVE::JSONSchema::register_standard_option("pve-qm-net", $netdesc);
 
+my $ipconfig_fmt = {
+    ip => {
+	type => 'string',
+	format => 'pve-ipv4-config',
+	format_description => 'IPv4Format/CIDR',
+	description => 'IPv4 address in CIDR format.',
+	optional => 1,
+	default => 'dhcp',
+    },
+    gw => {
+	type => 'string',
+	format => 'ipv4',
+	format_description => 'GatewayIPv4',
+	description => 'Default gateway for IPv4 traffic.',
+	optional => 1,
+	requires => 'ip',
+    },
+    ip6 => {
+	type => 'string',
+	format => 'pve-ipv6-config',
+	format_description => 'IPv6Format/CIDR',
+	description => 'IPv6 address in CIDR format.',
+	optional => 1,
+	default => 'dhcp',
+    },
+    gw6 => {
+	type => 'string',
+	format => 'ipv6',
+	format_description => 'GatewayIPv6',
+	description => 'Default gateway for IPv6 traffic.',
+	optional => 1,
+	requires => 'ip6',
+    },
+};
+PVE::JSONSchema::register_format('pve-qm-ipconfig', $ipconfig_fmt);
+my $ipconfigdesc = {
+    optional => 1,
+    type => 'string', format => 'pve-qm-ipconfig',
+    description => <<'EODESCR',
+cloud-init: Specify IP addresses and gateways for the corresponding interface.
+
+IP addresses use CIDR notation, gateways are optional but need an IP of the same type specified.
+
+The special string 'dhcp' can be used for IP addresses to use DHCP, in which case no explicit gateway should be provided.
+For IPv6 the special string 'auto' can be used to use stateless autoconfiguration.
+
+If cloud-init is enabled and neither an IPv4 nor an IPv6 address is specified, it defaults to using dhcp on IPv4.
+EODESCR
+};
+PVE::JSONSchema::register_standard_option("pve-qm-ipconfig", $netdesc);
+
 for (my $i = 0; $i < $MAX_NETS; $i++)  {
     $confdesc->{"net$i"} = $netdesc;
+    $confdesc->{"ipconfig$i"} = $ipconfigdesc;
 }
 
 PVE::JSONSchema::register_format('pve-volume-id-or-qm-path', \&verify_volume_id_or_qm_path);
@@ -1277,7 +1353,7 @@ sub get_iso_path {
 sub filename_to_volume_id {
     my ($vmid, $file, $media) = @_;
 
-    if (!($file eq 'none' || $file eq 'cdrom' ||
+     if (!($file eq 'none' || $file eq 'cdrom' ||
 	  $file =~ m|^/dev/.+| || $file =~ m/^([^:]+):(.+)$/)) {
 
 	return undef if $file =~ m|/|;
@@ -1870,6 +1946,42 @@ sub parse_net {
 	my $dc = PVE::Cluster::cfs_read_file('datacenter.cfg');
 	$res->{macaddr} = PVE::Tools::random_ether_addr($dc->{mac_prefix});
     }
+    $res->{macaddr} = PVE::Tools::random_ether_addr() if !defined($res->{macaddr});
+    return $res;
+}
+
+# ipconfigX ip=cidr,gw=ip,ip6=cidr,gw6=ip
+sub parse_ipconfig {
+    my ($data) = @_;
+
+    my $res = eval { PVE::JSONSchema::parse_property_string($ipconfig_fmt, $data) };
+    if ($@) {
+	warn $@;
+	return undef;
+    }
+
+    if ($res->{gw} && !$res->{ip}) {
+	warn 'gateway specified without specifying an IP address';
+	return undef;
+    }
+    if ($res->{gw6} && !$res->{ip6}) {
+	warn 'IPv6 gateway specified without specifying an IPv6 address';
+	return undef;
+    }
+    if ($res->{gw} && $res->{ip} eq 'dhcp') {
+	warn 'gateway specified together with DHCP';
+	return undef;
+    }
+    if ($res->{gw6} && $res->{ip6} !~ /^$IPV6RE/) {
+	# gw6 + auto/dhcp
+	warn "IPv6 gateway specified together with $res->{ip6} address";
+	return undef;
+    }
+
+    if (!$res->{ip} && !$res->{ip6}) {
+	return { ip => 'dhcp', ip6 => 'dhcp' };
+    }
+
     return $res;
 }
 
@@ -4598,6 +4710,8 @@ sub vm_start {
 	    $conf = PVE::QemuConfig->load_config($vmid); # update/reload
 	}
 
+	PVE::QemuServer::Cloudinit::generate_cloudinitconfig($conf, $vmid);
+
 	my $defaults = load_defaults();
 
 	# set environment variable useful inside network script
@@ -6579,12 +6693,6 @@ sub complete_storage {
     }
 
     return $res;
-}
-
-sub nbd_stop {
-    my ($vmid) = @_;
-
-    vm_mon_cmd($vmid, 'nbd-server-stop');
 }
 
 1;
