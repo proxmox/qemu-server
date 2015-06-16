@@ -2347,6 +2347,12 @@ sub vmstatus {
 
 	$d->{netout} += $netdev->{$dev}->{receive};
 	$d->{netin} += $netdev->{$dev}->{transmit};
+
+	if ($full) {
+	    $d->{nics}->{$dev}->{netout} = $netdev->{$dev}->{receive};
+	    $d->{nics}->{$dev}->{netin} = $netdev->{$dev}->{transmit};
+	}
+
     }
 
     my $ctime = gettimeofday;
@@ -2415,6 +2421,7 @@ sub vmstatus {
 	    $d->{freemem} = $info->{free_mem};
 	}
 
+	$d->{ballooninfo} = $info;
     };
 
     my $blockstatscb = sub {
@@ -2422,9 +2429,13 @@ sub vmstatus {
 	my $data = $resp->{'return'} || [];
 	my $totalrdbytes = 0;
 	my $totalwrbytes = 0;
+
 	for my $blockstat (@$data) {
 	    $totalrdbytes = $totalrdbytes + $blockstat->{stats}->{rd_bytes};
 	    $totalwrbytes = $totalwrbytes + $blockstat->{stats}->{wr_bytes};
+
+	    $blockstat->{device} =~ s/drive-//;
+	    $res->{$vmid}->{blockstat}->{$blockstat->{device}} = $blockstat->{stats};
 	}
 	$res->{$vmid}->{diskread} = $totalrdbytes;
 	$res->{$vmid}->{diskwrite} = $totalwrbytes;
