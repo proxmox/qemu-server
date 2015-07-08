@@ -2842,6 +2842,8 @@ sub config_to_command {
 
     push @$cpuFlags, '+sep' if $cpu eq 'kvm64' || $cpu eq 'kvm32';
 
+    push @$cpuFlags, '-rdtscp' if $cpu =~ m/^Opteron/;
+
     if (qemu_machine_feature_enabled ($machine_type, $kvmver, 2, 3)) {
 
 	push @$cpuFlags , '+kvm_pv_unhalt' if !$nokvm;
