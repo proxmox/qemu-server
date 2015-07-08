@@ -2850,9 +2850,11 @@ sub config_to_command {
 	push @$cpuFlags , '+kvm_pv_eoi' if !$nokvm;
     }
 
+    push @$cpuFlags, 'enforce' if $cpu ne 'host';
+
     $cpu .= "," . join(',', @$cpuFlags) if scalar(@$cpuFlags);
 
-    push @$cmd, '-cpu', "$cpu,enforce";
+    push @$cmd, '-cpu', $cpu;
 
     my $memory = $conf->{memory} || $defaults->{memory};
     my $static_memory = 0;
