@@ -4404,7 +4404,7 @@ sub vm_stop {
 	    $conf = load_config($vmid);
 	    check_lock($conf) if !$skiplock;
 	    if (!defined($timeout) && $shutdown && $conf->{startup}) {
-		my $opts = parse_startup($conf->{startup});
+		my $opts = PVE::JSONSchema::pve_parse_startup_order($conf->{startup});
 		$timeout = $opts->{down} if $opts->{down};
 	    }
 	}
