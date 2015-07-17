@@ -2850,7 +2850,8 @@ sub config_to_command {
 
     $cpu .= "," . join(',', @$cpuFlags) if scalar(@$cpuFlags);
 
-    push @$cmd, '-cpu', "$cpu,enforce";
+    $cpu .= ",enforce" if !$nokvm;
+    push @$cmd, '-cpu', $cpu;
 
     my $memory = $conf->{memory} || $defaults->{memory};
     my $static_memory = 0;
