@@ -2850,7 +2850,7 @@ sub config_to_command {
 	push @$cpuFlags , '+kvm_pv_eoi' if !$nokvm;
     }
 
-    push @$cpuFlags, 'enforce' if $cpu ne 'host';
+    push @$cpuFlags, 'enforce' if $cpu ne 'host' && !$nokvm;
 
     $cpu .= "," . join(',', @$cpuFlags) if scalar(@$cpuFlags);
 
