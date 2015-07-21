@@ -67,6 +67,8 @@ sub prepare {
 	if (defined($drive->{backup}) && $drive->{backup} eq "no") {
 	    $self->loginfo("exclude disk '$ds' (backup=no)");
 	    return;
+	} elsif (defined($drive->{iothread}) && $drive->{iothread} eq "on") {
+	    die "disk '$ds' (iothread=on) can't use backup feature currently. Please set backup=no for this drive";
 	}
 
 	my $volid = $drive->{file};
