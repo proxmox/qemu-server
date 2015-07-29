@@ -318,7 +318,7 @@ sub archive {
 
 	my $backup_cb = sub {
 	    my ($vmid, $resp) = @_;
-	    $uuid = $resp->{return};
+	    $uuid = $resp->{return}->{UUID};
 	};
 
 	my $outfh;
