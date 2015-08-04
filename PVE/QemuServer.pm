@@ -45,6 +45,8 @@ my $qemu_snap_storage = {rbd => 1, sheepdog => 1};
 
 my $cpuinfo = PVE::ProcFSTools::read_cpuinfo();
 
+my $QEMU_FORMAT_RE = qr/raw|cow|qcow|qcow2|qed|vmdk|cloop/;
+
 # Note about locking: we use flock on the config file protect
 # against concurent actions.
 # Aditionaly, we have a 'lock' setting in the config file. This
@@ -1879,7 +1881,9 @@ sub print_cpu_device {
 }
 
 sub drive_is_cdrom {
-    my ($drive) = @_;
+    my ($drive, $exclude_cloudinit) = @_;
+
+    return 0 if $exclude_cloudinit && $drive->{file} =~ m@[:/]vm-\d+-cloudinit(?:\.$QEMU_FORMAT_RE)?$@;
 
     return $drive && $drive->{media} && ($drive->{media} eq 'cdrom');
 
@@ -2053,7 +2057,7 @@ sub vmconfig_undelete_pending_option {
 sub vmconfig_register_unused_drive {
     my ($storecfg, $vmid, $conf, $drive) = @_;
 
-    if (!drive_is_cdrom($drive)) {
+    if (!drive_is_cdrom($drive, 1)) {
 	my $volid = $drive->{file};
 	if (vm_is_volid_owner($storecfg, $vmid, $volid)) {
 	    PVE::QemuConfig->add_unused_volume($conf, $volid, $vmid);
@@ -2287,7 +2291,7 @@ sub destroy_vm {
     foreach_drive($conf, sub {
 	my ($ds, $drive) = @_;
 
- 	return if drive_is_cdrom($drive);
+ 	return if drive_is_cdrom($drive, 1);
 
 	my $volid = $drive->{file};
 
@@ -6157,7 +6161,7 @@ sub qemu_img_convert {
 sub qemu_img_format {
     my ($scfg, $volname) = @_;
 
-    if ($scfg->{path} && $volname =~ m/\.(raw|cow|qcow|qcow2|qed|vmdk|cloop)$/) {
+    if ($scfg->{path} && $volname =~ m/\.($QEMU_FORMAT_RE)$/) {
 	return $1;
     } else {
 	return "raw";
