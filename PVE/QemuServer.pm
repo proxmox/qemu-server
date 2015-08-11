@@ -1876,7 +1876,7 @@ sub parse_vm_config {
     my $vmid = $1;
 
     my $conf = $res;
-    my $descr = '';
+    my $descr;
     my $section = '';
 
     my @lines = split(/\n/, $raw);
@@ -1885,25 +1885,33 @@ sub parse_vm_config {
 
 	if ($line =~ m/^\[PENDING\]\s*$/i) {
 	    $section = 'pending';
-	    $conf->{description} = $descr if $descr;
-	    $descr = '';
+	    if (defined($descr)) {
+		$descr =~ s/\s+$//;
+		$conf->{description} = $descr;
+	    }
+	    $descr = undef;
 	    $conf = $res->{$section} = {};
 	    next;
 
 	} elsif ($line =~ m/^\[([a-z][a-z0-9_\-]+)\]\s*$/i) {
 	    $section = $1;
-	    $conf->{description} = $descr if $descr;
-	    $descr = '';
+	    if (defined($descr)) {
+		$descr =~ s/\s+$//;
+		$conf->{description} = $descr;
+	    }
+	    $descr = undef;
 	    $conf = $res->{snapshots}->{$section} = {};
 	    next;
 	}
 
 	if ($line =~ m/^\#(.*)\s*$/) {
+	    $descr = '' if !defined($descr);
 	    $descr .= PVE::Tools::decode_text($1) . "\n";
 	    next;
 	}
 
 	if ($line =~ m/^(description):\s*(.*\S)\s*$/) {
+	    $descr = '' if !defined($descr);
 	    $descr .= PVE::Tools::decode_text($2);
 	} elsif ($line =~ m/snapstate:\s*(prepare|delete)\s*$/) {
 	    $conf->{snapstate} = $1;
@@ -1946,8 +1954,10 @@ sub parse_vm_config {
 	}
     }
 
-    $conf->{description} = $descr if $descr;
-
+    if (defined($descr)) {
+	$descr =~ s/\s+$//;
+	$conf->{description} = $descr;
+    }
     delete $res->{snapstate}; # just to be sure
 
     return $res;
@@ -2018,14 +2028,19 @@ sub write_vm_config {
     }
 
     my $generate_raw_config = sub {
-	my ($conf) = @_;
+	my ($conf, $pending) = @_;
 
 	my $raw = '';
 
 	# add description as comment to top of file
-	my $descr = $conf->{description} || '';
-	foreach my $cl (split(/\n/, $descr)) {
-	    $raw .= '#' .  PVE::Tools::encode_text($cl) . "\n";
+	if (defined(my $descr = $conf->{description})) {
+	    if ($descr) {
+		foreach my $cl (split(/\n/, $descr)) {
+		    $raw .= '#' .  PVE::Tools::encode_text($cl) . "\n";
+		}
+	    } else {
+		$raw .= "#\n" if $pending;
+	    }
 	}
 
 	foreach my $key (sort keys %$conf) {
@@ -2039,7 +2054,7 @@ sub write_vm_config {
 
     if (scalar(keys %{$conf->{pending}})){
 	$raw .= "\n[PENDING]\n";
-	$raw .= &$generate_raw_config($conf->{pending});
+	$raw .= &$generate_raw_config($conf->{pending}, 1);
     }
 
     foreach my $snapname (sort keys %{$conf->{snapshots}}) {
@@ -3856,6 +3871,7 @@ my $fast_plug_option = {
     'onboot' => 1,
     'shares' => 1,
     'startup' => 1,
+    'description' => 1,
 };
 
 # hotplug changes in [PENDING]
