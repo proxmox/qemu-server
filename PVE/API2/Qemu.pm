@@ -38,22 +38,6 @@ my $resolve_cdrom_alias = sub {
     }
 };
 
-my $test_deallocate_drive = sub {
-    my ($storecfg, $vmid, $key, $drive, $force) = @_;
-
-    if (!PVE::QemuServer::drive_is_cdrom($drive)) {
-	my $volid = $drive->{file};
-	if ( PVE::QemuServer::vm_is_volid_owner($storecfg, $vmid, $volid)) {
-	    if ($force || $key =~ m/^unused/) {
-		my $sid = PVE::Storage::parse_volume_id($volid);
-		return $sid;
-	    }
-	}
-    }
-
-    return undef;
-};
-
 my $check_storage_access = sub {
    my ($rpcenv, $authuser, $storecfg, $vmid, $settings, $default_storage) = @_;
 
@@ -187,34 +171,6 @@ my $create_disks = sub {
     }
 
     return $vollist;
-};
-
-my $delete_drive = sub {
-    my ($conf, $storecfg, $vmid, $key, $drive, $force) = @_;
-
-    if (!PVE::QemuServer::drive_is_cdrom($drive)) {
-	my $volid = $drive->{file};
-
-	if (PVE::QemuServer::vm_is_volid_owner($storecfg, $vmid, $volid)) {
-	    if ($force || $key =~ m/^unused/) {
-		eval {
-		    # check if the disk is really unused
-		    my $used_paths = PVE::QemuServer::get_used_paths($vmid, $storecfg, $conf, 1, $key);
-		    my $path = PVE::Storage::path($storecfg, $volid);
-
-		    die "unable to delete '$volid' - volume is still in use (snapshot?)\n"
-			if $used_paths->{$path};
-
-		    PVE::Storage::vdisk_free($storecfg, $volid);
-		};
-		die $@ if $@;
-	    } else {
-		PVE::QemuServer::add_unused_volume($conf, $volid, $vmid);
-	    }
-	}
-    }
-
-    delete $conf->{$key};
 };
 
 my $check_vm_modify_config_perm = sub {
@@ -931,19 +887,18 @@ my $update_vm_api  = sub {
 		if ($opt =~ m/^unused/) {
 		    $rpcenv->check_vm_perm($authuser, $vmid, undef, ['VM.Config.Disk']);
 		    my $drive = PVE::QemuServer::parse_drive($opt, $conf->{$opt});
-		    if (my $sid = &$test_deallocate_drive($storecfg, $vmid, $opt, $drive, $force)) {
-			$rpcenv->check($authuser, "/storage/$sid", ['Datastore.AllocateSpace']);
-			&$delete_drive($conf, $storecfg, $vmid, $opt, $drive);
+		    if (PVE::QemuServer::try_deallocate_drive($storecfg, $vmid, $conf, $opt, $drive, $rpcenv, $authuser)) {
+			delete $conf->{$opt};
 			PVE::QemuServer::update_config_nolock($vmid, $conf, 1);
 		    }
 		} elsif (PVE::QemuServer::valid_drivename($opt)) {
 		    $rpcenv->check_vm_perm($authuser, $vmid, undef, ['VM.Config.Disk']);
 		    PVE::QemuServer::vmconfig_register_unused_drive($storecfg, $vmid, $conf, PVE::QemuServer::parse_drive($opt, $conf->{pending}->{$opt}))
 			if defined($conf->{pending}->{$opt});
-		    PVE::QemuServer::vmconfig_delete_pending_option($conf, $opt);
+		    PVE::QemuServer::vmconfig_delete_pending_option($conf, $opt, $force);
 		    PVE::QemuServer::update_config_nolock($vmid, $conf, 1);
 		} else {
-		    PVE::QemuServer::vmconfig_delete_pending_option($conf, $opt);
+		    PVE::QemuServer::vmconfig_delete_pending_option($conf, $opt, $force);
 		    PVE::QemuServer::update_config_nolock($vmid, $conf, 1);
 		}
 	    }

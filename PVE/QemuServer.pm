@@ -1427,29 +1427,35 @@ sub vm_is_volid_owner {
     return undef;
 }
 
+sub split_flagged_list {
+    my $text = shift || '';
+    $text =~ s/[,;]/ /g;
+    $text =~ s/^\s+//;
+    return { map { /^(!?)(.*)$/ && ($2, $1) } ($text =~ /\S+/g) };
+}
+
+sub join_flagged_list {
+    my ($how, $lst) = @_;
+    join $how, map { $lst->{$_} . $_ } keys %$lst;
+}
+
 sub vmconfig_delete_pending_option {
-    my ($conf, $key) = @_;
+    my ($conf, $key, $force) = @_;
 
     delete $conf->{pending}->{$key};
-    my $pending_delete_hash = { $key => 1 };
-    foreach my $opt (PVE::Tools::split_list($conf->{pending}->{delete})) {
-	$pending_delete_hash->{$opt} = 1;
-    }
-    $conf->{pending}->{delete} = join(',', keys %$pending_delete_hash);
+    my $pending_delete_hash = split_flagged_list($conf->{pending}->{delete});
+    $pending_delete_hash->{$key} = $force ? '!' : '';
+    $conf->{pending}->{delete} = join_flagged_list(',', $pending_delete_hash);
 }
 
 sub vmconfig_undelete_pending_option {
     my ($conf, $key) = @_;
 
-    my $pending_delete_hash = {};
-    foreach my $opt (PVE::Tools::split_list($conf->{pending}->{delete})) {
-	$pending_delete_hash->{$opt} = 1;
-    }
+    my $pending_delete_hash = split_flagged_list($conf->{pending}->{delete});
     delete $pending_delete_hash->{$key};
 
-    my @keylist = keys %$pending_delete_hash;
-    if (scalar(@keylist)) {
-	$conf->{pending}->{delete} = join(',', @keylist);
+    if (%$pending_delete_hash) {
+	$conf->{pending}->{delete} = join_flagged_list(',', $pending_delete_hash);
     } else {
 	delete $conf->{pending}->{delete};
     }
@@ -1478,19 +1484,18 @@ sub vmconfig_cleanup_pending {
 	}
     }
 
-    # remove delete if option is not set
+    my $current_delete_hash = split_flagged_list($conf->{pending}->{delete});
     my $pending_delete_hash = {};
-    foreach my $opt (PVE::Tools::split_list($conf->{pending}->{delete})) {
+    while (my ($opt, $force) = each %$current_delete_hash) {
 	if (defined($conf->{$opt})) {
-	    $pending_delete_hash->{$opt} = 1;
+	    $pending_delete_hash->{$opt} = $force;
 	} else {
 	    $changes = 1;
 	}
     }
 
-    my @keylist = keys %$pending_delete_hash;
-    if (scalar(@keylist)) {
-	$conf->{pending}->{delete} = join(',', @keylist);
+    if (%$pending_delete_hash) {
+	$conf->{pending}->{delete} = join_flagged_list(',', $pending_delete_hash);
     } else {
 	delete $conf->{pending}->{delete};
     }
@@ -3908,8 +3913,8 @@ sub vmconfig_hotplug_pending {
 
     my $hotplug_features = parse_hotplug_features(defined($conf->{hotplug}) ? $conf->{hotplug} : '1');
 
-    my @delete = PVE::Tools::split_list($conf->{pending}->{delete});
-    foreach my $opt (@delete) {
+    my $pending_delete_hash = split_flagged_list($conf->{pending}->{delete});
+    while (my ($opt, $force) = each %$pending_delete_hash) {
 	next if $selection && !$selection->{$opt};
 	eval {
 	    if ($opt eq 'hotplug') {
@@ -3935,7 +3940,7 @@ sub vmconfig_hotplug_pending {
 	    } elsif (valid_drivename($opt)) {
 		die "skip\n" if !$hotplug_features->{disk} || $opt =~ m/(ide|sata)(\d+)/;
 		vm_deviceunplug($vmid, $conf, $opt);
-		vmconfig_register_unused_drive($storecfg, $vmid, $conf, parse_drive($opt, $conf->{$opt}));
+		vmconfig_delete_or_detach_drive($vmid, $storecfg, $conf, $opt, $force);
 	    } elsif ($opt =~ m/^memory$/) {
 		die "skip\n" if !$hotplug_features->{memory};
 		qemu_memory_hotplug($vmid, $conf, $defaults, $opt);
@@ -4017,20 +4022,64 @@ sub vmconfig_hotplug_pending {
     }
 }
 
+sub delete_drive {
+    my ($vmid, $storecfg, $conf, $key, $volid) = @_;
+
+    # check if the disk is really unused
+    my $used_paths = PVE::QemuServer::get_used_paths($vmid, $storecfg, $conf, 1, $key);
+    my $path = PVE::Storage::path($storecfg, $volid);
+
+    die "unable to delete '$volid' - volume is still in use (snapshot?)\n"
+	   if $used_paths->{$path};
+    PVE::Storage::vdisk_free($storecfg, $volid);
+}
+
+sub try_deallocate_drive {
+    my ($storecfg, $vmid, $conf, $key, $drive, $rpcenv, $authuser, $force) = @_;
+
+    if (($force || $key =~ /^unused/) && !drive_is_cdrom($drive, 1)) {
+	my $volid = $drive->{file};
+	if (vm_is_volid_owner($storecfg, $vmid, $volid)) {
+	    my $sid = PVE::Storage::parse_volume_id($volid);
+	    $rpcenv->check($authuser, "/storage/$sid", ['Datastore.AllocateSpace']);
+	    delete_drive($vmid, $storecfg, $conf, $key, $drive->{file});
+	    return 1;
+	}
+    }
+
+    return undef;
+}
+
+sub vmconfig_delete_or_detach_drive {
+    my ($vmid, $storecfg, $conf, $opt, $force) = @_;
+
+    my $drive = parse_drive($opt, $conf->{$opt});
+
+    my $rpcenv = PVE::RPCEnvironment::get();
+    my $authuser = $rpcenv->get_user();
+
+    if ($force) {
+	$rpcenv->check_vm_perm($authuser, $vmid, undef, ['VM.Config.Disk']);
+	try_deallocate_drive($storecfg, $vmid, $conf, $opt, $drive, $rpcenv, $authuser, $force);
+    } else {
+	vmconfig_register_unused_drive($storecfg, $vmid, $conf, $drive);
+    }
+}
+
 sub vmconfig_apply_pending {
     my ($vmid, $conf, $storecfg) = @_;
 
     # cold plug
 
-    my @delete = PVE::Tools::split_list($conf->{pending}->{delete});
-    foreach my $opt (@delete) { # delete
+    my $pending_delete_hash = split_flagged_list($conf->{pending}->{delete});
+    while (my ($opt, $force) = each %$pending_delete_hash) {
 	die "internal error" if $opt =~ m/^unused/;
 	$conf = load_config($vmid); # update/reload
 	if (!defined($conf->{$opt})) {
 	    vmconfig_undelete_pending_option($conf, $opt);
 	    update_config_nolock($vmid, $conf, 1);
 	} elsif (valid_drivename($opt)) {
-	    vmconfig_register_unused_drive($storecfg, $vmid, $conf, parse_drive($opt, $conf->{$opt}));
+	    vmconfig_delete_or_detach_drive($vmid, $storecfg, $conf, $opt, $force);
 	    vmconfig_undelete_pending_option($conf, $opt);
 	    delete $conf->{$opt};
 	    update_config_nolock($vmid, $conf, 1);
