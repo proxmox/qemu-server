@@ -1140,17 +1140,6 @@ __PACKAGE__->register_method({
 
 	my $storecfg = PVE::Storage::config();
 
-	my $delVMfromPoolFn = sub {
-	    my $usercfg = cfs_read_file("user.cfg");
-	    if (my $pool = $usercfg->{vms}->{$vmid}) {
-		if (my $data = $usercfg->{pools}->{$pool}) {
-		    delete $data->{vms}->{$vmid};
-		    delete $usercfg->{vms}->{$vmid};
-		    cfs_write_file("user.cfg", $usercfg);
-		}
-	    }
-	};
-
 	my $realcmd = sub {
 	    my $upid = shift;
 
@@ -1158,7 +1147,7 @@ __PACKAGE__->register_method({
 
 	    PVE::QemuServer::vm_destroy($storecfg, $vmid, $skiplock);
 
-	    PVE::AccessControl::remove_vm_from_pool($vmid);
+	    PVE::AccessControl::remove_vm_access($vmid);
 	};
 
 	return $rpcenv->fork_worker('qmdestroy', $vmid, $authuser, $realcmd);
