@@ -4022,18 +4022,6 @@ sub vmconfig_hotplug_pending {
     }
 }
 
-sub delete_drive {
-    my ($vmid, $storecfg, $conf, $key, $volid) = @_;
-
-    # check if the disk is really unused
-    my $used_paths = PVE::QemuServer::get_used_paths($vmid, $storecfg, $conf, 1, $key);
-    my $path = PVE::Storage::path($storecfg, $volid);
-
-    die "unable to delete '$volid' - volume is still in use (snapshot?)\n"
-	   if $used_paths->{$path};
-    PVE::Storage::vdisk_free($storecfg, $volid);
-}
-
 sub try_deallocate_drive {
     my ($storecfg, $vmid, $conf, $key, $drive, $rpcenv, $authuser, $force) = @_;
 
@@ -4042,7 +4030,13 @@ sub try_deallocate_drive {
 	if (vm_is_volid_owner($storecfg, $vmid, $volid)) {
 	    my $sid = PVE::Storage::parse_volume_id($volid);
 	    $rpcenv->check($authuser, "/storage/$sid", ['Datastore.AllocateSpace']);
-	    delete_drive($vmid, $storecfg, $conf, $key, $drive->{file});
+
+	    # check if the disk is really unused
+	    my $used_paths = PVE::QemuServer::get_used_paths($vmid, $storecfg, $conf, 1, $key);
+	    my $path = PVE::Storage::path($storecfg, $volid);
+	    die "unable to delete '$volid' - volume is still in use (snapshot?)\n"
+		   if $used_paths->{$path};
+	    PVE::Storage::vdisk_free($storecfg, $volid);
 	    return 1;
 	}
     }
