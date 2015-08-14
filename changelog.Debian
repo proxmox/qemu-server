@@ -1,3 +1,13 @@
+qemu-server (4.0-16) unstable; urgency=medium
+
+  * remove vm access permissions after destroy
+
+  * pending-delete: remember force-deletes
+
+  * correctly handle empty description in pending section
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 14 Aug 2015 08:09:44 +0200
+
 qemu-server (4.0-15) unstable; urgency=medium
 
   * Fixed wrong UUID in Qemu VZDump backup
