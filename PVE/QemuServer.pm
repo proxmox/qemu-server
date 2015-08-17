@@ -537,6 +537,9 @@ EODESCR
 	description => "Select BIOS implementation.",
 	default => 'seabios',
     },
+};
+
+my $confdesc_cloudinit = {
     searchdomain => {
 	optional => 1,
 	type => 'string',
@@ -772,7 +775,11 @@ PVE::JSONSchema::register_standard_option("pve-qm-ipconfig", $netdesc);
 
 for (my $i = 0; $i < $MAX_NETS; $i++)  {
     $confdesc->{"net$i"} = $netdesc;
-    $confdesc->{"ipconfig$i"} = $ipconfigdesc;
+    $confdesc_cloudinit->{"ipconfig$i"} = $ipconfigdesc;
+}
+
+foreach my $key (keys %$confdesc_cloudinit) {
+    $confdesc->{$key} = $confdesc_cloudinit->{$key};
 }
 
 PVE::JSONSchema::register_format('pve-volume-id-or-qm-path', \&verify_volume_id_or_qm_path);
@@ -1880,10 +1887,15 @@ sub print_cpu_device {
     return "$cpu-x86_64-cpu,id=cpu$id,socket-id=$current_socket,core-id=$current_core,thread-id=0";
 }
 
+sub drive_is_cloudinit {
+    my ($drive) = @_;
+    return $drive->{file} =~ m@[:/]vm-\d+-cloudinit(?:\.$QEMU_FORMAT_RE)?$@;
+}
+
 sub drive_is_cdrom {
     my ($drive, $exclude_cloudinit) = @_;
 
-    return 0 if $exclude_cloudinit && $drive->{file} =~ m@[:/]vm-\d+-cloudinit(?:\.$QEMU_FORMAT_RE)?$@;
+    return 0 if $exclude_cloudinit && drive_is_cloudinit($drive);
 
     return $drive && $drive->{media} && ($drive->{media} eq 'cdrom');
 
@@ -4379,6 +4391,22 @@ sub vmconfig_hotplug_pending {
 	}
     }
 
+    my $apply_pending_cloudinit;
+    $apply_pending_cloudinit = sub {
+	my ($key, $value) = @_;
+	$apply_pending_cloudinit = sub {}; # once is enough
+
+	my @cloudinit_opts = keys %$confdesc_cloudinit;
+	foreach my $opt (keys %{$conf->{pending}}) {
+	    next if !grep { $_ eq $opt } @cloudinit_opts;
+	    $conf->{$opt} = delete $conf->{pending}->{$opt};
+	}
+
+	my $new_conf = { %$conf };
+	$new_conf->{$key} = $value;
+	PVE::QemuServer::Cloudinit::generate_cloudinitconfig($new_conf, $vmid);
+    };
+
     foreach my $opt (keys %{$conf->{pending}}) {
 	next if $selection && !$selection->{$opt};
 	my $value = $conf->{pending}->{$opt};
@@ -4420,6 +4448,10 @@ sub vmconfig_hotplug_pending {
 				    $vmid, $opt, $value);
 	    } elsif (is_valid_drivename($opt)) {
 		# some changes can be done without hotplug
+		my $drive = parse_drive($opt, $value);
+		if (drive_is_cloudinit($drive)) {
+		    &$apply_pending_cloudinit($opt, $value);
+		}
 		vmconfig_update_disk($storecfg, $conf, $hotplug_features->{disk},
 				     $vmid, $opt, $value, 1);
 	    } elsif ($opt =~ m/^memory$/) { #dimms

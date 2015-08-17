@@ -1098,6 +1098,7 @@ my $update_vm_api  = sub {
 
 		if (PVE::QemuServer::is_valid_drivename($opt)) {
 		    my $drive = PVE::QemuServer::parse_drive($opt, $param->{$opt});
+		    # FIXME: cloudinit: CDROM or Disk?
 		    if (PVE::QemuServer::drive_is_cdrom($drive)) { # CDROM
 			$rpcenv->check_vm_perm($authuser, $vmid, undef, ['VM.Config.CDROM']);
 		    } else {
