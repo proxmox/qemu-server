@@ -650,7 +650,8 @@ __PACKAGE__->register_method({
 		next if ref($value); # just to be sure
 		$conf->{$opt} = $value;
 	    }
-	    foreach my $opt (PVE::Tools::split_list($conf->{pending}->{delete})) {
+	    my $pending_delete_hash = PVE::QemuServer::split_flagged_list($conf->{pending}->{delete});
+	    foreach my $opt (keys %$pending_delete_hash) {
 		delete $conf->{$opt} if $conf->{$opt};
 	    }
 	}
@@ -696,8 +697,11 @@ __PACKAGE__->register_method({
 		    optional => 1,
 		},
 		delete => {
-		    description => "Indicated a pending delete request.",
-		    type => 'boolean',
+		    description => "Indicates a pending delete request if present and not 0. " .
+		                   "The value 2 indicates a force-delete request.",
+		    type => 'integer',
+		    minimum => 0,
+		    maximum => 2,
 		    optional => 1,
 		},
 	    },
@@ -708,10 +712,7 @@ __PACKAGE__->register_method({
 
 	my $conf = PVE::QemuServer::load_config($param->{vmid});
 
-	my $pending_delete_hash = {};
-	foreach my $opt (PVE::Tools::split_list($conf->{pending}->{delete})) {
-	    $pending_delete_hash->{$opt} = 1;
-	}
+	my $pending_delete_hash = PVE::QemuServer::split_flagged_list($conf->{pending}->{delete});
 
 	my $res = [];
 
@@ -720,7 +721,7 @@ __PACKAGE__->register_method({
 	    my $item = { key => $opt };
 	    $item->{value} = $conf->{$opt} if defined($conf->{$opt});
 	    $item->{pending} = $conf->{pending}->{$opt} if defined($conf->{pending}->{$opt});
-	    $item->{delete} = 1 if $pending_delete_hash->{$opt};
+	    $item->{delete} = ($pending_delete_hash->{$opt} ? 2 : 1) if exists $pending_delete_hash->{$opt};
 	    push @$res, $item;
 	}
 
@@ -733,10 +734,10 @@ __PACKAGE__->register_method({
 	    push @$res, $item;
 	}
 
-	foreach my $opt (PVE::Tools::split_list($conf->{pending}->{delete})) {
+	while (my ($opt, $force) = each %$pending_delete_hash) {
 	    next if $conf->{pending}->{$opt}; # just to be sure
 	    next if $conf->{$opt};
-	    my $item = { key => $opt, delete => 1};
+	    my $item = { key => $opt, delete => ($force ? 2 : 1)};
 	    push @$res, $item;
 	}
 
