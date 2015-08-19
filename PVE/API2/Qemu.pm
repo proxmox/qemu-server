@@ -19,6 +19,7 @@ use PVE::RPCEnvironment;
 use PVE::AccessControl;
 use PVE::INotify;
 use PVE::Network;
+use PVE::Firewall;
 use PVE::API2::Firewall::VM;
 use PVE::HA::Config;
 
@@ -1149,6 +1150,8 @@ __PACKAGE__->register_method({
 	    PVE::QemuServer::vm_destroy($storecfg, $vmid, $skiplock);
 
 	    PVE::AccessControl::remove_vm_access($vmid);
+
+            PVE::Firewall::remove_vmfw_conf($vmid);
 	};
 
 	return $rpcenv->fork_worker('qmdestroy', $vmid, $authuser, $realcmd);
