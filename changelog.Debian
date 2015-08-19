@@ -1,3 +1,13 @@
+qemu-server (4.0-17) unstable; urgency=medium
+
+  * fix bug #603: vmid.fw file not deleted
+
+  * fix bug #517: improve error message
+
+  * adapt /config and /pending API calls to force-delete
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 19 Aug 2015 15:44:53 +0200
+
 qemu-server (4.0-16) unstable; urgency=medium
 
   * remove vm access permissions after destroy
