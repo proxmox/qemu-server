@@ -4038,6 +4038,9 @@ sub try_deallocate_drive {
 		   if $used_paths->{$path};
 	    PVE::Storage::vdisk_free($storecfg, $volid);
 	    return 1;
+	} else {
+	    # If vm is not owner of this disk remove from config
+	    return 1;
 	}
     }
 
