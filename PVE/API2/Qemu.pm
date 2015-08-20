@@ -2173,6 +2173,9 @@ __PACKAGE__->register_method({
 		next if $opt eq 'snapshots' ||  $opt eq 'parent' || $opt eq 'snaptime' ||
 		    $opt eq 'vmstate' || $opt eq 'snapstate';
 
+		# no need to copy unused images, because VMID(owner) changes anyways
+		next if $opt =~ m/^unused\d+$/;
+
 		# always change MAC! address
 		if ($opt =~ m/^net(\d+)$/) {
 		    my $net = PVE::QemuServer::parse_net($value);
