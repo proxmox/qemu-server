@@ -2282,6 +2282,8 @@ __PACKAGE__->register_method({
 		return;
 	    };
 
+	    PVE::Firewall::clone_vmfw_conf($vmid, $newid);
+
 	    return $rpcenv->fork_worker('qmclone', $vmid, $authuser, $realcmd);
 	};
 
