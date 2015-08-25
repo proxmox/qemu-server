@@ -1,3 +1,9 @@
+qemu-server (4.0-19) unstable; urgency=medium
+
+  * clone: also copy vm firewall config file
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 25 Aug 2015 06:50:04 +0200
+
 qemu-server (4.0-18) unstable; urgency=medium
 
   * fix bug #688: if vm is not owner of this disk remove from config
