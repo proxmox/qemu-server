@@ -1142,9 +1142,8 @@ __PACKAGE__->register_method({
 
 	my $storecfg = PVE::Storage::config();
 
-	if (PVE::HA::Config::vm_is_ha_managed($vmid)) {
-	    die "unable to delete VM $vmid - used in HA resources\n";
-	}
+	die "unable to remove VM $vmid - used in HA resources\n"
+	    if PVE::HA::Config::vm_is_ha_managed($vmid);
 
 	my $realcmd = sub {
 	    my $upid = shift;
