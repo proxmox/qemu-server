@@ -1,3 +1,11 @@
+qemu-server (4.0-20) unstable; urgency=medium
+
+  * fix start kvm with os type 'other'
+
+  * spice console: fix 'uninitialized value in concat' due to unnamed VM
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 28 Aug 2015 11:39:52 +0200
+
 qemu-server (4.0-19) unstable; urgency=medium
 
   * clone: also copy vm firewall config file
