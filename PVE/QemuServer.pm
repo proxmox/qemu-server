@@ -6276,6 +6276,8 @@ sub clone_disk {
 	$newvolid = PVE::Storage::vdisk_alloc($storecfg, $storeid, $newvmid, $format, undef, ($size/1024));
 	push @$newvollist, $newvolid;
 
+	PVE::Storage::activate_volumes($storecfg, $newvollist);
+
 	if (!$running || $snapname) {
 	    qemu_img_convert($drive->{file}, $newvolid, $size, $snapname);
 	} else {
