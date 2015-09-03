@@ -384,6 +384,12 @@ EODESCR
 	maxLength => 256,
 	optional => 1,
     },
+    protection => {
+	optional => 1,
+	type => 'boolean',
+	description => "Sets the protection flag of the VM. This will prevent the remove operation.",
+	default => 0,
+    },
 };
 
 # what about other qemu settings ?
