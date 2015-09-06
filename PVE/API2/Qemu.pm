@@ -271,12 +271,13 @@ __PACKAGE__->register_method({
 	properties => PVE::QemuServer::json_config_properties(
 	    {
 		node => get_standard_option('pve-node'),
-		vmid => get_standard_option('pve-vmid'),
+		vmid => get_standard_option('pve-vmid', { completion => \&PVE::Cluster::complete_next_vmid }),
 		archive => {
 		    description => "The backup file.",
 		    type => 'string',
 		    optional => 1,
 		    maxLength => 255,
+		    completion => \&PVE::QemuServer::complete_backup_archives,
 		},
 		storage => get_standard_option('pve-storage-id', {
 		    description => "Default storage.",

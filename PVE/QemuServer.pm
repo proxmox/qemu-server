@@ -6385,4 +6385,62 @@ sub scsihw_infos {
     return ($maxdev, $controller, $controller_prefix);
 }
 
+# bash completion helper
+
+sub complete_backup_archives {
+    my ($cmdname, $pname, $cvalue) = @_;
+
+    my $cfg = PVE::Storage::config();
+
+    my $storeid;
+
+    if ($cvalue =~ m/^([^:]+):/) {
+	$storeid = $1;
+    }
+
+    my $data = PVE::Storage::template_list($cfg, $storeid, 'backup');
+
+    my $res = [];
+    foreach my $id (keys %$data) {
+	foreach my $item (@{$data->{$id}}) {
+	    next if $item->{format} !~ m/^vma\.(gz|lzo)$/;
+	    push @$res, $item->{volid} if defined($item->{volid});
+	}
+    }
+
+    return $res;
+}
+
+my $complete_vmid_full = sub {
+    my ($running) = @_;
+
+    my $idlist = vmstatus();
+
+    my $res = [];
+
+    foreach my $id (keys %$idlist) {
+	my $d = $idlist->{$id};
+	if (defined($running)) {
+	    next if $d->{template};
+	    next if $running && $d->{status} ne 'running';
+	    next if !$running && $d->{status} eq 'running';
+	}
+	push @$res, $id;
+
+    }
+    return $res;
+};
+
+sub complete_vmid {
+    return &$complete_vmid_full();
+}
+
+sub complete_vmid_stopped {
+    return &$complete_vmid_full(0);
+}
+
+sub complete_vmid_running {
+    return &$complete_vmid_full(1);
+}
+
 1;
