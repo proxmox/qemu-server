@@ -130,7 +130,7 @@ upload:
 
 .PHONY: clean
 clean: 	
-	rm -rf build *.deb control vzsyscalls.ph _h2ph_pre.ph ${PACKAGE}-*.tar.gz dist *.1.gz *.pod vmtar sparsecp *.tmp
+	rm -rf build *.deb control vzsyscalls.ph _h2ph_pre.ph ${PACKAGE}-*.tar.gz dist *.1.gz *.pod vmtar sparsecp *.tmp qm.bash-completion
 	find . -name '*~' -exec rm {} ';'
 
 
