@@ -83,7 +83,7 @@ __PACKAGE__->register_method ({
     parameters => {
 	additionalProperties => 0,
 	properties => {
-	    vmid => get_standard_option('pve-vmid'),
+	    vmid => get_standard_option('pve-vmid', { completion => \&PVE::QemuServer::complete_vmid }),
 	},
     },
     returns => { type => 'null'},
@@ -104,7 +104,7 @@ __PACKAGE__->register_method ({
     parameters => {
 	additionalProperties => 0,
 	properties => {
-	    vmid => get_standard_option('pve-vmid'),
+	    vmid => get_standard_option('pve-vmid', { completion => \&PVE::QemuServer::complete_vmid }),
 	    verbose => {
 		description => "Verbose output format",
 		type => 'boolean',
@@ -144,7 +144,7 @@ __PACKAGE__->register_method ({
     parameters => {
 	additionalProperties => 0,
 	properties => {
-	    vmid => get_standard_option('pve-vmid'),
+	    vmid => get_standard_option('pve-vmid', { completion => \&PVE::QemuServer::complete_vmid_running }),
 	},
     },
     returns => { type => 'null'},
@@ -175,7 +175,7 @@ __PACKAGE__->register_method ({
     parameters => {
 	additionalProperties => 0,
 	properties => {
-	    vmid => get_standard_option('pve-vmid'),
+	    vmid => get_standard_option('pve-vmid', { completion => \&PVE::QemuServer::complete_vmid }),
 	},
     },
     returns => { type => 'null'},
@@ -231,7 +231,7 @@ __PACKAGE__->register_method ({
     parameters => {
 	additionalProperties => 0,
 	properties => {
-	    vmid => get_standard_option('pve-vmid'),
+	    vmid => get_standard_option('pve-vmid', { completion => \&PVE::QemuServer::complete_vmid_running }),
 	    timeout => {
 		description => "Timeout in seconds. Default is to wait forever.",
 		type => 'integer',
@@ -271,7 +271,7 @@ __PACKAGE__->register_method ({
     parameters => {
 	additionalProperties => 0,
 	properties => {
-	    vmid => get_standard_option('pve-vmid'),
+	    vmid => get_standard_option('pve-vmid', { completion => \&PVE::QemuServer::complete_vmid_running }),
 	},
     },
     returns => { type => 'null'},
@@ -312,7 +312,10 @@ __PACKAGE__->register_method ({
     parameters => {
 	additionalProperties => 0,
 	properties => {
-	    vmid => get_standard_option('pve-vmid', {optional => 1}),
+	    vmid => get_standard_option('pve-vmid', {
+		optional => 1,
+		completion => \&PVE::QemuServer::complete_vmid,
+	    }),
 	},
     },
     returns => { type => 'null'},
@@ -332,7 +335,7 @@ __PACKAGE__->register_method ({
     parameters => {
 	additionalProperties => 0,
 	properties => {
-	    vmid => get_standard_option('pve-vmid'),
+	    vmid => get_standard_option('pve-vmid', { completion => \&PVE::QemuServer::complete_vmid_running }),
 	    iface => {
 		description => "Select the serial device. By default we simply use the first suitable device.",
 		type => 'string',

@@ -282,6 +282,7 @@ __PACKAGE__->register_method({
 		storage => get_standard_option('pve-storage-id', {
 		    description => "Default storage.",
 		    optional => 1,
+		    completion => \&PVE::QemuServer::complete_storage,
 		}),
 		force => {
 		    optional => 1,
@@ -620,7 +621,7 @@ __PACKAGE__->register_method({
     	additionalProperties => 0,
 	properties => {
 	    node => get_standard_option('pve-node'),
-	    vmid => get_standard_option('pve-vmid'),
+	    vmid => get_standard_option('pve-vmid', { completion => \&PVE::QemuServer::complete_vmid }),
             current => {
                 description => "Get current values (instead of pending values).",
                 optional => 1,
@@ -676,7 +677,7 @@ __PACKAGE__->register_method({
 	additionalProperties => 0,
 	properties => {
 	    node => get_standard_option('pve-node'),
-	    vmid => get_standard_option('pve-vmid'),
+	    vmid => get_standard_option('pve-vmid', { completion => \&PVE::QemuServer::complete_vmid }),
 	},
     },
     returns => {
@@ -1069,7 +1070,7 @@ __PACKAGE__->register_method({
 	properties => PVE::QemuServer::json_config_properties(
 	    {
 		node => get_standard_option('pve-node'),
-		vmid => get_standard_option('pve-vmid'),
+		vmid => get_standard_option('pve-vmid', { completion => \&PVE::QemuServer::complete_vmid }),
 		skiplock => get_standard_option('skiplock'),
 		delete => {
 		    type => 'string', format => 'pve-configid-list',
@@ -1118,7 +1119,7 @@ __PACKAGE__->register_method({
     	additionalProperties => 0,
 	properties => {
 	    node => get_standard_option('pve-node'),
-	    vmid => get_standard_option('pve-vmid'),
+	    vmid => get_standard_option('pve-vmid', { completion => \&PVE::QemuServer::complete_vmid_stopped }),
 	    skiplock => get_standard_option('skiplock'),
 	},
     },
@@ -1178,7 +1179,7 @@ __PACKAGE__->register_method({
     	additionalProperties => 0,
 	properties => {
 	    node => get_standard_option('pve-node'),
-	    vmid => get_standard_option('pve-vmid'),
+	    vmid => get_standard_option('pve-vmid', { completion => \&PVE::QemuServer::complete_vmid }),
 	    idlist => {
 		type => 'string', format => 'pve-configid-list',
 		description => "A list of disk IDs you want to delete.",
@@ -2041,7 +2042,7 @@ __PACKAGE__->register_method({
     	additionalProperties => 0,
 	properties => {
 	    node => get_standard_option('pve-node'),
-	    vmid => get_standard_option('pve-vmid'),
+	    vmid => get_standard_option('pve-vmid', { completion => \&PVE::QemuServer::complete_vmid }),
 	    newid => get_standard_option('pve-vmid', { description => 'VMID for the clone.' }),
 	    name => {
 		optional => 1,
@@ -2322,13 +2323,16 @@ __PACKAGE__->register_method({
         additionalProperties => 0,
         properties => {
 	    node => get_standard_option('pve-node'),
-	    vmid => get_standard_option('pve-vmid'),
+	    vmid => get_standard_option('pve-vmid', { completion => \&PVE::QemuServer::complete_vmid }),
 	    disk => {
 	        type => 'string',
 		description => "The disk you want to move.",
 		enum => [ PVE::QemuServer::disknames() ],
 	    },
-            storage => get_standard_option('pve-storage-id', { description => "Target Storage." }),
+            storage => get_standard_option('pve-storage-id', {
+		description => "Target storage.",
+		completion => \&PVE::QemuServer::complete_storage,
+            }),
             'format' => {
                 type => 'string',
                 description => "Target Format.",
@@ -2470,8 +2474,11 @@ __PACKAGE__->register_method({
     	additionalProperties => 0,
 	properties => {
 	    node => get_standard_option('pve-node'),
-	    vmid => get_standard_option('pve-vmid'),
-	    target => get_standard_option('pve-node', { description => "Target node." }),
+	    vmid => get_standard_option('pve-vmid', { completion => \&PVE::QemuServer::complete_vmid }),
+	    target => get_standard_option('pve-node', { 
+		description => "Target node.",
+		completion =>  \&PVE::Cluster::complete_migration_target,
+            }),
 	    online => {
 		type => 'boolean',
 		description => "Use online/live migration.",
@@ -2609,7 +2616,7 @@ __PACKAGE__->register_method({
         additionalProperties => 0,
         properties => {
 	    node => get_standard_option('pve-node'),
-	    vmid => get_standard_option('pve-vmid'),
+	    vmid => get_standard_option('pve-vmid', { completion => \&PVE::QemuServer::complete_vmid }),
 	    skiplock => get_standard_option('skiplock'),
 	    disk => {
 		type => 'string',
@@ -2788,7 +2795,7 @@ __PACKAGE__->register_method({
 	additionalProperties => 0,
 	properties => {
 	    node => get_standard_option('pve-node'),
-	    vmid => get_standard_option('pve-vmid'),
+	    vmid => get_standard_option('pve-vmid', { completion => \&PVE::QemuServer::complete_vmid }),
 	    snapname => get_standard_option('pve-snapshot-name'),
 	    vmstate => {
 		optional => 1,
@@ -2975,7 +2982,7 @@ __PACKAGE__->register_method({
 	additionalProperties => 0,
 	properties => {
 	    node => get_standard_option('pve-node'),
-	    vmid => get_standard_option('pve-vmid'),
+	    vmid => get_standard_option('pve-vmid', { completion => \&PVE::QemuServer::complete_vmid }),
 	    snapname => get_standard_option('pve-snapshot-name'),
 	},
     },
@@ -3018,7 +3025,7 @@ __PACKAGE__->register_method({
 	additionalProperties => 0,
 	properties => {
 	    node => get_standard_option('pve-node'),
-	    vmid => get_standard_option('pve-vmid'),
+	    vmid => get_standard_option('pve-vmid', { completion => \&PVE::QemuServer::complete_vmid }),
 	    snapname => get_standard_option('pve-snapshot-name'),
 	    force => {
 		optional => 1,
@@ -3067,7 +3074,7 @@ __PACKAGE__->register_method({
 	additionalProperties => 0,
 	properties => {
 	    node => get_standard_option('pve-node'),
-	    vmid => get_standard_option('pve-vmid'),
+	    vmid => get_standard_option('pve-vmid', { completion => \&PVE::QemuServer::complete_vmid_stopped }),
 	    disk => {
 		optional => 1,
 		type => 'string',

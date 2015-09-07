@@ -6443,4 +6443,18 @@ sub complete_vmid_running {
     return &$complete_vmid_full(1);
 }
 
+sub complete_storage {
+
+    my $cfg = PVE::Storage::config();
+    my $ids = $cfg->{ids};
+
+    my $res = [];
+    foreach my $sid (keys %$ids) {
+	next if !PVE::Storage::storage_check_enabled($cfg, $sid, undef, 1);
+	push @$res, $sid;
+    }
+
+    return $res;
+}
+
 1;
