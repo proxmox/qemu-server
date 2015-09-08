@@ -1,3 +1,15 @@
+qemu-server (4.0-21) unstable; urgency=medium
+
+  * qm: implement bash completion
+
+  * add VM protection mode
+
+  * fix move_disk on RBD
+
+  * add HA resources check before destroying a VM
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 08 Sep 2015 10:51:05 +0200
+
 qemu-server (4.0-20) unstable; urgency=medium
 
   * fix start kvm with os type 'other'
