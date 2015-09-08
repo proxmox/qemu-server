@@ -5881,7 +5881,8 @@ sub do_snapshots_with_qemu {
 
     my $storage_name = PVE::Storage::parse_volume_id($volid);
 
-    if ($qemu_snap_storage->{$storecfg->{ids}->{$storage_name}->{type}} ){
+    if ($qemu_snap_storage->{$storecfg->{ids}->{$storage_name}->{type}} 
+	&& !$storecfg->{ids}->{$storage_name}->{krbd}){
 	return 1;
     }
 
