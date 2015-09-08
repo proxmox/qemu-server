@@ -5363,6 +5363,8 @@ sub restore_vma_archive {
 	    $d->{volid} = $volid;
 	    my $path = PVE::Storage::path($cfg, $volid);
 
+	    PVE::Storage::activate_volumes($cfg,[$volid]);
+
 	    my $write_zeros = 1;
 	    # fixme: what other storages types initialize volumes with zero?
 	    if ($scfg->{type} eq 'dir' || $scfg->{type} eq 'nfs' || $scfg->{type} eq 'glusterfs' ||
@@ -5428,13 +5430,21 @@ sub restore_vma_archive {
 
     alarm($oldtimeout) if $oldtimeout;
 
+    my $vollist = [];
+    foreach my $devname (keys %$devinfo) {
+	my $volid = $devinfo->{$devname}->{volid};
+	push @$vollist, $volid if $volid;
+    }
+
+    my $cfg = cfs_read_file('storage.cfg');
+    PVE::Storage::deactivate_volumes($cfg, $vollist);
+
     unlink $mapfifo;
 
     if ($err) {
 	rmtree $tmpdir;
 	unlink $tmpfn;
 
-	my $cfg = cfs_read_file('storage.cfg');
 	foreach my $devname (keys %$devinfo) {
 	    my $volid = $devinfo->{$devname}->{volid};
 	    next if !$volid;
