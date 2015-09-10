@@ -1145,7 +1145,7 @@ __PACKAGE__->register_method({
 	my $storecfg = PVE::Storage::config();
 
 	die  "can't remove VM $vmid - protection mode enabled\n"
-	    if ($conf->{protection} == 1);
+	    if $conf->{protection};
 
 	die "unable to remove VM $vmid - used in HA resources\n"
 	    if PVE::HA::Config::vm_is_ha_managed($vmid);
