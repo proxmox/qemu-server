@@ -2799,7 +2799,7 @@ sub config_to_command {
 
     my $allowed_vcpus = $cpuinfo->{cpus};
 
-    die "MAX $maxcpus vcpus allowed per VM on this node\n"
+    die "MAX $allowed_vcpus vcpus allowed per VM on this node\n"
 	if ($allowed_vcpus < $maxcpus);
 
     push @$cmd, '-smp', "$vcpus,sockets=$sockets,cores=$cores,maxcpus=$maxcpus";
