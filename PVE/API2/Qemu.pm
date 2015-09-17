@@ -206,6 +206,14 @@ my $check_vm_modify_config_perm = sub {
     return 1;
 };
 
+my $check_protection = sub {
+    my ($vm_conf, $err_msg) = @_;
+
+    if ($vm_conf->{protection}) {
+	die "$err_msg - protection mode enabled\n";
+    }
+};
+
 __PACKAGE__->register_method({
     name => 'vmlist',
     path => '',
@@ -383,14 +391,23 @@ __PACKAGE__->register_method({
 	}
 
 	my $restorefn = sub {
+	    my $vmlist = PVE::Cluster::get_vmlist();
+	    my $nodes = PVE::Cluster::get_members();
 
-	    # fixme: this test does not work if VM exists on other node!
-	    if (-f $filename) {
-		die "unable to restore vm $vmid: config file already exists\n"
-		    if !$force;
+	    if ($vmlist->{ids}->{$vmid}) {
+		if ($vmlist->{ids}->{$vmid}->{node} eq $node) {
+		    my $conf = PVE::QemuServer::load_config($vmid);
 
-		die "unable to restore vm $vmid: vm is running\n"
-		    if PVE::QemuServer::check_running($vmid);
+		    &$check_protection($conf, "unable to restore VM $vmid");
+
+		    die "unable to restore vm $vmid - config file already exists\n"
+			if !$force;
+
+		    die "unable to restore vm $vmid - vm is running\n"
+			if PVE::QemuServer::check_running($vmid);
+		} else {
+		    die "unable to restore vm $vmid - already existing on cluster node \'$vmlist->{ids}->{$vmid}->{node}\'\n";
+		}
 	    }
 
 	    my $realcmd = sub {
@@ -889,13 +906,15 @@ my $update_vm_api  = sub {
 		$modified->{$opt} = 1;
 		$conf = PVE::QemuServer::load_config($vmid); # update/reload
 		if ($opt =~ m/^unused/) {
-		    $rpcenv->check_vm_perm($authuser, $vmid, undef, ['VM.Config.Disk']);
 		    my $drive = PVE::QemuServer::parse_drive($opt, $conf->{$opt});
+		    &$check_protection($conf, "can't remove unused disk \'$drive->{file}\'");
+		    $rpcenv->check_vm_perm($authuser, $vmid, undef, ['VM.Config.Disk']);
 		    if (PVE::QemuServer::try_deallocate_drive($storecfg, $vmid, $conf, $opt, $drive, $rpcenv, $authuser)) {
 			delete $conf->{$opt};
 			PVE::QemuServer::update_config_nolock($vmid, $conf, 1);
 		    }
 		} elsif (PVE::QemuServer::valid_drivename($opt)) {
+		    &$check_protection($conf, "can't remove drive \'$opt\'");
 		    $rpcenv->check_vm_perm($authuser, $vmid, undef, ['VM.Config.Disk']);
 		    PVE::QemuServer::vmconfig_register_unused_drive($storecfg, $vmid, $conf, PVE::QemuServer::parse_drive($opt, $conf->{pending}->{$opt}))
 			if defined($conf->{pending}->{$opt});
