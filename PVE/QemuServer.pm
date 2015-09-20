@@ -534,7 +534,7 @@ PVE::JSONSchema::register_standard_option("pve-qm-usb", $usbdesc);
 my $hostpcidesc = {
         optional => 1,
         type => 'string', format => 'pve-qm-hostpci',
-        typetext => "[host=]HOSTPCIDEVICE [,driver=kvm|vfio] [,rombar=on|off] [,pcie=0|1] [,x-vga=on|off]",
+        typetext => "[host=]HOSTPCIDEVICE [,rombar=on|off] [,pcie=0|1] [,x-vga=on|off]",
         description => <<EODESCR,
 Map host pci devices. HOSTPCIDEVICE syntax is:
 
@@ -1319,8 +1319,6 @@ sub parse_hostpci {
 		my $pcidevices = lspci($2);
 	        $res->{pciid} = $pcidevices->{$2};
 	    }
-	} elsif ($kv =~ m/^driver=(kvm|vfio)$/) {
-	    $res->{driver} = $1;
 	} elsif ($kv =~ m/^rombar=(on|off)$/) {
 	    $res->{rombar} = $1;
 	} elsif ($kv =~ m/^x-vga=(on|off)$/) {
@@ -2714,13 +2712,11 @@ sub config_to_command {
 	}
 
 	my $rombar = $d->{rombar} && $d->{rombar} eq 'off' ? ",rombar=0" : "";
-	my $driver = $d->{driver} && $d->{driver} eq 'vfio' ? "vfio-pci" : "pci-assign";
 	my $xvga = $d->{'x-vga'} && $d->{'x-vga'} eq 'on' ? ",x-vga=on" : "";
 	if ($xvga && $xvga ne '') {
 	    push @$cpuFlags, 'kvm=off';
 	    $vga = 'none';
 	}
-	$driver = "vfio-pci" if $xvga ne '';
 	my $pcidevices = $d->{pciid};
 	my $multifunction = 1 if @$pcidevices > 1;
 
@@ -2731,7 +2727,7 @@ sub config_to_command {
 	    $id .= ".$j" if $multifunction;
 	    my $addr = $pciaddr;
 	    $addr .= ".$j" if $multifunction;
-	    my $devicestr = "$driver,host=$pcidevice->{id}.$pcidevice->{function},id=$id$addr";
+	    my $devicestr = "vfio-pci,host=$pcidevice->{id}.$pcidevice->{function},id=$id$addr";
 
 	    if($j == 0){
 		$devicestr .= "$rombar$xvga";
@@ -4325,13 +4321,7 @@ sub vm_start {
 		my $info = pci_device_info("0000:$pciid");
 		die "IOMMU not present\n" if !check_iommu_support();
 		die "no pci device info for device '$pciid'\n" if !$info;
-
-		if ($d->{driver} && $d->{driver} eq "vfio") {
-		    die "can't unbind/bind pci group to vfio '$pciid'\n" if !pci_dev_group_bind_to_vfio($pciid);
-		} else {
-		    die "can't unbind/bind to stub pci device '$pciid'\n" if !pci_dev_bind_to_stub($info);
-		}
-
+		die "can't unbind/bind pci group to vfio '$pciid'\n" if !pci_dev_group_bind_to_vfio($pciid);
 		die "can't reset pci device '$pciid'\n" if $info->{has_fl_reset} and !pci_dev_reset($info);
 	  }
         }
@@ -4712,30 +4702,6 @@ sub pci_dev_reset {
     my $fn = "$pcisysfs/devices/$name/reset";
 
     return file_write($fn, "1");
-}
-
-sub pci_dev_bind_to_stub {
-    my ($dev) = @_;
-
-    my $name = $dev->{name};
-
-    my $testdir = "$pcisysfs/drivers/pci-stub/$name";
-    return 1 if -d $testdir;
-
-    my $data = "$dev->{vendor} $dev->{product}";
-    return undef if !file_write("$pcisysfs/drivers/pci-stub/new_id", $data);
-
-    my $fn = "$pcisysfs/devices/$name/driver/unbind";
-    if (!file_write($fn, $name)) {
-	return undef if -f $fn;
-    }
-
-    $fn = "$pcisysfs/drivers/pci-stub/bind";
-    if (! -d $testdir) {
-	return undef if !file_write($fn, $name);
-    }
-
-    return -d $testdir;
 }
 
 sub pci_dev_bind_to_vfio {
