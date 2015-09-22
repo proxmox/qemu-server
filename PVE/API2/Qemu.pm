@@ -187,8 +187,6 @@ my $check_vm_modify_config_perm = sub {
 	    $opt eq 'cpu' || $opt eq 'smp' || $opt eq 'vcpus' ||
 	    $opt eq 'cpulimit' || $opt eq 'cpuunits') {
 	    $rpcenv->check_vm_perm($authuser, $vmid, $pool, ['VM.Config.CPU']);
-	} elsif ($opt eq 'boot' || $opt eq 'bootdisk') {
-	    $rpcenv->check_vm_perm($authuser, $vmid, $pool, ['VM.Config.Disk']);
 	} elsif ($opt eq 'memory' || $opt eq 'balloon' || $opt eq 'shares') {
 	    $rpcenv->check_vm_perm($authuser, $vmid, $pool, ['VM.Config.Memory']);
 	} elsif ($opt eq 'args' || $opt eq 'lock') {
