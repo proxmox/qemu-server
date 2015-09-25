@@ -1,3 +1,11 @@
+qemu-server (4.0-26) unstable; urgency=medium
+
+  * migration: disable compress (already default)
+
+  * migration: enable xbzrle
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 25 Sep 2015 17:59:30 +0200
+
 qemu-server (4.0-25) unstable; urgency=medium
 
   * fix kvm version parser for CVE stable releases
