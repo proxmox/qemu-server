@@ -3857,6 +3857,7 @@ sub set_migration_caps {
 	"xbzrle" => 1,
 	"x-rdma-pin-all" => 0,
 	"zero-blocks" => 0,
+	"compress" => 0
     };
 
     my $supported_capabilities = vm_mon_cmd_nocheck($vmid, "query-migrate-capabilities");
