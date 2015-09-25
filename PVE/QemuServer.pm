@@ -3854,7 +3854,7 @@ sub set_migration_caps {
 
     my $enabled_cap = {
 	"auto-converge" => 1,
-	"xbzrle" => 0,
+	"xbzrle" => 1,
 	"x-rdma-pin-all" => 0,
 	"zero-blocks" => 0,
     };
