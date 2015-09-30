@@ -481,7 +481,7 @@ my $drivename_hash;
 my $idedesc = {
     optional => 1,
     type => 'string', format => 'pve-qm-drive',
-    typetext => '[volume=]volume,] [,media=cdrom|disk] [,cyls=c,heads=h,secs=s[,trans=t]] [,snapshot=on|off] [,cache=none|writethrough|writeback|unsafe|directsync] [,format=f] [,backup=yes|no] [,rerror=ignore|report|stop] [,werror=enospc|ignore|report|stop] [,aio=native|threads] [,discard=ignore|on]',
+    typetext => '[volume=]volume,] [,media=cdrom|disk] [,cyls=c,heads=h,secs=s[,trans=t]] [,snapshot=on|off] [,cache=none|writethrough|writeback|unsafe|directsync] [,format=f] [,backup=yes|no] [,rerror=ignore|report|stop] [,werror=enospc|ignore|report|stop] [,aio=native|threads] [,discard=ignore|on] [,serial=serial][,model=model]',
     description => "Use volume as IDE hard disk or CD-ROM (n is 0 to " .($MAX_IDE_DISKS -1) . ").",
 };
 PVE::JSONSchema::register_standard_option("pve-qm-ide", $idedesc);
@@ -489,7 +489,7 @@ PVE::JSONSchema::register_standard_option("pve-qm-ide", $idedesc);
 my $scsidesc = {
     optional => 1,
     type => 'string', format => 'pve-qm-drive',
-    typetext => '[volume=]volume,] [,media=cdrom|disk] [,cyls=c,heads=h,secs=s[,trans=t]] [,snapshot=on|off] [,cache=none|writethrough|writeback|unsafe|directsync] [,format=f] [,backup=yes|no] [,rerror=ignore|report|stop] [,werror=enospc|ignore|report|stop] [,aio=native|threads] [,discard=ignore|on] [,iothread=on] [,queues=<nbqueues>]',
+    typetext => '[volume=]volume,] [,media=cdrom|disk] [,cyls=c,heads=h,secs=s[,trans=t]] [,snapshot=on|off] [,cache=none|writethrough|writeback|unsafe|directsync] [,format=f] [,backup=yes|no] [,rerror=ignore|report|stop] [,werror=enospc|ignore|report|stop] [,aio=native|threads] [,discard=ignore|on] [,iothread=on] [,queues=<nbqueues>] [,serial=serial]',
     description => "Use volume as SCSI hard disk or CD-ROM (n is 0 to " . ($MAX_SCSI_DISKS - 1) . ").",
 };
 PVE::JSONSchema::register_standard_option("pve-qm-scsi", $scsidesc);
@@ -497,7 +497,7 @@ PVE::JSONSchema::register_standard_option("pve-qm-scsi", $scsidesc);
 my $satadesc = {
     optional => 1,
     type => 'string', format => 'pve-qm-drive',
-    typetext => '[volume=]volume,] [,media=cdrom|disk] [,cyls=c,heads=h,secs=s[,trans=t]] [,snapshot=on|off] [,cache=none|writethrough|writeback|unsafe|directsync] [,format=f] [,backup=yes|no] [,rerror=ignore|report|stop] [,werror=enospc|ignore|report|stop] [,aio=native|threads]  [,discard=ignore|on]',
+    typetext => '[volume=]volume,] [,media=cdrom|disk] [,cyls=c,heads=h,secs=s[,trans=t]] [,snapshot=on|off] [,cache=none|writethrough|writeback|unsafe|directsync] [,format=f] [,backup=yes|no] [,rerror=ignore|report|stop] [,werror=enospc|ignore|report|stop] [,aio=native|threads]  [,discard=ignore|on] [,serial=serial]',
     description => "Use volume as SATA hard disk or CD-ROM (n is 0 to " . ($MAX_SATA_DISKS - 1). ").",
 };
 PVE::JSONSchema::register_standard_option("pve-qm-sata", $satadesc);
@@ -505,7 +505,7 @@ PVE::JSONSchema::register_standard_option("pve-qm-sata", $satadesc);
 my $virtiodesc = {
     optional => 1,
     type => 'string', format => 'pve-qm-drive',
-    typetext => '[volume=]volume,] [,media=cdrom|disk] [,cyls=c,heads=h,secs=s[,trans=t]] [,snapshot=on|off] [,cache=none|writethrough|writeback|unsafe|directsync] [,format=f] [,backup=yes|no] [,rerror=ignore|report|stop] [,werror=enospc|ignore|report|stop] [,aio=native|threads]  [,discard=ignore|on] [,iothread=on]',
+    typetext => '[volume=]volume,] [,media=cdrom|disk] [,cyls=c,heads=h,secs=s[,trans=t]] [,snapshot=on|off] [,cache=none|writethrough|writeback|unsafe|directsync] [,format=f] [,backup=yes|no] [,rerror=ignore|report|stop] [,werror=enospc|ignore|report|stop] [,aio=native|threads]  [,discard=ignore|on] [,iothread=on] [,serial=serial]',
     description => "Use volume as VIRTIO hard disk (n is 0 to " . ($MAX_VIRTIO_DISKS - 1) . ").",
 };
 PVE::JSONSchema::register_standard_option("pve-qm-virtio", $virtiodesc);
@@ -875,6 +875,7 @@ my $format_size = sub {
 #        [,snapshot=on|off][,cache=on|off][,format=f][,backup=yes|no]
 #        [,rerror=ignore|report|stop][,werror=enospc|ignore|report|stop]
 #        [,aio=native|threads][,discard=ignore|on][,iothread=on]
+#        [,serial=serial][,model=model]
 
 sub parse_drive {
     my ($key, $data) = @_;
@@ -895,7 +896,7 @@ sub parse_drive {
     foreach my $p (split (/,/, $data)) {
 	next if $p =~ m/^\s*$/;
 
-	if ($p =~ m/^(file|volume|cyls|heads|secs|trans|media|snapshot|cache|format|rerror|werror|backup|aio|bps|mbps|mbps_max|bps_rd|mbps_rd|mbps_rd_max|bps_wr|mbps_wr|mbps_wr_max|iops|iops_max|iops_rd|iops_rd_max|iops_wr|iops_wr_max|size|discard|iothread|queues)=(.+)$/) {
+	if ($p =~ m/^(file|volume|cyls|heads|secs|trans|media|snapshot|cache|format|rerror|werror|backup|aio|bps|mbps|mbps_max|bps_rd|mbps_rd|mbps_rd_max|bps_wr|mbps_wr|mbps_wr_max|iops|iops_max|iops_rd|iops_rd_max|iops_wr|iops_wr_max|size|discard|iothread|queues|serial|model)=(.+)$/) {
 	    my ($k, $v) = ($1, $2);
 
 	    $k = 'file' if $k eq 'volume';
@@ -957,7 +958,6 @@ sub parse_drive {
     return undef if $res->{iops_wr} && $res->{iops_wr} !~ m/^\d+$/;
     return undef if $res->{iops_wr_max} && $res->{iops_wr_max} !~ m/^\d+$/;
 
-
     if ($res->{size}) {
 	return undef if !defined($res->{size} = &$parse_size($res->{size}));
     }
@@ -976,7 +976,7 @@ sub parse_drive {
     return $res;
 }
 
-my @qemu_drive_options = qw(heads secs cyls trans media format cache snapshot rerror werror aio discard iops iops_rd iops_wr iops_max iops_rd_max iops_wr_max);
+my @qemu_drive_options = qw(heads secs cyls trans media format cache snapshot rerror werror aio discard iops iops_rd iops_wr iops_max iops_rd_max iops_wr_max serial);
 
 sub print_drive {
     my ($vmid, $drive) = @_;
@@ -988,6 +988,10 @@ sub print_drive {
 
     if ($drive->{size}) {
 	$opts .= ",size=" . &$format_size($drive->{size});
+    }
+
+    if (my $model = $drive->{model}) {
+	$opts .= ",model=$model";
     }
 
     return "$drive->{file}$opts";
@@ -1122,6 +1126,9 @@ sub print_drivedevice_full {
 	my $devicetype = ($drive->{media} && $drive->{media} eq 'cdrom') ? "cd" : "hd";
 
 	$device = "ide-$devicetype,bus=ide.$controller,unit=$unit,drive=drive-$drive->{interface}$drive->{index},id=$drive->{interface}$drive->{index}";
+	if ($devicetype eq 'hd' && (my $model = $drive->{model})) {
+	    $device .= ",model=$model";
+	}
     } elsif ($drive->{interface} eq 'sata'){
 	my $controller = int($drive->{index} / $MAX_SATA_DISKS);
 	my $unit = $drive->{index} % $MAX_SATA_DISKS;
