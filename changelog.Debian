@@ -1,3 +1,9 @@
+qemu-server (4.0-29) unstable; urgency=medium
+
+  * support serial numbers and models for disks
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 30 Sep 2015 10:56:30 +0200
+
 qemu-server (4.0-28) unstable; urgency=medium
 
   *  disable kvm_steal_time, because it's currently buggy with live migration
