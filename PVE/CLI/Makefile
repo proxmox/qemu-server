@@ -1,4 +1,4 @@
-SOURCES=qm.pm
+SOURCES=qm.pm qmrestore.pm
 
 .PHONY: install
 install: ${SOURCES}

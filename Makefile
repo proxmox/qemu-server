@@ -55,7 +55,7 @@ sparsecp: sparsecp.c utils.c
 %.1.pod: %
 	podselect $*>$@
 
-qm.1.pod: qm PVE/QemuServer.pm
+qm.1.pod: PVE/CLI/qm.pm PVE/QemuServer.pm
 	perl -I. -T -e "use PVE::CLI::qm; PVE::CLI::qm->generate_pod_manpage();" >$@.tmp
 	mv $@.tmp $@
 
@@ -63,13 +63,18 @@ qm.bash-completion:
 	perl -I. -T -e "use PVE::CLI::qm; PVE::CLI::qm->generate_bash_completions();" >$@.tmp
 	mv $@.tmp $@
 
-qmrestore.1.pod: qmrestore
-	perl -I. ./qmrestore printmanpod >$@
+qmrestore.1.pod: PVE/CLI/qmrestore.pm
+	perl -I. -T -e "use PVE::CLI::qmrestore; PVE::CLI::qmrestore->generate_pod_manpage();" >$@.tmp
+	mv $@.tmp $@
+
+qmrestore.bash-completion:
+	perl -I. -T -e "use PVE::CLI::qmrestore; PVE::CLI::qmrestore->generate_bash_completions();" >$@.tmp
+	mv $@.tmp $@
 
 vm.conf.5.pod: gen-vmconf-pod.pl PVE/QemuServer.pm 
 	perl -I. ./gen-vmconf-pod.pl >$@
 
-PKGSOURCES=qm qm.1.gz qm.1.pod qmrestore qmrestore.1.pod qmrestore.1.gz qmextract sparsecp vmtar control vm.conf.5.pod vm.conf.5.gz qm.bash-completion
+PKGSOURCES=qm qm.1.gz qm.1.pod qmrestore qmrestore.1.pod qmrestore.1.gz qmextract sparsecp vmtar control vm.conf.5.pod vm.conf.5.gz qm.bash-completion qmrestore.bash-completion
 
 .PHONY: install
 install: ${PKGSOURCES}
@@ -84,6 +89,7 @@ install: ${PKGSOURCES}
 	install -m 0644 pve-usb.cfg ${DESTDIR}/usr/share/${PACKAGE}
 	install -m 0644 pve-q35.cfg ${DESTDIR}/usr/share/${PACKAGE}
 	install -m 0644 -D qm.bash-completion ${DESTDIR}/${BASHCOMPLDIR}/qm
+	install -m 0644 -D qmrestore.bash-completion ${DESTDIR}/${BASHCOMPLDIR}/qmrestore
 	make -C PVE install
 	install -m 0755 qm ${DESTDIR}${SBINDIR}
 	install -m 0755 qmrestore ${DESTDIR}${SBINDIR}

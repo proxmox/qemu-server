@@ -5,4 +5,4 @@ use warnings;
 
 use PVE::CLI::qm;
 
-PVE::CLI::qm->run_cli();
+PVE::CLI::qm->run_cli_handler();
