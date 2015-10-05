@@ -422,8 +422,7 @@ __PACKAGE__->register_method({
 	my $createfn = sub {
 
 	    # test after locking
-	    die "unable to create vm $vmid: config file already exists\n"
-		if -f $filename;
+	    PVE::Cluster::check_vmid_unused($vmid);
 
 	    my $realcmd = sub {
 
