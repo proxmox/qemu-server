@@ -1888,6 +1888,8 @@ __PACKAGE__->register_method({
 	    node => get_standard_option('pve-node'),
 	    vmid => get_standard_option('pve-vmid'),
 	    skiplock => get_standard_option('skiplock'),
+	    nocheck => { type => 'boolean', optional => 1 },
+
 	},
     },
     returns => {
@@ -1908,14 +1910,16 @@ __PACKAGE__->register_method({
 	raise_param_exc({ skiplock => "Only root may use this option." })
 	    if $skiplock && $authuser ne 'root@pam';
 
-	die "VM $vmid not running\n" if !PVE::QemuServer::check_running($vmid);
+	my $nocheck = extract_param($param, 'nocheck');
+
+	die "VM $vmid not running\n" if !PVE::QemuServer::check_running($vmid, $nocheck);
 
 	my $realcmd = sub {
 	    my $upid = shift;
 
 	    syslog('info', "resume VM $vmid: $upid\n");
 
-	    PVE::QemuServer::vm_resume($vmid, $skiplock);
+	    PVE::QemuServer::vm_resume($vmid, $skiplock, $nocheck);
 
 	    return;
 	};

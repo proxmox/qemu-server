@@ -584,7 +584,7 @@ sub phase3_cleanup {
 
     if ($self->{livemigration}) {
 	# now that config file is move, we can resume vm on target if livemigrate
-	my $cmd = [@{$self->{rem_ssh}}, 'qm', 'resume', $vmid, '--skiplock'];
+	my $cmd = [@{$self->{rem_ssh}}, 'qm', 'resume', $vmid, '--skiplock', '--nocheck'];
 	eval{ PVE::Tools::run_command($cmd, outfunc => sub {}, 
 		errfunc => sub {
 		    my $line = shift;

@@ -4615,15 +4615,21 @@ sub vm_suspend {
 }
 
 sub vm_resume {
-    my ($vmid, $skiplock) = @_;
+    my ($vmid, $skiplock, $nocheck) = @_;
 
     lock_config($vmid, sub {
 
-	my $conf = load_config($vmid);
+	if (!$nocheck) {
 
-	check_lock($conf) if !($skiplock || ($conf->{lock} && $conf->{lock} eq 'backup'));
+	    my $conf = load_config($vmid);
 
-	vm_mon_cmd($vmid, "cont");
+	    check_lock($conf) if !($skiplock || ($conf->{lock} && $conf->{lock} eq 'backup'));
+
+	    vm_mon_cmd($vmid, "cont");
+
+	} else {
+	    vm_mon_cmd_nocheck($vmid, "cont");
+	}
     });
 }
 
