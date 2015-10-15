@@ -1,3 +1,9 @@
+qemu-server (4.0-31) unstable; urgency=medium
+
+  * migrate : add nocheck for resume
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 15 Oct 2015 12:41:43 +0200
+
 qemu-server (4.0-30) unstable; urgency=medium
 
   * qmrestore: implement bash completion
