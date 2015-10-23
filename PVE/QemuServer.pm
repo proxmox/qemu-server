@@ -1219,7 +1219,7 @@ sub print_drive_full {
 }
 
 sub print_netdevice_full {
-    my ($vmid, $conf, $net, $netid, $bridges) = @_;
+    my ($vmid, $conf, $net, $netid, $bridges, $use_old_bios_files) = @_;
 
     my $bootorder = $conf->{boot} || $confdesc->{boot}->{default};
 
@@ -1236,6 +1236,23 @@ sub print_netdevice_full {
 	$tmpstr .= ",vectors=$vectors,mq=on";
     }
     $tmpstr .= ",bootindex=$net->{bootindex}" if $net->{bootindex} ;
+
+    if ($use_old_bios_files) {
+	my $romfile;
+	if ($device eq 'virtio-net-pci') {
+	    $romfile = 'pxe-virtio.rom';
+	} elsif ($device eq 'e1000') {
+	    $romfile = 'pxe-e1000.rom';
+	} elsif ($device eq 'ne2k') {
+	    $romfile = 'pxe-ne2k_pci.rom';
+	} elsif ($device eq 'pcnet') {
+	    $romfile = 'pxe-pcnet.rom';
+	} elsif ($device eq 'rtl8139') {
+	    $romfile = 'pxe-rtl8139.rom';
+	}
+	$tmpstr .= ",romfile=$romfile" if $romfile;
+    }
+
     return $tmpstr;
 }
 
@@ -2601,7 +2618,7 @@ sub vga_conf_has_spice {
 }
 
 sub config_to_command {
-    my ($storecfg, $vmid, $conf, $defaults, $forcemachine) = @_;
+    my ($storecfg, $vmid, $conf, $defaults, $forcemachine, $use_old_bios_files) = @_;
 
     my $cmd = [];
     my $globalFlags = [];
@@ -3153,7 +3170,7 @@ sub config_to_command {
          my $netdevfull = print_netdev_full($vmid,$conf,$d,"net$i");
          push @$devices, '-netdev', $netdevfull;
 
-         my $netdevicefull = print_netdevice_full($vmid,$conf,$d,"net$i",$bridges);
+         my $netdevicefull = print_netdevice_full($vmid, $conf, $d, "net$i", $bridges, $use_old_bios_files);
          push @$devices, '-device', $netdevicefull;
     }
 
@@ -4274,7 +4291,8 @@ sub vmconfig_update_disk {
 }
 
 sub vm_start {
-    my ($storecfg, $vmid, $statefile, $skiplock, $migratedfrom, $paused, $forcemachine, $spice_ticket) = @_;
+    my ($storecfg, $vmid, $statefile, $skiplock, $migratedfrom, $paused,
+	$forcemachine, $spice_ticket) = @_;
 
     lock_config($vmid, sub {
 	my $conf = load_config($vmid, $migratedfrom);
@@ -4295,7 +4313,15 @@ sub vm_start {
 	# set environment variable useful inside network script
 	$ENV{PVE_MIGRATED_FROM} = $migratedfrom if $migratedfrom;
 
-	my ($cmd, $vollist, $spice_port) = config_to_command($storecfg, $vmid, $conf, $defaults, $forcemachine);
+	# Note: kvm version < 2.4 use non-efi pxe files, and have problems when we
+	# load new efi bios files on migration
+	my $use_old_bios_files;
+	if ($migratedfrom && $forcemachine && ($forcemachine =~ m/pc-(i440fx|q35)-(\d+)\.(\d+)/)) {
+	    my ($major, $minor) = ($2, $3);
+	    $use_old_bios_files = 1 if ($major <= 2) && ($minor < 4);
+	}
+
+	my ($cmd, $vollist, $spice_port) = config_to_command($storecfg, $vmid, $conf, $defaults, $forcemachine, $use_old_bios_files);
 
 	my $migrate_port = 0;
 	my $migrate_uri;
