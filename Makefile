@@ -79,7 +79,6 @@ PKGSOURCES=qm qm.1.gz qm.1.pod qmrestore qmrestore.1.pod qmrestore.1.gz qmextrac
 .PHONY: install
 install: ${PKGSOURCES}
 	install -d ${DESTDIR}/${SBINDIR}
-	install -d ${DESTDIR}/etc/${PACKAGE}
 	install -d ${DESTDIR}${LIBDIR}
 	install -d ${DESTDIR}${VARLIBDIR}
 	install -d ${DESTDIR}${PODDIR}
