@@ -1,3 +1,9 @@
+qemu-server (4.0-32) unstable; urgency=medium
+
+  * use old netdevice bios files for older machine types (<= 2.4)
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 28 Oct 2015 09:08:49 +0100
+
 qemu-server (4.0-31) unstable; urgency=medium
 
   * migrate : add nocheck for resume
