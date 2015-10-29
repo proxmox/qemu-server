@@ -2618,7 +2618,7 @@ sub vga_conf_has_spice {
 }
 
 sub config_to_command {
-    my ($storecfg, $vmid, $conf, $defaults, $forcemachine, $use_old_bios_files) = @_;
+    my ($storecfg, $vmid, $conf, $defaults, $forcemachine) = @_;
 
     my $cmd = [];
     my $globalFlags = [];
@@ -2657,6 +2657,12 @@ sub config_to_command {
 	push @$cmd, '-p', "CPUQuota=$cpulimit\%";
     }
 
+    # Note: kvm version < 2.4 use non-efi pxe files, and have problems when we
+    # load new efi bios files on migration. So this hack is required to allow
+    # live migration from qemu-2.2 to qemu-2.4, which is sometimes used when
+    # updrading from proxmox-ve-3.X to proxmox-ve 4.0
+    my $use_old_bios_files = !qemu_machine_feature_enabled ($machine_type, $kvmver, 2, 4);
+    
     push @$cmd, '/usr/bin/kvm';
 
     push @$cmd, '-id', $vmid;
@@ -4313,15 +4319,7 @@ sub vm_start {
 	# set environment variable useful inside network script
 	$ENV{PVE_MIGRATED_FROM} = $migratedfrom if $migratedfrom;
 
-	# Note: kvm version < 2.4 use non-efi pxe files, and have problems when we
-	# load new efi bios files on migration
-	my $use_old_bios_files;
-	if ($migratedfrom && $forcemachine && ($forcemachine =~ m/pc-(i440fx|q35)-(\d+)\.(\d+)/)) {
-	    my ($major, $minor) = ($2, $3);
-	    $use_old_bios_files = 1 if ($major <= 2) && ($minor < 4);
-	}
-
-	my ($cmd, $vollist, $spice_port) = config_to_command($storecfg, $vmid, $conf, $defaults, $forcemachine, $use_old_bios_files);
+	my ($cmd, $vollist, $spice_port) = config_to_command($storecfg, $vmid, $conf, $defaults, $forcemachine);
 
 	my $migrate_port = 0;
 	my $migrate_uri;
