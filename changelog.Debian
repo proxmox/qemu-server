@@ -1,4 +1,4 @@
-qemu-server (4.0-32) unstable; urgency=medium
+qemu-server (4.0-33) unstable; urgency=medium
 
   * use old netdevice bios files for older machine types (<= 2.4)
 
