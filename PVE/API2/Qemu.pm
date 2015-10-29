@@ -2191,6 +2191,7 @@ __PACKAGE__->register_method({
 
 	    my $newconf = { lock => 'clone' };
 	    my $drives = {};
+	    my $fullclone = {};
 	    my $vollist = [];
 
 	    foreach my $opt (keys %$oldconf) {
@@ -2217,7 +2218,7 @@ __PACKAGE__->register_method({
 			if ($param->{full}) {
 			    die "Full clone feature is not available"
 				if !PVE::Storage::volume_has_feature($storecfg, 'copy', $drive->{file}, $snapname, $running);
-			    $drive->{full} = 1;
+			    $fullclone->{$opt} = 1;
 			} else {
 			    # not full means clone instead of copy
 			    die "Linked clone feature is not available"
@@ -2273,7 +2274,7 @@ __PACKAGE__->register_method({
 			my $drive = $drives->{$opt};
 
 			my $newdrive = PVE::QemuServer::clone_disk($storecfg, $vmid, $running, $opt, $drive, $snapname,
-								   $newid, $storage, $format, $drive->{full}, $newvollist);
+								   $newid, $storage, $format, $fullclone->{$opt}, $newvollist);
 
 			$newconf->{$opt} = PVE::QemuServer::print_drive($vmid, $newdrive);
 
