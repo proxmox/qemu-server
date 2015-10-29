@@ -789,11 +789,7 @@ my $update_vm_api  = sub {
 
     my @paramarr = (); # used for log message
     foreach my $key (keys %$param) {
-	if ($key eq 'description') {
-	    push @paramarr, "-$key",  PVE::Tools::encode_text($param->{$key});
-	} else {
-	    push @paramarr, "-$key", $param->{$key};
-	}
+	push @paramarr, "-$key", $param->{$key};
     }
 
     my $skiplock = extract_param($param, 'skiplock');
