@@ -1,8 +1,6 @@
-qemu-server (4.0-33) unstable; urgency=medium
+qemu-server (4.0-34) unstable; urgency=medium
 
   * use old netdevice bios files for older machine types (<= 2.4)
-
-  * fix bug 790: encode description before writing to syslog
 
  -- Proxmox Support Team <support@proxmox.com>  Wed, 28 Oct 2015 09:08:49 +0100
 
