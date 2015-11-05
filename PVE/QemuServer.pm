@@ -373,7 +373,7 @@ EODESCR
     machine => {
 	description => "Specific the Qemu machine type.",
 	type => 'string',
-	pattern => '(pc|pc(-i440fx)?-\d+\.\d+|q35|pc-q35-\d+\.\d+)',
+	pattern => '(pc|pc(-i440fx)?-\d+\.\d+(\.pxe)?|q35|pc-q35-\d+\.\d+(\.pxe)?)',
 	maxLength => 40,
 	optional => 1,
     },
@@ -2657,12 +2657,20 @@ sub config_to_command {
 	push @$cmd, '-p', "CPUQuota=$cpulimit\%";
     }
 
-    # Note: kvm version < 2.4 use non-efi pxe files, and have problems when we
-    # load new efi bios files on migration. So this hack is required to allow
-    # live migration from qemu-2.2 to qemu-2.4, which is sometimes used when
-    # updrading from proxmox-ve-3.X to proxmox-ve 4.0
-    my $use_old_bios_files = !qemu_machine_feature_enabled ($machine_type, $kvmver, 2, 4);
-    
+
+    my $use_old_bios_files = undef;
+
+    if ($machine_type && $machine_type =~ m/^(\S+)\.pxe$/){
+	$machine_type = $1;
+	$use_old_bios_files = 1;
+    } else {
+	# Note: kvm version < 2.4 use non-efi pxe files, and have problems when we
+	# load new efi bios files on migration. So this hack is required to allow
+	# live migration from qemu-2.2 to qemu-2.4, which is sometimes used when
+	# updrading from proxmox-ve-3.X to proxmox-ve 4.0
+    	$use_old_bios_files = !qemu_machine_feature_enabled ($machine_type, $kvmver, 2, 4);
+    }
+
     push @$cmd, '/usr/bin/kvm';
 
     push @$cmd, '-id', $vmid;
