@@ -334,7 +334,7 @@ sub phase2 {
     PVE::Tools::run_command($cmd, input => $spice_ticket, outfunc => sub {
 	my $line = shift;
 
-	if ($line =~ m/^migration listens on tcp:\[([\d\.:a-fA-F]+|localhost)\]:(\d+)$/) {
+	if ($line =~ m/^migration listens on tcp:(localhost|[\d\.]+|\[[\d\.:a-fA-F]+\]):(\d+)$/) {
 	    $raddr = $1;
 	    $rport = int($2);
 	}
@@ -418,10 +418,10 @@ sub phase2 {
     }
 
     eval {
-        PVE::QemuServer::vm_mon_cmd_nocheck($vmid, "migrate", uri => "tcp:[$raddr]:$rport");
+        PVE::QemuServer::vm_mon_cmd_nocheck($vmid, "migrate", uri => "tcp:$raddr:$rport");
     };
     my $merr = $@;
-    $self->log('info', "migrate uri => tcp:[$raddr]:$rport failed: $merr") if $merr;
+    $self->log('info', "migrate uri => tcp:$raddr:$rport failed: $merr") if $merr;
 
     my $lstat = 0;
     my $usleep = 2000000;
