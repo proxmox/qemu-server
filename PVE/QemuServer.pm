@@ -6365,6 +6365,22 @@ sub qemu_machine_feature_enabled {
 
 }
 
+sub qemu_machine_pxe {
+    my ($vmid, $conf, $machine) = @_;
+
+    $machine =  PVE::QemuServer::get_current_qemu_machine($vmid) if !$machine;
+
+    foreach my $opt (keys %$conf) {
+	next if $opt !~ m/^net(\d+)$/;
+	my $net = PVE::QemuServer::parse_net($conf->{$opt});
+	next if !$net;
+	my $romfile = PVE::QemuServer::vm_mon_cmd_nocheck($vmid, 'qom-get', path => $opt, property => 'romfile');
+	return $machine.".pxe" if $romfile =~ m/pxe/;
+	last;
+    }
+
+}
+
 sub lspci {
 
     my $devices = {};

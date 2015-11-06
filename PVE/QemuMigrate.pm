@@ -141,16 +141,8 @@ sub prepare {
     if (my $pid = PVE::QemuServer::check_running($vmid)) {
 	die "cant migrate running VM without --online\n" if !$online;
 	$running = $pid;
-	$self->{forcemachine} = PVE::QemuServer::get_current_qemu_machine($vmid);
 
-	foreach my $opt (keys %$conf) {
-	    next if $opt !~ m/^net(\d+)$/;
-	    my $net = PVE::QemuServer::parse_net($conf->{$opt});
-	    next if !$net;
-	    my $romfile = PVE::QemuServer::vm_mon_cmd_nocheck($vmid, 'qom-get', path => $opt, property => 'romfile');
-	    $self->{forcemachine} .= '.pxe' if $romfile =~ m/pxe/;
-	    last;
-	}
+	$self->{forcemachine} = PVE::QemuServer::qemu_machine_pxe($vmid, $conf);
 
     }
 
