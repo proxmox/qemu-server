@@ -93,6 +93,7 @@ install: ${PKGSOURCES}
 	install -m 0755 qm ${DESTDIR}${SBINDIR}
 	install -m 0755 qmrestore ${DESTDIR}${SBINDIR}
 	install -m 0755 pve-bridge ${DESTDIR}${VARLIBDIR}/pve-bridge
+	install -m 0755 pve-bridge-hotplug ${DESTDIR}${VARLIBDIR}/pve-bridge-hotplug
 	install -m 0755 pve-bridgedown ${DESTDIR}${VARLIBDIR}/pve-bridgedown
 	install -s -m 0755 vmtar ${DESTDIR}${LIBDIR}
 	install -s -m 0755 sparsecp ${DESTDIR}${LIBDIR}

@@ -1257,7 +1257,7 @@ sub print_netdevice_full {
 }
 
 sub print_netdev_full {
-    my ($vmid, $conf, $net, $netid) = @_;
+    my ($vmid, $conf, $net, $netid, $hotplug) = @_;
 
     my $i = '';
     if ($netid =~ m/^net(\d+)$/) {
@@ -1278,9 +1278,10 @@ sub print_netdev_full {
     my $vmname = $conf->{name} || "vm$vmid";
 
     my $netdev = "";
+    my $script = $hotplug ? "pve-bridge-hotplug" : "pve-bridge";
 
     if ($net->{bridge}) {
-        $netdev = "type=tap,id=$netid,ifname=${ifname},script=/var/lib/qemu-server/pve-bridge,downscript=/var/lib/qemu-server/pve-bridgedown$vhostparam";
+        $netdev = "type=tap,id=$netid,ifname=${ifname},script=/var/lib/qemu-server/$script,downscript=/var/lib/qemu-server/pve-bridgedown$vhostparam";
     } else {
         $netdev = "type=user,id=$netid,hostname=$vmname";
     }
@@ -3599,7 +3600,7 @@ sub qemu_set_link_status {
 sub qemu_netdevadd {
     my ($vmid, $conf, $device, $deviceid) = @_;
 
-    my $netdev = print_netdev_full($vmid, $conf, $device, $deviceid);
+    my $netdev = print_netdev_full($vmid, $conf, $device, $deviceid, 1);
     my %options =  split(/[=,]/, $netdev);
 
     vm_mon_cmd($vmid, "netdev_add",  %options);
