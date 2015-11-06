@@ -2,7 +2,7 @@ RELEASE=4.0
 
 VERSION=4.0
 PACKAGE=qemu-server
-PKGREL=36
+PKGREL=37
 
 CFLAGS= -O2 -Werror -Wall -Wtype-limits -Wl,-z,relro 
 
