@@ -3337,7 +3337,12 @@ sub vm_deviceplug {
     } elsif ($deviceid =~ m/^(net)(\d+)$/) {
 
         return undef if !qemu_netdevadd($vmid, $conf, $device, $deviceid);
-        my $netdevicefull = print_netdevice_full($vmid, $conf, $device, $deviceid);
+
+        my $machine_type = PVE::QemuServer::qemu_machine_pxe($vmid, $conf); 
+        my $use_old_bios_files = undef;
+        ($use_old_bios_files, $machine_type) = qemu_use_old_bios_files($machine_type);
+
+        my $netdevicefull = print_netdevice_full($vmid, $conf, $device, $deviceid, undef, $use_old_bios_files);
         qemu_deviceadd($vmid, $netdevicefull);
         eval { qemu_deviceaddverify($vmid, $deviceid); };
 	if (my $err = $@) {
