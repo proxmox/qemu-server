@@ -2643,6 +2643,8 @@ sub config_to_command {
     my $q35 = machine_type_is_q35($conf);
     my $hotplug_features = parse_hotplug_features(defined($conf->{hotplug}) ? $conf->{hotplug} : '1');
     my $machine_type = $forcemachine || $conf->{machine};
+    my $use_old_bios_files = undef;
+    ($use_old_bios_files, $machine_type) = qemu_use_old_bios_files($machine_type);
 
     my $cpuunits = defined($conf->{cpuunits}) ?
             $conf->{cpuunits} : $defaults->{cpuunits};
@@ -2655,20 +2657,6 @@ sub config_to_command {
     if ($conf->{cpulimit}) {
 	my $cpulimit = int($conf->{cpulimit} * 100);
 	push @$cmd, '-p', "CPUQuota=$cpulimit\%";
-    }
-
-
-    my $use_old_bios_files = undef;
-
-    if ($machine_type && $machine_type =~ m/^(\S+)\.pxe$/){
-	$machine_type = $1;
-	$use_old_bios_files = 1;
-    } else {
-	# Note: kvm version < 2.4 use non-efi pxe files, and have problems when we
-	# load new efi bios files on migration. So this hack is required to allow
-	# live migration from qemu-2.2 to qemu-2.4, which is sometimes used when
-	# updrading from proxmox-ve-3.X to proxmox-ve 4.0
-    	$use_old_bios_files = !qemu_machine_feature_enabled ($machine_type, $kvmver, 2, 4);
     }
 
     push @$cmd, '/usr/bin/kvm';
@@ -6379,6 +6367,27 @@ sub qemu_machine_pxe {
 	last;
     }
 
+}
+
+sub qemu_use_old_bios_files {
+    my ($machine_type) = @_;
+
+    return if !$machine_type;
+
+    my $use_old_bios_files = undef;
+
+    if ($machine_type =~ m/^(\S+)\.pxe$/) {
+        $machine_type = $1;
+        $use_old_bios_files = 1;
+    } else {
+        # Note: kvm version < 2.4 use non-efi pxe files, and have problems when we
+        # load new efi bios files on migration. So this hack is required to allow
+        # live migration from qemu-2.2 to qemu-2.4, which is sometimes used when
+        # updrading from proxmox-ve-3.X to proxmox-ve 4.0
+        $use_old_bios_files = !qemu_machine_feature_enabled ($machine_type, undef, 2, 4);
+    }
+
+    return ($use_old_bios_files, $machine_type);
 }
 
 sub lspci {
