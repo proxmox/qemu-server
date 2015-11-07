@@ -1164,6 +1164,10 @@ __PACKAGE__->register_method({
 	die "unable to remove VM $vmid - used in HA resources\n"
 	    if PVE::HA::Config::vm_is_ha_managed($vmid);
 
+	# early tests (repeat after locking)
+	die "VM $vmid is running - destroy failed\n"
+	    if PVE::QemuServer::check_running($vmid);
+
 	my $realcmd = sub {
 	    my $upid = shift;
 
