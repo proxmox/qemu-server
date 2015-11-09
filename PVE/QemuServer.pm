@@ -558,7 +558,7 @@ my $serialdesc = {
 	description =>  <<EODESCR,
 Create a serial device inside the VM (n is 0 to 3), and pass through a host serial device (i.e. /dev/ttyS0), or create a unix socket on the host side (use 'qm terminal' to open a terminal connection).
 
-Note: This option allows direct access to host hardware. So it is no longer possible to migrate such machines - use with special care.
+Note: If you pass through a host serial device, it is no longer possible to migrate such machines - use with special care.
 
 Experimental: user reported problems with this option.
 EODESCR
@@ -2158,6 +2158,8 @@ sub check_local_resources {
 
     foreach my $k (keys %$conf) {
 	next if $k =~ m/^usb/ && ($conf->{$k} eq 'spice');
+	# sockets are safe: they will recreated be on the target side post-migrate
+	next if $k =~ m/^serial/ && ($conf->{$k} eq 'socket');
 	$loc_res = 1 if $k =~ m/^(usb|hostpci|serial|parallel)\d+$/;
     }
 
