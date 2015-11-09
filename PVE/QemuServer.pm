@@ -6507,6 +6507,7 @@ sub complete_storage {
     my $res = [];
     foreach my $sid (keys %$ids) {
 	next if !PVE::Storage::storage_check_enabled($cfg, $sid, undef, 1);
+	next if !$ids->{$sid}->{content}->{images};
 	push @$res, $sid;
     }
 
