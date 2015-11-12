@@ -6155,6 +6155,9 @@ sub qemu_img_convert {
     my ($dst_storeid, $dst_volname) = PVE::Storage::parse_volume_id($dst_volid, 1);
 
     if ($src_storeid && $dst_storeid) {
+
+	PVE::Storage::activate_volumes($storecfg, [$src_volid], $snapname);
+
 	my $src_scfg = PVE::Storage::storage_config($storecfg, $src_storeid);
 	my $dst_scfg = PVE::Storage::storage_config($storecfg, $dst_storeid);
 
