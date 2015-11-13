@@ -8,6 +8,12 @@ use PVE::Network;
 
 my $iface = shift;
 
+my $hotplug = 0;
+if ($iface eq '--hotplug') {
+    $hotplug = 1;
+    $iface = shift;
+}
+
 die "no interface specified\n" if !$iface;
 
 die "got strange interface name '$iface'\n" 
@@ -16,7 +22,7 @@ die "got strange interface name '$iface'\n"
 my $vmid = $1;
 my $netid = "net$2";
 
-my $migratedfrom = $ENV{PVE_MIGRATED_FROM};
+my $migratedfrom = $hotplug ? undef : $ENV{PVE_MIGRATED_FROM};
 
 my $conf = PVE::QemuServer::load_config($vmid, $migratedfrom);
 
