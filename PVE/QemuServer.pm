@@ -30,6 +30,7 @@ use PVE::ProcFSTools;
 use PVE::QMPClient;
 use PVE::RPCEnvironment;
 use Time::HiRes qw(gettimeofday);
+use File::Copy qw(copy);
 
 my $qemu_snap_storage = {rbd => 1, sheepdog => 1};
 
@@ -388,6 +389,12 @@ EODESCR
 	optional => 1,
 	type => 'boolean',
 	description => "Sets the protection flag of the VM. This will prevent the remove operation.",
+	default => 0,
+    },
+    ovmf => {
+	optional => 1,
+	type => 'boolean',
+	description => "Enable ovmf uefi roms.",
 	default => 0,
     },
 };
@@ -2684,6 +2691,15 @@ sub config_to_command {
 
     if ($conf->{smbios1}) {
 	push @$cmd, '-smbios', "type=1,$conf->{smbios1}";
+    }
+
+    if ($conf->{ovmf}) {
+	my $ovmfvar = "OVMF_VARS-pure-efi.fd";
+	my $ovmfvar_src = "/usr/share/kvm/$ovmfvar";
+	my $ovmfvar_dst = "/tmp/$vmid-$ovmfvar";
+	copy $ovmfvar_src,$ovmfvar_dst if !(-e $ovmfvar_dst);
+	push @$cmd, '-drive', "if=pflash,format=raw,readonly,file=/usr/share/kvm/OVMF-pure-efi.fd";
+	push @$cmd, '-drive', "if=pflash,format=raw,file=$ovmfvar_dst";
     }
 
     if ($q35) {
