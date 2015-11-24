@@ -2922,7 +2922,6 @@ sub config_to_command {
 
 	push @$cpuFlags , '+kvm_pv_unhalt' if !$nokvm;
 	push @$cpuFlags , '+kvm_pv_eoi' if !$nokvm;
-        push @$cpuFlags , '-kvm_steal_time' if !$nokvm;
     }
 
     push @$cpuFlags, 'enforce' if $cpu ne 'host' && !$nokvm;
