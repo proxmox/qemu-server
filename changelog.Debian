@@ -1,3 +1,10 @@
+qemu-server (4.0-39) unstable; urgency=medium
+
+  * fix bug #783: set KillMode=none, so that systemd don't kill
+    them at shutdown
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 24 Nov 2015 16:50:11 +0100
+
 qemu-server (4.0-38) unstable; urgency=medium
 
   * Don't treat serial devices as a local resource if they
