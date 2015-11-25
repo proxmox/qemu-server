@@ -5302,6 +5302,10 @@ sub restore_vma_archive {
 	my $fh = IO::File->new($cfgfn, "r") ||
 	    "unable to read qemu-server.conf - $!\n";
 
+	my $fwcfgfn = "$tmpdir/qemu-server.fw";
+	PVE::Tools::file_copy($fwcfgfn, "/etc/pve/firewall/$vmid.fw")
+	    if -f $fwcfgfn;
+
 	while (defined(my $line = <$fh>)) {
 	    if ($line =~ m/^\#qmdump\#map:(\S+):(\S+):(\S*):(\S*):$/) {
 		my ($virtdev, $devname, $storeid, $format) = ($1, $2, $3, $4);
