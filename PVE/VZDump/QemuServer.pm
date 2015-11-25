@@ -171,60 +171,53 @@ sub assemble {
     my $conffile = PVE::QemuServer::config_file ($vmid);
 
     my $outfile = "$task->{tmpdir}/qemu-server.conf";
+    my $firewall_src = "/etc/pve/firewall/$vmid.fw";
+    my $firewall_dest = "$task->{tmpdir}/qemu-server.fw";
 
-    my $outfd;
-    my $conffd;
+    my $outfd = IO::File->new (">$outfile") ||
+	die "unable to open '$outfile'";
+    my $conffd = IO::File->new ($conffile, 'r') ||
+	die "unable open '$conffile'";
 
-    eval {
-
-	$outfd = IO::File->new (">$outfile") ||
-	    die "unable to open '$outfile'";
-	$conffd = IO::File->new ($conffile, 'r') ||
-	    die "unable open '$conffile'";
-
-	my $found_snapshot;
-	while (defined (my $line = <$conffd>)) {
-	    next if $line =~ m/^\#vzdump\#/; # just to be sure
-	    next if $line =~ m/^\#qmdump\#/; # just to be sure
-	    if ($line =~ m/^\[.*\]\s*$/) {
-		$found_snapshot = 1;
-	    }
-	    next if $found_snapshot; # skip all snapshots data
-	    if ($line =~ m/^unused\d+:\s*(\S+)\s*/) {
-		$self->loginfo("skip unused drive '$1' (not included into backup)");
-		next;
-	    }
-	    next if $line =~ m/^lock:/ || $line =~ m/^parent:/;
-
-	    print $outfd $line;
+    my $found_snapshot;
+    while (defined (my $line = <$conffd>)) {
+	next if $line =~ m/^\#vzdump\#/; # just to be sure
+	next if $line =~ m/^\#qmdump\#/; # just to be sure
+	if ($line =~ m/^\[.*\]\s*$/) {
+	    $found_snapshot = 1;
 	}
-
-	foreach my $di (@{$task->{disks}}) {
-	    if ($di->{type} eq 'block' || $di->{type} eq 'file') {
-		my $storeid = $di->{storeid} || '';
-		my $format = $di->{format} || '';
-		print $outfd "#qmdump#map:$di->{virtdev}:$di->{qmdevice}:$storeid:$format:\n";
-	    } else {
-		die "internal error";
-	    }
+	next if $found_snapshot; # skip all snapshots data
+	if ($line =~ m/^unused\d+:\s*(\S+)\s*/) {
+	    $self->loginfo("skip unused drive '$1' (not included into backup)");
+	    next;
 	}
+	next if $line =~ m/^lock:/ || $line =~ m/^parent:/;
 
-	if ($found_snapshot) {
-	     $self->loginfo("snapshots found (not included into backup)");
+	print $outfd $line;
+    }
+
+    foreach my $di (@{$task->{disks}}) {
+	if ($di->{type} eq 'block' || $di->{type} eq 'file') {
+	    my $storeid = $di->{storeid} || '';
+	    my $format = $di->{format} || '';
+	    print $outfd "#qmdump#map:$di->{virtdev}:$di->{qmdevice}:$storeid:$format:\n";
+	} else {
+	    die "internal error";
 	}
-    };
-    my $err = $@;
+    }
 
-    close ($outfd) if $outfd;
-    close ($conffd) if $conffd;
+    if ($found_snapshot) {
+	$self->loginfo("snapshots found (not included into backup)");
+    }
 
-    die $err if $err;
+    PVE::Tools::file_copy($firewall_src, $firewall_dest) if -f $firewall_src;
 }
 
 sub archive {
     my ($self, $task, $vmid, $filename, $comp) = @_;
 
     my $conffile = "$task->{tmpdir}/qemu-server.conf";
+    my $firewall = "$task->{tmpdir}/qemu-server.fw";
 
     my $opts = $self->{vzdump}->{opts};
 
@@ -260,7 +253,9 @@ sub archive {
 
 	$outcmd .= ">$filename" if !$opts->{stdout};
 
-	my $cmd = ['/usr/bin/vma', 'create', '-v', '-c', $conffile, $outcmd, @pathlist];
+	my $cmd = ['/usr/bin/vma', 'create', '-v', '-c', $conffile];
+	push @$cmd, '-c', $firewall if -e $firewall;
+	push @$cmd, $outcmd, @pathlist;
 
 	$self->loginfo("starting template backup");
 	$self->loginfo(join(' ', @$cmd));
@@ -372,13 +367,16 @@ sub archive {
  	my $add_fd_cb = sub {
 	    my ($vmid, $resp) = @_;
 
-	    $qmpclient->queue_cmd($vmid, $backup_cb, 'backup',
-				  'backup-file' => "/dev/fdname/backup",
-				  speed => $speed,
-				  'config-file' => $conffile,
-				  devlist => $devlist);
+	    my $params = {
+		'backup-file' => "/dev/fdname/backup",
+		speed => $speed,
+		'config-file' => $conffile,
+		devlist => $devlist
+	    };
+	    
+	    $params->{'firewall-file'} = $firewall if -e $firewall;
+	    $qmpclient->queue_cmd($vmid, $backup_cb, 'backup', %$params);
 	};
-
 
 	$qmpclient->queue_cmd($vmid, $add_fd_cb, 'getfd',
 			      fd => $outfileno, fdname => "backup");
