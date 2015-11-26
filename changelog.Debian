@@ -5,6 +5,8 @@ qemu-server (4.0-39) unstable; urgency=medium
 
   * reenable steal time
 
+  * backup/restore firewall config with vzdump
+
  -- Proxmox Support Team <support@proxmox.com>  Tue, 24 Nov 2015 16:50:11 +0100
 
 qemu-server (4.0-38) unstable; urgency=medium
