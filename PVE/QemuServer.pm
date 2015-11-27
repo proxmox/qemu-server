@@ -4299,6 +4299,7 @@ sub vmconfig_update_disk {
 
     die "skip\n" if !$hotplug || $opt =~ m/(ide|sata)(\d+)/;
     # hotplug new disks
+    PVE::Storage::activate_volumes($storecfg, [$drive->{file}]);
     vm_deviceplug($storecfg, $conf, $vmid, $opt, $drive);
 }
 
