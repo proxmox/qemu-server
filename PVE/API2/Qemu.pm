@@ -1526,7 +1526,8 @@ __PACKAGE__->register_method({
     	additionalProperties => 0,
 	properties => {
 	    node => get_standard_option('pve-node'),
-	    vmid => get_standard_option('pve-vmid'),
+	    vmid => get_standard_option('pve-vmid',
+					{ completion => \&PVE::QemuServer::complete_vmid_stopped }),
 	    skiplock => get_standard_option('skiplock'),
 	    stateuri => get_standard_option('pve-qm-stateuri'),
 	    migratedfrom => get_standard_option('pve-node',{ optional => 1 }),
@@ -1622,7 +1623,8 @@ __PACKAGE__->register_method({
     	additionalProperties => 0,
 	properties => {
 	    node => get_standard_option('pve-node'),
-	    vmid => get_standard_option('pve-vmid'),
+	    vmid => get_standard_option('pve-vmid',
+					{ completion => \&PVE::QemuServer::complete_vmid_running }),
 	    skiplock => get_standard_option('skiplock'),
 	    migratedfrom => get_standard_option('pve-node', { optional => 1 }),
 	    timeout => {
@@ -1716,7 +1718,8 @@ __PACKAGE__->register_method({
     	additionalProperties => 0,
 	properties => {
 	    node => get_standard_option('pve-node'),
-	    vmid => get_standard_option('pve-vmid'),
+	    vmid => get_standard_option('pve-vmid',
+					{ completion => \&PVE::QemuServer::complete_vmid_running }),
 	    skiplock => get_standard_option('skiplock'),
 	},
     },
@@ -1765,7 +1768,8 @@ __PACKAGE__->register_method({
     	additionalProperties => 0,
 	properties => {
 	    node => get_standard_option('pve-node'),
-	    vmid => get_standard_option('pve-vmid'),
+	    vmid => get_standard_option('pve-vmid',
+					{ completion => \&PVE::QemuServer::complete_vmid_running }),
 	    skiplock => get_standard_option('skiplock'),
 	    timeout => {
 		description => "Wait maximal timeout seconds.",
@@ -1839,7 +1843,8 @@ __PACKAGE__->register_method({
     	additionalProperties => 0,
 	properties => {
 	    node => get_standard_option('pve-node'),
-	    vmid => get_standard_option('pve-vmid'),
+	    vmid => get_standard_option('pve-vmid',
+					{ completion => \&PVE::QemuServer::complete_vmid_running }),
 	    skiplock => get_standard_option('skiplock'),
 	},
     },
@@ -1890,7 +1895,8 @@ __PACKAGE__->register_method({
     	additionalProperties => 0,
 	properties => {
 	    node => get_standard_option('pve-node'),
-	    vmid => get_standard_option('pve-vmid'),
+	    vmid => get_standard_option('pve-vmid',
+					{ completion => \&PVE::QemuServer::complete_vmid_running }),
 	    skiplock => get_standard_option('skiplock'),
 	    nocheck => { type => 'boolean', optional => 1 },
 
@@ -1945,7 +1951,8 @@ __PACKAGE__->register_method({
     	additionalProperties => 0,
 	properties => {
 	    node => get_standard_option('pve-node'),
-	    vmid => get_standard_option('pve-vmid'),
+	    vmid => get_standard_option('pve-vmid',
+					{ completion => \&PVE::QemuServer::complete_vmid_running }),
 	    skiplock => get_standard_option('skiplock'),
 	    key => {
 		description => "The key (qemu monitor encoding).",
