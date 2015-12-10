@@ -4088,10 +4088,8 @@ sub try_deallocate_drive {
 	    $rpcenv->check($authuser, "/storage/$sid", ['Datastore.AllocateSpace']);
 
 	    # check if the disk is really unused
-	    my $used_paths = PVE::QemuServer::get_used_paths($vmid, $storecfg, $conf, 1, $key);
-	    my $path = PVE::Storage::path($storecfg, $volid);
 	    die "unable to delete '$volid' - volume is still in use (snapshot?)\n"
-		   if $used_paths->{$path};
+		if is_volume_in_use($storecfg, $conf, $key, $volid);
 	    PVE::Storage::vdisk_free($storecfg, $volid);
 	    return 1;
 	} else {
@@ -5113,10 +5111,10 @@ sub scan_volids {
     return $volid_hash;
 }
 
-sub get_used_paths {
-    my ($vmid, $storecfg, $conf, $scan_snapshots, $skip_drive) = @_;
+sub is_volume_in_use {
+    my ($storecfg, $conf, $skip_drive, $volid) = @_;
 
-    my $used_path = {};
+    my $path = PVE::Storage::path($storecfg, $volid);
 
     my $scan_config = sub {
 	my ($cref, $snapname) = @_;
@@ -5127,31 +5125,31 @@ sub get_used_paths {
 		next if $skip_drive && $key eq $skip_drive;
 		my $drive = parse_drive($key, $value);
 		next if !$drive || !$drive->{file} || drive_is_cdrom($drive);
+		return 1 if $volid eq $drive->{file};
 		if ($drive->{file} =~ m!^/!) {
-		    $used_path->{$drive->{file}}++; # = 1;
+		    return 1 if $drive->{file} eq $path;
 		} else {
 		    my ($storeid, $volname) = PVE::Storage::parse_volume_id($drive->{file}, 1);
 		    next if !$storeid;
 		    my $scfg = PVE::Storage::storage_config($storecfg, $storeid, 1);
 		    next if !$scfg;
-		    my $path = PVE::Storage::path($storecfg, $drive->{file}, $snapname);
-		    $used_path->{$path}++; # = 1;
+		    return 1 if $path eq PVE::Storage::path($storecfg, $drive->{file}, $snapname);
 		}
 	    }
 	}
+
+	return 0;
     };
 
-    &$scan_config($conf);
+    return 1 if &$scan_config($conf);
 
     undef $skip_drive;
 
-    if ($scan_snapshots) {
-	foreach my $snapname (keys %{$conf->{snapshots}}) {
-	    &$scan_config($conf->{snapshots}->{$snapname}, $snapname);
-	}
+    foreach my $snapname (keys %{$conf->{snapshots}}) {
+	return 1 if &$scan_config($conf->{snapshots}->{$snapname}, $snapname);
     }
 
-    return $used_path;
+    return 0;
 }
 
 sub update_disksize {

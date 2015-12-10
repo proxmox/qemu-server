@@ -2471,10 +2471,8 @@ __PACKAGE__->register_method({
                 }
 
 		if ($param->{delete}) {
-                    my $used_paths = PVE::QemuServer::get_used_paths($vmid, $storecfg, $conf, 1, 1);
-                    my $path = PVE::Storage::path($storecfg, $old_volid);
-		    if ($used_paths->{$path}){
-			warn "volume $old_volid have snapshots. Can't delete it\n";
+                    if (PVE::QemuServer::is_volume_in_use($storecfg, $conf, undef, $old_volid)) {
+			warn "volume $old_volid still has snapshots, can't delete it\n";
 			PVE::QemuServer::add_unused_volume($conf, $old_volid);
 			PVE::QemuServer::update_config_nolock($vmid, $conf, 1);
 		    } else {
