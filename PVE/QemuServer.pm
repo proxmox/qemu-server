@@ -2698,7 +2698,7 @@ sub config_to_command {
 	my $ovmfvar = "OVMF_VARS-pure-efi.fd";
 	my $ovmfvar_src = "/usr/share/kvm/$ovmfvar";
 	my $ovmfvar_dst = "/tmp/$vmid-$ovmfvar";
-	copy $ovmfvar_src,$ovmfvar_dst if !(-e $ovmfvar_dst);
+	PVE::Tools::file_copy($ovmfvar_src, $ovmfvar_dst, 256*1024);
 	push @$cmd, '-drive', "if=pflash,format=raw,readonly,file=/usr/share/kvm/OVMF-pure-efi.fd";
 	push @$cmd, '-drive', "if=pflash,format=raw,file=$ovmfvar_dst";
     }
