@@ -391,11 +391,12 @@ EODESCR
 	description => "Sets the protection flag of the VM. This will prevent the remove operation.",
 	default => 0,
     },
-    ovmf => {
+    bios => {
 	optional => 1,
-	type => 'boolean',
-	description => "Enable ovmf uefi roms.",
-	default => 0,
+	type => 'string',
+	enum => [ qw(seabios ovmf) ],
+	description => "Select BIOS implementation.",
+	default => 'seabios',
     },
 };
 
@@ -2693,7 +2694,7 @@ sub config_to_command {
 	push @$cmd, '-smbios', "type=1,$conf->{smbios1}";
     }
 
-    if ($conf->{ovmf}) {
+    if ($conf->{bios} && $conf->{bios} eq 'ovmf') {
 	my $ovmfvar = "OVMF_VARS-pure-efi.fd";
 	my $ovmfvar_src = "/usr/share/kvm/$ovmfvar";
 	my $ovmfvar_dst = "/tmp/$vmid-$ovmfvar";
