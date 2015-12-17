@@ -489,7 +489,7 @@ my $drivename_hash;
 my $idedesc = {
     optional => 1,
     type => 'string', format => 'pve-qm-drive',
-    typetext => '[volume=]volume,] [,media=cdrom|disk] [,cyls=c,heads=h,secs=s[,trans=t]] [,snapshot=on|off] [,cache=none|writethrough|writeback|unsafe|directsync] [,format=f] [,backup=yes|no] [,rerror=ignore|report|stop] [,werror=enospc|ignore|report|stop] [,aio=native|threads] [,discard=ignore|on] [,serial=serial][,model=model]',
+    typetext => '[volume=]volume,] [,media=cdrom|disk] [,cyls=c,heads=h,secs=s[,trans=t]] [,snapshot=on|off] [,cache=none|writethrough|writeback|unsafe|directsync] [,format=f] [,backup=yes|no] [,rerror=ignore|report|stop] [,werror=enospc|ignore|report|stop] [,aio=native|threads] [,discard=ignore|on] [,detect_zeroes=on|off] [,serial=serial][,model=model]',
     description => "Use volume as IDE hard disk or CD-ROM (n is 0 to " .($MAX_IDE_DISKS -1) . ").",
 };
 PVE::JSONSchema::register_standard_option("pve-qm-ide", $idedesc);
@@ -497,7 +497,7 @@ PVE::JSONSchema::register_standard_option("pve-qm-ide", $idedesc);
 my $scsidesc = {
     optional => 1,
     type => 'string', format => 'pve-qm-drive',
-    typetext => '[volume=]volume,] [,media=cdrom|disk] [,cyls=c,heads=h,secs=s[,trans=t]] [,snapshot=on|off] [,cache=none|writethrough|writeback|unsafe|directsync] [,format=f] [,backup=yes|no] [,rerror=ignore|report|stop] [,werror=enospc|ignore|report|stop] [,aio=native|threads] [,discard=ignore|on] [,iothread=on] [,queues=<nbqueues>] [,serial=serial]',
+    typetext => '[volume=]volume,] [,media=cdrom|disk] [,cyls=c,heads=h,secs=s[,trans=t]] [,snapshot=on|off] [,cache=none|writethrough|writeback|unsafe|directsync] [,format=f] [,backup=yes|no] [,rerror=ignore|report|stop] [,werror=enospc|ignore|report|stop] [,aio=native|threads] [,discard=ignore|on] [,detect_zeroes=on|off] [,iothread=on] [,queues=<nbqueues>] [,serial=serial]',
     description => "Use volume as SCSI hard disk or CD-ROM (n is 0 to " . ($MAX_SCSI_DISKS - 1) . ").",
 };
 PVE::JSONSchema::register_standard_option("pve-qm-scsi", $scsidesc);
@@ -505,7 +505,7 @@ PVE::JSONSchema::register_standard_option("pve-qm-scsi", $scsidesc);
 my $satadesc = {
     optional => 1,
     type => 'string', format => 'pve-qm-drive',
-    typetext => '[volume=]volume,] [,media=cdrom|disk] [,cyls=c,heads=h,secs=s[,trans=t]] [,snapshot=on|off] [,cache=none|writethrough|writeback|unsafe|directsync] [,format=f] [,backup=yes|no] [,rerror=ignore|report|stop] [,werror=enospc|ignore|report|stop] [,aio=native|threads]  [,discard=ignore|on] [,serial=serial]',
+    typetext => '[volume=]volume,] [,media=cdrom|disk] [,cyls=c,heads=h,secs=s[,trans=t]] [,snapshot=on|off] [,cache=none|writethrough|writeback|unsafe|directsync] [,format=f] [,backup=yes|no] [,rerror=ignore|report|stop] [,werror=enospc|ignore|report|stop] [,aio=native|threads]  [,discard=ignore|on] [,detect_zeroes=on|off] [,serial=serial]',
     description => "Use volume as SATA hard disk or CD-ROM (n is 0 to " . ($MAX_SATA_DISKS - 1). ").",
 };
 PVE::JSONSchema::register_standard_option("pve-qm-sata", $satadesc);
@@ -513,7 +513,7 @@ PVE::JSONSchema::register_standard_option("pve-qm-sata", $satadesc);
 my $virtiodesc = {
     optional => 1,
     type => 'string', format => 'pve-qm-drive',
-    typetext => '[volume=]volume,] [,media=cdrom|disk] [,cyls=c,heads=h,secs=s[,trans=t]] [,snapshot=on|off] [,cache=none|writethrough|writeback|unsafe|directsync] [,format=f] [,backup=yes|no] [,rerror=ignore|report|stop] [,werror=enospc|ignore|report|stop] [,aio=native|threads]  [,discard=ignore|on] [,iothread=on] [,serial=serial]',
+    typetext => '[volume=]volume,] [,media=cdrom|disk] [,cyls=c,heads=h,secs=s[,trans=t]] [,snapshot=on|off] [,cache=none|writethrough|writeback|unsafe|directsync] [,format=f] [,backup=yes|no] [,rerror=ignore|report|stop] [,werror=enospc|ignore|report|stop] [,aio=native|threads]  [,discard=ignore|on] [,detect_zeroes=on|off] [,iothread=on] [,serial=serial]',
     description => "Use volume as VIRTIO hard disk (n is 0 to " . ($MAX_VIRTIO_DISKS - 1) . ").",
 };
 PVE::JSONSchema::register_standard_option("pve-qm-virtio", $virtiodesc);
@@ -882,8 +882,8 @@ my $format_size = sub {
 # ideX = [volume=]volume-id[,media=d][,cyls=c,heads=h,secs=s[,trans=t]]
 #        [,snapshot=on|off][,cache=on|off][,format=f][,backup=yes|no]
 #        [,rerror=ignore|report|stop][,werror=enospc|ignore|report|stop]
-#        [,aio=native|threads][,discard=ignore|on][,iothread=on]
-#        [,serial=serial][,model=model]
+#        [,aio=native|threads][,discard=ignore|on][,detect_zeroes=on|off]
+#        [,iothread=on][,serial=serial][,model=model]
 
 sub parse_drive {
     my ($key, $data) = @_;
@@ -904,7 +904,7 @@ sub parse_drive {
     foreach my $p (split (/,/, $data)) {
 	next if $p =~ m/^\s*$/;
 
-	if ($p =~ m/^(file|volume|cyls|heads|secs|trans|media|snapshot|cache|format|rerror|werror|backup|aio|bps|mbps|mbps_max|bps_rd|mbps_rd|mbps_rd_max|bps_wr|mbps_wr|mbps_wr_max|iops|iops_max|iops_rd|iops_rd_max|iops_wr|iops_wr_max|size|discard|iothread|queues|serial|model)=(.+)$/) {
+	if ($p =~ m/^(file|volume|cyls|heads|secs|trans|media|snapshot|cache|format|rerror|werror|backup|aio|bps|mbps|mbps_max|bps_rd|mbps_rd|mbps_rd_max|bps_wr|mbps_wr|mbps_wr_max|iops|iops_max|iops_rd|iops_rd_max|iops_wr|iops_wr_max|size|discard|detect_zeroes|iothread|queues|serial|model)=(.+)$/) {
 	    my ($k, $v) = ($1, $2);
 
 	    $k = 'file' if $k eq 'volume';
@@ -942,6 +942,7 @@ sub parse_drive {
     return undef if $res->{backup} && $res->{backup} !~ m/^(yes|no)$/;
     return undef if $res->{aio} && $res->{aio} !~ m/^(native|threads)$/;
     return undef if $res->{discard} && $res->{discard} !~ m/^(ignore|on)$/;
+    return undef if $res->{detect_zeroes} && $res->{detect_zeroes} !~ m/^(on|off)$/;
     return undef if $res->{iothread} && $res->{iothread} !~ m/^(on)$/;
     return undef if $res->{queues} && ($res->{queues} !~ m/^\d+$/ || $res->{queues} < 2);
 
@@ -990,7 +991,7 @@ sub print_drive {
     my ($vmid, $drive) = @_;
 
     my $opts = '';
-    foreach my $o (@qemu_drive_options, 'mbps', 'mbps_rd', 'mbps_wr', 'mbps_max', 'mbps_rd_max', 'mbps_wr_max', 'backup', 'iothread', 'queues') {
+    foreach my $o (@qemu_drive_options, qw(mbps mbps_rd mbps_wr mbps_max mbps_rd_max mbps_wr_max backup iothread queues detect_zeroes)) {
 	$opts .= ",$o=$drive->{$o}" if $drive->{$o};
     }
 
@@ -1218,8 +1219,18 @@ sub print_drive_full {
 	}
     }
 
-    my $detectzeroes = $drive->{discard} ? "unmap" : "on";
-    $opts .= ",detect-zeroes=$detectzeroes" if !drive_is_cdrom($drive);
+    if (!drive_is_cdrom($drive)) {
+	my $detectzeroes;
+	if ($drive->{detect_zeroes} && $drive->{detect_zeroes} eq 'off') {
+	    $detectzeroes = 'off';
+	} elsif ($drive->{discard}) {
+	    $detectzeroes = $drive->{discard} eq 'on' ? 'unmap' : 'on';
+	} else {
+	    # This used to be our default with discard not being specified:
+	    $detectzeroes = 'on';
+	}
+	$opts .= ",detect-zeroes=$detectzeroes" if $detectzeroes;
+    }
 
     my $pathinfo = $path ? "file=$path," : '';
 
