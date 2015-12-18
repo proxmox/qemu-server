@@ -1,3 +1,9 @@
+qemu-server (4.0-42) unstable; urgency=medium
+
+  * add detect_zeroes option
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 18 Dec 2015 09:20:18 +0100
+
 qemu-server (4.0-41) unstable; urgency=medium
 
   * add new option to select BIOS (--bios <seabios|ovmf>)
