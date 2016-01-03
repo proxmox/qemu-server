@@ -2758,6 +2758,7 @@ sub config_to_command {
 
     push @$devices, '-device', print_tabletdevice_full($conf) if $tablet;
 
+    my $nohyperv;
     # host pci devices
     for (my $i = 0; $i < $MAX_HOSTPCI_DEVICES; $i++)  {
 	my $d = parse_hostpci($conf->{"hostpci$i"});
@@ -2776,6 +2777,7 @@ sub config_to_command {
 	if ($xvga && $xvga ne '') {
 	    push @$cpuFlags, 'kvm=off';
 	    $vga = 'none';
+	    $nohyperv = 1;
 	}
 	my $pcidevices = $d->{pciid};
 	my $multifunction = 1 if @$pcidevices > 1;
@@ -2902,17 +2904,17 @@ sub config_to_command {
 	    push @$globalFlags, 'kvm-pit.lost_tick_policy=discard';
 	    push @$cmd, '-no-hpet';
 	    if (qemu_machine_feature_enabled ($machine_type, $kvmver, 2, 3)) {
-		push @$cpuFlags , 'hv_spinlocks=0x1fff' if !$nokvm;
-		push @$cpuFlags , 'hv_vapic' if !$nokvm;
-		push @$cpuFlags , 'hv_time' if !$nokvm;
+		push @$cpuFlags , 'hv_spinlocks=0x1fff' if !$nokvm && !$nohyperv;
+		push @$cpuFlags , 'hv_vapic' if !$nokvm && !$nohyperv;
+		push @$cpuFlags , 'hv_time' if !$nokvm && !$nohyperv;
 
 	    } else {
-		push @$cpuFlags , 'hv_spinlocks=0xffff' if !$nokvm;
+		push @$cpuFlags , 'hv_spinlocks=0xffff' if !$nokvm && !$nohyperv;
 	    }
 	}
 
 	if ($ost eq 'win7' || $ost eq 'win8') {
-	    push @$cpuFlags , 'hv_relaxed' if !$nokvm;
+	    push @$cpuFlags , 'hv_relaxed' if !$nokvm && !$nohyperv;
 	}
     }
 
