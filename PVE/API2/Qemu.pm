@@ -1571,6 +1571,8 @@ __PACKAGE__->register_method({
 	    }
 	}
 
+	PVE::Cluster::check_cfs_quorum();
+
 	my $storecfg = PVE::Storage::config();
 
 	if (PVE::HA::Config::vm_is_ha_managed($vmid) && !$stateuri &&
