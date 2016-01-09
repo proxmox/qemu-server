@@ -2778,6 +2778,9 @@ sub config_to_command {
 	    push @$cpuFlags, 'kvm=off';
 	    $vga = 'none';
 	    $nohyperv = 1;
+	    if ($conf->{bios} && $conf->{bios} eq 'ovmf') {
+		$xvga = "";
+	    }
 	}
 	my $pcidevices = $d->{pciid};
 	my $multifunction = 1 if @$pcidevices > 1;
