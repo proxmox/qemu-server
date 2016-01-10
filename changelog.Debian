@@ -1,3 +1,11 @@
+qemu-server (4.0-44) unstable; urgency=medium
+
+  * ovmf : don't pass x-vga to vfio-pci
+
+  * check for quorum when starting a VM
+
+ -- Proxmox Support Team <support@proxmox.com>  Sun, 10 Jan 2016 15:11:43 +0100
+
 qemu-server (4.0-43) unstable; urgency=medium
 
   * disable hyper-v enlightment when xvga is enabled
