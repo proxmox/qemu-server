@@ -3764,11 +3764,26 @@ sub qemu_dimm_list {
 }
 
 sub qemu_block_set_io_throttle {
-    my ($vmid, $deviceid, $bps, $bps_rd, $bps_wr, $iops, $iops_rd, $iops_wr) = @_;
+    my ($vmid, $deviceid,
+	$bps, $bps_rd, $bps_wr, $iops, $iops_rd, $iops_wr,
+	$bps_max, $bps_rd_max, $bps_wr_max, $iops_max, $iops_rd_max, $iops_wr_max) = @_;
 
     return if !check_running($vmid) ;
 
-    vm_mon_cmd($vmid, "block_set_io_throttle", device => $deviceid, bps => int($bps), bps_rd => int($bps_rd), bps_wr => int($bps_wr), iops => int($iops), iops_rd => int($iops_rd), iops_wr => int($iops_wr));
+    vm_mon_cmd($vmid, "block_set_io_throttle", device => $deviceid,
+	bps => int($bps),
+	bps_rd => int($bps_rd),
+	bps_wr => int($bps_wr),
+	iops => int($iops),
+	iops_rd => int($iops_rd),
+	iops_wr => int($iops_wr),
+	bps_max => int($bps_max),
+	bps_rd_max => int($bps_rd_max),
+	bps_wr_max => int($bps_wr_max),
+	iops_max => int($iops_max),
+	iops_rd_max => int($iops_rd_max),
+	iops_wr_max => int($iops_wr_max)
+    );
 
 }
 
