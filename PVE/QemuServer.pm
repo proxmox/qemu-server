@@ -485,37 +485,231 @@ for (my $i = 0; $i < $MAX_NETS; $i++)  {
 
 my $drivename_hash;
 
+my %drivedesc_base = (
+    volume => { alias => 'file' },
+    file => {
+	type => 'pve-volume-id',
+	default_key => 1,
+	format_description => 'volume',
+	description => "The drive's backing volume.",
+    },
+    media => {
+	type => 'string',
+	format_description => 'cdrom|disk',
+	enum => [qw(cdrom disk)],
+	description => "The drive's media type.",
+	default => 'disk',
+	optional => 1
+    },
+    cyls => {
+	type => 'integer',
+	format_description => 'count',
+	description => "Force the drive's physical geometry to have a specific cylinder count.",
+	optional => 1
+    },
+    heads => {
+	type => 'integer',
+	format_description => 'count',
+	description => "Force the drive's physical geometry to have a specific head count.",
+	optional => 1
+    },
+    secs => {
+	type => 'integer',
+	format_description => 'count',
+	description => "Force the drive's physical geometry to have a specific sector count.",
+	optional => 1
+    },
+    trans => {
+	type => 'string',
+	format_description => 'none|lba|auto',
+	enum => [qw(none lba auto)],
+	description => "Force disk geometry bios translation mode.",
+	optional => 1,
+    },
+    snapshot => {
+	type => 'boolean',
+	format_description => 'on|off',
+	description => "Whether the drive should be included when making snapshots.",
+	optional => 1,
+    },
+    cache => {
+	type => 'string',
+	format_description => 'none|writethrough|writeback|unsafe|directsync',
+	enum => [qw(none writethrough writeback unsafe directsync)],
+	description => "The drive's cache mode",
+	optional => 1,
+    },
+    format => {
+	type => 'string',
+	format_description => 'drive format',
+	enum => [qw(raw cow qcow qed qcow2 vmdk cloop)],
+	description => "The drive's backing file's data format.",
+	optional => 1,
+    },
+    size => {
+	type => 'disk-size',
+	description => "Disk size. This is purely informational and has no effect.",
+	optional => 1,
+    },
+    backup => {
+	type => 'boolean',
+	format_description => 'on|off',
+	description => "Whether the drive should be included when making backups.",
+	optional => 1,
+    },
+    werror => {
+	type => 'string',
+	format_description => 'enospc|ignore|report|stop',
+	enum => [qw(enospc ignore report stop)],
+	description => 'Write error action.',
+	optional => 1,
+    },
+    aio => {
+	type => 'string',
+	format_description => 'native|threads',
+	enum => [qw(native threads)],
+	description => 'AIO type to use.',
+	optional => 1,
+    },
+    discard => {
+	type => 'string',
+	format_description => 'ignore|on',
+	enum => [qw(ignore on)],
+	description => 'Controls whether to pass discard/trim requests to the underlying storage.',
+	optional => 1,
+    },
+    detect_zeroes => {
+	type => 'boolean',
+	description => 'Controls whether to detect and try to optimize writes of zeroes.',
+	optional => 1,
+    },
+    serial => {
+	type => 'string',
+	format_description => 'serial',
+	description => "The drive's reported serial number.",
+	optional => 1,
+    }
+);
+
+my %rerror_fmt = (
+    rerror => {
+	type => 'string',
+	format_description => 'ignore|report|stop',
+	enum => [qw(ignore report stop)],
+	description => 'Read error action.',
+	optional => 1,
+    },
+);
+
+my %iothread_fmt = ( iothread => {
+	type => 'boolean',
+	format_description => 'off|on',
+	description => "Whether to use iothreads for this drive",
+	optional => 1,
+});
+
+my %model_fmt = (
+    model => {
+	type => 'string',
+	format_description => 'model',
+	description => "The drive's reported model name.",
+	optional => 1,
+    },
+);
+
+my %queues_fmt = (
+    queues => {
+	type => 'integer',
+	format_description => 'nbqueues',
+	description => "Number of queues.",
+	minimum => 2,
+	optional => 1
+    }
+);
+
+my $add_throttle_desc = sub {
+    my ($key, $type, $what, $size, $longsize) = @_;
+    $drivedesc_base{$key} = {
+	type => $type,
+	format_description => $size,
+	description => "Maximum $what speed in $longsize per second.",
+	optional => 1,
+    };
+};
+# throughput: (leaky bucket)
+$add_throttle_desc->('bps',     'integer', 'r/w speed',   'bps',  'bytes');
+$add_throttle_desc->('bps_rd',  'integer', 'read speed',  'bps',  'bytes');
+$add_throttle_desc->('bps_wr',  'integer', 'write speed', 'bps',  'bytes');
+$add_throttle_desc->('mbps',    'float',   'r/w speed',   'mbps', 'megabytes');
+$add_throttle_desc->('mbps_rd', 'float',   'read speed',  'mbps', 'megabytes');
+$add_throttle_desc->('mbps_wr', 'float',   'write speed', 'mbps', 'megabytes');
+$add_throttle_desc->('iops',    'integer', 'r/w I/O',     'iops', 'operations');
+$add_throttle_desc->('iops_rd', 'integer', 'read I/O',    'iops', 'operations');
+$add_throttle_desc->('iops_wr', 'integer', 'write I/O',   'iops', 'operations');
+
+# pools: (pool of IO before throttling starts taking effect)
+$add_throttle_desc->('mbps_max',    'float',   'unthrottled r/w pool',       'mbps', 'megabytes');
+$add_throttle_desc->('mbps_rd_max', 'float',   'unthrottled read pool',      'mbps', 'megabytes');
+$add_throttle_desc->('mbps_wr_max', 'float',   'unthrottled write pool',     'mbps', 'megabytes');
+$add_throttle_desc->('iops_max',    'integer', 'unthrottled r/w I/O pool',   'iops', 'operations');
+$add_throttle_desc->('iops_rd_max', 'integer', 'unthrottled read I/O pool',  'iops', 'operations');
+$add_throttle_desc->('iops_wr_max', 'integer', 'unthrottled write I/O pool', 'iops', 'operations');
+
+my $ide_fmt = {
+    %drivedesc_base,
+    %rerror_fmt,
+    %model_fmt,
+};
+
 my $idedesc = {
     optional => 1,
-    type => 'string', format => 'pve-qm-drive',
-    typetext => '[volume=]volume,] [,media=cdrom|disk] [,cyls=c,heads=h,secs=s[,trans=t]] [,snapshot=on|off] [,cache=none|writethrough|writeback|unsafe|directsync] [,format=f] [,backup=yes|no] [,rerror=ignore|report|stop] [,werror=enospc|ignore|report|stop] [,aio=native|threads] [,discard=ignore|on] [,detect_zeroes=on|off] [,serial=serial][,model=model]',
+    type => 'string', format => $ide_fmt,
     description => "Use volume as IDE hard disk or CD-ROM (n is 0 to " .($MAX_IDE_DISKS -1) . ").",
 };
 PVE::JSONSchema::register_standard_option("pve-qm-ide", $idedesc);
 
+my $scsi_fmt = {
+    %drivedesc_base,
+    %iothread_fmt,
+    %queues_fmt,
+};
 my $scsidesc = {
     optional => 1,
-    type => 'string', format => 'pve-qm-drive',
-    typetext => '[volume=]volume,] [,media=cdrom|disk] [,cyls=c,heads=h,secs=s[,trans=t]] [,snapshot=on|off] [,cache=none|writethrough|writeback|unsafe|directsync] [,format=f] [,backup=yes|no] [,rerror=ignore|report|stop] [,werror=enospc|ignore|report|stop] [,aio=native|threads] [,discard=ignore|on] [,detect_zeroes=on|off] [,iothread=on] [,queues=<nbqueues>] [,serial=serial]',
+    type => 'string', format => $scsi_fmt,
     description => "Use volume as SCSI hard disk or CD-ROM (n is 0 to " . ($MAX_SCSI_DISKS - 1) . ").",
 };
 PVE::JSONSchema::register_standard_option("pve-qm-scsi", $scsidesc);
 
+my $sata_fmt = {
+    %drivedesc_base,
+    %rerror_fmt,
+};
 my $satadesc = {
     optional => 1,
-    type => 'string', format => 'pve-qm-drive',
-    typetext => '[volume=]volume,] [,media=cdrom|disk] [,cyls=c,heads=h,secs=s[,trans=t]] [,snapshot=on|off] [,cache=none|writethrough|writeback|unsafe|directsync] [,format=f] [,backup=yes|no] [,rerror=ignore|report|stop] [,werror=enospc|ignore|report|stop] [,aio=native|threads]  [,discard=ignore|on] [,detect_zeroes=on|off] [,serial=serial]',
+    type => 'string', format => $sata_fmt,
     description => "Use volume as SATA hard disk or CD-ROM (n is 0 to " . ($MAX_SATA_DISKS - 1). ").",
 };
 PVE::JSONSchema::register_standard_option("pve-qm-sata", $satadesc);
 
+my $virtio_fmt = {
+    %drivedesc_base,
+    %iothread_fmt,
+    %rerror_fmt,
+};
 my $virtiodesc = {
     optional => 1,
-    type => 'string', format => 'pve-qm-drive',
-    typetext => '[volume=]volume,] [,media=cdrom|disk] [,cyls=c,heads=h,secs=s[,trans=t]] [,snapshot=on|off] [,cache=none|writethrough|writeback|unsafe|directsync] [,format=f] [,backup=yes|no] [,rerror=ignore|report|stop] [,werror=enospc|ignore|report|stop] [,aio=native|threads]  [,discard=ignore|on] [,detect_zeroes=on|off] [,iothread=on] [,serial=serial]',
+    type => 'string', format => $virtio_fmt,
     description => "Use volume as VIRTIO hard disk (n is 0 to " . ($MAX_VIRTIO_DISKS - 1) . ").",
 };
 PVE::JSONSchema::register_standard_option("pve-qm-virtio", $virtiodesc);
+
+my $alldrive_fmt = {
+    %drivedesc_base,
+    %rerror_fmt,
+    %iothread_fmt,
+    %model_fmt,
+    %queues_fmt,
+};
 
 my $usbdesc = {
     optional => 1,
@@ -844,40 +1038,6 @@ sub pve_verify_hotplug_features {
     die "unable to parse hotplug option\n";
 }
 
-my $parse_size = sub {
-    my ($value) = @_;
-
-    return undef if $value !~ m/^(\d+(\.\d+)?)([KMG])?$/;
-    my ($size, $unit) = ($1, $3);
-    if ($unit) {
-	if ($unit eq 'K') {
-	    $size = $size * 1024;
-	} elsif ($unit eq 'M') {
-	    $size = $size * 1024 * 1024;
-	} elsif ($unit eq 'G') {
-	    $size = $size * 1024 * 1024 * 1024;
-	}
-    }
-    return int($size);
-};
-
-my $format_size = sub {
-    my ($size) = @_;
-
-    $size = int($size);
-
-    my $kb = int($size/1024);
-    return $size if $kb*1024 != $size;
-
-    my $mb = int($kb/1024);
-    return "${kb}K" if $mb*1024 != $kb;
-
-    my $gb = int($mb/1024);
-    return "${mb}M" if $gb*1024 != $mb;
-
-    return "${gb}G";
-};
-
 # ideX = [volume=]volume-id[,media=d][,cyls=c,heads=h,secs=s[,trans=t]]
 #        [,snapshot=on|off][,cache=on|off][,format=f][,backup=yes|no]
 #        [,rerror=ignore|report|stop][,werror=enospc|ignore|report|stop]
@@ -887,88 +1047,43 @@ my $format_size = sub {
 sub parse_drive {
     my ($key, $data) = @_;
 
-    my $res = {};
+    my ($interface, $index);
 
-    # $key may be undefined - used to verify JSON parameters
-    if (!defined($key)) {
-	$res->{interface} = 'unknown'; # should not harm when used to verify parameters
-	$res->{index} = 0;
-    } elsif ($key =~ m/^([^\d]+)(\d+)$/) {
-	$res->{interface} = $1;
-	$res->{index} = $2;
+    if ($key =~ m/^([^\d]+)(\d+)$/) {
+	$interface = $1;
+	$index = $2;
     } else {
 	return undef;
     }
 
-    foreach my $p (split (/,/, $data)) {
-	next if $p =~ m/^\s*$/;
+    my $desc = $key =~ /^unused\d+$/ ? $alldrive_fmt
+                                     : $confdesc->{$key}->{format};
+    if (!$desc) {
+	warn "invalid drive key: $key\n";
+	return undef;
+    }
+    my $res = eval { PVE::JSONSchema::parse_property_string($desc, $data) };
+    return undef if !$res;
+    $res->{interface} = $interface;
+    $res->{index} = $index;
 
-	if ($p =~ m/^(file|volume|cyls|heads|secs|trans|media|snapshot|cache|format|rerror|werror|backup|aio|bps|mbps|mbps_max|bps_rd|mbps_rd|mbps_rd_max|bps_wr|mbps_wr|mbps_wr_max|iops|iops_max|iops_rd|iops_rd_max|iops_wr|iops_wr_max|size|discard|detect_zeroes|iothread|queues|serial|model)=(.+)$/) {
-	    my ($k, $v) = ($1, $2);
-
-	    $k = 'file' if $k eq 'volume';
-
-	    return undef if defined $res->{$k};
-
-	    if ($k eq 'bps' || $k eq 'bps_rd' || $k eq 'bps_wr') {
-		return undef if !$v || $v !~ m/^\d+/;
-		$k = "m$k";
-		$v = sprintf("%.3f", $v / (1024*1024));
+    my $error = 0;
+    foreach my $opt (qw(bps bps_rd bps_wr)) {
+	if (my $bps = defined(delete $res->{$opt})) {
+	    if (defined($res->{"m$opt"})) {
+		warn "both $opt and m$opt specified\n";
+		++$error;
+		next;
 	    }
-	    $res->{$k} = $v;
-	} else {
-	    if (!$res->{file} && $p !~ m/=/) {
-		$res->{file} = $p;
-	    } else {
-		return undef;
-	    }
+	    $res->{"m$opt"} = sprintf("%.3f", $bps / (1024*1024.0));
 	}
     }
-
-    return undef if !$res->{file};
-
-    return undef if $res->{cache} &&
-	$res->{cache} !~ m/^(off|none|writethrough|writeback|unsafe|directsync)$/;
-    return undef if $res->{snapshot} && $res->{snapshot} !~ m/^(on|off)$/;
-    return undef if $res->{cyls} && $res->{cyls} !~ m/^\d+$/;
-    return undef if $res->{heads} && $res->{heads} !~ m/^\d+$/;
-    return undef if $res->{secs} && $res->{secs} !~ m/^\d+$/;
-    return undef if $res->{media} && $res->{media} !~ m/^(disk|cdrom)$/;
-    return undef if $res->{trans} && $res->{trans} !~ m/^(none|lba|auto)$/;
-    return undef if $res->{format} && $res->{format} !~ m/^(raw|cow|qcow|qed|qcow2|vmdk|cloop)$/;
-    return undef if $res->{rerror} && $res->{rerror} !~ m/^(ignore|report|stop)$/;
-    return undef if $res->{werror} && $res->{werror} !~ m/^(enospc|ignore|report|stop)$/;
-    return undef if $res->{backup} && $res->{backup} !~ m/^(yes|no)$/;
-    return undef if $res->{aio} && $res->{aio} !~ m/^(native|threads)$/;
-    return undef if $res->{discard} && $res->{discard} !~ m/^(ignore|on)$/;
-    return undef if $res->{detect_zeroes} && $res->{detect_zeroes} !~ m/^(on|off)$/;
-    return undef if $res->{iothread} && $res->{iothread} !~ m/^(on)$/;
-    return undef if $res->{queues} && ($res->{queues} !~ m/^\d+$/ || $res->{queues} < 2);
+    return undef if $error;
 
     return undef if $res->{mbps_rd} && $res->{mbps};
     return undef if $res->{mbps_wr} && $res->{mbps};
-
-    return undef if $res->{mbps} && $res->{mbps} !~ m/^\d+(\.\d+)?$/;
-    return undef if $res->{mbps_max} && $res->{mbps_max} !~ m/^\d+(\.\d+)?$/;
-    return undef if $res->{mbps_rd} && $res->{mbps_rd} !~ m/^\d+(\.\d+)?$/;
-    return undef if $res->{mbps_rd_max} && $res->{mbps_rd_max} !~ m/^\d+(\.\d+)?$/;
-    return undef if $res->{mbps_wr} && $res->{mbps_wr} !~ m/^\d+(\.\d+)?$/;
-    return undef if $res->{mbps_wr_max} && $res->{mbps_wr_max} !~ m/^\d+(\.\d+)?$/;
-
     return undef if $res->{iops_rd} && $res->{iops};
     return undef if $res->{iops_wr} && $res->{iops};
-
-
-    return undef if $res->{iops} && $res->{iops} !~ m/^\d+$/;
-    return undef if $res->{iops_max} && $res->{iops_max} !~ m/^\d+$/;
-    return undef if $res->{iops_rd} && $res->{iops_rd} !~ m/^\d+$/;
-    return undef if $res->{iops_rd_max} && $res->{iops_rd_max} !~ m/^\d+$/;
-    return undef if $res->{iops_wr} && $res->{iops_wr} !~ m/^\d+$/;
-    return undef if $res->{iops_wr_max} && $res->{iops_wr_max} !~ m/^\d+$/;
-
-    if ($res->{size}) {
-	return undef if !defined($res->{size} = &$parse_size($res->{size}));
-    }
 
     if ($res->{media} && ($res->{media} eq 'cdrom')) {
 	return undef if $res->{snapshot} || $res->{trans} || $res->{format};
@@ -976,33 +1091,18 @@ sub parse_drive {
 	return undef if $res->{interface} eq 'virtio';
     }
 
-    # rerror does not work with scsi drives
-    if ($res->{rerror}) {
-	return undef if $res->{interface} eq 'scsi';
+    if (my $size = $res->{size}) {
+	return undef if !defined($res->{size} = PVE::JSONSchema::parse_size($size));
     }
 
     return $res;
 }
 
-my @qemu_drive_options = qw(heads secs cyls trans media format cache snapshot rerror werror aio discard iops iops_rd iops_wr iops_max iops_rd_max iops_wr_max serial);
-
 sub print_drive {
     my ($vmid, $drive) = @_;
-
-    my $opts = '';
-    foreach my $o (@qemu_drive_options, qw(mbps mbps_rd mbps_wr mbps_max mbps_rd_max mbps_wr_max backup iothread queues detect_zeroes)) {
-	$opts .= ",$o=$drive->{$o}" if $drive->{$o};
-    }
-
-    if ($drive->{size}) {
-	$opts .= ",size=" . &$format_size($drive->{size});
-    }
-
-    if (my $model = $drive->{model}) {
-	$opts .= ",model=$model";
-    }
-
-    return "$drive->{file}$opts";
+    my $data = { %$drive };
+    delete $data->{$_} for qw(index interface);
+    return PVE::JSONSchema::print_property_string($data, $alldrive_fmt);
 }
 
 sub scsi_inquiry {
@@ -1167,6 +1267,7 @@ sub get_initiator_name {
     return $initiator;
 }
 
+my @qemu_drive_options = qw(heads secs cyls trans media format cache snapshot rerror werror aio discard iops iops_rd iops_wr iops_max iops_rd_max iops_wr_max serial);
 sub print_drive_full {
     my ($storecfg, $vmid, $drive) = @_;
 
@@ -1642,17 +1743,6 @@ sub verify_net {
     return undef if $noerr;
 
     die "unable to parse network options\n";
-}
-
-PVE::JSONSchema::register_format('pve-qm-drive', \&verify_drive);
-sub verify_drive {
-    my ($value, $noerr) = @_;
-
-    return $value if parse_drive(undef, $value);
-
-    return undef if $noerr;
-
-    die "unable to parse drive options\n";
 }
 
 PVE::JSONSchema::register_format('pve-qm-hostpci', \&verify_hostpci);
