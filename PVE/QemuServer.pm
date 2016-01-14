@@ -381,7 +381,6 @@ EODESCR
     smbios1 => {
 	description => "Specify SMBIOS type 1 fields.",
 	type => 'string', format => 'pve-qm-smbios1',
-	typetext => "[manufacturer=str][,product=str][,version=str][,serial=str] [,uuid=uuid][,sku=str][,family=str]",
 	maxLength => 256,
 	optional => 1,
     },
@@ -1551,57 +1550,66 @@ sub vmconfig_cleanup_pending {
     return $changes;
 }
 
-my $valid_smbios1_options = {
-    manufacturer => '\S+',
-    product => '\S+',
-    version => '\S+',
-    serial => '\S+',
-    uuid => '[a-fA-F0-9]{8}(?:-[a-fA-F0-9]{4}){3}-[a-fA-F0-9]{12}',
-    sku => '\S+',
-    family => '\S+',
+# smbios: [manufacturer=str][,product=str][,version=str][,serial=str][,uuid=uuid][,sku=str][,family=str]
+my $smbios1_desc = {
+    uuid => {
+	type => 'string',
+	pattern => '[a-fA-F0-9]{8}(?:-[a-fA-F0-9]{4}){3}-[a-fA-F0-9]{12}',
+	format_description => 'UUID',
+	optional => 1,
+    },
+    version => {
+	type => 'string',
+	pattern => '\S+',
+	format_description => 'str',
+	optional => 1,
+    },
+    serial => {
+	type => 'string',
+	pattern => '\S+',
+	format_description => 'str',
+	optional => 1,
+    },
+    manufacturer => {
+	type => 'string',
+	pattern => '\S+',
+	format_description => 'name',
+	optional => 1,
+    },
+    product => {
+	type => 'string',
+	pattern => '\S+',
+	format_description => 'name',
+	optional => 1,
+    },
+    sku => {
+	type => 'string',
+	pattern => '\S+',
+	format_description => 'str',
+	optional => 1,
+    },
+    family => {
+	type => 'string',
+	pattern => '\S+',
+	format_description => 'str',
+	optional => 1,
+    },
 };
 
-# smbios: [manufacturer=str][,product=str][,version=str][,serial=str][,uuid=uuid][,sku=str][,family=str]
 sub parse_smbios1 {
     my ($data) = @_;
 
-    my $res = {};
-
-    foreach my $kvp (split(/,/, $data)) {
-	return undef if $kvp !~ m/^(\S+)=(.+)$/;
-	my ($k, $v) = split(/=/, $kvp);
-	return undef if !defined($k) || !defined($v);
-	return undef if !$valid_smbios1_options->{$k};
-	return undef if $v !~ m/^$valid_smbios1_options->{$k}$/;
-	$res->{$k} = $v;
-    }
-
+    my $res = eval { PVE::JSONSchema::parse_property_string($smbios1_desc, $data) };
+    warn $@ if $@;
     return $res;
 }
 
 sub print_smbios1 {
     my ($smbios1) = @_;
-
-    my $data = '';
-    foreach my $k (keys %$smbios1) {
-	next if !defined($smbios1->{$k});
-	next if !$valid_smbios1_options->{$k};
-	$data .= ',' if $data;
-	$data .= "$k=$smbios1->{$k}";
-    }
-    return $data;
+    return PVE::JSONSchema::print_property_string($smbios1, $smbios1_desc);
 }
 
-PVE::JSONSchema::register_format('pve-qm-smbios1', \&verify_smbios1);
-sub verify_smbios1 {
-    my ($value, $noerr) = @_;
-
-    return $value if parse_smbios1($value);
-
-    return undef if $noerr;
-
-    die "unable to parse smbios (type 1) options\n";
-}
+PVE::JSONSchema::register_format('pve-qm-smbios1', $smbios1_desc);
 
 PVE::JSONSchema::register_format('pve-qm-bootdisk', \&verify_bootdisk);
 sub verify_bootdisk {
