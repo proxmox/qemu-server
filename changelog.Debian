@@ -1,3 +1,9 @@
+qemu-server (4.0-47) unstable; urgency=medium
+
+  * add support for network trunks
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 15 Jan 2016 17:27:32 +0100
+
 qemu-server (4.0-46) unstable; urgency=medium
 
   * Closes #787: add Haswell-noTSX and Broadwell-noTSX cpu types
