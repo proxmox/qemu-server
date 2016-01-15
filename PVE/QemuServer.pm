@@ -454,7 +454,7 @@ my $nic_model_list_txt = join(' ', sort @$nic_model_list);
 my $netdesc = {
     optional => 1,
     type => 'string', format => 'pve-qm-net',
-    typetext => "MODEL=XX:XX:XX:XX:XX:XX [,bridge=<dev>][,queues=<nbqueues>][,rate=<mbps>] [,tag=<vlanid>][,firewall=0|1],link_down=0|1]",
+    typetext => "MODEL=XX:XX:XX:XX:XX:XX [,bridge=<dev>][,queues=<nbqueues>][,rate=<mbps>] [,tag=<vlanid>][,trunks=<vlanid[;vlanid]>][,firewall=0|1],link_down=0|1]",
     description => <<EODESCR,
 Specify network devices.
 
@@ -1500,6 +1500,8 @@ sub parse_net {
 	    $res->{rate} = $1;
         } elsif ($kvp =~ m/^tag=(\d+)$/) {
             $res->{tag} = $1;
+        } elsif ($kvp =~ m/^trunks=([0-9;]+)$/) {
+	    $res->{trunks} = $1;
         } elsif ($kvp =~ m/^firewall=([01])$/) {
 	    $res->{firewall} = $1;
 	} elsif ($kvp =~ m/^link_down=([01])$/) {
@@ -1523,6 +1525,7 @@ sub print_net {
     $res .= ",bridge=$net->{bridge}" if $net->{bridge};
     $res .= ",rate=$net->{rate}" if $net->{rate};
     $res .= ",tag=$net->{tag}" if $net->{tag};
+    $res .= ",trunks=$net->{trunks}" if $net->{trunks};
     $res .= ",firewall=1" if $net->{firewall};
     $res .= ",link_down=1" if $net->{link_down};
     $res .= ",queues=$net->{queues}" if $net->{queues};
@@ -4337,9 +4340,10 @@ sub vmconfig_update_net {
 
 	    if (&$safe_string_ne($oldnet->{bridge}, $newnet->{bridge}) ||
 		&$safe_num_ne($oldnet->{tag}, $newnet->{tag}) ||
+		&$safe_num_ne($oldnet->{trunks}, $newnet->{trunks}) ||
 		&$safe_num_ne($oldnet->{firewall}, $newnet->{firewall})) {
 		PVE::Network::tap_unplug($iface);
-		PVE::Network::tap_plug($iface, $newnet->{bridge}, $newnet->{tag}, $newnet->{firewall});
+		PVE::Network::tap_plug($iface, $newnet->{bridge}, $newnet->{tag}, $newnet->{firewall}, $newnet->{trunks});
 	    }
 
 	    if (&$safe_string_ne($oldnet->{link_down}, $newnet->{link_down})) {
