@@ -4340,7 +4340,7 @@ sub vmconfig_update_net {
 
 	    if (&$safe_string_ne($oldnet->{bridge}, $newnet->{bridge}) ||
 		&$safe_num_ne($oldnet->{tag}, $newnet->{tag}) ||
-		&$safe_num_ne($oldnet->{trunks}, $newnet->{trunks}) ||
+		&$safe_string_ne($oldnet->{trunks}, $newnet->{trunks}) ||
 		&$safe_num_ne($oldnet->{firewall}, $newnet->{firewall})) {
 		PVE::Network::tap_unplug($iface);
 		PVE::Network::tap_plug($iface, $newnet->{bridge}, $newnet->{tag}, $newnet->{firewall}, $newnet->{trunks});
