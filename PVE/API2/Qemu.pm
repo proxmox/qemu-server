@@ -2281,7 +2281,7 @@ __PACKAGE__->register_method({
 		eval {
 		    local $SIG{INT} = $SIG{TERM} = $SIG{QUIT} = $SIG{HUP} = sub { die "interrupted by signal\n"; };
 
-		    PVE::Storage::activate_volumes($storecfg, $vollist);
+		    PVE::Storage::activate_volumes($storecfg, $vollist, $snapname);
 
 		    foreach my $opt (keys %$drives) {
 			my $drive = $drives->{$opt};
@@ -2299,7 +2299,7 @@ __PACKAGE__->register_method({
 
                     if ($target) {
 			# always deactivate volumes - avoid lvm LVs to be active on several nodes
-			PVE::Storage::deactivate_volumes($storecfg, $vollist);
+			PVE::Storage::deactivate_volumes($storecfg, $vollist, $snapname);
 
 			my $newconffile = PVE::QemuServer::config_file($newid, $target);
 			die "Failed to move config to node '$target' - rename failed: $!\n"
