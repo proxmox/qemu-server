@@ -1285,6 +1285,7 @@ sub print_drive_full {
 	    $format = qemu_img_format($scfg, $volname);
 	} else {
 	    $path = $volid;
+	    $format = "raw";
 	}
    }
 
