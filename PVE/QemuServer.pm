@@ -90,6 +90,22 @@ mkdir $lock_dir;
 
 my $pcisysfs = "/sys/bus/pci";
 
+my $cpudesc = {
+    cputype => {
+	description => "Emulated CPU type.",
+	type => 'string',
+	enum => [ qw(486 athlon pentium pentium2 pentium3 coreduo core2duo kvm32 kvm64 qemu32 qemu64 phenom Conroe Penryn Nehalem Westmere SandyBridge IvyBridge Haswell Haswell-noTSX Broadwell Broadwell-noTSX Opteron_G1 Opteron_G2 Opteron_G3 Opteron_G4 Opteron_G5 host) ],
+	default => 'kvm64',
+	default_key => 1,
+    },
+    hidden => {
+	description => "Do not identify as a KVM virtual machine.",
+	type => 'boolean',
+	optional => 1,
+	default => 0
+    },
+};
+
 my $confdesc = {
     onboot => {
 	optional => 1,
@@ -353,8 +369,7 @@ EODESCR
 	optional => 1,
 	description => "Emulated CPU type.",
 	type => 'string',
-	enum => [ qw(486 athlon pentium pentium2 pentium3 coreduo core2duo kvm32 kvm64 qemu32 qemu64 phenom Conroe Penryn Nehalem Westmere SandyBridge IvyBridge Haswell Haswell-noTSX Broadwell Broadwell-noTSX Opteron_G1 Opteron_G2 Opteron_G3 Opteron_G4 Opteron_G5 host) ],
-	default => 'kvm64',
+	format => $cpudesc,
     },
     parent => get_standard_option('pve-snapshot-name', {
 	optional => 1,
@@ -2860,6 +2875,7 @@ sub config_to_command {
 
     push @$devices, '-device', print_tabletdevice_full($conf) if $tablet;
 
+    my $kvm_off = 0;
     my $nohyperv;
     # host pci devices
     for (my $i = 0; $i < $MAX_HOSTPCI_DEVICES; $i++)  {
@@ -2877,7 +2893,7 @@ sub config_to_command {
 	my $rombar = $d->{rombar} && $d->{rombar} eq 'off' ? ",rombar=0" : "";
 	my $xvga = $d->{'x-vga'} && $d->{'x-vga'} eq 'on' ? ",x-vga=on" : "";
 	if ($xvga && $xvga ne '') {
-	    push @$cpuFlags, 'kvm=off';
+	    $kvm_off = 1;
 	    $vga = 'none';
 	    $nohyperv = 1;
 	    if ($conf->{bios} && $conf->{bios} eq 'ovmf') {
@@ -3042,7 +3058,12 @@ sub config_to_command {
     }
 
     my $cpu = $nokvm ? "qemu64" : "kvm64";
-    $cpu = $conf->{cpu} if $conf->{cpu};
+    if (my $cputype = $conf->{cpu}) {
+	my $cpuconf = PVE::JSONSchema::parse_property_string($cpudesc, $cputype)
+	    or die "Cannot parse cpu description: $cputype\n";
+	$cpu = $cpuconf->{cputype};
+	$kvm_off = 1 if $cpuconf->{hidden};
+    }
 
     push @$cpuFlags , '+lahf_lm' if $cpu eq 'kvm64';
 
@@ -3060,6 +3081,8 @@ sub config_to_command {
     }
 
     push @$cpuFlags, 'enforce' if $cpu ne 'host' && !$nokvm;
+
+    push @$cpuFlags, 'kvm=off' if $kvm_off;
 
     $cpu .= "," . join(',', @$cpuFlags) if scalar(@$cpuFlags);
 
