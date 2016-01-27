@@ -21,6 +21,7 @@ use PVE::INotify;
 use PVE::Network;
 use PVE::Firewall;
 use PVE::API2::Firewall::VM;
+use PVE::HA::Env::PVE2;
 use PVE::HA::Config;
 
 use Data::Dumper; # fixme: remove
