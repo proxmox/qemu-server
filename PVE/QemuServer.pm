@@ -5476,8 +5476,11 @@ sub restore_vma_archive {
 	    "unable to read qemu-server.conf - $!\n";
 
 	my $fwcfgfn = "$tmpdir/qemu-server.fw";
-	PVE::Tools::file_copy($fwcfgfn, "/etc/pve/firewall/$vmid.fw")
-	    if -f $fwcfgfn;
+	if (-f $fwcfgfn) {
+	    my $pve_firewall_dir = '/etc/pve/firewall';
+	    mkdir $pve_firewall_dir; # make sure the dir exists
+	    PVE::Tools::file_copy($fwcfgfn, "${pve_firewall_dir}/$vmid.fw");
+	}
 
 	while (defined(my $line = <$fh>)) {
 	    if ($line =~ m/^\#qmdump\#map:(\S+):(\S+):(\S*):(\S*):$/) {

@@ -4,6 +4,8 @@ qemu-server (4.0-50) unstable; urgency=medium
 
   * fix PVE::HA use clause so HA resources get registered
 
+  * Create firewall dir on VM restore
+
  -- Proxmox Support Team <support@proxmox.com>  Tue, 26 Jan 2016 16:57:43 +0100
 
 qemu-server (4.0-49) unstable; urgency=medium
