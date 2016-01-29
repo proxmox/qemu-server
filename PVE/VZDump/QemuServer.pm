@@ -64,10 +64,10 @@ sub prepare {
 
 	return if PVE::QemuServer::drive_is_cdrom($drive);
 
-	if (defined($drive->{backup}) && $drive->{backup} eq "no") {
+	if (defined($drive->{backup}) && !$drive->{backup}) {
 	    $self->loginfo("exclude disk '$ds' (backup=no)");
 	    return;
-	} elsif (defined($drive->{iothread}) && $drive->{iothread} eq "on") {
+	} elsif ($drive->{iothread}) {
 	    die "disk '$ds' (iothread=on) can't use backup feature currently. Please set backup=no for this drive";
 	}
 
