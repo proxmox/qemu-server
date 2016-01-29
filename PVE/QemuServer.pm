@@ -1338,7 +1338,7 @@ sub print_drive_full {
 
     if (!drive_is_cdrom($drive)) {
 	my $detectzeroes;
-	if ($drive->{detect_zeroes} && $drive->{detect_zeroes} eq 'off') {
+	if (defined($drive->{detect_zeroes}) && !$drive->{detect_zeroes}) {
 	    $detectzeroes = 'off';
 	} elsif ($drive->{discard}) {
 	    $detectzeroes = $drive->{discard} eq 'on' ? 'unmap' : 'on';
