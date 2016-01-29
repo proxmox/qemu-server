@@ -562,7 +562,8 @@ my %drivedesc_base = (
 	optional => 1,
     },
     size => {
-	type => 'disk-size',
+	type => 'string',
+	format => 'disk-size',
 	description => "Disk size. This is purely informational and has no effect.",
 	optional => 1,
     },
