@@ -1,3 +1,9 @@
+qemu-server (4.0-52) unstable; urgency=medium
+
+  * close tunnel after migration is finish.
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 02 Feb 2016 18:16:47 +0100
+
 qemu-server (4.0-51) unstable; urgency=medium
 
   * Fix #878: disk-size format
