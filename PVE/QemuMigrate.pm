@@ -520,6 +520,14 @@ sub phase2 {
 	    die "unable to parse migration status '$stat->{status}' - aborting\n";
 	}
     }
+    #to be sure tat the tunnel is closed 
+    if ($self->{tunnel}) {
+	eval { finish_tunnel($self, $self->{tunnel});  };
+	if (my $err = $@) {
+	    $self->log('err', $err);
+	    $self->{errors} = 1;
+	}
+    }
 }
 
 sub phase2_cleanup {
@@ -551,6 +559,14 @@ sub phase2_cleanup {
     if (my $err = $@) {
         $self->log('err', $err);
         $self->{errors} = 1;
+    }
+
+    if ($self->{tunnel}) {
+	eval { finish_tunnel($self, $self->{tunnel});  };
+	if (my $err = $@) {
+	    $self->log('err', $err);
+	    $self->{errors} = 1;
+	}
     }
 }
 
@@ -619,14 +635,6 @@ sub phase3_cleanup {
     if (my $err = $@) {
 	$self->log('err', "stopping vm failed - $err");
 	$self->{errors} = 1;
-    }
-
-    if ($self->{tunnel}) {
-	eval { finish_tunnel($self, $self->{tunnel});  };
-	if (my $err = $@) {
-	    $self->log('err', $err);
-	    $self->{errors} = 1;
-	}
     }
 
     # always deactivate volumes - avoid lvm LVs to be active on several nodes
