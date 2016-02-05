@@ -228,6 +228,11 @@ __PACKAGE__->register_method({
     	additionalProperties => 0,
 	properties => {
 	    node => get_standard_option('pve-node'),
+	    full => {
+		type => 'boolean',
+		optional => 1,
+		description => "Determine the full status of active VMs.",
+	    },
 	},
     },
     returns => {
@@ -244,7 +249,7 @@ __PACKAGE__->register_method({
 	my $rpcenv = PVE::RPCEnvironment::get();
 	my $authuser = $rpcenv->get_user();
 
-	my $vmstatus = PVE::QemuServer::vmstatus();
+	my $vmstatus = PVE::QemuServer::vmstatus(undef, $param->{full});
 
 	my $res = [];
 	foreach my $vmid (keys %$vmstatus) {

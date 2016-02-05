@@ -119,7 +119,7 @@ __PACKAGE__->register_method ({
 	# test if VM exists
 	my $conf = PVE::QemuServer::load_config ($param->{vmid});
 
-	my $vmstatus = PVE::QemuServer::vmstatus($param->{vmid});
+	my $vmstatus = PVE::QemuServer::vmstatus($param->{vmid}, 1);
 	my $stat = $vmstatus->{$param->{vmid}};
 	if ($param->{verbose}) {
 	    foreach my $k (sort (keys %$stat)) {
@@ -129,7 +129,7 @@ __PACKAGE__->register_method ({
 		print "$k: $v\n";
 	    }
 	} else {
-	    my $status = $stat->{status} || 'unknown';
+	    my $status = $stat->{qmpstatus} || 'unknown';
 	    print "status: $status\n";
 	}
 
@@ -392,7 +392,7 @@ our $cmddef = {
 
 		 foreach my $rec (sort { $a->{vmid} <=> $b->{vmid} } @$vmlist) {
 		     printf "%10s %-20s %-10s %-10s %12.2f %-10s\n", $rec->{vmid}, $rec->{name},
-		     $rec->{status},
+		     $rec->{qmpstatus} || $rec->{status},
 		     ($rec->{maxmem} || 0)/(1024*1024),
 		     ($rec->{maxdisk} || 0)/(1024*1024*1024),
 		     $rec->{pid}||0;
