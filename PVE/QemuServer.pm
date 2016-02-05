@@ -1972,13 +1972,13 @@ sub touch_config {
 }
 
 sub destroy_vm {
-    my ($storecfg, $vmid, $keep_empty_config) = @_;
+    my ($storecfg, $vmid, $keep_empty_config, $skiplock) = @_;
 
     my $conffile = config_file($vmid);
 
     my $conf = load_config($vmid);
 
-    check_lock($conf);
+    check_lock($conf) if !$skiplock;
 
     # only remove disks owned by this VM
     foreach_drive($conf, sub {
@@ -4857,10 +4857,8 @@ sub vm_destroy {
 
 	my $conf = load_config($vmid);
 
-	check_lock($conf) if !$skiplock;
-
 	if (!check_running($vmid)) {
-	    destroy_vm($storecfg, $vmid);
+	    destroy_vm($storecfg, $vmid, undef, $skiplock);
 	} else {
 	    die "VM $vmid is running - destroy failed\n";
 	}
