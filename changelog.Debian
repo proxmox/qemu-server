@@ -1,3 +1,9 @@
+qemu-server (4.0-53) unstable; urgency=medium
+
+  * pass $skiplock all the way through to destroy_vm
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 08 Feb 2016 11:53:03 +0100
+
 qemu-server (4.0-52) unstable; urgency=medium
 
   * close tunnel after migration is finish.
