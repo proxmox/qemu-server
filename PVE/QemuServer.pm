@@ -5264,7 +5264,7 @@ sub restore_update_config_line {
 	my $di = parse_drive($virtdev, $value);
 	if (defined($di->{backup}) && !$di->{backup}) {
 	    print $outfd "#$line";
-	} elsif ($virtdev && $map->{$virtdev}) {
+	} elsif ($map->{$virtdev}) {
 	    delete $di->{format}; # format can change on restore
 	    $di->{file} = $map->{$virtdev};
 	    $value = print_drive($vmid, $di);
