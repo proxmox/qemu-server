@@ -5261,10 +5261,10 @@ sub restore_update_config_line {
     } elsif ($line =~ m/^((ide|scsi|virtio|sata)\d+):\s*(\S+)\s*$/) {
 	my $virtdev = $1;
 	my $value = $3;
-	if ($line =~ m/backup=no/) {
+	my $di = parse_drive($virtdev, $value);
+	if (defined($di->{backup}) && !$di->{backup}) {
 	    print $outfd "#$line";
 	} elsif ($virtdev && $map->{$virtdev}) {
-	    my $di = parse_drive($virtdev, $value);
 	    delete $di->{format}; # format can change on restore
 	    $di->{file} = $map->{$virtdev};
 	    $value = print_drive($vmid, $di);
