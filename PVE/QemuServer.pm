@@ -730,7 +730,7 @@ my $alldrive_fmt = {
 my $usbdesc = {
     optional => 1,
     type => 'string', format => 'pve-qm-usb-device',
-    typetext => 'host=HOSTUSBDEVICE|spice',
+    typetext => 'host=HOSTUSBDEVICE [,usb3=yes|no]|spice',
     description => <<EODESCR,
 Configure an USB device (n is 0 to 4). This can be used to
 pass-through usb devices to the guest. HOSTUSBDEVICE syntax is:
@@ -743,6 +743,8 @@ You can use the 'lsusb -t' command to list existing usb devices.
 Note: This option allows direct access to host hardware. So it is no longer possible to migrate such machines - use with special care.
 
 The value 'spice' can be used to add a usb redirection devices for spice.
+
+The 'usb3' option determines whether the device is a USB3 device or not (this does currently not work with spice redirection).
 
 EODESCR
 };
@@ -1830,6 +1832,8 @@ sub parse_usb_device {
 	} elsif ($v =~ m/^spice$/) {
 	    $found = 1;
 	    $res->{spice} = 1;
+	} elsif ($v =~ m/^usb3=yes$/) {
+	    $res->{usb3} = 1;
 	} else {
 	    return undef;
 	}
@@ -2843,11 +2847,26 @@ sub config_to_command {
         my $use_usb2 = 0;
 	for (my $i = 0; $i < $MAX_USB_DEVICES; $i++)  {
 	    next if !$conf->{"usb$i"};
+	    my $d = parse_usb_device($conf->{"usb$i"});
+	    next if $d->{usb3}; # do not add usb2 controller if we have only usb3 devices
 	    $use_usb2 = 1;
 	}
 	# include usb device config
 	push @$devices, '-readconfig', '/usr/share/qemu-server/pve-usb.cfg' if $use_usb2;
     }
+
+    # add usb3 controller if needed
+
+    my $use_usb3 = 0;
+    for (my $i = 0; $i < $MAX_USB_DEVICES; $i++)  {
+	next if !$conf->{"usb$i"};
+	my $d = parse_usb_device($conf->{"usb$i"});
+	next if !$d->{usb3};
+	$use_usb3 = 1;
+    }
+
+    $pciaddr = print_pci_addr("xhci", $bridges);
+    push @$devices, '-device', "nec-usb-xhci,id=xhci$pciaddr" if $use_usb3;
 
     my $vga = $conf->{vga};
 
@@ -2927,12 +2946,19 @@ sub config_to_command {
     for (my $i = 0; $i < $MAX_USB_DEVICES; $i++)  {
 	my $d = parse_usb_device($conf->{"usb$i"});
 	next if !$d;
+
+	# if it is a usb3 device, attach it to the xhci controller, else omit the bus option
+	my $usbbus = '';
+	if ($d->{usb3}) {
+	    $usbbus = ',bus=xhci.0';
+	}
+
 	if ($d->{vendorid} && $d->{productid}) {
-	    push @$devices, '-device', "usb-host,vendorid=0x$d->{vendorid},productid=0x$d->{productid}";
+	    push @$devices, '-device', "usb-host$usbbus,vendorid=0x$d->{vendorid},productid=0x$d->{productid}";
 	} elsif (defined($d->{hostbus}) && defined($d->{hostport})) {
-	    push @$devices, '-device', "usb-host,hostbus=$d->{hostbus},hostport=$d->{hostport}";
+	    push @$devices, '-device', "usb-host$usbbus,hostbus=$d->{hostbus},hostport=$d->{hostport}";
 	} elsif ($d->{spice}) {
-	    # usb redir support for spice
+	    # usb redir support for spice, currently no usb3
 	    push @$devices, '-chardev', "spicevmc,id=usbredirchardev$i,name=usbredir";
 	    push @$devices, '-device', "usb-redir,chardev=usbredirchardev$i,id=usbredirdev$i,bus=ehci.0";
 	}
@@ -5045,6 +5071,7 @@ sub print_pci_addr {
 	'net29' => { bus => 1, addr => 24 },
 	'net30' => { bus => 1, addr => 25 },
 	'net31' => { bus => 1, addr => 26 },
+	'xhci' => { bus => 1, addr => 27 },
 	'virtio6' => { bus => 2, addr => 1 },
 	'virtio7' => { bus => 2, addr => 2 },
 	'virtio8' => { bus => 2, addr => 3 },
