@@ -727,16 +727,31 @@ my $alldrive_fmt = {
     %queues_fmt,
 };
 
+my $usbformat = {
+    host => {
+	default_key => 1,
+	type => 'string', format => 'pve-qm-usb-device',
+	format_description => 'HOSTUSBDEVICE|spice',
+	description => 'The Host USB device or port or the value spice',
+    },
+    usb3 => {
+	optional => 1,
+	type => 'boolean',
+	format_description => 'yes|no',
+	description => 'Specifies whether if given host option is a USB3 device or port',
+    },
+};
+
 my $usbdesc = {
     optional => 1,
-    type => 'string', format => 'pve-qm-usb-device',
-    typetext => 'host=HOSTUSBDEVICE [,usb3=yes|no]|spice',
+    type => 'string', format => $usbformat,
     description => <<EODESCR,
 Configure an USB device (n is 0 to 4). This can be used to
 pass-through usb devices to the guest. HOSTUSBDEVICE syntax is:
 
 'bus-port(.port)*' (decimal numbers) or
-'vendor_id:product_id' (hexadeciaml numbers)
+'vendor_id:product_id' (hexadeciaml numbers) or
+'spice'
 
 You can use the 'lsusb -t' command to list existing usb devices.
 
@@ -744,7 +759,7 @@ Note: This option allows direct access to host hardware. So it is no longer poss
 
 The value 'spice' can be used to add a usb redirection devices for spice.
 
-The 'usb3' option determines whether the device is a USB3 device or not (this does currently not work with spice redirection).
+The 'usb3' option determines whether the device is a USB3 device or not (this does currently not work reliably with spice redirection and is then ignored).
 
 EODESCR
 };
@@ -1816,29 +1831,18 @@ sub parse_usb_device {
 
     return undef if !$value;
 
-    my @dl = split(/,/, $value);
-    my $found;
-
     my $res = {};
-    foreach my $v (@dl) {
-	if ($v =~ m/^host=(0x)?([0-9A-Fa-f]{4}):(0x)?([0-9A-Fa-f]{4})$/) {
-	    $found = 1;
-	    $res->{vendorid} = $2;
-	    $res->{productid} = $4;
-	} elsif ($v =~ m/^host=(\d+)\-(\d+(\.\d+)*)$/) {
-	    $found = 1;
-	    $res->{hostbus} = $1;
-	    $res->{hostport} = $2;
-	} elsif ($v =~ m/^spice$/) {
-	    $found = 1;
-	    $res->{spice} = 1;
-	} elsif ($v =~ m/^usb3=yes$/) {
-	    $res->{usb3} = 1;
-	} else {
-	    return undef;
-	}
+    if ($value =~ m/^(0x)?([0-9A-Fa-f]{4}):(0x)?([0-9A-Fa-f]{4})$/) {
+	$res->{vendorid} = $2;
+	$res->{productid} = $4;
+    } elsif ($value =~ m/^(\d+)\-(\d+(\.\d+)*)$/) {
+	$res->{hostbus} = $1;
+	$res->{hostport} = $2;
+    } elsif ($value =~ m/^spice$/i) {
+	$res->{spice} = 1;
+    } else {
+	return undef;
     }
-    return undef if !$found;
 
     return $res;
 }
@@ -2847,8 +2851,8 @@ sub config_to_command {
         my $use_usb2 = 0;
 	for (my $i = 0; $i < $MAX_USB_DEVICES; $i++)  {
 	    next if !$conf->{"usb$i"};
-	    my $d = parse_usb_device($conf->{"usb$i"});
-	    next if $d->{usb3}; # do not add usb2 controller if we have only usb3 devices
+	    my $d = eval { PVE::JSONSchema::parse_property_string($usbdesc->{format},$conf->{"usb$i"}) };
+	    next if !$d || $d->{usb3}; # do not add usb2 controller if we have only usb3 devices
 	    $use_usb2 = 1;
 	}
 	# include usb device config
@@ -2860,8 +2864,8 @@ sub config_to_command {
     my $use_usb3 = 0;
     for (my $i = 0; $i < $MAX_USB_DEVICES; $i++)  {
 	next if !$conf->{"usb$i"};
-	my $d = parse_usb_device($conf->{"usb$i"});
-	next if !$d->{usb3};
+	my $d = eval { PVE::JSONSchema::parse_property_string($usbdesc->{format},$conf->{"usb$i"}) };
+	next if !$d || !$d->{usb3};
 	$use_usb3 = 1;
     }
 
@@ -2944,23 +2948,27 @@ sub config_to_command {
 
     # usb devices
     for (my $i = 0; $i < $MAX_USB_DEVICES; $i++)  {
-	my $d = parse_usb_device($conf->{"usb$i"});
+	next if !$conf->{"usb$i"};
+	my $d = eval { PVE::JSONSchema::parse_property_string($usbdesc->{format},$conf->{"usb$i"}) };
 	next if !$d;
 
 	# if it is a usb3 device, attach it to the xhci controller, else omit the bus option
 	my $usbbus = '';
-	if ($d->{usb3}) {
+	if (defined($d->{usb3}) && $d->{usb3}) {
 	    $usbbus = ',bus=xhci.0';
 	}
 
-	if ($d->{vendorid} && $d->{productid}) {
-	    push @$devices, '-device', "usb-host$usbbus,vendorid=0x$d->{vendorid},productid=0x$d->{productid}";
-	} elsif (defined($d->{hostbus}) && defined($d->{hostport})) {
-	    push @$devices, '-device', "usb-host$usbbus,hostbus=$d->{hostbus},hostport=$d->{hostport}";
-	} elsif ($d->{spice}) {
-	    # usb redir support for spice, currently no usb3
-	    push @$devices, '-chardev', "spicevmc,id=usbredirchardev$i,name=usbredir";
-	    push @$devices, '-device', "usb-redir,chardev=usbredirchardev$i,id=usbredirdev$i,bus=ehci.0";
+	if (defined($d->{host})) {
+	    $d = parse_usb_device($d->{host});
+	    if (defined($d->{vendorid}) && defined($d->{productid})) {
+		push @$devices, '-device', "usb-host$usbbus,vendorid=0x$d->{vendorid},productid=0x$d->{productid}";
+	    } elsif (defined($d->{hostbus}) && defined($d->{hostport})) {
+		push @$devices, '-device', "usb-host$usbbus,hostbus=$d->{hostbus},hostport=$d->{hostport}";
+	    } elsif (defined($d->{spice}) && $d->{spice}) {
+		# usb redir support for spice, currently no usb3
+		push @$devices, '-chardev', "spicevmc,id=usbredirchardev$i,name=usbredir";
+		push @$devices, '-device', "usb-redir,chardev=usbredirchardev$i,id=usbredirdev$i,bus=ehci.0";
+	    }
 	}
     }
 
