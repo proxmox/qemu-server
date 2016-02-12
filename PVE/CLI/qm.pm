@@ -188,7 +188,7 @@ __PACKAGE__->register_method ({
 	    my $conf = PVE::QemuServer::load_config($vmid);
 	    delete $conf->{lock};
 	    delete $conf->{pending}->{lock} if $conf->{pending}; # just to be sure
-	    PVE::QemuServer::update_config_nolock($vmid, $conf, 1);
+	    PVE::QemuServer::write_config($vmid, $conf, 1);
 	});
 
 	return undef;

@@ -457,7 +457,7 @@ __PACKAGE__->register_method({
 			$conf->{smbios1} = "uuid=$uuid_str";
 		    }
 
-		    PVE::QemuServer::update_config_nolock($vmid, $conf);
+		    PVE::QemuServer::write_config($vmid, $conf);
 
 		};
 		my $err = $@;
@@ -908,7 +908,7 @@ my $update_vm_api  = sub {
 		    $rpcenv->check_vm_perm($authuser, $vmid, undef, ['VM.Config.Disk']);
 		    if (PVE::QemuServer::try_deallocate_drive($storecfg, $vmid, $conf, $opt, $drive, $rpcenv, $authuser)) {
 			delete $conf->{$opt};
-			PVE::QemuServer::update_config_nolock($vmid, $conf, 1);
+			PVE::QemuServer::write_config($vmid, $conf, 1);
 		    }
 		} elsif (PVE::QemuServer::valid_drivename($opt)) {
 		    &$check_protection($conf, "can't remove drive '$opt'");
@@ -916,10 +916,10 @@ my $update_vm_api  = sub {
 		    PVE::QemuServer::vmconfig_register_unused_drive($storecfg, $vmid, $conf, PVE::QemuServer::parse_drive($opt, $conf->{pending}->{$opt}))
 			if defined($conf->{pending}->{$opt});
 		    PVE::QemuServer::vmconfig_delete_pending_option($conf, $opt, $force);
-		    PVE::QemuServer::update_config_nolock($vmid, $conf, 1);
+		    PVE::QemuServer::write_config($vmid, $conf, 1);
 		} else {
 		    PVE::QemuServer::vmconfig_delete_pending_option($conf, $opt, $force);
-		    PVE::QemuServer::update_config_nolock($vmid, $conf, 1);
+		    PVE::QemuServer::write_config($vmid, $conf, 1);
 		}
 	    }
 
@@ -943,13 +943,13 @@ my $update_vm_api  = sub {
 		    $conf->{pending}->{$opt} = $param->{$opt};
 		}
 		PVE::QemuServer::vmconfig_undelete_pending_option($conf, $opt);
-		PVE::QemuServer::update_config_nolock($vmid, $conf, 1);
+		PVE::QemuServer::write_config($vmid, $conf, 1);
 	    }
 
 	    # remove pending changes when nothing changed
 	    $conf = PVE::QemuServer::load_config($vmid); # update/reload
 	    my $changes = PVE::QemuServer::vmconfig_cleanup_pending($conf);
-	    PVE::QemuServer::update_config_nolock($vmid, $conf, 1) if $changes;
+	    PVE::QemuServer::write_config($vmid, $conf, 1) if $changes;
 
 	    return if !scalar(keys %{$conf->{pending}});
 
@@ -2292,11 +2292,11 @@ __PACKAGE__->register_method({
 
 			$newconf->{$opt} = PVE::QemuServer::print_drive($vmid, $newdrive);
 
-			PVE::QemuServer::update_config_nolock($newid, $newconf, 1);
+			PVE::QemuServer::write_config($newid, $newconf, 1);
 		    }
 
 		    delete $newconf->{lock};
-		    PVE::QemuServer::update_config_nolock($newid, $newconf, 1);
+		    PVE::QemuServer::write_config($newid, $newconf, 1);
 
                     if ($target) {
 			# always deactivate volumes - avoid lvm LVs to be active on several nodes
@@ -2455,7 +2455,7 @@ __PACKAGE__->register_method({
 
 		    PVE::QemuServer::add_unused_volume($conf, $old_volid) if !$param->{delete};
 
-		    PVE::QemuServer::update_config_nolock($vmid, $conf, 1);
+		    PVE::QemuServer::write_config($vmid, $conf, 1);
 
 		    eval {
 			# try to deactivate volumes - avoid lvm LVs to be active on several nodes
@@ -2477,7 +2477,7 @@ __PACKAGE__->register_method({
                     if (PVE::QemuServer::is_volume_in_use($storecfg, $conf, undef, $old_volid)) {
 			warn "volume $old_volid still has snapshots, can't delete it\n";
 			PVE::QemuServer::add_unused_volume($conf, $old_volid);
-			PVE::QemuServer::update_config_nolock($vmid, $conf, 1);
+			PVE::QemuServer::write_config($vmid, $conf, 1);
 		    } else {
 			eval { PVE::Storage::vdisk_free($storecfg, $old_volid); };
 			warn $@ if $@;
@@ -2748,7 +2748,7 @@ __PACKAGE__->register_method({
 	    $drive->{size} = $newsize;
 	    $conf->{$disk} = PVE::QemuServer::print_drive($vmid, $drive);
 
-	    PVE::QemuServer::update_config_nolock($vmid, $conf, 1);
+	    PVE::QemuServer::write_config($vmid, $conf, 1);
 	};
 
         PVE::QemuServer::lock_config($vmid, $updatefn);
@@ -2953,7 +2953,7 @@ __PACKAGE__->register_method({
 
 	    $snap->{description} = $param->{description} if defined($param->{description});
 
-	     PVE::QemuServer::update_config_nolock($vmid, $conf, 1);
+	     PVE::QemuServer::write_config($vmid, $conf, 1);
 	};
 
 	PVE::QemuServer::lock_config($vmid, $updatefn);
@@ -3149,7 +3149,7 @@ __PACKAGE__->register_method({
 	    };
 
 	    $conf->{template} = 1;
-	    PVE::QemuServer::update_config_nolock($vmid, $conf, 1);
+	    PVE::QemuServer::write_config($vmid, $conf, 1);
 
 	    return $rpcenv->fork_worker('qmtemplate', $vmid, $authuser, $realcmd);
 	};
