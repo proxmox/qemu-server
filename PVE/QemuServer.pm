@@ -2245,9 +2245,7 @@ sub write_vm_config {
 }
 
 sub write_config {
-    my ($vmid, $conf, $skiplock) = @_;
-
-    check_lock($conf) if !$skiplock;
+    my ($vmid, $conf) = @_;
 
     my $cfspath = cfs_config_path($vmid);
 
@@ -3213,7 +3211,7 @@ sub config_to_command {
 	    #if dimm_memory is not aligned to dimm map
 	    if($current_size > $memory) {
 	         $conf->{memory} = $current_size;
-	         write_config($vmid, $conf, 1);
+	         write_config($vmid, $conf);
 	    }
 	});
     }
@@ -3870,7 +3868,7 @@ sub qemu_memory_hotplug {
 		}
 		#update conf after each succesful module hotplug
 		$conf->{memory} = $current_size;
-		write_config($vmid, $conf, 1);
+		write_config($vmid, $conf);
 	});
 
     } else {
@@ -3895,7 +3893,7 @@ sub qemu_memory_hotplug {
 		$conf->{memory} = $current_size;
 
 		eval { qemu_objectdel($vmid, "mem-$name"); };
-		write_config($vmid, $conf, 1);
+		write_config($vmid, $conf);
 	});
     }
 }
@@ -4148,7 +4146,7 @@ sub vmconfig_hotplug_pending {
     }
 
     if ($changes) {
-	write_config($vmid, $conf, 1);
+	write_config($vmid, $conf);
 	$conf = load_config($vmid); # update/reload
     }
 
@@ -4199,7 +4197,7 @@ sub vmconfig_hotplug_pending {
 	    # save new config if hotplug was successful
 	    delete $conf->{$opt};
 	    vmconfig_undelete_pending_option($conf, $opt);
-	    write_config($vmid, $conf, 1);
+	    write_config($vmid, $conf);
 	    $conf = load_config($vmid); # update/reload
 	}
     }
@@ -4257,7 +4255,7 @@ sub vmconfig_hotplug_pending {
 	    # save new config if hotplug was successful
 	    $conf->{$opt} = $value;
 	    delete $conf->{pending}->{$opt};
-	    write_config($vmid, $conf, 1);
+	    write_config($vmid, $conf);
 	    $conf = load_config($vmid); # update/reload
 	}
     }
@@ -4313,16 +4311,16 @@ sub vmconfig_apply_pending {
 	$conf = load_config($vmid); # update/reload
 	if (!defined($conf->{$opt})) {
 	    vmconfig_undelete_pending_option($conf, $opt);
-	    write_config($vmid, $conf, 1);
+	    write_config($vmid, $conf);
 	} elsif (valid_drivename($opt)) {
 	    vmconfig_delete_or_detach_drive($vmid, $storecfg, $conf, $opt, $force);
 	    vmconfig_undelete_pending_option($conf, $opt);
 	    delete $conf->{$opt};
-	    write_config($vmid, $conf, 1);
+	    write_config($vmid, $conf);
 	} else {
 	    vmconfig_undelete_pending_option($conf, $opt);
 	    delete $conf->{$opt};
-	    write_config($vmid, $conf, 1);
+	    write_config($vmid, $conf);
 	}
     }
 
@@ -4342,7 +4340,7 @@ sub vmconfig_apply_pending {
 	}
 
 	delete $conf->{pending}->{$opt};
-	write_config($vmid, $conf, 1);
+	write_config($vmid, $conf);
     }
 }
 
@@ -5422,7 +5420,7 @@ sub rescan {
 
 	my $changes = update_disksize($vmid, $conf, $vm_volids);
 
-	write_config($vmid, $conf, 1) if $changes;
+	write_config($vmid, $conf) if $changes;
     };
 
     if (defined($vmid)) {
@@ -5947,7 +5945,7 @@ my $snapshot_prepare = sub {
 	# always overwrite machine if we save vmstate. This makes sure we
 	# can restore it later using correct machine type
 	$snap->{machine} = get_current_qemu_machine($vmid) if $snap->{vmstate};
-	write_config($vmid, $conf, 1);
+	write_config($vmid, $conf);
     };
 
     lock_config($vmid, $updatefn);
@@ -5983,7 +5981,7 @@ my $snapshot_commit = sub {
 
 	$newconf->{parent} = $snapname;
 
-	write_config($vmid, $newconf, 1);
+	write_config($vmid, $newconf);
     };
 
     lock_config($vmid, $updatefn);
@@ -6062,7 +6060,7 @@ sub snapshot_rollback {
 	    delete $conf->{machine} if $snap->{vmstate} && !$has_machine_config;
 	}
 
-	write_config($vmid, $conf, 1);
+	write_config($vmid, $conf);
 
 	if (!$prepare && $snap->{vmstate}) {
 	    my $statefile = PVE::Storage::path($storecfg, $snap->{vmstate});
@@ -6270,7 +6268,7 @@ sub snapshot_delete {
 	    }
 	}
 
-	write_config($vmid, $conf, 1);
+	write_config($vmid, $conf);
     };
 
     lock_config($vmid, $updatefn);
@@ -6348,7 +6346,7 @@ sub template_create {
 	my $voliddst = PVE::Storage::vdisk_create_base($storecfg, $volid);
 	$drive->{file} = $voliddst;
 	$conf->{$ds} = print_drive($vmid, $drive);
-	write_config($vmid, $conf, 1);
+	write_config($vmid, $conf);
     });
 }
 

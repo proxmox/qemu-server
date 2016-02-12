@@ -277,7 +277,7 @@ sub phase1 {
 
     # set migrate lock in config file
     $conf->{lock} = 'migrate';
-    PVE::QemuServer::write_config($vmid, $conf, 1);
+    PVE::QemuServer::write_config($vmid, $conf);
 
     sync_disks($self, $vmid);
 
@@ -290,7 +290,7 @@ sub phase1_cleanup {
 
     my $conf = $self->{vmconf};
     delete $conf->{lock};
-    eval { PVE::QemuServer::write_config($vmid, $conf, 1) };
+    eval { PVE::QemuServer::write_config($vmid, $conf) };
     if (my $err = $@) {
 	$self->log('err', $err);
     }
@@ -546,7 +546,7 @@ sub phase2_cleanup {
 
     my $conf = $self->{vmconf};
     delete $conf->{lock};
-    eval { PVE::QemuServer::write_config($vmid, $conf, 1) };
+    eval { PVE::QemuServer::write_config($vmid, $conf) };
     if (my $err = $@) {
         $self->log('err', $err);
     }
