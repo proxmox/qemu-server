@@ -2,6 +2,8 @@ qemu-server (4.0-55) unstable; urgency=medium
 
   * improve usb config parsing
 
+  * Refactor update_config_nolock -> write_config
+
  -- Proxmox Support Team <support@proxmox.com>  Fri, 12 Feb 2016 12:07:56 +0100
 
 qemu-server (4.0-54) unstable; urgency=medium
