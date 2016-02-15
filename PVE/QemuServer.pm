@@ -6120,6 +6120,17 @@ sub do_snapshots_with_qemu {
     return undef;
 }
 
+sub qga_check_running {
+    my ($vmid) = @_;
+
+    eval { vm_mon_cmd($vmid, "guest-ping", timeout => 3); };
+    if ($@) {
+	warn "Qemu Guest Agent are not running - $@";
+	return 0;
+    }
+    return 1;
+}
+
 sub snapshot_create {
     my ($vmid, $snapname, $save_vmstate, $comment) = @_;
 
@@ -6131,7 +6142,7 @@ sub snapshot_create {
 
     my $running = check_running($vmid);
 
-    my $freezefs = $running && $config->{agent};
+    my $freezefs = $running && $config->{agent} && qga_check_running($vmid);
     $freezefs = 0 if $snap->{vmstate}; # not needed if we save RAM
 
     my $drivehash = {};
