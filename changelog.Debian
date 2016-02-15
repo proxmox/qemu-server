@@ -1,3 +1,9 @@
+qemu-server (4.0-56) unstable; urgency=medium
+
+  * If we freeze the fs with the Qemu-Guest-Agent test if QGA is running.
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 15 Feb 2016 12:51:19 +0100
+
 qemu-server (4.0-55) unstable; urgency=medium
 
   * improve usb config parsing
