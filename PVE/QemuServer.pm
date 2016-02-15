@@ -5908,6 +5908,17 @@ my $alloc_vmstate_volid = sub {
     return $volid;
 };
 
+my $snapshot_save_vmstate = sub {
+    my ($vmid, $conf, $snapname, $storecfg) = @_;
+
+    my $snap = $conf->{snapshots}->{$snapname};
+
+    $snap->{vmstate} = &$alloc_vmstate_volid($storecfg, $vmid, $conf, $snapname);
+    # always overwrite machine if we save vmstate. This makes sure we
+    # can restore it later using correct machine type
+    $snap->{machine} = get_current_qemu_machine($vmid);
+};
+
 my $snapshot_prepare = sub {
     my ($vmid, $snapname, $save_vmstate, $comment) = @_;
 
@@ -5928,12 +5939,12 @@ my $snapshot_prepare = sub {
 	    if defined($conf->{snapshots}->{$snapname});
 
 	my $storecfg = PVE::Storage::config();
-	die "snapshot feature is not available" if !has_feature('snapshot', $conf, $storecfg);
+	die "snapshot feature is not available\n" if !has_feature('snapshot', $conf, $storecfg);
 
 	$snap = $conf->{snapshots}->{$snapname} = {};
 
 	if ($save_vmstate && check_running($vmid)) {
-	    $snap->{vmstate} = &$alloc_vmstate_volid($storecfg, $vmid, $conf, $snapname);
+	    &$snapshot_save_vmstate($vmid, $conf, $snapname, $storecfg);
 	}
 
 	&$snapshot_copy_config($conf, $snap);
@@ -5942,9 +5953,6 @@ my $snapshot_prepare = sub {
 	$snap->{snaptime} = time();
 	$snap->{description} = $comment if $comment;
 
-	# always overwrite machine if we save vmstate. This makes sure we
-	# can restore it later using correct machine type
-	$snap->{machine} = get_current_qemu_machine($vmid) if $snap->{vmstate};
 	write_config($vmid, $conf);
     };
 
