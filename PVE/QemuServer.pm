@@ -5562,6 +5562,18 @@ sub restore_vma_archive {
 		    PVE::Storage::vdisk_free($cfg, $volid);
 		}
 	    });
+
+	    # delete vmstate files
+	    # since after the restore we have no snapshots anymore
+	    foreach my $snapname (keys %{$oldconf->{snapshots}}) {
+		my $snap = $oldconf->{snapshots}->{$snapname};
+		if ($snap->{vmstate}) {
+		    eval { PVE::Storage::vdisk_free($cfg, $snap->{vmstate}); };
+		    if (my $err = $@) {
+			warn $err;
+		    }
+		}
+	    }
 	}
 
 	my $map = {};
