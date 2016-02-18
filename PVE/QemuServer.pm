@@ -2813,8 +2813,6 @@ sub config_to_command {
     push @$cmd, '-chardev', "socket,id=qmp,path=$qmpsocket,server,nowait";
     push @$cmd, '-mon', "chardev=qmp,mode=control";
 
-    my $socket = vnc_socket($vmid);
-    push @$cmd,  '-vnc', "unix:$socket,x509,password";
 
     push @$cmd, '-pidfile' , pidfile_name($vmid);
 
@@ -3030,6 +3028,13 @@ sub config_to_command {
     push @$cmd, '-no-reboot' if  defined($conf->{reboot}) && $conf->{reboot} == 0;
 
     push @$cmd, '-vga', $vga if $vga && $vga !~ m/^serial\d+$/; # for kvm 77 and later
+
+    if ($vga && $vga !~ m/^serial\d+$/ && $vga ne 'none'){
+	my $socket = vnc_socket($vmid);
+	push @$cmd,  '-vnc', "unix:$socket,x509,password";
+    } else {
+	push @$cmd, '-nographic';
+    }
 
     # time drift fix
     my $tdf = defined($conf->{tdf}) ? $conf->{tdf} : $defaults->{tdf};
