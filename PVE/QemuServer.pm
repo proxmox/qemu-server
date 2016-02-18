@@ -2770,6 +2770,7 @@ sub config_to_command {
     my $bridges = {};
     my $kvmver = kvm_user_version();
     my $vernum = 0; # unknown
+    my $ost = $conf->{ostype};
     if ($kvmver =~ m/^(\d+)\.(\d+)$/) {
 	$vernum = $1*1000000+$2*1000;
     } elsif ($kvmver =~ m/^(\d+)\.(\d+)\.(\d+)$/) {
@@ -2892,7 +2893,6 @@ sub config_to_command {
     push @$devices, '-device', print_tabletdevice_full($conf) if $tablet;
 
     my $kvm_off = 0;
-    my $nohyperv;
     # host pci devices
     for (my $i = 0; $i < $MAX_HOSTPCI_DEVICES; $i++)  {
 	my $d = parse_hostpci($conf->{"hostpci$i"});
@@ -2911,7 +2911,9 @@ sub config_to_command {
 	if ($xvga && $xvga ne '') {
 	    $kvm_off = 1;
 	    $vga = 'none';
-	    $nohyperv = 1;
+	    if ($ost eq 'win7' || $ost eq 'win8' || $ost eq 'w2k8') {
+		push @$cpuFlags , 'hv_vendor_id=proxmox';
+	    }
 	    if ($conf->{bios} && $conf->{bios} eq 'ovmf') {
 		$xvga = "";
 	    }
@@ -3035,7 +3037,7 @@ sub config_to_command {
     my $nokvm = defined($conf->{kvm}) && $conf->{kvm} == 0 ? 1 : 0;
     my $useLocaltime = $conf->{localtime};
 
-    if (my $ost = $conf->{ostype}) {
+    if ($ost) {
 	# other, wxp, w2k, w2k3, w2k8, wvista, win7, win8, l24, l26, solaris
 
 	if ($ost =~ m/^w/) { # windows
@@ -3052,17 +3054,17 @@ sub config_to_command {
 	    push @$globalFlags, 'kvm-pit.lost_tick_policy=discard';
 	    push @$cmd, '-no-hpet';
 	    if (qemu_machine_feature_enabled ($machine_type, $kvmver, 2, 3)) {
-		push @$cpuFlags , 'hv_spinlocks=0x1fff' if !$nokvm && !$nohyperv;
-		push @$cpuFlags , 'hv_vapic' if !$nokvm && !$nohyperv;
-		push @$cpuFlags , 'hv_time' if !$nokvm && !$nohyperv;
+		push @$cpuFlags , 'hv_spinlocks=0x1fff' if !$nokvm;
+		push @$cpuFlags , 'hv_vapic' if !$nokvm;
+		push @$cpuFlags , 'hv_time' if !$nokvm;
 
 	    } else {
-		push @$cpuFlags , 'hv_spinlocks=0xffff' if !$nokvm && !$nohyperv;
+		push @$cpuFlags , 'hv_spinlocks=0xffff' if !$nokvm;
 	    }
 	}
 
 	if ($ost eq 'win7' || $ost eq 'win8') {
-	    push @$cpuFlags , 'hv_relaxed' if !$nokvm && !$nohyperv;
+	    push @$cpuFlags , 'hv_relaxed' if !$nokvm;
 	}
     }
 
