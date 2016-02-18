@@ -2770,7 +2770,7 @@ sub config_to_command {
     my $bridges = {};
     my $kvmver = kvm_user_version();
     my $vernum = 0; # unknown
-    my $ost = $conf->{ostype};
+    my $ostype = $conf->{ostype};
     if ($kvmver =~ m/^(\d+)\.(\d+)$/) {
 	$vernum = $1*1000000+$2*1000;
     } elsif ($kvmver =~ m/^(\d+)\.(\d+)\.(\d+)$/) {
@@ -2909,7 +2909,7 @@ sub config_to_command {
 	if ($xvga && $xvga ne '') {
 	    $kvm_off = 1;
 	    $vga = 'none';
-	    if ($ost eq 'win7' || $ost eq 'win8' || $ost eq 'w2k8') {
+	    if ($ostype eq 'win7' || $ostype eq 'win8' || $ostype eq 'w2k8') {
 		push @$cpuFlags , 'hv_vendor_id=proxmox';
 	    }
 	    if ($conf->{bios} && $conf->{bios} eq 'ovmf') {
@@ -3042,10 +3042,10 @@ sub config_to_command {
     my $nokvm = defined($conf->{kvm}) && $conf->{kvm} == 0 ? 1 : 0;
     my $useLocaltime = $conf->{localtime};
 
-    if ($ost) {
+    if ($ostype) {
 	# other, wxp, w2k, w2k3, w2k8, wvista, win7, win8, l24, l26, solaris
 
-	if ($ost =~ m/^w/) { # windows
+	if ($ostype =~ m/^w/) { # windows
 	    $useLocaltime = 1 if !defined($conf->{localtime});
 
 	    # use time drift fix when acpi is enabled
@@ -3054,8 +3054,8 @@ sub config_to_command {
 	    }
 	}
 
-	if ($ost eq 'win7' || $ost eq 'win8' || $ost eq 'w2k8' ||
-	    $ost eq 'wvista') {
+	if ($ostype eq 'win7' || $ostype eq 'win8' || $ostype eq 'w2k8' ||
+	    $ostype eq 'wvista') {
 	    push @$globalFlags, 'kvm-pit.lost_tick_policy=discard';
 	    push @$cmd, '-no-hpet';
 	    if (qemu_machine_feature_enabled ($machine_type, $kvmver, 2, 3)) {
@@ -3068,7 +3068,7 @@ sub config_to_command {
 	    }
 	}
 
-	if ($ost eq 'win7' || $ost eq 'win8') {
+	if ($ostype eq 'win7' || $ostype eq 'win8') {
 	    push @$cpuFlags , 'hv_relaxed' if !$nokvm;
 	}
     }
