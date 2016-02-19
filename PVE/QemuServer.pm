@@ -4174,8 +4174,12 @@ sub vm_start {
 
 	eval  { run_command($cmd, timeout => $statefile ? undef : 30,
 		    umask => 0077); };
-	my $err = $@;
-	die "start failed: $err" if $err;
+
+	if (my $err = $@) {
+	    # deactivate volumes if start fails
+	    eval { PVE::Storage::deactivate_volumes($storecfg, $vollist); };
+	    die "start failed: $err" if $err;
+	}
 
 	print "migration listens on $migrate_uri\n" if $migrate_uri;
 
