@@ -1,3 +1,9 @@
+qemu-server (3.4-7) unstable; urgency=low
+
+  * deactivate volumes if vm start command fails
+
+ -- Proxmox Support Team <support@proxmox.com>  Sat, 20 Feb 2016 10:30:12 +0100
+
 qemu-server (3.4-6) unstable; urgency=low
 
   * qmp drive-mirror : set big timeout
