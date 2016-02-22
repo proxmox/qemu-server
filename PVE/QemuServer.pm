@@ -6627,6 +6627,7 @@ sub qemu_machine_pxe {
 	last;
     }
 
+    return $machine;
 }
 
 sub qemu_use_old_bios_files {
