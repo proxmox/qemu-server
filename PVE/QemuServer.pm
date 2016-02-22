@@ -5942,7 +5942,7 @@ my $snapshot_save_vmstate = sub {
     $snap->{machine} = get_current_qemu_machine($vmid);
 };
 
-my $snapshot_prepare = sub {
+sub snapshot_prepare {
     my ($vmid, $snapname, $save_vmstate, $comment) = @_;
 
     my $snap;
@@ -5982,9 +5982,9 @@ my $snapshot_prepare = sub {
     lock_config($vmid, $updatefn);
 
     return $snap;
-};
+}
 
-my $snapshot_commit = sub {
+sub snapshot_commit {
     my ($vmid, $snapname) = @_;
 
     my $updatefn = sub {
@@ -6016,7 +6016,7 @@ my $snapshot_commit = sub {
     };
 
     lock_config($vmid, $updatefn);
-};
+}
 
 sub snapshot_rollback {
     my ($vmid, $snapname) = @_;
@@ -6165,7 +6165,7 @@ sub qga_check_running {
 sub snapshot_create {
     my ($vmid, $snapname, $save_vmstate, $comment) = @_;
 
-    my $snap = &$snapshot_prepare($vmid, $snapname, $save_vmstate, $comment);
+    my $snap = snapshot_prepare($vmid, $snapname, $save_vmstate, $comment);
 
     $save_vmstate = 0 if !$snap->{vmstate}; # vm is not running
 
@@ -6241,7 +6241,7 @@ sub snapshot_create {
 	die $err;
     }
 
-    &$snapshot_commit($vmid, $snapname);
+    snapshot_commit($vmid, $snapname);
 }
 
 # Note: $drivehash is only set when called from snapshot_create.
