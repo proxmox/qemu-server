@@ -1,3 +1,9 @@
+qemu-server (4.0-59) unstable; urgency=medium
+
+  * qemu_machine_pxe : return $machine if no pxe
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 22 Feb 2016 17:37:11 +0100
+
 qemu-server (4.0-58) unstable; urgency=medium
 
   * deactivate volumes if vm start command fails
