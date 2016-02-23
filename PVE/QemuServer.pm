@@ -5607,9 +5607,7 @@ sub restore_vma_archive {
 	    PVE::Storage::activate_volumes($cfg,[$volid]);
 
 	    my $write_zeros = 1;
-	    # fixme: what other storages types initialize volumes with zero?
-	    if ($scfg->{type} eq 'dir' || $scfg->{type} eq 'nfs' || $scfg->{type} eq 'glusterfs' ||
-		$scfg->{type} eq 'sheepdog' || $scfg->{type} eq 'rbd') {
+	    if (PVE::Storage::volume_has_feature($cfg, 'sparseinit', $volid)) {
 		$write_zeros = 0;
 	    }
 
