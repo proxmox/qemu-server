@@ -6160,6 +6160,17 @@ sub qga_check_running {
     return 1;
 }
 
+sub check_freeze_needed {
+    my ($vmid, $config, $save_vmstate) = @_;
+
+    my $running = check_running($vmid);
+    if ($save_vmstate) {
+	return ($running, $running && $config->{agent} && qga_check_running($vmid));
+    } else {
+	return ($running, 0);
+    }
+}
+
 sub snapshot_create {
     my ($vmid, $snapname, $save_vmstate, $comment) = @_;
 
@@ -6169,19 +6180,16 @@ sub snapshot_create {
 
     my $config = load_config($vmid);
 
-    my $running = check_running($vmid);
-
-    my $freezefs = $running && $config->{agent} && qga_check_running($vmid);
-    $freezefs = 0 if $snap->{vmstate}; # not needed if we save RAM
+    my ($running, $freezefs) = check_freeze_needed($vmid, $config, $snap->{vmstate});
 
     my $drivehash = {};
 
-    if ($freezefs) {
-	eval { vm_mon_cmd($vmid, "guest-fsfreeze-freeze"); };
-	warn "guest-fsfreeze-freeze problems - $@" if $@;
-    }
-
     eval {
+	if ($freezefs) {
+	    eval { vm_mon_cmd($vmid, "guest-fsfreeze-freeze"); };
+	    warn "guest-fsfreeze-freeze problems - $@" if $@;
+	}
+
 	# create internal snapshots of all drives
 
 	my $storecfg = PVE::Storage::config();
@@ -6234,7 +6242,7 @@ sub snapshot_create {
 
     if ($err) {
 	warn "snapshot create failed: starting cleanup\n";
-	eval { snapshot_delete($vmid, $snapname, 0, $drivehash); };
+	eval { snapshot_delete($vmid, $snapname, 1, $drivehash); };
 	warn $@ if $@;
 	die $err;
     }
