@@ -1241,13 +1241,6 @@ sub print_drivedevice_full {
 	} else {
               if ($drive->{file} =~ m|^/|) {
                   $path = $drive->{file};
-              } else {
-                  $path = PVE::Storage::path($storecfg, $drive->{file});
-              }
-
-	      if($path =~ m/^iscsi\:\/\//){
-		  $devicetype = 'generic';
-	      } else {
 		  if (my $info = path_is_scsi($path)) {
 		      if ($info->{type} == 0) {
 			  $devicetype = 'block';
@@ -1255,6 +1248,12 @@ sub print_drivedevice_full {
 			  $devicetype = 'generic';
 		      }
 		  }
+              } else {
+                  $path = PVE::Storage::path($storecfg, $drive->{file});
+              }
+
+	      if($path =~ m/^iscsi\:\/\//){
+		  $devicetype = 'generic';
 	      }
          }
 
