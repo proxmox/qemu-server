@@ -1235,33 +1235,33 @@ sub print_drivedevice_full {
 	my ($maxdev, $controller, $controller_prefix) = scsihw_infos($conf, $drive);
 	my $unit = $drive->{index} % $maxdev;
 	my $devicetype = 'hd';
-        my $path = '';
-        if (drive_is_cdrom($drive)) {
-              $devicetype = 'cd';
+	my $path = '';
+	if (drive_is_cdrom($drive)) {
+	    $devicetype = 'cd';
 	} else {
-              if ($drive->{file} =~ m|^/|) {
-                  $path = $drive->{file};
-		  if (my $info = path_is_scsi($path)) {
-		      if ($info->{type} == 0) {
-			  $devicetype = 'block';
-		      } elsif ($info->{type} == 1) { # tape
-			  $devicetype = 'generic';
-		      }
-		  }
-              } else {
-                  $path = PVE::Storage::path($storecfg, $drive->{file});
-              }
+	    if ($drive->{file} =~ m|^/|) {
+		$path = $drive->{file};
+		if (my $info = path_is_scsi($path)) {
+		    if ($info->{type} == 0) {
+			$devicetype = 'block';
+		    } elsif ($info->{type} == 1) { # tape
+			$devicetype = 'generic';
+		    }
+		}
+	    } else {
+		 $path = PVE::Storage::path($storecfg, $drive->{file});
+	    }
 
-	      if($path =~ m/^iscsi\:\/\//){
-		  $devicetype = 'generic';
-	      }
-         }
+	    if($path =~ m/^iscsi\:\/\//){
+		$devicetype = 'generic';
+	    }
+	}
 
-        if (!$conf->{scsihw} || ($conf->{scsihw} =~ m/^lsi/)){
-            $device = "scsi-$devicetype,bus=$controller_prefix$controller.0,scsi-id=$unit,drive=drive-$drive->{interface}$drive->{index},id=$drive->{interface}$drive->{index}";
-        } else {
-            $device = "scsi-$devicetype,bus=$controller_prefix$controller.0,channel=0,scsi-id=0,lun=$drive->{index},drive=drive-$drive->{interface}$drive->{index},id=$drive->{interface}$drive->{index}";
-        }
+	if (!$conf->{scsihw} || ($conf->{scsihw} =~ m/^lsi/)){
+	    $device = "scsi-$devicetype,bus=$controller_prefix$controller.0,scsi-id=$unit,drive=drive-$drive->{interface}$drive->{index},id=$drive->{interface}$drive->{index}";
+	} else {
+	    $device = "scsi-$devicetype,bus=$controller_prefix$controller.0,channel=0,scsi-id=0,lun=$drive->{index},drive=drive-$drive->{interface}$drive->{index},id=$drive->{interface}$drive->{index}";
+	}
 
     } elsif ($drive->{interface} eq 'ide'){
 	$maxdev = 2;
