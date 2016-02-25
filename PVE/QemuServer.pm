@@ -6647,11 +6647,12 @@ sub qemu_use_old_bios_files {
         $machine_type = $1;
         $use_old_bios_files = 1;
     } else {
+	my $kvmver = kvm_user_version();
         # Note: kvm version < 2.4 use non-efi pxe files, and have problems when we
         # load new efi bios files on migration. So this hack is required to allow
         # live migration from qemu-2.2 to qemu-2.4, which is sometimes used when
         # updrading from proxmox-ve-3.X to proxmox-ve 4.0
-        $use_old_bios_files = !qemu_machine_feature_enabled ($machine_type, undef, 2, 4);
+	$use_old_bios_files = !qemu_machine_feature_enabled ($machine_type, $kvmver, 2, 4);
     }
 
     return ($use_old_bios_files, $machine_type);
