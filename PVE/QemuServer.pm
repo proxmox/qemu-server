@@ -883,11 +883,15 @@ sub kvm_user_version {
 
     $kvm_user_version = 'unknown';
 
-    my $tmp = `kvm -help 2>/dev/null`;
+    my $code = sub {
+	my $line = shift;
+	if ($line =~ m/^QEMU( PC)? emulator version (\d+\.\d+(\.\d+)?)(\.\d+)?[,\s]/) {
+	    $kvm_user_version = $2;
+	}
+    };
 
-    if ($tmp =~ m/^QEMU( PC)? emulator version (\d+\.\d+(\.\d+)?)(\.\d+)?[,\s]/) {
-	$kvm_user_version = $2;
-    }
+    eval { run_command("kvm -version", outfunc => $code); };
+    warn $@ if $@;
 
     return $kvm_user_version;
 
