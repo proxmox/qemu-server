@@ -1,3 +1,9 @@
+qemu-server (4.0-61) unstable; urgency=medium
+
+  * clone_vm : only deactivate sources volume if source vm if offline
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 25 Feb 2016 08:48:59 +0100
+
 qemu-server (4.0-60) unstable; urgency=medium
 
   * change check for write-zeros
