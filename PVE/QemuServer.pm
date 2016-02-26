@@ -5964,7 +5964,8 @@ sub snapshot_prepare {
 	    if defined($conf->{snapshots}->{$snapname});
 
 	my $storecfg = PVE::Storage::config();
-	die "snapshot feature is not available\n" if !has_feature('snapshot', $conf, $storecfg);
+	die "snapshot feature is not available\n"
+	    if !has_feature('snapshot', $conf, $storecfg, undef, undef, $snapname eq 'vzdump');
 
 	$snap = $conf->{snapshots}->{$snapname} = {};
 
@@ -6367,13 +6368,14 @@ sub snapshot_delete {
 }
 
 sub has_feature {
-    my ($feature, $conf, $storecfg, $snapname, $running) = @_;
+    my ($feature, $conf, $storecfg, $snapname, $running, $backup_only) = @_;
 
     my $err;
     foreach_drive($conf, sub {
 	my ($ds, $drive) = @_;
 
 	return if drive_is_cdrom($drive);
+	return if $backup_only && !$drive->{backup};
 	my $volid = $drive->{file};
 	$err = 1 if !PVE::Storage::volume_has_feature($storecfg, $feature, $volid, $snapname, $running);
     });
