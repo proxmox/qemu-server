@@ -1,3 +1,13 @@
+qemu-server (4.0-62) unstable; urgency=medium
+
+  * fix undefined value when starting a q35 machine VM
+
+  * kvm_user_version: update code to use our framework
+
+  * Refactor has_feature
+  
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 26 Feb 2016 17:02:34 +0100
+
 qemu-server (4.0-61) unstable; urgency=medium
 
   * clone_vm : only deactivate sources volume if source vm if offline
