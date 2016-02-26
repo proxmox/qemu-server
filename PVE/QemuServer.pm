@@ -5933,7 +5933,7 @@ my $alloc_vmstate_volid = sub {
     return $volid;
 };
 
-my $snapshot_save_vmstate = sub {
+sub snapshot_save_vmstate {
     my ($vmid, $conf, $snapname, $storecfg) = @_;
 
     my $snap = $conf->{snapshots}->{$snapname};
@@ -5942,7 +5942,7 @@ my $snapshot_save_vmstate = sub {
     # always overwrite machine if we save vmstate. This makes sure we
     # can restore it later using correct machine type
     $snap->{machine} = get_current_qemu_machine($vmid);
-};
+}
 
 sub snapshot_prepare {
     my ($vmid, $snapname, $save_vmstate, $comment) = @_;
@@ -5969,7 +5969,7 @@ sub snapshot_prepare {
 	$snap = $conf->{snapshots}->{$snapname} = {};
 
 	if ($save_vmstate && check_running($vmid)) {
-	    &$snapshot_save_vmstate($vmid, $conf, $snapname, $storecfg);
+	    snapshot_save_vmstate($vmid, $conf, $snapname, $storecfg);
 	}
 
 	&$snapshot_copy_config($conf, $snap);
