@@ -1,3 +1,9 @@
+qemu-server (4.0-63) unstable; urgency=medium
+
+  * only perform scsi inquiry on device nodes
+
+ -- Proxmox Support Team <support@proxmox.com>  Sat, 27 Feb 2016 10:20:50 +0100
+
 qemu-server (4.0-62) unstable; urgency=medium
 
   * fix undefined value when starting a q35 machine VM
