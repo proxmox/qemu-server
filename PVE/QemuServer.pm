@@ -1020,31 +1020,6 @@ sub cleanup_drive_path {
     $drive->{media} = 'cdrom' if !$drive->{media} && $drive->{file} =~ m/^(cdrom|none)$/;
 }
 
-sub create_conf_nolock {
-    my ($vmid, $settings) = @_;
-
-    my $filename = config_file($vmid);
-
-    die "configuration file '$filename' already exists\n" if -f $filename;
-
-    my $defaults = load_defaults();
-
-    $settings->{name} = "vm$vmid" if !$settings->{name};
-    $settings->{memory} = $defaults->{memory} if !$settings->{memory};
-
-    my $data = '';
-    foreach my $opt (keys %$settings) {
-	next if !$confdesc->{$opt};
-
-	my $value = $settings->{$opt};
-	next if !$value;
-
-	$data .= "$opt: $value\n";
-    }
-
-    PVE::Tools::file_set_contents($filename, $data);
-}
-
 sub parse_hotplug_features {
     my ($data) = @_;
 
