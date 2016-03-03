@@ -182,7 +182,7 @@ my $check_vm_modify_config_perm = sub {
 
     foreach my $opt (@$key_list) {
 	# disk checks need to be done somewhere else
-	next if PVE::QemuServer::valid_drivename($opt);
+	next if PVE::QemuServer::is_valid_drivename($opt);
 
 	if ($opt eq 'sockets' || $opt eq 'cores' ||
 	    $opt eq 'cpu' || $opt eq 'smp' || $opt eq 'vcpus' ||
@@ -371,7 +371,7 @@ __PACKAGE__->register_method({
 	    &$check_vm_modify_config_perm($rpcenv, $authuser, $vmid, $pool, [ keys %$param]);
 
 	    foreach my $opt (keys %$param) {
-		if (PVE::QemuServer::valid_drivename($opt)) {
+		if (PVE::QemuServer::is_valid_drivename($opt)) {
 		    my $drive = PVE::QemuServer::parse_drive($opt, $param->{$opt});
 		    raise_param_exc({ $opt => "unable to parse drive options" }) if !$drive;
 
@@ -441,7 +441,7 @@ __PACKAGE__->register_method({
 		    $vollist = &$create_disks($rpcenv, $authuser, $conf, $storecfg, $vmid, $pool, $param, $storage);
 
 		    # try to be smart about bootdisk
-		    my @disks = PVE::QemuServer::disknames();
+		    my @disks = PVE::QemuServer::valid_drive_names();
 		    my $firstdisk;
 		    foreach my $ds (reverse @disks) {
 			next if !$conf->{$ds};
@@ -851,7 +851,7 @@ my $update_vm_api  = sub {
     }
 
     foreach my $opt (keys %$param) {
-	if (PVE::QemuServer::valid_drivename($opt)) {
+	if (PVE::QemuServer::is_valid_drivename($opt)) {
 	    # cleanup drive path
 	    my $drive = PVE::QemuServer::parse_drive($opt, $param->{$opt});
 	    PVE::QemuServer::cleanup_drive_path($opt, $storecfg, $drive);
@@ -915,7 +915,7 @@ my $update_vm_api  = sub {
 			delete $conf->{$opt};
 			PVE::QemuServer::write_config($vmid, $conf);
 		    }
-		} elsif (PVE::QemuServer::valid_drivename($opt)) {
+		} elsif (PVE::QemuServer::is_valid_drivename($opt)) {
 		    &$check_protection($conf, "can't remove drive '$opt'");
 		    $rpcenv->check_vm_perm($authuser, $vmid, undef, ['VM.Config.Disk']);
 		    PVE::QemuServer::vmconfig_register_unused_drive($storecfg, $vmid, $conf, PVE::QemuServer::parse_drive($opt, $conf->{pending}->{$opt}))
@@ -933,7 +933,7 @@ my $update_vm_api  = sub {
 		$conf = PVE::QemuServer::load_config($vmid); # update/reload
 		next if defined($conf->{pending}->{$opt}) && ($param->{$opt} eq $conf->{pending}->{$opt}); # skip if nothing changed
 
-		if (PVE::QemuServer::valid_drivename($opt)) {
+		if (PVE::QemuServer::is_valid_drivename($opt)) {
 		    my $drive = PVE::QemuServer::parse_drive($opt, $param->{$opt});
 		    if (PVE::QemuServer::drive_is_cdrom($drive)) { # CDROM
 			$rpcenv->check_vm_perm($authuser, $vmid, undef, ['VM.Config.CDROM']);
@@ -2230,7 +2230,7 @@ __PACKAGE__->register_method({
 		    my $net = PVE::QemuServer::parse_net($value);
 		    $net->{macaddr} =  PVE::Tools::random_ether_addr();
 		    $newconf->{$opt} = PVE::QemuServer::print_net($net);
-		} elsif (PVE::QemuServer::valid_drivename($opt)) {
+		} elsif (PVE::QemuServer::is_valid_drivename($opt)) {
 		    my $drive = PVE::QemuServer::parse_drive($opt, $value);
 		    die "unable to parse drive options for '$opt'\n" if !$drive;
 		    if (PVE::QemuServer::drive_is_cdrom($drive)) {
@@ -2367,7 +2367,7 @@ __PACKAGE__->register_method({
 	    disk => {
 	        type => 'string',
 		description => "The disk you want to move.",
-		enum => [ PVE::QemuServer::disknames() ],
+		enum => [ PVE::QemuServer::valid_drive_names() ],
 	    },
             storage => get_standard_option('pve-storage-id', {
 		description => "Target storage.",
@@ -2659,7 +2659,7 @@ __PACKAGE__->register_method({
 	    disk => {
 		type => 'string',
 		description => "The disk you want to resize.",
-		enum => [PVE::QemuServer::disknames()],
+		enum => [PVE::QemuServer::valid_drive_names()],
 	    },
 	    size => {
 		type => 'string',
@@ -3117,7 +3117,7 @@ __PACKAGE__->register_method({
 		optional => 1,
 		type => 'string',
 		description => "If you want to convert only 1 disk to base image.",
-		enum => [PVE::QemuServer::disknames()],
+		enum => [PVE::QemuServer::valid_drive_names()],
 	    },
 
 	},

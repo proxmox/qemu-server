@@ -899,7 +899,7 @@ sub kvm_user_version {
 
 my $kernel_has_vhost_net = -c '/dev/vhost-net';
 
-sub disknames {
+sub valid_drive_names {
     # order is important - used to autoselect boot disk
     return ((map { "ide$_" } (0 .. ($MAX_IDE_DISKS - 1))),
             (map { "scsi$_" } (0 .. ($MAX_SCSI_DISKS - 1))),
@@ -907,7 +907,7 @@ sub disknames {
             (map { "sata$_" } (0 .. ($MAX_SATA_DISKS - 1))));
 }
 
-sub valid_drivename {
+sub is_valid_drivename {
     my $dev = shift;
 
     return defined($drivename_hash->{$dev});
@@ -1731,7 +1731,7 @@ PVE::JSONSchema::register_format('pve-qm-bootdisk', \&verify_bootdisk);
 sub verify_bootdisk {
     my ($value, $noerr) = @_;
 
-    return $value if valid_drivename($value);
+    return $value if is_valid_drivename($value);
 
     return undef if $noerr;
 
@@ -2160,7 +2160,7 @@ sub write_vm_config {
 
 	    $cref->{$key} = $value;
 
-	    if (!$snapname && valid_drivename($key)) {
+	    if (!$snapname && is_valid_drivename($key)) {
 		my $drive = parse_drive($key, $value);
 		$used_volids->{$drive->{file}} = 1 if $drive && $drive->{file};
 	    }
@@ -2424,7 +2424,7 @@ sub disksize {
 
     my $bootdisk = $conf->{bootdisk};
     return undef if !$bootdisk;
-    return undef if !valid_drivename($bootdisk);
+    return undef if !is_valid_drivename($bootdisk);
 
     return undef if !$conf->{$bootdisk};
 
@@ -2685,8 +2685,8 @@ sub foreach_reverse_dimm {
 sub foreach_drive {
     my ($conf, $func) = @_;
 
-    foreach my $ds (keys %$conf) {
-	next if !valid_drivename($ds);
+    foreach my $ds (valid_drive_names()) {
+	next if !defined($conf->{$ds});
 
 	my $drive = parse_drive($ds, $conf->{$ds});
 	next if !$drive;
@@ -3725,7 +3725,7 @@ sub qemu_deletescsihw {
 
     my $devices_list = vm_devices_list($vmid);
     foreach my $opt (keys %{$devices_list}) {
-	if (PVE::QemuServer::valid_drivename($opt)) {
+	if (PVE::QemuServer::is_valid_drivename($opt)) {
 	    my $drive = PVE::QemuServer::parse_drive($opt, $conf->{$opt});
 	    if($drive->{interface} eq 'scsi' && $drive->{index} < (($maxdev-1)*($controller+1))) {
 		return 1;
@@ -4161,7 +4161,7 @@ sub vmconfig_hotplug_pending {
 	    } elsif ($opt =~ m/^net(\d+)$/) {
 		die "skip\n" if !$hotplug_features->{network};
 		vm_deviceunplug($vmid, $conf, $opt);
-	    } elsif (valid_drivename($opt)) {
+	    } elsif (is_valid_drivename($opt)) {
 		die "skip\n" if !$hotplug_features->{disk} || $opt =~ m/(ide|sata)(\d+)/;
 		vm_deviceunplug($vmid, $conf, $opt);
 		vmconfig_delete_or_detach_drive($vmid, $storecfg, $conf, $opt, $force);
@@ -4218,7 +4218,7 @@ sub vmconfig_hotplug_pending {
 		# some changes can be done without hotplug
 		vmconfig_update_net($storecfg, $conf, $hotplug_features->{network},
 				    $vmid, $opt, $value);
-	    } elsif (valid_drivename($opt)) {
+	    } elsif (is_valid_drivename($opt)) {
 		# some changes can be done without hotplug
 		vmconfig_update_disk($storecfg, $conf, $hotplug_features->{disk},
 				     $vmid, $opt, $value, 1);
@@ -4297,7 +4297,7 @@ sub vmconfig_apply_pending {
 	if (!defined($conf->{$opt})) {
 	    vmconfig_undelete_pending_option($conf, $opt);
 	    write_config($vmid, $conf);
-	} elsif (valid_drivename($opt)) {
+	} elsif (is_valid_drivename($opt)) {
 	    vmconfig_delete_or_detach_drive($vmid, $storecfg, $conf, $opt, $force);
 	    vmconfig_undelete_pending_option($conf, $opt);
 	    delete $conf->{$opt};
@@ -4316,7 +4316,7 @@ sub vmconfig_apply_pending {
 
 	if (defined($conf->{$opt}) && ($conf->{$opt} eq $conf->{pending}->{$opt})) {
 	    # skip if nothing changed
-	} elsif (valid_drivename($opt)) {
+	} elsif (is_valid_drivename($opt)) {
 	    vmconfig_register_unused_drive($storecfg, $vmid, $conf, parse_drive($opt, $conf->{$opt}))
 		if defined($conf->{$opt});
 	    $conf->{$opt} = $conf->{pending}->{$opt};
@@ -5293,7 +5293,7 @@ sub is_volume_in_use {
 
 	foreach my $key (keys %$cref) {
 	    my $value = $cref->{$key};
-	    if (valid_drivename($key)) {
+	    if (is_valid_drivename($key)) {
 		next if $skip_drive && $key eq $skip_drive;
 		my $drive = parse_drive($key, $value);
 		next if !$drive || !$drive->{file} || drive_is_cdrom($drive);
@@ -5339,7 +5339,7 @@ sub update_disksize {
 
     # update size info
     foreach my $opt (keys %$conf) {
-	if (valid_drivename($opt)) {
+	if (is_valid_drivename($opt)) {
 	    my $drive = parse_drive($opt, $conf->{$opt});
 	    my $volid = $drive->{file};
 	    next if !$volid;
@@ -5849,7 +5849,7 @@ sub foreach_writable_storage {
     my $sidhash = {};
 
     foreach my $ds (keys %$conf) {
-	next if !valid_drivename($ds);
+	next if !is_valid_drivename($ds);
 
 	my $drive = parse_drive($ds, $conf->{$ds});
 	next if !$drive;
