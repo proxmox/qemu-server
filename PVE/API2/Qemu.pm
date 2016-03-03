@@ -1623,7 +1623,8 @@ __PACKAGE__->register_method({
     method => 'POST',
     protected => 1,
     proxyto => 'node',
-    description => "Stop virtual machine.",
+    description => "Stop virtual machine. The qemu process will exit immediatly. This" .
+	"is akin to pulling the power plug of a running computer and may damage the VM data",
     permissions => {
 	check => ['perm', '/vms/{vmid}', [ 'VM.PowerMgmt' ]],
     },
@@ -1768,7 +1769,8 @@ __PACKAGE__->register_method({
     method => 'POST',
     protected => 1,
     proxyto => 'node',
-    description => "Shutdown virtual machine.",
+    description => "Shutdown virtual machine. This is similar to pressing the power button on a physical machine." .
+	"This will send an ACPI event for the guest OS, which should then proceed to a clean shutdown.",
     permissions => {
 	check => ['perm', '/vms/{vmid}', [ 'VM.PowerMgmt' ]],
     },
