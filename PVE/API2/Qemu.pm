@@ -1623,7 +1623,7 @@ __PACKAGE__->register_method({
     method => 'POST',
     protected => 1,
     proxyto => 'node',
-    description => "Stop virtual machine. The qemu process will exit immediatly. This" .
+    description => "Stop virtual machine. The qemu process will exit immediately. This" .
 	"is akin to pulling the power plug of a running computer and may damage the VM data",
     permissions => {
 	check => ['perm', '/vms/{vmid}', [ 'VM.PowerMgmt' ]],
