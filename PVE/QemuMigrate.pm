@@ -122,7 +122,7 @@ sub finish_tunnel {
 sub lock_vm {
     my ($self, $vmid, $code, @param) = @_;
 
-    return PVE::QemuServer::lock_config($vmid, $code, @param);
+    return PVE::QemuConfig->lock_config($vmid, $code, @param);
 }
 
 sub prepare {
@@ -133,9 +133,9 @@ sub prepare {
     $self->{storecfg} = PVE::Storage::config();
 
     # test is VM exist
-    my $conf = $self->{vmconf} = PVE::QemuServer::load_config($vmid);
+    my $conf = $self->{vmconf} = PVE::QemuConfig->load_config($vmid);
 
-    PVE::QemuServer::check_lock($conf);
+    PVE::QemuConfig->check_lock($conf);
 
     my $running = 0;
     if (my $pid = PVE::QemuServer::check_running($vmid)) {
@@ -277,7 +277,7 @@ sub phase1 {
 
     # set migrate lock in config file
     $conf->{lock} = 'migrate';
-    PVE::QemuServer::write_config($vmid, $conf);
+    PVE::QemuConfig->write_config($vmid, $conf);
 
     sync_disks($self, $vmid);
 
@@ -290,7 +290,7 @@ sub phase1_cleanup {
 
     my $conf = $self->{vmconf};
     delete $conf->{lock};
-    eval { PVE::QemuServer::write_config($vmid, $conf) };
+    eval { PVE::QemuConfig->write_config($vmid, $conf) };
     if (my $err = $@) {
 	$self->log('err', $err);
     }
@@ -546,7 +546,7 @@ sub phase2_cleanup {
 
     my $conf = $self->{vmconf};
     delete $conf->{lock};
-    eval { PVE::QemuServer::write_config($vmid, $conf) };
+    eval { PVE::QemuConfig->write_config($vmid, $conf) };
     if (my $err = $@) {
         $self->log('err', $err);
     }
@@ -594,8 +594,8 @@ sub phase3_cleanup {
     return if $self->{phase2errors};
 
     # move config to remote node
-    my $conffile = PVE::QemuServer::config_file($vmid);
-    my $newconffile = PVE::QemuServer::config_file($vmid, $self->{node});
+    my $conffile = PVE::QemuConfig->config_file($vmid);
+    my $newconffile = PVE::QemuConfig->config_file($vmid, $self->{node});
 
     die "Failed to move config to node '$self->{node}' - rename failed: $!\n"
         if !rename($conffile, $newconffile);

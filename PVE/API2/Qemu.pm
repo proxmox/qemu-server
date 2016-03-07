@@ -13,6 +13,7 @@ use PVE::Exception qw(raise raise_param_exc raise_perm_exc);
 use PVE::Storage;
 use PVE::JSONSchema qw(get_standard_option);
 use PVE::RESTHandler;
+use PVE::QemuConfig;
 use PVE::QemuServer;
 use PVE::QemuMigrate;
 use PVE::RPCEnvironment;
@@ -205,14 +206,6 @@ my $check_vm_modify_config_perm = sub {
     return 1;
 };
 
-my $check_protection = sub {
-    my ($vm_conf, $err_msg) = @_;
-
-    if ($vm_conf->{protection}) {
-	die "$err_msg - protection mode enabled\n";
-    }
-};
-
 __PACKAGE__->register_method({
     name => 'vmlist',
     path => '',
@@ -339,7 +332,7 @@ __PACKAGE__->register_method({
 
 	my $pool = extract_param($param, 'pool');
 
-	my $filename = PVE::QemuServer::config_file($vmid);
+	my $filename = PVE::QemuConfig->config_file($vmid);
 
 	my $storecfg = PVE::Storage::config();
 
@@ -399,9 +392,9 @@ __PACKAGE__->register_method({
 	    if ($vmlist->{ids}->{$vmid}) {
 		my $current_node = $vmlist->{ids}->{$vmid}->{node};
 		if ($current_node eq $node) {
-		    my $conf = PVE::QemuServer::load_config($vmid);
+		    my $conf = PVE::QemuConfig->load_config($vmid);
 
-		    &$check_protection($conf, "unable to restore VM $vmid");
+		    PVE::QemuConfig->check_protection($conf, "unable to restore VM $vmid");
 
 		    die "unable to restore vm $vmid - config file already exists\n"
 			if !$force;
@@ -462,7 +455,7 @@ __PACKAGE__->register_method({
 			$conf->{smbios1} = "uuid=$uuid_str";
 		    }
 
-		    PVE::QemuServer::write_config($vmid, $conf);
+		    PVE::QemuConfig->write_config($vmid, $conf);
 
 		};
 		my $err = $@;
@@ -481,7 +474,7 @@ __PACKAGE__->register_method({
 	    return $rpcenv->fork_worker('qmcreate', $vmid, $authuser, $realcmd);
 	};
 
-	return PVE::QemuServer::lock_config_full($vmid, 1, $archive ? $restorefn : $createfn);
+	return PVE::QemuConfig->lock_config_full($vmid, 1, $archive ? $restorefn : $createfn);
     }});
 
 __PACKAGE__->register_method({
@@ -661,7 +654,7 @@ __PACKAGE__->register_method({
     code => sub {
 	my ($param) = @_;
 
-	my $conf = PVE::QemuServer::load_config($param->{vmid});
+	my $conf = PVE::QemuConfig->load_config($param->{vmid});
 
 	delete $conf->{snapshots};
 
@@ -732,7 +725,7 @@ __PACKAGE__->register_method({
     code => sub {
 	my ($param) = @_;
 
-	my $conf = PVE::QemuServer::load_config($param->{vmid});
+	my $conf = PVE::QemuConfig->load_config($param->{vmid});
 
 	my $pending_delete_hash = PVE::QemuServer::split_flagged_list($conf->{pending}->{delete});
 
@@ -871,12 +864,12 @@ my $update_vm_api  = sub {
 
     my $updatefn =  sub {
 
-	my $conf = PVE::QemuServer::load_config($vmid);
+	my $conf = PVE::QemuConfig->load_config($vmid);
 
 	die "checksum missmatch (file change by other user?)\n"
 	    if $digest && $digest ne $conf->{digest};
 
-	PVE::QemuServer::check_lock($conf) if !$skiplock;
+	PVE::QemuConfig->check_lock($conf) if !$skiplock;
 
 	foreach my $opt (keys %$revert) {
 	    if (defined($conf->{$opt})) {
@@ -906,31 +899,31 @@ my $update_vm_api  = sub {
 
 	    foreach my $opt (@delete) {
 		$modified->{$opt} = 1;
-		$conf = PVE::QemuServer::load_config($vmid); # update/reload
+		$conf = PVE::QemuConfig->load_config($vmid); # update/reload
 		if ($opt =~ m/^unused/) {
 		    my $drive = PVE::QemuServer::parse_drive($opt, $conf->{$opt});
-		    &$check_protection($conf, "can't remove unused disk '$drive->{file}'");
+		    PVE::QemuConfig->check_protection($conf, "can't remove unused disk '$drive->{file}'");
 		    $rpcenv->check_vm_perm($authuser, $vmid, undef, ['VM.Config.Disk']);
 		    if (PVE::QemuServer::try_deallocate_drive($storecfg, $vmid, $conf, $opt, $drive, $rpcenv, $authuser)) {
 			delete $conf->{$opt};
-			PVE::QemuServer::write_config($vmid, $conf);
+			PVE::QemuConfig->write_config($vmid, $conf);
 		    }
 		} elsif (PVE::QemuServer::is_valid_drivename($opt)) {
-		    &$check_protection($conf, "can't remove drive '$opt'");
+		    PVE::QemuConfig->check_protection($conf, "can't remove drive '$opt'");
 		    $rpcenv->check_vm_perm($authuser, $vmid, undef, ['VM.Config.Disk']);
 		    PVE::QemuServer::vmconfig_register_unused_drive($storecfg, $vmid, $conf, PVE::QemuServer::parse_drive($opt, $conf->{pending}->{$opt}))
 			if defined($conf->{pending}->{$opt});
 		    PVE::QemuServer::vmconfig_delete_pending_option($conf, $opt, $force);
-		    PVE::QemuServer::write_config($vmid, $conf);
+		    PVE::QemuConfig->write_config($vmid, $conf);
 		} else {
 		    PVE::QemuServer::vmconfig_delete_pending_option($conf, $opt, $force);
-		    PVE::QemuServer::write_config($vmid, $conf);
+		    PVE::QemuConfig->write_config($vmid, $conf);
 		}
 	    }
 
 	    foreach my $opt (keys %$param) { # add/change
 		$modified->{$opt} = 1;
-		$conf = PVE::QemuServer::load_config($vmid); # update/reload
+		$conf = PVE::QemuConfig->load_config($vmid); # update/reload
 		next if defined($conf->{pending}->{$opt}) && ($param->{$opt} eq $conf->{pending}->{$opt}); # skip if nothing changed
 
 		if (PVE::QemuServer::is_valid_drivename($opt)) {
@@ -948,13 +941,13 @@ my $update_vm_api  = sub {
 		    $conf->{pending}->{$opt} = $param->{$opt};
 		}
 		PVE::QemuServer::vmconfig_undelete_pending_option($conf, $opt);
-		PVE::QemuServer::write_config($vmid, $conf);
+		PVE::QemuConfig->write_config($vmid, $conf);
 	    }
 
 	    # remove pending changes when nothing changed
-	    $conf = PVE::QemuServer::load_config($vmid); # update/reload
+	    $conf = PVE::QemuConfig->load_config($vmid); # update/reload
 	    my $changes = PVE::QemuServer::vmconfig_cleanup_pending($conf);
-	    PVE::QemuServer::write_config($vmid, $conf) if $changes;
+	    PVE::QemuConfig->write_config($vmid, $conf) if $changes;
 
 	    return if !scalar(keys %{$conf->{pending}});
 
@@ -962,7 +955,7 @@ my $update_vm_api  = sub {
 
 	    # apply pending changes
 
-	    $conf = PVE::QemuServer::load_config($vmid); # update/reload
+	    $conf = PVE::QemuConfig->load_config($vmid); # update/reload
 
 	    if ($running) {
 		my $errors = {};
@@ -1008,7 +1001,7 @@ my $update_vm_api  = sub {
 	}
     };
 
-    return PVE::QemuServer::lock_config($vmid, $updatefn);
+    return PVE::QemuConfig->lock_config($vmid, $updatefn);
 };
 
 my $vm_config_perm_list = [
@@ -1161,11 +1154,11 @@ __PACKAGE__->register_method({
 	    if $skiplock && $authuser ne 'root@pam';
 
 	# test if VM exists
-	my $conf = PVE::QemuServer::load_config($vmid);
+	my $conf = PVE::QemuConfig->load_config($vmid);
 
 	my $storecfg = PVE::Storage::config();
 
-	&$check_protection($conf, "can't remove VM $vmid");
+	PVE::QemuConfig->check_protection($conf, "can't remove VM $vmid");
 
 	die "unable to remove VM $vmid - used in HA resources\n"
 	    if PVE::HA::Config::vm_is_ha_managed($vmid);
@@ -1270,7 +1263,7 @@ __PACKAGE__->register_method({
 	my $node = $param->{node};
 	my $websocket = $param->{websocket};
 
-	my $conf = PVE::QemuServer::load_config($vmid, $node); # check if VM exists
+	my $conf = PVE::QemuConfig->load_config($vmid, $node); # check if VM exists
 
 	my $authpath = "/vms/$vmid";
 
@@ -1387,7 +1380,7 @@ __PACKAGE__->register_method({
 
 	PVE::AccessControl::verify_vnc_ticket($param->{vncticket}, $authuser, $authpath);
 
-	my $conf = PVE::QemuServer::load_config($vmid, $node); # VM exists ?
+	my $conf = PVE::QemuConfig->load_config($vmid, $node); # VM exists ?
 
 	# Note: VNC ports are acessible from outside, so we do not gain any
 	# security if we verify that $param->{port} belongs to VM $vmid. This
@@ -1428,7 +1421,7 @@ __PACKAGE__->register_method({
 	my $node = $param->{node};
 	my $proxy = $param->{proxy};
 
-	my $conf = PVE::QemuServer::load_config($vmid, $node);
+	my $conf = PVE::QemuConfig->load_config($vmid, $node);
 	my $title = "VM $vmid";
 	$title .= " - ". $conf->{name} if $conf->{name};
 
@@ -1473,7 +1466,7 @@ __PACKAGE__->register_method({
 	my ($param) = @_;
 
 	# test if VM exists
-	my $conf = PVE::QemuServer::load_config($param->{vmid});
+	my $conf = PVE::QemuConfig->load_config($param->{vmid});
 
 	my $res = [
 	    { subdir => 'current' },
@@ -1506,7 +1499,7 @@ __PACKAGE__->register_method({
 	my ($param) = @_;
 
 	# test if VM exists
-	my $conf = PVE::QemuServer::load_config($param->{vmid});
+	my $conf = PVE::QemuConfig->load_config($param->{vmid});
 
 	my $vmstatus = PVE::QemuServer::vmstatus($param->{vmid}, 1);
 	my $status = $vmstatus->{$param->{vmid}};
@@ -2039,7 +2032,7 @@ __PACKAGE__->register_method({
 
 	my $running = PVE::QemuServer::check_running($vmid);
 
-	my $conf = PVE::QemuServer::load_config($vmid);
+	my $conf = PVE::QemuConfig->load_config($vmid);
 
 	if($snapname){
 	    my $snap = $conf->{snapshots}->{$snapname};
@@ -2188,9 +2181,9 @@ __PACKAGE__->register_method({
 	    # do all tests after lock
 	    # we also try to do all tests before we fork the worker
 
-	    my $conf = PVE::QemuServer::load_config($vmid);
+	    my $conf = PVE::QemuConfig->load_config($vmid);
 
-	    PVE::QemuServer::check_lock($conf);
+	    PVE::QemuConfig->check_lock($conf);
 
 	    my $verify_running = PVE::QemuServer::check_running($vmid) || 0;
 
@@ -2205,7 +2198,7 @@ __PACKAGE__->register_method({
 
 	    die "can't clone VM to node '$target' (VM uses local storage)\n" if $target && !$sharedvm;
 
-	    my $conffile = PVE::QemuServer::config_file($newid);
+	    my $conffile = PVE::QemuConfig->config_file($newid);
 
 	    die "unable to create VM $newid: config file already exists\n"
 		if -f $conffile;
@@ -2299,17 +2292,17 @@ __PACKAGE__->register_method({
 
 			$newconf->{$opt} = PVE::QemuServer::print_drive($vmid, $newdrive);
 
-			PVE::QemuServer::write_config($newid, $newconf);
+			PVE::QemuConfig->write_config($newid, $newconf);
 		    }
 
 		    delete $newconf->{lock};
-		    PVE::QemuServer::write_config($newid, $newconf);
+		    PVE::QemuConfig->write_config($newid, $newconf);
 
                     if ($target) {
 			# always deactivate volumes - avoid lvm LVs to be active on several nodes
 			PVE::Storage::deactivate_volumes($storecfg, $vollist, $snapname) if !$running;
 
-			my $newconffile = PVE::QemuServer::config_file($newid, $target);
+			my $newconffile = PVE::QemuConfig->config_file($newid, $target);
 			die "Failed to move config to node '$target' - rename failed: $!\n"
 			    if !rename($conffile, $newconffile);
 		    }
@@ -2336,9 +2329,9 @@ __PACKAGE__->register_method({
 	    return $rpcenv->fork_worker('qmclone', $vmid, $authuser, $realcmd);
 	};
 
-	return PVE::QemuServer::lock_config_mode($vmid, 1, $shared_lock, sub {
+	return PVE::QemuConfig->lock_config_mode($vmid, 1, $shared_lock, sub {
 	    # Aquire exclusive lock lock for $newid
-	    return PVE::QemuServer::lock_config_full($newid, 1, $clonefn);
+	    return PVE::QemuConfig->lock_config_full($newid, 1, $clonefn);
 	});
 
     }});
@@ -2420,7 +2413,7 @@ __PACKAGE__->register_method({
 
 	my $updatefn =  sub {
 
-	    my $conf = PVE::QemuServer::load_config($vmid);
+	    my $conf = PVE::QemuConfig->load_config($vmid);
 
 	    die "checksum missmatch (file change by other user?)\n"
 		if $digest && $digest ne $conf->{digest};
@@ -2462,7 +2455,7 @@ __PACKAGE__->register_method({
 
 		    PVE::QemuServer::add_unused_volume($conf, $old_volid) if !$param->{delete};
 
-		    PVE::QemuServer::write_config($vmid, $conf);
+		    PVE::QemuConfig->write_config($vmid, $conf);
 
 		    eval {
 			# try to deactivate volumes - avoid lvm LVs to be active on several nodes
@@ -2484,7 +2477,7 @@ __PACKAGE__->register_method({
                     if (PVE::QemuServer::is_volume_in_use($storecfg, $conf, undef, $old_volid)) {
 			warn "volume $old_volid still has snapshots, can't delete it\n";
 			PVE::QemuServer::add_unused_volume($conf, $old_volid);
-			PVE::QemuServer::write_config($vmid, $conf);
+			PVE::QemuConfig->write_config($vmid, $conf);
 		    } else {
 			eval { PVE::Storage::vdisk_free($storecfg, $old_volid); };
 			warn $@ if $@;
@@ -2495,7 +2488,7 @@ __PACKAGE__->register_method({
             return $rpcenv->fork_worker('qmmove', $vmid, $authuser, $realcmd);
 	};
 
-	return PVE::QemuServer::lock_config($vmid, $updatefn);
+	return PVE::QemuConfig->lock_config($vmid, $updatefn);
     }});
 
 __PACKAGE__->register_method({
@@ -2557,11 +2550,11 @@ __PACKAGE__->register_method({
 	    if $param->{force} && $authuser ne 'root@pam';
 
 	# test if VM exists
-	my $conf = PVE::QemuServer::load_config($vmid);
+	my $conf = PVE::QemuConfig->load_config($vmid);
 
 	# try to detect errors early
 
-	PVE::QemuServer::check_lock($conf);
+	PVE::QemuConfig->check_lock($conf);
 
 	if (PVE::QemuServer::check_running($vmid)) {
 	    die "cant migrate running VM without --online\n"
@@ -2629,7 +2622,7 @@ __PACKAGE__->register_method({
 
 	my $vmid = $param->{vmid};
 
-	my $conf = PVE::QemuServer::load_config ($vmid); # check if VM exists
+	my $conf = PVE::QemuConfig->load_config ($vmid); # check if VM exists
 
 	my $res = '';
 	eval {
@@ -2700,11 +2693,11 @@ __PACKAGE__->register_method({
 
         my $updatefn =  sub {
 
-            my $conf = PVE::QemuServer::load_config($vmid);
+            my $conf = PVE::QemuConfig->load_config($vmid);
 
             die "checksum missmatch (file change by other user?)\n"
                 if $digest && $digest ne $conf->{digest};
-            PVE::QemuServer::check_lock($conf) if !$skiplock;
+            PVE::QemuConfig->check_lock($conf) if !$skiplock;
 
 	    die "disk '$disk' does not exist\n" if !$conf->{$disk};
 
@@ -2755,10 +2748,10 @@ __PACKAGE__->register_method({
 	    $drive->{size} = $newsize;
 	    $conf->{$disk} = PVE::QemuServer::print_drive($vmid, $drive);
 
-	    PVE::QemuServer::write_config($vmid, $conf);
+	    PVE::QemuConfig->write_config($vmid, $conf);
 	};
 
-        PVE::QemuServer::lock_config($vmid, $updatefn);
+        PVE::QemuConfig->lock_config($vmid, $updatefn);
         return undef;
     }});
 
@@ -2792,7 +2785,7 @@ __PACKAGE__->register_method({
 
 	my $vmid = $param->{vmid};
 
-	my $conf = PVE::QemuServer::load_config($vmid);
+	my $conf = PVE::QemuConfig->load_config($vmid);
 	my $snaphash = $conf->{snapshots} || {};
 
 	my $res = [];
@@ -2950,9 +2943,9 @@ __PACKAGE__->register_method({
 
 	my $updatefn =  sub {
 
-	    my $conf = PVE::QemuServer::load_config($vmid);
+	    my $conf = PVE::QemuConfig->load_config($vmid);
 
-	    PVE::QemuServer::check_lock($conf);
+	    PVE::QemuConfig->check_lock($conf);
 
 	    my $snap = $conf->{snapshots}->{$snapname};
 
@@ -2960,10 +2953,10 @@ __PACKAGE__->register_method({
 
 	    $snap->{description} = $param->{description} if defined($param->{description});
 
-	     PVE::QemuServer::write_config($vmid, $conf);
+	     PVE::QemuConfig->write_config($vmid, $conf);
 	};
 
-	PVE::QemuServer::lock_config($vmid, $updatefn);
+	PVE::QemuConfig->lock_config($vmid, $updatefn);
 
 	return undef;
     }});
@@ -2997,7 +2990,7 @@ __PACKAGE__->register_method({
 
 	my $snapname = extract_param($param, 'snapname');
 
-	my $conf = PVE::QemuServer::load_config($vmid);
+	my $conf = PVE::QemuConfig->load_config($vmid);
 
 	my $snap = $conf->{snapshots}->{$snapname};
 
@@ -3138,15 +3131,15 @@ __PACKAGE__->register_method({
 
 	my $updatefn =  sub {
 
-	    my $conf = PVE::QemuServer::load_config($vmid);
+	    my $conf = PVE::QemuConfig->load_config($vmid);
 
-	    PVE::QemuServer::check_lock($conf);
+	    PVE::QemuConfig->check_lock($conf);
 
 	    die "unable to create template, because VM contains snapshots\n"
 		if $conf->{snapshots} && scalar(keys %{$conf->{snapshots}});
 
 	    die "you can't convert a template to a template\n"
-		if PVE::QemuServer::is_template($conf) && !$disk;
+		if PVE::QemuConfig->is_template($conf) && !$disk;
 
 	    die "you can't convert a VM to template if VM is running\n"
 		if PVE::QemuServer::check_running($vmid);
@@ -3156,12 +3149,12 @@ __PACKAGE__->register_method({
 	    };
 
 	    $conf->{template} = 1;
-	    PVE::QemuServer::write_config($vmid, $conf);
+	    PVE::QemuConfig->write_config($vmid, $conf);
 
 	    return $rpcenv->fork_worker('qmtemplate', $vmid, $authuser, $realcmd);
 	};
 
-	PVE::QemuServer::lock_config($vmid, $updatefn);
+	PVE::QemuConfig->lock_config($vmid, $updatefn);
 	return undef;
     }});
 

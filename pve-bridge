@@ -24,7 +24,7 @@ my $netid = "net$2";
 
 my $migratedfrom = $hotplug ? undef : $ENV{PVE_MIGRATED_FROM};
 
-my $conf = PVE::QemuServer::load_config($vmid, $migratedfrom);
+my $conf = PVE::QemuConfig->load_config($vmid, $migratedfrom);
 
 my $netconf = $conf->{$netid};
 

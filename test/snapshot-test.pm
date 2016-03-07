@@ -8,6 +8,7 @@ use lib qw(..);
 use PVE::Storage;
 use PVE::Storage::Plugin;
 use PVE::QemuServer;
+use PVE::QemuConfig;
 use PVE::Tools;
 
 use Test::MockModule;
@@ -223,22 +224,22 @@ sub testcase_rollback {
     };
 }
 
-# BEGIN redefine PVE::QemuServer methods 
+# BEGIN mocked PVE::QemuConfig methods
 sub config_file_lock {
     return "snapshot-working/pve-test.lock";
 }
 
 sub cfs_config_path {
-    my ($vmid, $node) = @_;
+    my ($class, $vmid, $node) = @_;
 
     $node = $nodename if !$node;
     return "snapshot-working/$node/qemu-server/$vmid.conf";
 }
 
 sub load_config {
-    my ($vmid, $node) = @_;
+    my ($class, $vmid, $node) = @_;
 
-    my $filename = cfs_config_path($vmid, $node);
+    my $filename = $class->cfs_config_path($vmid, $node);
 
     my $raw = PVE::Tools::file_get_contents($filename);
 
@@ -247,9 +248,9 @@ sub load_config {
 }
 
 sub write_config {
-    my ($vmid, $conf) = @_;
+    my ($class, $vmid, $conf) = @_;
 
-    my $filename = cfs_config_path($vmid);
+    my $filename = $class->cfs_config_path($vmid);
 
     if ($conf->{snapshots}) {
 	foreach my $snapname (keys %{$conf->{snapshots}}) {
@@ -262,7 +263,9 @@ sub write_config {
 
     PVE::Tools::file_set_contents($filename, $raw);
 }
+# END mocked PVE::QemuConfig methods
 
+# BEGIN redefine PVE::QemuServer methods
 sub has_feature {
     my ($feature, $conf, $storecfg, $snapname, $running, $backup_only) = @_;
     return $snapshot_possible;
@@ -344,6 +347,12 @@ sub vm_stop {
 
 PVE::Tools::run_command("rm -rf snapshot-working");
 PVE::Tools::run_command("cp -a snapshot-input snapshot-working");
+
+my $qemu_config_module = new Test::MockModule('PVE::QemuConfig');
+$qemu_config_module->mock('config_file_lock', \&config_file_lock);
+$qemu_config_module->mock('cfs_config_path', \&cfs_config_path);
+$qemu_config_module->mock('load_config', \&load_config);
+$qemu_config_module->mock('write_config', \&write_config);
 
 $running = 1;
 $freeze_possible = 1;

@@ -27,6 +27,7 @@ use PVE::JSONSchema qw(get_standard_option);
 use PVE::Cluster qw(cfs_register_file cfs_read_file cfs_write_file cfs_lock_file);
 use PVE::INotify;
 use PVE::ProcFSTools;
+use PVE::QemuConfig;
 use PVE::QMPClient;
 use PVE::RPCEnvironment;
 use Time::HiRes qw(gettimeofday);
@@ -1891,43 +1892,6 @@ sub check_type {
     }
 }
 
-sub lock_config_full {
-    my ($vmid, $timeout, $code, @param) = @_;
-
-    my $filename = config_file_lock($vmid);
-
-    my $res = lock_file($filename, $timeout, $code, @param);
-
-    die $@ if $@;
-
-    return $res;
-}
-
-sub lock_config_mode {
-    my ($vmid, $timeout, $shared, $code, @param) = @_;
-
-    my $filename = config_file_lock($vmid);
-
-    my $res = lock_file_full($filename, $timeout, $shared, $code, @param);
-
-    die $@ if $@;
-
-    return $res;
-}
-
-sub lock_config {
-    my ($vmid, $code, @param) = @_;
-
-    return lock_config_full($vmid, 10, $code, @param);
-}
-
-sub cfs_config_path {
-    my ($vmid, $node) = @_;
-
-    $node = $nodename if !$node;
-    return "nodes/$node/qemu-server/$vmid.conf";
-}
-
 sub check_iommu_support{
     #fixme : need to check IOMMU support
     #http://www.linux-kvm.org/page/How_to_assign_devices_with_VT-d_in_KVM
@@ -1937,34 +1901,21 @@ sub check_iommu_support{
 
 }
 
-sub config_file {
-    my ($vmid, $node) = @_;
-
-    my $cfspath = cfs_config_path($vmid, $node);
-    return "/etc/pve/$cfspath";
-}
-
-sub config_file_lock {
-    my ($vmid) = @_;
-
-    return "$lock_dir/lock-$vmid.conf";
-}
-
 sub touch_config {
     my ($vmid) = @_;
 
-    my $conf = config_file($vmid);
+    my $conf = PVE::QemuConfig->config_file($vmid);
     utime undef, undef, $conf;
 }
 
 sub destroy_vm {
     my ($storecfg, $vmid, $keep_empty_config, $skiplock) = @_;
 
-    my $conffile = config_file($vmid);
+    my $conffile = PVE::QemuConfig->config_file($vmid);
 
-    my $conf = load_config($vmid);
+    my $conf = PVE::QemuConfig->load_config($vmid);
 
-    check_lock($conf) if !$skiplock;
+    PVE::QemuConfig->check_lock($conf) if !$skiplock;
 
     # only remove disks owned by this VM
     foreach_drive($conf, sub {
@@ -2002,18 +1953,6 @@ sub destroy_vm {
 
     };
     warn $@ if $@;
-}
-
-sub load_config {
-    my ($vmid, $node) = @_;
-
-    my $cfspath = cfs_config_path($vmid, $node);
-
-    my $conf = PVE::Cluster::cfs_read_file($cfspath);
-
-    die "no such VM ('$vmid')\n" if !defined($conf);
-
-    return $conf;
 }
 
 sub parse_vm_config {
@@ -2222,14 +2161,6 @@ sub write_vm_config {
     return $raw;
 }
 
-sub write_config {
-    my ($vmid, $conf) = @_;
-
-    my $cfspath = cfs_config_path($vmid);
-
-    PVE::Cluster::cfs_write_file($cfspath, $conf);
-}
-
 sub load_defaults {
 
     my $res = {};
@@ -2336,12 +2267,6 @@ sub shared_nodes {
     return $nodehash
 }
 
-sub check_lock {
-    my ($conf) = @_;
-
-    die "VM is locked ($conf->{lock})\n" if $conf->{lock};
-}
-
 sub check_cmdline {
     my ($pidfile, $pid) = @_;
 
@@ -2371,7 +2296,7 @@ sub check_cmdline {
 sub check_running {
     my ($vmid, $nocheck, $node) = @_;
 
-    my $filename = config_file($vmid, $node);
+    my $filename = PVE::QemuConfig->config_file($vmid, $node);
 
     die "unable to find configuration file for VM $vmid - no such machine\n"
 	if !$nocheck && ! -f $filename;
@@ -2459,7 +2384,7 @@ sub vmstatus {
     foreach my $vmid (keys %$list) {
 	next if $opt_vmid && ($vmid ne $opt_vmid);
 
-	my $cfspath = cfs_config_path($vmid);
+	my $cfspath = PVE::QemuConfig->cfs_config_path($vmid);
 	my $conf = PVE::Cluster::cfs_read_file($cfspath) || {};
 
 	my $d = {};
@@ -2499,7 +2424,7 @@ sub vmstatus {
 	$d->{diskread} = 0;
 	$d->{diskwrite} = 0;
 
-        $d->{template} = is_template($conf);
+        $d->{template} = PVE::QemuConfig->is_template($conf);
 
 	$res->{$vmid} = $d;
     }
@@ -3196,7 +3121,7 @@ sub config_to_command {
 	    #if dimm_memory is not aligned to dimm map
 	    if($current_size > $memory) {
 	         $conf->{memory} = $current_size;
-	         write_config($vmid, $conf);
+	         PVE::QemuConfig->write_config($vmid, $conf);
 	    }
 	});
     }
@@ -3853,7 +3778,7 @@ sub qemu_memory_hotplug {
 		}
 		#update conf after each succesful module hotplug
 		$conf->{memory} = $current_size;
-		write_config($vmid, $conf);
+		PVE::QemuConfig->write_config($vmid, $conf);
 	});
 
     } else {
@@ -3878,7 +3803,7 @@ sub qemu_memory_hotplug {
 		$conf->{memory} = $current_size;
 
 		eval { qemu_objectdel($vmid, "mem-$name"); };
-		write_config($vmid, $conf);
+		PVE::QemuConfig->write_config($vmid, $conf);
 	});
     }
 }
@@ -4131,8 +4056,8 @@ sub vmconfig_hotplug_pending {
     }
 
     if ($changes) {
-	write_config($vmid, $conf);
-	$conf = load_config($vmid); # update/reload
+	PVE::QemuConfig->write_config($vmid, $conf);
+	$conf = PVE::QemuConfig->load_config($vmid); # update/reload
     }
 
     my $hotplug_features = parse_hotplug_features(defined($conf->{hotplug}) ? $conf->{hotplug} : '1');
@@ -4182,8 +4107,8 @@ sub vmconfig_hotplug_pending {
 	    # save new config if hotplug was successful
 	    delete $conf->{$opt};
 	    vmconfig_undelete_pending_option($conf, $opt);
-	    write_config($vmid, $conf);
-	    $conf = load_config($vmid); # update/reload
+	    PVE::QemuConfig->write_config($vmid, $conf);
+	    $conf = PVE::QemuConfig->load_config($vmid); # update/reload
 	}
     }
 
@@ -4240,8 +4165,8 @@ sub vmconfig_hotplug_pending {
 	    # save new config if hotplug was successful
 	    $conf->{$opt} = $value;
 	    delete $conf->{pending}->{$opt};
-	    write_config($vmid, $conf);
-	    $conf = load_config($vmid); # update/reload
+	    PVE::QemuConfig->write_config($vmid, $conf);
+	    $conf = PVE::QemuConfig->load_config($vmid); # update/reload
 	}
     }
 }
@@ -4293,26 +4218,26 @@ sub vmconfig_apply_pending {
     my $pending_delete_hash = split_flagged_list($conf->{pending}->{delete});
     while (my ($opt, $force) = each %$pending_delete_hash) {
 	die "internal error" if $opt =~ m/^unused/;
-	$conf = load_config($vmid); # update/reload
+	$conf = PVE::QemuConfig->load_config($vmid); # update/reload
 	if (!defined($conf->{$opt})) {
 	    vmconfig_undelete_pending_option($conf, $opt);
-	    write_config($vmid, $conf);
+	    PVE::QemuConfig->write_config($vmid, $conf);
 	} elsif (is_valid_drivename($opt)) {
 	    vmconfig_delete_or_detach_drive($vmid, $storecfg, $conf, $opt, $force);
 	    vmconfig_undelete_pending_option($conf, $opt);
 	    delete $conf->{$opt};
-	    write_config($vmid, $conf);
+	    PVE::QemuConfig->write_config($vmid, $conf);
 	} else {
 	    vmconfig_undelete_pending_option($conf, $opt);
 	    delete $conf->{$opt};
-	    write_config($vmid, $conf);
+	    PVE::QemuConfig->write_config($vmid, $conf);
 	}
     }
 
-    $conf = load_config($vmid); # update/reload
+    $conf = PVE::QemuConfig->load_config($vmid); # update/reload
 
     foreach my $opt (keys %{$conf->{pending}}) { # add/change
-	$conf = load_config($vmid); # update/reload
+	$conf = PVE::QemuConfig->load_config($vmid); # update/reload
 
 	if (defined($conf->{$opt}) && ($conf->{$opt} eq $conf->{pending}->{$opt})) {
 	    # skip if nothing changed
@@ -4325,7 +4250,7 @@ sub vmconfig_apply_pending {
 	}
 
 	delete $conf->{pending}->{$opt};
-	write_config($vmid, $conf);
+	PVE::QemuConfig->write_config($vmid, $conf);
     }
 }
 
@@ -4491,18 +4416,18 @@ sub vm_start {
     my ($storecfg, $vmid, $statefile, $skiplock, $migratedfrom, $paused,
 	$forcemachine, $spice_ticket) = @_;
 
-    lock_config($vmid, sub {
-	my $conf = load_config($vmid, $migratedfrom);
+    PVE::QemuConfig->lock_config($vmid, sub {
+	my $conf = PVE::QemuConfig->load_config($vmid, $migratedfrom);
 
-	die "you can't start a vm if it's a template\n" if is_template($conf);
+	die "you can't start a vm if it's a template\n" if PVE::QemuConfig->is_template($conf);
 
-	check_lock($conf) if !$skiplock;
+	PVE::QemuConfig->check_lock($conf) if !$skiplock;
 
 	die "VM $vmid already running\n" if check_running($vmid, undef, $migratedfrom);
 
 	if (!$statefile && scalar(keys %{$conf->{pending}})) {
 	    vmconfig_apply_pending($vmid, $conf, $storecfg);
-	    $conf = load_config($vmid); # update/reload
+	    $conf = PVE::QemuConfig->load_config($vmid); # update/reload
 	}
 
 	my $defaults = load_defaults();
@@ -4670,7 +4595,7 @@ sub vm_human_monitor_command {
 sub vm_commandline {
     my ($storecfg, $vmid) = @_;
 
-    my $conf = load_config($vmid);
+    my $conf = PVE::QemuConfig->load_config($vmid);
 
     my $defaults = load_defaults();
 
@@ -4682,11 +4607,11 @@ sub vm_commandline {
 sub vm_reset {
     my ($vmid, $skiplock) = @_;
 
-    lock_config($vmid, sub {
+    PVE::QemuConfig->lock_config($vmid, sub {
 
-	my $conf = load_config($vmid);
+	my $conf = PVE::QemuConfig->load_config($vmid);
 
-	check_lock($conf) if !$skiplock;
+	PVE::QemuConfig->check_lock($conf) if !$skiplock;
 
 	vm_mon_cmd($vmid, "system_reset");
     });
@@ -4740,20 +4665,20 @@ sub vm_stop {
     if ($migratedfrom){
 	my $pid = check_running($vmid, $nocheck, $migratedfrom);
 	kill 15, $pid if $pid;
-	my $conf = load_config($vmid, $migratedfrom);
+	my $conf = PVE::QemuConfig->load_config($vmid, $migratedfrom);
 	vm_stop_cleanup($storecfg, $vmid, $conf, $keepActive, 0);
 	return;
     }
 
-    lock_config($vmid, sub {
+    PVE::QemuConfig->lock_config($vmid, sub {
 
 	my $pid = check_running($vmid, $nocheck);
 	return if !$pid;
 
 	my $conf;
 	if (!$nocheck) {
-	    $conf = load_config($vmid);
-	    check_lock($conf) if !$skiplock;
+	    $conf = PVE::QemuConfig->load_config($vmid);
+	    PVE::QemuConfig->check_lock($conf) if !$skiplock;
 	    if (!defined($timeout) && $shutdown && $conf->{startup}) {
 		my $opts = PVE::JSONSchema::pve_parse_startup_order($conf->{startup});
 		$timeout = $opts->{down} if $opts->{down};
@@ -4824,11 +4749,11 @@ sub vm_stop {
 sub vm_suspend {
     my ($vmid, $skiplock) = @_;
 
-    lock_config($vmid, sub {
+    PVE::QemuConfig->lock_config($vmid, sub {
 
-	my $conf = load_config($vmid);
+	my $conf = PVE::QemuConfig->load_config($vmid);
 
-	check_lock($conf) if !($skiplock || ($conf->{lock} && $conf->{lock} eq 'backup'));
+	PVE::QemuConfig->check_lock($conf) if !($skiplock || ($conf->{lock} && $conf->{lock} eq 'backup'));
 
 	vm_mon_cmd($vmid, "stop");
     });
@@ -4837,13 +4762,13 @@ sub vm_suspend {
 sub vm_resume {
     my ($vmid, $skiplock, $nocheck) = @_;
 
-    lock_config($vmid, sub {
+    PVE::QemuConfig->lock_config($vmid, sub {
 
 	if (!$nocheck) {
 
-	    my $conf = load_config($vmid);
+	    my $conf = PVE::QemuConfig->load_config($vmid);
 
-	    check_lock($conf) if !($skiplock || ($conf->{lock} && $conf->{lock} eq 'backup'));
+	    PVE::QemuConfig->check_lock($conf) if !($skiplock || ($conf->{lock} && $conf->{lock} eq 'backup'));
 
 	    vm_mon_cmd($vmid, "cont");
 
@@ -4856,9 +4781,9 @@ sub vm_resume {
 sub vm_sendkey {
     my ($vmid, $skiplock, $key) = @_;
 
-    lock_config($vmid, sub {
+    PVE::QemuConfig->lock_config($vmid, sub {
 
-	my $conf = load_config($vmid);
+	my $conf = PVE::QemuConfig->load_config($vmid);
 
 	# there is no qmp command, so we use the human monitor command
 	vm_human_monitor_command($vmid, "sendkey $key");
@@ -4868,9 +4793,9 @@ sub vm_sendkey {
 sub vm_destroy {
     my ($storecfg, $vmid, $skiplock) = @_;
 
-    lock_config($vmid, sub {
+    PVE::QemuConfig->lock_config($vmid, sub {
 
-	my $conf = load_config($vmid);
+	my $conf = PVE::QemuConfig->load_config($vmid);
 
 	if (!check_running($vmid)) {
 	    destroy_vm($storecfg, $vmid, undef, $skiplock);
@@ -5397,9 +5322,9 @@ sub rescan {
     my $updatefn =  sub {
 	my ($vmid) = @_;
 
-	my $conf = load_config($vmid);
+	my $conf = PVE::QemuConfig->load_config($vmid);
 
-	check_lock($conf);
+	PVE::QemuConfig->check_lock($conf);
 
 	my $vm_volids = {};
 	foreach my $volid (keys %$volid_hash) {
@@ -5409,14 +5334,14 @@ sub rescan {
 
 	my $changes = update_disksize($vmid, $conf, $vm_volids);
 
-	write_config($vmid, $conf) if $changes;
+	PVE::QemuConfig->write_config($vmid, $conf) if $changes;
     };
 
     if (defined($vmid)) {
 	if ($nolock) {
 	    &$updatefn($vmid);
 	} else {
-	    lock_config($vmid, $updatefn, $vmid);
+	    PVE::QemuConfig->lock_config($vmid, $updatefn, $vmid);
 	}
     } else {
 	my $vmlist = config_list();
@@ -5424,7 +5349,7 @@ sub rescan {
 	    if ($nolock) {
 		&$updatefn($vmid);
 	    } else {
-		lock_config($vmid, $updatefn, $vmid);
+		PVE::QemuConfig->lock_config($vmid, $updatefn, $vmid);
 	    }
 	}
     }
@@ -5475,11 +5400,12 @@ sub restore_vma_archive {
 
     my $rpcenv = PVE::RPCEnvironment::get();
 
-    my $conffile = config_file($vmid);
+    my $conffile = PVE::QemuConfig->config_file($vmid);
     my $tmpfn = "$conffile.$$.tmp";
 
     # Note: $oldconf is undef if VM does not exists
-    my $oldconf = PVE::Cluster::cfs_read_file(cfs_config_path($vmid));
+    my $cfs_path = PVE::QemuConfig->cfs_config_path($vmid);
+    my $oldconf = PVE::Cluster::cfs_read_file($cfs_path);
 
     my $print_devmap = sub {
 	my $virtdev_hash = {};
@@ -5701,7 +5627,7 @@ sub restore_tar_archive {
     my $storecfg = cfs_read_file('storage.cfg');
 
     # destroy existing data - keep empty config
-    my $vmcfgfn = config_file($vmid);
+    my $vmcfgfn = PVE::QemuConfig->config_file($vmid);
     destroy_vm($storecfg, $vmid, 1) if -f $vmcfgfn;
 
     my $tocmd = "/usr/lib/qemu-server/qmextract";
@@ -5723,7 +5649,7 @@ sub restore_tar_archive {
     local $ENV{VZDUMP_VMID} = $vmid;
     local $ENV{VZDUMP_USER} = $user;
 
-    my $conffile = config_file($vmid);
+    my $conffile = PVE::QemuConfig->config_file($vmid);
     my $tmpfn = "$conffile.$$.tmp";
 
     # disable interrupts (always do cleanups)
@@ -5925,12 +5851,12 @@ sub snapshot_prepare {
 
     my $updatefn =  sub {
 
-	my $conf = load_config($vmid);
+	my $conf = PVE::QemuConfig->load_config($vmid);
 
 	die "you can't take a snapshot if it's a template\n"
-	    if is_template($conf);
+	    if PVE::QemuConfig->is_template($conf);
 
-	check_lock($conf);
+	PVE::QemuConfig->check_lock($conf);
 
 	$conf->{lock} = 'snapshot';
 
@@ -5953,10 +5879,10 @@ sub snapshot_prepare {
 	$snap->{snaptime} = time();
 	$snap->{description} = $comment if $comment;
 
-	write_config($vmid, $conf);
+	PVE::QemuConfig->write_config($vmid, $conf);
     };
 
-    lock_config($vmid, $updatefn);
+    PVE::QemuConfig->lock_config($vmid, $updatefn);
 
     return $snap;
 }
@@ -5966,7 +5892,7 @@ sub snapshot_commit {
 
     my $updatefn = sub {
 
-	my $conf = load_config($vmid);
+	my $conf = PVE::QemuConfig->load_config($vmid);
 
 	die "missing snapshot lock\n"
 	    if !($conf->{lock} && $conf->{lock} eq 'snapshot');
@@ -5983,10 +5909,10 @@ sub snapshot_commit {
 
 	$conf->{parent} = $snapname;
 
-	write_config($vmid, $conf);
+	PVE::QemuConfig->write_config($vmid, $conf);
     };
 
-    lock_config($vmid, $updatefn);
+    PVE::QemuConfig->lock_config($vmid, $updatefn);
 }
 
 sub snapshot_rollback {
@@ -5996,11 +5922,11 @@ sub snapshot_rollback {
 
     my $storecfg = PVE::Storage::config();
 
-    my $conf = load_config($vmid);
+    my $conf = PVE::QemuConfig->load_config($vmid);
 
     my $get_snapshot_config = sub {
 
-	die "you can't rollback if vm is a template\n" if is_template($conf);
+	die "you can't rollback if vm is a template\n" if PVE::QemuConfig->is_template($conf);
 
 	my $res = $conf->{snapshots}->{$snapname};
 
@@ -6023,7 +5949,7 @@ sub snapshot_rollback {
 
     my $updatefn = sub {
 
-	$conf = load_config($vmid);
+	$conf = PVE::QemuConfig->load_config($vmid);
 
 	$snap = &$get_snapshot_config();
 
@@ -6031,7 +5957,7 @@ sub snapshot_rollback {
 	    if $snap->{snapstate};
 
 	if ($prepare) {
-	    check_lock($conf);
+	    PVE::QemuConfig->check_lock($conf);
 	    vm_stop($storecfg, $vmid, undef, undef, 5, undef, undef);
 	}
 
@@ -6062,7 +5988,7 @@ sub snapshot_rollback {
 	    delete $conf->{machine} if $snap->{vmstate} && !$has_machine_config;
 	}
 
-	write_config($vmid, $conf);
+	PVE::QemuConfig->write_config($vmid, $conf);
 
 	if (!$prepare && $snap->{vmstate}) {
 	    my $statefile = PVE::Storage::path($storecfg, $snap->{vmstate});
@@ -6070,7 +5996,7 @@ sub snapshot_rollback {
 	}
     };
 
-    lock_config($vmid, $updatefn);
+    PVE::QemuConfig->lock_config($vmid, $updatefn);
 
     foreach_drive($snap, sub {
 	my ($ds, $drive) = @_;
@@ -6084,7 +6010,7 @@ sub snapshot_rollback {
     });
 
     $prepare = 0;
-    lock_config($vmid, $updatefn);
+    PVE::QemuConfig->lock_config($vmid, $updatefn);
 }
 
 my $savevm_wait = sub {
@@ -6151,7 +6077,7 @@ sub snapshot_create {
 
     $save_vmstate = 0 if !$snap->{vmstate}; # vm is not running
 
-    my $config = load_config($vmid);
+    my $config = PVE::QemuConfig->load_config($vmid);
 
     my ($running, $freezefs) = check_freeze_needed($vmid, $config, $snap->{vmstate});
 
@@ -6247,12 +6173,12 @@ sub snapshot_delete {
     my $updatefn =  sub {
 	my ($remove_drive) = @_;
 
-	my $conf = load_config($vmid);
+	my $conf = PVE::QemuConfig->load_config($vmid);
 
 	if (!$drivehash) {
-	    check_lock($conf);
+	    PVE::QemuConfig->check_lock($conf);
 	    die "you can't delete a snapshot if vm is a template\n"
-		if is_template($conf);
+		if PVE::QemuConfig->is_template($conf);
 	}
 
 	$snap = $conf->{snapshots}->{$snapname};
@@ -6289,10 +6215,10 @@ sub snapshot_delete {
 	    }
 	}
 
-	write_config($vmid, $conf);
+	PVE::QemuConfig->write_config($vmid, $conf);
     };
 
-    lock_config($vmid, $updatefn);
+    PVE::QemuConfig->lock_config($vmid, $updatefn);
 
     # now remove vmstate file
 
@@ -6305,7 +6231,7 @@ sub snapshot_delete {
 	    warn $err;
 	}
 	# save changes (remove vmstate from snapshot)
-	lock_config($vmid, $updatefn, 'vmstate') if !$force;
+	PVE::QemuConfig->lock_config($vmid, $updatefn, 'vmstate') if !$force;
     };
 
     # now remove all internal snapshots
@@ -6326,13 +6252,13 @@ sub snapshot_delete {
 	}
 
 	# save changes (remove drive fron snapshot)
-	lock_config($vmid, $updatefn, $ds) if !$force;
+	PVE::QemuConfig->lock_config($vmid, $updatefn, $ds) if !$force;
 	push @$unused, $volid;
     });
 
     # now cleanup config
     $prepare = 0;
-    lock_config($vmid, $updatefn);
+    PVE::QemuConfig->lock_config($vmid, $updatefn);
 }
 
 sub has_feature {
@@ -6368,14 +6294,8 @@ sub template_create {
 	my $voliddst = PVE::Storage::vdisk_create_base($storecfg, $volid);
 	$drive->{file} = $voliddst;
 	$conf->{$ds} = print_drive($vmid, $drive);
-	write_config($vmid, $conf);
+	PVE::QemuConfig->write_config($vmid, $conf);
     });
-}
-
-sub is_template {
-    my ($conf) = @_;
-
-    return 1 if defined $conf->{template} && $conf->{template} == 1;
 }
 
 sub qemu_img_convert {

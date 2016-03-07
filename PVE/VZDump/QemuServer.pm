@@ -46,7 +46,7 @@ sub prepare {
 
     $task->{disks} = [];
 
-    my $conf = $self->{vmlist}->{$vmid} = PVE::QemuServer::load_config($vmid);
+    my $conf = $self->{vmlist}->{$vmid} = PVE::QemuConfig->load_config($vmid);
 
     $self->{vm_was_running} = 1;
     if (!PVE::QemuServer::check_running($vmid)) {
@@ -230,7 +230,7 @@ sub archive {
 
     my $diskcount = scalar(@{$task->{disks}});
 
-    if (PVE::QemuServer::is_template($self->{vmlist}->{$vmid}) || !$diskcount) {
+    if (PVE::QemuConfig->is_template($self->{vmlist}->{$vmid}) || !$diskcount) {
 	my @pathlist;
 	foreach my $di (@{$task->{disks}}) {
 	    if ($di->{type} eq 'block' || $di->{type} eq 'file') {
