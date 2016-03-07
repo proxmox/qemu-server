@@ -2042,7 +2042,7 @@ __PACKAGE__->register_method({
 	my $storecfg = PVE::Storage::config();
 
 	my $nodelist = PVE::QemuServer::shared_nodes($conf, $storecfg);
-	my $hasFeature = PVE::QemuServer::has_feature($feature, $conf, $storecfg, $snapname, $running);
+	my $hasFeature = PVE::QemuConfig->has_feature($feature, $conf, $storecfg, $snapname, $running);
 
 	return {
 	    hasFeature => $hasFeature,
@@ -2862,7 +2862,7 @@ __PACKAGE__->register_method({
 
 	my $realcmd = sub {
 	    PVE::Cluster::log_msg('info', $authuser, "snapshot VM $vmid: $snapname");
-	    PVE::QemuServer::snapshot_create($vmid, $snapname, $param->{vmstate}, 
+	    PVE::QemuConfig->snapshot_create($vmid, $snapname, $param->{vmstate}, 
 					     $param->{description});
 	};
 
@@ -3036,7 +3036,7 @@ __PACKAGE__->register_method({
 
 	my $realcmd = sub {
 	    PVE::Cluster::log_msg('info', $authuser, "rollback snapshot VM $vmid: $snapname");
-	    PVE::QemuServer::snapshot_rollback($vmid, $snapname);
+	    PVE::QemuConfig->snapshot_rollback($vmid, $snapname);
 	};
 
 	return $rpcenv->fork_worker('qmrollback', $vmid, $authuser, $realcmd);
@@ -3084,7 +3084,7 @@ __PACKAGE__->register_method({
 
 	my $realcmd = sub {
 	    PVE::Cluster::log_msg('info', $authuser, "delete snapshot VM $vmid: $snapname");
-	    PVE::QemuServer::snapshot_delete($vmid, $snapname, $param->{force});
+	    PVE::QemuConfig->snapshot_delete($vmid, $snapname, $param->{force});
 	};
 
 	return $rpcenv->fork_worker('qmdelsnapshot', $vmid, $authuser, $realcmd);

@@ -152,7 +152,7 @@ sub testcase_prepare {
 	plan tests => 2;
 	$@ = undef;
 	eval {
-	    PVE::QemuServer::snapshot_prepare($vmid, $snapname, $save_vmstate, $comment);
+	    PVE::QemuConfig->__snapshot_prepare($vmid, $snapname, $save_vmstate, $comment);
 	};
 	is($@, $exp_err, "\$@ correct");
 	ok(test_file("snapshot-expected/prepare/qemu-server/$vmid.conf", "snapshot-working/prepare/qemu-server/$vmid.conf"), "config file correct");
@@ -165,7 +165,7 @@ sub testcase_commit {
 	plan tests => 2;
 	$@ = undef;
 	eval {
-	    PVE::QemuServer::snapshot_commit($vmid, $snapname);
+	    PVE::QemuConfig->__snapshot_commit($vmid, $snapname);
 	};
 	is($@, $exp_err, "\$@ correct");
 	ok(test_file("snapshot-expected/commit/qemu-server/$vmid.conf", "snapshot-working/commit/qemu-server/$vmid.conf"), "config file correct");
@@ -182,7 +182,7 @@ sub testcase_create {
 	$exp_vol_snap_delete = {} if !defined($exp_vol_snap_delete);
 	$@ = undef;
 	eval {
-	    PVE::QemuServer::snapshot_create($vmid, $snapname, $save_vmstate, $comment);
+	    PVE::QemuConfig->snapshot_create($vmid, $snapname, $save_vmstate, $comment);
 	};
 	is($@, $exp_err, "\$@ correct");
 	is_deeply($vol_snapshot, $exp_vol_snap, "created correct volume snapshots");
@@ -199,7 +199,7 @@ sub testcase_delete {
 	$exp_vol_snap_delete = {} if !defined($exp_vol_snap_delete);
 	$@ = undef;
 	eval {
-	    PVE::QemuServer::snapshot_delete($vmid, $snapname, $force);
+	    PVE::QemuConfig->snapshot_delete($vmid, $snapname, $force);
 	};
 	is($@, $exp_err, "\$@ correct");
 	is_deeply($vol_snapshot_delete, $exp_vol_snap_delete, "deleted correct volume snapshots");
@@ -216,7 +216,7 @@ sub testcase_rollback {
 	$exp_vol_snap_rollback = {} if !defined($exp_vol_snap_rollback);
 	$@ = undef;
 	eval {
-	    PVE::QemuServer::snapshot_rollback($vmid, $snapname);
+	    PVE::QemuConfig->snapshot_rollback($vmid, $snapname);
 	};
 	is($@, $exp_err, "\$@ correct");
 	is_deeply($vol_snapshot_rollback, $exp_vol_snap_rollback, "rolled back to correct volume snapshots");
@@ -263,20 +263,14 @@ sub write_config {
 
     PVE::Tools::file_set_contents($filename, $raw);
 }
-# END mocked PVE::QemuConfig methods
 
-# BEGIN redefine PVE::QemuServer methods
 sub has_feature {
-    my ($feature, $conf, $storecfg, $snapname, $running, $backup_only) = @_;
+    my ($class, $feature, $conf, $storecfg, $snapname, $running, $backup_only) = @_;
     return $snapshot_possible;
 }
 
-sub check_running {
-    return $running;
-}
-
-sub snapshot_save_vmstate {
-    my ($vmid, $conf, $snapname, $storecfg) = @_;
+sub __snapshot_save_vmstate {
+    my ($class, $vmid, $conf, $snapname, $storecfg) = @_;
     die "save_vmstate failed\n"
 	if !$save_vmstate_works;
 
@@ -284,6 +278,14 @@ sub snapshot_save_vmstate {
     $snap->{vmstate} = "somestorage:state-volume";
     $snap->{machine} = "somemachine";
 }
+# END mocked PVE::QemuConfig methods
+
+# BEGIN redefine PVE::QemuServer methods
+
+sub check_running {
+    return $running;
+}
+
 
 sub do_snapshots_with_qemu {
     return 0;
@@ -353,6 +355,8 @@ $qemu_config_module->mock('config_file_lock', \&config_file_lock);
 $qemu_config_module->mock('cfs_config_path', \&cfs_config_path);
 $qemu_config_module->mock('load_config', \&load_config);
 $qemu_config_module->mock('write_config', \&write_config);
+$qemu_config_module->mock('has_feature', \&has_feature);
+$qemu_config_module->mock('__snapshot_save_vmstate', \&__snapshot_save_vmstate);
 
 $running = 1;
 $freeze_possible = 1;
@@ -489,14 +493,14 @@ testcase_create("106", "test", 1, "test comment", "", { "local:snapshotable-disk
 $freeze_possible = 1;
 
 printf("Expected error for snapshot_create when volume snapshot is not possible\n");
-testcase_create("201", "test", 0, "test comment", "volume snapshot disabled\n");
+testcase_create("201", "test", 0, "test comment", "volume snapshot disabled\n\n");
 
 printf("Expected error for snapshot_create when volume snapshot is not possible for one drive\n");
-testcase_create("202", "test", 0, "test comment", "volume snapshot disabled\n", { "local:snapshotable-disk-1" => "test" }, { "local:snapshotable-disk-1" => "test" });
+testcase_create("202", "test", 0, "test comment", "volume snapshot disabled\n\n", { "local:snapshotable-disk-1" => "test" }, { "local:snapshotable-disk-1" => "test" });
 
 $vm_mon->{savevm_start} = 0;
 printf("Expected error for snapshot_create when Qemu mon command 'savevm-start' fails\n");
-testcase_create("203", "test", 0, "test comment", "savevm-start disabled\n");
+testcase_create("203", "test", 0, "test comment", "savevm-start disabled\n\n");
 $vm_mon->{savevm_start} = 1;
 
 
