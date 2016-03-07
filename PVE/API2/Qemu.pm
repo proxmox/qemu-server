@@ -2453,7 +2453,7 @@ __PACKAGE__->register_method({
 
 		    $conf->{$disk} = PVE::QemuServer::print_drive($vmid, $newdrive);
 
-		    PVE::QemuServer::add_unused_volume($conf, $old_volid) if !$param->{delete};
+		    PVE::QemuConfig->add_unused_volume($conf, $old_volid) if !$param->{delete};
 
 		    PVE::QemuConfig->write_config($vmid, $conf);
 
@@ -2476,7 +2476,7 @@ __PACKAGE__->register_method({
 		if ($param->{delete}) {
                     if (PVE::QemuServer::is_volume_in_use($storecfg, $conf, undef, $old_volid)) {
 			warn "volume $old_volid still has snapshots, can't delete it\n";
-			PVE::QemuServer::add_unused_volume($conf, $old_volid);
+			PVE::QemuConfig->add_unused_volume($conf, $old_volid);
 			PVE::QemuConfig->write_config($vmid, $conf);
 		    } else {
 			eval { PVE::Storage::vdisk_free($storecfg, $old_volid); };

@@ -1557,26 +1557,6 @@ sub add_random_macs {
     }
 }
 
-sub add_unused_volume {
-    my ($config, $volid) = @_;
-
-    my $key;
-    for (my $ind = $MAX_UNUSED_DISKS - 1; $ind >= 0; $ind--) {
-	my $test = "unused$ind";
-	if (my $vid = $config->{$test}) {
-	    return if $vid eq $volid; # do not add duplicates
-	} else {
-	    $key = $test;
-	}
-    }
-
-    die "To many unused volume - please delete them first.\n" if !$key;
-
-    $config->{$key} = $volid;
-
-    return $key;
-}
-
 sub vm_is_volid_owner {
     my ($storecfg, $vmid, $volid) = @_;
 
@@ -1631,7 +1611,7 @@ sub vmconfig_register_unused_drive {
     if (!drive_is_cdrom($drive)) {
 	my $volid = $drive->{file};
 	if (vm_is_volid_owner($storecfg, $vmid, $volid)) {
-	    add_unused_volume($conf, $volid, $vmid);
+	    PVE::QemuConfig->add_unused_volume($conf, $volid, $vmid);
 	}
     }
 }
@@ -5305,7 +5285,7 @@ sub update_disksize {
 	next if !$path; # just to be sure
 	next if $usedpath->{$path};
 	$changes = 1;
-	add_unused_volume($conf, $volid);
+	PVE::QemuConfig->add_unused_volume($conf, $volid);
 	$usedpath->{$path} = 1; # avoid to add more than once (aliases)
     }
 
