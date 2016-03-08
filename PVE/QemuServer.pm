@@ -4275,16 +4275,16 @@ sub vmconfig_update_net {
 	    die "internal error" if $opt !~ m/net(\d+)/;
 	    my $iface = "tap${vmid}i$1";
 
-	    if (&$safe_num_ne($oldnet->{rate}, $newnet->{rate})) {
-		PVE::Network::tap_rate_limit($iface, $newnet->{rate});
-	    }
-
 	    if (&$safe_string_ne($oldnet->{bridge}, $newnet->{bridge}) ||
 		&$safe_num_ne($oldnet->{tag}, $newnet->{tag}) ||
 		&$safe_string_ne($oldnet->{trunks}, $newnet->{trunks}) ||
 		&$safe_num_ne($oldnet->{firewall}, $newnet->{firewall})) {
 		PVE::Network::tap_unplug($iface);
-		PVE::Network::tap_plug($iface, $newnet->{bridge}, $newnet->{tag}, $newnet->{firewall}, $newnet->{trunks});
+		PVE::Network::tap_plug($iface, $newnet->{bridge}, $newnet->{tag}, $newnet->{firewall}, $newnet->{trunks}, $newnet->{rate});
+	    } elsif (&$safe_num_ne($oldnet->{rate}, $newnet->{rate})) {
+		# Rate can be applied on its own but any change above needs to
+		# include the rate in tap_plug since OVS resets everything.
+		PVE::Network::tap_rate_limit($iface, $newnet->{rate});
 	    }
 
 	    if (&$safe_string_ne($oldnet->{link_down}, $newnet->{link_down})) {

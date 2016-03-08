@@ -38,10 +38,6 @@ die "unable to parse network config '$netid'\n" if !$net;
 
 PVE::Network::tap_create($iface, $net->{bridge});
 
-# if ovs is under this bridge all traffic control settings will be flushed.
-# so we need to call tap_rate_limit after tap_plug
-PVE::Network::tap_plug($iface, $net->{bridge}, $net->{tag}, $net->{firewall}, $net->{trunks});
-
-PVE::Network::tap_rate_limit($iface, $net->{rate}) if $net->{rate};
+PVE::Network::tap_plug($iface, $net->{bridge}, $net->{tag}, $net->{firewall}, $net->{trunks}, $net->{rate});
 
 exit 0;
