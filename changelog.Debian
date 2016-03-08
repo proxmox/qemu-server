@@ -2,6 +2,8 @@ qemu-server (4.0-64) unstable; urgency=medium
 
   * Use AbstractConfig for Qemu
 
+  * fix #909: pass rate to tap_plug()
+
  -- Proxmox Support Team <support@proxmox.com>  Tue, 08 Mar 2016 11:43:28 +0100
 
 qemu-server (4.0-63) unstable; urgency=medium
