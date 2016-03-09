@@ -168,7 +168,7 @@ sub resume_vm {
 sub assemble {
     my ($self, $task, $vmid) = @_;
 
-    my $conffile = PVE::QemuServer::config_file ($vmid);
+    my $conffile = PVE::QemuConfig->config_file($vmid);
 
     my $outfile = "$task->{tmpdir}/qemu-server.conf";
     my $firewall_src = "/etc/pve/firewall/$vmid.fw";

@@ -184,7 +184,7 @@ __PACKAGE__->register_method ({
 
 	my $vmid = $param->{vmid};
 
-	PVE::QemuServer::lock_config ($vmid, sub {
+	PVE::QemuConfig->lock_config ($vmid, sub {
 	    my $conf = PVE::QemuConfig->load_config($vmid);
 	    delete $conf->{lock};
 	    delete $conf->{pending}->{lock} if $conf->{pending}; # just to be sure
