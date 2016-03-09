@@ -1,3 +1,9 @@
+qemu-server (3.4-8) unstable; urgency=low
+
+  * fix #909: pass rate to tap_plug()
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 09 Mar 2016 13:29:06 +0100
+
 qemu-server (3.4-7) unstable; urgency=low
 
   * deactivate volumes if vm start command fails
