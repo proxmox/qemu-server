@@ -4733,7 +4733,8 @@ sub vm_suspend {
 
 	my $conf = PVE::QemuConfig->load_config($vmid);
 
-	PVE::QemuConfig->check_lock($conf) if !($skiplock || ($conf->{lock} && $conf->{lock} eq 'backup'));
+	PVE::QemuConfig->check_lock($conf)
+	    if !($skiplock || PVE::QemuConfig->has_lock($conf, 'backup'));
 
 	vm_mon_cmd($vmid, "stop");
     });
@@ -4748,7 +4749,8 @@ sub vm_resume {
 
 	    my $conf = PVE::QemuConfig->load_config($vmid);
 
-	    PVE::QemuConfig->check_lock($conf) if !($skiplock || ($conf->{lock} && $conf->{lock} eq 'backup'));
+	    PVE::QemuConfig->check_lock($conf)
+		if !($skiplock || PVE::QemuConfig->has_lock($conf, 'backup'));
 
 	    vm_mon_cmd($vmid, "cont");
 
