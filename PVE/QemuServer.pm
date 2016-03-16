@@ -260,7 +260,7 @@ EODESC
     numa => {
 	optional => 1,
 	type => 'boolean',
-	description => "Enable/disable Numa.",
+	description => "Enable/disable NUMA.",
 	default => 0,
     },
     vcpus => {
@@ -307,14 +307,24 @@ EODESC
     vga => {
 	optional => 1,
 	type => 'string',
-	description => "Select VGA type. If you want to use high resolution modes (>= 1280x1024x16) then you should use option 'std' or 'vmware'. Default is 'std' for win8/win7/w2k8, and 'cirrur' for other OS types. Option 'qxl' enables the SPICE display sever. You can also run without any graphic card using a serial devive as terminal.",
+	description => "Select the VGA type. If you want to use high resolution" .
+	    " modes (>= 1280x1024x16) then you should use the options " .
+	    "'std' or 'vmware'. Default is 'std' for win8/win7/w2k8, and " .
+	    "'cirrus' for other OS types. The 'qxl' option enables the SPICE " .
+	    "display sever. For win* OS you can select how many independent " .
+	    "displays you want, Linux guests can add displays them self. " .
+	    "You can also run without any graphic card, using a serial device" .
+	    " as terminal.",
 	enum => [qw(std cirrus vmware qxl serial0 serial1 serial2 serial3 qxl2 qxl3 qxl4)],
     },
     watchdog => {
 	optional => 1,
 	type => 'string', format => 'pve-qm-watchdog',
 	typetext => '[[model=]i6300esb|ib700] [,[action=]reset|shutdown|poweroff|pause|debug|none]',
-	description => "Create a virtual hardware watchdog device.  Once enabled (by a guest action), the watchdog must be periodically polled by an agent inside the guest or else the guest will be restarted (or execute the action specified)",
+	description => "Create a virtual hardware watchdog device. Once enabled" .
+	    " (by a guest action), the watchdog must be periodically polled " .
+	    "by an agent inside the guest or else the watchdog will reset " .
+	    "the guest (or execute the respective action specified)",
     },
     startdate => {
 	optional => 1,
@@ -344,7 +354,12 @@ EODESCR
 	optional => 1,
 	type => 'boolean',
 	default => 1,
-	description => "Enable/disable the usb tablet device. This device is usually needed to allow absolute mouse positioning with VNC. Else the mouse runs out of sync with normal VNC clients. If you're running lots of console-only guests on one host, you may consider disabling this to save some context switches. This is turned of by default if you use spice (vga=qxl).",
+	description => "Enable/disable the USB tablet device. This device is " .
+	    "usually needed to allow absolute mouse positioning with VNC. " .
+	    "Else the mouse runs out of sync with normal VNC clients. " .
+	    "If you're running lots of console-only guests on one host, " .
+	    "you may consider disabling this to save some context switches. " .
+	    "This is turned off by default if you use spice (-vga=qxl).",
     },
     migrate_speed => {
 	optional => 1,
