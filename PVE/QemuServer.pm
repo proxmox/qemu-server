@@ -32,6 +32,7 @@ use PVE::QMPClient;
 use PVE::RPCEnvironment;
 use Time::HiRes qw(gettimeofday);
 use File::Copy qw(copy);
+use URI::Escape;
 
 my $qemu_snap_storage = {rbd => 1, sheepdog => 1};
 
@@ -617,8 +618,9 @@ my %drivedesc_base = (
     },
     serial => {
 	type => 'string',
+	format => 'urlencoded',
 	format_description => 'serial',
-	description => "The drive's reported serial number.",
+	description => "The drive's reported serial number, url-encoded.",
 	optional => 1,
     }
 );
@@ -643,8 +645,9 @@ my %iothread_fmt = ( iothread => {
 my %model_fmt = (
     model => {
 	type => 'string',
+	format => 'urlencoded',
 	format_description => 'model',
-	description => "The drive's reported model name.",
+	description => "The drive's reported model name, url-encoded.",
 	optional => 1,
     },
 );
@@ -1262,6 +1265,7 @@ sub print_drivedevice_full {
 
 	$device = "ide-$devicetype,bus=ide.$controller,unit=$unit,drive=drive-$drive->{interface}$drive->{index},id=$drive->{interface}$drive->{index}";
 	if ($devicetype eq 'hd' && (my $model = $drive->{model})) {
+	    $model = URI::Escape::uri_unescape($model);
 	    $device .= ",model=$model";
 	}
     } elsif ($drive->{interface} eq 'sata'){
@@ -1316,9 +1320,13 @@ sub print_drive_full {
    }
 
     my $opts = '';
-    my @qemu_drive_options = qw(heads secs cyls trans media format cache snapshot rerror werror aio discard iops iops_rd iops_wr iops_max iops_rd_max iops_wr_max serial);
+    my @qemu_drive_options = qw(heads secs cyls trans media format cache snapshot rerror werror aio discard iops iops_rd iops_wr iops_max iops_rd_max iops_wr_max);
     foreach my $o (@qemu_drive_options) {
 	$opts .= ",$o=$drive->{$o}" if $drive->{$o};
+    }
+    if (my $serial = $drive->{serial}) {
+	$serial = URI::Escape::uri_unescape($serial);
+	$opts .= ",serial=$serial";
     }
 
     $opts .= ",format=$format" if $format && !$drive->{format};
