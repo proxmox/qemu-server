@@ -5802,7 +5802,7 @@ sub template_create {
 }
 
 sub qemu_img_convert {
-    my ($src_volid, $dst_volid, $size, $snapname) = @_;
+    my ($src_volid, $dst_volid, $size, $snapname, $is_zero_initialized) = @_;
 
     my $storecfg = PVE::Storage::config();
     my ($src_storeid, $src_volname) = PVE::Storage::parse_volume_id($src_volid, 1);
@@ -5824,7 +5824,12 @@ sub qemu_img_convert {
 	my $cmd = [];
 	push @$cmd, '/usr/bin/qemu-img', 'convert', '-t', 'writeback', '-p', '-n';
 	push @$cmd, '-s', $snapname if($snapname && $src_format eq "qcow2");
-	push @$cmd, '-f', $src_format, '-O', $dst_format, $src_path, $dst_path;
+	push @$cmd, '-f', $src_format, '-O', $dst_format, $src_path;
+	if ($is_zero_initialized) {
+	    push @$cmd, "zeroinit:$dst_path";
+	} else {
+	    push @$cmd, $dst_path;
+	}
 
 	my $parser = sub {
 	    my $line = shift;
@@ -5855,7 +5860,7 @@ sub qemu_img_format {
 }
 
 sub qemu_drive_mirror {
-    my ($vmid, $drive, $dst_volid, $vmiddst) = @_;
+    my ($vmid, $drive, $dst_volid, $vmiddst, $is_zero_initialized) = @_;
 
     my $storecfg = PVE::Storage::config();
     my ($dst_storeid, $dst_volname) = PVE::Storage::parse_volume_id($dst_volid);
@@ -5866,7 +5871,9 @@ sub qemu_drive_mirror {
 
     my $dst_path = PVE::Storage::path($storecfg, $dst_volid);
 
-    my $opts = { timeout => 10, device => "drive-$drive", mode => "existing", sync => "full", target => $dst_path };
+    my $qemu_target = $is_zero_initialized ? "zeroinit:$dst_path" : $dst_path;
+
+    my $opts = { timeout => 10, device => "drive-$drive", mode => "existing", sync => "full", target => $qemu_target };
     $opts->{format} = $format if $format;
 
     print "drive mirror is starting (scanning bitmap) : this step can take some minutes/hours, depend of disk size and storage speed\n";
@@ -5960,10 +5967,11 @@ sub clone_disk {
 
 	PVE::Storage::activate_volumes($storecfg, $newvollist);
 
+	my $sparseinit = PVE::Storage::volume_has_feature($storecfg, 'sparseinit', $newvolid);
 	if (!$running || $snapname) {
-	    qemu_img_convert($drive->{file}, $newvolid, $size, $snapname);
+	    qemu_img_convert($drive->{file}, $newvolid, $size, $snapname, $sparseinit);
 	} else {
-	    qemu_drive_mirror($vmid, $drivename, $newvolid, $newvmid);
+	    qemu_drive_mirror($vmid, $drivename, $newvolid, $newvmid, $sparseinit);
 	}
     }
 
