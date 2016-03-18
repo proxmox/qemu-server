@@ -1294,7 +1294,6 @@ sub get_initiator_name {
     return $initiator;
 }
 
-my @qemu_drive_options = qw(heads secs cyls trans media format cache snapshot rerror werror aio discard iops iops_rd iops_wr iops_max iops_rd_max iops_wr_max serial);
 sub print_drive_full {
     my ($storecfg, $vmid, $drive) = @_;
 
@@ -1317,8 +1316,8 @@ sub print_drive_full {
    }
 
     my $opts = '';
+    my @qemu_drive_options = qw(heads secs cyls trans media format cache snapshot rerror werror aio discard iops iops_rd iops_wr iops_max iops_rd_max iops_wr_max serial);
     foreach my $o (@qemu_drive_options) {
-	next if $o eq 'bootindex';
 	$opts .= ",$o=$drive->{$o}" if $drive->{$o};
     }
 
