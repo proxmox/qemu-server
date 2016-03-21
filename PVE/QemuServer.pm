@@ -620,7 +620,8 @@ my %drivedesc_base = (
 	type => 'string',
 	format => 'urlencoded',
 	format_description => 'serial',
-	description => "The drive's reported serial number, url-encoded.",
+	maxLength => 20*3, # *3 since it's %xx url enoded
+	description => "The drive's reported serial number, url-encoded, up to 20 bytes long.",
 	optional => 1,
     }
 );
@@ -647,7 +648,8 @@ my %model_fmt = (
 	type => 'string',
 	format => 'urlencoded',
 	format_description => 'model',
-	description => "The drive's reported model name, url-encoded.",
+	maxLength => 40*3, # *3 since it's %xx url enoded
+	description => "The drive's reported model name, url-encoded, up to 40 bytes long.",
 	optional => 1,
     },
 );
