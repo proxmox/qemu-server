@@ -1,3 +1,9 @@
+qemu-server (4.0-65) unstable; urgency=medium
+
+  * cfg: use the 'urlencoded' format for drive model and serial
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 21 Mar 2016 09:09:07 +0100
+
 qemu-server (4.0-64) unstable; urgency=medium
 
   * Use AbstractConfig for Qemu
