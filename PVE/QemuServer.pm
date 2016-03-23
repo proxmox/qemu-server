@@ -142,7 +142,7 @@ my $confdesc = {
     cpulimit => {
 	optional => 1,
 	type => 'number',
-	description => "Limit of CPU usage. Note if the computer has 2 CPUs, it has total of '2' CPU time. Value '0' indicates no CPU limit.",
+	description => "Limit of CPU usage.\n\nNOTE: If the computer has 2 CPUs, it has total of '2' CPU time. Value '0' indicates no CPU limit.",
 	minimum => 0,
 	maximum => 128,
 	default => 0,
@@ -346,7 +346,7 @@ EODESC
 	optional => 1,
 	type => 'string',
 	description => <<EODESCR,
-Note: this option is for experts only. It allows you to pass arbitrary arguments to kvm, for example:
+NOTE: this option is for experts only. It allows you to pass arbitrary arguments to kvm, for example:
 
 args: -no-reboot -no-hpet
 EODESCR
@@ -776,7 +776,7 @@ pass-through usb devices to the guest. HOSTUSBDEVICE syntax is:
 
 You can use the 'lsusb -t' command to list existing usb devices.
 
-Note: This option allows direct access to host hardware. So it is no longer possible to migrate such machines - use with special care.
+NOTE: This option allows direct access to host hardware. So it is no longer possible to migrate such machines - use with special care.
 
 The value 'spice' can be used to add a usb redirection devices for spice.
 
@@ -799,7 +799,7 @@ You can us the 'lspci' command to list existing pci devices.
 
 The 'rombar' option determines whether or not the device's ROM will be visible in the guest's memory map (default is 'on').
 
-Note: This option allows direct access to host hardware. So it is no longer possible to migrate such machines - use with special care.
+NOTE: This option allows direct access to host hardware. So it is no longer possible to migrate such machines - use with special care.
 
 Experimental: user reported problems with this option.
 EODESCR
@@ -813,7 +813,7 @@ my $serialdesc = {
 	description =>  <<EODESCR,
 Create a serial device inside the VM (n is 0 to 3), and pass through a host serial device (i.e. /dev/ttyS0), or create a unix socket on the host side (use 'qm terminal' to open a terminal connection).
 
-Note: If you pass through a host serial device, it is no longer possible to migrate such machines - use with special care.
+NOTE: If you pass through a host serial device, it is no longer possible to migrate such machines - use with special care.
 
 Experimental: user reported problems with this option.
 EODESCR
@@ -826,7 +826,7 @@ my $paralleldesc= {
 	description =>  <<EODESCR,
 Map host parallel devices (n is 0 to 2).
 
-Note: This option allows direct access to host hardware. So it is no longer possible to migrate such machines - use with special care.
+NOTE: This option allows direct access to host hardware. So it is no longer possible to migrate such machines - use with special care.
 
 Experimental: user reported problems with this option.
 EODESCR
