@@ -8,7 +8,7 @@ use IO::File;
 use PVE::INotify;
 use PVE::JSONSchema;
 use PVE::Tools;
-use PVE::Cluster qw(cfs_read_file);
+use PVE::Cluster;
 use PVE::RPCEnvironment;
 use PVE::QemuServer;
 
@@ -160,7 +160,7 @@ sub extract_archive {
 	    $storeid = $info->{storeid} || 'local';
 	}
 
-	my $cfg = cfs_read_file('storage.cfg');
+	my $cfg = PVE::Storage::config();
 	my $scfg = PVE::Storage::storage_config($cfg, $storeid);
 
 	my $alloc_size = int(($filesize + 1024 - 1)/1024);

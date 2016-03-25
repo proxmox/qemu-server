@@ -5321,7 +5321,7 @@ sub update_disksize {
 sub rescan {
     my ($vmid, $nolock) = @_;
 
-    my $cfg = PVE::Cluster::cfs_read_file("storage.cfg");
+    my $cfg = PVE::Storage::config();
 
     my $volid_hash = scan_volids($cfg, $vmid);
 
@@ -5460,7 +5460,7 @@ sub restore_vma_archive {
 		if !$devinfo->{$devname}->{virtdev};
 	}
 
-	my $cfg = cfs_read_file('storage.cfg');
+	my $cfg = PVE::Storage::config();
 
 	# create empty/temp config
 	if ($oldconf) {
@@ -5585,7 +5585,7 @@ sub restore_vma_archive {
 	push @$vollist, $volid if $volid;
     }
 
-    my $cfg = cfs_read_file('storage.cfg');
+    my $cfg = PVE::Storage::config();
     PVE::Storage::deactivate_volumes($cfg, $vollist);
 
     unlink $mapfifo;
@@ -5630,7 +5630,7 @@ sub restore_tar_archive {
 	    if $firstfile ne 'qemu-server.conf';
     }
 
-    my $storecfg = cfs_read_file('storage.cfg');
+    my $storecfg = PVE::Storage::config();
 
     # destroy existing data - keep empty config
     my $vmcfgfn = PVE::QemuConfig->config_file($vmid);
