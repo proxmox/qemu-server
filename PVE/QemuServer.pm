@@ -92,7 +92,7 @@ mkdir $lock_dir;
 
 my $pcisysfs = "/sys/bus/pci";
 
-my $cpudesc = {
+my $cpu_fmt = {
     cputype => {
 	description => "Emulated CPU type.",
 	type => 'string',
@@ -386,7 +386,7 @@ EODESCR
 	optional => 1,
 	description => "Emulated CPU type.",
 	type => 'string',
-	format => $cpudesc,
+	format => $cpu_fmt,
     },
     parent => get_standard_option('pve-snapshot-name', {
 	optional => 1,
@@ -749,7 +749,7 @@ my $alldrive_fmt = {
     %queues_fmt,
 };
 
-my $usbformat = {
+my $usb_fmt = {
     host => {
 	default_key => 1,
 	type => 'string', format => 'pve-qm-usb-device',
@@ -766,7 +766,7 @@ my $usbformat = {
 
 my $usbdesc = {
     optional => 1,
-    type => 'string', format => $usbformat,
+    type => 'string', format => $usb_fmt,
     description => <<EODESCR,
 Configure an USB device (n is 0 to 4). This can be used to
 pass-through usb devices to the guest. HOSTUSBDEVICE syntax is:
@@ -1673,7 +1673,7 @@ sub vmconfig_cleanup_pending {
 }
 
 # smbios: [manufacturer=str][,product=str][,version=str][,serial=str][,uuid=uuid][,sku=str][,family=str]
-my $smbios1_desc = {
+my $smbios1_fmt = {
     uuid => {
 	type => 'string',
 	pattern => '[a-fA-F0-9]{8}(?:-[a-fA-F0-9]{4}){3}-[a-fA-F0-9]{12}',
@@ -1721,17 +1721,17 @@ my $smbios1_desc = {
 sub parse_smbios1 {
     my ($data) = @_;
 
-    my $res = eval { PVE::JSONSchema::parse_property_string($smbios1_desc, $data) };
+    my $res = eval { PVE::JSONSchema::parse_property_string($smbios1_fmt, $data) };
     warn $@ if $@;
     return $res;
 }
 
 sub print_smbios1 {
     my ($smbios1) = @_;
-    return PVE::JSONSchema::print_property_string($smbios1, $smbios1_desc);
+    return PVE::JSONSchema::print_property_string($smbios1, $smbios1_fmt);
 }
 
-PVE::JSONSchema::register_format('pve-qm-smbios1', $smbios1_desc);
+PVE::JSONSchema::register_format('pve-qm-smbios1', $smbios1_fmt);
 
 PVE::JSONSchema::register_format('pve-qm-bootdisk', \&verify_bootdisk);
 sub verify_bootdisk {
@@ -3001,7 +3001,7 @@ sub config_to_command {
 
     my $cpu = $nokvm ? "qemu64" : "kvm64";
     if (my $cputype = $conf->{cpu}) {
-	my $cpuconf = PVE::JSONSchema::parse_property_string($cpudesc, $cputype)
+	my $cpuconf = PVE::JSONSchema::parse_property_string($cpu_fmt, $cputype)
 	    or die "Cannot parse cpu description: $cputype\n";
 	$cpu = $cpuconf->{cputype};
 	$kvm_off = 1 if $cpuconf->{hidden};
