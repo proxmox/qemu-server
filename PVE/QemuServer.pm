@@ -512,10 +512,66 @@ my $nic_model_list = ['rtl8139', 'ne2k_pci', 'e1000',  'pcnet',  'virtio',
 		      'e1000-82540em', 'e1000-82544gc', 'e1000-82545em'];
 my $nic_model_list_txt = join(' ', sort @$nic_model_list);
 
+my $net_fmt = {
+    macaddr => {
+	type => 'string',
+	pattern => qr/[0-9a-f]{2}(?::[0-9a-f]{2}){5}/i,
+	description => "MAC address",
+	format_description => "XX:XX:XX:XX:XX:XX",
+	optional => 1,
+    },
+    model => { alias => 'macaddr', default_key => 1 },
+    (map { $_ => { group => 'model' } } @$nic_model_list),
+    bridge => {
+	type => 'string',
+	description => 'Bridge to attach the network device to.',
+	format_description => 'bridge',
+	optional => 1,
+    },
+    queues => {
+	type => 'integer',
+	minimum => 0, maximum => 16,
+	description => 'Number of packet queues to be used on the device.',
+	format_description => 'number',
+	optional => 1,
+    },
+    rate => {
+	type => 'number',
+	minimum => 0,
+	description => 'Rate limit in mbps as floating point number.',
+	format_description => 'mbps',
+	optional => 1,
+    },
+    tag => {
+	type => 'integer',
+	minimum => 2, maximum => 4094,
+	description => 'VLAN tag to apply to packets on this interface.',
+	format_description => 'vlanid',
+	optional => 1,
+    },
+    trunks => {
+	type => 'string',
+	pattern => qr/\d+(?:-\d+)?(?:;\d+(?:-\d+)?)*/,
+	description => 'VLAN trunks to pass through this interface.',
+	format_description => 'id;id...',
+	optional => 1,
+    },
+    firewall => {
+	type => 'boolean',
+	description => 'Whether this interface should be protected by the firewall.',
+	format_description => '0|1',
+	optional => 1,
+    },
+    link_down => {
+	type => 'boolean',
+	description => 'Whether this interface should be DISconnected (like pulling the plug).',
+	format_description => '0|1',
+	optional => 1,
+    },
+};
 my $netdesc = {
     optional => 1,
     type => 'string', format => 'pve-qm-net',
-    typetext => "MODEL=XX:XX:XX:XX:XX:XX [,bridge=<dev>][,queues=<nbqueues>][,rate=<mbps>] [,tag=<vlanid>][,trunks=<vlanid[;vlanid]>][,firewall=0|1],link_down=0|1]",
     description => <<EODESCR,
 Specify network devices.
 
@@ -1561,54 +1617,19 @@ sub parse_hostpci {
 sub parse_net {
     my ($data) = @_;
 
-    my $res = {};
-
-    foreach my $kvp (split(/,/, $data)) {
-
-	if ($kvp =~ m/^(ne2k_pci|e1000|e1000-82540em|e1000-82544gc|e1000-82545em|rtl8139|pcnet|virtio|ne2k_isa|i82551|i82557b|i82559er|vmxnet3)(=([0-9a-f]{2}(:[0-9a-f]{2}){5}))?$/i) {
-	    my $model = lc($1);
-	    my $mac = defined($3) ? uc($3) : PVE::Tools::random_ether_addr();
-	    $res->{model} = $model;
-	    $res->{macaddr} = $mac;
-	} elsif ($kvp =~ m/^bridge=(\S+)$/) {
-	    $res->{bridge} = $1;
-	} elsif ($kvp =~ m/^queues=(\d+)$/) {
-	    $res->{queues} = $1;
-	} elsif ($kvp =~ m/^rate=(\d+(\.\d+)?)$/) {
-	    $res->{rate} = $1;
-        } elsif ($kvp =~ m/^tag=(\d+)$/) {
-            $res->{tag} = $1;
-        } elsif ($kvp =~ m/^trunks=([0-9;]+)$/) {
-	    $res->{trunks} = $1;
-        } elsif ($kvp =~ m/^firewall=([01])$/) {
-	    $res->{firewall} = $1;
-	} elsif ($kvp =~ m/^link_down=([01])$/) {
-	    $res->{link_down} = $1;
-	} else {
-	    return undef;
-	}
-
+    my $res = eval { PVE::JSONSchema::parse_property_string($net_fmt, $data) };
+    if ($@) {
+	warn $@;
+	return undef;
     }
-
-    return undef if !$res->{model};
-
+    $res->{macaddr} = PVE::Tools::random_ether_addr() if !defined($res->{macaddr});
     return $res;
 }
 
 sub print_net {
     my $net = shift;
 
-    my $res = "$net->{model}";
-    $res .= "=$net->{macaddr}" if $net->{macaddr};
-    $res .= ",bridge=$net->{bridge}" if $net->{bridge};
-    $res .= ",rate=$net->{rate}" if $net->{rate};
-    $res .= ",tag=$net->{tag}" if $net->{tag};
-    $res .= ",trunks=$net->{trunks}" if $net->{trunks};
-    $res .= ",firewall=1" if $net->{firewall};
-    $res .= ",link_down=1" if $net->{link_down};
-    $res .= ",queues=$net->{queues}" if $net->{queues};
-
-    return $res;
+    return PVE::JSONSchema::print_property_string($net, $net_fmt);
 }
 
 sub add_random_macs {
