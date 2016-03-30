@@ -885,10 +885,37 @@ EODESCR
 };
 PVE::JSONSchema::register_standard_option("pve-qm-usb", $usbdesc);
 
+# NOTE: the match-groups of this regex are used in parse_hostpci
+my $PCIRE = qr/([a-f0-9]{2}:[a-f0-9]{2})(?:\.([a-f0-9]))?/;
+my $hostpci_fmt = {
+    host => {
+	default_key => 1,
+	type => 'string',
+	pattern => qr/$PCIRE(;$PCIRE)*/,
+	format_description => 'HOSTPCIID[;HOSTPCIID2...]',
+	description => "The PCI ID of a host's PCI device or a list of PCI virtual functions of the host.",
+    },
+    rombar => {
+	type => 'boolean',
+	optional => 1,
+	default => 1,
+    },
+    pcie => {
+	type => 'boolean',
+	optional => 1,
+	default => 0,
+    },
+    'x-vga' => {
+	type => 'boolean',
+	optional => 1,
+	default => 0,
+    },
+};
+PVE::JSONSchema::register_format('pve-qm-hostpci', $hostpci_fmt);
+
 my $hostpcidesc = {
         optional => 1,
         type => 'string', format => 'pve-qm-hostpci',
-        typetext => "[host=]HOSTPCIDEVICE [,rombar=on|off] [,pcie=0|1] [,x-vga=on|off]",
         description => <<EODESCR,
 Map host pci devices. HOSTPCIDEVICE syntax is:
 
@@ -1581,35 +1608,18 @@ sub parse_hostpci {
 
     return undef if !$value;
 
+    my $res = PVE::JSONSchema::parse_property_string($hostpci_fmt, $value);
 
-    my @list = split(/,/, $value);
-    my $found;
-
-    my $res = {};
-    foreach my $kv (@list) {
-
-	if ($kv =~ m/^(host=)?([a-f0-9]{2}:[a-f0-9]{2})(\.([a-f0-9]))?$/) {
-	    $found = 1;
-	    if(defined($4)){
-		push @{$res->{pciid}}, { id => $2 , function => $4};
-
-	    }else{
-		my $pcidevices = lspci($2);
-	        $res->{pciid} = $pcidevices->{$2};
-	    }
-	} elsif ($kv =~ m/^rombar=(on|off)$/) {
-	    $res->{rombar} = $1;
-	} elsif ($kv =~ m/^x-vga=(on|off)$/) {
-	    $res->{'x-vga'} = $1;
-	} elsif ($kv =~ m/^pcie=(\d+)$/) {
-	    $res->{pcie} = 1 if $1 == 1;
+    my @idlist = split(/;/, $res->{host});
+    delete $res->{host};
+    foreach my $id (@idlist) {
+	if ($id =~ /^$PCIRE$/) {
+	    push @{$res->{pciid}}, { id => $1, function => ($2//'0') };
 	} else {
-	    warn "unknown hostpci setting '$kv'\n";
+	    # should have been caught by parse_property_string already
+	    die "failed to parse PCI id: $id\n";
 	}
     }
-
-    return undef if !$found;
-
     return $res;
 }
 
@@ -1814,17 +1824,6 @@ sub verify_net {
     return undef if $noerr;
 
     die "unable to parse network options\n";
-}
-
-PVE::JSONSchema::register_format('pve-qm-hostpci', \&verify_hostpci);
-sub verify_hostpci {
-    my ($value, $noerr) = @_;
-
-    return $value if parse_hostpci($value);
-
-    return undef if $noerr;
-
-    die "unable to parse pci id\n";
 }
 
 PVE::JSONSchema::register_format('pve-qm-watchdog', \&verify_watchdog);
@@ -2862,9 +2861,10 @@ sub config_to_command {
 	    $pciaddr = print_pci_addr("hostpci$i", $bridges);
 	}
 
-	my $rombar = $d->{rombar} && $d->{rombar} eq 'off' ? ",rombar=0" : "";
-	my $xvga = $d->{'x-vga'} && $d->{'x-vga'} eq 'on' ? ",x-vga=on" : "";
-	if ($xvga && $xvga ne '') {
+	my $rombar = defined($d->{rombar}) && !$d->{rombar} ? ',rombar=0' : '';
+	my $xvga = '';
+	if ($d->{'x-vga'}) {
+	    $xvga = ',x-vga=on';
 	    $kvm_off = 1;
 	    $vga = 'none';
 	    if ($ostype eq 'win7' || $ostype eq 'win8' || $ostype eq 'w2k8') {
