@@ -10,6 +10,7 @@ use PVE::JSONSchema;
 use PVE::Tools;
 use PVE::Cluster;
 use PVE::RPCEnvironment;
+use PVE::Storage;
 use PVE::QemuServer;
 
 $ENV{'PATH'} = '/sbin:/bin:/usr/sbin:/usr/bin';
