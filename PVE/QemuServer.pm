@@ -109,6 +109,24 @@ my $cpu_fmt = {
     },
 };
 
+my $watchdog_fmt = {
+    model => {
+	default_key => 1,
+	type => 'string',
+	enum => [qw(i6300esb ib700)],
+	description => "Watchdog type to emulate.",
+	default => 'i6300esb',
+	optional => 1,
+    },
+    action => {
+	type => 'string',
+	enum => [qw(reset shutdown poweroff pause debug none)],
+	description => "The action to perform if after activation the guest fails to poll the watchdog in time.",
+	optional => 1,
+    },
+};
+PVE::JSONSchema::register_format('pve-qm-watchdog', $watchdog_fmt);
+
 my $confdesc = {
     onboot => {
 	optional => 1,
@@ -322,7 +340,6 @@ EODESC
     watchdog => {
 	optional => 1,
 	type => 'string', format => 'pve-qm-watchdog',
-	typetext => '[[model=]i6300esb|ib700] [,[action=]reset|shutdown|poweroff|pause|debug|none]',
 	description => "Create a virtual hardware watchdog device. Once enabled" .
 	    " (by a guest action), the watchdog must be periodically polled " .
 	    "by an agent inside the guest or else the watchdog will reset " .
@@ -1826,36 +1843,13 @@ sub verify_net {
     die "unable to parse network options\n";
 }
 
-PVE::JSONSchema::register_format('pve-qm-watchdog', \&verify_watchdog);
-sub verify_watchdog {
-    my ($value, $noerr) = @_;
-
-    return $value if parse_watchdog($value);
-
-    return undef if $noerr;
-
-    die "unable to parse watchdog options\n";
-}
-
 sub parse_watchdog {
     my ($value) = @_;
 
     return undef if !$value;
 
-    my $res = {};
-
-    foreach my $p (split(/,/, $value)) {
-	next if $p =~ m/^\s*$/;
-
-	if ($p =~ m/^(model=)?(i6300esb|ib700)$/) {
-	    $res->{model} = $2;
-	} elsif ($p =~ m/^(action=)?(reset|shutdown|poweroff|pause|debug|none)$/) {
-	    $res->{action} = $2;
-	} else {
-	    return undef;
-	}
-    }
-
+    my $res = eval { PVE::JSONSchema::parse_property_string($watchdog_fmt, $value) };
+    warn $@ if $@;
     return $res;
 }
 
