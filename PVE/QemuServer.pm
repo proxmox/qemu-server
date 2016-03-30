@@ -467,10 +467,38 @@ my $MAX_NUMA = 8;
 my $MAX_MEM = 4194304;
 my $STATICMEM = 1024;
 
+my $numa_fmt = {
+    cpus => {
+	type => "string",
+	pattern => qr/\d+(?:-\d+)?(?:;\d+(?:-\d+)?)*/,
+	description => "CPUs accessing this numa node.",
+	format_description => "id[-id];...",
+    },
+    memory => {
+	type => "number",
+	description => "Amount of memory this numa node provides.",
+	format_description => "mb",
+	optional => 1,
+    },
+    hostnodes => {
+	type => "string",
+	pattern => qr/\d+(?:-\d+)?(?:;\d+(?:-\d+)?)*/,
+	description => "host numa nodes to use",
+	format_description => "id[-id];...",
+	optional => 1,
+    },
+    policy => {
+	type => 'string',
+	enum => [qw(preferred bind interleave)],
+	format_description => 'preferred|bind|interleave',
+	description => "numa allocation policy.",
+	optional => 1,
+    },
+};
+PVE::JSONSchema::register_format('pve-qm-numanode', $numa_fmt);
 my $numadesc = {
     optional => 1,
-    type => 'string', format => 'pve-qm-numanode',
-    typetext => "cpus=<id[-id],memory=<mb>[[,hostnodes=<id[-id]>] [,policy=<preferred|bind|interleave>]]",
+    type => 'string', format => $numa_fmt,
     description => "numa topology",
 };
 PVE::JSONSchema::register_standard_option("pve-qm-numanode", $numadesc);
@@ -1469,28 +1497,26 @@ sub drive_is_cdrom {
 
 }
 
+sub parse_number_sets {
+    my ($set) = @_;
+    my $res = [];
+    foreach my $part (split(/;/, $set)) {
+	if ($part =~ /^\s*(\d+)(?:-(\d+))?\s*$/) {
+	    die "invalid range: $part ($2 < $1)\n" if defined($2) && $2 < $1;
+	    push @$res, [ $1, $2 ];
+	} else {
+	    die "invalid range: $part\n";
+	}
+    }
+    return $res;
+}
+
 sub parse_numa {
     my ($data) = @_;
 
-    my $res = {};
-
-    foreach my $kvp (split(/,/, $data)) {
-
-	if ($kvp =~ m/^memory=(\S+)$/) {
-	    $res->{memory} = $1;
-	} elsif ($kvp =~ m/^policy=(preferred|bind|interleave)$/) {
-	    $res->{policy} = $1;
-	} elsif ($kvp =~ m/^cpus=(\d+)(-(\d+))?$/) {
-	    $res->{cpus}->{start} = $1;
-	    $res->{cpus}->{end} = $3;
-	} elsif ($kvp =~ m/^hostnodes=(\d+)(-(\d+))?$/) {
-	    $res->{hostnodes}->{start} = $1;
-	    $res->{hostnodes}->{end} = $3;
-	} else {
-	    return undef;
-	}
-    }
-
+    my $res = PVE::JSONSchema::parse_property_string($numa_fmt, $data);
+    $res->{cpus} = parse_number_sets($res->{cpus}) if defined($res->{cpus});
+    $res->{hostnodes} = parse_number_sets($res->{hostnodes}) if defined($res->{hostnodes});
     return $res;
 }
 
@@ -1756,17 +1782,6 @@ sub verify_bootdisk {
     return undef if $noerr;
 
     die "invalid boot disk '$value'\n";
-}
-
-PVE::JSONSchema::register_format('pve-qm-numanode', \&verify_numa);
-sub verify_numa {
-    my ($value, $noerr) = @_;
-
-    return $value if parse_numa($value);
-
-    return undef if $noerr;
-
-    die "unable to parse numa options\n";
 }
 
 PVE::JSONSchema::register_format('pve-qm-net', \&verify_net);
@@ -3076,28 +3091,26 @@ sub config_to_command {
 	    my $numa_object = "memory-backend-ram,id=ram-node$i,size=${numa_memory}M";
 
 	    # cpus
-	    my $cpus_start = $numa->{cpus}->{start};
-	    die "missing numa node$i cpus\n" if !defined($cpus_start);
-	    my $cpus_end = $numa->{cpus}->{end} if defined($numa->{cpus}->{end});
-	    my $cpus = $cpus_start;
-	    if (defined($cpus_end)) {
-		$cpus .= "-$cpus_end";
-		die "numa node$i :  cpu range $cpus is incorrect\n" if $cpus_end <= $cpus_start;
-	    }
+	    my $cpulists = $numa->{cpus};
+	    die "missing numa node$i cpus\n" if !defined($cpulists);
+	    my $cpus = join(',', map {
+		my ($start, $end) = @$_;
+		defined($end) ? "$start-$end" : $start
+	    } @$cpulists);
 
 	    # hostnodes
-	    my $hostnodes_start = $numa->{hostnodes}->{start};
-	    if (defined($hostnodes_start)) {
-		my $hostnodes_end = $numa->{hostnodes}->{end} if defined($numa->{hostnodes}->{end});
-		my $hostnodes = $hostnodes_start;
-		if (defined($hostnodes_end)) {
-		    $hostnodes .= "-$hostnodes_end";
-		    die "host node $hostnodes range is incorrect\n" if $hostnodes_end <= $hostnodes_start;
-		}
-
-		my $hostnodes_end_range = defined($hostnodes_end) ? $hostnodes_end : $hostnodes_start;
-		for (my $i = $hostnodes_start; $i <= $hostnodes_end_range; $i++ ) {
-		    die "host numa node$i don't exist\n" if ! -d "/sys/devices/system/node/node$i/";
+	    my $hostnodelists = $numa->{hostnodes};
+	    if (defined($hostnodelists)) {
+		my $hostnodes;
+		foreach my $hostnoderange (@$hostnodelists) {
+		    my ($start, $end) = @$hostnoderange;
+		    $hostnodes .= ',' if $hostnodes;
+		    $hostnodes .= $start;
+		    $hostnodes .= "-$end" if defined($end);
+		    $end //= $start;
+		    for (my $i = $start; $i <= $end; ++$i ) {
+			die "host numa node$i don't exist\n" if ! -d "/sys/devices/system/node/node$i/";
+		    }
 		}
 
 		# policy
