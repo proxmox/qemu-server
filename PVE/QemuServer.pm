@@ -97,6 +97,7 @@ my $cpu_fmt = {
 	description => "Emulated CPU type.",
 	type => 'string',
 	enum => [ qw(486 athlon pentium pentium2 pentium3 coreduo core2duo kvm32 kvm64 qemu32 qemu64 phenom Conroe Penryn Nehalem Westmere SandyBridge IvyBridge Haswell Haswell-noTSX Broadwell Broadwell-noTSX Opteron_G1 Opteron_G2 Opteron_G3 Opteron_G4 Opteron_G5 host) ],
+	format_description => 'cputype',
 	default => 'kvm64',
 	default_key => 1,
     },
