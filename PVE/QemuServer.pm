@@ -520,7 +520,8 @@ my $drivename_hash;
 my %drivedesc_base = (
     volume => { alias => 'file' },
     file => {
-	type => 'pve-volume-id',
+	type => 'string',
+	format => 'pve-volume-id',
 	default_key => 1,
 	format_description => 'volume',
 	description => "The drive's backing volume.",
@@ -677,17 +678,17 @@ my $add_throttle_desc = sub {
 $add_throttle_desc->('bps',     'integer', 'r/w speed',   'bps',  'bytes');
 $add_throttle_desc->('bps_rd',  'integer', 'read speed',  'bps',  'bytes');
 $add_throttle_desc->('bps_wr',  'integer', 'write speed', 'bps',  'bytes');
-$add_throttle_desc->('mbps',    'float',   'r/w speed',   'mbps', 'megabytes');
-$add_throttle_desc->('mbps_rd', 'float',   'read speed',  'mbps', 'megabytes');
-$add_throttle_desc->('mbps_wr', 'float',   'write speed', 'mbps', 'megabytes');
+$add_throttle_desc->('mbps',    'number',  'r/w speed',   'mbps', 'megabytes');
+$add_throttle_desc->('mbps_rd', 'number',  'read speed',  'mbps', 'megabytes');
+$add_throttle_desc->('mbps_wr', 'number',  'write speed', 'mbps', 'megabytes');
 $add_throttle_desc->('iops',    'integer', 'r/w I/O',     'iops', 'operations');
 $add_throttle_desc->('iops_rd', 'integer', 'read I/O',    'iops', 'operations');
 $add_throttle_desc->('iops_wr', 'integer', 'write I/O',   'iops', 'operations');
 
 # pools: (pool of IO before throttling starts taking effect)
-$add_throttle_desc->('mbps_max',    'float',   'unthrottled r/w pool',       'mbps', 'megabytes');
-$add_throttle_desc->('mbps_rd_max', 'float',   'unthrottled read pool',      'mbps', 'megabytes');
-$add_throttle_desc->('mbps_wr_max', 'float',   'unthrottled write pool',     'mbps', 'megabytes');
+$add_throttle_desc->('mbps_max',    'number',  'unthrottled r/w pool',       'mbps', 'megabytes');
+$add_throttle_desc->('mbps_rd_max', 'number',  'unthrottled read pool',      'mbps', 'megabytes');
+$add_throttle_desc->('mbps_wr_max', 'number',  'unthrottled write pool',     'mbps', 'megabytes');
 $add_throttle_desc->('iops_max',    'integer', 'unthrottled r/w I/O pool',   'iops', 'operations');
 $add_throttle_desc->('iops_rd_max', 'integer', 'unthrottled read I/O pool',  'iops', 'operations');
 $add_throttle_desc->('iops_wr_max', 'integer', 'unthrottled write I/O pool', 'iops', 'operations');
