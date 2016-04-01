@@ -1,3 +1,11 @@
+qemu-server (4.0-66) unstable; urgency=medium
+
+  * use generic property string parser
+
+  * drive schema: allow 'none' again
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 01 Apr 2016 09:33:16 +0200
+
 qemu-server (4.0-65) unstable; urgency=medium
 
   * cfg: use the 'urlencoded' format for drive model and serial
