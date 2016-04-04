@@ -2280,7 +2280,7 @@ sub parse_vm_config {
 	    } else {
 		warn "vm $vmid - propertry 'delete' is only allowed in [PENDING]\n";
 	    }
-	} elsif ($line =~ m/^([a-z][a-z_]*\d*):\s*(\S+)\s*$/) {
+	} elsif ($line =~ m/^([a-z][a-z_]*\d*):\s*(.+?)\s*$/) {
 	    my $key = $1;
 	    my $value = $2;
 	    eval { $value = check_type($key, $value); };
