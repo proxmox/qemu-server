@@ -2057,7 +2057,10 @@ sub vmconfig_undelete_pending_option {
 sub vmconfig_register_unused_drive {
     my ($storecfg, $vmid, $conf, $drive) = @_;
 
-    if (!drive_is_cdrom($drive, 1)) {
+    if (drive_is_cloudinit($drive)) {
+	eval { PVE::Storage::vdisk_free($storecfg, $drive->{file}) };
+	warn $@ if $@;
+    } elsif (!drive_is_cdrom($drive)) {
 	my $volid = $drive->{file};
 	if (vm_is_volid_owner($storecfg, $vmid, $volid)) {
 	    PVE::QemuConfig->add_unused_volume($conf, $volid, $vmid);
@@ -4679,6 +4682,9 @@ sub vmconfig_update_disk {
 
 		if ($drive->{file} eq 'none') {
 		    vm_mon_cmd($vmid, "eject",force => JSON::true,device => "drive-$opt");
+		    if (drive_is_cloudinit($old_drive)) {
+			vmconfig_register_unused_drive($storecfg, $vmid, $conf, $old_drive);
+		    }
 		} else {
 		    my $path = get_iso_path($storecfg, $vmid, $drive->{file});
 		    vm_mon_cmd($vmid, "eject", force => JSON::true,device => "drive-$opt"); # force eject if locked
