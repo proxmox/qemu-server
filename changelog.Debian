@@ -1,3 +1,9 @@
+qemu-server (4.0-67) unstable; urgency=medium
+
+  * use pve-doc-generator to generate man pages
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 08 Apr 2016 07:37:16 +0200
+
 qemu-server (4.0-66) unstable; urgency=medium
 
   * use generic property string parser
