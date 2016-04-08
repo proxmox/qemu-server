@@ -70,25 +70,3 @@ our $cmddef = [ __PACKAGE__, 'qmrestore', ['archive', 'vmid'], undef,
 		}];
 
 1;
-
-__END__
-
-=head1 NAME
-
-qmrestore - restore QemuServer vzdump backups
-
-=head1 SYNOPSIS
-
-=include synopsis
-
-=head1 DESCRIPTION
-
-Restore the QemuServer vzdump backup C<archive> to virtual machine
-C<vmid>. Volumes are allocated on the original storage if there is no
-C<storage> specified.
-
-=head1 SEE ALSO
-
-vzdump(1) vzrestore(1)
-
-=include pve_copyright

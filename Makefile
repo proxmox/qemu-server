@@ -15,7 +15,6 @@ LIBDIR=${PREFIX}/lib/${PACKAGE}
 VARLIBDIR=/var/lib/${PACKAGE}
 MANDIR=${PREFIX}/share/man
 DOCDIR=${PREFIX}/share/doc
-PODDIR=${PREFIX}/share/doc/${PACKAGE}/pod
 MAN1DIR=${MANDIR}/man1/
 BASHCOMPLDIR=${PREFIX}/share/bash-completion/completions/
 export PERLDIR=${PREFIX}/share/perl5
@@ -25,6 +24,10 @@ ARCH:=$(shell dpkg-architecture -qDEB_BUILD_ARCH)
 GITVERSION:=$(shell cat .git/refs/heads/master)
 
 DEB=${PACKAGE}_${VERSION}-${PKGREL}_${ARCH}.deb
+
+# this requires package pve-doc-generator
+export NOVIEW=1
+include /usr/share/pve-doc-generator/pve-doc-generator.mk
 
 all: ${DEB}
 
@@ -44,44 +47,21 @@ vmtar: vmtar.c utils.c
 sparsecp: sparsecp.c utils.c
 	gcc ${CFLAGS} -o sparsecp sparsecp.c
 
-%.1.gz: %.1.pod
-	rm -f $@
-	cat $<|pod2man -n $* -s 1 -r ${VERSION} -c "Proxmox Documentation"|gzip -c9 >$@
-
-%.5.gz: %.5.pod
-	rm -f $@
-	cat $<|pod2man -n $* -s 5 -r ${VERSION} -c "Proxmox Documentation"|gzip -c9 >$@
-
-%.1.pod: %
-	podselect $*>$@
-
-qm.1.pod: PVE/CLI/qm.pm PVE/QemuServer.pm
-	perl -I. -T -e "use PVE::CLI::qm; PVE::CLI::qm->generate_pod_manpage();" >$@.tmp
-	mv $@.tmp $@
-
 qm.bash-completion:
 	perl -I. -T -e "use PVE::CLI::qm; PVE::CLI::qm->generate_bash_completions();" >$@.tmp
-	mv $@.tmp $@
-
-qmrestore.1.pod: PVE/CLI/qmrestore.pm
-	perl -I. -T -e "use PVE::CLI::qmrestore; PVE::CLI::qmrestore->generate_pod_manpage();" >$@.tmp
 	mv $@.tmp $@
 
 qmrestore.bash-completion:
 	perl -I. -T -e "use PVE::CLI::qmrestore; PVE::CLI::qmrestore->generate_bash_completions();" >$@.tmp
 	mv $@.tmp $@
 
-vm.conf.5.pod: gen-vmconf-pod.pl PVE/QemuServer.pm 
-	perl -I. ./gen-vmconf-pod.pl >$@
-
-PKGSOURCES=qm qm.1.gz qm.1.pod qmrestore qmrestore.1.pod qmrestore.1.gz qmextract sparsecp vmtar control vm.conf.5.pod vm.conf.5.gz qm.bash-completion qmrestore.bash-completion
+PKGSOURCES=qm qm.1 qmrestore qmrestore.1 qmextract sparsecp vmtar control vm.conf.5 qm.bash-completion qmrestore.bash-completion
 
 .PHONY: install
 install: ${PKGSOURCES}
 	install -d ${DESTDIR}/${SBINDIR}
 	install -d ${DESTDIR}${LIBDIR}
 	install -d ${DESTDIR}${VARLIBDIR}
-	install -d ${DESTDIR}${PODDIR}
 	install -d ${DESTDIR}/usr/share/man/man1
 	install -d ${DESTDIR}/usr/share/man/man5
 	install -d ${DESTDIR}/usr/share/${PACKAGE}
@@ -99,12 +79,12 @@ install: ${PKGSOURCES}
 	install -s -m 0755 sparsecp ${DESTDIR}${LIBDIR}
 	install -D -m 0644 modules-load.conf ${DESTDIR}/etc/modules-load.d/qemu-server.conf
 	install -m 0755 qmextract ${DESTDIR}${LIBDIR}
-	install -m 0644 qm.1.gz ${DESTDIR}/usr/share/man/man1/
-	install -m 0644 qm.1.pod ${DESTDIR}/${PODDIR}
-	install -m 0644 qmrestore.1.gz ${DESTDIR}/usr/share/man/man1/
-	install -m 0644 qmrestore.1.pod ${DESTDIR}/${PODDIR}
-	install -m 0644 vm.conf.5.pod ${DESTDIR}/${PODDIR}
-	install -m 0644 vm.conf.5.gz ${DESTDIR}/usr/share/man/man5/
+	install -m 0644 qm.1 ${DESTDIR}/usr/share/man/man1/
+	gzip -9 ${DESTDIR}/usr/share/man/man1/qm.1
+	install -m 0644 qmrestore.1 ${DESTDIR}/usr/share/man/man1/
+	gzip -9 ${DESTDIR}/usr/share/man/man1/qmrestore.1
+	install -m 0644 vm.conf.5 ${DESTDIR}/usr/share/man/man5/
+	gzip -9 ${DESTDIR}/usr/share/man/man5/vm.conf.5
 
 .PHONY: deb ${DEB}
 deb ${DEB}: ${PKGSOURCES}
@@ -136,6 +116,7 @@ upload:
 
 .PHONY: clean
 clean: 	
+	make cleanup-docgen
 	rm -rf build *.deb control vzsyscalls.ph _h2ph_pre.ph ${PACKAGE}-*.tar.gz dist *.1.gz *.pod vmtar sparsecp *.tmp *.bash-completion
 	find . -name '*~' -exec rm {} ';'
 
