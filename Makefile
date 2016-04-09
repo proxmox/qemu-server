@@ -55,7 +55,7 @@ qmrestore.bash-completion:
 	perl -I. -T -e "use PVE::CLI::qmrestore; PVE::CLI::qmrestore->generate_bash_completions();" >$@.tmp
 	mv $@.tmp $@
 
-PKGSOURCES=qm qm.1 qmrestore qmrestore.1 qmextract sparsecp vmtar control vm.conf.5 qm.bash-completion qmrestore.bash-completion
+PKGSOURCES=qm qm.1 qmrestore qmrestore.1 qmextract sparsecp vmtar control qm.conf.5 qm.bash-completion qmrestore.bash-completion
 
 .PHONY: install
 install: ${PKGSOURCES}
@@ -83,8 +83,8 @@ install: ${PKGSOURCES}
 	gzip -9 ${DESTDIR}/usr/share/man/man1/qm.1
 	install -m 0644 qmrestore.1 ${DESTDIR}/usr/share/man/man1/
 	gzip -9 ${DESTDIR}/usr/share/man/man1/qmrestore.1
-	install -m 0644 vm.conf.5 ${DESTDIR}/usr/share/man/man5/
-	gzip -9 ${DESTDIR}/usr/share/man/man5/vm.conf.5
+	install -m 0644 qm.conf.5 ${DESTDIR}/usr/share/man/man5/
+	gzip -9 ${DESTDIR}/usr/share/man/man5/qm.conf.5
 
 .PHONY: deb ${DEB}
 deb ${DEB}: ${PKGSOURCES}
@@ -117,7 +117,7 @@ upload:
 .PHONY: clean
 clean: 	
 	make cleanup-docgen
-	rm -rf build *.deb control vzsyscalls.ph _h2ph_pre.ph ${PACKAGE}-*.tar.gz dist *.1.gz *.pod vmtar sparsecp *.tmp *.bash-completion
+	rm -rf build *.deb control vzsyscalls.ph _h2ph_pre.ph ${PACKAGE}-*.tar.gz dist *.1 *.5 *.pod vmtar sparsecp *.tmp *.bash-completion
 	find . -name '*~' -exec rm {} ';'
 
 
