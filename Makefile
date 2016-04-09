@@ -87,7 +87,7 @@ install: ${PKGSOURCES}
 	gzip -9 ${DESTDIR}/${MAN1DIR}/qmrestore.1
 	install -m 0644 qm.conf.5 ${DESTDIR}/${MAN5DIR}
 	gzip -9 ${DESTDIR}/${MAN5DIR}/qm.conf.5
-
+	cd ${DESTDIR}/${MAN5DIR}; ln -s qm.conf.5.gz vm.conf.5.gz
 
 .PHONY: deb ${DEB}
 deb ${DEB}: ${PKGSOURCES}
