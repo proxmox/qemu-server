@@ -16,6 +16,7 @@ VARLIBDIR=/var/lib/${PACKAGE}
 MANDIR=${PREFIX}/share/man
 DOCDIR=${PREFIX}/share/doc
 MAN1DIR=${MANDIR}/man1/
+MAN5DIR=${MANDIR}/man5/
 BASHCOMPLDIR=${PREFIX}/share/bash-completion/completions/
 export PERLDIR=${PREFIX}/share/perl5
 PERLINCDIR=${PERLDIR}/asm-x86_64
@@ -62,7 +63,8 @@ install: ${PKGSOURCES}
 	install -d ${DESTDIR}/${SBINDIR}
 	install -d ${DESTDIR}${LIBDIR}
 	install -d ${DESTDIR}${VARLIBDIR}
-	install -d ${DESTDIR}/usr/share/man/man1
+	install -d ${DESTDIR}/${MAN1DIR}
+	install -d ${DESTDIR}/${MAN5DIR}
 	install -d ${DESTDIR}/usr/share/man/man5
 	install -d ${DESTDIR}/usr/share/${PACKAGE}
 	install -m 0644 pve-usb.cfg ${DESTDIR}/usr/share/${PACKAGE}
@@ -79,12 +81,13 @@ install: ${PKGSOURCES}
 	install -s -m 0755 sparsecp ${DESTDIR}${LIBDIR}
 	install -D -m 0644 modules-load.conf ${DESTDIR}/etc/modules-load.d/qemu-server.conf
 	install -m 0755 qmextract ${DESTDIR}${LIBDIR}
-	install -m 0644 qm.1 ${DESTDIR}/usr/share/man/man1/
-	gzip -9 ${DESTDIR}/usr/share/man/man1/qm.1
-	install -m 0644 qmrestore.1 ${DESTDIR}/usr/share/man/man1/
-	gzip -9 ${DESTDIR}/usr/share/man/man1/qmrestore.1
-	install -m 0644 qm.conf.5 ${DESTDIR}/usr/share/man/man5/
-	gzip -9 ${DESTDIR}/usr/share/man/man5/qm.conf.5
+	install -m 0644 qm.1 ${DESTDIR}/${MAN1DIR}
+	gzip -9 ${DESTDIR}/${MAN1DIR}/qm.1
+	install -m 0644 qmrestore.1 ${DESTDIR}/${MAN1DIR}
+	gzip -9 ${DESTDIR}/${MAN1DIR}/qmrestore.1
+	install -m 0644 qm.conf.5 ${DESTDIR}/${MAN5DIR}
+	gzip -9 ${DESTDIR}/${MAN5DIR}/qm.conf.5
+
 
 .PHONY: deb ${DEB}
 deb ${DEB}: ${PKGSOURCES}
