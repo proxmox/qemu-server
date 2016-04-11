@@ -2502,7 +2502,10 @@ __PACKAGE__->register_method({
 			PVE::QemuConfig->add_unused_volume($conf, $old_volid);
 			PVE::QemuConfig->write_config($vmid, $conf);
 		    } else {
-			eval { PVE::Storage::vdisk_free($storecfg, $old_volid); };
+			eval {
+			    PVE::Storage::deactivate_volumes($storecfg, [$old_volid]);
+			    PVE::Storage::vdisk_free($storecfg, $old_volid);
+			};
 			warn $@ if $@;
 		    }
 		}

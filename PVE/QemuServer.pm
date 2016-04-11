@@ -5923,6 +5923,15 @@ sub qemu_drive_mirror {
 
     print "drive mirror is starting (scanning bitmap) : this step can take some minutes/hours, depend of disk size and storage speed\n";
 
+    my $finish_job = sub {
+	while (1) {
+	    my $stats = vm_mon_cmd($vmid, "query-block-jobs");
+	    my $stat = @$stats[0];
+	    last if !$stat;
+	    sleep 1;
+	}
+    };
+
     eval {
     vm_mon_cmd($vmid, "drive-mirror", %$opts);
 	while (1) {
@@ -5949,7 +5958,10 @@ sub qemu_drive_mirror {
 
 		# try to switch the disk if source and destination are on the same guest
 		eval { vm_mon_cmd($vmid, "block-job-complete", device => "drive-$drive") };
-		last if !$@;
+		if (!$@) {
+		    &$finish_job();
+		    last;
+		}
 		die $@ if $@ !~ m/cannot be completed/;
 	    }
 	    sleep 1;
@@ -5961,12 +5973,7 @@ sub qemu_drive_mirror {
 
     my $cancel_job = sub {
 	vm_mon_cmd($vmid, "block-job-cancel", device => "drive-$drive");
-	while (1) {
-	    my $stats = vm_mon_cmd($vmid, "query-block-jobs");
-	    my $stat = @$stats[0];
-	    last if !$stat;
-	    sleep 1;
-	}
+	&$finish_job();
     };
 
     if ($err) {
