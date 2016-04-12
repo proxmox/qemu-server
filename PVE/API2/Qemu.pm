@@ -1818,13 +1818,36 @@ __PACKAGE__->register_method({
 
 	my $storecfg = PVE::Storage::config();
 
+	my $shutdown = 1;
+
+	# if vm is paused, do not shutdown (but stop if forceStop = 1)
+	# otherwise, we will infer a shutdown command, but run into the timeout,
+	# then when the vm is resumed, it will instantly shutdown
+	#
+	# checking the qmp status here to get feedback to the gui/cli/api
+	# and the status query should not take too long
+	my $qmpstatus;
+	eval {
+	    $qmpstatus = PVE::QemuServer::vm_qmp_command($vmid, { execute => "query-status" }, 0);
+	};
+	my $err = $@ if $@;
+
+	if (!$err && $qmpstatus->{status} eq "paused") {
+	    if ($param->{forceStop}) {
+		warn "VM is paused - stop instead of shutdown\n";
+		$shutdown = 0;
+	    } else {
+		die "VM is paused - cannot shutdown\n";
+	    }
+	}
+
 	my $realcmd = sub {
 	    my $upid = shift;
 
 	    syslog('info', "shutdown VM $vmid: $upid\n");
 
 	    PVE::QemuServer::vm_stop($storecfg, $vmid, $skiplock, 0, $param->{timeout},
-				     1, $param->{forceStop}, $keepActive);
+				     $shutdown, $param->{forceStop}, $keepActive);
 
 	    return;
 	};
