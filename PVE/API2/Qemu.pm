@@ -2745,6 +2745,7 @@ __PACKAGE__->register_method({
 
 	    $rpcenv->check($authuser, "/storage/$storeid", ['Datastore.AllocateSpace']);
 
+	    PVE::Storage::activate_volumes($storecfg, [$volid]);
 	    my $size = PVE::Storage::volume_size_info($storecfg, $volid, 5);
 
 	    die "internal error" if $sizestr !~ m/^(\+)?(\d+(\.\d+)?)([KMGT])?$/;
