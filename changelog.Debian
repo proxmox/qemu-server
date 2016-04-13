@@ -1,3 +1,9 @@
+qemu-server (4.0-69) unstable; urgency=medium
+
+  * Fix #848: deactivate old volume after clone before deletion
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 13 Apr 2016 08:24:49 +0200
+
 qemu-server (4.0-68) unstable; urgency=medium
 
   * change shutdown behaviour on suspended vm
