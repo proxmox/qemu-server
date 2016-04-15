@@ -364,9 +364,11 @@ EODESC
 	optional => 1,
 	type => 'string',
 	description => <<EODESCR,
-NOTE: this option is for experts only. It allows you to pass arbitrary arguments to kvm, for example:
+Arbitrary arguments passed to kvm, for example:
 
 args: -no-reboot -no-hpet
+
+NOTE: this option is for experts only.
 EODESCR
     },
     tablet => {
