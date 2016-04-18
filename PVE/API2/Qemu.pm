@@ -1504,7 +1504,7 @@ __PACKAGE__->register_method({
 	my $vmstatus = PVE::QemuServer::vmstatus($param->{vmid}, 1);
 	my $status = $vmstatus->{$param->{vmid}};
 
-	$status->{ha} = PVE::HA::Config::vm_is_ha_managed($param->{vmid});
+	$status->{ha} = PVE::HA::Config::get_service_status("vm:$param->{vmid}");
 
 	$status->{spice} = 1 if PVE::QemuServer::vga_conf_has_spice($conf->{vga});
 
