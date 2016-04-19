@@ -1,3 +1,9 @@
+qemu-server (4.0-70) unstable; urgency=medium
+
+  * vm_status: return more verbose HA state
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 19 Apr 2016 09:01:24 +0200
+
 qemu-server (4.0-69) unstable; urgency=medium
 
   * Fix #848: deactivate old volume after clone before deletion
