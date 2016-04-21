@@ -4531,6 +4531,12 @@ sub vm_start {
 
 	PVE::Storage::activate_volumes($storecfg, $vollist);
 
+	if (!check_running($vmid, 1) && -d "/sys/fs/cgroup/systemd/qemu.slice/$vmid.scope") {
+	    my $cmd = [];
+	    push @$cmd, '/bin/systemctl', 'stop', "$vmid.scope";
+	    eval  { run_command($cmd); };
+	}
+
 	eval  { run_command($cmd, timeout => $statefile ? undef : 30,
 		    umask => 0077); };
 
