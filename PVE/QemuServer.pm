@@ -619,11 +619,15 @@ for (my $i = 0; $i < $MAX_NETS; $i++)  {
     $confdesc->{"net$i"} = $netdesc;
 }
 
-PVE::JSONSchema::register_format('pve-volume-id-or-none', \&verify_volume_id_or_none);
-sub verify_volume_id_or_none {
+PVE::JSONSchema::register_format('pve-volume-id-or-qm-path', \&verify_volume_id_or_qm_path);
+sub verify_volume_id_or_qm_path {
     my ($volid, $noerr) = @_;
 
-    return $volid if $volid eq 'none';
+    if ($volid eq 'none' || $volid eq 'cdrom' || $volid =~ m|^/|) {
+	return $volid;
+    }
+
+    # if its neither 'none' nor 'cdrom' nor a path, check if its a volume-id
     $volid = eval { PVE::JSONSchema::check_format('pve-volume-id', $volid, '') };
     if ($@) {
 	return undef if $noerr;
@@ -638,7 +642,7 @@ my %drivedesc_base = (
     volume => { alias => 'file' },
     file => {
 	type => 'string',
-	format => 'pve-volume-id-or-none',
+	format => 'pve-volume-id-or-qm-path',
 	default_key => 1,
 	format_description => 'volume',
 	description => "The drive's backing volume.",
