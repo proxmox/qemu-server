@@ -1,3 +1,9 @@
+qemu-server (4.0-71) unstable; urgency=medium
+
+  * Fix #643: activate volumes before resizing
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 21 Apr 2016 10:34:42 +0200
+
 qemu-server (4.0-70) unstable; urgency=medium
 
   * vm_status: return more verbose HA state
