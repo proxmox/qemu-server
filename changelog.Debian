@@ -1,3 +1,9 @@
+qemu-server (4.0-72) unstable; urgency=medium
+
+  * vm_start : force systemctl stop if orphan scope exist
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 22 Apr 2016 11:09:52 +0200
+
 qemu-server (4.0-71) unstable; urgency=medium
 
   * Fix #643: activate volumes before resizing
