@@ -5576,7 +5576,7 @@ sub restore_vma_archive {
 		$write_zeros = 0;
 	    }
 
-	    print $fifofh "${write_zeros}:$d->{devname}=$path\n";
+	    print $fifofh "format=$d->{format}:${write_zeros}:$d->{devname}=$path\n";
 
 	    print "map '$d->{devname}' to '$path' (write zeros = ${write_zeros})\n";
 	    $map->{$virtdev} = $volid;
