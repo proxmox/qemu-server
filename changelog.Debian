@@ -1,3 +1,9 @@
+qemu-server (4.0-73) unstable; urgency=medium
+
+  * restore: pass format to vma extract
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 29 Apr 2016 09:03:12 +0200
+
 qemu-server (4.0-72) unstable; urgency=medium
 
   * vm_start : force systemctl stop if orphan scope exist
