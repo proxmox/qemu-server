@@ -92,11 +92,47 @@ mkdir $lock_dir;
 
 my $pcisysfs = "/sys/bus/pci";
 
+my $cpu_vendor_list = {
+    # Intel CPUs
+    486 => 'GenuineIntel',
+    pentium => 'GenuineIntel',
+    pentium2  => 'GenuineIntel',
+    pentium3  => 'GenuineIntel',
+    coreduo => 'GenuineIntel',
+    core2duo => 'GenuineIntel',
+    Conroe  => 'GenuineIntel',
+    Penryn  => 'GenuineIntel', 
+    Nehalem  => 'GenuineIntel',
+    Westmere => 'GenuineIntel',
+    SandyBridge => 'GenuineIntel',
+    IvyBridge => 'GenuineIntel',
+    Haswell => 'GenuineIntel',
+    'Haswell-noTSX' => 'GenuineIntel',
+    Broadwell => 'GenuineIntel',
+    'Broadwell-noTSX' => 'GenuineIntel',
+    
+    # AMD CPUs
+    athlon => 'AuthenticAMD',
+    phenom  => 'AuthenticAMD',
+    Opteron_G1  => 'AuthenticAMD',
+    Opteron_G2  => 'AuthenticAMD',
+    Opteron_G3  => 'AuthenticAMD',
+    Opteron_G4  => 'AuthenticAMD',
+    Opteron_G5  => 'AuthenticAMD',
+
+    # generic types, use vendor from host node
+    host => 'default',
+    kvm32 => 'default',
+    kvm64 => 'default',
+    qemu32 => 'default',
+    qemu64 => 'default',
+};
+
 my $cpu_fmt = {
     cputype => {
 	description => "Emulated CPU type.",
 	type => 'string',
-	enum => [ qw(486 athlon pentium pentium2 pentium3 coreduo core2duo kvm32 kvm64 qemu32 qemu64 phenom Conroe Penryn Nehalem Westmere SandyBridge IvyBridge Haswell Haswell-noTSX Broadwell Broadwell-noTSX Opteron_G1 Opteron_G2 Opteron_G3 Opteron_G4 Opteron_G5 host) ],
+	enum => [ sort keys %$cpu_vendor_list ],
 	format_description => 'cputype',
 	default => 'kvm64',
 	default_key => 1,
@@ -3075,6 +3111,12 @@ sub config_to_command {
     push @$cpuFlags, 'enforce' if $cpu ne 'host' && !$nokvm;
 
     push @$cpuFlags, 'kvm=off' if $kvm_off;
+
+    my $cpu_vendor = $cpu_vendor_list->{$cpu} ||
+	die "internal error"; # should not happen
+
+    push @$cpuFlags, "vendor=${cpu_vendor}"
+	if $cpu_vendor ne 'default';
 
     $cpu .= "," . join(',', @$cpuFlags) if scalar(@$cpuFlags);
 
