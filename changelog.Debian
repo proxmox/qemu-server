@@ -1,3 +1,9 @@
+qemu-server (4.0-74) unstable; urgency=medium
+
+  * correctly set cpu vendor
+
+ -- Proxmox Support Team <support@proxmox.com>  Sun, 01 May 2016 09:25:06 +0200
+
 qemu-server (4.0-73) unstable; urgency=medium
 
   * restore: pass format to vma extract
