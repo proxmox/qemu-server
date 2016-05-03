@@ -3329,6 +3329,8 @@ sub config_to_command {
 	    if($conf->{scsihw} && $conf->{scsihw} eq "virtio-scsi-single" && $drive->{iothread}){
 		$iothread .= ",iothread=iothread-$controller_prefix$controller";
 		push @$cmd, '-object', "iothread,id=iothread-$controller_prefix$controller";
+	    } elsif ($drive->{iothread}) {
+		warn "iothread is only valid with virtio disk or virtio-scsi-single controller, ignoring\n";
 	    }
 
 	    my $queues = '';
