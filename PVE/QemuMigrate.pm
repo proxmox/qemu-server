@@ -158,7 +158,13 @@ sub prepare {
     my $vollist = PVE::QemuServer::get_vm_volumes($conf);
     PVE::Storage::activate_volumes($self->{storecfg}, $vollist);
 
-    # fixme: check if storage is available on both nodes
+    foreach my $volid (@$vollist) {
+	my ($sid, $volname) = PVE::Storage::parse_volume_id($volid, 1);
+
+	# check if storage is available on both nodes
+	my $scfg = PVE::Storage::storage_check_node($self->{storecfg}, $sid);
+	PVE::Storage::storage_check_node($self->{storecfg}, $sid, $self->{node});
+    }
 
     # test ssh connection
     my $cmd = [ @{$self->{rem_ssh}}, '/bin/true' ];
