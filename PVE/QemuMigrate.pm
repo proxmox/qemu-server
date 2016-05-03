@@ -132,7 +132,7 @@ sub prepare {
 
     $self->{storecfg} = PVE::Storage::config();
 
-    # test is VM exist
+    # test if VM exists
     my $conf = $self->{vmconf} = PVE::QemuConfig->load_config($vmid);
 
     PVE::QemuConfig->check_lock($conf);
