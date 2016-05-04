@@ -2,6 +2,10 @@ qemu-server (4.0-74) unstable; urgency=medium
 
   * correctly set cpu vendor
 
+  * fix #971: don't activate shared storage in offline migration
+
+  * migrate: check if storage is available
+
  -- Proxmox Support Team <support@proxmox.com>  Sun, 01 May 2016 09:25:06 +0200
 
 qemu-server (4.0-73) unstable; urgency=medium
