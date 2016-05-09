@@ -180,13 +180,21 @@ sub assemble {
 	die "unable open '$conffile'";
 
     my $found_snapshot;
+    my $found_pending;
     while (defined (my $line = <$conffd>)) {
 	next if $line =~ m/^\#vzdump\#/; # just to be sure
 	next if $line =~ m/^\#qmdump\#/; # just to be sure
-	if ($line =~ m/^\[.*\]\s*$/) {
-	    $found_snapshot = 1;
+	if ($line =~ m/^\[(.*)\]\s*$/) {
+	    if ($1 =~ m/PENDING/i) {
+		$found_pending = 1;
+	    } else {
+		$found_snapshot = 1;
+	    }
 	}
+
 	next if $found_snapshot; # skip all snapshots data
+	next if $found_pending; # skip all pending changes
+
 	if ($line =~ m/^unused\d+:\s*(\S+)\s*/) {
 	    $self->loginfo("skip unused drive '$1' (not included into backup)");
 	    next;
@@ -208,6 +216,10 @@ sub assemble {
 
     if ($found_snapshot) {
 	$self->loginfo("snapshots found (not included into backup)");
+    }
+
+    if ($found_pending) {
+	$self->loginfo("pending configuration changes found (not included into backup)");
     }
 
     PVE::Tools::file_copy($firewall_src, $firewall_dest) if -f $firewall_src;
