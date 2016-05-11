@@ -132,7 +132,7 @@ my $cpu_fmt = {
     cputype => {
 	description => "Emulated CPU type.",
 	type => 'string',
-	enum => [ sort keys %$cpu_vendor_list ],
+	enum => [ sort { "\L$a" cmp "\L$b" } keys %$cpu_vendor_list ],
 	format_description => 'cputype',
 	default => 'kvm64',
 	default_key => 1,
@@ -532,7 +532,6 @@ my $numa_fmt = {
     memory => {
 	type => "number",
 	description => "Amount of memory this numa node provides.",
-	format_description => "mb",
 	optional => 1,
     },
     hostnodes => {
@@ -545,7 +544,6 @@ my $numa_fmt = {
     policy => {
 	type => 'string',
 	enum => [qw(preferred bind interleave)],
-	format_description => 'preferred|bind|interleave',
 	description => "numa allocation policy.",
 	optional => 1,
     },
@@ -573,10 +571,17 @@ my $net_fmt = {
 	pattern => qr/[0-9a-f]{2}(?::[0-9a-f]{2}){5}/i,
 	description => "MAC address",
 	format_description => "XX:XX:XX:XX:XX:XX",
+        keyAlias => 'model',
 	optional => 1,
     },
-    model => { alias => 'macaddr', default_key => 1 },
-    (map { $_ => { group => 'model' } } @$nic_model_list),
+    model => {
+	type => 'string',
+	description => 'Network Card Model.',
+	format_description => 'model',
+        enum => $nic_model_list,
+        default_key => 1,
+    },
+    (map { $_ => { keyAlias => 'model', alias => 'macaddr' }} @$nic_model_list),
     bridge => {
 	type => 'string',
 	description => 'Bridge to attach the network device to.',
@@ -587,46 +592,41 @@ my $net_fmt = {
 	type => 'integer',
 	minimum => 0, maximum => 16,
 	description => 'Number of packet queues to be used on the device.',
-	format_description => 'number',
 	optional => 1,
     },
     rate => {
 	type => 'number',
 	minimum => 0,
 	description => 'Rate limit in mbps as floating point number.',
-	format_description => 'mbps',
 	optional => 1,
     },
     tag => {
 	type => 'integer',
 	minimum => 2, maximum => 4094,
 	description => 'VLAN tag to apply to packets on this interface.',
-	format_description => 'vlanid',
 	optional => 1,
     },
     trunks => {
 	type => 'string',
 	pattern => qr/\d+(?:-\d+)?(?:;\d+(?:-\d+)?)*/,
 	description => 'VLAN trunks to pass through this interface.',
-	format_description => 'id;id...',
+	format_description => 'vlanid[;vlanid...]',
 	optional => 1,
     },
     firewall => {
 	type => 'boolean',
 	description => 'Whether this interface should be protected by the firewall.',
-	format_description => '0|1',
 	optional => 1,
     },
     link_down => {
 	type => 'boolean',
 	description => 'Whether this interface should be DISconnected (like pulling the plug).',
-	format_description => '0|1',
 	optional => 1,
     },
 };
 my $netdesc = {
     optional => 1,
-    type => 'string', format => 'pve-qm-net',
+    type => 'string', format => $net_fmt,
     description => <<EODESCR,
 Specify network devices.
 
@@ -685,7 +685,6 @@ my %drivedesc_base = (
     },
     media => {
 	type => 'string',
-	format_description => 'cdrom|disk',
 	enum => [qw(cdrom disk)],
 	description => "The drive's media type.",
 	default => 'disk',
@@ -693,45 +692,39 @@ my %drivedesc_base = (
     },
     cyls => {
 	type => 'integer',
-	format_description => 'count',
 	description => "Force the drive's physical geometry to have a specific cylinder count.",
 	optional => 1
     },
     heads => {
 	type => 'integer',
-	format_description => 'count',
 	description => "Force the drive's physical geometry to have a specific head count.",
 	optional => 1
     },
     secs => {
 	type => 'integer',
-	format_description => 'count',
 	description => "Force the drive's physical geometry to have a specific sector count.",
 	optional => 1
     },
     trans => {
 	type => 'string',
-	format_description => 'none|lba|auto',
 	enum => [qw(none lba auto)],
 	description => "Force disk geometry bios translation mode.",
 	optional => 1,
     },
     snapshot => {
 	type => 'boolean',
-	format_description => 'on|off',
 	description => "Whether the drive should be included when making snapshots.",
 	optional => 1,
     },
     cache => {
 	type => 'string',
-	format_description => 'none|writethrough|writeback|unsafe|directsync',
 	enum => [qw(none writethrough writeback unsafe directsync)],
 	description => "The drive's cache mode",
 	optional => 1,
     },
     format => {
 	type => 'string',
-	format_description => 'drive format',
+	format_description => 'image format',
 	enum => [qw(raw cow qcow qed qcow2 vmdk cloop)],
 	description => "The drive's backing file's data format.",
 	optional => 1,
@@ -739,32 +732,29 @@ my %drivedesc_base = (
     size => {
 	type => 'string',
 	format => 'disk-size',
+	format_description => 'DiskSize',
 	description => "Disk size. This is purely informational and has no effect.",
 	optional => 1,
     },
     backup => {
 	type => 'boolean',
-	format_description => 'on|off',
 	description => "Whether the drive should be included when making backups.",
 	optional => 1,
     },
     werror => {
 	type => 'string',
-	format_description => 'enospc|ignore|report|stop',
 	enum => [qw(enospc ignore report stop)],
 	description => 'Write error action.',
 	optional => 1,
     },
     aio => {
 	type => 'string',
-	format_description => 'native|threads',
 	enum => [qw(native threads)],
 	description => 'AIO type to use.',
 	optional => 1,
     },
     discard => {
 	type => 'string',
-	format_description => 'ignore|on',
 	enum => [qw(ignore on)],
 	description => 'Controls whether to pass discard/trim requests to the underlying storage.',
 	optional => 1,
@@ -787,7 +777,6 @@ my %drivedesc_base = (
 my %rerror_fmt = (
     rerror => {
 	type => 'string',
-	format_description => 'ignore|report|stop',
 	enum => [qw(ignore report stop)],
 	description => 'Read error action.',
 	optional => 1,
@@ -796,7 +785,6 @@ my %rerror_fmt = (
 
 my %iothread_fmt = ( iothread => {
 	type => 'boolean',
-	format_description => 'off|on',
 	description => "Whether to use iothreads for this drive",
 	optional => 1,
 });
@@ -815,7 +803,6 @@ my %model_fmt = (
 my %queues_fmt = (
     queues => {
 	type => 'integer',
-	format_description => 'nbqueues',
 	description => "Number of queues.",
 	minimum => 2,
 	optional => 1
@@ -823,11 +810,11 @@ my %queues_fmt = (
 );
 
 my $add_throttle_desc = sub {
-    my ($key, $type, $what, $size, $longsize) = @_;
+    my ($key, $type, $what, $unit, $longunit) = @_;
     $drivedesc_base{$key} = {
 	type => $type,
-	format_description => $size,
-	description => "Maximum $what speed in $longsize per second.",
+	format_description => $unit,
+	description => "Maximum $what speed in $longunit per second.",
 	optional => 1,
     };
 };
@@ -916,7 +903,7 @@ my $usb_fmt = {
     usb3 => {
 	optional => 1,
 	type => 'boolean',
-	format_description => 'yes|no',
+#	format_description => 'yes|no',
 	description => 'Specifies whether if given host option is a USB3 device or port',
     },
 };
@@ -1813,37 +1800,37 @@ my $smbios1_fmt = {
     version => {
 	type => 'string',
 	pattern => '\S+',
-	format_description => 'str',
+	format_description => 'string',
 	optional => 1,
     },
     serial => {
 	type => 'string',
 	pattern => '\S+',
-	format_description => 'str',
+	format_description => 'string',
 	optional => 1,
     },
     manufacturer => {
 	type => 'string',
 	pattern => '\S+',
-	format_description => 'name',
+	format_description => 'string',
 	optional => 1,
     },
     product => {
 	type => 'string',
 	pattern => '\S+',
-	format_description => 'name',
+	format_description => 'string',
 	optional => 1,
     },
     sku => {
 	type => 'string',
 	pattern => '\S+',
-	format_description => 'str',
+	format_description => 'string',
 	optional => 1,
     },
     family => {
 	type => 'string',
 	pattern => '\S+',
-	format_description => 'str',
+	format_description => 'string',
 	optional => 1,
     },
 };
@@ -1872,17 +1859,6 @@ sub verify_bootdisk {
     return undef if $noerr;
 
     die "invalid boot disk '$value'\n";
-}
-
-PVE::JSONSchema::register_format('pve-qm-net', \&verify_net);
-sub verify_net {
-    my ($value, $noerr) = @_;
-
-    return $value if parse_net($value);
-
-    return undef if $noerr;
-
-    die "unable to parse network options\n";
 }
 
 sub parse_watchdog {
