@@ -571,7 +571,6 @@ my $net_fmt = {
 	pattern => qr/[0-9a-f]{2}(?::[0-9a-f]{2}){5}/i,
 	description => "MAC address",
 	format_description => "XX:XX:XX:XX:XX:XX",
-        keyAlias => 'model',
 	optional => 1,
     },
     model => {
