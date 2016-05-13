@@ -2,6 +2,8 @@ qemu-server (4.0-75) unstable; urgency=medium
 
   * fix #975, use new keyAlias feature.
 
+  * add --description to systemd scope unit
+
  -- Proxmox Support Team <support@proxmox.com>  Wed, 11 May 2016 11:15:56 +0200
 
 qemu-server (4.0-74) unstable; urgency=medium

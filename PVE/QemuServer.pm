@@ -2762,6 +2762,7 @@ sub config_to_command {
     push @$cmd, '--scope';
     push @$cmd, '--slice', "qemu";
     push @$cmd, '--unit', $vmid;
+    push @$cmd, '--description', "'Proxmox VE VM $vmid'";
     # set KillMode=none, so that systemd don't kill those scopes
     # at shutdown (pve-manager service should stop the VMs instead)
     push @$cmd, '-p', "KillMode=none";
