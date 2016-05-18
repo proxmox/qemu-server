@@ -601,7 +601,7 @@ my $net_fmt = {
     },
     tag => {
 	type => 'integer',
-	minimum => 2, maximum => 4094,
+	minimum => 1, maximum => 4094,
 	description => 'VLAN tag to apply to packets on this interface.',
 	optional => 1,
     },
