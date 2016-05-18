@@ -1,3 +1,9 @@
+qemu-server (4.0-76) unstable; urgency=medium
+
+  * allow VLAN 1 tag in qemu-kvm vms
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 18 May 2016 11:25:54 +0200
+
 qemu-server (4.0-75) unstable; urgency=medium
 
   * fix #975, use new keyAlias feature.
