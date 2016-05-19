@@ -197,15 +197,17 @@ my $confdesc = {
     cpulimit => {
 	optional => 1,
 	type => 'number',
-	description => "Limit of CPU usage.\n\nNOTE: If the computer has 2 CPUs, it has total of '2' CPU time. Value '0' indicates no CPU limit.",
+	description => "Limit of CPU usage.",
+        verbose_description => "Limit of CPU usage.\n\nNOTE: If the computer has 2 CPUs, it has total of '2' CPU time. Value '0' indicates no CPU limit.",
 	minimum => 0,
 	maximum => 128,
-	default => 0,
+        default => 0,
     },
     cpuunits => {
 	optional => 1,
 	type => 'integer',
-	description => "CPU weight for a VM. Argument is used in the kernel fair scheduler. The larger the number is, the more CPU time this VM gets. Number is relative to weights of all the other running VMs.\n\nNOTE: You can disable fair-scheduler configuration by setting this to 0.",
+        description => "CPU weight for a VM.",
+	verbose_description => "CPU weight for a VM. Argument is used in the kernel fair scheduler. The larger the number is, the more CPU time this VM gets. Number is relative to weights of all the other running VMs.\n\nNOTE: You can disable fair-scheduler configuration by setting this to 0.",
 	minimum => 0,
 	maximum => 500000,
 	default => 1000,
@@ -246,7 +248,7 @@ my $confdesc = {
     scsihw => {
 	optional => 1,
 	type => 'string',
-	description => "scsi controller model",
+	description => "SCSI controller model",
 	enum => [qw(lsi lsi53c810 virtio-scsi-pci virtio-scsi-single megasas pvscsi)],
 	default => 'lsi',
     },
@@ -259,24 +261,23 @@ my $confdesc = {
 	optional => 1,
 	type => 'string',
         enum => [qw(other wxp w2k w2k3 w2k8 wvista win7 win8 l24 l26 solaris)],
-	description => <<EODESC,
-Used to enable special optimization/features for specific
-operating systems:
+	description => "Specify guest operating system.",
+	verbose_description => <<EODESC,
+Specify guest operating system. This is used to enable special
+optimization/features for specific operating systems:
 
-other  => unspecified OS
-wxp    => Microsoft Windows XP
-w2k    => Microsoft Windows 2000
-w2k3   => Microsoft Windows 2003
-w2k8   => Microsoft Windows 2008
-wvista => Microsoft Windows Vista
-win7   => Microsoft Windows 7
-win8   => Microsoft Windows 8/2012
-l24    => Linux 2.4 Kernel
-l26    => Linux 2.6/3.X Kernel
-solaris => solaris/opensolaris/openindiania kernel
-
-other|l24|l26|solaris                       ... no special behaviour
-wxp|w2k|w2k3|w2k8|wvista|win7|win8  ... use --localtime switch
+[horizontal]
+other;; unspecified OS
+wxp;; Microsoft Windows XP
+w2k;; Microsoft Windows 2000
+w2k3;; Microsoft Windows 2003
+w2k8;; Microsoft Windows 2008
+wvista;; Microsoft Windows Vista
+win7;; Microsoft Windows 7
+win8;; Microsoft Windows 8/2012
+l24;; Linux 2.4 Kernel
+l26;; Linux 2.6/3.X Kernel
+solaris;; Solaris/OpenSolaris/OpenIndiania kernel
 EODESC
     },
     boot => {
@@ -363,7 +364,8 @@ EODESC
     vga => {
 	optional => 1,
 	type => 'string',
-	description => "Select the VGA type. If you want to use high resolution" .
+	description => "Select the VGA type.",
+        verbose_description => "Select the VGA type. If you want to use high resolution" .
 	    " modes (>= 1280x1024x16) then you should use the options " .
 	    "'std' or 'vmware'. Default is 'std' for win8/win7/w2k8, and " .
 	    "'cirrus' for other OS types. The 'qxl' option enables the SPICE " .
@@ -376,7 +378,8 @@ EODESC
     watchdog => {
 	optional => 1,
 	type => 'string', format => 'pve-qm-watchdog',
-	description => "Create a virtual hardware watchdog device. Once enabled" .
+	description => "Create a virtual hardware watchdog device.",
+	verbose_description => "Create a virtual hardware watchdog device. Once enabled" .
 	    " (by a guest action), the watchdog must be periodically polled " .
 	    "by an agent inside the guest or else the watchdog will reset " .
 	    "the guest (or execute the respective action specified)",
@@ -399,7 +402,8 @@ EODESC
     args => {
 	optional => 1,
 	type => 'string',
-	description => <<EODESCR,
+	description => "Arbitrary arguments passed to kvm.",
+	verbose_description => <<EODESCR,
 Arbitrary arguments passed to kvm, for example:
 
 args: -no-reboot -no-hpet
@@ -411,7 +415,8 @@ EODESCR
 	optional => 1,
 	type => 'boolean',
 	default => 1,
-	description => "Enable/disable the USB tablet device. This device is " .
+	description => "Enable/disable the USB tablet device.",
+	verbose_description => "Enable/disable the USB tablet device. This device is " .
 	    "usually needed to allow absolute mouse positioning with VNC. " .
 	    "Else the mouse runs out of sync with normal VNC clients. " .
 	    "If you're running lots of console-only guests on one host, " .
@@ -475,7 +480,7 @@ EODESCR
     protection => {
 	optional => 1,
 	type => 'boolean',
-	description => "Sets the protection flag of the VM. This will prevent the remove operation.",
+	description => "Sets the protection flag of the VM. This will disable the remove VM and remove disk operations.",
 	default => 0,
     },
     bios => {
@@ -526,25 +531,25 @@ my $numa_fmt = {
     cpus => {
 	type => "string",
 	pattern => qr/\d+(?:-\d+)?(?:;\d+(?:-\d+)?)*/,
-	description => "CPUs accessing this numa node.",
+	description => "CPUs accessing this NUMA node.",
 	format_description => "id[-id];...",
     },
     memory => {
 	type => "number",
-	description => "Amount of memory this numa node provides.",
+	description => "Amount of memory this NUMA node provides.",
 	optional => 1,
     },
     hostnodes => {
 	type => "string",
 	pattern => qr/\d+(?:-\d+)?(?:;\d+(?:-\d+)?)*/,
-	description => "host numa nodes to use",
+	description => "Host NUMA nodes to use.",
 	format_description => "id[-id];...",
 	optional => 1,
     },
     policy => {
 	type => 'string',
 	enum => [qw(preferred bind interleave)],
-	description => "numa allocation policy.",
+	description => "NUMA allocation policy.",
 	optional => 1,
     },
 };
@@ -552,7 +557,7 @@ PVE::JSONSchema::register_format('pve-qm-numanode', $numa_fmt);
 my $numadesc = {
     optional => 1,
     type => 'string', format => $numa_fmt,
-    description => "numa topology",
+    description => "NUMA topology.",
 };
 PVE::JSONSchema::register_standard_option("pve-qm-numanode", $numadesc);
 
@@ -565,17 +570,32 @@ my $nic_model_list = ['rtl8139', 'ne2k_pci', 'e1000',  'pcnet',  'virtio',
 		      'e1000-82540em', 'e1000-82544gc', 'e1000-82545em'];
 my $nic_model_list_txt = join(' ', sort @$nic_model_list);
 
+my $net_fmt_bridge_descr = <<__EOD__;
+Bridge to attach the network device to. The Proxmox VE standard bridge
+is called 'vmbr0'.
+
+If you do not specify a bridge, we create a kvm user (NATed) network
+device, which provides DHCP and DNS services. The following addresses
+are used:
+
+ 10.0.2.2   Gateway
+ 10.0.2.3   DNS Server
+ 10.0.2.4   SMB Server
+
+The DHCP server assign addresses to the guest starting from 10.0.2.15.
+__EOD__
+
 my $net_fmt = {
     macaddr => {
 	type => 'string',
 	pattern => qr/[0-9a-f]{2}(?::[0-9a-f]{2}){5}/i,
-	description => "MAC address",
+	description => "MAC address. That address must be unique withing your network. This is automatically generated if not specified.",
 	format_description => "XX:XX:XX:XX:XX:XX",
 	optional => 1,
     },
     model => {
 	type => 'string',
-	description => 'Network Card Model.',
+	description => "Network Card Model. The 'virtio' model provides the best performance with very low CPU overhead. If your guest does not support this driver, it is usually best to use 'e1000'.",
 	format_description => 'model',
         enum => $nic_model_list,
         default_key => 1,
@@ -583,7 +603,7 @@ my $net_fmt = {
     (map { $_ => { keyAlias => 'model', alias => 'macaddr' }} @$nic_model_list),
     bridge => {
 	type => 'string',
-	description => 'Bridge to attach the network device to.',
+	description => $net_fmt_bridge_descr,
 	format_description => 'bridge',
 	optional => 1,
     },
@@ -596,7 +616,7 @@ my $net_fmt = {
     rate => {
 	type => 'number',
 	minimum => 0,
-	description => 'Rate limit in mbps as floating point number.',
+	description => "Rate limit in mbps (megabytes per second) as floating point number.",
 	optional => 1,
     },
     tag => {
@@ -619,35 +639,17 @@ my $net_fmt = {
     },
     link_down => {
 	type => 'boolean',
-	description => 'Whether this interface should be DISconnected (like pulling the plug).',
+	description => 'Whether this interface should be disconnected (like pulling the plug).',
 	optional => 1,
     },
 };
+
 my $netdesc = {
     optional => 1,
     type => 'string', format => $net_fmt,
-    description => <<EODESCR,
-Specify network devices.
-
-MODEL is one of: $nic_model_list_txt
-
-XX:XX:XX:XX:XX:XX should be an unique MAC address. This is
-automatically generated if not specified.
-
-The bridge parameter can be used to automatically add the interface to a bridge device. The Proxmox VE standard bridge is called 'vmbr0'.
-
-Option 'rate' is used to limit traffic bandwidth from and to this interface. It is specified as floating point number, unit is 'Megabytes per second'.
-
-If you specify no bridge, we create a kvm 'user' (NATed) network device, which provides DHCP and DNS services. The following addresses are used:
-
-10.0.2.2   Gateway
-10.0.2.3   DNS Server
-10.0.2.4   SMB Server
-
-The DHCP server assign addresses to the guest starting from 10.0.2.15.
-
-EODESCR
+    description => "Specify network devices.",
 };
+
 PVE::JSONSchema::register_standard_option("pve-qm-net", $netdesc);
 
 for (my $i = 0; $i < $MAX_NETS; $i++)  {
@@ -897,36 +899,32 @@ my $usb_fmt = {
 	default_key => 1,
 	type => 'string', format => 'pve-qm-usb-device',
 	format_description => 'HOSTUSBDEVICE|spice',
-	description => 'The Host USB device or port or the value spice',
-    },
-    usb3 => {
-	optional => 1,
-	type => 'boolean',
-#	format_description => 'yes|no',
-	description => 'Specifies whether if given host option is a USB3 device or port',
-    },
-};
+        description => <<EODESCR,
+The Host USB device or port or the value 'spice'. HOSTUSBDEVICE syntax is:
 
-my $usbdesc = {
-    optional => 1,
-    type => 'string', format => $usb_fmt,
-    description => <<EODESCR,
-Configure an USB device (n is 0 to 4). This can be used to
-pass-through usb devices to the guest. HOSTUSBDEVICE syntax is:
-
-'bus-port(.port)*' (decimal numbers) or
-'vendor_id:product_id' (hexadeciaml numbers) or
-'spice'
+ 'bus-port(.port)*' (decimal numbers) or
+ 'vendor_id:product_id' (hexadeciaml numbers) or
+ 'spice'
 
 You can use the 'lsusb -t' command to list existing usb devices.
 
 NOTE: This option allows direct access to host hardware. So it is no longer possible to migrate such machines - use with special care.
 
 The value 'spice' can be used to add a usb redirection devices for spice.
-
-The 'usb3' option determines whether the device is a USB3 device or not (this does currently not work reliably with spice redirection and is then ignored).
-
 EODESCR
+    },
+    usb3 => {
+	optional => 1,
+	type => 'boolean',
+	description => "Specifies whether if given host option is a USB3 device or port (this does currently not work reliably with spice redirection and is then ignored).",
+        default => 0,
+    },
+};
+
+my $usbdesc = {
+    optional => 1,
+    type => 'string', format => $usb_fmt,
+    description => "Configure an USB device (n is 0 to 4).",
 };
 PVE::JSONSchema::register_standard_option("pve-qm-usb", $usbdesc);
 
@@ -938,20 +936,36 @@ my $hostpci_fmt = {
 	type => 'string',
 	pattern => qr/$PCIRE(;$PCIRE)*/,
 	format_description => 'HOSTPCIID[;HOSTPCIID2...]',
-	description => "The PCI ID of a host's PCI device or a list of PCI virtual functions of the host.",
+	description => <<EODESCR,
+Host PCI device pass through. The PCI ID of a host's PCI device or a list 
+of PCI virtual functions of the host. HOSTPCIID syntax is:
+
+'bus:dev.func' (hexadecimal numbers)
+
+You can us the 'lspci' command to list existing PCI devices.
+
+NOTE: This option allows direct access to host hardware. So it is no longer 
+possible to migrate such machines - use with special care.
+
+CAUTION: Experimental! User reported problems with this option.
+
+EODESCR
     },
     rombar => {
 	type => 'boolean',
+        description =>  "Specify whether or not the device's ROM will be visible in the guest's memory map.",
 	optional => 1,
 	default => 1,
     },
     pcie => {
 	type => 'boolean',
+        description =>  "Choose the PCI-express bus (needs the 'q35' machine model).",
 	optional => 1,
 	default => 0,
     },
     'x-vga' => {
 	type => 'boolean',
+        description =>  "Enable vfio-vga device support.",
 	optional => 1,
 	default => 0,
     },
@@ -961,19 +975,7 @@ PVE::JSONSchema::register_format('pve-qm-hostpci', $hostpci_fmt);
 my $hostpcidesc = {
         optional => 1,
         type => 'string', format => 'pve-qm-hostpci',
-        description => <<EODESCR,
-Map host pci devices. HOSTPCIDEVICE syntax is:
-
-'bus:dev.func' (hexadecimal numbers)
-
-You can us the 'lspci' command to list existing pci devices.
-
-The 'rombar' option determines whether or not the device's ROM will be visible in the guest's memory map (default is 'on').
-
-NOTE: This option allows direct access to host hardware. So it is no longer possible to migrate such machines - use with special care.
-
-Experimental: user reported problems with this option.
-EODESCR
+        description => "Map host PCI devices into guest.",
 };
 PVE::JSONSchema::register_standard_option("pve-qm-hostpci", $hostpcidesc);
 
@@ -981,12 +983,16 @@ my $serialdesc = {
 	optional => 1,
 	type => 'string',
 	pattern => '(/dev/.+|socket)',
-	description =>  <<EODESCR,
-Create a serial device inside the VM (n is 0 to 3), and pass through a host serial device (i.e. /dev/ttyS0), or create a unix socket on the host side (use 'qm terminal' to open a terminal connection).
+	description =>  "Create a serial device inside the VM (n is 0 to 3)",
+	verbose_description =>  <<EODESCR,
+
+Create a serial device inside the VM (n is 0 to 3), and pass through a
+host serial device (i.e. /dev/ttyS0), or create a unix socket on the
+host side (use 'qm terminal' to open a terminal connection).
 
 NOTE: If you pass through a host serial device, it is no longer possible to migrate such machines - use with special care.
 
-Experimental: user reported problems with this option.
+CAUTION: Experimental! User reported problems with this option.
 EODESCR
 };
 
@@ -994,12 +1000,13 @@ my $paralleldesc= {
 	optional => 1,
 	type => 'string',
         pattern => '/dev/parport\d+|/dev/usb/lp\d+',
-	description =>  <<EODESCR,
+	description =>  "Map host parallel devices (n is 0 to 2).",
+	verbose_description =>  <<EODESCR,
 Map host parallel devices (n is 0 to 2).
 
 NOTE: This option allows direct access to host hardware. So it is no longer possible to migrate such machines - use with special care.
 
-Experimental: user reported problems with this option.
+CAUTION: Experimental! User reported problems with this option.
 EODESCR
 };
 
@@ -1042,7 +1049,7 @@ for (my $i = 0; $i < $MAX_USB_DEVICES; $i++)  {
 my $unuseddesc = {
     optional => 1,
     type => 'string', format => 'pve-volume-id',
-    description => "Reference to unused volumes.",
+    description => "Reference to unused volumes. This is used internally, and should not be modified manually.",
 };
 
 for (my $i = 0; $i < $MAX_UNUSED_DISKS; $i++)  {
@@ -1794,42 +1801,49 @@ my $smbios1_fmt = {
 	type => 'string',
 	pattern => '[a-fA-F0-9]{8}(?:-[a-fA-F0-9]{4}){3}-[a-fA-F0-9]{12}',
 	format_description => 'UUID',
+        description => "Set SMBIOS1 UUID.",
 	optional => 1,
     },
     version => {
 	type => 'string',
 	pattern => '\S+',
 	format_description => 'string',
+        description => "Set SMBIOS1 version.",
 	optional => 1,
     },
     serial => {
 	type => 'string',
 	pattern => '\S+',
 	format_description => 'string',
+        description => "Set SMBIOS1 serial number.",
 	optional => 1,
     },
     manufacturer => {
 	type => 'string',
 	pattern => '\S+',
 	format_description => 'string',
+        description => "Set SMBIOS1 manufacturer.",
 	optional => 1,
     },
     product => {
 	type => 'string',
 	pattern => '\S+',
 	format_description => 'string',
+        description => "Set SMBIOS1 product ID.",
 	optional => 1,
     },
     sku => {
 	type => 'string',
 	pattern => '\S+',
 	format_description => 'string',
+        description => "Set SMBIOS1 SKU string.",
 	optional => 1,
     },
     family => {
 	type => 'string',
 	pattern => '\S+',
 	format_description => 'string',
+        description => "Set SMBIOS1 family string.",
 	optional => 1,
     },
 };
@@ -3103,7 +3117,7 @@ sub config_to_command {
     my $dimm_memory = 0;
 
     if ($hotplug_features->{memory}) {
-	die "Numa need to be enabled for memory hotplug\n" if !$conf->{numa};
+	die "NUMA need to be enabled for memory hotplug\n" if !$conf->{numa};
 	die "Total memory is bigger than ${MAX_MEM}MB\n" if $memory > $MAX_MEM;
 	$static_memory = $STATICMEM;
 	die "minimum memory must be ${static_memory}MB\n" if($memory < $static_memory);
@@ -3124,14 +3138,14 @@ sub config_to_command {
 	    my $numa = parse_numa($conf->{"numa$i"});
 	    next if !$numa;
 	    # memory
-	    die "missing numa node$i memory value\n" if !$numa->{memory};
+	    die "missing NUMA node$i memory value\n" if !$numa->{memory};
 	    my $numa_memory = $numa->{memory};
 	    $numa_totalmemory += $numa_memory;
 	    my $numa_object = "memory-backend-ram,id=ram-node$i,size=${numa_memory}M";
 
 	    # cpus
 	    my $cpulists = $numa->{cpus};
-	    die "missing numa node$i cpus\n" if !defined($cpulists);
+	    die "missing NUMA node$i cpus\n" if !defined($cpulists);
 	    my $cpus = join(',', map {
 		my ($start, $end) = @$_;
 		defined($end) ? "$start-$end" : $start
@@ -3148,7 +3162,7 @@ sub config_to_command {
 		    $hostnodes .= "-$end" if defined($end);
 		    $end //= $start;
 		    for (my $i = $start; $i <= $end; ++$i ) {
-			die "host numa node$i don't exist\n" if ! -d "/sys/devices/system/node/node$i/";
+			die "host NUMA node$i don't exist\n" if ! -d "/sys/devices/system/node/node$i/";
 		    }
 		}
 
