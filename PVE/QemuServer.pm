@@ -2991,6 +2991,12 @@ sub config_to_command {
 		push @$cpuFlags , 'hv_vapic' if !$nokvm;
 		push @$cpuFlags , 'hv_time' if !$nokvm;
 
+		if (qemu_machine_feature_enabled ($machine_type, $kvmver, 2, 6)) {
+		    push @$cpuFlags , 'hv_reset' if !$nokvm;
+		    push @$cpuFlags , 'hv_vpindex' if !$nokvm;
+		    push @$cpuFlags , 'hv_runtime' if !$nokvm;
+		}
+
 	    } else {
 		push @$cpuFlags , 'hv_spinlocks=0xffff' if !$nokvm;
 	    }
