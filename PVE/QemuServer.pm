@@ -943,12 +943,6 @@ of PCI virtual functions of the host. HOSTPCIID syntax is:
 'bus:dev.func' (hexadecimal numbers)
 
 You can us the 'lspci' command to list existing PCI devices.
-
-NOTE: This option allows direct access to host hardware. So it is no longer 
-possible to migrate such machines - use with special care.
-
-CAUTION: Experimental! User reported problems with this option.
-
 EODESCR
     },
     rombar => {
@@ -976,6 +970,14 @@ my $hostpcidesc = {
         optional => 1,
         type => 'string', format => 'pve-qm-hostpci',
         description => "Map host PCI devices into guest.",
+	verbose_description =>  <<EODESCR,
+Map host PCI devices into guest.
+
+NOTE: This option allows direct access to host hardware. So it is no longer 
+possible to migrate such machines - use with special care.
+
+CAUTION: Experimental! User reported problems with this option.
+EODESCR
 };
 PVE::JSONSchema::register_standard_option("pve-qm-hostpci", $hostpcidesc);
 
@@ -985,7 +987,6 @@ my $serialdesc = {
 	pattern => '(/dev/.+|socket)',
 	description =>  "Create a serial device inside the VM (n is 0 to 3)",
 	verbose_description =>  <<EODESCR,
-
 Create a serial device inside the VM (n is 0 to 3), and pass through a
 host serial device (i.e. /dev/ttyS0), or create a unix socket on the
 host side (use 'qm terminal' to open a terminal connection).
