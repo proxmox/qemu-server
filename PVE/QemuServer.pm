@@ -30,6 +30,7 @@ use PVE::ProcFSTools;
 use PVE::QemuConfig;
 use PVE::QMPClient;
 use PVE::RPCEnvironment;
+use PVE::QemuServer::Memory;
 use Time::HiRes qw(gettimeofday);
 use File::Copy qw(copy);
 use URI::Escape;
@@ -2645,48 +2646,6 @@ sub vmstatus {
     return $res;
 }
 
-sub foreach_dimm {
-    my ($conf, $vmid, $memory, $sockets, $func) = @_;
-
-    my $dimm_id = 0;
-    my $current_size = 1024;
-    my $dimm_size = 512;
-    return if $current_size == $memory;
-
-    for (my $j = 0; $j < 8; $j++) {
-	for (my $i = 0; $i < 32; $i++) {
-	    my $name = "dimm${dimm_id}";
-	    $dimm_id++;
-	    my $numanode = $i % $sockets;
-	    $current_size += $dimm_size;
-	    &$func($conf, $vmid, $name, $dimm_size, $numanode, $current_size, $memory);
-	    return  $current_size if $current_size >= $memory;
-	}
-	$dimm_size *= 2;
-    }
-}
-
-sub foreach_reverse_dimm {
-    my ($conf, $vmid, $memory, $sockets, $func) = @_;
-
-    my $dimm_id = 253;
-    my $current_size = 4177920;
-    my $dimm_size = 65536;
-    return if $current_size == $memory;
-
-    for (my $j = 0; $j < 8; $j++) {
-	for (my $i = 0; $i < 32; $i++) {
- 	    my $name = "dimm${dimm_id}";
- 	    $dimm_id--;
- 	    my $numanode = $i % $sockets;
- 	    $current_size -= $dimm_size;
- 	    &$func($conf, $vmid, $name, $dimm_size, $numanode, $current_size, $memory);
-	    return  $current_size if $current_size <= $memory;
-	}
-	$dimm_size /= 2;
-    }
-}
-
 sub foreach_drive {
     my ($conf, $func) = @_;
 
@@ -3199,7 +3158,7 @@ sub config_to_command {
     }
 
     if ($hotplug_features->{memory}) {
-	foreach_dimm($conf, $vmid, $memory, $sockets, sub {
+	PVE::QemuServer::Memory::foreach_dimm($conf, $vmid, $memory, $sockets, sub {
 	    my ($conf, $vmid, $name, $dimm_size, $numanode, $current_size, $memory) = @_;
 	    push @$cmd, "-object" , "memory-backend-ram,id=mem-$name,size=${dimm_size}M";
 	    push @$cmd, "-device", "pc-dimm,id=$name,memdev=mem-$name,node=$numanode";
@@ -3848,7 +3807,7 @@ sub qemu_memory_hotplug {
 
     if($value > $memory) {
 
-    	foreach_dimm($conf, $vmid, $value, $sockets, sub {
+    	PVE::QemuServer::Memory::foreach_dimm($conf, $vmid, $value, $sockets, sub {
 	    my ($conf, $vmid, $name, $dimm_size, $numanode, $current_size, $memory) = @_;
 
 		return if $current_size <= $conf->{memory};
@@ -3871,7 +3830,7 @@ sub qemu_memory_hotplug {
 
     } else {
 
-    	foreach_reverse_dimm($conf, $vmid, $value, $sockets, sub {
+    	PVE::QemuServer::Memory::foreach_reverse_dimm($conf, $vmid, $value, $sockets, sub {
 	    my ($conf, $vmid, $name, $dimm_size, $numanode, $current_size, $memory) = @_;
 
 		return if $current_size >= $conf->{memory};
