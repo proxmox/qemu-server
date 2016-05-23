@@ -3786,92 +3786,6 @@ sub qemu_cpu_hotplug {
     }
 }
 
-sub qemu_memory_hotplug {
-    my ($vmid, $conf, $defaults, $opt, $value) = @_;
-
-    return $value if !check_running($vmid);
-
-    my $memory = $conf->{memory} || $defaults->{memory};
-    $value = $defaults->{memory} if !$value;
-    return $value if $value == $memory;
-
-    my $static_memory = $STATICMEM;
-    my $dimm_memory = $memory - $static_memory;
-
-    die "memory can't be lower than $static_memory MB" if $value < $static_memory;
-    die "you cannot add more memory than $MAX_MEM MB!\n" if $memory > $MAX_MEM;
-
-
-    my $sockets = 1;
-    $sockets = $conf->{sockets} if $conf->{sockets};
-
-    if($value > $memory) {
-
-    	PVE::QemuServer::Memory::foreach_dimm($conf, $vmid, $value, $sockets, sub {
-	    my ($conf, $vmid, $name, $dimm_size, $numanode, $current_size, $memory) = @_;
-
-		return if $current_size <= $conf->{memory};
-
-		eval { vm_mon_cmd($vmid, "object-add", 'qom-type' => "memory-backend-ram", id => "mem-$name", props => { size => int($dimm_size*1024*1024) } ) };
-		if (my $err = $@) {
-		    eval { qemu_objectdel($vmid, "mem-$name"); };
-		    die $err;
-		}
-
-		eval { vm_mon_cmd($vmid, "device_add", driver => "pc-dimm", id => "$name", memdev => "mem-$name", node => $numanode) };
-		if (my $err = $@) {
-		    eval { qemu_objectdel($vmid, "mem-$name"); };
-		    die $err;
-		}
-		#update conf after each succesful module hotplug
-		$conf->{memory} = $current_size;
-		PVE::QemuConfig->write_config($vmid, $conf);
-	});
-
-    } else {
-
-    	PVE::QemuServer::Memory::foreach_reverse_dimm($conf, $vmid, $value, $sockets, sub {
-	    my ($conf, $vmid, $name, $dimm_size, $numanode, $current_size, $memory) = @_;
-
-		return if $current_size >= $conf->{memory};
-		print "try to unplug memory dimm $name\n";
-
-		my $retry = 0;
-	        while (1) {
-		    eval { qemu_devicedel($vmid, $name) };
-		    sleep 3;
-		    my $dimm_list = qemu_dimm_list($vmid);
-		    last if !$dimm_list->{$name};
-		    raise_param_exc({ $name => "error unplug memory module" }) if $retry > 5;
-		    $retry++;
-		}
-
-		#update conf after each succesful module unplug
-		$conf->{memory} = $current_size;
-
-		eval { qemu_objectdel($vmid, "mem-$name"); };
-		PVE::QemuConfig->write_config($vmid, $conf);
-	});
-    }
-}
-
-sub qemu_dimm_list {
-    my ($vmid) = @_;
-
-    my $dimmarray = vm_mon_cmd_nocheck($vmid, "query-memory-devices");
-    my $dimms = {};
-
-    foreach my $dimm (@$dimmarray) {
-
-        $dimms->{$dimm->{data}->{id}}->{id} = $dimm->{data}->{id};
-        $dimms->{$dimm->{data}->{id}}->{node} = $dimm->{data}->{node};
-        $dimms->{$dimm->{data}->{id}}->{addr} = $dimm->{data}->{addr};
-        $dimms->{$dimm->{data}->{id}}->{size} = $dimm->{data}->{size};
-        $dimms->{$dimm->{data}->{id}}->{slot} = $dimm->{data}->{slot};
-    }
-    return $dimms;
-}
-
 sub qemu_block_set_io_throttle {
     my ($vmid, $deviceid,
 	$bps, $bps_rd, $bps_wr, $iops, $iops_rd, $iops_wr,
@@ -4139,7 +4053,7 @@ sub vmconfig_hotplug_pending {
 		vmconfig_delete_or_detach_drive($vmid, $storecfg, $conf, $opt, $force);
 	    } elsif ($opt =~ m/^memory$/) {
 		die "skip\n" if !$hotplug_features->{memory};
-		qemu_memory_hotplug($vmid, $conf, $defaults, $opt);
+		PVE::QemuServer::Memory::qemu_memory_hotplug($vmid, $conf, $defaults, $opt);
 	    } elsif ($opt eq 'cpuunits') {
 		cgroups_write("cpu", $vmid, "cpu.shares", $defaults->{cpuunits});
 	    } elsif ($opt eq 'cpulimit') {
@@ -4196,7 +4110,7 @@ sub vmconfig_hotplug_pending {
 				     $vmid, $opt, $value, 1);
 	    } elsif ($opt =~ m/^memory$/) { #dimms
 		die "skip\n" if !$hotplug_features->{memory};
-		$value = qemu_memory_hotplug($vmid, $conf, $defaults, $opt, $value);
+		$value = PVE::QemuServer::Memory::qemu_memory_hotplug($vmid, $conf, $defaults, $opt, $value);
 	    } elsif ($opt eq 'cpuunits') {
 		cgroups_write("cpu", $vmid, "cpu.shares", $conf->{pending}->{$opt});
 	    } elsif ($opt eq 'cpulimit') {
