@@ -11,3 +11,4 @@ install:
 	make -C VZDump install
 	make -C API2 install
 	make -C CLI install
+	make -C QemuServer install
