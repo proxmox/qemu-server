@@ -1232,7 +1232,7 @@ sub parse_hotplug_features {
 	if ($feature =~ m/^(network|disk|cpu|memory|usb)$/) {
 	    $res->{$1} = 1;
 	} else {
-	    warn "ignoring unknown hotplug feature '$feature'\n";
+	    die "invalid hotplug feature '$feature'\n";
 	}
     }
     return $res;
