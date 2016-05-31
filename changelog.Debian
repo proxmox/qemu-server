@@ -1,3 +1,9 @@
+qemu-server (4.0-77) unstable; urgency=medium
+
+  * do not ignore hotplug parse errors
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 31 May 2016 12:15:55 +0200
+
 qemu-server (4.0-76) unstable; urgency=medium
 
   * allow VLAN 1 tag in qemu-kvm vms
