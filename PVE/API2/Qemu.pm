@@ -205,7 +205,7 @@ my $hwtypeoptions = {
     'watchdog' => 1,
 };
 
-my $remainingoptions = {
+my $generaloptions = {
     'agent' => 1,
     'autostart' => 1,
     'bios' => 1,
@@ -244,13 +244,13 @@ my $check_vm_modify_config_perm = sub {
 	next if PVE::QemuServer::is_valid_drivename($opt);
 	next if $opt eq 'cdrom';
 
-	if ($cpuoptions->{$opt}) {
+	if ($cpuoptions->{$opt} || $opt =~ m/^numa\d+$/) {
 	    $rpcenv->check_vm_perm($authuser, $vmid, $pool, ['VM.Config.CPU']);
 	} elsif ($memoryoptions->{$opt}) {
 	    $rpcenv->check_vm_perm($authuser, $vmid, $pool, ['VM.Config.Memory']);
 	} elsif ($hwtypeoptions->{$opt}) {
 	    $rpcenv->check_vm_perm($authuser, $vmid, $pool, ['VM.Config.HWType']);
-	} elsif ($remainingoptions->{$opt} || $opt =~ m/^(numa|parallell|serial)\d+$/) {
+	} elsif ($generaloptions->{$opt}) {
 	    $rpcenv->check_vm_perm($authuser, $vmid, $pool, ['VM.Config.Options']);
 	    # special case for startup since it changes host behaviour
 	    if ($opt eq 'startup') {
