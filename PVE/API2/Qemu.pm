@@ -176,6 +176,64 @@ my $create_disks = sub {
     return $vollist;
 };
 
+my $cpuoptions = {
+    'cores' => 1,
+    'cpu' => 1,
+    'cpulimit' => 1,
+    'cpuunits' => 1,
+    'numa' => 1,
+    'smp' => 1,
+    'sockets' => 1,
+    'vpcus' => 1,
+};
+
+my $memoryoptions = {
+    'memory' => 1,
+    'balloon' => 1,
+    'shares' => 1,
+};
+
+my $hwtypeoptions = {
+    'acpi' => 1,
+    'hotplug' => 1,
+    'kvm' => 1,
+    'machine' => 1,
+    'scsihw' => 1,
+    'smbios1' => 1,
+    'tablet' => 1,
+    'vga' => 1,
+    'watchdog' => 1,
+};
+
+my $remainingoptions = {
+    'agent' => 1,
+    'autostart' => 1,
+    'bios' => 1,
+    'description' => 1,
+    'keyboard' => 1,
+    'localtime' => 1,
+    'migrate_downtime' => 1,
+    'migrate_speed' => 1,
+    'name' => 1,
+    'onboot' => 1,
+    'ostype' => 1,
+    'protection' => 1,
+    'reboot' => 1,
+    'startdate' => 1,
+    'startup' => 1,
+    'tdf' => 1,
+    'template' => 1,
+};
+
+my $vmpoweroptions = {
+    'freeze' => 1,
+};
+
+my $diskoptions = {
+    'boot' => 1,
+    'bootdisk' => 1,
+};
+
 my $check_vm_modify_config_perm = sub {
     my ($rpcenv, $authuser, $vmid, $pool, $key_list) = @_;
 
@@ -184,22 +242,30 @@ my $check_vm_modify_config_perm = sub {
     foreach my $opt (@$key_list) {
 	# disk checks need to be done somewhere else
 	next if PVE::QemuServer::is_valid_drivename($opt);
+	next if $opt eq 'cdrom';
 
-	if ($opt eq 'sockets' || $opt eq 'cores' ||
-	    $opt eq 'cpu' || $opt eq 'smp' || $opt eq 'vcpus' ||
-	    $opt eq 'cpulimit' || $opt eq 'cpuunits') {
+	if ($cpuoptions->{$opt}) {
 	    $rpcenv->check_vm_perm($authuser, $vmid, $pool, ['VM.Config.CPU']);
-	} elsif ($opt eq 'memory' || $opt eq 'balloon' || $opt eq 'shares') {
+	} elsif ($memoryoptions->{$opt}) {
 	    $rpcenv->check_vm_perm($authuser, $vmid, $pool, ['VM.Config.Memory']);
-	} elsif ($opt eq 'args' || $opt eq 'lock') {
-	    die "only root can set '$opt' config\n";
-	} elsif ($opt eq 'cpu' || $opt eq 'kvm' || $opt eq 'acpi' || $opt eq 'machine' ||
-		 $opt eq 'vga' || $opt eq 'watchdog' || $opt eq 'tablet' || $opt eq 'smbios1') {
+	} elsif ($hwtypeoptions->{$opt}) {
 	    $rpcenv->check_vm_perm($authuser, $vmid, $pool, ['VM.Config.HWType']);
+	} elsif ($remainingoptions->{$opt} || $opt =~ m/^(numa|parallell|serial)\d+$/) {
+	    $rpcenv->check_vm_perm($authuser, $vmid, $pool, ['VM.Config.Options']);
+	    # special case for startup since it changes host behaviour
+	    if ($opt eq 'startup') {
+		$rpcenv->check_full($authuser, "/", ['Sys.Modify']);
+	    }
+	} elsif ($vmpoweroptions->{$opt}) {
+	    $rpcenv->check_vm_perm($authuser, $vmid, $pool, ['VM.PowerMgmt']);
+	} elsif ($diskoptions->{$opt}) {
+	    $rpcenv->check_vm_perm($authuser, $vmid, $pool, ['VM.Config.Disk']);
 	} elsif ($opt =~ m/^net\d+$/) {
 	    $rpcenv->check_vm_perm($authuser, $vmid, $pool, ['VM.Config.Network']);
 	} else {
-	    $rpcenv->check_vm_perm($authuser, $vmid, $pool, ['VM.Config.Options']);
+	    # catches usb\d+, hostpci\d+, args, lock, etc.
+	    # new options will be checked here
+	    die "only root can set '$opt' config\n";
 	}
     }
 
