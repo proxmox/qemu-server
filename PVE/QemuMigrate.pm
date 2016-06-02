@@ -230,7 +230,7 @@ sub sync_disks {
 
 	    return if !$volid;
 
-	    die "cant migrate local file/device '$volid'\n" if $volid =~ m|^/|;
+	    die "can't migrate local file/device '$volid'\n" if $volid =~ m|^/|;
 
 	    if ($is_cdrom) {
 		die "cant migrate local cdrom drive\n" if $volid eq 'cdrom';
