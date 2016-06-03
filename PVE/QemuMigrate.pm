@@ -89,11 +89,11 @@ sub finish_command_pipe {
 }
 
 sub fork_tunnel {
-    my ($self, $nodeip, $lport, $rport) = @_;
+    my ($self, $tunnel_addr) = @_;
 
-    my @localtunnelinfo = $lport ? ('-L' , "$lport:localhost:$rport" ) : ();
+    my @localtunnelinfo = ('-L' , $tunnel_addr );
 
-    my $cmd = [@{$self->{rem_ssh}}, @localtunnelinfo, 'qm', 'mtunnel' ];
+    my $cmd = [@{$self->{rem_ssh}}, '-o ExitOnForwardFailure=yes', @localtunnelinfo, 'qm', 'mtunnel' ];
 
     my $tunnel = $self->fork_command_pipe($cmd);
 
@@ -130,6 +130,16 @@ sub finish_tunnel {
     my $err = $@;
 
     $self->finish_command_pipe($tunnel, 30);
+
+    if ($tunnel->{sock_addr}) {
+	# ssh does not clean up on local host
+	my $cmd = ['rm', '-f', $tunnel->{sock_addr}]; #
+	PVE::Tools::run_command($cmd);
+
+	# .. and just to be sure check on remote side
+	unshift @{$cmd}, @{$self->{rem_ssh}};
+	PVE::Tools::run_command($cmd);
+    }
 
     die $err if $err;
 }
@@ -345,6 +355,7 @@ sub phase2 {
 
     my $raddr;
     my $rport;
+    my $ruri; # the whole migration dst. URI (protocol:address[:port])
     my $nodename = PVE::INotify::nodename();
 
     ## start on remote node
@@ -356,7 +367,20 @@ sub phase2 {
 	$spice_ticket = $res->{ticket};
     }
 
-    push @$cmd , 'qm', 'start', $vmid, '--stateuri', 'tcp', '--skiplock', '--migratedfrom', $nodename;
+    push @$cmd , 'qm', 'start', $vmid, '--skiplock', '--migratedfrom', $nodename;
+
+    # we use TCP only for unsecure migrations as TCP ssh forward tunnels often
+    # did appeared to late (they are hard, if not impossible, to check for)
+    # secure migration use UNIX sockets now, this *breaks* compatibilty when trying
+    # to migrate from new to old but *not* from old to new.
+    my $datacenterconf = PVE::Cluster::cfs_read_file('datacenter.cfg');
+    my $secure_migration = ($datacenterconf->{migration_unsecure}) ? 0 : 1;
+
+    if (!$secure_migration) {
+	push @$cmd, '--stateuri', 'tcp';
+    } else {
+	push @$cmd, '--stateuri', 'unix';
+    }
 
     if ($self->{forcemachine}) {
 	push @$cmd, '--machine', $self->{forcemachine};
@@ -372,10 +396,17 @@ sub phase2 {
 	if ($line =~ m/^migration listens on tcp:(localhost|[\d\.]+|\[[\d\.:a-fA-F]+\]):(\d+)$/) {
 	    $raddr = $1;
 	    $rport = int($2);
+	    $ruri = "tcp:$raddr:$rport";
+	}
+	elsif ($line =~ m!^migration listens on unix:(/run/qemu-server/(\d+)\.migrate)$!) {
+	    $raddr = $1;
+	    die "Destination UNIX sockets VMID does not match source VMID" if $vmid ne $2;
+	    $ruri = "unix:$raddr";
 	}
 	elsif ($line =~ m/^migration listens on port (\d+)$/) {
 	    $raddr = "localhost";
 	    $rport = int($1);
+	    $ruri = "tcp:$raddr:$rport";
 	}
         elsif ($line =~ m/^spice listens on port (\d+)$/) {
 	    $spice_port = int($1);
@@ -387,14 +418,39 @@ sub phase2 {
 
     die "unable to detect remote migration address\n" if !$raddr;
 
-    ## create tunnel to remote port
-    $self->log('info', "starting ssh migration tunnel");
-    my $pfamily = PVE::Tools::get_host_address_family($nodename);
-    my $lport = ($raddr eq "localhost") ? PVE::Tools::next_migrate_port($pfamily) : undef;
-    $self->{tunnel} = $self->fork_tunnel($self->{nodeip}, $lport, $rport);
+    if ($secure_migration) {
+	$self->log('info', "start remote tunnel");
+
+	if ($ruri =~ /^unix:/) {
+	    $self->{tunnel} = $self->fork_tunnel("$raddr:$raddr");
+	    $self->{tunnel}->{sock_addr} = $raddr;
+
+	    my $unix_socket_try = 0; # wait for the socket to become ready
+	    while (! -S $raddr) {
+		$unix_socket_try++;
+		if ($unix_socket_try > 100) {
+		    $self->{errors} = 1;
+		    $self->finish_tunnel($self->{tunnel});
+		    die "Timeout, migration socket $ruri did not get ready";
+		}
+
+		usleep(50000);
+	    }
+
+	} elsif ($ruri =~ /^tcp:/) {
+	    # for backwards compatibility with older qemu-server versions
+	    my $pfamily = PVE::Tools::get_host_address_family($nodename);
+	    my $lport = PVE::Tools::next_migrate_port($pfamily);
+
+	    $self->{tunnel} = $self->fork_tunnel("$lport:localhost:$rport");
+
+	} else {
+	    die "unsupported protocol in migration URI: $ruri\n";
+	}
+    }
 
     my $start = time();
-    $self->log('info', "starting online/live migration on $raddr:$rport");
+    $self->log('info', "starting online/live migration on $ruri");
     $self->{livemigration} = 1;
 
     # load_defaults
@@ -453,10 +509,10 @@ sub phase2 {
     }
 
     eval {
-        PVE::QemuServer::vm_mon_cmd_nocheck($vmid, "migrate", uri => "tcp:$raddr:$rport");
+        PVE::QemuServer::vm_mon_cmd_nocheck($vmid, "migrate", uri => $ruri);
     };
     my $merr = $@;
-    $self->log('info', "migrate uri => tcp:$raddr:$rport failed: $merr") if $merr;
+    $self->log('info', "migrate uri => $ruri failed: $merr") if $merr;
 
     my $lstat = 0;
     my $usleep = 2000000;
