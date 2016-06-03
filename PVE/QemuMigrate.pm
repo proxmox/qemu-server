@@ -477,6 +477,7 @@ sub phase2 {
 	$self->log('info', "migrate_set_downtime error: $@") if $@;
     }
 
+    $self->log('info', "set migration_caps");
     eval {
 	PVE::QemuServer::set_migration_caps($vmid);
     };
@@ -484,10 +485,12 @@ sub phase2 {
 
     #set cachesize 10% of the total memory
     my $cachesize = int($conf->{memory}*1048576/10);
+    $self->log('info', "set cachesize: $cachesize");
     eval {
-	PVE::QemuServer::vm_mon_cmd_nocheck($vmid, "migrate-set-cache-size", value => $cachesize);
+	PVE::QemuServer::vm_mon_cmd_nocheck($vmid, "migrate-set-cache-size", value => int($cachesize));
     };
-	
+    $self->log('info', "migrate-set-cache-size error: $@") if $@;
+
     if (PVE::QemuServer::vga_conf_has_spice($conf->{vga})) {
 	my $rpcenv = PVE::RPCEnvironment::get();
 	my $authuser = $rpcenv->get_user();
@@ -508,6 +511,7 @@ sub phase2 {
 
     }
 
+    $self->log('info', "start migrate command to $ruri");
     eval {
         PVE::QemuServer::vm_mon_cmd_nocheck($vmid, "migrate", uri => $ruri);
     };
@@ -532,6 +536,7 @@ sub phase2 {
 	if (my $err = $@) {
 	    $err_count++;
 	    warn "query migrate failed: $err\n";
+	    $self->log('info', "query migrate failed: $err");
 	    if ($err_count <= 5) {
 		usleep(1000000);
 		next;
@@ -539,12 +544,12 @@ sub phase2 {
 	    die "too many query migrate failures - aborting\n";
 	}
 
-        if ($stat->{status} =~ m/^(setup)$/im) {
+        if (defined($stat->{status}) && $stat->{status} =~ m/^(setup)$/im) {
             sleep(1);
             next;
         }
 
-	if ($stat->{status} =~ m/^(active|completed|failed|cancelled)$/im) {
+	if (defined($stat->{status}) && $stat->{status} =~ m/^(active|completed|failed|cancelled)$/im) {
 	    $merr = undef;
 	    $err_count = 0;
 	    if ($stat->{status} eq 'completed') {
@@ -557,6 +562,7 @@ sub phase2 {
 	    }
 
 	    if ($stat->{status} eq 'failed' || $stat->{status} eq 'cancelled') {
+		$self->log('info', "migration status error: $stat->{status}");
 		die "aborting\n"
 	    }
 
