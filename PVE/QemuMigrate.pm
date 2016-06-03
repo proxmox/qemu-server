@@ -422,6 +422,7 @@ sub phase2 {
 	$self->log('info', "start remote tunnel");
 
 	if ($ruri =~ /^unix:/) {
+	    unlink $raddr;
 	    $self->{tunnel} = $self->fork_tunnel("$raddr:$raddr");
 	    $self->{tunnel}->{sock_addr} = $raddr;
 

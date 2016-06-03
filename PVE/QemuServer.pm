@@ -4306,7 +4306,10 @@ sub vm_start {
 		# should be default for secure migrations as a ssh TCP forward
 		# tunnel is not deterministic reliable ready and fails regurarly
 		# to set up in time, so use UNIX socket forwards
-		$migrate_uri = "unix:/run/qemu-server/$vmid.migrate";
+		my $socket_addr = "/run/qemu-server/$vmid.migrate";
+		unlink $socket_addr;
+
+		$migrate_uri = "unix:$socket_addr";
 
 		push @$cmd, '-incoming', $migrate_uri;
 		push @$cmd, '-S';
