@@ -609,8 +609,10 @@ sub phase2 {
 	    die "unable to parse migration status '$stat->{status}' - aborting\n";
 	}
     }
-    #to be sure tat the tunnel is closed 
-    if ($self->{tunnel}) {
+
+    # just to be sure that the tunnel gets closed on successful migration, on error
+    # phase2_cleanup closes it *after* stopping the remote waiting VM
+    if (!$self->{errors} && $self->{tunnel}) {
 	eval { finish_tunnel($self, $self->{tunnel});  };
 	if (my $err = $@) {
 	    $self->log('err', $err);
