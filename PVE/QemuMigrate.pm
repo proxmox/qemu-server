@@ -5,6 +5,7 @@ use warnings;
 use PVE::AbstractMigrate;
 use IO::File;
 use IPC::Open2;
+use POSIX qw( WNOHANG );
 use PVE::INotify;
 use PVE::Tools;
 use PVE::Cluster;
@@ -44,17 +45,28 @@ sub fork_command_pipe {
 sub finish_command_pipe {
     my ($self, $cmdpipe, $timeout) = @_;
 
+    my $cpid = $cmdpipe->{pid};
+    return if !defined($cpid);
+
     my $writer = $cmdpipe->{writer};
     my $reader = $cmdpipe->{reader};
 
     $writer->close();
     $reader->close();
 
-    my $cpid = $cmdpipe->{pid};
+    my $collect_child_process = sub {
+	my $res = waitpid($cpid, WNOHANG);
+	if (defined($res) && ($res == $cpid)) {
+	    delete $cmdpipe->{cpid};
+	    return 1;
+	} else {
+	    return 0;
+	}
+     };
 
     if ($timeout) {
 	for (my $i = 0; $i < $timeout; $i++) {
-	    return if !PVE::ProcFSTools::check_process_running($cpid);
+	    return if &$collect_child_process();
 	    sleep(1);
 	}
     }
@@ -64,13 +76,16 @@ sub finish_command_pipe {
 
     # wait again
     for (my $i = 0; $i < 10; $i++) {
-	return if !PVE::ProcFSTools::check_process_running($cpid);
+	return if &$collect_child_process();
 	sleep(1);
     }
 
     $self->log('info', "ssh tunnel still running - terminating now with SIGKILL\n");
     kill 9, $cpid;
     sleep 1;
+
+    $self->log('err', "ssh tunnel child process (PID $cpid) couldn't be collected\n")
+	if !&$collect_child_process();
 }
 
 sub fork_tunnel {
