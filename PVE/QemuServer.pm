@@ -2730,20 +2730,6 @@ sub config_to_command {
     my $cpuunits = defined($conf->{cpuunits}) ?
             $conf->{cpuunits} : $defaults->{cpuunits};
 
-    push @$cmd, '/usr/bin/systemd-run';
-    push @$cmd, '--scope';
-    push @$cmd, '--slice', "qemu";
-    push @$cmd, '--unit', $vmid;
-    push @$cmd, '--description', "'Proxmox VE VM $vmid'";
-    # set KillMode=none, so that systemd don't kill those scopes
-    # at shutdown (pve-manager service should stop the VMs instead)
-    push @$cmd, '-p', "KillMode=none";
-    push @$cmd, '-p', "CPUShares=$cpuunits";
-    if ($conf->{cpulimit}) {
-	my $cpulimit = int($conf->{cpulimit} * 100);
-	push @$cmd, '-p', "CPUQuota=$cpulimit\%";
-    }
-
     push @$cmd, '/usr/bin/kvm';
 
     push @$cmd, '-id', $vmid;
@@ -4346,8 +4332,22 @@ sub vm_start {
 	    eval  { run_command($cmd); };
 	}
 
-	eval  { run_command($cmd, timeout => $statefile ? undef : 30,
-		    umask => 0077); };
+	my $cpuunits = defined($conf->{cpuunits}) ? $conf->{cpuunits}
+	                                          : $defaults->{cpuunits};
+
+	eval  {
+	    my %properties = (
+		Slice => 'qemu.slice',
+		KillMode => 'none',
+		CPUShares => $cpuunits
+	    );
+	    if (my $cpulimit = $conf->{cpulimit}) {
+		$properties{CPUQuota} = int($cpulimit * 100);
+	    }
+	    $properties{timeout} = 10 if $statefile; # setting up the scope shoul be quick
+	    PVE::Tools::enter_systemd_scope($vmid, "Proxmox VE VM $vmid", %properties);
+	    run_command($cmd, timeout => $statefile ? undef : 30, umask => 0077);
+	};
 
 	if (my $err = $@) {
 	    # deactivate volumes if start fails
