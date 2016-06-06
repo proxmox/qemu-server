@@ -91,7 +91,7 @@ sub finish_command_pipe {
 sub fork_tunnel {
     my ($self, $tunnel_addr) = @_;
 
-    my @localtunnelinfo = ('-L' , $tunnel_addr );
+    my @localtunnelinfo = defined($tunnel_addr) ? ('-L' , $tunnel_addr ) : ();
 
     my $cmd = [@{$self->{rem_ssh}}, '-o ExitOnForwardFailure=yes', @localtunnelinfo, 'qm', 'mtunnel' ];
 
@@ -439,11 +439,15 @@ sub phase2 {
 	    }
 
 	} elsif ($ruri =~ /^tcp:/) {
-	    # for backwards compatibility with older qemu-server versions
-	    my $pfamily = PVE::Tools::get_host_address_family($nodename);
-	    my $lport = PVE::Tools::next_migrate_port($pfamily);
+	    my $tunnel_addr;
+	    if ($raddr eq "localhost") {
+		# for backwards compatibility with older qemu-server versions
+		my $pfamily = PVE::Tools::get_host_address_family($nodename);
+		my $lport = PVE::Tools::next_migrate_port($pfamily);
+		$tunnel_addr = "$lport:localhost:$rport";
+	    }
 
-	    $self->{tunnel} = $self->fork_tunnel("$lport:localhost:$rport");
+	    $self->{tunnel} = $self->fork_tunnel($tunnel_addr);
 
 	} else {
 	    die "unsupported protocol in migration URI: $ruri\n";
