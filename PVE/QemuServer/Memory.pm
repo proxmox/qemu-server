@@ -3,6 +3,7 @@ package PVE::QemuServer::Memory;
 use strict;
 use warnings;
 use PVE::QemuServer;
+use PVE::Exception qw(raise raise_param_exc);
 
 my $MAX_NUMA = 8;
 my $MAX_MEM = 4194304;
