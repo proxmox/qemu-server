@@ -4957,11 +4957,11 @@ sub tar_archive_read_firstfile {
     die "ERROR: file '$archive' does not exist\n" if ! -f $archive;
 
     # try to detect archive type first
-    my $pid = open (TMP, "tar tf '$archive'|") ||
+    my $pid = open (my $fh, '-|', 'tar', 'tf', $archive) ||
 	die "unable to open file '$archive'\n";
-    my $firstfile = <TMP>;
+    my $firstfile = <$fh>;
     kill 15, $pid;
-    close TMP;
+    close $fh;
 
     die "ERROR: archive contaions no data\n" if !$firstfile;
     chomp $firstfile;
