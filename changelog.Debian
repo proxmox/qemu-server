@@ -1,3 +1,9 @@
+qemu-server (3.4-9) unstable; urgency=low
+
+  * split old style pipe open call
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 09 Jun 2016 18:00:00 +0200
+
 qemu-server (3.4-8) unstable; urgency=low
 
   * fix #909: pass rate to tap_plug()
