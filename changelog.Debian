@@ -2,7 +2,7 @@ qemu-server (4.0-80) unstable; urgency=medium
 
   * split old style pipe open call
 
-  * fix unnecessary root check for unused disks
+  * fix #1020: remove unnecessary root check for unused disks
 
  -- Proxmox Support Team <support@proxmox.com>  Thu, 09 Jun 2016 18:13:03 +0200
 
