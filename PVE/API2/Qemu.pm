@@ -243,6 +243,7 @@ my $check_vm_modify_config_perm = sub {
 	# disk checks need to be done somewhere else
 	next if PVE::QemuServer::is_valid_drivename($opt);
 	next if $opt eq 'cdrom';
+	next if $opt =~ m/^unused\d+$/;
 
 	if ($cpuoptions->{$opt} || $opt =~ m/^numa\d+$/) {
 	    $rpcenv->check_vm_perm($authuser, $vmid, $pool, ['VM.Config.CPU']);
