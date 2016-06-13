@@ -287,18 +287,20 @@ sub sync_disks {
 	    die "can't do online migration - VM uses local disks\n";
 	}
 
-	# do some checks first
+	# additional checks for local storage
 	foreach my $volid (keys %$volhash) {
 	    my ($sid, $volname) = PVE::Storage::parse_volume_id($volid);
 	    my $scfg =  PVE::Storage::storage_config($self->{storecfg}, $sid);
 
-	    die "can't migrate '$volid' - storage type '$scfg->{type}' not supported\n"
-		if (!($scfg->{type} eq 'dir' || $scfg->{type} eq 'zfspool') && (!$sharedvm));
+	    my $migratable = ($scfg->{type} eq 'dir') || ($scfg->{type} eq 'zfspool') ||
+		($scfg->{type} eq 'lvmthin') || ($scfg->{type} eq 'lvm');
 
-	    # if file, check if a backing file exist
-	    if (!($scfg->{type} eq 'dir' || $scfg->{type} eq 'zfspool') && (!$sharedvm)) {
-		my (undef, undef, undef, $parent) = PVE::Storage::volume_size_info($self->{storecfg}, $volid, 1);
-		die "can't migrate '$volid' as it's a clone of '$parent'" if $parent;
+	    die "can't migrate '$volid' - storage type '$scfg->{type}' not supported\n"
+		if !$migratable;
+
+	    # image is a linked clone on local storage, se we can't migrate.
+	    if (my $basename = (PVE::Storage::parse_volname($self->{storecfg}, $volid))[3]) {
+		die "can't migrate '$volid' as it's a clone of '$basename'";
 	    }
 	}
 
