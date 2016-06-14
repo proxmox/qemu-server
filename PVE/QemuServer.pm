@@ -3271,6 +3271,10 @@ sub vm_deviceplug {
 
 	qemu_deviceadd($vmid, print_tabletdevice_full($conf));
 
+    } elsif ($deviceid =~ m/^usb(\d+)$/) {
+
+	qemu_deviceadd($vmid, PVE::QemuServer::USB::print_usbdevice_full($conf, $deviceid, $device));
+
     } elsif ($deviceid =~ m/^(virtio)(\d+)$/) {
 
 	qemu_iothread_add($vmid, $deviceid, $device);
@@ -3365,6 +3369,11 @@ sub vm_deviceunplug {
     if ($deviceid eq 'tablet') {
 
 	qemu_devicedel($vmid, $deviceid);
+
+    } elsif ($deviceid =~ m/^usb\d+$/) {
+
+	qemu_devicedel($vmid, $deviceid);
+	qemu_devicedelverify($vmid, $deviceid);
 
     } elsif ($deviceid =~ m/^(virtio)(\d+)$/) {
 
@@ -3900,6 +3909,9 @@ sub vmconfig_hotplug_pending {
 		} else {
 		    vm_deviceunplug($vmid, $conf, $opt);
 		}
+	    } elsif ($opt =~ m/^usb\d+/) {
+		die "skip\n" if !$hotplug_features->{usb} || $conf->{$opt} =~ m/spice/i;
+		vm_deviceunplug($vmid, $conf, $opt);
 	    } elsif ($opt eq 'vcpus') {
 		die "skip\n" if !$hotplug_features->{cpu};
 		qemu_cpu_hotplug($vmid, $conf, undef);
@@ -3950,6 +3962,11 @@ sub vmconfig_hotplug_pending {
 		} elsif ($value == 0) {
 		    vm_deviceunplug($vmid, $conf, $opt);
 		}
+	    } elsif ($opt =~ m/^usb\d+$/) {
+		die "skip\n" if !$hotplug_features->{usb} || $value =~ m/spice/i;
+		my $d = eval { PVE::JSONSchema::parse_property_string($usbdesc->{format}, $value) };
+		die "skip\n" if !$d;
+		qemu_usb_hotplug($storecfg, $conf, $vmid, $opt, $d);
 	    } elsif ($opt eq 'vcpus') {
 		die "skip\n" if !$hotplug_features->{cpu};
 		qemu_cpu_hotplug($vmid, $conf, $value);
