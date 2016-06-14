@@ -3598,6 +3598,31 @@ sub qemu_netdevdel {
     vm_mon_cmd($vmid, "netdev_del", id => $deviceid);
 }
 
+sub qemu_usb_hotplug {
+    my ($storecfg, $conf, $vmid, $deviceid, $device) = @_;
+
+    return if !$device;
+
+    # remove the old one first
+    vm_deviceunplug($vmid, $conf, $deviceid);
+
+    # check if xhci controller is necessary and available
+    if ($device->{usb3}) {
+
+	my $devicelist = vm_devices_list($vmid);
+
+	if (!$devicelist->{xhci}) {
+	    my $pciaddr = print_pci_addr("xhci");
+	    qemu_deviceadd($vmid, "nec-usb-xhci,id=xhci$pciaddr");
+	}
+    }
+    my $d = parse_usb_device($device->{host});
+    $d->{usb3} = $device->{usb3};
+
+    # add the new one
+    vm_deviceplug($storecfg, $conf, $vmid, $deviceid, $d);
+}
+
 sub qemu_cpu_hotplug {
     my ($vmid, $conf, $vcpus) = @_;
 
