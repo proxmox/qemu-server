@@ -32,6 +32,7 @@ use PVE::QMPClient;
 use PVE::RPCEnvironment;
 use PVE::QemuServer::PCI qw(print_pci_addr print_pcie_addr);
 use PVE::QemuServer::Memory;
+use PVE::QemuServer::USB qw(parse_usb_device);
 use Time::HiRes qw(gettimeofday);
 use File::Copy qw(copy);
 use URI::Escape;
@@ -1891,27 +1892,6 @@ sub parse_watchdog {
     return $res;
 }
 
-sub parse_usb_device {
-    my ($value) = @_;
-
-    return undef if !$value;
-
-    my $res = {};
-    if ($value =~ m/^(0x)?([0-9A-Fa-f]{4}):(0x)?([0-9A-Fa-f]{4})$/) {
-	$res->{vendorid} = $2;
-	$res->{productid} = $4;
-    } elsif ($value =~ m/^(\d+)\-(\d+(\.\d+)*)$/) {
-	$res->{hostbus} = $1;
-	$res->{hostport} = $2;
-    } elsif ($value =~ m/^spice$/i) {
-	$res->{spice} = 1;
-    } else {
-	return undef;
-    }
-
-    return $res;
-}
-
 PVE::JSONSchema::register_format('pve-qm-usb-device', \&verify_usb_device);
 sub verify_usb_device {
     my ($value, $noerr) = @_;
@@ -2765,38 +2745,10 @@ sub config_to_command {
 	push @$cmd, '-drive', "if=pflash,format=raw,file=$ovmfvar_dst";
     }
 
-    if ($q35) {
-	# the q35 chipset support native usb2, so we enable usb controller
-	# by default for this machine type
-        push @$devices, '-readconfig', '/usr/share/qemu-server/pve-q35.cfg';
-    } else {
-        $pciaddr = print_pci_addr("piix3", $bridges);
-        push @$devices, '-device', "piix3-usb-uhci,id=uhci$pciaddr.0x2";
 
-        my $use_usb2 = 0;
-	for (my $i = 0; $i < $MAX_USB_DEVICES; $i++)  {
-	    next if !$conf->{"usb$i"};
-	    my $d = eval { PVE::JSONSchema::parse_property_string($usbdesc->{format},$conf->{"usb$i"}) };
-	    next if !$d || $d->{usb3}; # do not add usb2 controller if we have only usb3 devices
-	    $use_usb2 = 1;
-	}
-	# include usb device config
-	push @$devices, '-readconfig', '/usr/share/qemu-server/pve-usb.cfg' if $use_usb2;
-    }
-
-    # add usb3 controller if needed
-
-    my $use_usb3 = 0;
-    for (my $i = 0; $i < $MAX_USB_DEVICES; $i++)  {
-	next if !$conf->{"usb$i"};
-	my $d = eval { PVE::JSONSchema::parse_property_string($usbdesc->{format},$conf->{"usb$i"}) };
-	next if !$d || !$d->{usb3};
-	$use_usb3 = 1;
-    }
-
-    $pciaddr = print_pci_addr("xhci", $bridges);
-    push @$devices, '-device', "nec-usb-xhci,id=xhci$pciaddr" if $use_usb3;
-
+    # add usb controllers
+    my @usbcontrollers = PVE::QemuServer::USB::get_usb_controllers($conf, $bridges, $q35, $usbdesc->{format}, $MAX_USB_DEVICES);
+    push @$devices, @usbcontrollers if @usbcontrollers;
     my $vga = $conf->{vga};
 
     my $qxlnum = vga_conf_has_spice($vga);
@@ -2874,31 +2826,8 @@ sub config_to_command {
     }
 
     # usb devices
-    for (my $i = 0; $i < $MAX_USB_DEVICES; $i++)  {
-	next if !$conf->{"usb$i"};
-	my $d = eval { PVE::JSONSchema::parse_property_string($usbdesc->{format},$conf->{"usb$i"}) };
-	next if !$d;
-
-	# if it is a usb3 device, attach it to the xhci controller, else omit the bus option
-	my $usbbus = '';
-	if (defined($d->{usb3}) && $d->{usb3}) {
-	    $usbbus = ',bus=xhci.0';
-	}
-
-	if (defined($d->{host})) {
-	    $d = parse_usb_device($d->{host});
-	    if (defined($d->{vendorid}) && defined($d->{productid})) {
-		push @$devices, '-device', "usb-host$usbbus,vendorid=0x$d->{vendorid},productid=0x$d->{productid}";
-	    } elsif (defined($d->{hostbus}) && defined($d->{hostport})) {
-		push @$devices, '-device', "usb-host$usbbus,hostbus=$d->{hostbus},hostport=$d->{hostport}";
-	    } elsif (defined($d->{spice}) && $d->{spice}) {
-		# usb redir support for spice, currently no usb3
-		push @$devices, '-chardev', "spicevmc,id=usbredirchardev$i,name=usbredir";
-		push @$devices, '-device', "usb-redir,chardev=usbredirchardev$i,id=usbredirdev$i,bus=ehci.0";
-	    }
-	}
-    }
-
+    my @usbdevices = PVE::QemuServer::USB::get_usb_devices($conf, $usbdesc->{format}, $MAX_USB_DEVICES);
+    push @$devices, @usbdevices if @usbdevices;
     # serial devices
     for (my $i = 0; $i < $MAX_SERIAL_PORTS; $i++)  {
 	if (my $path = $conf->{"serial$i"}) {
