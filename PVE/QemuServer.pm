@@ -3244,6 +3244,16 @@ sub vm_devices_list {
 	}
     }
 
+    # for usb devices there is no query-usb
+    # but we can iterate over the entries in
+    # qom-list path=/machine/peripheral
+    my $resperipheral = vm_mon_cmd($vmid, 'qom-list', path => '/machine/peripheral');
+    foreach my $per (@$resperipheral) {
+	if ($per->{name} =~ m/^usb\d+$/) {
+	    $devices->{$per->{name}} = 1;
+	}
+    }
+
     return $devices;
 }
 
