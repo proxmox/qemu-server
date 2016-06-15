@@ -321,6 +321,12 @@ EODESC
 	description => "Enable/disable NUMA.",
 	default => 0,
     },
+    hugepages => {
+	optional => 1,
+	type => 'string',
+	description => "Enable/disable hugepages memory.",
+	enum => [qw(any 2 1024)],
+    },
     vcpus => {
 	optional => 1,
 	type => 'integer',
@@ -4354,19 +4360,48 @@ sub vm_start {
 	my $cpuunits = defined($conf->{cpuunits}) ? $conf->{cpuunits}
 	                                          : $defaults->{cpuunits};
 
-	eval  {
-	    my %properties = (
-		Slice => 'qemu.slice',
-		KillMode => 'none',
-		CPUShares => $cpuunits
-	    );
-	    if (my $cpulimit = $conf->{cpulimit}) {
-		$properties{CPUQuota} = int($cpulimit * 100);
-	    }
-	    $properties{timeout} = 10 if $statefile; # setting up the scope shoul be quick
-	    PVE::Tools::enter_systemd_scope($vmid, "Proxmox VE VM $vmid", %properties);
-	    run_command($cmd, timeout => $statefile ? undef : 30, umask => 0077);
-	};
+	my %run_params = (timeout => $statefile ? undef : 30, umask => 0077);
+
+	my %properties = (
+	    Slice => 'qemu.slice',
+	    KillMode => 'none',
+	    CPUShares => $cpuunits
+	);
+
+	if (my $cpulimit = $conf->{cpulimit}) {
+	    $properties{CPUQuota} = int($cpulimit * 100);
+	}
+	$properties{timeout} = 10 if $statefile; # setting up the scope shoul be quick
+
+	if ($conf->{hugepages}) {
+
+	    my $code = sub {
+		my $hugepages_topology = PVE::QemuServer::Memory::hugepages_topology($conf);
+		my $hugepages_host_topology = PVE::QemuServer::Memory::hugepages_host_topology();
+
+		PVE::QemuServer::Memory::hugepages_mount();
+		PVE::QemuServer::Memory::hugepages_allocate($hugepages_topology, $hugepages_host_topology);
+
+		eval  {
+		    PVE::Tools::enter_systemd_scope($vmid, "Proxmox VE VM $vmid", %properties);
+		    run_command($cmd, %run_params);
+		};
+
+		if (my $err = $@) {
+		    PVE::QemuServer::Memory::hugepages_reset($hugepages_host_topology);
+		    die $err;
+		}
+
+		PVE::QemuServer::Memory::hugepages_pre_deallocate($hugepages_topology);
+	    };
+	    eval { PVE::QemuServer::Memory::hugepages_update_locked($code); };
+
+	} else {
+	    eval  {
+		PVE::Tools::enter_systemd_scope($vmid, "Proxmox VE VM $vmid", %properties);
+		run_command($cmd, %run_params);
+	    };
+	}
 
 	if (my $err = $@) {
 	    # deactivate volumes if start fails
