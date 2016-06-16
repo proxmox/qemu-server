@@ -248,9 +248,9 @@ sub sync_disks {
             });
         }
 
-	# and add used, owned/non-shared disks (just to be sure we have all)
+	my $snapname;
 
-	PVE::QemuServer::foreach_volid($conf, sub {
+	my $test_volid = sub {
 	    my ($volid, $is_cdrom) = @_;
 
 	    return if !$volid;
@@ -271,17 +271,37 @@ sub sync_disks {
 
 	    return if $scfg->{shared};
 
-	    die "can't migrate local cdrom '$volid'\n" if $cdromhash->{$volid};
-
 	    $sharedvm = 0;
+
+	    die "can't migrate local cdrom '$volid'\n" if $cdromhash->{$volid};
 
 	    my ($path, $owner) = PVE::Storage::path($self->{storecfg}, $volid);
 
 	    die "can't migrate volume '$volid' - owned by other VM (owner = VM $owner)\n"
 		if !$owner || ($owner != $self->{vmid});
 
-	    $volhash->{$volid} = 1;
-	});
+	    if (defined($snapname)) {
+		# we cannot migrate shapshots on local storage
+		# exceptions: 'zfspool' or 'qcow2' files (on directory storage)
+
+		my $format = PVE::QemuServer::qemu_img_format($scfg, $volname);
+
+		if (($scfg->{type} eq 'zfspool') || ($format eq 'qcow2')) {
+		    $volhash->{$volid} = 1;
+		    return;
+		}
+
+		die "can't migrate snapshot of local volume '$volid'\n";
+
+	    } else {
+		$volhash->{$volid} = 1;
+	    }
+	};
+
+	PVE::QemuServer::foreach_volid($conf, $test_volid);
+	foreach $snapname (keys %{$conf->{snapshots}}) {
+	    PVE::QemuServer::foreach_volid($conf->{snapshots}->{$snapname}, $test_volid);
+	}
 
 	if ($self->{running} && !$sharedvm) {
 	    die "can't do online migration - VM uses local disks\n";
