@@ -2658,7 +2658,7 @@ sub foreach_drive {
 }
 
 sub foreach_volid {
-    my ($conf, $func) = @_;
+    my ($conf, $func, @param) = @_;
 
     my $volhash = {};
 
@@ -2685,7 +2685,7 @@ sub foreach_volid {
     }
 
     foreach my $volid (keys %$volhash) {
-	&$func($volid, $volhash->{$volid});
+	&$func($volid, $volhash->{$volid}, @param);
     }
 }
 

@@ -164,7 +164,7 @@ sub prepare {
 
     my $running = 0;
     if (my $pid = PVE::QemuServer::check_running($vmid)) {
-	die "cant migrate running VM without --online\n" if !$online;
+	die "can't migrate running VM without --online\n" if !$online;
 	$running = $pid;
 
 	$self->{forcemachine} = PVE::QemuServer::qemu_machine_pxe($vmid, $conf);
@@ -248,17 +248,15 @@ sub sync_disks {
             });
         }
 
-	my $snapname;
-
 	my $test_volid = sub {
-	    my ($volid, $is_cdrom) = @_;
+	    my ($volid, $is_cdrom, $snapname) = @_;
 
 	    return if !$volid;
 
 	    die "can't migrate local file/device '$volid'\n" if $volid =~ m|^/|;
 
 	    if ($is_cdrom) {
-		die "cant migrate local cdrom drive\n" if $volid eq 'cdrom';
+		die "can't migrate local cdrom drive\n" if $volid eq 'cdrom';
 		return if $volid eq 'none';
 		$cdromhash->{$volid} = 1;
 	    }
@@ -299,8 +297,8 @@ sub sync_disks {
 	};
 
 	PVE::QemuServer::foreach_volid($conf, $test_volid);
-	foreach $snapname (keys %{$conf->{snapshots}}) {
-	    PVE::QemuServer::foreach_volid($conf->{snapshots}->{$snapname}, $test_volid);
+	foreach my $snapname (keys %{$conf->{snapshots}}) {
+	    PVE::QemuServer::foreach_volid($conf->{snapshots}->{$snapname}, $test_volid, $snapname);
 	}
 
 	if ($self->{running} && !$sharedvm) {
