@@ -237,14 +237,17 @@ sub sync_disks {
 
             # get list from PVE::Storage (for unused volumes)
             my $dl = PVE::Storage::vdisk_list($self->{storecfg}, $storeid, $vmid);
+
+	    next if @{$dl->{$storeid}} == 0;
+
+            # check if storage is available on target node
+            PVE::Storage::storage_check_node($self->{storecfg}, $storeid, $self->{node});
+	    $sharedvm = 0; # there is a non-shared disk
+
             PVE::Storage::foreach_volid($dl, sub {
                 my ($volid, $sid, $volname) = @_;
 
-                # check if storage is available on target node
-                PVE::Storage::storage_check_node($self->{storecfg}, $sid, $self->{node});
-
                 $volhash->{$volid} = 1;
-		$sharedvm = 0; # there is a non-shared disk
             });
         }
 
