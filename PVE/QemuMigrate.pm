@@ -230,26 +230,26 @@ sub sync_disks {
 	my $sharedvm = 1;
 
 	my @sids = PVE::Storage::storage_ids($self->{storecfg});
-        foreach my $storeid (@sids) {
+	foreach my $storeid (@sids) {
 	    my $scfg = PVE::Storage::storage_config($self->{storecfg}, $storeid);
-            next if $scfg->{shared};
+	    next if $scfg->{shared};
 	    next if !PVE::Storage::storage_check_enabled($self->{storecfg}, $storeid, undef, 1);
 
-            # get list from PVE::Storage (for unused volumes)
-            my $dl = PVE::Storage::vdisk_list($self->{storecfg}, $storeid, $vmid);
+	    # get list from PVE::Storage (for unused volumes)
+	    my $dl = PVE::Storage::vdisk_list($self->{storecfg}, $storeid, $vmid);
 
 	    next if @{$dl->{$storeid}} == 0;
 
-            # check if storage is available on target node
-            PVE::Storage::storage_check_node($self->{storecfg}, $storeid, $self->{node});
+	    # check if storage is available on target node
+	    PVE::Storage::storage_check_node($self->{storecfg}, $storeid, $self->{node});
 	    $sharedvm = 0; # there is a non-shared disk
 
-            PVE::Storage::foreach_volid($dl, sub {
-                my ($volid, $sid, $volname) = @_;
+	    PVE::Storage::foreach_volid($dl, sub {
+		my ($volid, $sid, $volname) = @_;
 
-                $volhash->{$volid} = 1;
-            });
-        }
+		$volhash->{$volid} = 1;
+	    });
+	}
 
 	my $test_volid = sub {
 	    my ($volid, $is_cdrom, $snapname) = @_;
