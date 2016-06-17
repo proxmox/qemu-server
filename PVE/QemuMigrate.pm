@@ -299,9 +299,17 @@ sub sync_disks {
 	    }
 	};
 
-	PVE::QemuServer::foreach_volid($conf, $test_volid);
+	my $test_drive = sub {
+	    my ($ds, $drive, $snapname) = @_;
+
+	    &$test_volid($drive->{file}, PVE::QemuServer::drive_is_cdrom($drive), $snapname);
+	};
+
+	PVE::QemuServer::foreach_drive($conf, $test_drive);
 	foreach my $snapname (keys %{$conf->{snapshots}}) {
-	    PVE::QemuServer::foreach_volid($conf->{snapshots}->{$snapname}, $test_volid, $snapname);
+	    &$test_volid($conf->{snapshots}->{$snapname}->{'vmstate'}, 0, undef)
+		if defined($conf->{snapshots}->{$snapname}->{'vmstate'});
+	    PVE::QemuServer::foreach_drive($conf->{snapshots}->{$snapname}, $test_drive, $snapname);
 	}
 
 	if ($self->{running} && !$sharedvm) {
