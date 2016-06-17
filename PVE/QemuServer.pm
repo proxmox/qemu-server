@@ -2645,7 +2645,7 @@ sub vmstatus {
 }
 
 sub foreach_drive {
-    my ($conf, $func) = @_;
+    my ($conf, $func, @param) = @_;
 
     foreach my $ds (valid_drive_names()) {
 	next if !defined($conf->{$ds});
@@ -2653,7 +2653,7 @@ sub foreach_drive {
 	my $drive = parse_drive($ds, $conf->{$ds});
 	next if !$drive;
 
-	&$func($ds, $drive);
+	&$func($ds, $drive, @param);
     }
 }
 
