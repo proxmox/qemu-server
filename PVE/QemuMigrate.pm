@@ -225,7 +225,6 @@ sub sync_disks {
     eval {
 
 	my $volhash = {};
-	my $cdromhash = {};
 
 	my $sharedvm = 1;
 
@@ -261,7 +260,6 @@ sub sync_disks {
 	    if ($is_cdrom) {
 		die "can't migrate local cdrom drive\n" if $volid eq 'cdrom';
 		return if $volid eq 'none';
-		$cdromhash->{$volid} = 1;
 	    }
 
 	    my ($sid, $volname) = PVE::Storage::parse_volume_id($volid);
@@ -274,7 +272,7 @@ sub sync_disks {
 
 	    $sharedvm = 0;
 
-	    die "can't migrate local cdrom '$volid'\n" if $cdromhash->{$volid};
+	    die "can't migrate local cdrom '$volid'\n" if $is_cdrom;
 
 	    my ($path, $owner) = PVE::Storage::path($self->{storecfg}, $volid);
 
