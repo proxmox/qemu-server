@@ -1,3 +1,17 @@
+qemu-server (4.0-83) unstable; urgency=medium
+
+  * Add hugepages option
+
+  * Refactor various parts out of QemuServer
+
+  * Include USB devices in vm_devices_list
+
+  * Add usb hotplugging
+
+  * Fix syntax in pve-q35.cfg
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 22 Jun 2016 11:29:01 +0200
+
 qemu-server (4.0-82) unstable; urgency=medium
 
   * add dependency on DBus
