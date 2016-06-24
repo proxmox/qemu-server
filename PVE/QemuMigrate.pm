@@ -218,13 +218,15 @@ sub sync_disks {
 
     my $conf = $self->{vmconf};
 
+    # local volumes which have been copied
     $self->{volumes} = [];
 
     my $res = [];
 
     eval {
 
-	my $volhash = {};
+	# found local volumes and their origin
+	my $local_volumes = {};
 
 	my $sharedvm = 1;
 
@@ -246,7 +248,7 @@ sub sync_disks {
 	    PVE::Storage::foreach_volid($dl, sub {
 		my ($volid, $sid, $volname) = @_;
 
-		$volhash->{$volid} = 'storage';
+		$local_volumes->{$volid} = 'storage';
 	    });
 	}
 
@@ -272,7 +274,7 @@ sub sync_disks {
 
 	    $sharedvm = 0;
 
-	    $volhash->{$volid} = defined($snapname) ? 'snapshot' : 'config';
+	    $local_volumes->{$volid} = defined($snapname) ? 'snapshot' : 'config';
 
 	    die "can't migrate local cdrom '$volid'\n" if $is_cdrom;
 
@@ -309,12 +311,12 @@ sub sync_disks {
 	}
 	PVE::QemuServer::foreach_drive($conf, $test_drive);
 
-	foreach my $vol (sort keys %$volhash) {
-	    if ($volhash->{$vol} eq 'storage') {
+	foreach my $vol (sort keys %$local_volumes) {
+	    if ($local_volumes->{$vol} eq 'storage') {
 		$self->log('info', "found local disk '$vol' (via storage)\n");
-	    } elsif ($volhash->{$vol} eq 'config') {
+	    } elsif ($local_volumes->{$vol} eq 'config') {
 		$self->log('info', "found local disk '$vol' (in current VM config)\n");
-	    } elsif ($volhash->{$vol} eq 'snapshot') {
+	    } elsif ($local_volumes->{$vol} eq 'snapshot') {
 		$self->log('info', "found local disk '$vol' (referenced by snapshot(s))\n");
 	    } else {
 		$self->log('info', "found local disk '$vol'\n");
@@ -326,7 +328,7 @@ sub sync_disks {
 	}
 
 	# additional checks for local storage
-	foreach my $volid (keys %$volhash) {
+	foreach my $volid (keys %$local_volumes) {
 	    my ($sid, $volname) = PVE::Storage::parse_volume_id($volid);
 	    my $scfg =  PVE::Storage::storage_config($self->{storecfg}, $sid);
 
@@ -342,7 +344,7 @@ sub sync_disks {
 	    }
 	}
 
-	foreach my $volid (keys %$volhash) {
+	foreach my $volid (keys %$local_volumes) {
 	    my ($sid, $volname) = PVE::Storage::parse_volume_id($volid);
 	    push @{$self->{volumes}}, $volid;
 	    PVE::Storage::storage_migrate($self->{storecfg}, $volid, $self->{nodeip}, $sid);
