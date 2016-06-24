@@ -246,7 +246,7 @@ sub sync_disks {
 	    PVE::Storage::foreach_volid($dl, sub {
 		my ($volid, $sid, $volname) = @_;
 
-		$volhash->{$volid} = 1;
+		$volhash->{$volid} = 'storage';
 	    });
 	}
 
@@ -272,6 +272,8 @@ sub sync_disks {
 
 	    $sharedvm = 0;
 
+	    $volhash->{$volid} = defined($snapname) ? 'snapshot' : 'config';
+
 	    die "can't migrate local cdrom '$volid'\n" if $is_cdrom;
 
 	    my ($path, $owner) = PVE::Storage::path($self->{storecfg}, $volid);
@@ -286,14 +288,11 @@ sub sync_disks {
 		my $format = PVE::QemuServer::qemu_img_format($scfg, $volname);
 
 		if (($scfg->{type} eq 'zfspool') || ($format eq 'qcow2')) {
-		    $volhash->{$volid} = 1;
 		    return;
 		}
 
 		die "can't migrate snapshot of local volume '$volid'\n";
 
-	    } else {
-		$volhash->{$volid} = 1;
 	    }
 	};
 
@@ -308,6 +307,18 @@ sub sync_disks {
 	    &$test_volid($conf->{snapshots}->{$snapname}->{'vmstate'}, 0, undef)
 		if defined($conf->{snapshots}->{$snapname}->{'vmstate'});
 	    PVE::QemuServer::foreach_drive($conf->{snapshots}->{$snapname}, $test_drive, $snapname);
+	}
+
+	foreach my $vol (sort keys %$volhash) {
+	    if ($volhash->{$vol} eq 'storage') {
+		$self->log('info', "found local disk '$vol' (via storage)\n");
+	    } elsif ($volhash->{$vol} eq 'config') {
+		$self->log('info', "found local disk '$vol' (in current VM config)\n");
+	    } elsif ($volhash->{$vol} eq 'snapshot') {
+		$self->log('info', "found local disk '$vol' (referenced by snapshot(s))\n");
+	    } else {
+		$self->log('info', "found local disk '$vol'\n");
+	    }
 	}
 
 	if ($self->{running} && !$sharedvm) {
