@@ -302,12 +302,12 @@ sub sync_disks {
 	    &$test_volid($drive->{file}, PVE::QemuServer::drive_is_cdrom($drive), $snapname);
 	};
 
-	PVE::QemuServer::foreach_drive($conf, $test_drive);
 	foreach my $snapname (keys %{$conf->{snapshots}}) {
 	    &$test_volid($conf->{snapshots}->{$snapname}->{'vmstate'}, 0, undef)
 		if defined($conf->{snapshots}->{$snapname}->{'vmstate'});
 	    PVE::QemuServer::foreach_drive($conf->{snapshots}->{$snapname}, $test_drive, $snapname);
 	}
+	PVE::QemuServer::foreach_drive($conf, $test_drive);
 
 	foreach my $vol (sort keys %$volhash) {
 	    if ($volhash->{$vol} eq 'storage') {
