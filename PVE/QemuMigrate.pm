@@ -227,8 +227,22 @@ sub sync_disks {
 
 	# found local volumes and their origin
 	my $local_volumes = {};
+	my $local_volumes_errors = {};
+	my $other_errors = [];
+	my $abort = 0;
 
 	my $sharedvm = 1;
+
+	my $log_error = sub {
+	    my ($msg, $volid) = @_;
+
+	    if (defined($volid)) {
+		$local_volumes_errors->{$volid} = $msg;
+	    } else {
+		push @$other_errors, $msg;
+	    }
+	    $abort = 1;
+	};
 
 	my @sids = PVE::Storage::storage_ids($self->{storecfg});
 	foreach my $storeid (@sids) {
@@ -257,10 +271,20 @@ sub sync_disks {
 
 	    return if !$volid;
 
-	    die "can't migrate local file/device '$volid'\n" if $volid =~ m|^/|;
+	    if ($volid =~ m|^/|) {
+		$local_volumes->{$volid} = 'config';
+		die "local file/device\n";
+	    }
 
 	    if ($is_cdrom) {
-		die "can't migrate local cdrom drive\n" if $volid eq 'cdrom';
+		if ($volid eq 'cdrom') {
+		    my $msg = "can't migrate local cdrom drive";
+		    $msg .= " (referenced in snapshot '$snapname')"
+			if defined($snapname);
+
+		    &$log_error("$msg\n");
+		    return;
+		}
 		return if $volid eq 'none';
 	    }
 
@@ -276,11 +300,11 @@ sub sync_disks {
 
 	    $local_volumes->{$volid} = defined($snapname) ? 'snapshot' : 'config';
 
-	    die "can't migrate local cdrom '$volid'\n" if $is_cdrom;
+	    die "local cdrom image\n" if $is_cdrom;
 
 	    my ($path, $owner) = PVE::Storage::path($self->{storecfg}, $volid);
 
-	    die "can't migrate volume '$volid' - owned by other VM (owner = VM $owner)\n"
+	    die "owned by other VM (owner = VM $owner)\n"
 		if !$owner || ($owner != $self->{vmid});
 
 	    if (defined($snapname)) {
@@ -289,24 +313,29 @@ sub sync_disks {
 
 		my $format = PVE::QemuServer::qemu_img_format($scfg, $volname);
 
-		if (($scfg->{type} eq 'zfspool') || ($format eq 'qcow2')) {
-		    return;
+		if (!($scfg->{type} eq 'zfspool') || ($format eq 'qcow2')) {
+		    die "non-migratable snapshot exists\n";
 		}
-
-		die "can't migrate snapshot of local volume '$volid'\n";
-
 	    }
 	};
 
 	my $test_drive = sub {
 	    my ($ds, $drive, $snapname) = @_;
 
-	    &$test_volid($drive->{file}, PVE::QemuServer::drive_is_cdrom($drive), $snapname);
+	    eval {
+		&$test_volid($drive->{file}, PVE::QemuServer::drive_is_cdrom($drive), $snapname);
+	    };
+
+	    &$log_error($@, $drive->{file}) if $@;
 	};
 
 	foreach my $snapname (keys %{$conf->{snapshots}}) {
-	    &$test_volid($conf->{snapshots}->{$snapname}->{'vmstate'}, 0, undef)
-		if defined($conf->{snapshots}->{$snapname}->{'vmstate'});
+	    eval {
+		&$test_volid($conf->{snapshots}->{$snapname}->{'vmstate'}, 0, undef)
+		    if defined($conf->{snapshots}->{$snapname}->{'vmstate'});
+	    };
+	    &$log_error($@, $conf->{snapshots}->{$snapname}->{'vmstate'}) if $@;
+
 	    PVE::QemuServer::foreach_drive($conf->{snapshots}->{$snapname}, $test_drive, $snapname);
 	}
 	PVE::QemuServer::foreach_drive($conf, $test_drive);
@@ -323,8 +352,19 @@ sub sync_disks {
 	    }
 	}
 
+	foreach my $vol (sort keys %$local_volumes_errors) {
+	    $self->log('warn', "can't migrate local disk '$vol': $local_volumes_errors->{$vol}");
+	}
+	foreach my $err (@$other_errors) {
+	    $self->log('warn', "$err");
+	}
+
 	if ($self->{running} && !$sharedvm) {
 	    die "can't do online migration - VM uses local disks\n";
+	}
+
+	if ($abort) {
+	    die "can't migrate VM - check log\n";
 	}
 
 	# additional checks for local storage
