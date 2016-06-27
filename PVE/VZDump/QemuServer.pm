@@ -48,6 +48,9 @@ sub prepare {
 
     my $conf = $self->{vmlist}->{$vmid} = PVE::QemuConfig->load_config($vmid);
 
+    $self->loginfo("VM Name: $conf->{name}")
+	if defined($conf->{name});
+
     $self->{vm_was_running} = 1;
     if (!PVE::QemuServer::check_running($vmid)) {
 	$self->{vm_was_running} = 0;
