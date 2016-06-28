@@ -10,6 +10,8 @@ qemu-server (4.0-83) unstable; urgency=medium
 
   * Fix syntax in pve-q35.cfg
 
+  * Fix #146: add name to backup log
+
  -- Proxmox Support Team <support@proxmox.com>  Wed, 22 Jun 2016 11:29:01 +0200
 
 qemu-server (4.0-82) unstable; urgency=medium
