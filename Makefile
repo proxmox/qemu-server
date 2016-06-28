@@ -108,7 +108,7 @@ deb ${DEB}: ${PKGSOURCES}
 	lintian ${DEB}
 
 .PHONY: upload
-upload:
+upload: ${DEB}
 	umount /pve/${RELEASE}; mount /pve/${RELEASE} -o rw 
 	mkdir -p /pve/${RELEASE}/extra
 	rm -rf /pve/${RELEASE}/extra/${PACKAGE}_*.deb
