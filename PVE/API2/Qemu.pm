@@ -2525,6 +2525,11 @@ __PACKAGE__->register_method({
 	    die "you can't move on the same storage with same format\n" if $oldstoreid eq $storeid &&
                 (!$format || !$oldfmt || $oldfmt eq $format);
 
+	    # this only checks snapshots because $disk is passed!
+	    my $snapshotted = PVE::QemuServer::is_volume_in_use($storecfg, $conf, $disk, $old_volid);
+	    die "you can't move a disk with snapshots and delete the source\n"
+		if $snapshotted && $param->{delete};
+
 	    PVE::Cluster::log_msg('info', $authuser, "move disk VM $vmid: move --disk $disk --storage $storeid");
 
 	    my $running = PVE::QemuServer::check_running($vmid);
@@ -2537,6 +2542,9 @@ __PACKAGE__->register_method({
 
 		eval {
 		    local $SIG{INT} = $SIG{TERM} = $SIG{QUIT} = $SIG{HUP} = sub { die "interrupted by signal\n"; };
+
+		    warn "moving disk with snapshots, snapshots will not be moved!\n"
+			if $snapshotted;
 
 		    my $newdrive = PVE::QemuServer::clone_disk($storecfg, $vmid, $running, $disk, $drive, undef,
 							       $vmid, $storeid, $format, 1, $newvollist);
