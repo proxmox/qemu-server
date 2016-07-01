@@ -2572,17 +2572,11 @@ __PACKAGE__->register_method({
                 }
 
 		if ($param->{delete}) {
-                    if (PVE::QemuServer::is_volume_in_use($storecfg, $conf, undef, $old_volid)) {
-			warn "volume $old_volid still has snapshots, can't delete it\n";
-			PVE::QemuConfig->add_unused_volume($conf, $old_volid);
-			PVE::QemuConfig->write_config($vmid, $conf);
-		    } else {
-			eval {
-			    PVE::Storage::deactivate_volumes($storecfg, [$old_volid]);
-			    PVE::Storage::vdisk_free($storecfg, $old_volid);
-			};
-			warn $@ if $@;
-		    }
+		    eval {
+			PVE::Storage::deactivate_volumes($storecfg, [$old_volid]);
+			PVE::Storage::vdisk_free($storecfg, $old_volid);
+		    };
+		    warn $@ if $@;
 		}
 	    };
 
