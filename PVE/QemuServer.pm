@@ -3273,6 +3273,10 @@ sub vm_deviceplug {
 
     } elsif ($deviceid =~ m/^usb(\d+)$/) {
 
+	die "usb hotplug currently not reliable\n";
+	# since we can't reliably hot unplug all added usb devices
+	# and usb passthrough disables live migration
+	# we disable usb hotplugging for now
 	qemu_deviceadd($vmid, PVE::QemuServer::USB::print_usbdevice_full($conf, $deviceid, $device));
 
     } elsif ($deviceid =~ m/^(virtio)(\d+)$/) {
@@ -3372,6 +3376,10 @@ sub vm_deviceunplug {
 
     } elsif ($deviceid =~ m/^usb\d+$/) {
 
+	die "usb hotplug currently not reliable\n";
+	# when unplugging usb devices this way,
+	# there may be remaining usb controllers/hubs
+	# so we disable it for now
 	qemu_devicedel($vmid, $deviceid);
 	qemu_devicedelverify($vmid, $deviceid);
 
@@ -3910,6 +3918,9 @@ sub vmconfig_hotplug_pending {
 		    vm_deviceunplug($vmid, $conf, $opt);
 		}
 	    } elsif ($opt =~ m/^usb\d+/) {
+		die "skip\n";
+		# since we cannot reliably hot unplug usb devices
+		# we are disabling it
 		die "skip\n" if !$hotplug_features->{usb} || $conf->{$opt} =~ m/spice/i;
 		vm_deviceunplug($vmid, $conf, $opt);
 	    } elsif ($opt eq 'vcpus') {
@@ -3963,6 +3974,9 @@ sub vmconfig_hotplug_pending {
 		    vm_deviceunplug($vmid, $conf, $opt);
 		}
 	    } elsif ($opt =~ m/^usb\d+$/) {
+		die "skip\n";
+		# since we cannot reliably hot unplug usb devices
+		# we are disabling it
 		die "skip\n" if !$hotplug_features->{usb} || $value =~ m/spice/i;
 		my $d = eval { PVE::JSONSchema::parse_property_string($usbdesc->{format}, $value) };
 		die "skip\n" if !$d;
