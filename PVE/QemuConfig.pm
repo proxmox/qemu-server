@@ -264,6 +264,35 @@ sub __snapshot_rollback_vm_start {
     PVE::QemuServer::vm_start($storecfg, $vmid, $statefile, undef, undef, undef, $forcemachine);
 }
 
+sub __snapshot_rollback_get_unused {
+    my ($class, $conf, $snap) = @_;
+
+    my $unused = [];
+
+    $class->__snapshot_foreach_volume($conf, sub {
+	my ($vs, $volume) = @_;
+
+	return if PVE::QemuServer::drive_is_cdrom($volume);
+
+	my $found = 0;
+	my $volid = $volume->{file};
+
+	$class->__snapshot_foreach_volume($snap, sub {
+	    my ($ds, $drive) = @_;
+
+	    return if $found;
+	    return if PVE::QemuServer::drive_is_cdrom($drive);
+
+	    $found = 1
+		if ($drive->{file} && $drive->{file} eq $volid);
+	});
+
+	push @$unused, $volid if !$found;
+    });
+
+    return $unused;
+}
+
 sub __snapshot_foreach_volume {
     my ($class, $conf, $func) = @_;
 
