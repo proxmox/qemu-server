@@ -89,8 +89,9 @@ install: ${PKGSOURCES}
 	gzip -9 ${DESTDIR}/${MAN5DIR}/qm.conf.5
 	cd ${DESTDIR}/${MAN5DIR}; ln -s qm.conf.5.gz vm.conf.5.gz
 
-.PHONY: deb ${DEB}
+.PHONY: deb
 deb ${DEB}: ${PKGSOURCES}
+	rm -f *.deb
 	rm -rf build
 	mkdir build
 	make DESTDIR=${CURDIR}/build install
