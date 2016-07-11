@@ -1,3 +1,17 @@
+qemu-server (4.0-84) unstable; urgency=medium
+
+  * fix #1046: add non-snapshotted disks as unused
+
+  * fix #1040: warn early about moving a snapshotted disk
+
+  * disable usb hotplug for now
+
+  * remove old move disk snapshot check
+
+  * improve errors when trying to migrate disks with snapshots
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 11 Jul 2016 11:50:01 +0200
+
 qemu-server (4.0-83) unstable; urgency=medium
 
   * Add hugepages option
