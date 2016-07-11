@@ -184,7 +184,7 @@ my $cpuoptions = {
     'numa' => 1,
     'smp' => 1,
     'sockets' => 1,
-    'vpcus' => 1,
+    'vcpus' => 1,
 };
 
 my $memoryoptions = {
