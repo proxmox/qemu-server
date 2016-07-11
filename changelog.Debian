@@ -1,3 +1,9 @@
+qemu-server (4.0-85) unstable; urgency=medium
+
+  * Fix #1051: typo: vpcus -> vcpus - so non-root users can change vcpus again
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 11 Jul 2016 14:46:43 +0200
+
 qemu-server (4.0-84) unstable; urgency=medium
 
   * fix #1046: add non-snapshotted disks as unused
