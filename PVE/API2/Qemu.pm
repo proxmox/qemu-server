@@ -2392,6 +2392,7 @@ __PACKAGE__->register_method({
                     if ($target) {
 			# always deactivate volumes - avoid lvm LVs to be active on several nodes
 			PVE::Storage::deactivate_volumes($storecfg, $vollist, $snapname) if !$running;
+			PVE::Storage::deactivate_volumes($storecfg, $newvollist);
 
 			my $newconffile = PVE::QemuConfig->config_file($newid, $target);
 			die "Failed to move config to node '$target' - rename failed: $!\n"
