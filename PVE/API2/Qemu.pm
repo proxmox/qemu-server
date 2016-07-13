@@ -2311,7 +2311,8 @@ __PACKAGE__->register_method({
 		# always change MAC! address
 		if ($opt =~ m/^net(\d+)$/) {
 		    my $net = PVE::QemuServer::parse_net($value);
-		    $net->{macaddr} =  PVE::Tools::random_ether_addr();
+		    my $dc = PVE::Cluster::cfs_read_file('datacenter.cfg');
+		    $net->{macaddr} =  PVE::Tools::random_ether_addr($dc->{mac_prefix});
 		    $newconf->{$opt} = PVE::QemuServer::print_net($net);
 		} elsif (PVE::QemuServer::is_valid_drivename($opt)) {
 		    my $drive = PVE::QemuServer::parse_drive($opt, $value);

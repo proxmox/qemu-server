@@ -1692,7 +1692,10 @@ sub parse_net {
 	warn $@;
 	return undef;
     }
-    $res->{macaddr} = PVE::Tools::random_ether_addr() if !defined($res->{macaddr});
+    if (!defined($res->{macaddr})) {
+	my $dc = PVE::Cluster::cfs_read_file('datacenter.cfg');
+	$res->{macaddr} = PVE::Tools::random_ether_addr($dc->{mac_prefix});
+    }
     return $res;
 }
 
@@ -4932,12 +4935,13 @@ sub restore_update_config_line {
     return if $line =~ m/^parent:/;
     return if $line =~ m/^template:/; # restored VM is never a template
 
+    my $dc = PVE::Cluster::cfs_read_file('datacenter.cfg');
     if (($line =~ m/^(vlan(\d+)):\s*(\S+)\s*$/)) {
 	# try to convert old 1.X settings
 	my ($id, $ind, $ethcfg) = ($1, $2, $3);
 	foreach my $devconfig (PVE::Tools::split_list($ethcfg)) {
 	    my ($model, $macaddr) = split(/\=/, $devconfig);
-	    $macaddr = PVE::Tools::random_ether_addr() if !$macaddr || $unique;
+	    $macaddr = PVE::Tools::random_ether_addr($dc->{mac_prefix}) if !$macaddr || $unique;
 	    my $net = {
 		model => $model,
 		bridge => "vmbr$ind",
@@ -4951,7 +4955,7 @@ sub restore_update_config_line {
     } elsif (($line =~ m/^(net\d+):\s*(\S+)\s*$/) && $unique) {
 	my ($id, $netstr) = ($1, $2);
 	my $net = parse_net($netstr);
-	$net->{macaddr} = PVE::Tools::random_ether_addr() if $net->{macaddr};
+	$net->{macaddr} = PVE::Tools::random_ether_addr($dc->{mac_prefix}) if $net->{macaddr};
 	$netstr = print_net($net);
 	print $outfd "$id: $netstr\n";
     } elsif ($line =~ m/^((ide|scsi|virtio|sata)\d+):\s*(\S+)\s*$/) {
