@@ -5754,7 +5754,7 @@ sub clone_disk {
 	$newvolid = PVE::Storage::vdisk_alloc($storecfg, $storeid, $newvmid, $format, undef, ($size/1024));
 	push @$newvollist, $newvolid;
 
-	PVE::Storage::activate_volumes($storecfg, $newvollist);
+	PVE::Storage::activate_volumes($storecfg, [$newvolid]);
 
 	my $sparseinit = PVE::Storage::volume_has_feature($storecfg, 'sparseinit', $newvolid);
 	if (!$running || $snapname) {
