@@ -75,6 +75,32 @@ sub run_vnc_proxy {
     exit(0);
 }
 
+sub print_recursive_hash {
+    my ($prefix, $hash, $key) = @_;
+
+    if (ref($hash) eq 'HASH') {
+	if (defined($key)) {
+	    print "$prefix$key:\n";
+	}
+	foreach my $itemkey (keys %$hash) {
+	    print_recursive_hash("\t$prefix", $hash->{$itemkey}, $itemkey);
+	}
+    } elsif (ref($hash) eq 'ARRAY') {
+	if (defined($key)) {
+	    print "$prefix$key:\n";
+	}
+	foreach my $item (@$hash) {
+	    print_recursive_hash("\t$prefix", $item);
+	}
+    } elsif (!ref($hash) && defined($hash)) {
+	if (defined($key)) {
+	    print "$prefix$key: $hash\n";
+	} else {
+	    print "$prefix$hash\n";
+	}
+    }
+}
+
 __PACKAGE__->register_method ({
     name => 'showcmd',
     path => 'showcmd',
@@ -125,8 +151,7 @@ __PACKAGE__->register_method ({
 	    foreach my $k (sort (keys %$stat)) {
 		next if $k eq 'cpu' || $k eq 'relcpu'; # always 0
 		my $v = $stat->{$k};
-		next if !defined($v);
-		print "$k: $v\n";
+		print_recursive_hash("", $v, $k);
 	    }
 	} else {
 	    my $status = $stat->{qmpstatus} || 'unknown';
