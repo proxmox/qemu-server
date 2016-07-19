@@ -3871,6 +3871,7 @@ my $fast_plug_option = {
     'shares' => 1,
     'startup' => 1,
     'description' => 1,
+    'protection' => 1,
 };
 
 # hotplug changes in [PENDING]
