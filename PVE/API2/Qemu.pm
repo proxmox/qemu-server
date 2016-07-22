@@ -2507,6 +2507,8 @@ __PACKAGE__->register_method({
 
 	    my $conf = PVE::QemuConfig->load_config($vmid);
 
+	    PVE::QemuConfig->check_lock($conf);
+
 	    die "checksum missmatch (file change by other user?)\n"
 		if $digest && $digest ne $conf->{digest};
 
