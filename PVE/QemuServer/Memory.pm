@@ -230,17 +230,8 @@ sub config {
 	    # hostnodes
 	    my $hostnodelists = $numa->{hostnodes};
 	    if (defined($hostnodelists)) {
-		my $hostnodes;
-		foreach my $hostnoderange (@$hostnodelists) {
-		    my ($start, $end) = @$hostnoderange;
-		    $hostnodes .= ',' if $hostnodes;
-		    $hostnodes .= $start;
-		    $hostnodes .= "-$end" if defined($end);
-		    $end //= $start;
-		    for (my $i = $start; $i <= $end; ++$i ) {
-			die "host NUMA node$i doesn't exist\n" if ! -d "/sys/devices/system/node/node$i/";
-		    }
-		}
+
+		my $hostnodes = print_numa_hostnodes($hostnodelists);
 
 		# policy
 		my $policy = $numa->{policy};
@@ -309,6 +300,23 @@ sub print_mem_object {
 	return "memory-backend-ram,id=$id,size=${size}M";
     }
 
+}
+
+sub print_numa_hostnodes {
+    my ($hostnodelists) = @_;
+
+    my $hostnodes;
+    foreach my $hostnoderange (@$hostnodelists) {
+	my ($start, $end) = @$hostnoderange;
+	$hostnodes .= ',' if $hostnodes;
+	$hostnodes .= $start;
+	$hostnodes .= "-$end" if defined($end);
+	$end //= $start;
+	for (my $i = $start; $i <= $end; ++$i ) {
+	    die "host NUMA node$i doesn't exist\n" if ! -d "/sys/devices/system/node/node$i/";
+	}
+    }
+    return $hostnodes;
 }
 
 sub hugepages_mount {
@@ -406,9 +414,12 @@ sub hugepages_topology {
 
 	$numa_custom_topology = 1;
 	my $numa_memory = $numa->{memory};
+	my $hostnodelists = $numa->{hostnodes};
+	my $hostnodes = print_numa_hostnodes($hostnodelists);
 
+        die "more than 1 hostnode value in numa node is not supported when hugepages are enabled" if $hostnodes !~ m/^(\d)$/;
         my $hugepages_size = hugepages_size($conf, $numa_memory);
-        $hugepages_topology->{$hugepages_size}->{$i} += hugepages_nr($numa_memory, $hugepages_size);
+        $hugepages_topology->{$hugepages_size}->{$hostnodes} += hugepages_nr($numa_memory, $hugepages_size);
 
     }
 
