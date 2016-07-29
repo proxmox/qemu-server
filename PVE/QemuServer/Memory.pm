@@ -263,7 +263,7 @@ sub config {
 	    my $numa_memory = ($static_memory / $sockets);
 
 	    for (my $i = 0; $i < $sockets; $i++)  {
-		die "host NUMA node$i doesn't exist\n" if ! -d "/sys/devices/system/node/node$i/";
+		die "host NUMA node$i doesn't exist\n" if ! -d "/sys/devices/system/node/node$i/" && $conf->{hugepages};
 
 		my $cpustart = ($cores * $i);
 		my $cpuend = ($cpustart + $cores - 1) if $cores && $cores > 1;
