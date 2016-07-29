@@ -10,6 +10,33 @@ my $MAX_NUMA = 8;
 my $MAX_MEM = 4194304;
 my $STATICMEM = 1024;
 
+sub get_numa_node_list {
+    my ($conf) = @_;
+    my @numa_map;
+    for (my $i = 0; $i < $MAX_NUMA; $i++) {
+	my $entry = $conf->{"numa$i"} or next;
+	my $numa = PVE::QemuServer::parse_numa($entry) or next;
+	push @numa_map, $i;
+    }
+    return @numa_map if @numa_map;
+    my $sockets = $conf->{sockets} || 1;
+    return (0..($sockets-1));
+}
+
+# only valid when numa nodes map to a single host node
+sub get_numa_guest_to_host_map {
+    my ($conf) = @_;
+    my $map = {};
+    for (my $i = 0; $i < $MAX_NUMA; $i++) {
+	my $entry = $conf->{"numa$i"} or next;
+	my $numa = PVE::QemuServer::parse_numa($entry) or next;
+	$map->{$i} = print_numa_hostnodes($numa->{hostnodes});
+    }
+    return $map if %$map;
+    my $sockets = $conf->{sockets} || 1;
+    return map { $_ => $_ } (0..($sockets-1));
+}
+
 sub foreach_dimm{
     my ($conf, $vmid, $memory, $sockets, $func) = @_;
 
@@ -27,11 +54,13 @@ sub foreach_dimm{
 
     return if $current_size == $memory;
 
+    my @numa_map = get_numa_node_list($conf);
+
     for (my $j = 0; $j < 8; $j++) {
 	for (my $i = 0; $i < 32; $i++) {
 	    my $name = "dimm${dimm_id}";
 	    $dimm_id++;
-	    my $numanode = $i % $sockets;
+	    my $numanode = $numa_map[$i % @numa_map];
 	    $current_size += $dimm_size;
 	    &$func($conf, $vmid, $name, $dimm_size, $numanode, $current_size, $memory);
 	    return  $current_size if $current_size >= $memory;
@@ -57,11 +86,13 @@ sub foreach_reverse_dimm {
 
     return if $current_size == $memory;
 
+    my @numa_map = get_numa_node_list($conf);
+
     for (my $j = 0; $j < 8; $j++) {
 	for (my $i = 0; $i < 32; $i++) {
  	    my $name = "dimm${dimm_id}";
  	    $dimm_id--;
- 	    my $numanode = $i % $sockets;
+	    my $numanode = $numa_map[(31-$i) % @numa_map];
  	    $current_size -= $dimm_size;
  	    &$func($conf, $vmid, $name, $dimm_size, $numanode, $current_size, $memory);
 	    return  $current_size if $current_size <= $memory;
@@ -90,6 +121,8 @@ sub qemu_memory_hotplug {
 
     if($value > $memory) {
 
+	my $numa_hostmap = get_numa_guest_to_host_map($conf) if $conf->{hugepages};
+
     	foreach_dimm($conf, $vmid, $value, $sockets, sub {
 	    my ($conf, $vmid, $name, $dimm_size, $numanode, $current_size, $memory) = @_;
 
@@ -99,7 +132,8 @@ sub qemu_memory_hotplug {
 
 		    my $hugepages_size = hugepages_size($conf, $dimm_size);
 		    my $path = hugepages_mount_path($hugepages_size);
-		    my $hugepages_topology->{$hugepages_size}->{$numanode} = hugepages_nr($dimm_size, $hugepages_size);
+		    my $host_numanode = $numa_hostmap->{$numanode};
+		    my $hugepages_topology->{$hugepages_size}->{$host_numanode} = hugepages_nr($dimm_size, $hugepages_size);
 
 		    my $code = sub {
 			my $hugepages_host_topology = hugepages_host_topology();
@@ -436,8 +470,12 @@ sub hugepages_topology {
     }
 
     if ($hotplug_features->{memory}) {
+	my $numa_hostmap = get_numa_guest_to_host_map($conf);
+
 	foreach_dimm($conf, undef, $memory, $sockets, sub {
 	    my ($conf, undef, $name, $dimm_size, $numanode, $current_size, $memory) = @_;
+
+	    $numanode = $numa_hostmap->{$numanode};
 
 	    my $hugepages_size = hugepages_size($conf, $dimm_size);
 	    $hugepages_topology->{$hugepages_size}->{$numanode} += hugepages_nr($dimm_size, $hugepages_size);
