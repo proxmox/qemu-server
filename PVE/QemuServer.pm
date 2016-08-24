@@ -1674,7 +1674,12 @@ sub parse_hostpci {
     delete $res->{host};
     foreach my $id (@idlist) {
 	if ($id =~ /^$PCIRE$/) {
-	    push @{$res->{pciid}}, { id => $1, function => ($2//'0') };
+	    if (defined($2)) {
+		push @{$res->{pciid}}, { id => $1, function => $2 };
+	    } else {
+		my $pcidevices = lspci($1);
+		$res->{pciid} = $pcidevices->{$1};
+	    }
 	} else {
 	    # should have been caught by parse_property_string already
 	    die "failed to parse PCI id: $id\n";
