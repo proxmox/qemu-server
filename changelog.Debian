@@ -1,3 +1,25 @@
+qemu-server (4.0-86) unstable; urgency=medium
+
+  * hostpci: bring back multifunction pass-through shortcut
+
+  * disable drive-mirror when iothread is enabled
+
+  * hugepages: map numa node IDs to host and guest correctly
+
+  * hugepages: use hostnodes value as numanode for topology
+
+  * qemu-img convert : use default cache=unsafe instead writeback
+
+  * Fix #1057: make protection a fast-plug option
+
+  * add lock check for move_disk API call
+
+  * deactivate new volumes after clone to other node
+
+  * pass datacenter.cfg's mac_prefix to random_ether_addr
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 29 Aug 2016 10:11:07 +0200
+
 qemu-server (4.0-85) unstable; urgency=medium
 
   * Fix #1051: typo: vpcus -> vcpus - so non-root users can change vcpus again
