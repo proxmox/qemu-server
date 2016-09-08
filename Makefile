@@ -71,6 +71,7 @@ install: ${PKGSOURCES}
 	install -m 0644 pve-q35.cfg ${DESTDIR}/usr/share/${PACKAGE}
 	install -m 0644 -D qm.bash-completion ${DESTDIR}/${BASHCOMPLDIR}/qm
 	install -m 0644 -D qmrestore.bash-completion ${DESTDIR}/${BASHCOMPLDIR}/qmrestore
+	install -m 0644 -D bootsplash.jpg ${DESTDIR}/usr/share/${PACKAGE}
 	make -C PVE install
 	install -m 0755 qm ${DESTDIR}${SBINDIR}
 	install -m 0755 qmrestore ${DESTDIR}${SBINDIR}

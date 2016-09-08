@@ -2965,7 +2965,7 @@ sub config_to_command {
 	$i++;
     }
 
-    push @$cmd, '-boot', "menu=on,strict=on,reboot-timeout=1000";
+    push @$cmd, '-boot', "menu=on,strict=on,reboot-timeout=1000,splash=/usr/share/qemu-server/bootsplash.jpg";
 
     push @$cmd, '-no-acpi' if defined($conf->{acpi}) && $conf->{acpi} == 0;
 
