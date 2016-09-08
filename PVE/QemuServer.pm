@@ -37,6 +37,10 @@ use Time::HiRes qw(gettimeofday);
 use File::Copy qw(copy);
 use URI::Escape;
 
+my $OVMF_CODE = '/usr/share/kvm/OVMF_CODE-pure-efi.fd';
+my $OVMF_VARS = '/usr/share/kvm/OVMF_VARS-pure-efi.fd';
+my $OVMF_IMG = '/usr/share/kvm/OVMF-pure-efi.fd';
+
 my $qemu_snap_storage = {rbd => 1, sheepdog => 1};
 
 my $cpuinfo = PVE::ProcFSTools::read_cpuinfo();
@@ -2782,12 +2786,43 @@ sub config_to_command {
     }
 
     if ($conf->{bios} && $conf->{bios} eq 'ovmf') {
-	my $ovmfvar = "OVMF_VARS-pure-efi.fd";
-	my $ovmfvar_src = "/usr/share/kvm/$ovmfvar";
-	my $ovmfvar_dst = "/tmp/$vmid-$ovmfvar";
-	PVE::Tools::file_copy($ovmfvar_src, $ovmfvar_dst, 256*1024);
-	push @$cmd, '-drive', "if=pflash,format=raw,readonly,file=/usr/share/kvm/OVMF-pure-efi.fd";
-	push @$cmd, '-drive', "if=pflash,format=raw,file=$ovmfvar_dst";
+	my $ovmfbase;
+
+	# prefer the OVMF_CODE variant
+	if (-f $OVMF_CODE) {
+	    $ovmfbase = $OVMF_CODE;
+	} elsif (-f $OVMF_IMG) {
+	    $ovmfbase = $OVMF_IMG;
+	}
+
+	die "no uefi base img found\n" if !$ovmfbase;
+	push @$cmd, '-drive', "if=pflash,unit=0,format=raw,readonly,file=$ovmfbase";
+	my $d = eval { PVE::JSONSchema::parse_property_string($efidisk_fmt, $conf->{efidisk0}) };
+	if (defined($conf->{efidisk0}) && defined($d) && $ovmfbase eq $OVMF_CODE) {
+	    my $format = $d->{format} // 'raw';
+	    my $path;
+	    my ($storeid, $volname) = PVE::Storage::parse_volume_id($d->{file}, 1);
+	    if ($storeid) {
+		$path = PVE::Storage::path($storecfg, $d->{file});
+		my $scfg = PVE::Storage::storage_config($storecfg, $storeid);
+		$format = qemu_img_format($scfg, $volname);
+	    } else {
+		$path = $d->{file};
+		$format = "raw";
+	    }
+	    push @$cmd, '-drive', "if=pflash,unit=1,id=drive-efidisk0,format=$format,file=$path";
+	} elsif ($ovmfbase eq $OVMF_CODE) {
+	    warn "using uefi without permanent efivars disk\n";
+	    my $ovmfvar_dst = "/tmp/$vmid-ovmf.fd";
+	    PVE::Tools::file_copy($OVMF_VARS, $ovmfvar_dst, 256*1024);
+	    push @$cmd, '-drive', "if=pflash,unit=1,format=raw,file=$ovmfvar_dst";
+	} else {
+	    # if the base img is not OVMF_CODE, we do not have to bother
+	    # to create/use a vars image, since it will not be used anyway
+	    # this can only happen if someone manually deletes the OVMF_CODE image
+	    # or has an old pve-qemu-kvm version installed.
+	    # both should not happen, but we ignore it here
+	}
     }
 
 
