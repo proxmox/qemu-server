@@ -901,6 +901,39 @@ my $alldrive_fmt = {
     %queues_fmt,
 };
 
+my $efidisk_fmt = {
+    volume => { alias => 'file' },
+    file => {
+	type => 'string',
+	format => 'pve-volume-id-or-qm-path',
+	default_key => 1,
+	format_description => 'volume',
+	description => "The drive's backing volume.",
+    },
+    format => {
+	type => 'string',
+	format_description => 'image format',
+	enum => [qw(raw cow qcow qed qcow2 vmdk cloop)],
+	description => "The drive's backing file's data format.",
+	optional => 1,
+    },
+    size => {
+	type => 'string',
+	format => 'disk-size',
+	format_description => 'DiskSize',
+	description => "Disk size. This is purely informational and has no effect.",
+	optional => 1,
+    },
+};
+
+my $efidisk_desc = {
+    optional => 1,
+    type => 'string', format => $efidisk_fmt,
+    description => "Configure a Disk for storing EFI vars",
+};
+
+PVE::JSONSchema::register_standard_option("pve-qm-efidisk", $efidisk_desc);
+
 my $usb_fmt = {
     host => {
 	default_key => 1,
@@ -1050,6 +1083,9 @@ for (my $i = 0; $i < $MAX_VIRTIO_DISKS; $i++)  {
     $confdesc->{"virtio$i"} = $virtiodesc;
 }
 
+$drivename_hash->{efidisk0} = 1;
+$confdesc->{efidisk0} = $efidisk_desc;
+
 for (my $i = 0; $i < $MAX_USB_DEVICES; $i++)  {
     $confdesc->{"usb$i"} = $usbdesc;
 }
@@ -1111,7 +1147,8 @@ sub valid_drive_names {
     return ((map { "ide$_" } (0 .. ($MAX_IDE_DISKS - 1))),
             (map { "scsi$_" } (0 .. ($MAX_SCSI_DISKS - 1))),
             (map { "virtio$_" } (0 .. ($MAX_VIRTIO_DISKS - 1))),
-            (map { "sata$_" } (0 .. ($MAX_SATA_DISKS - 1))));
+            (map { "sata$_" } (0 .. ($MAX_SATA_DISKS - 1))),
+            'efidisk0');
 }
 
 sub is_valid_drivename {
@@ -3136,6 +3173,11 @@ sub config_to_command {
            $ahcicontroller->{$controller}=1;
         }
 
+	if ($drive->{interface} eq 'efidisk') {
+	    # this will be added somewhere else
+	    return;
+	}
+
 	my $drive_cmd = print_drive_full($storecfg, $vmid, $drive);
 	push @$devices, '-drive',$drive_cmd;
 	push @$devices, '-device', print_drivedevice_full($storecfg, $conf, $vmid, $drive, $bridges);
@@ -4964,7 +5006,7 @@ sub restore_update_config_line {
 	$net->{macaddr} = PVE::Tools::random_ether_addr($dc->{mac_prefix}) if $net->{macaddr};
 	$netstr = print_net($net);
 	print $outfd "$id: $netstr\n";
-    } elsif ($line =~ m/^((ide|scsi|virtio|sata)\d+):\s*(\S+)\s*$/) {
+    } elsif ($line =~ m/^((ide|scsi|virtio|sata|efidisk)\d+):\s*(\S+)\s*$/) {
 	my $virtdev = $1;
 	my $value = $3;
 	my $di = parse_drive($virtdev, $value);
