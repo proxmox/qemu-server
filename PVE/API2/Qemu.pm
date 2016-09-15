@@ -490,6 +490,10 @@ __PACKAGE__->register_method({
 
 		    die "unable to restore vm $vmid - vm is running\n"
 			if PVE::QemuServer::check_running($vmid);
+
+		    die "unable to restore vm $vmid - vm is a template\n"
+			if PVE::QemuConfig->is_template($conf);
+
 		} else {
 		    die "unable to restore vm $vmid - already existing on cluster node '$current_node'\n";
 		}
