@@ -317,6 +317,9 @@ sub sync_disks {
 		    die "non-migratable snapshot exists\n";
 		}
 	    }
+
+	    die "referenced by linked clone(s)\n"
+		if PVE::Storage::volume_is_base_and_used($self->{storecfg}, $volid);
 	};
 
 	my $test_drive = sub {
