@@ -5343,7 +5343,10 @@ sub restore_vma_archive {
 		# Note: only delete disk we want to restore
 		# other volumes will become unused
 		if ($virtdev_hash->{$ds}) {
-		    PVE::Storage::vdisk_free($cfg, $volid);
+		    eval { PVE::Storage::vdisk_free($cfg, $volid); };
+		    if (my $err = $@) {
+			warn $err;
+		    }
 		}
 	    });
 
