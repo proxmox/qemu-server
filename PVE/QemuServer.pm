@@ -4606,7 +4606,7 @@ sub vm_commandline {
 
     my $cmd = config_to_command($storecfg, $vmid, $conf, $defaults);
 
-    return join(' ', @$cmd);
+    return PVE::Tools::cmd2string($cmd);
 }
 
 sub vm_reset {
