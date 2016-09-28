@@ -2797,8 +2797,9 @@ sub config_to_command {
 
 	die "no uefi base img found\n" if !$ovmfbase;
 	push @$cmd, '-drive', "if=pflash,unit=0,format=raw,readonly,file=$ovmfbase";
-	my $d = eval { PVE::JSONSchema::parse_property_string($efidisk_fmt, $conf->{efidisk0}) };
-	if (defined($conf->{efidisk0}) && defined($d) && $ovmfbase eq $OVMF_CODE) {
+
+	if (defined($conf->{efidisk0}) && ($ovmfbase eq $OVMF_CODE)) {
+	    my $d = PVE::JSONSchema::parse_property_string($efidisk_fmt, $conf->{efidisk0});
 	    my $format = $d->{format} // 'raw';
 	    my $path;
 	    my ($storeid, $volname) = PVE::Storage::parse_volume_id($d->{file}, 1);
