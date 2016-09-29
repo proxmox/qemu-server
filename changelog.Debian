@@ -1,3 +1,9 @@
+qemu-server (4.0-89) unstable; urgency=medium
+
+  * fix manual page (use efidisk0 instead of efidisk[N])
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 29 Sep 2016 12:21:07 +0200
+
 qemu-server (4.0-88) unstable; urgency=medium
 
   * restore: better error handling for vdisk deletion
