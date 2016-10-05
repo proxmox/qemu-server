@@ -1,3 +1,11 @@
+qemu-server (4.0-90) unstable; urgency=medium
+
+  * fix #1111: qm showcmd wrong escape sequence
+
+  * Avoid to parse empty property string
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 05 Oct 2016 07:13:33 +0200
+
 qemu-server (4.0-89) unstable; urgency=medium
 
   * fix manual page (use efidisk0 instead of efidisk[N])
