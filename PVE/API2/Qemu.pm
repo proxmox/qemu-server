@@ -137,9 +137,12 @@ my $create_disks = sub {
 		my $scfg = PVE::Storage::storage_config($storecfg, $storeid);
 		my $qemufmt = PVE::QemuServer::qemu_img_format($scfg, $volname);
 		my $path = PVE::Storage::path($storecfg, $volid);
-		my $efidiskcmd = ['/usr/bin/qemu-img', 'convert', '-f', 'raw', '-O', $qemufmt];
+		my $efidiskcmd = ['/usr/bin/qemu-img', 'convert', '-n', '-f', 'raw', '-O', $qemufmt];
 		push @$efidiskcmd, $ovmfvars;
 		push @$efidiskcmd, $path;
+
+		PVE::Storage::activate_volumes($storecfg, [$volid]);
+
 		eval { PVE::Tools::run_command($efidiskcmd); };
 		my $err = $@;
 		die "Copying of EFI Vars image failed: $err" if $err;
