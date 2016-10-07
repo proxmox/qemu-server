@@ -490,6 +490,17 @@ our $cmddef = {
 
     delsnapshot => [ "PVE::API2::Qemu", 'delsnapshot', ['vmid', 'snapname'], { node => $nodename } , $upid_exit ],
 
+    listsnapshot => [ "PVE::API2::Qemu", 'snapshot_list', ['vmid'], { node => $nodename },
+		    sub {
+			my $res = shift;
+			foreach my $e (@$res) {
+			    my $headline = $e->{description} || 'no-description';
+			    $headline =~ s/\n.*//sg;
+			    my $parent = $e->{parent} // 'no-parent';
+			    printf("%-20s %-20s %s\n", $e->{name}, $parent, $headline);
+			}
+		    }],
+
     rollback => [ "PVE::API2::Qemu", 'rollback', ['vmid', 'snapname'], { node => $nodename } , $upid_exit ],
 
     template => [ "PVE::API2::Qemu", 'template', ['vmid'], { node => $nodename }],
