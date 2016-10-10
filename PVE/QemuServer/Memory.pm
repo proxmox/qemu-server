@@ -256,7 +256,7 @@ sub config {
 	    # cpus
 	    my $cpulists = $numa->{cpus};
 	    die "missing NUMA node$i cpus\n" if !defined($cpulists);
-	    my $cpus = join(',', map {
+	    my $cpus = join(',cpus=', map {
 		my ($start, $end) = @$_;
 		defined($end) ? "$start-$end" : $start
 	    } @$cpulists);
