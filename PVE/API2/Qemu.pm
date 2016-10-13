@@ -1732,7 +1732,7 @@ __PACKAGE__->register_method({
 		optional => 1,
 	    },
 	    keepActive => {
-		description => "Do not decativate storage volumes.",
+		description => "Do not deactivate storage volumes.",
 		type => 'boolean',
 		optional => 1,
 		default => 0,
@@ -1883,7 +1883,7 @@ __PACKAGE__->register_method({
 		default => 0,
 	    },
 	    keepActive => {
-		description => "Do not decativate storage volumes.",
+		description => "Do not deactivate storage volumes.",
 		type => 'boolean',
 		optional => 1,
 		default => 0,
