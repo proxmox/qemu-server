@@ -2975,8 +2975,18 @@ sub config_to_command {
     die "MAX $allowed_vcpus vcpus allowed per VM on this node\n"
 	if ($allowed_vcpus < $maxcpus);
 
-    push @$cmd, '-smp', "$vcpus,sockets=$sockets,cores=$cores,maxcpus=$maxcpus";
+    if($hotplug_features->{cpu} && qemu_machine_feature_enabled ($machine_type, $kvmver, 2, 7)) {
 
+	push @$cmd, '-smp', "1,sockets=$sockets,cores=$cores,maxcpus=$maxcpus";
+        for (my $i = 2; $i <= $vcpus; $i++)  {
+	    my $cpustr = print_cpu_device($conf,$i);
+	    push @$cmd, '-device', $cpustr;
+	}
+
+    } else {
+
+	push @$cmd, '-smp', "$vcpus,sockets=$sockets,cores=$cores,maxcpus=$maxcpus";
+    }
     push @$cmd, '-nodefaults';
 
     my $bootorder = $conf->{boot} || $confdesc->{boot}->{default};
