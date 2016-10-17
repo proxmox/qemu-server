@@ -5927,8 +5927,11 @@ sub clone_disk {
 	if (!$running || $snapname) {
 	    qemu_img_convert($drive->{file}, $newvolid, $size, $snapname, $sparseinit);
 	} else {
-	    #qemu 2.6
-	    die "drive-mirror is not working currently when iothread is enabled" if $drive->{iothread};
+
+	    my $kvmver = get_running_qemu_version ($vmid);
+	    if (!qemu_machine_feature_enabled (undef, $kvmver, 2, 7)) {
+		die "drive-mirror with iothread only works since qemu 2.7" if $drive->{iothread};
+	    }
 
 	    qemu_drive_mirror($vmid, $drivename, $newvolid, $newvmid, $sparseinit);
 	}
