@@ -1674,6 +1674,28 @@ sub print_netdev_full {
     return $netdev;
 }
 
+
+sub print_cpu_device {
+    my ($conf, $id) = @_;
+
+    my $nokvm = defined($conf->{kvm}) && $conf->{kvm} == 0 ? 1 : 0;
+    my $cpu = $nokvm ? "qemu64" : "kvm64";
+    if (my $cputype = $conf->{cpu}) {
+	my $cpuconf = PVE::JSONSchema::parse_property_string($cpu_fmt, $cputype)
+	    or die "Cannot parse cpu description: $cputype\n";
+	$cpu = $cpuconf->{cputype};
+    }
+
+    my $sockets = 1;
+    $sockets = $conf->{sockets} if  $conf->{sockets};
+    my $cores = $conf->{cores} || 1;
+
+    my $current_core = ($id - 1) % $cores;
+    my $current_socket = int(($id - $current_core)/$cores);
+
+    return "$cpu-x86_64-cpu,id=cpu$id,socket-id=$current_socket,core-id=$current_core,thread-id=0";
+}
+
 sub drive_is_cdrom {
     my ($drive) = @_;
 
