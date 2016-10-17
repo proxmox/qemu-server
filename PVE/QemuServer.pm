@@ -3761,6 +3761,8 @@ sub qemu_usb_hotplug {
 sub qemu_cpu_hotplug {
     my ($vmid, $conf, $vcpus) = @_;
 
+    my $machine_type = PVE::QemuServer::get_current_qemu_machine($vmid);
+
     my $sockets = 1;
     $sockets = $conf->{smp} if $conf->{smp}; # old style - no longer iused
     $sockets = $conf->{sockets} if  $conf->{sockets};
@@ -3773,8 +3775,32 @@ sub qemu_cpu_hotplug {
 	if $vcpus > $maxcpus;
 
     my $currentvcpus = $conf->{vcpus} || $maxcpus;
-    die "online cpu unplug is not yet possible\n"
-	if $vcpus < $currentvcpus;
+
+    if ($vcpus < $currentvcpus) { 
+
+	if (qemu_machine_feature_enabled ($machine_type, undef, 2, 7)) {
+
+	    for (my $i = $currentvcpus; $i > $vcpus; $i--) {
+		qemu_devicedel($vmid, "cpu$i");
+		my $retry = 0;
+		my $currentrunningvcpus = undef;
+		while (1) {
+		    $currentrunningvcpus = vm_mon_cmd($vmid, "query-cpus");
+		    last if scalar(@{$currentrunningvcpus}) == $i-1;
+		    raise_param_exc({ "cpu unplug" => "error unplug cpu$i" }) if $retry > 5;
+		    $retry++;
+		    sleep 1;
+		}
+		#update conf after each succesfull cpu unplug
+		$conf->{vcpus} = scalar(@{$currentrunningvcpus});
+		PVE::QemuConfig->write_config($vmid, $conf);
+	    }
+	} else {
+	    die "online cpu unplug is only possible since qemu 2.7\n"
+	}
+
+	return;
+    }
 
     my $currentrunningvcpus = vm_mon_cmd($vmid, "query-cpus");
     die "vcpus in running vm is different than configuration\n"
