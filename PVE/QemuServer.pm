@@ -3787,7 +3787,7 @@ sub qemu_cpu_hotplug {
 		while (1) {
 		    $currentrunningvcpus = vm_mon_cmd($vmid, "query-cpus");
 		    last if scalar(@{$currentrunningvcpus}) == $i-1;
-		    raise_param_exc({ "cpu unplug" => "error unplug cpu$i" }) if $retry > 5;
+		    raise_param_exc({ vcpus => "error unplugging cpu$i" }) if $retry > 5;
 		    $retry++;
 		    sleep 1;
 		}
@@ -3796,14 +3796,14 @@ sub qemu_cpu_hotplug {
 		PVE::QemuConfig->write_config($vmid, $conf);
 	    }
 	} else {
-	    die "online cpu unplug is only possible since qemu 2.7\n"
+	    die "cpu hot-unplugging requires qemu version 2.7 or higher\n";
 	}
 
 	return;
     }
 
     my $currentrunningvcpus = vm_mon_cmd($vmid, "query-cpus");
-    die "vcpus in running vm is different than configuration\n"
+    die "vcpus in running vm does not match its configuration\n"
 	if scalar(@{$currentrunningvcpus}) != $currentvcpus;
 
     if (qemu_machine_feature_enabled ($machine_type, undef, 2, 7)) {
@@ -3817,7 +3817,7 @@ sub qemu_cpu_hotplug {
 	    while (1) {
 		$currentrunningvcpus = vm_mon_cmd($vmid, "query-cpus");
 		last if scalar(@{$currentrunningvcpus}) == $i;
-		raise_param_exc({ "cpu hotplug" => "error hotplug cpu$i" }) if $retry > 10;
+		raise_param_exc({ vcpus => "error hotplugging cpu$i" }) if $retry > 10;
 		sleep 1;
 		$retry++;
 	    }
@@ -5930,7 +5930,8 @@ sub clone_disk {
 
 	    my $kvmver = get_running_qemu_version ($vmid);
 	    if (!qemu_machine_feature_enabled (undef, $kvmver, 2, 7)) {
-		die "drive-mirror with iothread only works since qemu 2.7" if $drive->{iothread};
+		die "drive-mirror with iothread requires qemu version 2.7 or higher\n"
+		    if $drive->{iothread};
 	    }
 
 	    qemu_drive_mirror($vmid, $drivename, $newvolid, $newvmid, $sparseinit);
