@@ -3776,7 +3776,7 @@ sub qemu_cpu_hotplug {
 
     my $currentvcpus = $conf->{vcpus} || $maxcpus;
 
-    if ($vcpus < $currentvcpus) { 
+    if ($vcpus < $currentvcpus) {
 
 	if (qemu_machine_feature_enabled ($machine_type, undef, 2, 7)) {
 
@@ -3806,8 +3806,30 @@ sub qemu_cpu_hotplug {
     die "vcpus in running vm is different than configuration\n"
 	if scalar(@{$currentrunningvcpus}) != $currentvcpus;
 
-    for (my $i = $currentvcpus; $i < $vcpus; $i++) {
-	vm_mon_cmd($vmid, "cpu-add", id => int($i));
+    if (qemu_machine_feature_enabled ($machine_type, undef, 2, 7)) {
+
+	for (my $i = $currentvcpus+1; $i <= $vcpus; $i++) {
+	    my $cpustr = print_cpu_device($conf, $i);
+	    qemu_deviceadd($vmid, $cpustr);
+
+	    my $retry = 0;
+	    my $currentrunningvcpus = undef;
+	    while (1) {
+		$currentrunningvcpus = vm_mon_cmd($vmid, "query-cpus");
+		last if scalar(@{$currentrunningvcpus}) == $i;
+		raise_param_exc({ "cpu hotplug" => "error hotplug cpu$i" }) if $retry > 10;
+		sleep 1;
+		$retry++;
+	    }
+            #update conf after each succesfull cpu hotplug
+	    $conf->{vcpus} = scalar(@{$currentrunningvcpus});
+	    PVE::QemuConfig->write_config($vmid, $conf);
+	}
+    } else {
+
+	for (my $i = $currentvcpus; $i < $vcpus; $i++) {
+	    vm_mon_cmd($vmid, "cpu-add", id => int($i));
+	}
     }
 }
 
