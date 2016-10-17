@@ -5961,6 +5961,13 @@ sub get_current_qemu_machine {
     return $current || $default || 'pc';
 }
 
+sub get_running_qemu_version {
+    my ($vmid) = @_;
+    my $cmd = { execute => 'query-version', arguments => {} };
+    my $res = vm_qmp_command($vmid, $cmd);
+    return "$res->{qemu}->{major}.$res->{qemu}->{minor}";
+}
+
 sub qemu_machine_feature_enabled {
     my ($machine, $kvmver, $version_major, $version_minor) = @_;
 
