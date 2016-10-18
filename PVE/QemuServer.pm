@@ -452,7 +452,7 @@ EODESCR
     },
     cdrom => {
 	optional => 1,
-	type => 'string', format => 'pve-qm-drive',
+	type => 'string', format => 'pve-qm-ide',
 	typetext => 'volume',
 	description => "This is an alias for option -ide2",
     },
@@ -854,6 +854,7 @@ my $ide_fmt = {
     %rerror_fmt,
     %model_fmt,
 };
+PVE::JSONSchema::register_format("pve-qm-ide", $ide_fmt);
 
 my $idedesc = {
     optional => 1,
@@ -2013,12 +2014,6 @@ sub check_type {
         die "type check ('number') failed - got '$value'\n";
     } elsif ($type eq 'string') {
 	if (my $fmt = $confdesc->{$key}->{format}) {
-	    if ($fmt eq 'pve-qm-drive') {
-		# special case - we need to pass $key to parse_drive()
-		my $drive = parse_drive($key, $value);
-		return $value if $drive;
-		die "unable to parse drive options\n";
-	    }
 	    PVE::JSONSchema::check_format($fmt, $value);
 	    return $value;
 	}
@@ -2166,8 +2161,9 @@ sub parse_vm_config {
 	    if ($@) {
 		warn "vm $vmid - unable to parse value of '$key' - $@";
 	    } else {
+		$key = 'ide2' if $key eq 'cdrom';
 		my $fmt = $confdesc->{$key}->{format};
-		if ($fmt && $fmt eq 'pve-qm-drive') {
+		if ($fmt && $fmt =~ /^pve-qm-(?:ide|scsi|virtio|sata)$/) {
 		    my $v = parse_drive($key, $value);
 		    if (my $volid = filename_to_volume_id($vmid, $v->{file}, $v->{media})) {
 			$v->{file} = $volid;
@@ -2178,11 +2174,7 @@ sub parse_vm_config {
 		    }
 		}
 
-		if ($key eq 'cdrom') {
-		    $conf->{ide2} = $value;
-		} else {
-		    $conf->{$key} = $value;
-		}
+		$conf->{$key} = $value;
 	    }
 	}
     }
