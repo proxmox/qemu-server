@@ -2897,7 +2897,7 @@ __PACKAGE__->register_method({
     parameters => {
     	additionalProperties => 0,
 	properties => {
-	    vmid => get_standard_option('pve-vmid'),
+	    vmid => get_standard_option('pve-vmid', { completion => \&PVE::QemuServer::complete_vmid }),
 	    node => get_standard_option('pve-node'),
 	},
     },
