@@ -67,14 +67,16 @@ sub prepare {
 
 	return if PVE::QemuServer::drive_is_cdrom($drive);
 
+	my $volid = $drive->{file};
+
 	if (defined($drive->{backup}) && !$drive->{backup}) {
-	    $self->loginfo("exclude disk '$ds' (backup=no)");
+	    $self->loginfo("exclude disk '$ds' '$volid' (backup=no)");
 	    return;
 	} elsif ($drive->{iothread}) {
-	    die "disk '$ds' (iothread=on) can't use backup feature currently. Please set backup=no for this drive";
+	    die "disk '$ds' '$volid' (iothread=on) can't use backup feature currently. Please set backup=no for this drive";
+	} else {
+	    $self->loginfo("include disk '$ds' '$volid'");
 	}
-
-	my $volid = $drive->{file};
 
 	my ($storeid, $volname) = PVE::Storage::parse_volume_id($volid, 1);
 	push @$vollist, $volid if $storeid;
