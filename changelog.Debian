@@ -1,3 +1,27 @@
+qemu-server (4.0-92) unstable; urgency=medium
+
+  * Close #351: add more info to backup log
+
+  * add qm listsnapshot call
+
+  * snapshot_list: add bash completion for vmid
+
+  * Fix #1174: remove pve-qm-drive
+
+  * enable drive-mirror with iothread for qemu 2.7 v2
+
+  * add get_running_qemu_version
+
+  * cpu hotplug : add new cpu hotplug method for qemu 2.7
+
+  * cpu hotplug : add coldplugged cpu to qemu command line
+
+  * cpu hotplug : add print_cpu_device
+
+  * numaX : use cpus option multiple time if cpulist
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 21 Oct 2016 09:13:39 +0200
+
 qemu-server (4.0-91) unstable; urgency=medium
 
   * fix #1131: activate volume before copying efidisk
