@@ -4429,7 +4429,7 @@ sub vmconfig_update_disk {
 
 sub vm_start {
     my ($storecfg, $vmid, $statefile, $skiplock, $migratedfrom, $paused,
-	$forcemachine, $spice_ticket) = @_;
+	$forcemachine, $spice_ticket, $migration_network, $migration_type) = @_;
 
     PVE::QemuConfig->lock_config($vmid, sub {
 	my $conf = PVE::QemuConfig->load_config($vmid, $migratedfrom);
@@ -4459,10 +4459,18 @@ sub vm_start {
 		my $localip = "localhost";
 		my $datacenterconf = PVE::Cluster::cfs_read_file('datacenter.cfg');
 		my $nodename = PVE::INotify::nodename();
-		if ($datacenterconf->{migration_unsecure}) {
+
+		if ($migration_type eq 'insecure') {
+		    my $migrate_network_addr = PVE::Cluster::get_local_migration_ip($migration_network);
+		    if ($migrate_network_addr) {
+			$localip = $migrate_network_addr;
+		    } else {
 			$localip = PVE::Cluster::remote_node_ip($nodename, 1);
-			$localip = "[$localip]" if Net::IP::ip_is_ipv6($localip);
+		    }
+
+		    $localip = "[$localip]" if Net::IP::ip_is_ipv6($localip);
 		}
+
 		my $pfamily = PVE::Tools::get_host_address_family($nodename);
 		$migrate_port = PVE::Tools::next_migrate_port($pfamily);
 		$migrate_uri = "tcp:${localip}:${migrate_port}";

@@ -459,9 +459,20 @@ sub phase2 {
     # secure migration use UNIX sockets now, this *breaks* compatibilty when trying
     # to migrate from new to old but *not* from old to new.
     my $datacenterconf = PVE::Cluster::cfs_read_file('datacenter.cfg');
-    my $secure_migration = ($datacenterconf->{migration_unsecure}) ? 0 : 1;
 
-    if (!$secure_migration) {
+    my $migration_type = 'secure';
+    if (defined($self->{opts}->{migration_type})) {
+	$migration_type = $self->{opts}->{migration_type};
+    } elsif (defined($datacenterconf->{migration}->{type})) {
+        $migration_type = $datacenterconf->{migration}->{type};
+    }
+
+    push @$cmd, '--migration_type', $migration_type;
+
+    push @$cmd, '--migration_network', $self->{opts}->{migration_network}
+      if $self->{opts}->{migration_network};
+
+    if ($migration_type eq 'insecure') {
 	push @$cmd, '--stateuri', 'tcp';
     } else {
 	push @$cmd, '--stateuri', 'unix';
@@ -503,7 +514,7 @@ sub phase2 {
 
     die "unable to detect remote migration address\n" if !$raddr;
 
-    if ($secure_migration) {
+    if ($migration_type eq 'secure') {
 	$self->log('info', "start remote tunnel");
 
 	if ($ruri =~ /^unix:/) {

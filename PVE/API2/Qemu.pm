@@ -1626,6 +1626,20 @@ __PACKAGE__->register_method({
 	    skiplock => get_standard_option('skiplock'),
 	    stateuri => get_standard_option('pve-qm-stateuri'),
 	    migratedfrom => get_standard_option('pve-node',{ optional => 1 }),
+	    migration_type => {
+		type => 'string',
+		enum => ['secure', 'insecure'],
+		description => "Migration traffic is encrypted using an SSH " .
+		  "tunnel by default. On secure, completely private networks " .
+		  "this can be disabled to increase performance.",
+		optional => 1,
+	    },
+	    migration_network => {
+		type => 'string',
+		format => 'CIDR',
+		description => "CIDR of the (sub) network that is used for migration.",
+		optional => 1,
+	    },
 	    machine => get_standard_option('pve-qm-machine'),
 	},
     },
@@ -1656,6 +1670,14 @@ __PACKAGE__->register_method({
 	my $migratedfrom = extract_param($param, 'migratedfrom');
 	raise_param_exc({ migratedfrom => "Only root may use this option." })
 	    if $migratedfrom && $authuser ne 'root@pam';
+
+	my $migration_type = extract_param($param, 'migration_type');
+	raise_param_exc({ migration_type => "Only root may use this option." })
+	    if $migration_type && $authuser ne 'root@pam';
+
+	my $migration_network = extract_param($param, 'migration_network');
+	raise_param_exc({ migration_network => "Only root may use this option." })
+	    if $migration_network && $authuser ne 'root@pam';
 
 	# read spice ticket from STDIN
 	my $spice_ticket;
@@ -1697,7 +1719,7 @@ __PACKAGE__->register_method({
 		syslog('info', "start VM $vmid: $upid\n");
 
 		PVE::QemuServer::vm_start($storecfg, $vmid, $stateuri, $skiplock, $migratedfrom, undef,
-					  $machine, $spice_ticket);
+					  $machine, $spice_ticket, $migration_network, $migration_type);
 
 		return;
 	    };
@@ -2648,6 +2670,20 @@ __PACKAGE__->register_method({
 		description => "Allow to migrate VMs which use local devices. Only root may use this option.",
 		optional => 1,
 	    },
+	    migration_type => {
+		type => 'string',
+		enum => ['secure', 'insecure'],
+		description => "Migration traffic is encrypted using an SSH " .
+		  "tunnel by default. On secure, completely private networks " .
+		  "this can be disabled to increase performance.",
+		optional => 1,
+	    },
+	    migration_network => {
+		type => 'string',
+		format => 'CIDR',
+		description => "CIDR of the (sub) network that is used for migration.",
+		optional => 1,
+	    },
 	},
     },
     returns => {
@@ -2676,6 +2712,13 @@ __PACKAGE__->register_method({
 
 	raise_param_exc({ force => "Only root may use this option." })
 	    if $param->{force} && $authuser ne 'root@pam';
+
+	raise_param_exc({ migration_type => "Only root may use this option." })
+	    if $param->{migration_type} && $authuser ne 'root@pam';
+
+	# allow root only until better network permissions are available
+	raise_param_exc({ migration_network => "Only root may use this option." })
+	    if $param->{migration_network} && $authuser ne 'root@pam';
 
 	# test if VM exists
 	my $conf = PVE::QemuConfig->load_config($vmid);
