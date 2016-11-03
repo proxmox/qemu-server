@@ -943,6 +943,7 @@ my $update_vm_api  = sub {
 	if (PVE::QemuServer::is_valid_drivename($opt)) {
 	    # cleanup drive path
 	    my $drive = PVE::QemuServer::parse_drive($opt, $param->{$opt});
+	    raise_param_exc({ $opt => "unable to parse drive options" }) if !$drive;
 	    PVE::QemuServer::cleanup_drive_path($opt, $storecfg, $drive);
 	    $param->{$opt} = PVE::QemuServer::print_drive($vmid, $drive);
 	} elsif ($opt =~ m/^net(\d+)$/) {
