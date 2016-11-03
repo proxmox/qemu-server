@@ -822,32 +822,42 @@ my %queues_fmt = (
 );
 
 my $add_throttle_desc = sub {
-    my ($key, $type, $what, $unit, $longunit) = @_;
-    $drivedesc_base{$key} = {
+    my ($key, $type, $what, $unit, $longunit, $minimum) = @_;
+    my $d = {
 	type => $type,
 	format_description => $unit,
-	description => "Maximum $what speed in $longunit per second.",
+	description => "Maximum $what in $longunit.",
 	optional => 1,
     };
+    $d->{minimum} = $minimum if defined($minimum);
+    $drivedesc_base{$key} = $d;
 };
 # throughput: (leaky bucket)
-$add_throttle_desc->('bps',     'integer', 'r/w speed',   'bps',  'bytes');
-$add_throttle_desc->('bps_rd',  'integer', 'read speed',  'bps',  'bytes');
-$add_throttle_desc->('bps_wr',  'integer', 'write speed', 'bps',  'bytes');
-$add_throttle_desc->('mbps',    'number',  'r/w speed',   'mbps', 'megabytes');
-$add_throttle_desc->('mbps_rd', 'number',  'read speed',  'mbps', 'megabytes');
-$add_throttle_desc->('mbps_wr', 'number',  'write speed', 'mbps', 'megabytes');
-$add_throttle_desc->('iops',    'integer', 'r/w I/O',     'iops', 'operations');
-$add_throttle_desc->('iops_rd', 'integer', 'read I/O',    'iops', 'operations');
-$add_throttle_desc->('iops_wr', 'integer', 'write I/O',   'iops', 'operations');
+$add_throttle_desc->('bps',     'integer', 'r/w speed',   'bps per second',  'bytes');
+$add_throttle_desc->('bps_rd',  'integer', 'read speed',  'bps per second',  'bytes');
+$add_throttle_desc->('bps_wr',  'integer', 'write speed', 'bps per second',  'bytes');
+$add_throttle_desc->('mbps',    'number',  'r/w speed',   'mbps per second', 'megabytes');
+$add_throttle_desc->('mbps_rd', 'number',  'read speed',  'mbps per second', 'megabytes');
+$add_throttle_desc->('mbps_wr', 'number',  'write speed', 'mbps per second', 'megabytes');
+$add_throttle_desc->('iops',    'integer', 'r/w I/O',     'iops per second', 'operations');
+$add_throttle_desc->('iops_rd', 'integer', 'read I/O',    'iops per second', 'operations');
+$add_throttle_desc->('iops_wr', 'integer', 'write I/O',   'iops per second', 'operations');
 
 # pools: (pool of IO before throttling starts taking effect)
-$add_throttle_desc->('mbps_max',    'number',  'unthrottled r/w pool',       'mbps', 'megabytes');
-$add_throttle_desc->('mbps_rd_max', 'number',  'unthrottled read pool',      'mbps', 'megabytes');
-$add_throttle_desc->('mbps_wr_max', 'number',  'unthrottled write pool',     'mbps', 'megabytes');
-$add_throttle_desc->('iops_max',    'integer', 'unthrottled r/w I/O pool',   'iops', 'operations');
-$add_throttle_desc->('iops_rd_max', 'integer', 'unthrottled read I/O pool',  'iops', 'operations');
-$add_throttle_desc->('iops_wr_max', 'integer', 'unthrottled write I/O pool', 'iops', 'operations');
+$add_throttle_desc->('mbps_max',    'number',  'unthrottled r/w pool',       'mbps per second', 'megabytes');
+$add_throttle_desc->('mbps_rd_max', 'number',  'unthrottled read pool',      'mbps per second', 'megabytes');
+$add_throttle_desc->('mbps_wr_max', 'number',  'unthrottled write pool',     'mbps per second', 'megabytes');
+$add_throttle_desc->('iops_max',    'integer', 'unthrottled r/w I/O pool',   'iops per second', 'operations');
+$add_throttle_desc->('iops_rd_max', 'integer', 'unthrottled read I/O pool',  'iops per second', 'operations');
+$add_throttle_desc->('iops_wr_max', 'integer', 'unthrottled write I/O pool', 'iops per second', 'operations');
+
+# burst lengths
+$add_throttle_desc->('bps_max_length',  'integer', 'length of I/O bursts',       'seconds', 'seconds', 1);
+$add_throttle_desc->('bps_rd_length',   'integer', 'length of read I/O bursts',  'seconds', 'seconds', 1);
+$add_throttle_desc->('bps_wr_length',   'integer', 'length of write I/O bursts', 'seconds', 'seconds', 1);
+$add_throttle_desc->('iops_max_length', 'integer', 'length of I/O bursts',       'seconds', 'seconds', 1);
+$add_throttle_desc->('iops_rd_length',  'integer', 'length of read I/O bursts',  'seconds', 'seconds', 1);
+$add_throttle_desc->('iops_wr_length',  'integer', 'length of write I/O bursts', 'seconds', 'seconds', 1);
 
 my $ide_fmt = {
     %drivedesc_base,
@@ -1339,6 +1349,22 @@ sub parse_drive {
 	    $res->{"m$opt"} = sprintf("%.3f", $bps / (1024*1024.0));
 	}
     }
+
+    # can't use the schema's 'requires' because of the mbps* => bps* "transforming aliases"
+    for my $requirement (
+	[bps_max_length => 'mbps_max'],
+	[bps_rd_max_length => 'mbps_rd_max'],
+	[bps_wr_max_length => 'mbps_wr_max'],
+	[iops_max_length => 'iops_max'],
+	[iops_rd_max_length => 'iops_rd_max'],
+	[iops_wr_max_length => 'iops_wr_max']) {
+	my ($option, $requires) = @$requirement;
+	if ($res->{$option} && !$res->{$requires}) {
+	    warn "$option requires $requires\n";
+	    ++$error;
+	}
+    }
+
     return undef if $error;
 
     return undef if $res->{mbps_rd} && $res->{mbps};
@@ -3828,7 +3854,9 @@ sub qemu_cpu_hotplug {
 sub qemu_block_set_io_throttle {
     my ($vmid, $deviceid,
 	$bps, $bps_rd, $bps_wr, $iops, $iops_rd, $iops_wr,
-	$bps_max, $bps_rd_max, $bps_wr_max, $iops_max, $iops_rd_max, $iops_wr_max) = @_;
+	$bps_max, $bps_rd_max, $bps_wr_max, $iops_max, $iops_rd_max, $iops_wr_max,
+	$bps_max_length, $bps_rd_max_length, $bps_wr_max_length,
+	$iops_max_length, $iops_rd_max_length, $iops_wr_max_length) = @_;
 
     return if !check_running($vmid) ;
 
@@ -3844,7 +3872,13 @@ sub qemu_block_set_io_throttle {
 	bps_wr_max => int($bps_wr_max),
 	iops_max => int($iops_max),
 	iops_rd_max => int($iops_rd_max),
-	iops_wr_max => int($iops_wr_max)
+	iops_wr_max => int($iops_wr_max),
+	bps_max_length => int($bps_max_length),
+	bps_rd_max_length => int($bps_rd_max_length),
+	bps_wr_max_length => int($bps_wr_max_length),
+	iops_max_length => int($iops_max_length),
+	iops_rd_max_length => int($iops_rd_max_length),
+	iops_wr_max_length => int($iops_wr_max_length),
     );
 
 }
@@ -4385,7 +4419,13 @@ sub vmconfig_update_disk {
 			&$safe_num_ne($drive->{mbps_wr_max}, $old_drive->{mbps_wr_max}) ||
 			&$safe_num_ne($drive->{iops_max}, $old_drive->{iops_max}) ||
 			&$safe_num_ne($drive->{iops_rd_max}, $old_drive->{iops_rd_max}) ||
-			&$safe_num_ne($drive->{iops_wr_max}, $old_drive->{iops_wr_max})) {
+			&$safe_num_ne($drive->{iops_wr_max}, $old_drive->{iops_wr_max}) ||
+			&$safe_num_ne($drive->{bps_max_length}, $old_drive->{bps_max_length}) ||
+			&$safe_num_ne($drive->{bps_rd_max_length}, $old_drive->{bps_rd_max_length}) ||
+			&$safe_num_ne($drive->{bps_wr_max_length}, $old_drive->{bps_wr_max_length}) ||
+			&$safe_num_ne($drive->{iops_max_length}, $old_drive->{iops_max_length}) ||
+			&$safe_num_ne($drive->{iops_rd_max_length}, $old_drive->{iops_rd_max_length}) ||
+			&$safe_num_ne($drive->{iops_wr_max_length}, $old_drive->{iops_wr_max_length})) {
 
 			qemu_block_set_io_throttle($vmid,"drive-$opt",
 						   ($drive->{mbps} || 0)*1024*1024,
@@ -4399,7 +4439,13 @@ sub vmconfig_update_disk {
 						   ($drive->{mbps_wr_max} || 0)*1024*1024,
 						   $drive->{iops_max} || 0,
 						   $drive->{iops_rd_max} || 0,
-						   $drive->{iops_wr_max} || 0);
+						   $drive->{iops_wr_max} || 0,
+						   $drive->{bps_max_length} || 1,
+						   $drive->{bps_rd_max_length} || 1,
+						   $drive->{bps_wr_max_length} || 1,
+						   $drive->{iops_max_length} || 1,
+						   $drive->{iops_rd_max_length} || 1,
+						   $drive->{iops_wr_max_length} || 1);
 
 		    }
 
