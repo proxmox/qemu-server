@@ -1,3 +1,9 @@
+qemu-server (4.0-94) unstable; urgency=medium
+
+  * fix docs for iops/bps_max_length throttling options
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 03 Nov 2016 12:53:44 +0100
+
 qemu-server (4.0-93) unstable; urgency=medium
 
   * Close #1195: support iops/bps_max_length throttling options
