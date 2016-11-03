@@ -614,6 +614,7 @@ __PACKAGE__->register_method({
 	    { subdir => 'rrd' },
 	    { subdir => 'rrddata' },
 	    { subdir => 'monitor' },
+	    { subdir => 'agent' },
 	    { subdir => 'snapshot' },
 	    { subdir => 'spiceproxy' },
 	    { subdir => 'sendkey' },
@@ -2837,6 +2838,51 @@ __PACKAGE__->register_method({
 	$res = "ERROR: $@" if $@;
 
 	return $res;
+    }});
+
+__PACKAGE__->register_method({
+    name => 'agent',
+    path => '{vmid}/agent',
+    method => 'POST',
+    protected => 1,
+    proxyto => 'node',
+    description => "Execute Qemu Guest Agent commands.",
+    permissions => {
+	check => ['perm', '/vms/{vmid}', [ 'VM.Monitor' ]],
+    },
+    parameters => {
+	additionalProperties => 0,
+	properties => {
+	    node => get_standard_option('pve-node'),
+	    vmid => get_standard_option('pve-vmid'),
+	    command => {
+		type => 'string',
+		description => "The QGA command.",
+	    }
+	},
+    },
+    returns => { type => 'object' },
+    code => sub {
+	my ($param) = @_;
+
+	my $vmid = $param->{vmid};
+
+	my $conf = PVE::QemuConfig->load_config ($vmid); # check if VM exists
+
+	die "Only qga commands are allowed\n" if $param->{command} !~ m/^guest-.*$/; 
+	die "No Qemu Guest Agent\n" if !defined($conf->{agent});
+	die "VM $vmid is not running\n" if !PVE::QemuServer::check_running($vmid);
+
+	my $res = '';
+	eval {
+	    $res = PVE::QemuServer::vm_mon_cmd($vmid, $param->{command});
+	};
+
+	if (my $err = $@) {
+		return {'ERROR:', $err};
+	} else {
+		return {'OK:', $res};
+	}
     }});
 
 __PACKAGE__->register_method({

@@ -529,6 +529,8 @@ our $cmddef = {
 
     monitor  => [ __PACKAGE__, 'monitor', ['vmid']],
 
+    agent  => [ "PVE::API2::Qemu", 'agent', ['vmid'], { node => $nodename }],
+
     mtunnel => [ __PACKAGE__, 'mtunnel', []],
 
     terminal => [ __PACKAGE__, 'terminal', ['vmid']],
