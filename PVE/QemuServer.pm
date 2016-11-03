@@ -833,23 +833,23 @@ my $add_throttle_desc = sub {
     $drivedesc_base{$key} = $d;
 };
 # throughput: (leaky bucket)
-$add_throttle_desc->('bps',     'integer', 'r/w speed',   'bps per second',  'bytes');
-$add_throttle_desc->('bps_rd',  'integer', 'read speed',  'bps per second',  'bytes');
-$add_throttle_desc->('bps_wr',  'integer', 'write speed', 'bps per second',  'bytes');
-$add_throttle_desc->('mbps',    'number',  'r/w speed',   'mbps per second', 'megabytes');
-$add_throttle_desc->('mbps_rd', 'number',  'read speed',  'mbps per second', 'megabytes');
-$add_throttle_desc->('mbps_wr', 'number',  'write speed', 'mbps per second', 'megabytes');
-$add_throttle_desc->('iops',    'integer', 'r/w I/O',     'iops per second', 'operations');
-$add_throttle_desc->('iops_rd', 'integer', 'read I/O',    'iops per second', 'operations');
-$add_throttle_desc->('iops_wr', 'integer', 'write I/O',   'iops per second', 'operations');
+$add_throttle_desc->('bps',     'integer', 'r/w speed',   'bps',  'bytes per second');
+$add_throttle_desc->('bps_rd',  'integer', 'read speed',  'bps',  'bytes per second');
+$add_throttle_desc->('bps_wr',  'integer', 'write speed', 'bps',  'bytes per second');
+$add_throttle_desc->('mbps',    'number',  'r/w speed',   'mbps', 'megabytes per second');
+$add_throttle_desc->('mbps_rd', 'number',  'read speed',  'mbps', 'megabytes per second');
+$add_throttle_desc->('mbps_wr', 'number',  'write speed', 'mbps', 'megabytes per second');
+$add_throttle_desc->('iops',    'integer', 'r/w I/O',     'iops', 'operations per second');
+$add_throttle_desc->('iops_rd', 'integer', 'read I/O',    'iops', 'operations per second');
+$add_throttle_desc->('iops_wr', 'integer', 'write I/O',   'iops', 'operations per second');
 
 # pools: (pool of IO before throttling starts taking effect)
-$add_throttle_desc->('mbps_max',    'number',  'unthrottled r/w pool',       'mbps per second', 'megabytes');
-$add_throttle_desc->('mbps_rd_max', 'number',  'unthrottled read pool',      'mbps per second', 'megabytes');
-$add_throttle_desc->('mbps_wr_max', 'number',  'unthrottled write pool',     'mbps per second', 'megabytes');
-$add_throttle_desc->('iops_max',    'integer', 'unthrottled r/w I/O pool',   'iops per second', 'operations');
-$add_throttle_desc->('iops_rd_max', 'integer', 'unthrottled read I/O pool',  'iops per second', 'operations');
-$add_throttle_desc->('iops_wr_max', 'integer', 'unthrottled write I/O pool', 'iops per second', 'operations');
+$add_throttle_desc->('mbps_max',    'number',  'unthrottled r/w pool',       'mbps', 'megabytes per second');
+$add_throttle_desc->('mbps_rd_max', 'number',  'unthrottled read pool',      'mbps', 'megabytes per second');
+$add_throttle_desc->('mbps_wr_max', 'number',  'unthrottled write pool',     'mbps', 'megabytes per second');
+$add_throttle_desc->('iops_max',    'integer', 'unthrottled r/w I/O pool',   'iops', 'operations per second');
+$add_throttle_desc->('iops_rd_max', 'integer', 'unthrottled read I/O pool',  'iops', 'operations per second');
+$add_throttle_desc->('iops_wr_max', 'integer', 'unthrottled write I/O pool', 'iops', 'operations per second');
 
 # burst lengths
 $add_throttle_desc->('bps_max_length',  'integer', 'length of I/O bursts',       'seconds', 'seconds', 1);
