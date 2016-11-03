@@ -75,6 +75,13 @@ PVE::JSONSchema::register_standard_option('pve-snapshot-name', {
     maxLength => 40,
 });
 
+PVE::JSONSchema::register_standard_option('pve-qm-image-format', {
+    type => 'string',
+    enum => [qw(raw cow qcow qed qcow2 vmdk cloop)],
+    description => "The drive's backing file's data format.",
+    optional => 1,
+});
+
 #no warnings 'redefine';
 
 sub cgroups_write {
@@ -734,13 +741,7 @@ my %drivedesc_base = (
 	description => "The drive's cache mode",
 	optional => 1,
     },
-    format => {
-	type => 'string',
-	format_description => 'image format',
-	enum => [qw(raw cow qcow qed qcow2 vmdk cloop)],
-	description => "The drive's backing file's data format.",
-	optional => 1,
-    },
+    format => get_standard_option('pve-qm-image-format'),
     size => {
 	type => 'string',
 	format => 'disk-size',
@@ -925,13 +926,7 @@ my $efidisk_fmt = {
 	format_description => 'volume',
 	description => "The drive's backing volume.",
     },
-    format => {
-	type => 'string',
-	format_description => 'image format',
-	enum => [qw(raw cow qcow qed qcow2 vmdk cloop)],
-	description => "The drive's backing file's data format.",
-	optional => 1,
-    },
+    format => get_standard_option('pve-qm-image-format'),
     size => {
 	type => 'string',
 	format => 'disk-size',
