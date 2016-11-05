@@ -147,7 +147,6 @@ my $cpu_fmt = {
 	description => "Emulated CPU type.",
 	type => 'string',
 	enum => [ sort { "\L$a" cmp "\L$b" } keys %$cpu_vendor_list ],
-	format_description => 'cputype',
 	default => 'kvm64',
 	default_key => 1,
     },
@@ -460,7 +459,7 @@ EODESCR
     cdrom => {
 	optional => 1,
 	type => 'string', format => 'pve-qm-ide',
-	typetext => 'volume',
+	typetext => '<volume>',
 	description => "This is an alias for option -ide2",
     },
     cpu => {
