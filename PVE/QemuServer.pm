@@ -613,7 +613,6 @@ my $net_fmt = {
     model => {
 	type => 'string',
 	description => "Network Card Model. The 'virtio' model provides the best performance with very low CPU overhead. If your guest does not support this driver, it is usually best to use 'e1000'.",
-	format_description => 'model',
         enum => $nic_model_list,
         default_key => 1,
     },
