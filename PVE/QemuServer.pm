@@ -2780,6 +2780,8 @@ sub config_to_command {
     my $kvmver = kvm_user_version();
     my $vernum = 0; # unknown
     my $ostype = $conf->{ostype};
+    my $winversion = windows_version($ostype);
+
     if ($kvmver =~ m/^(\d+)\.(\d+)$/) {
 	$vernum = $1*1000000+$2*1000;
     } elsif ($kvmver =~ m/^(\d+)\.(\d+)\.(\d+)$/) {
@@ -2869,13 +2871,7 @@ sub config_to_command {
     $vga = 'qxl' if $qxlnum;
 
     if (!$vga) {
-	if ($conf->{ostype} && ($conf->{ostype} eq 'win8' ||
-				$conf->{ostype} eq 'win7' ||
-				$conf->{ostype} eq 'w2k8')) {
-	    $vga = 'std';
-	} else {
-	    $vga = 'cirrus';
-	}
+	$vga = $winversion >= 6 ? 'std' : 'cirrus';
     }
 
     # enable absolute mouse coordinates (needed by vnc)
@@ -2891,6 +2887,8 @@ sub config_to_command {
     push @$devices, '-device', print_tabletdevice_full($conf) if $tablet;
 
     my $kvm_off = 0;
+    my $gpu_passthrough;
+
     # host pci devices
     for (my $i = 0; $i < $MAX_HOSTPCI_DEVICES; $i++)  {
 	my $d = parse_hostpci($conf->{"hostpci$i"});
@@ -2910,9 +2908,8 @@ sub config_to_command {
 	    $xvga = ',x-vga=on';
 	    $kvm_off = 1;
 	    $vga = 'none';
-	    if ($ostype eq 'win7' || $ostype eq 'win8' || $ostype eq 'w2k8') {
-		push @$cpuFlags , 'hv_vendor_id=proxmox';
-	    }
+	    $gpu_passthrough = 1;
+
 	    if ($conf->{bios} && $conf->{bios} eq 'ovmf') {
 		$xvga = "";
 	    }
@@ -3030,41 +3027,18 @@ sub config_to_command {
     my $nokvm = defined($conf->{kvm}) && $conf->{kvm} == 0 ? 1 : 0;
     my $useLocaltime = $conf->{localtime};
 
-    if ($ostype) {
-	# other, wxp, w2k, w2k3, w2k8, wvista, win7, win8, l24, l26, solaris
+    if ($winversion >= 5) { # windows
+	$useLocaltime = 1 if !defined($conf->{localtime});
 
-	if ($ostype =~ m/^w/) { # windows
-	    $useLocaltime = 1 if !defined($conf->{localtime});
-
-	    # use time drift fix when acpi is enabled
-	    if (!(defined($conf->{acpi}) && $conf->{acpi} == 0)) {
-		$tdf = 1 if !defined($conf->{tdf});
-	    }
+	# use time drift fix when acpi is enabled
+	if (!(defined($conf->{acpi}) && $conf->{acpi} == 0)) {
+	    $tdf = 1 if !defined($conf->{tdf});
 	}
+    }
 
-	if ($ostype eq 'win7' || $ostype eq 'win8' || $ostype eq 'w2k8' ||
-	    $ostype eq 'wvista') {
-	    push @$globalFlags, 'kvm-pit.lost_tick_policy=discard';
-	    push @$cmd, '-no-hpet';
-	    if (qemu_machine_feature_enabled ($machine_type, $kvmver, 2, 3)) {
-		push @$cpuFlags , 'hv_spinlocks=0x1fff' if !$nokvm;
-		push @$cpuFlags , 'hv_vapic' if !$nokvm;
-		push @$cpuFlags , 'hv_time' if !$nokvm;
-
-		if (qemu_machine_feature_enabled ($machine_type, $kvmver, 2, 6)) {
-		    push @$cpuFlags , 'hv_reset' if !$nokvm;
-		    push @$cpuFlags , 'hv_vpindex' if !$nokvm;
-		    push @$cpuFlags , 'hv_runtime' if !$nokvm;
-		}
-
-	    } else {
-		push @$cpuFlags , 'hv_spinlocks=0xffff' if !$nokvm;
-	    }
-	}
-
-	if ($ostype eq 'win7' || $ostype eq 'win8') {
-	    push @$cpuFlags , 'hv_relaxed' if !$nokvm;
-	}
+    if ($winversion >= 6) {
+	push @$globalFlags, 'kvm-pit.lost_tick_policy=discard';
+	push @$cmd, '-no-hpet';
     }
 
     push @$rtcFlags, 'driftfix=slew' if $tdf;
@@ -3107,6 +3081,8 @@ sub config_to_command {
 	push @$cpuFlags , '+kvm_pv_unhalt' if !$nokvm;
 	push @$cpuFlags , '+kvm_pv_eoi' if !$nokvm;
     }
+
+    add_hyperv_enlighments($cpuFlags, $winversion, $machine_type, $kvmver, $nokvm, $conf->{bios}, $gpu_passthrough);
 
     push @$cpuFlags, 'enforce' if $cpu ne 'host' && !$nokvm;
 
@@ -6115,6 +6091,51 @@ sub scsihw_infos {
     my $controller_prefix = ($conf->{scsihw} && $conf->{scsihw} eq 'virtio-scsi-single') ? "virtioscsi" : "scsihw";
 
     return ($maxdev, $controller, $controller_prefix);
+}
+
+sub add_hyperv_enlighments {
+    my ($cpuFlags, $winversion, $machine_type, $kvmver, $nokvm, $bios, $gpu_passthrough) = @_;
+
+    return if $nokvm;
+    return if $winversion < 6;
+    return if $bios && $bios eq 'ovmf' && $winversion < 8;
+
+    if (qemu_machine_feature_enabled ($machine_type, $kvmver, 2, 3)) {
+	push @$cpuFlags , 'hv_spinlocks=0x1fff';
+	push @$cpuFlags , 'hv_vapic';
+	push @$cpuFlags , 'hv_time';
+    } else {
+	push @$cpuFlags , 'hv_spinlocks=0xffff';
+    }
+
+    if (qemu_machine_feature_enabled ($machine_type, $kvmver, 2, 6)) {
+	push @$cpuFlags , 'hv_reset';
+	push @$cpuFlags , 'hv_vpindex';
+	push @$cpuFlags , 'hv_runtime';
+    }
+
+    if ($winversion >= 7) {
+	push @$cpuFlags , 'hv_relaxed';
+	push @$cpuFlags , 'hv_vendor_id=proxmox' if $gpu_passthrough;
+    }
+}
+
+sub windows_version {
+    my ($ostype) = @_;
+
+    return 0 if !$ostype;
+
+    my $winversion = 0;
+
+    if($ostype eq 'wxp' || $ostype eq 'w2k3' || $ostype eq 'w2k') {
+        $winversion = 5;
+    } elsif($ostype eq 'w2k8' || $ostype eq 'wvista') {
+        $winversion = 6;
+    } elsif ($ostype =~ m/^win(\d+)$/) {
+        $winversion = $1;
+    }
+
+    return $winversion;
 }
 
 # bash completion helper
