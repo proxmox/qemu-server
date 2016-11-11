@@ -6100,6 +6100,8 @@ sub add_hyperv_enlighments {
     return if $winversion < 6;
     return if $bios && $bios eq 'ovmf' && $winversion < 8;
 
+    push @$cpuFlags , 'hv_vendor_id=proxmox' if $gpu_passthrough;
+
     if (qemu_machine_feature_enabled ($machine_type, $kvmver, 2, 3)) {
 	push @$cpuFlags , 'hv_spinlocks=0x1fff';
 	push @$cpuFlags , 'hv_vapic';
@@ -6116,7 +6118,6 @@ sub add_hyperv_enlighments {
 
     if ($winversion >= 7) {
 	push @$cpuFlags , 'hv_relaxed';
-	push @$cpuFlags , 'hv_vendor_id=proxmox' if $gpu_passthrough;
     }
 }
 
