@@ -3123,7 +3123,7 @@ sub config_to_command {
 
     if ($qxlnum) {
 	if ($qxlnum > 1) {
-	    if ($conf->{ostype} && $conf->{ostype} =~ m/^w/){
+	    if ($winversion){
 		for(my $i = 1; $i < $qxlnum; $i++){
 		    my $pciaddr = print_pci_addr("vga$i", $bridges);
 		    push @$cmd, '-device', "qxl,id=vga$i,ram_size=67108864,vram_size=33554432$pciaddr";
