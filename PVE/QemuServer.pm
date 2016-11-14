@@ -3990,11 +3990,11 @@ sub qemu_volume_snapshot_delete {
 
     my $running = check_running($vmid);
 
-    return if !PVE::Storage::volume_snapshot_delete($storecfg, $volid, $snap, $running);
-
-    return if !$running;
-
-    vm_mon_cmd($vmid, "delete-drive-snapshot", device => $deviceid, name => $snap);
+    if ($running && do_snapshots_with_qemu($storecfg, $volid)){
+	vm_mon_cmd($vmid, "delete-drive-snapshot", device => $deviceid, name => $snap);
+    } else {
+	PVE::Storage::volume_snapshot_delete($storecfg, $volid, $snap, $running);
+    }
 }
 
 sub set_migration_caps {
