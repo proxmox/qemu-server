@@ -137,10 +137,13 @@ sub __snapshot_create_vol_snapshots_hook {
     my ($class, $vmid, $snap, $running, $hook) = @_;
 
     if ($running) {
+	my $storecfg = PVE::Storage::config();
+
 	if ($hook eq "before") {
 	    if ($snap->{vmstate}) {
-		my $storecfg = PVE::Storage::config();
 		my $path = PVE::Storage::path($storecfg, $snap->{vmstate});
+		PVE::Storage::activate_volumes($storecfg, [$snap->{vmstate}]);
+
 		PVE::QemuServer::vm_mon_cmd($vmid, "savevm-start", statefile => $path);
 		for(;;) {
 		    my $stat = PVE::QemuServer::vm_mon_cmd_nocheck($vmid, "query-savevm");
@@ -159,7 +162,10 @@ sub __snapshot_create_vol_snapshots_hook {
 		PVE::QemuServer::vm_mon_cmd($vmid, "savevm-start");
 	    }
 	} elsif ($hook eq "after") {
-	    eval { PVE::QemuServer::vm_mon_cmd($vmid, "savevm-end")  };
+	    eval { 
+		PVE::QemuServer::vm_mon_cmd($vmid, "savevm-end");
+		PVE::Storage::deactivate_volumes($storecfg, [$snap->{vmstate}]) if $snap->{vmstate};
+	    };
 	    warn $@ if $@;
 	} elsif ($hook eq "after-freeze") {
 	    # savevm-end is async, we need to wait
