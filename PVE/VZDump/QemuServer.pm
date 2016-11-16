@@ -22,7 +22,7 @@ sub new {
 
     PVE::VZDump::check_bin('qm');
 
-    my $self = bless { vzdump => $vzdump };
+    my $self = bless { vzdump => $vzdump }, $class;
 
     $self->{vmlist} = PVE::QemuServer::vzlist();
     $self->{storecfg} = PVE::Storage::config();
