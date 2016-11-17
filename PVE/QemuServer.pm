@@ -273,7 +273,7 @@ my $confdesc = {
     ostype => {
 	optional => 1,
 	type => 'string',
-        enum => [qw(other wxp w2k w2k3 w2k8 wvista win7 win8 l24 l26 solaris)],
+        enum => [qw(other wxp w2k w2k3 w2k8 wvista win7 win8 win10 l24 l26 solaris)],
 	description => "Specify guest operating system.",
 	verbose_description => <<EODESC,
 Specify guest operating system. This is used to enable special
@@ -1185,6 +1185,7 @@ sub os_list_description {
 	wvista => 'Windows Vista',
 	win7 => 'Windows 7',
 	win8 => 'Windows 8/2012',
+	win10 => 'Windows 10/2016',
 	l24 => 'Linux 2.4',
 	l26 => 'Linux 2.6',
     };
