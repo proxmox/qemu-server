@@ -1701,7 +1701,7 @@ __PACKAGE__->register_method({
 
 		my $service = "vm:$vmid";
 
-		my $cmd = ['ha-manager', 'enable', $service];
+		my $cmd = ['ha-manager', 'set', $service, '--state', 'started'];
 
 		print "Executing HA start for VM $vmid\n";
 
@@ -1798,7 +1798,7 @@ __PACKAGE__->register_method({
 
 		my $service = "vm:$vmid";
 
-		my $cmd = ['ha-manager', 'disable', $service];
+		my $cmd = ['ha-manager', 'set', $service, '--state', 'disabled'];
 
 		print "Executing HA stop for VM $vmid\n";
 
