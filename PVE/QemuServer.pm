@@ -3344,12 +3344,6 @@ sub config_to_command {
 	}
     }
 
-    # add custom args
-    if ($conf->{args}) {
-	my $aa = PVE::Tools::split_args($conf->{args});
-	push @$cmd, @$aa;
-    }
-
     push @$cmd, @$devices;
     push @$cmd, '-rtc', join(',', @$rtcFlags)
 	if scalar(@$rtcFlags);
@@ -3357,7 +3351,12 @@ sub config_to_command {
 	if scalar(@$machineFlags);
     push @$cmd, '-global', join(',', @$globalFlags)
 	if scalar(@$globalFlags);
-
+	
+    # add custom args
+    if ($conf->{args}) {
+	my $aa = PVE::Tools::split_args($conf->{args});
+	push @$cmd, @$aa;
+    }
     return wantarray ? ($cmd, $vollist, $spice_port) : $cmd;
 }
 
