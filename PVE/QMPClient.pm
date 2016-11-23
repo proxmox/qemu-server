@@ -107,8 +107,13 @@ sub cmd {
 	    $timeout = 60*60; # 1 hour
 	} elsif ($cmd->{execute} =~ m/^(eject|change)/) {
 	    $timeout = 60; # note: cdrom mount command is slow
-	} elsif ($cmd->{execute} eq 'guest-fsfreeze-freeze' ||
-		 $cmd->{execute} eq 'guest-fsfreeze-thaw') {
+	} elsif ($cmd->{execute} eq 'guest-fsfreeze-freeze') {
+	    # freeze syncs all guest FS, if we kill it it stays in an unfreezable
+	    # locked state with high probability, so use an generous timeout
+	    $timeout = 60*60; # 1 hour
+	} elsif ($cmd->{execute} eq 'guest-fsfreeze-thaw') {
+	    # thaw has no possible long blocking actions, either it returns
+	    # instantly or never (dead locked)
 	    $timeout = 10;
 	} elsif ($cmd->{execute} eq 'savevm-start' ||
 		 $cmd->{execute} eq 'savevm-end' ||
