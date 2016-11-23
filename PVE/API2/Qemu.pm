@@ -1798,7 +1798,7 @@ __PACKAGE__->register_method({
 
 		my $service = "vm:$vmid";
 
-		my $cmd = ['ha-manager', 'set', $service, '--state', 'disabled'];
+		my $cmd = ['ha-manager', 'set', $service, '--state', 'stopped'];
 
 		print "Executing HA stop for VM $vmid\n";
 
