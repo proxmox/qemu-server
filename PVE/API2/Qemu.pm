@@ -1636,8 +1636,7 @@ __PACKAGE__->register_method({
 		optional => 1,
 	    },
 	    migration_network => {
-		type => 'string',
-		format => 'CIDR',
+		type => 'string', format => 'CIDR',
 		description => "CIDR of the (sub) network that is used for migration.",
 		optional => 1,
 	    },
