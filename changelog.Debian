@@ -1,3 +1,9 @@
+qemu-server (4.0-96) unstable; urgency=medium
+
+  * restrict monitor API to Sys.Modify for most commands
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 23 Nov 2016 10:02:37 +0100
+
 qemu-server (4.0-95) unstable; urgency=medium
 
   * vm_shutdown: request 'stopped' state for HA enabled VMs
