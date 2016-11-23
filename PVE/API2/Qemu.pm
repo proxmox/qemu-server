@@ -2796,6 +2796,7 @@ __PACKAGE__->register_method({
     proxyto => 'node',
     description => "Execute Qemu monitor commands.",
     permissions => {
+	description => "Sys.Modify is required for (sub)commands which are not read-only ('info *' and 'help')",
 	check => ['perm', '/vms/{vmid}', [ 'VM.Monitor' ]],
     },
     parameters => {
@@ -2812,6 +2813,18 @@ __PACKAGE__->register_method({
     returns => { type => 'string'},
     code => sub {
 	my ($param) = @_;
+
+	my $rpcenv = PVE::RPCEnvironment::get();
+	my $authuser = $rpcenv->get_user();
+
+	my $is_ro = sub {
+	    my $command = shift;
+	    return $command =~ m/^\s*info(\s+|$)/
+	        || $command =~ m/^\s*help\s*$/;
+	};
+
+	$rpcenv->check_full($authuser, "/", ['Sys.Modify'])
+	    if !&$is_ro($param->{command});
 
 	my $vmid = $param->{vmid};
 
