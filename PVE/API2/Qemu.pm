@@ -1959,18 +1959,40 @@ __PACKAGE__->register_method({
 	    }
 	}
 
-	my $realcmd = sub {
-	    my $upid = shift;
+	if (PVE::HA::Config::vm_is_ha_managed($vmid) &&
+	    ($rpcenv->{type} ne 'ha')) {
 
-	    syslog('info', "shutdown VM $vmid: $upid\n");
+	    my $hacmd = sub {
+		my $upid = shift;
 
-	    PVE::QemuServer::vm_stop($storecfg, $vmid, $skiplock, 0, $param->{timeout},
-				     $shutdown, $param->{forceStop}, $keepActive);
+		my $service = "vm:$vmid";
 
-	    return;
-	};
+		my $cmd = ['ha-manager', 'set', $service, '--state', 'stopped'];
 
-	return $rpcenv->fork_worker('qmshutdown', $vmid, $authuser, $realcmd);
+		print "Executing HA stop for VM $vmid\n";
+
+		PVE::Tools::run_command($cmd);
+
+		return;
+	    };
+
+	    return $rpcenv->fork_worker('hastop', $vmid, $authuser, $hacmd);
+
+	} else {
+
+	    my $realcmd = sub {
+		my $upid = shift;
+
+		syslog('info', "shutdown VM $vmid: $upid\n");
+
+		PVE::QemuServer::vm_stop($storecfg, $vmid, $skiplock, 0, $param->{timeout},
+					 $shutdown, $param->{forceStop}, $keepActive);
+
+		return;
+	    };
+
+	    return $rpcenv->fork_worker('qmshutdown', $vmid, $authuser, $realcmd);
+	}
     }});
 
 __PACKAGE__->register_method({
