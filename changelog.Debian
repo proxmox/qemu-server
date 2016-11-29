@@ -1,3 +1,9 @@
+qemu-server (4.0-97) unstable; urgency=medium
+
+  * Add entry for windows 10 and 2016 support
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 29 Nov 2016 09:09:23 +0100
+
 qemu-server (4.0-96) unstable; urgency=medium
 
   * restrict monitor API to Sys.Modify for most commands
