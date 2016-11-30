@@ -2510,17 +2510,15 @@ __PACKAGE__->register_method({
     proxyto => 'node',
     description => "Move volume to different storage.",
     permissions => {
-	description => "You need 'VM.Config.Disk' permissions on /vms/{vmid}, " .
-	    "and 'Datastore.AllocateSpace' permissions on the storage.",
-	check =>
-	[ 'and',
-	  ['perm', '/vms/{vmid}', [ 'VM.Config.Disk' ]],
-	  ['perm', '/storage/{storage}', [ 'Datastore.AllocateSpace' ]],
-	],
+	description => "You need 'VM.Config.Disk' permissions on /vms/{vmid}, and 'Datastore.AllocateSpace' permissions on the storage.",
+	check => [ 'and',
+		   ['perm', '/vms/{vmid}', [ 'VM.Config.Disk' ]],
+		   ['perm', '/storage/{storage}', [ 'Datastore.AllocateSpace' ]],
+	    ],
     },
     parameters => {
         additionalProperties => 0,
-        properties => {
+	properties => {
 	    node => get_standard_option('pve-node'),
 	    vmid => get_standard_option('pve-vmid', { completion => \&PVE::QemuServer::complete_vmid }),
 	    disk => {
@@ -2696,14 +2694,11 @@ __PACKAGE__->register_method({
 	    migration_type => {
 		type => 'string',
 		enum => ['secure', 'insecure'],
-		description => "Migration traffic is encrypted using an SSH " .
-		  "tunnel by default. On secure, completely private networks " .
-		  "this can be disabled to increase performance.",
+		description => "Migration traffic is encrypted using an SSH tunnel by default. On secure, completely private networks this can be disabled to increase performance.",
 		optional => 1,
 	    },
 	    migration_network => {
-		type => 'string',
-		format => 'CIDR',
+		type => 'string', format => 'CIDR',
 		description => "CIDR of the (sub) network that is used for migration.",
 		optional => 1,
 	    },
@@ -2798,7 +2793,7 @@ __PACKAGE__->register_method({
     description => "Execute Qemu monitor commands.",
     permissions => {
 	description => "Sys.Modify is required for (sub)commands which are not read-only ('info *' and 'help')",
-	check => ['perm', '/vms/{vmid}', [ 'VM.Monitor' ]],
+        check => ['perm', '/vms/{vmid}', [ 'VM.Monitor' ]],
     },
     parameters => {
     	additionalProperties => 0,
@@ -2859,7 +2854,7 @@ __PACKAGE__->register_method({
 	    command => {
 		type => 'string',
 		description => "The QGA command.",
-	    }
+	    },
 	},
     },
     returns => { type => 'object' },
@@ -2880,9 +2875,9 @@ __PACKAGE__->register_method({
 	};
 
 	if (my $err = $@) {
-		return {'ERROR:', $err};
+	    return {'ERROR:', $err};
 	} else {
-		return {'OK:', $res};
+	    return {'OK:', $res};
 	}
     }});
 
