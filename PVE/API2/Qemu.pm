@@ -2854,7 +2854,8 @@ __PACKAGE__->register_method({
 	additionalProperties => 0,
 	properties => {
 	    node => get_standard_option('pve-node'),
-	    vmid => get_standard_option('pve-vmid'),
+	    vmid => get_standard_option('pve-vmid', {
+                   completion => \&PVE::QemuServer::complete_vmid_running }),
 	    command => {
 		type => 'string',
 		description => "The QGA command.",
