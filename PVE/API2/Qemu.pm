@@ -2835,6 +2835,25 @@ __PACKAGE__->register_method({
 	return $res;
     }});
 
+my $guest_agent_commands = [
+    'guest-ping',
+    'guest-get-time',
+    'guest-info',
+    'guest-fsfreeze-status',
+    'guest-fsfreeze-freeze',
+    'guest-fsfreeze-thaw',
+    'guest-fstrim',
+    'guest-network-get-interfaces',
+    'guest-get-vcpus',
+    'guest-get-fsinfo',
+    'guest-get-memory-blocks',
+    'guest-get-memory-block-info',
+    'guest-suspend-hybrid',
+    'guest-suspend-ram',
+    'guest-suspend-disk',
+    'guest-shutdown',
+    ];
+
 __PACKAGE__->register_method({
     name => 'agent',
     path => '{vmid}/agent',
@@ -2854,6 +2873,7 @@ __PACKAGE__->register_method({
 	    command => {
 		type => 'string',
 		description => "The QGA command.",
+		enum => $guest_agent_commands,
 	    },
 	},
     },
