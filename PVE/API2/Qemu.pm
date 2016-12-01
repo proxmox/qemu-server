@@ -2836,22 +2836,22 @@ __PACKAGE__->register_method({
     }});
 
 my $guest_agent_commands = [
-    'guest-ping',
-    'guest-get-time',
-    'guest-info',
-    'guest-fsfreeze-status',
-    'guest-fsfreeze-freeze',
-    'guest-fsfreeze-thaw',
-    'guest-fstrim',
-    'guest-network-get-interfaces',
-    'guest-get-vcpus',
-    'guest-get-fsinfo',
-    'guest-get-memory-blocks',
-    'guest-get-memory-block-info',
-    'guest-suspend-hybrid',
-    'guest-suspend-ram',
-    'guest-suspend-disk',
-    'guest-shutdown',
+    'ping',
+    'get-time',
+    'info',
+    'fsfreeze-status',
+    'fsfreeze-freeze',
+    'fsfreeze-thaw',
+    'fstrim',
+    'network-get-interfaces',
+    'get-vcpus',
+    'get-fsinfo',
+    'get-memory-blocks',
+    'get-memory-block-info',
+    'suspend-hybrid',
+    'suspend-ram',
+    'suspend-disk',
+    'shutdown',
     ];
 
 __PACKAGE__->register_method({
@@ -2889,11 +2889,12 @@ property depends on the executed command.",
 
 	my $conf = PVE::QemuConfig->load_config ($vmid); # check if VM exists
 
-	die "Only qga commands are allowed\n" if $param->{command} !~ m/^guest-.*$/; 
 	die "No Qemu Guest Agent\n" if !defined($conf->{agent});
 	die "VM $vmid is not running\n" if !PVE::QemuServer::check_running($vmid);
 
-	my $res = PVE::QemuServer::vm_mon_cmd($vmid, $param->{command});
+	my $cmd = $param->{command};
+
+	my $res = PVE::QemuServer::vm_mon_cmd($vmid, "guest-$cmd");
 
 	return { result => $res };
     }});
