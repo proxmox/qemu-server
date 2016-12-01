@@ -1,3 +1,13 @@
+qemu-server (4.0-99) unstable; urgency=medium
+
+  * qm agent: remove 'guest-' prefix from commands
+
+  * qm agent: pass command as second required argument
+
+  * qm agent: add output formatter
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 01 Dec 2016 07:58:34 +0100
+
 qemu-server (4.0-98) unstable; urgency=medium
 
   * Add "qm agent" command
