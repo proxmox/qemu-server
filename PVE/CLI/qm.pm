@@ -18,6 +18,7 @@ use PVE::INotify;
 use PVE::RPCEnvironment;
 use PVE::QemuServer;
 use PVE::API2::Qemu;
+use JSON;
 use PVE::JSONSchema qw(get_standard_option);
 use Term::ReadLine;
 
@@ -405,6 +406,29 @@ __PACKAGE__->register_method ({
 	return undef;
     }});
 
+
+my $print_agent_result = sub {
+    my ($data) = @_;
+
+    my $result = $data->{result};
+    return if !defined($result);
+
+    my $class = ref($result);
+
+    if (!$class) {
+	chomp $result;
+	return if $result =~ m/^\s*$/;
+	print "$result\n";
+	return;
+    }
+
+    if (($class eq 'HASH') && !scalar(keys %$result)) { # empty hash
+	return;
+    }
+
+    print to_json($result, { pretty => 1, canonical => 1});
+};
+
 our $cmddef = {
     list => [ "PVE::API2::Qemu", 'vmlist', [],
 	     { node => $nodename }, sub {
@@ -529,7 +553,8 @@ our $cmddef = {
 
     monitor  => [ __PACKAGE__, 'monitor', ['vmid']],
 
-    agent  => [ "PVE::API2::Qemu", 'agent', ['vmid'], { node => $nodename }],
+    agent  => [ "PVE::API2::Qemu", 'agent', ['vmid'],
+		{ node => $nodename }, $print_agent_result ],
 
     mtunnel => [ __PACKAGE__, 'mtunnel', []],
 
