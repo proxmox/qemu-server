@@ -2877,7 +2877,11 @@ __PACKAGE__->register_method({
 	    },
 	},
     },
-    returns => { type => 'object' },
+    returns => {
+	type => 'object',
+	description => "Returns an object with a single `result` property. The type of that
+property depends on the executed command.",
+    },
     code => sub {
 	my ($param) = @_;
 
@@ -2889,16 +2893,9 @@ __PACKAGE__->register_method({
 	die "No Qemu Guest Agent\n" if !defined($conf->{agent});
 	die "VM $vmid is not running\n" if !PVE::QemuServer::check_running($vmid);
 
-	my $res = '';
-	eval {
-	    $res = PVE::QemuServer::vm_mon_cmd($vmid, $param->{command});
-	};
+	my $res = PVE::QemuServer::vm_mon_cmd($vmid, $param->{command});
 
-	if (my $err = $@) {
-	    return {'ERROR:', $err};
-	} else {
-	    return {'OK:', $res};
-	}
+	return { result => $res };
     }});
 
 __PACKAGE__->register_method({
