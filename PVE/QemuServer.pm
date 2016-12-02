@@ -4476,6 +4476,14 @@ sub vm_start {
 		my $datacenterconf = PVE::Cluster::cfs_read_file('datacenter.cfg');
 		my $nodename = PVE::INotify::nodename();
 
+		if (!defined($migration_type)) {
+		    if (defined($datacenterconf->{migration}->{type})) {
+			$migration_type = $datacenterconf->{migration}->{type};
+		    } else {
+			$migration_type = 'secure';
+		    }
+		}
+
 		if ($migration_type eq 'insecure') {
 		    my $migrate_network_addr = PVE::Cluster::get_local_migration_ip($migration_network);
 		    if ($migrate_network_addr) {
