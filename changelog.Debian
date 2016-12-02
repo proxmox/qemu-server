@@ -1,3 +1,9 @@
+qemu-server (4.0-100) unstable; urgency=medium
+
+  * allow insecure migrations from older qemu-servers
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 02 Dec 2016 18:50:54 +0100
+
 qemu-server (4.0-99) unstable; urgency=medium
 
   * qm agent: remove 'guest-' prefix from commands
