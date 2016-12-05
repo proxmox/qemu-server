@@ -313,7 +313,7 @@ sub sync_disks {
 
 		my $format = PVE::QemuServer::qemu_img_format($scfg, $volname);
 
-		if (!($scfg->{type} eq 'zfspool') || ($format eq 'qcow2')) {
+		if (!($scfg->{type} eq 'zfspool' || $format eq 'qcow2')) {
 		    die "non-migratable snapshot exists\n";
 		}
 	    }
