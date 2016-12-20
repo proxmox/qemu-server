@@ -12,6 +12,7 @@ use PVE::Tools;
 use PVE::Storage::Plugin;
 use PVE::Storage;
 use PVE::QemuServer;
+use PVE::JSONSchema;
 use IO::File;
 use IPC::Open3;
 
@@ -75,7 +76,12 @@ sub prepare {
 	} elsif ($drive->{iothread}) {
 	    die "disk '$ds' '$volid' (iothread=on) can't use backup feature currently. Please set backup=no for this drive";
 	} else {
-	    $self->loginfo("include disk '$ds' '$volid'");
+	    my $log = "include disk '$ds' '$volid'";
+	   if (defined $drive->{size}) {
+		my $readable_size = PVE::JSONSchema::format_size($drive->{size});
+		$log .= " $readable_size";
+	   }
+	    $self->loginfo($log);
 	}
 
 	my ($storeid, $volname) = PVE::Storage::parse_volume_id($volid, 1);
