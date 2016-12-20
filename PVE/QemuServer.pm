@@ -2704,7 +2704,7 @@ sub vmstatus {
 	$qmpclient->queue_cmd($vmid, $statuscb, 'query-status');
     }
 
-    $qmpclient->queue_execute(undef, 1);
+    $qmpclient->queue_execute(undef, 2);
 
     foreach my $vmid (keys %$list) {
 	next if $opt_vmid && ($vmid ne $opt_vmid);
