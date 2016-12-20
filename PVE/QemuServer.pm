@@ -2082,7 +2082,11 @@ sub destroy_vm {
 	my ($path, $owner) = PVE::Storage::path($storecfg, $volid);
 	return if !$path || !$owner || ($owner != $vmid);
 
-	PVE::Storage::vdisk_free($storecfg, $volid);
+	eval {
+	    PVE::Storage::vdisk_free($storecfg, $volid);
+	};
+	warn "Could not remove disk '$volid', check manually: $@" if $@;
+
     });
 
     if ($keep_empty_config) {
