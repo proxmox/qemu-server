@@ -1,3 +1,11 @@
+qemu-server (4.0-103) unstable; urgency=medium
+
+  * destroy_vm: allow vdisk_free to fail
+
+  * Display volume size in log when doing a volume backup
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 22 Dec 2016 12:40:40 +0100
+
 qemu-server (4.0-102) unstable; urgency=medium
 
   * avoid "No balloon device has been activated" warnings in vmstatus
