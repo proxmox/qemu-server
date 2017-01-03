@@ -5913,13 +5913,36 @@ sub qemu_drive_mirror {
 
     my $qemu_target;
     my $format;
+    $jobs->{"drive-$drive"} = {};
 
-    if($dst_volid =~ /^nbd:(localhost|[\d\.]+|\[[\d\.:a-fA-F]+\]):(\d+)/) {
-	$qemu_target = $dst_volid;
+    if($dst_volid =~ /^nbd:(localhost|[\d\.]+|\[[\d\.:a-fA-F]+\]):(\d+):exportname=(\S+)/) {
 	my $server = $1;
 	my $port = $2;
+	my $exportname = $3;
+
 	$format = "nbd";
-	die "can't connect remote nbd server $server:$port" if !PVE::Network::tcp_ping($server, $port, 2);
+	my $unixsocket = "/run/qemu-server/$vmid.mirror-drive-$drive";
+	$qemu_target = "nbd+unix:///$exportname?socket=$unixsocket";
+	my $cmd = ['socat', "UNIX-LISTEN:$unixsocket,fork", "TCP:$server:$2,connect-timeout=1"];
+
+	my $pid = fork();
+	if (!defined($pid)) {
+	    die "forking socat tunnel failed";
+	} elsif ($pid == 0) {
+	    exec(@$cmd);
+	    exit(-1);
+	} else {
+
+	    $jobs->{"drive-$drive"}->{pid} = $pid;
+
+	    my $timeout = 0;
+	    while (1) {
+		last if -S $unixsocket; 
+		die if $timeout > 5;
+		$timeout++;
+		sleep 1;
+	    }
+	}
     } else {
 
 	my $storecfg = PVE::Storage::config();
@@ -5940,12 +5963,12 @@ sub qemu_drive_mirror {
     print "drive mirror is starting for drive-$drive\n";
 
     eval { vm_mon_cmd($vmid, "drive-mirror", %$opts); }; #if a job already run for this device,it's throw an error
+
     if (my $err = $@) {
 	eval { PVE::QemuServer::qemu_blockjobs_cancel($vmid, $jobs) };
 	die "mirroring error: $err";
     }
 
-    $jobs->{"drive-$drive"} = {};
 
     qemu_drive_mirror_monitor ($vmid, $vmiddst, $jobs, $skipcomplete);
 }
@@ -6016,6 +6039,7 @@ sub qemu_drive_mirror_monitor {
 			}else {
 			    print "$job : complete ok : flushing pending writes\n";
 			    $jobs->{$job}->{complete} = 1;
+			    eval { qemu_blockjobs_finish_tunnel($vmid, $job, $jobs->{$job}->{pid}) } ;
 			}
 		    }
 		}
@@ -6053,6 +6077,7 @@ sub qemu_blockjobs_cancel {
 
 	    if(defined($jobs->{$job}->{cancel}) && !defined($running_jobs->{$job})) {
 		print "$job : finished\n";
+		eval { qemu_blockjobs_finish_tunnel($vmid, $job, $jobs->{$job}->{pid}) } ;
 		delete $jobs->{$job};
 	    }
 	}
@@ -6061,6 +6086,25 @@ sub qemu_blockjobs_cancel {
 
 	sleep 1;
     }
+}
+
+sub qemu_blockjobs_finish_tunnel {
+   my ($vmid, $job, $cpid) = @_;
+
+   return if !$cpid;
+
+   for (my $i = 1; $i < 20; $i++) {
+	my $waitpid = waitpid($cpid, WNOHANG);
+	last if (defined($waitpid) && ($waitpid == $cpid));
+ 
+	if ($i == 10) {
+	    kill(15, $cpid);
+	} elsif ($i >= 15) {
+	    kill(9, $cpid);
+	}
+	sleep (1);
+    }
+    unlink "/run/qemu-server/$vmid.mirror-$job";
 }
 
 sub clone_disk {
