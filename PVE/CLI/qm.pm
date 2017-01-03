@@ -221,6 +221,28 @@ __PACKAGE__->register_method ({
     }});
 
 __PACKAGE__->register_method ({
+    name => 'nbdstop',
+    path => 'nbdstop',
+    method => 'PUT',
+    description => "Stop embedded nbd server.",
+    parameters => {
+	additionalProperties => 0,
+	properties => {
+	    vmid => get_standard_option('pve-vmid', { completion => \&PVE::QemuServer::complete_vmid }),
+	},
+    },
+    returns => { type => 'null'},
+    code => sub {
+	my ($param) = @_;
+
+	my $vmid = $param->{vmid};
+
+	PVE::QemuServer::nbd_stop($vmid);
+
+	return undef;
+    }});
+
+__PACKAGE__->register_method ({
     name => 'mtunnel',
     path => 'mtunnel',
     method => 'POST',
@@ -557,6 +579,8 @@ our $cmddef = {
 		{ node => $nodename }, $print_agent_result ],
 
     mtunnel => [ __PACKAGE__, 'mtunnel', []],
+
+    nbdstop => [ __PACKAGE__, 'nbdstop', ['vmid']],
 
     terminal => [ __PACKAGE__, 'terminal', ['vmid']],
 };
