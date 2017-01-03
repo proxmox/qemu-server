@@ -2724,6 +2724,10 @@ __PACKAGE__->register_method({
 		description => "CIDR of the (sub) network that is used for migration.",
 		optional => 1,
 	    },
+	    targetstorage => get_standard_option('pve-storage-id', {
+		description => "Target storage.",
+		optional => 1,
+	    }),
 	},
     },
     returns => {
@@ -2749,6 +2753,9 @@ __PACKAGE__->register_method({
 	my $targetip = PVE::Cluster::remote_node_ip($target);
 
 	my $vmid = extract_param($param, 'vmid');
+
+	raise_param_exc({ targetstorage => "Live Storage migration can only be done online" })
+	    if !$param->{online} && $param->{targetstorage};
 
 	raise_param_exc({ force => "Only root may use this option." })
 	    if $param->{force} && $authuser ne 'root@pam';

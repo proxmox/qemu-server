@@ -186,8 +186,10 @@ sub prepare {
 	my ($sid, $volname) = PVE::Storage::parse_volume_id($volid, 1);
 
 	# check if storage is available on both nodes
+	my $targetsid = $self->{opts}->{targetstorage} ? $self->{opts}->{targetstorage} : $sid;
+
 	my $scfg = PVE::Storage::storage_check_node($self->{storecfg}, $sid);
-	PVE::Storage::storage_check_node($self->{storecfg}, $sid, $self->{node});
+	PVE::Storage::storage_check_node($self->{storecfg}, $targetsid, $self->{node});
 
 	if ($scfg->{shared}) {
 	    # PVE::Storage::activate_storage checks this for non-shared storages
@@ -213,8 +215,6 @@ sub prepare {
 
 sub sync_disks {
     my ($self, $vmid) = @_;
-
-    $self->log('info', "copying disk images");
 
     my $conf = $self->{vmconf};
 
@@ -290,6 +290,7 @@ sub sync_disks {
 
 	    my ($sid, $volname) = PVE::Storage::parse_volume_id($volid);
 
+	    my $targetsid = $self->{opts}->{targetstorage} ? $self->{opts}->{targetstorage} : $sid;
 	    # check if storage is available on both nodes
 	    my $scfg = PVE::Storage::storage_check_node($self->{storecfg}, $sid);
 	    PVE::Storage::storage_check_node($self->{storecfg}, $sid, $self->{node});
@@ -312,7 +313,7 @@ sub sync_disks {
 		# exceptions: 'zfspool' or 'qcow2' files (on directory storage)
 
 		my $format = PVE::QemuServer::qemu_img_format($scfg, $volname);
-
+		die "online storage migration not possible if snapshot exists\n" if $self->{running};
 		if (!($scfg->{type} eq 'zfspool' || $format eq 'qcow2')) {
 		    die "non-migratable snapshot exists\n";
 		}
@@ -362,8 +363,8 @@ sub sync_disks {
 	    $self->log('warn', "$err");
 	}
 
-	if ($self->{running} && !$sharedvm) {
-	    die "can't do online migration - VM uses local disks\n";
+	if ($self->{running} && !$sharedvm && !$self->{opts}->{targetstorage}) {
+	    $self->{opts}->{targetstorage} = 1; #use same sid for remote local
 	}
 
 	if ($abort) {
@@ -387,13 +388,37 @@ sub sync_disks {
 	    }
 	}
 
+	$self->log('info', "copying disk images");
+
 	foreach my $volid (keys %$local_volumes) {
 	    my ($sid, $volname) = PVE::Storage::parse_volume_id($volid);
-	    push @{$self->{volumes}}, $volid;
-	    PVE::Storage::storage_migrate($self->{storecfg}, $volid, $self->{nodeip}, $sid);
+	    if ($self->{running} && $self->{opts}->{targetstorage} && $local_volumes->{$volid} eq 'config') {
+		push @{$self->{online_local_volumes}}, $volid;
+	    } else {
+		push @{$self->{volumes}}, $volid;
+		PVE::Storage::storage_migrate($self->{storecfg}, $volid, $self->{nodeip}, $sid);
+	    }
 	}
     };
     die "Failed to sync data - $@" if $@;
+}
+
+sub cleanup_remotedisks {
+    my ($self) = @_;
+
+    foreach my $target_drive (keys %{$self->{target_drive}}) {
+
+	my $drive = PVE::QemuServer::parse_drive($target_drive, $self->{target_drive}->{$target_drive}->{volid});
+	my ($storeid, $volname) = PVE::Storage::parse_volume_id($drive->{file});
+
+	my $cmd = [@{$self->{rem_ssh}}, 'pvesm', 'free', "$storeid:$volname"];
+
+	eval{ PVE::Tools::run_command($cmd, outfunc => sub {}, errfunc => sub {}) };
+	if (my $err = $@) {
+	    $self->log('err', $err);
+	    $self->{errors} = 1;
+	}
+    }
 }
 
 sub phase1 {
@@ -482,6 +507,10 @@ sub phase2 {
 	push @$cmd, '--machine', $self->{forcemachine};
     }
 
+    if ($self->{opts}->{targetstorage}) {
+	push @$cmd, '--targetstorage', $self->{opts}->{targetstorage};
+    }
+
     my $spice_port;
 
     # Note: We try to keep $spice_ticket secret (do not pass via command line parameter)
@@ -506,6 +535,16 @@ sub phase2 {
 	}
         elsif ($line =~ m/^spice listens on port (\d+)$/) {
 	    $spice_port = int($1);
+	}
+        elsif ($line =~ m/^storage migration listens on nbd:(localhost|[\d\.]+|\[[\d\.:a-fA-F]+\]):(\d+):exportname=(\S+) volume:(\S+)$/) {
+	    my $volid = $4;
+	    my $nbd_uri = "nbd:$1:$2:exportname=$3";
+	    my $targetdrive = $3;
+	    $targetdrive =~ s/drive-//g;
+
+	    $self->{target_drive}->{$targetdrive}->{volid} = $volid;
+	    $self->{target_drive}->{$targetdrive}->{nbd_uri} = $nbd_uri;
+
 	}
     }, errfunc => sub {
 	my $line = shift;
@@ -551,6 +590,19 @@ sub phase2 {
     }
 
     my $start = time();
+
+    if ($self->{opts}->{targetstorage}) {
+	$self->{storage_migration} = 1;
+	$self->{storage_migration_jobs} = {};
+	$self->log('info', "starting storage migration");
+
+	die "the number of destination local disk is not equal to number of source local disk" if (scalar(keys %{$self->{target_drive}}) != scalar @{$self->{online_local_volumes}});
+	foreach my $drive (keys %{$self->{target_drive}}){
+	    $self->log('info', "$drive: start migration to to $self->{target_drive}->{$drive}->{nbd_uri}");
+	    PVE::QemuServer::qemu_drive_mirror($vmid, $drive, $self->{target_drive}->{$drive}->{nbd_uri}, $vmid, undef, $self->{storage_migration_jobs}, 1);
+	}
+    }
+
     $self->log('info', "starting online/live migration on $ruri");
     $self->{livemigration} = 1;
 
@@ -750,6 +802,19 @@ sub phase2_cleanup {
     }
 
     # cleanup ressources on target host
+    if ( $self->{storage_migration} ) {
+
+	eval { PVE::QemuServer::qemu_blockjobs_cancel($vmid, $self->{storage_migration_jobs}) };
+	if (my $err = $@) {
+	    $self->log('err', $err);
+	}
+
+	eval { PVE::QemuMigrate::cleanup_remotedisks($self) };
+	if (my $err = $@) {
+	    $self->log('err', $err);
+	}
+    }
+
     my $nodename = PVE::INotify::nodename();
  
     my $cmd = [@{$self->{rem_ssh}}, 'qm', 'stop', $vmid, '--skiplock', '--migratedfrom', $nodename];
@@ -790,6 +855,24 @@ sub phase3_cleanup {
 
     my $conf = $self->{vmconf};
     return if $self->{phase2errors};
+
+    if ($self->{storage_migration}) {
+
+	eval { PVE::QemuServer::qemu_drive_mirror_monitor($vmid, undef, $self->{storage_migration_jobs}); }; #finish block-job
+
+	if (my $err = $@) {
+	    eval { PVE::QemuServer::qemu_blockjobs_cancel($vmid, $self->{storage_migration_jobs}) };
+	    eval { PVE::QemuMigrate::cleanup_remotedisks($self) };
+	    die "Failed to completed storage migration\n";
+	} else {
+
+	    foreach my $target_drive (keys %{$self->{target_drive}}) {
+		my $drive = PVE::QemuServer::parse_drive($target_drive, $self->{target_drive}->{$target_drive}->{volid});
+		$conf->{$target_drive} = PVE::QemuServer::print_drive($vmid, $drive);
+		PVE::QemuConfig->write_config($vmid, $conf);
+	    }
+	}
+    }
 
     # move config to remote node
     my $conffile = PVE::QemuConfig->config_file($vmid);
@@ -843,6 +926,29 @@ sub phase3_cleanup {
     if (my $err = $@) {
 	$self->log('err', $err);
 	$self->{errors} = 1;
+    }
+
+    if($self->{storage_migration}) {
+	# destroy local copies
+	my $volids = $self->{online_local_volumes};
+
+	foreach my $volid (@$volids) {
+	    eval { PVE::Storage::vdisk_free($self->{storecfg}, $volid); };
+	    if (my $err = $@) {
+		$self->log('err', "removing local copy of '$volid' failed - $err");
+		$self->{errors} = 1;
+		last if $err =~ /^interrupted by signal$/;
+	    }
+	}
+
+	#stop nbd server to remote vm
+	my $cmd = [@{$self->{rem_ssh}}, 'qm', 'nbdstop', $vmid];
+
+	eval{ PVE::Tools::run_command($cmd, outfunc => sub {}, errfunc => sub {}) };
+	if (my $err = $@) {
+	    $self->log('err', $err);
+	    $self->{errors} = 1;
+	}
     }
 
     # clear migrate lock
