@@ -4449,7 +4449,7 @@ sub vmconfig_update_disk {
 
 sub vm_start {
     my ($storecfg, $vmid, $statefile, $skiplock, $migratedfrom, $paused,
-	$forcemachine, $spice_ticket, $migration_network, $migration_type) = @_;
+	$forcemachine, $spice_ticket, $migration_network, $migration_type, $targetstorage) = @_;
 
     PVE::QemuConfig->lock_config($vmid, sub {
 	my $conf = PVE::QemuConfig->load_config($vmid, $migratedfrom);
@@ -4469,6 +4469,55 @@ sub vm_start {
 
 	# set environment variable useful inside network script
 	$ENV{PVE_MIGRATED_FROM} = $migratedfrom if $migratedfrom;
+
+	my $local_volumes = {};
+
+	if( $targetstorage ){
+
+	    foreach_drive($conf, sub {
+		my ($ds, $drive) = @_;
+
+		return if drive_is_cdrom($drive);
+
+		my $volid = $drive->{file};
+
+		return if !$volid;
+
+		my ($storeid, $volname) = PVE::Storage::parse_volume_id($volid);
+
+		my $scfg = PVE::Storage::storage_config($storecfg, $storeid);
+		return if $scfg->{shared};
+		$local_volumes->{$ds} = [$volid, $storeid, $volname];
+	    });
+
+	    my $format = undef;
+
+	    foreach my $opt (sort keys %$local_volumes) {
+
+		my ($volid, $storeid, $volname) = @{$local_volumes->{$opt}};
+		my $drive = parse_drive($opt, $conf->{$opt});
+
+		#if remote storage is specified, use default format
+		if ($targetstorage && $targetstorage ne "1") {
+		    $storeid = $targetstorage;
+		    my ($defFormat, $validFormats) = PVE::Storage::storage_default_format($storecfg, $storeid);
+		    $format = $defFormat;
+		} else {
+		    #else we use same format than original
+		    my $scfg = PVE::Storage::storage_config($storecfg, $storeid);
+		    $format = qemu_img_format($scfg, $volid);
+		}
+
+		my $newvolid = PVE::Storage::vdisk_alloc($storecfg, $storeid, $vmid, $format, undef, ($drive->{size}/1024));
+		my $newdrive = $drive;
+		$newdrive->{format} = $format;
+		$newdrive->{file} = $newvolid;
+		my $drivestr = PVE::QemuServer::print_drive($vmid, $newdrive);
+		$local_volumes->{$opt} = $drivestr;
+		#pass drive to conf for command line
+		$conf->{$opt} = $drivestr;
+	    }
+	}
 
 	my ($cmd, $vollist, $spice_port) = config_to_command($storecfg, $vmid, $conf, $defaults, $forcemachine);
 
@@ -4605,6 +4654,27 @@ sub vm_start {
 	if ($statefile && $statefile ne 'tcp')  {
 	    eval { vm_mon_cmd_nocheck($vmid, "cont"); };
 	    warn $@ if $@;
+	}
+
+	#start nbd server for storage migration
+	if ($targetstorage) {
+
+	    my $nodename = PVE::INotify::nodename();
+	    my $migrate_network_addr = PVE::Cluster::get_local_migration_ip($migration_network);
+	    my $localip = $migrate_network_addr ? $migrate_network_addr : PVE::Cluster::remote_node_ip($nodename, 1);
+	    my $pfamily = PVE::Tools::get_host_address_family($nodename);
+	    $migrate_port = PVE::Tools::next_migrate_port($pfamily);
+
+	    vm_mon_cmd_nocheck($vmid, "nbd-server-start", addr => { type => 'inet', data => { host => "${localip}", port => "${migrate_port}" } } );
+
+	    $localip = "[$localip]" if Net::IP::ip_is_ipv6($localip);
+
+	    foreach my $opt (sort keys %$local_volumes) {
+		my $volid = $local_volumes->{$opt};
+		vm_mon_cmd_nocheck($vmid, "nbd-server-add", device => "drive-$opt", writable => JSON::true );
+		my $migrate_storage_uri = "nbd:${localip}:${migrate_port}:exportname=drive-$opt";
+		print "storage migration listens on $migrate_storage_uri volume:$volid\n";
+	    }
 	}
 
 	if ($migratedfrom) {

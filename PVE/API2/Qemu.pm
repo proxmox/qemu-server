@@ -1642,6 +1642,11 @@ __PACKAGE__->register_method({
 		optional => 1,
 	    },
 	    machine => get_standard_option('pve-qm-machine'),
+	    targetstorage => {
+		description => "Target migration storage . (1 = same storeid than original)",
+		type => 'string',
+		optional => 1
+	    }
 	},
     },
     returns => {
@@ -1679,6 +1684,13 @@ __PACKAGE__->register_method({
 	my $migration_network = extract_param($param, 'migration_network');
 	raise_param_exc({ migration_network => "Only root may use this option." })
 	    if $migration_network && $authuser ne 'root@pam';
+
+	my $targetstorage = extract_param($param, 'targetstorage');
+	raise_param_exc({ targetstorage => "Only root may use this option." })
+	    if $targetstorage && $authuser ne 'root@pam';
+
+	raise_param_exc({ targetstorage => "targetstorage can only by used with migratedfrom." })
+	    if $targetstorage && !$migratedfrom;
 
 	# read spice ticket from STDIN
 	my $spice_ticket;
@@ -1720,7 +1732,7 @@ __PACKAGE__->register_method({
 		syslog('info', "start VM $vmid: $upid\n");
 
 		PVE::QemuServer::vm_start($storecfg, $vmid, $stateuri, $skiplock, $migratedfrom, undef,
-					  $machine, $spice_ticket, $migration_network, $migration_type);
+					  $machine, $spice_ticket, $migration_network, $migration_type, $targetstorage);
 
 		return;
 	    };
