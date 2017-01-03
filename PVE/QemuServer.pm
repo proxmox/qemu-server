@@ -5907,7 +5907,7 @@ sub qemu_img_format {
 }
 
 sub qemu_drive_mirror {
-    my ($vmid, $drive, $dst_volid, $vmiddst, $is_zero_initialized, $jobs, $skipcomplete) = @_;
+    my ($vmid, $drive, $dst_volid, $vmiddst, $is_zero_initialized, $jobs, $skipcomplete, $qga) = @_;
 
     $jobs = {} if !$jobs;
 
@@ -5970,11 +5970,11 @@ sub qemu_drive_mirror {
     }
 
 
-    qemu_drive_mirror_monitor ($vmid, $vmiddst, $jobs, $skipcomplete);
+    qemu_drive_mirror_monitor ($vmid, $vmiddst, $jobs, $skipcomplete, $qga);
 }
 
 sub qemu_drive_mirror_monitor {
-    my ($vmid, $vmiddst, $jobs, $skipcomplete) = @_;
+    my ($vmid, $vmiddst, $jobs, $skipcomplete, $qga) = @_;
 
     eval {
 
@@ -6023,8 +6023,25 @@ sub qemu_drive_mirror_monitor {
 		last if $skipcomplete; #do the complete later
 
 		if ($vmiddst && $vmiddst != $vmid) {
+		    if ($qga) {
+			print "freeze filesystem\n";
+			eval { PVE::QemuServer::vm_mon_cmd($vmid, "guest-fsfreeze-freeze"); };
+		    } else {
+			print "suspend vm\n";
+			eval { PVE::QemuServer::vm_suspend($vmid, 1); };
+		    }
+
 		    # if we clone a disk for a new target vm, we don't switch the disk
 		    PVE::QemuServer::qemu_blockjobs_cancel($vmid, $jobs);
+
+		    if ($qga) {
+			print "unfreeze filesystem\n";
+			eval { PVE::QemuServer::vm_mon_cmd($vmid, "guest-fsfreeze-thaw"); };
+		    } else {
+			print "resume vm\n";
+			eval {  PVE::QemuServer::vm_resume($vmid, 1, 1); };
+		    }
+
 		    last;
 		} else {
 
@@ -6109,7 +6126,7 @@ sub qemu_blockjobs_finish_tunnel {
 
 sub clone_disk {
     my ($storecfg, $vmid, $running, $drivename, $drive, $snapname,
-	$newvmid, $storage, $format, $full, $newvollist, $jobs, $skipcomplete) = @_;
+	$newvmid, $storage, $format, $full, $newvollist, $jobs, $skipcomplete, $qga) = @_;
 
     my $newvolid;
 
@@ -6151,7 +6168,7 @@ sub clone_disk {
 		    if $drive->{iothread};
 	    }
 
-	    qemu_drive_mirror($vmid, $drivename, $newvolid, $newvmid, $sparseinit, $jobs, $skipcomplete);
+	    qemu_drive_mirror($vmid, $drivename, $newvolid, $newvmid, $sparseinit, $jobs, $skipcomplete, $qga);
 	}
     }
 
