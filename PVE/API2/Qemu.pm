@@ -2443,21 +2443,29 @@ __PACKAGE__->register_method({
 		my $upid = shift;
 
 		my $newvollist = [];
+		my $jobs = {};
 
 		eval {
 		    local $SIG{INT} = $SIG{TERM} = $SIG{QUIT} = $SIG{HUP} = sub { die "interrupted by signal\n"; };
 
 		    PVE::Storage::activate_volumes($storecfg, $vollist, $snapname);
 
+		    my $total_jobs = scalar(keys %{$drives});
+		    my $i = 1;
+		    my $skipcomplete = 1;
+
 		    foreach my $opt (keys %$drives) {
+
 			my $drive = $drives->{$opt};
+			$skipcomplete = undef if $total_jobs == $i; #finish after last drive
 
 			my $newdrive = PVE::QemuServer::clone_disk($storecfg, $vmid, $running, $opt, $drive, $snapname,
-								   $newid, $storage, $format, $fullclone->{$opt}, $newvollist);
+								   $newid, $storage, $format, $fullclone->{$opt}, $newvollist, $jobs, $skipcomplete);
 
 			$newconf->{$opt} = PVE::QemuServer::print_drive($vmid, $newdrive);
 
 			PVE::QemuConfig->write_config($newid, $newconf);
+			$i++;
 		    }
 
 		    delete $newconf->{lock};
@@ -2477,6 +2485,8 @@ __PACKAGE__->register_method({
 		};
 		if (my $err = $@) {
 		    unlink $conffile;
+
+		    eval { PVE::QemuServer::qemu_blockjobs_cancel($vmid, $jobs) };
 
 		    sleep 1; # some storage like rbd need to wait before release volume - really?
 
