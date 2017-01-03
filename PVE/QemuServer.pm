@@ -5837,91 +5837,165 @@ sub qemu_img_format {
 }
 
 sub qemu_drive_mirror {
-    my ($vmid, $drive, $dst_volid, $vmiddst, $is_zero_initialized) = @_;
+    my ($vmid, $drive, $dst_volid, $vmiddst, $is_zero_initialized, $jobs, $skipcomplete) = @_;
 
-    my $storecfg = PVE::Storage::config();
-    my ($dst_storeid, $dst_volname) = PVE::Storage::parse_volume_id($dst_volid);
+    $jobs = {} if !$jobs;
 
-    my $dst_scfg = PVE::Storage::storage_config($storecfg, $dst_storeid);
+    my $qemu_target;
+    my $format;
 
-    my $format = qemu_img_format($dst_scfg, $dst_volname);
+    if($dst_volid =~ /^nbd:(localhost|[\d\.]+|\[[\d\.:a-fA-F]+\]):(\d+)/) {
+	$qemu_target = $dst_volid;
+	my $server = $1;
+	my $port = $2;
+	$format = "nbd";
+	die "can't connect remote nbd server $server:$port" if !PVE::Network::tcp_ping($server, $port, 2);
+    } else {
 
-    my $dst_path = PVE::Storage::path($storecfg, $dst_volid);
+	my $storecfg = PVE::Storage::config();
+	my ($dst_storeid, $dst_volname) = PVE::Storage::parse_volume_id($dst_volid);
 
-    my $qemu_target = $is_zero_initialized ? "zeroinit:$dst_path" : $dst_path;
+	my $dst_scfg = PVE::Storage::storage_config($storecfg, $dst_storeid);
+
+	$format = qemu_img_format($dst_scfg, $dst_volname);
+
+	my $dst_path = PVE::Storage::path($storecfg, $dst_volid);
+
+	$qemu_target = $is_zero_initialized ? "zeroinit:$dst_path" : $dst_path;
+    }
 
     my $opts = { timeout => 10, device => "drive-$drive", mode => "existing", sync => "full", target => $qemu_target };
     $opts->{format} = $format if $format;
 
-    print "drive mirror is starting (scanning bitmap) : this step can take some minutes/hours, depend of disk size and storage speed\n";
+    print "drive mirror is starting for drive-$drive\n";
 
-    my $finish_job = sub {
-	while (1) {
-	    my $stats = vm_mon_cmd($vmid, "query-block-jobs");
-	    my $stat = @$stats[0];
-	    last if !$stat;
-	    sleep 1;
-	}
-    };
-
-    eval {
-    vm_mon_cmd($vmid, "drive-mirror", %$opts);
-	while (1) {
-	    my $stats = vm_mon_cmd($vmid, "query-block-jobs");
-	    my $stat = @$stats[0];
-	    die "mirroring job seem to have die. Maybe do you have bad sectors?" if !$stat;
-	    die "error job is not mirroring" if $stat->{type} ne "mirror";
-
-	    my $busy = $stat->{busy};
-	    my $ready = $stat->{ready};
-
-	    if (my $total = $stat->{len}) {
-		my $transferred = $stat->{offset} || 0;
-		my $remaining = $total - $transferred;
-		my $percent = sprintf "%.2f", ($transferred * 100 / $total);
-
-		print "transferred: $transferred bytes remaining: $remaining bytes total: $total bytes progression: $percent % busy: $busy ready: $ready \n";
-	    }
-
-
-	    if ($stat->{ready} eq 'true') {
-
-		last if $vmiddst != $vmid;
-
-		# try to switch the disk if source and destination are on the same guest
-		eval { vm_mon_cmd($vmid, "block-job-complete", device => "drive-$drive") };
-		if (!$@) {
-		    &$finish_job();
-		    last;
-		}
-		die $@ if $@ !~ m/cannot be completed/;
-	    }
-	    sleep 1;
-	}
-
-
-    };
-    my $err = $@;
-
-    my $cancel_job = sub {
-	vm_mon_cmd($vmid, "block-job-cancel", device => "drive-$drive");
-	&$finish_job();
-    };
-
-    if ($err) {
-	eval { &$cancel_job(); };
+    eval { vm_mon_cmd($vmid, "drive-mirror", %$opts); }; #if a job already run for this device,it's throw an error
+    if (my $err = $@) {
+	eval { PVE::QemuServer::qemu_blockjobs_cancel($vmid, $jobs) };
 	die "mirroring error: $err";
     }
 
-    if ($vmiddst != $vmid) {
-	# if we clone a disk for a new target vm, we don't switch the disk
-	&$cancel_job(); # so we call block-job-cancel
+    $jobs->{"drive-$drive"} = {};
+
+    qemu_drive_mirror_monitor ($vmid, $vmiddst, $jobs, $skipcomplete);
+}
+
+sub qemu_drive_mirror_monitor {
+    my ($vmid, $vmiddst, $jobs, $skipcomplete) = @_;
+
+    eval {
+
+	my $err_complete = 0;
+
+	while (1) {
+	    die "storage migration timed out\n" if $err_complete > 300;
+
+	    my $stats = vm_mon_cmd($vmid, "query-block-jobs");
+
+	    my $running_mirror_jobs = {};
+	    foreach my $stat (@$stats) {
+		next if $stat->{type} ne 'mirror';
+		$running_mirror_jobs->{$stat->{device}} = $stat;
+	    }
+
+	    my $readycounter = 0;
+
+	    foreach my $job (keys %$jobs) {
+
+	        if(defined($jobs->{$job}->{complete}) && !defined($running_mirror_jobs->{$job})) {
+		    print "$job : finished\n";
+		    delete $jobs->{$job};
+		    next;
+		}
+
+		die "$job: mirroring has been cancelled. Maybe do you have bad sectors?" if !defined($running_mirror_jobs->{$job});
+
+		my $busy = $running_mirror_jobs->{$job}->{busy};
+		my $ready = $running_mirror_jobs->{$job}->{ready};
+		if (my $total = $running_mirror_jobs->{$job}->{len}) {
+		    my $transferred = $running_mirror_jobs->{$job}->{offset} || 0;
+		    my $remaining = $total - $transferred;
+		    my $percent = sprintf "%.2f", ($transferred * 100 / $total);
+
+		    print "$job: transferred: $transferred bytes remaining: $remaining bytes total: $total bytes progression: $percent % busy: $busy ready: $ready \n";
+		}
+
+		$readycounter++ if $running_mirror_jobs->{$job}->{ready} eq 'true';
+	    }
+
+	    last if scalar(keys %$jobs) == 0;
+
+	    if ($readycounter == scalar(keys %$jobs)) {
+		print "all mirroring jobs are ready \n";
+		last if $skipcomplete; #do the complete later
+
+		if ($vmiddst && $vmiddst != $vmid) {
+		    # if we clone a disk for a new target vm, we don't switch the disk
+		    PVE::QemuServer::qemu_blockjobs_cancel($vmid, $jobs);
+		    last;
+		} else {
+
+		    foreach my $job (keys %$jobs) {
+			# try to switch the disk if source and destination are on the same guest
+			print "$job : Try to complete block job\n";
+
+			eval { vm_mon_cmd($vmid, "block-job-complete", device => $job) };
+			if ($@ =~ m/cannot be completed/) {
+			    print "$job : block job cannot be complete. Try again \n";
+			    $err_complete++;
+			}else {
+			    print "$job : complete ok : flushing pending writes\n";
+			    $jobs->{$job}->{complete} = 1;
+			}
+		    }
+		}
+	    }
+	    sleep 1;
+	}
+    };
+    my $err = $@;
+
+    if ($err) {
+	eval { PVE::QemuServer::qemu_blockjobs_cancel($vmid, $jobs) };
+	die "mirroring error: $err";
+    }
+
+}
+
+sub qemu_blockjobs_cancel {
+    my ($vmid, $jobs) = @_;
+
+    foreach my $job (keys %$jobs) {
+	print "$job: try to cancel block job\n";
+	eval { vm_mon_cmd($vmid, "block-job-cancel", device => $job); };
+	$jobs->{$job}->{cancel} = 1;
+    }
+
+    while (1) {
+	my $stats = vm_mon_cmd($vmid, "query-block-jobs");
+
+	my $running_jobs = {};
+	foreach my $stat (@$stats) {
+	    $running_jobs->{$stat->{device}} = $stat;
+	}
+
+	foreach my $job (keys %$jobs) {
+
+	    if(defined($jobs->{$job}->{cancel}) && !defined($running_jobs->{$job})) {
+		print "$job : finished\n";
+		delete $jobs->{$job};
+	    }
+	}
+
+	last if scalar(keys %$jobs) == 0;
+
+	sleep 1;
     }
 }
 
 sub clone_disk {
     my ($storecfg, $vmid, $running, $drivename, $drive, $snapname,
-	$newvmid, $storage, $format, $full, $newvollist) = @_;
+	$newvmid, $storage, $format, $full, $newvollist, $jobs, $skipcomplete) = @_;
 
     my $newvolid;
 
@@ -5930,6 +6004,7 @@ sub clone_disk {
 	$newvolid = PVE::Storage::vdisk_clone($storecfg,  $drive->{file}, $newvmid, $snapname);
 	push @$newvollist, $newvolid;
     } else {
+
 	my ($storeid, $volname) = PVE::Storage::parse_volume_id($drive->{file});
 	$storeid = $storage if $storage;
 
@@ -5962,7 +6037,7 @@ sub clone_disk {
 		    if $drive->{iothread};
 	    }
 
-	    qemu_drive_mirror($vmid, $drivename, $newvolid, $newvmid, $sparseinit);
+	    qemu_drive_mirror($vmid, $drivename, $newvolid, $newvmid, $sparseinit, $jobs, $skipcomplete);
 	}
     }
 
