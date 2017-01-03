@@ -119,6 +119,8 @@ sub cmd {
 		 $cmd->{execute} eq 'savevm-end' ||
 		 $cmd->{execute} eq 'query-backup' ||
 		 $cmd->{execute} eq 'query-block-jobs' ||
+		 $cmd->{execute} eq 'block-job-cancel' ||
+		 $cmd->{execute} eq 'block-job-complete' ||
 		 $cmd->{execute} eq 'backup-cancel' ||
 		 $cmd->{execute} eq 'query-savevm' ||
 		 $cmd->{execute} eq 'delete-drive-snapshot' || 
