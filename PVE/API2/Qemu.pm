@@ -1643,7 +1643,7 @@ __PACKAGE__->register_method({
 	    },
 	    machine => get_standard_option('pve-qm-machine'),
 	    targetstorage => {
-		description => "Target migration storage . (1 = same storeid than original)",
+		description => "Target storage for the migration. (Can be '1' to use the same storage id as on the source node.)",
 		type => 'string',
 		optional => 1
 	    }
@@ -2753,7 +2753,7 @@ __PACKAGE__->register_method({
 
 	my $vmid = extract_param($param, 'vmid');
 
-	raise_param_exc({ targetstorage => "Live Storage migration can only be done online" })
+	raise_param_exc({ targetstorage => "Live storage migration can only be done online." })
 	    if !$param->{online} && $param->{targetstorage};
 
 	raise_param_exc({ force => "Only root may use this option." })

@@ -596,7 +596,7 @@ sub phase2 {
 	$self->{storage_migration_jobs} = {};
 	$self->log('info', "starting storage migration");
 
-	die "the number of destination local disk is not equal to number of source local disk"
+	die "The number of local disks does not match between the source and the destination.\n"
 	    if (scalar(keys %{$self->{target_drive}}) != scalar @{$self->{online_local_volumes}});
 	foreach my $drive (keys %{$self->{target_drive}}){
 	    my $nbd_uri = $self->{target_drive}->{$drive}->{nbd_uri};

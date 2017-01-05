@@ -5923,7 +5923,7 @@ sub qemu_drive_mirror {
 
 	my $pid = fork();
 	if (!defined($pid)) {
-	    die "forking socat tunnel failed";
+	    die "forking socat tunnel failed\n";
 	} elsif ($pid == 0) {
 	    exec(@$cmd);
 	    warn "exec failed: $!\n";
@@ -5992,7 +5992,7 @@ sub qemu_drive_mirror_monitor {
 		    next;
 		}
 
-		die "$job: mirroring has been cancelled. Maybe do you have bad sectors?" if !defined($running_mirror_jobs->{$job});
+		die "$job: mirroring has been cancelled\n" if !defined($running_mirror_jobs->{$job});
 
 		my $busy = $running_mirror_jobs->{$job}->{busy};
 		my $ready = $running_mirror_jobs->{$job}->{ready};
@@ -6038,14 +6038,14 @@ sub qemu_drive_mirror_monitor {
 
 		    foreach my $job (keys %$jobs) {
 			# try to switch the disk if source and destination are on the same guest
-			print "$job : Try to complete block job\n";
+			print "$job: Completing block job...\n";
 
 			eval { vm_mon_cmd($vmid, "block-job-complete", device => $job) };
 			if ($@ =~ m/cannot be completed/) {
-			    print "$job : block job cannot be complete. Try again \n";
+			    print "$job: Block job cannot be completed, try again.\n";
 			    $err_complete++;
 			}else {
-			    print "$job : complete ok : flushing pending writes\n";
+			    print "$job: Completed successfully.\n";
 			    $jobs->{$job}->{complete} = 1;
 			    eval { qemu_blockjobs_finish_tunnel($vmid, $job, $jobs->{$job}->{pid}) } ;
 			}
@@ -6068,7 +6068,7 @@ sub qemu_blockjobs_cancel {
     my ($vmid, $jobs) = @_;
 
     foreach my $job (keys %$jobs) {
-	print "$job: try to cancel block job\n";
+	print "$job: Cancelling block job\n";
 	eval { vm_mon_cmd($vmid, "block-job-cancel", device => $job); };
 	$jobs->{$job}->{cancel} = 1;
     }
@@ -6083,8 +6083,8 @@ sub qemu_blockjobs_cancel {
 
 	foreach my $job (keys %$jobs) {
 
-	    if(defined($jobs->{$job}->{cancel}) && !defined($running_jobs->{$job})) {
-		print "$job : finished\n";
+	    if (defined($jobs->{$job}->{cancel}) && !defined($running_jobs->{$job})) {
+		print "$job: Done.\n";
 		eval { qemu_blockjobs_finish_tunnel($vmid, $job, $jobs->{$job}->{pid}) } ;
 		delete $jobs->{$job};
 	    }
