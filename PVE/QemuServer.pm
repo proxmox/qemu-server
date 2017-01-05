@@ -4472,8 +4472,7 @@ sub vm_start {
 
 	my $local_volumes = {};
 
-	if( $targetstorage ){
-
+	if ($targetstorage) {
 	    foreach_drive($conf, sub {
 		my ($ds, $drive) = @_;
 
@@ -4658,7 +4657,6 @@ sub vm_start {
 
 	#start nbd server for storage migration
 	if ($targetstorage) {
-
 	    my $nodename = PVE::INotify::nodename();
 	    my $migrate_network_addr = PVE::Cluster::get_local_migration_ip($migration_network);
 	    my $localip = $migrate_network_addr ? $migrate_network_addr : PVE::Cluster::remote_node_ip($nodename, 1);
@@ -4678,7 +4676,6 @@ sub vm_start {
 	}
 
 	if ($migratedfrom) {
-
 	    eval {
 		set_migration_caps($vmid);
 	    };
@@ -4693,7 +4690,6 @@ sub vm_start {
 	    }
 
 	} else {
-
 	    if (!$statefile && (!defined($conf->{balloon}) || $conf->{balloon})) {
 		vm_mon_cmd_nocheck($vmid, "balloon", value => $conf->{balloon}*1024*1024)
 		    if $conf->{balloon};
@@ -5915,7 +5911,7 @@ sub qemu_drive_mirror {
     my $format;
     $jobs->{"drive-$drive"} = {};
 
-    if($dst_volid =~ /^nbd:(localhost|[\d\.]+|\[[\d\.:a-fA-F]+\]):(\d+):exportname=(\S+)/) {
+    if ($dst_volid =~ /^nbd:(localhost|[\d\.]+|\[[\d\.:a-fA-F]+\]):(\d+):exportname=(\S+)/) {
 	my $server = $1;
 	my $port = $2;
 	my $exportname = $3;
@@ -5932,7 +5928,6 @@ sub qemu_drive_mirror {
 	    exec(@$cmd);
 	    exit(-1);
 	} else {
-
 	    $jobs->{"drive-$drive"}->{pid} = $pid;
 
 	    my $timeout = 0;
@@ -5944,7 +5939,6 @@ sub qemu_drive_mirror {
 	    }
 	}
     } else {
-
 	my $storecfg = PVE::Storage::config();
 	my ($dst_storeid, $dst_volname) = PVE::Storage::parse_volume_id($dst_volid);
 
@@ -5969,7 +5963,6 @@ sub qemu_drive_mirror {
 	die "mirroring error: $err";
     }
 
-
     qemu_drive_mirror_monitor ($vmid, $vmiddst, $jobs, $skipcomplete, $qga);
 }
 
@@ -5977,7 +5970,6 @@ sub qemu_drive_mirror_monitor {
     my ($vmid, $vmiddst, $jobs, $skipcomplete, $qga) = @_;
 
     eval {
-
 	my $err_complete = 0;
 
 	while (1) {

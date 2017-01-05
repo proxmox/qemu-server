@@ -596,10 +596,12 @@ sub phase2 {
 	$self->{storage_migration_jobs} = {};
 	$self->log('info', "starting storage migration");
 
-	die "the number of destination local disk is not equal to number of source local disk" if (scalar(keys %{$self->{target_drive}}) != scalar @{$self->{online_local_volumes}});
+	die "the number of destination local disk is not equal to number of source local disk"
+	    if (scalar(keys %{$self->{target_drive}}) != scalar @{$self->{online_local_volumes}});
 	foreach my $drive (keys %{$self->{target_drive}}){
-	    $self->log('info', "$drive: start migration to to $self->{target_drive}->{$drive}->{nbd_uri}");
-	    PVE::QemuServer::qemu_drive_mirror($vmid, $drive, $self->{target_drive}->{$drive}->{nbd_uri}, $vmid, undef, $self->{storage_migration_jobs}, 1);
+	    my $nbd_uri = $self->{target_drive}->{$drive}->{nbd_uri};
+	    $self->log('info', "$drive: start migration to to $nbd_uri");
+	    PVE::QemuServer::qemu_drive_mirror($vmid, $drive, $nbd_uri, $vmid, undef, $self->{storage_migration_jobs}, 1);
 	}
     }
 
@@ -802,7 +804,7 @@ sub phase2_cleanup {
     }
 
     # cleanup ressources on target host
-    if ( $self->{storage_migration} ) {
+    if ($self->{storage_migration}) {
 
 	eval { PVE::QemuServer::qemu_blockjobs_cancel($vmid, $self->{storage_migration_jobs}) };
 	if (my $err = $@) {
@@ -857,15 +859,14 @@ sub phase3_cleanup {
     return if $self->{phase2errors};
 
     if ($self->{storage_migration}) {
-
-	eval { PVE::QemuServer::qemu_drive_mirror_monitor($vmid, undef, $self->{storage_migration_jobs}); }; #finish block-job
+	# finish block-job
+	eval { PVE::QemuServer::qemu_drive_mirror_monitor($vmid, undef, $self->{storage_migration_jobs}); };
 
 	if (my $err = $@) {
 	    eval { PVE::QemuServer::qemu_blockjobs_cancel($vmid, $self->{storage_migration_jobs}) };
 	    eval { PVE::QemuMigrate::cleanup_remotedisks($self) };
 	    die "Failed to completed storage migration\n";
 	} else {
-
 	    foreach my $target_drive (keys %{$self->{target_drive}}) {
 		my $drive = PVE::QemuServer::parse_drive($target_drive, $self->{target_drive}->{$target_drive}->{volid});
 		$conf->{$target_drive} = PVE::QemuServer::print_drive($vmid, $drive);
@@ -897,7 +898,6 @@ sub phase3_cleanup {
     }
 
     eval {
-
 	my $timer = 0;
 	if (PVE::QemuServer::vga_conf_has_spice($conf->{vga}) && $self->{running}) {
 	    $self->log('info', "Waiting for spice server migration");

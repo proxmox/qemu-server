@@ -2464,15 +2464,14 @@ __PACKAGE__->register_method({
 
 		    my $total_jobs = scalar(keys %{$drives});
 		    my $i = 1;
-		    my $skipcomplete = 1;
 
 		    foreach my $opt (keys %$drives) {
-
 			my $drive = $drives->{$opt};
-			$skipcomplete = undef if $total_jobs == $i; #finish after last drive
+			my $skipcomplete = ($total_jobs != $i); # finish after last drive
 
 			my $newdrive = PVE::QemuServer::clone_disk($storecfg, $vmid, $running, $opt, $drive, $snapname,
-								   $newid, $storage, $format, $fullclone->{$opt}, $newvollist, $jobs, $skipcomplete, $oldconf->{agent});
+								   $newid, $storage, $format, $fullclone->{$opt}, $newvollist,
+								   $jobs, $skipcomplete, $oldconf->{agent});
 
 			$newconf->{$opt} = PVE::QemuServer::print_drive($vmid, $newdrive);
 
