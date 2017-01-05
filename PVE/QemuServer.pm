@@ -5919,7 +5919,7 @@ sub qemu_drive_mirror {
 	$format = "nbd";
 	my $unixsocket = "/run/qemu-server/$vmid.mirror-drive-$drive";
 	$qemu_target = "nbd+unix:///$exportname?socket=$unixsocket";
-	my $cmd = ['socat', "UNIX-LISTEN:$unixsocket,fork", "TCP:$server:$2,connect-timeout=1"];
+	my $cmd = ['socat', '-T30', "UNIX-LISTEN:$unixsocket,fork", "TCP:$server:$2,connect-timeout=5"];
 
 	my $pid = fork();
 	if (!defined($pid)) {
