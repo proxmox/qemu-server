@@ -5926,17 +5926,16 @@ sub qemu_drive_mirror {
 	    die "forking socat tunnel failed";
 	} elsif ($pid == 0) {
 	    exec(@$cmd);
-	    exit(-1);
-	} else {
-	    $jobs->{"drive-$drive"}->{pid} = $pid;
+	    warn "exec failed: $!\n";
+	    POSIX::_exit(-1);
+	}
+	$jobs->{"drive-$drive"}->{pid} = $pid;
 
-	    my $timeout = 0;
-	    while (1) {
-		last if -S $unixsocket; 
-		die if $timeout > 5;
-		$timeout++;
-		sleep 1;
-	    }
+	my $timeout = 0;
+	while (!-S $unixsocket) {
+	    die "nbd connection helper timed out\n"
+		if $timeout++ > 5;
+	    sleep 1;
 	}
     } else {
 	my $storecfg = PVE::Storage::config();
