@@ -348,6 +348,7 @@ sub sync_disks {
 	    if ($local_volumes->{$vol} eq 'storage') {
 		$self->log('info', "found local disk '$vol' (via storage)\n");
 	    } elsif ($local_volumes->{$vol} eq 'config') {
+		die "can't live migrate attached local disks without with-local-disks option\n" if $self->{running} && !$self->{opts}->{"with-local-disks"};
 		$self->log('info', "found local disk '$vol' (in current VM config)\n");
 	    } elsif ($local_volumes->{$vol} eq 'snapshot') {
 		$self->log('info', "found local disk '$vol' (referenced by snapshot(s))\n");

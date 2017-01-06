@@ -2723,10 +2723,16 @@ __PACKAGE__->register_method({
 		description => "CIDR of the (sub) network that is used for migration.",
 		optional => 1,
 	    },
-	    targetstorage => get_standard_option('pve-storage-id', {
-		description => "Target storage.",
+	    "with-local-disks" => {
+		type => 'boolean',
+		description => "Enable live storage migration for local disk",
 		optional => 1,
-	    }),
+	    },
+            targetstorage => get_standard_option('pve-storage-id', {
+		description => "Default target storage.",
+		optional => 1,
+		completion => \&PVE::QemuServer::complete_storage,
+            }),
 	},
     },
     returns => {
