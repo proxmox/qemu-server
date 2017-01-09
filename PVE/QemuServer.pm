@@ -999,6 +999,13 @@ EODESCR
 	optional => 1,
 	default => 1,
     },
+    romfile => {
+        type => 'string',
+        pattern => '[^,;]+',
+        format_description => 'string',
+        description => "Custom pci device rom filename (must be located in /usr/share/kvm/).",
+        optional => 1,
+    },
     pcie => {
 	type => 'boolean',
         description =>  "Choose the PCI-express bus (needs the 'q35' machine model).",
@@ -2908,6 +2915,8 @@ sub config_to_command {
 	}
 
 	my $rombar = defined($d->{rombar}) && !$d->{rombar} ? ',rombar=0' : '';
+	my $romfile = $d->{romfile} if $d->{romfile};
+
 	my $xvga = '';
 	if ($d->{'x-vga'}) {
 	    $xvga = ',x-vga=on';
@@ -2934,6 +2943,7 @@ sub config_to_command {
 	    if($j == 0){
 		$devicestr .= "$rombar$xvga";
 		$devicestr .= ",multifunction=on" if $multifunction;
+		$devicestr .= ",romfile=/usr/share/kvm/$romfile" if $romfile;
 	    }
 
 	    push @$devices, '-device', $devicestr;
