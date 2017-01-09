@@ -2915,7 +2915,7 @@ sub config_to_command {
 	}
 
 	my $rombar = defined($d->{rombar}) && !$d->{rombar} ? ',rombar=0' : '';
-	my $romfile = $d->{romfile} if $d->{romfile};
+	my $romfile = $d->{romfile};
 
 	my $xvga = '';
 	if ($d->{'x-vga'}) {
