@@ -3167,7 +3167,7 @@ sub config_to_command {
 	my $pfamily = PVE::Tools::get_host_address_family($nodename);
 	$spice_port = PVE::Tools::next_spice_port($pfamily);
 
-	push @$devices, '-spice', "tls-port=${spice_port},addr=localhost,tls-ciphers=DES-CBC3-SHA,seamless-migration=on";
+	push @$devices, '-spice', "tls-port=${spice_port},addr=localhost,tls-ciphers=HIGH,seamless-migration=on";
 
 	push @$devices, '-device', "virtio-serial,id=spice$pciaddr";
 	push @$devices, '-chardev', "spicevmc,id=vdagent,name=vdagent";
