@@ -14,6 +14,10 @@ use PVE::API2::Qemu;
 
 use base qw(PVE::CLIHandler);
 
+sub setup_environment {
+    PVE::RPCEnvironment->setup_default_cli_env();
+}
+
 __PACKAGE__->register_method({
     name => 'qmrestore', 
     path => 'qmrestore', 

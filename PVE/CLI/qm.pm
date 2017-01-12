@@ -34,6 +34,10 @@ my $upid_exit = sub {
 
 my $nodename = PVE::INotify::nodename();
 
+sub setup_environment {
+    PVE::RPCEnvironment->setup_default_cli_env();
+}
+
 sub run_vnc_proxy {
     my ($path) = @_;
 
