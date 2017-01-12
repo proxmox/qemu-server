@@ -1,3 +1,25 @@
+qemu-server (4.0-104) unstable; urgency=medium
+
+  * add setup_environment hook to CLIHandler classes
+
+  * cleanup: drop superfluous condition in assignment
+
+  * add romfile option to hostpci
+
+  * add with-local-disks option for live storage migration
+
+  * drive-mirror: bump timeout to 5s, add 30s inactivity timeout
+
+  * live clone_vm: suspend or freezefs before block-job-cancel
+
+  * add socat and unix socket for storage migration
+
+  * add live storage migration with vm migration
+
+  * clone live vm : add support for multiple jobs
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 12 Jan 2017 14:15:01 +0100
+
 qemu-server (4.0-103) unstable; urgency=medium
 
   * destroy_vm: allow vdisk_free to fail
