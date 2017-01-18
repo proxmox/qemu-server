@@ -60,7 +60,7 @@ my $check_storage_access = sub {
 	    die "no storage ID specified (and no default storage)\n" if !$storeid;
 	    $rpcenv->check($authuser, "/storage/$storeid", ['Datastore.AllocateSpace']);
 	} else {
-	    $rpcenv->check_volume_access($authuser, $storecfg, $vmid, $volid);
+	    PVE::Storage::check_volume_access($rpcenv, $authuser, $storecfg, $vmid, $volid);
 	}
     });
 };
@@ -157,7 +157,7 @@ my $create_disks = sub {
 	    $res->{$ds} = PVE::QemuServer::print_drive($vmid, $disk);
 	} else {
 
-	    $rpcenv->check_volume_access($authuser, $storecfg, $vmid, $volid);
+	    PVE::Storage::check_volume_access($rpcenv, $authuser, $storecfg, $vmid, $volid);
 
 	    my $volid_is_new = 1;
 
@@ -474,7 +474,7 @@ __PACKAGE__->register_method({
 		die "pipe requires cli environment\n"
 		    if $rpcenv->{type} ne 'cli';
 	    } else {
-		$rpcenv->check_volume_access($authuser, $storecfg, $vmid, $archive);
+		PVE::Storage::check_volume_access($rpcenv, $authuser, $storecfg, $vmid, $archive);
 		$archive = PVE::Storage::abs_filesystem_path($storecfg, $archive);
 	    }
 	}
