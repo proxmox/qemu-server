@@ -1,3 +1,11 @@
+qemu-server (4.0-105) unstable; urgency=medium
+
+  * use new PVE::Storage::check_volume_access()
+
+  * Set zero $size and continue if volume_resize() returns false
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 19 Jan 2017 09:19:45 +0100
+
 qemu-server (4.0-104) unstable; urgency=medium
 
   * add setup_environment hook to CLIHandler classes
