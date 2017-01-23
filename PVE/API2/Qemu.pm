@@ -1484,7 +1484,7 @@ __PACKAGE__->register_method({
 	    return;
 	};
 
-	my $upid = $rpcenv->fork_worker('vncproxy', $vmid, $authuser, $realcmd);
+	my $upid = $rpcenv->fork_worker('vncproxy', $vmid, $authuser, $realcmd, 1);
 
 	PVE::Tools::wait_for_vnc_port($port);
 
