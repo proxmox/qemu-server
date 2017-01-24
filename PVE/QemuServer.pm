@@ -820,6 +820,15 @@ my %queues_fmt = (
     }
 );
 
+my %scsiblock_fmt = (
+    scsiblock => {
+	type => 'boolean',
+	description => "whether to use scsi-block for full passthrough of host block device\n\nWARNING: can lead to I/O errors in combination with low memory or high memory fragmentation on host",
+	optional => 1,
+	default => 0,
+    },
+);
+
 my $add_throttle_desc = sub {
     my ($key, $type, $what, $unit, $longunit, $minimum) = @_;
     my $d = {
@@ -876,6 +885,7 @@ my $scsi_fmt = {
     %drivedesc_base,
     %iothread_fmt,
     %queues_fmt,
+    %scsiblock_fmt,
 };
 my $scsidesc = {
     optional => 1,
@@ -913,6 +923,7 @@ my $alldrive_fmt = {
     %iothread_fmt,
     %model_fmt,
     %queues_fmt,
+    %scsiblock_fmt,
 };
 
 my $efidisk_fmt = {
@@ -1493,7 +1504,7 @@ sub print_drivedevice_full {
 	    if ($drive->{file} =~ m|^/|) {
 		$path = $drive->{file};
 		if (my $info = path_is_scsi($path)) {
-		    if ($info->{type} == 0) {
+		    if ($info->{type} == 0 && $drive->{scsiblock}) {
 			$devicetype = 'block';
 		    } elsif ($info->{type} == 1) { # tape
 			$devicetype = 'generic';
