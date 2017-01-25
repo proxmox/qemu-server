@@ -2650,6 +2650,10 @@ __PACKAGE__->register_method({
 
 		    PVE::QemuConfig->add_unused_volume($conf, $old_volid) if !$param->{delete};
 
+		    # convert moved disk to base if part of template
+		    PVE::QemuServer::template_create($vmid, $conf, $disk)
+			if PVE::QemuConfig->is_template($conf);
+
 		    PVE::QemuConfig->write_config($vmid, $conf);
 
 		    eval {
