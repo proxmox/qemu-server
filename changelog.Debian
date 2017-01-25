@@ -1,3 +1,11 @@
+qemu-server (4.0-107) unstable; urgency=medium
+
+  * add dependency on libpve-guest-common-perl
+
+  * add dependency on libpve-common-perl
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 25 Jan 2017 09:47:09 +0100
+
 qemu-server (4.0-106) unstable; urgency=medium
 
   * only use scsi-block with explicit opt-in
