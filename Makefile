@@ -89,7 +89,8 @@ install: ${PKGSOURCES}
 	cd ${DESTDIR}/${MAN5DIR}; ln -s qm.conf.5.gz vm.conf.5.gz
 
 .PHONY: deb
-deb ${DEB}: ${PKGSOURCES}
+deb: ${DEB}
+${DEB}: ${PKGSOURCES}
 	rm -f *.deb
 	rm -rf build
 	mkdir build
