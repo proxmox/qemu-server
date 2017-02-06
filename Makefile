@@ -47,11 +47,11 @@ sparsecp: sparsecp.c utils.c
 	gcc ${CFLAGS} -o sparsecp sparsecp.c
 
 qm.bash-completion:
-	perl -I. -T -e "use PVE::CLI::qm; PVE::CLI::qm->generate_bash_completions();" >$@.tmp
+	PVE_GENERATING_DOCS=1 perl -I. -T -e "use PVE::CLI::qm; PVE::CLI::qm->generate_bash_completions();" >$@.tmp
 	mv $@.tmp $@
 
 qmrestore.bash-completion:
-	perl -I. -T -e "use PVE::CLI::qmrestore; PVE::CLI::qmrestore->generate_bash_completions();" >$@.tmp
+	PVE_GENERATING_DOCS=1 perl -I. -T -e "use PVE::CLI::qmrestore; PVE::CLI::qmrestore->generate_bash_completions();" >$@.tmp
 	mv $@.tmp $@
 
 PKGSOURCES=qm qm.1 qmrestore qmrestore.1 qmextract sparsecp vmtar control qm.conf.5 qm.bash-completion qmrestore.bash-completion
@@ -95,7 +95,7 @@ ${DEB}: ${PKGSOURCES}
 	rm -rf build
 	mkdir build
 	make DESTDIR=${CURDIR}/build install
-	perl -I. ./qm verifyapi
+	PVE_GENERATING_DOCS=1 perl -I. ./qm verifyapi
 	install -d -m 0755 build/DEBIAN
 	install -m 0644 control build/DEBIAN
 	install -m 0644 triggers build/DEBIAN
