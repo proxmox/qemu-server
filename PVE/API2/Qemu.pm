@@ -22,8 +22,15 @@ use PVE::INotify;
 use PVE::Network;
 use PVE::Firewall;
 use PVE::API2::Firewall::VM;
-use PVE::HA::Env::PVE2;
-use PVE::HA::Config;
+
+BEGIN {
+    if (!$ENV{PVE_GENERATING_DOCS}) {
+	require PVE::HA::Env::PVE2;
+	import PVE::HA::Env::PVE2;
+	require PVE::HA::Config;
+	import PVE::HA::Config;
+    }
+}
 
 use Data::Dumper; # fixme: remove
 
