@@ -104,7 +104,7 @@ ${DEB}: ${PKGSOURCES}
 	install -m 0644 changelog.Debian build/${DOCDIR}/${PACKAGE}/
 	gzip -9 -n build/${DOCDIR}/${PACKAGE}/changelog.Debian
 	echo "git clone git://git.proxmox.com/git/qemu-server.git\\ngit checkout ${GITVERSION}" > build/${DOCDIR}/${PACKAGE}/SOURCE
-	dpkg-deb --build build	
+	fakeroot dpkg-deb --build build
 	mv build.deb ${DEB}
 	lintian ${DEB}
 
