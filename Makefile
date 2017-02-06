@@ -81,11 +81,11 @@ install: ${PKGSOURCES}
 	install -D -m 0644 modules-load.conf ${DESTDIR}/etc/modules-load.d/qemu-server.conf
 	install -m 0755 qmextract ${DESTDIR}${LIBDIR}
 	install -m 0644 qm.1 ${DESTDIR}/${MAN1DIR}
-	gzip -9 ${DESTDIR}/${MAN1DIR}/qm.1
+	gzip -9 -n ${DESTDIR}/${MAN1DIR}/qm.1
 	install -m 0644 qmrestore.1 ${DESTDIR}/${MAN1DIR}
-	gzip -9 ${DESTDIR}/${MAN1DIR}/qmrestore.1
+	gzip -9 -n ${DESTDIR}/${MAN1DIR}/qmrestore.1
 	install -m 0644 qm.conf.5 ${DESTDIR}/${MAN5DIR}
-	gzip -9 ${DESTDIR}/${MAN5DIR}/qm.conf.5
+	gzip -9 -n ${DESTDIR}/${MAN5DIR}/qm.conf.5
 	cd ${DESTDIR}/${MAN5DIR}; ln -s qm.conf.5.gz vm.conf.5.gz
 
 .PHONY: deb
@@ -102,7 +102,7 @@ ${DEB}: ${PKGSOURCES}
 	echo "/etc/modules-load.d/qemu-server.conf" >>build/DEBIAN/conffiles
 	install -D -m 0644 copyright build/${DOCDIR}/${PACKAGE}/copyright
 	install -m 0644 changelog.Debian build/${DOCDIR}/${PACKAGE}/
-	gzip -9 build/${DOCDIR}/${PACKAGE}/changelog.Debian
+	gzip -9 -n build/${DOCDIR}/${PACKAGE}/changelog.Debian
 	echo "git clone git://git.proxmox.com/git/qemu-server.git\\ngit checkout ${GITVERSION}" > build/${DOCDIR}/${PACKAGE}/SOURCE
 	dpkg-deb --build build	
 	mv build.deb ${DEB}
