@@ -5,6 +5,8 @@ use warnings;
 use Cwd 'abs_path';
 use Net::SSLeay;
 use UUID;
+use POSIX;
+use IO::Socket::IP;
 
 use PVE::Cluster qw (cfs_read_file cfs_write_file);;
 use PVE::SafeSyslog;
@@ -1408,19 +1410,34 @@ __PACKAGE__->register_method({
 		$cmd = ['/usr/bin/vncterm', '-rfbport', $port,
 			'-timeout', $timeout, '-authpath', $authpath,
 			'-perm', 'Sys.Console', '-c', @$remcmd, @$termcmd];
+		PVE::Tools::run_command($cmd);
 	    } else {
 
 		$ENV{LC_PVE_TICKET} = $ticket if $websocket; # set ticket with "qm vncproxy"
 
-		my $qmcmd = [@$remcmd, "/usr/sbin/qm", 'vncproxy', $vmid];
+		$cmd = [@$remcmd, "/usr/sbin/qm", 'vncproxy', $vmid];
 
-		my $qmstr = join(' ', @$qmcmd);
-
-		# also redirect stderr (else we get RFB protocol errors)
-		$cmd = ['/bin/nc6', '-l', '-p', $port, '-w', $timeout, '-e', "$qmstr 2>/dev/null"];
+		my $sock = IO::Socket::IP->new(
+		    Listen => 1,
+		    LocalPort => $port,
+		    Proto => 'tcp',
+		    GetAddrInfoFlags => 0,
+		    ) or die "failed to create socket: $!\n";
+		# Inside the worker we shouldn't have any previous alarms
+		# running anyway...:
+		alarm(0);
+		local $SIG{ALRM} = sub { die "connection timed out\n" };
+		alarm $timeout;
+		accept(my $cli, $sock) or die "connection failed: $!\n";
+		close($sock);
+		if (PVE::Tools::run_command($cmd,
+		    output => '>&'.fileno($cli),
+		    input => '<&'.fileno($cli),
+		    noerr => 1) != 0)
+		{
+		    die "Failed to run vncproxy.\n";
+		}
 	    }
-
-	    PVE::Tools::run_command($cmd);
 
 	    return;
 	};
