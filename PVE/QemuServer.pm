@@ -6304,7 +6304,7 @@ sub scsihw_infos {
 
     my $maxdev = 0;
 
-    if ($conf->{scsihw} && ($conf->{scsihw} =~ m/^lsi/)) {
+    if (!$conf->{scsihw} || ($conf->{scsihw} =~ m/^lsi/)) {
         $maxdev = 7;
     } elsif ($conf->{scsihw} && ($conf->{scsihw} eq 'virtio-scsi-single')) {
         $maxdev = 1;
