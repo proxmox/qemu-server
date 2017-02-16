@@ -3049,7 +3049,7 @@ __PACKAGE__->register_method({
 	    $newsize += $size if $ext;
 	    $newsize = int($newsize);
 
-	    die "unable to skrink disk size\n" if $newsize < $size;
+	    die "shrinking disks is not supported\n" if $newsize < $size;
 
 	    return if $size == $newsize;
 
