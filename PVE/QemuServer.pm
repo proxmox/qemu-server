@@ -118,6 +118,7 @@ my $cpu_vendor_list = {
     'Haswell-noTSX' => 'GenuineIntel',
     Broadwell => 'GenuineIntel',
     'Broadwell-noTSX' => 'GenuineIntel',
+    'Skylake-Client' => 'GenuineIntel',
     
     # AMD CPUs
     athlon => 'AuthenticAMD',
