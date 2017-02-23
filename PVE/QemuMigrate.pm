@@ -592,7 +592,7 @@ sub phase2 {
 
     my $start = time();
 
-    if ($self->{opts}->{targetstorage}) {
+    if ($self->{opts}->{targetstorage} && defined $self->{online_local_volumes}) {
 	$self->{storage_migration} = 1;
 	$self->{storage_migration_jobs} = {};
 	$self->log('info', "starting storage migration");
