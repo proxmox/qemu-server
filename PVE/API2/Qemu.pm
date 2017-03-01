@@ -2985,7 +2985,7 @@ __PACKAGE__->register_method({
 	    size => {
 		type => 'string',
 		pattern => '\+?\d+(\.\d+)?[KMGT]?',
-		description => "The new size. With the '+' sign the value is added to the actual size of the volume and without it, the value is taken as an absolute one. Shrinking disk size is not supported.",
+		description => "The new size. With the `+` sign the value is added to the actual size of the volume and without it, the value is taken as an absolute one. Shrinking disk size is not supported.",
 	    },
 	    digest => {
 		type => 'string',
