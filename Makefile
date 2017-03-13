@@ -1,6 +1,6 @@
-VERSION=4.0
+VERSION=5.0
 PACKAGE=qemu-server
-PKGREL=110
+PKGREL=1
 
 CFLAGS= -O2 -Werror -Wall -Wtype-limits -Wl,-z,relro 
 
@@ -110,12 +110,13 @@ ${DEB}: ${PKGSOURCES}
 
 .PHONY: upload
 upload: ${DEB}
-	tar cf - ${DEB} | ssh repoman@repo.proxmox.com upload --product pve --dist jessie
+	tar cf - ${DEB} | ssh repoman@repo.proxmox.com upload --product pve --dist stretch
 
 .PHONY: clean
 clean: 	
 	make cleanup-docgen
 	rm -rf build *.deb control vzsyscalls.ph _h2ph_pre.ph ${PACKAGE}-*.tar.gz dist *.1 *.5 *.pod vmtar sparsecp *.tmp *.bash-completion
+	rm -f *.buildinfo
 	find . -name '*~' -exec rm {} ';'
 
 
