@@ -1,5 +1,17 @@
 qemu-server (4.0-109) unstable; urgency=medium
 
+  * drop netcat6 dependency
+
+  * fix a case where VMs refuse to start with scsi disk ids >= 7
+
+  * add skylake to cpu models
+
+  * improve error messages
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 13 Mar 2017 11:56:14 +0100
+
+qemu-server (4.0-109) unstable; urgency=medium
+
   * schema updates
 
  -- Proxmox Support Team <support@proxmox.com>  Thu, 09 Feb 2017 11:40:53 +0100

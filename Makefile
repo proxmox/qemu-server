@@ -1,6 +1,6 @@
 VERSION=4.0
 PACKAGE=qemu-server
-PKGREL=109
+PKGREL=110
 
 CFLAGS= -O2 -Werror -Wall -Wtype-limits -Wl,-z,relro 
 
@@ -110,7 +110,7 @@ ${DEB}: ${PKGSOURCES}
 
 .PHONY: upload
 upload: ${DEB}
-	tar cf - ${DEB} | ssh repoman@repo.proxmox.com upload
+	tar cf - ${DEB} | ssh repoman@repo.proxmox.com upload --product pve --dist jessie
 
 .PHONY: clean
 clean: 	
