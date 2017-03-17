@@ -1007,6 +1007,12 @@ my $update_vm_api  = sub {
 	    foreach my $opt (@delete) {
 		$modified->{$opt} = 1;
 		$conf = PVE::QemuConfig->load_config($vmid); # update/reload
+		if (!defined($conf->{$opt})) {
+		    warn "cannot delete '$opt' - not set in current configuration!\n";
+		    $modified->{$opt} = 0;
+		    next;
+		}
+
 		if ($opt =~ m/^unused/) {
 		    my $drive = PVE::QemuServer::parse_drive($opt, $conf->{$opt});
 		    PVE::QemuConfig->check_protection($conf, "can't remove unused disk '$drive->{file}'");
