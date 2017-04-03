@@ -6020,7 +6020,7 @@ sub qemu_drive_mirror_monitor {
 		    print "$job: transferred: $transferred bytes remaining: $remaining bytes total: $total bytes progression: $percent % busy: $busy ready: $ready \n";
 		}
 
-		$readycounter++ if $running_mirror_jobs->{$job}->{ready} eq 'true';
+		$readycounter++ if $running_mirror_jobs->{$job}->{ready};
 	    }
 
 	    last if scalar(keys %$jobs) == 0;
