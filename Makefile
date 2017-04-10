@@ -1,6 +1,6 @@
 VERSION=5.0
 PACKAGE=qemu-server
-PKGREL=1
+PKGREL=2
 
 CFLAGS= -O2 -Werror -Wall -Wtype-limits -Wl,-z,relro 
 
