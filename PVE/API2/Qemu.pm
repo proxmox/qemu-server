@@ -1435,6 +1435,7 @@ __PACKAGE__->register_method({
 		local $SIG{ALRM} = sub { die "connection timed out\n" };
 		alarm $timeout;
 		accept(my $cli, $sock) or die "connection failed: $!\n";
+		alarm(0);
 		close($sock);
 		if (PVE::Tools::run_command($cmd,
 		    output => '>&'.fileno($cli),
