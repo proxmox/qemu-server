@@ -899,7 +899,7 @@ sub phase3_cleanup {
 		$self->{errors} = 1;
 	    }
 	}
-	# now that config file is move, we can resume vm on target if livemigrate
+	# config moved and nbd server stopped - now we can resume vm on target
 	my $cmd = [@{$self->{rem_ssh}}, 'qm', 'resume', $vmid, '--skiplock', '--nocheck'];
 	eval{ PVE::Tools::run_command($cmd, outfunc => sub {}, 
 		errfunc => sub {
