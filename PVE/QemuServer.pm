@@ -4666,7 +4666,7 @@ sub vm_start {
 
 	print "migration listens on $migrate_uri\n" if $migrate_uri;
 
-	if ($statefile && $statefile ne 'tcp')  {
+	if ($statefile && $statefile ne 'tcp' && $statefile ne 'unix')  {
 	    eval { vm_mon_cmd_nocheck($vmid, "cont"); };
 	    warn $@ if $@;
 	}
