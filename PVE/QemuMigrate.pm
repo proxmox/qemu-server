@@ -884,6 +884,16 @@ sub phase3_cleanup {
         if !rename($conffile, $newconffile);
 
     if ($self->{livemigration}) {
+	if ($self->{storage_migration}) {
+	    # stop nbd server on remote vm - requirement for resume since 2.9
+	    my $cmd = [@{$self->{rem_ssh}}, 'qm', 'nbdstop', $vmid];
+
+	    eval{ PVE::Tools::run_command($cmd, outfunc => sub {}, errfunc => sub {}) };
+	    if (my $err = $@) {
+		$self->log('err', $err);
+		$self->{errors} = 1;
+	    }
+	}
 	# now that config file is move, we can resume vm on target if livemigrate
 	my $cmd = [@{$self->{rem_ssh}}, 'qm', 'resume', $vmid, '--skiplock', '--nocheck'];
 	eval{ PVE::Tools::run_command($cmd, outfunc => sub {}, 
@@ -942,14 +952,6 @@ sub phase3_cleanup {
 	    }
 	}
 
-	#stop nbd server to remote vm
-	my $cmd = [@{$self->{rem_ssh}}, 'qm', 'nbdstop', $vmid];
-
-	eval{ PVE::Tools::run_command($cmd, outfunc => sub {}, errfunc => sub {}) };
-	if (my $err = $@) {
-	    $self->log('err', $err);
-	    $self->{errors} = 1;
-	}
     }
 
     # clear migrate lock
