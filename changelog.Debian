@@ -1,3 +1,12 @@
+qemu-server (5.0-3) unstable; urgency=medium
+
+  * fix vnc connections showing false errors
+
+  * fix #1338: handle writer count limit in live migration with local disks
+    with qemu 2.9
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 21 Apr 2017 11:47:07 +0200
+
 qemu-server (5.0-2) unstable; urgency=medium
 
   * fix drive mirror readyness check
