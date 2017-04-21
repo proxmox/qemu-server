@@ -1,3 +1,10 @@
+qemu-server (5.0-4) unstable; urgency=medium
+
+  * fix target storage availability check for live migration with local
+    storage
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 21 Apr 2017 12:05:58 +0200
+
 qemu-server (5.0-3) unstable; urgency=medium
 
   * fix vnc connections showing false errors
