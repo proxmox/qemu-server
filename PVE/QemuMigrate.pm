@@ -255,8 +255,10 @@ sub sync_disks {
 
 	    next if @{$dl->{$storeid}} == 0;
 
+	    my $targetsid = $self->{opts}->{targetstorage} ? $self->{opts}->{targetstorage} : $storeid;
+
 	    # check if storage is available on target node
-	    PVE::Storage::storage_check_node($self->{storecfg}, $storeid, $self->{node});
+	    PVE::Storage::storage_check_node($self->{storecfg}, $targetsid, $self->{node});
 	    $sharedvm = 0; # there is a non-shared disk
 
 	    PVE::Storage::foreach_volid($dl, sub {
@@ -293,7 +295,7 @@ sub sync_disks {
 	    my $targetsid = $self->{opts}->{targetstorage} ? $self->{opts}->{targetstorage} : $sid;
 	    # check if storage is available on both nodes
 	    my $scfg = PVE::Storage::storage_check_node($self->{storecfg}, $sid);
-	    PVE::Storage::storage_check_node($self->{storecfg}, $sid, $self->{node});
+	    PVE::Storage::storage_check_node($self->{storecfg}, $targetsid, $self->{node});
 
 	    return if $scfg->{shared};
 
