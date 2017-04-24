@@ -24,6 +24,7 @@ use PVE::INotify;
 use PVE::Network;
 use PVE::Firewall;
 use PVE::API2::Firewall::VM;
+use PVE::ReplicationTools;
 
 BEGIN {
     if (!$ENV{PVE_GENERATING_DOCS}) {
@@ -1028,6 +1029,16 @@ my $update_vm_api  = sub {
 			if defined($conf->{pending}->{$opt});
 		    PVE::QemuServer::vmconfig_delete_pending_option($conf, $opt, $force);
 		    PVE::QemuConfig->write_config($vmid, $conf);
+		} elsif ($opt eq "replica" || $opt eq "replica_target") {
+		    delete $conf->{$opt};
+		    delete $conf->{replica} if $opt eq "replica_target";
+
+		    PVE::QemuConfig->write_config($vmid, $conf);
+		    PVE::ReplicationTools::job_remove($vmid);
+		} elsif ($opt eq "replica_interval" || $opt eq "replica_rate_limit") {
+		    delete $conf->{$opt};
+		    PVE::QemuConfig->write_config($vmid, $conf);
+		    PVE::ReplicationTools::update_conf($vmid, $opt, $param->{$opt});
 		} else {
 		    PVE::QemuServer::vmconfig_delete_pending_option($conf, $opt, $force);
 		    PVE::QemuConfig->write_config($vmid, $conf);
@@ -1050,11 +1061,34 @@ my $update_vm_api  = sub {
 			if defined($conf->{pending}->{$opt});
 
 		    &$create_disks($rpcenv, $authuser, $conf->{pending}, $storecfg, $vmid, undef, {$opt => $param->{$opt}});
+		} elsif ($opt eq "replica") {
+		    die "Not all volumes are syncable, please check your config\n"
+			if !PVE::ReplicationTools::check_guest_volumes_syncable($conf, 'qemu');
+		    die "replica_target is required\n"
+			if !$conf->{replica_target} && !$param->{replica_target};
+		    $conf->{$opt} = $param->{$opt};
+		} elsif ($opt eq "replica_interval" || $opt eq "replica_rate_limit") {
+		    $conf->{$opt} = $param->{$opt};
+		    PVE::ReplicationTools::update_conf($vmid, $opt, $param->{$opt});
+		} elsif ($opt eq "replica_target" ) {
+		    die "Node: $param->{$opt} does not exists in Cluster.\n"
+			if !PVE::Cluster::check_node_exists($param->{$opt});
+		    PVE::ReplicationTools::update_conf($vmid, $opt, $param->{$opt})
+			if defined($conf->{$opt});
+		    $conf->{$opt} = $param->{$opt};
 		} else {
 		    $conf->{pending}->{$opt} = $param->{$opt};
 		}
 		PVE::QemuServer::vmconfig_undelete_pending_option($conf, $opt);
 		PVE::QemuConfig->write_config($vmid, $conf);
+	    }
+
+	    if (defined($param->{replica})) {
+		if ($param->{replica}) {
+		    PVE::ReplicationTools::job_enable($vmid);
+		} else {
+		    PVE::ReplicationTools::job_disable($vmid);
+		}
 	    }
 
 	    # remove pending changes when nothing changed
