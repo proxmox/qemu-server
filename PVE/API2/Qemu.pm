@@ -1319,6 +1319,9 @@ __PACKAGE__->register_method({
 
 	    syslog('info', "destroy VM $vmid: $upid\n");
 
+	    # return without error if vm has no replica job
+	    PVE::ReplicationTools::destroy_replica($vmid);
+
 	    PVE::QemuServer::vm_destroy($storecfg, $vmid, $skiplock);
 
 	    PVE::AccessControl::remove_vm_access($vmid);
