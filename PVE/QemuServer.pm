@@ -747,6 +747,12 @@ my %drivedesc_base = (
 	description => "Whether the drive should be included when making backups.",
 	optional => 1,
     },
+    rerror => {
+	type => 'string',
+	enum => [qw(ignore report stop)],
+	description => 'Read error action.',
+	optional => 1,
+    },
     werror => {
 	type => 'string',
 	enum => [qw(enospc ignore report stop)],
@@ -778,15 +784,6 @@ my %drivedesc_base = (
 	description => "The drive's reported serial number, url-encoded, up to 20 bytes long.",
 	optional => 1,
     }
-);
-
-my %rerror_fmt = (
-    rerror => {
-	type => 'string',
-	enum => [qw(ignore report stop)],
-	description => 'Read error action.',
-	optional => 1,
-    },
 );
 
 my %iothread_fmt = ( iothread => {
@@ -864,7 +861,6 @@ $add_throttle_desc->('iops_wr_length',  'integer', 'length of write I/O bursts',
 
 my $ide_fmt = {
     %drivedesc_base,
-    %rerror_fmt,
     %model_fmt,
 };
 PVE::JSONSchema::register_format("pve-qm-ide", $ide_fmt);
@@ -891,7 +887,6 @@ PVE::JSONSchema::register_standard_option("pve-qm-scsi", $scsidesc);
 
 my $sata_fmt = {
     %drivedesc_base,
-    %rerror_fmt,
 };
 my $satadesc = {
     optional => 1,
@@ -903,7 +898,6 @@ PVE::JSONSchema::register_standard_option("pve-qm-sata", $satadesc);
 my $virtio_fmt = {
     %drivedesc_base,
     %iothread_fmt,
-    %rerror_fmt,
 };
 my $virtiodesc = {
     optional => 1,
@@ -914,7 +908,6 @@ PVE::JSONSchema::register_standard_option("pve-qm-virtio", $virtiodesc);
 
 my $alldrive_fmt = {
     %drivedesc_base,
-    %rerror_fmt,
     %iothread_fmt,
     %model_fmt,
     %queues_fmt,
