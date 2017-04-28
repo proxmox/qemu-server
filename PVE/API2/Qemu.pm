@@ -1033,12 +1033,12 @@ my $update_vm_api  = sub {
 		    delete $conf->{$opt};
 		    delete $conf->{replica} if $opt eq "replica_target";
 
-		    PVE::QemuConfig->write_config($vmid, $conf);
 		    PVE::ReplicationTools::job_remove($vmid);
+		    PVE::QemuConfig->write_config($vmid, $conf);
 		} elsif ($opt eq "replica_interval" || $opt eq "replica_rate_limit") {
 		    delete $conf->{$opt};
-		    PVE::QemuConfig->write_config($vmid, $conf);
 		    PVE::ReplicationTools::update_conf($vmid, $opt, $param->{$opt});
+		    PVE::QemuConfig->write_config($vmid, $conf);
 		} else {
 		    PVE::QemuServer::vmconfig_delete_pending_option($conf, $opt, $force);
 		    PVE::QemuConfig->write_config($vmid, $conf);
@@ -1066,6 +1066,12 @@ my $update_vm_api  = sub {
 			if !PVE::ReplicationTools::check_guest_volumes_syncable($conf, 'qemu');
 		    die "replica_target is required\n"
 			if !$conf->{replica_target} && !$param->{replica_target};
+		    my $value = $param->{$opt};
+		    if ($value) {
+			PVE::ReplicationTools::job_enable($vmid);
+		    } else {
+			PVE::ReplicationTools::job_disable($vmid);
+		    }
 		    $conf->{$opt} = $param->{$opt};
 		} elsif ($opt eq "replica_interval" || $opt eq "replica_rate_limit") {
 		    $conf->{$opt} = $param->{$opt};
@@ -1081,14 +1087,6 @@ my $update_vm_api  = sub {
 		}
 		PVE::QemuServer::vmconfig_undelete_pending_option($conf, $opt);
 		PVE::QemuConfig->write_config($vmid, $conf);
-	    }
-
-	    if (defined($param->{replica})) {
-		if ($param->{replica}) {
-		    PVE::ReplicationTools::job_enable($vmid);
-		} else {
-		    PVE::ReplicationTools::job_disable($vmid);
-		}
 	    }
 
 	    # remove pending changes when nothing changed
