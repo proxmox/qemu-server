@@ -1,3 +1,11 @@
+qemu-server (5.0-5) unstable; urgency=medium
+
+  * added rerror option to scsi drives
+
+  * added storage replication settings
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 28 Apr 2017 14:02:08 +0200
+
 qemu-server (5.0-4) unstable; urgency=medium
 
   * fix target storage availability check for live migration with local
