@@ -468,7 +468,7 @@ sub archive {
 
 	    my $statusline = "status: $per% ($transferred/$total), " .
 		"sparse ${zero_per}% ($zero), duration $duration, " .
-		"$mbps_read/$mbps_write MB/s";
+		"read/write $mbps_read/$mbps_write MB/s";
 	    my $res = $status->{status} || 'unknown';
 	    if ($res ne 'active') {
 		$self->loginfo($statusline);
