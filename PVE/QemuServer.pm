@@ -2776,6 +2776,45 @@ sub foreach_volid {
     }
 }
 
+sub get_replicatable_volumes {
+    my ($storecfg, $conf, $noerr) = @_;
+
+    my $volhash = {};
+
+    my $test_volid = sub {
+	my ($volid, $drive) = @_;
+	
+	return if !$volid;
+
+	return if drive_is_cdrom($drive);
+
+	return if defined($drive->{replicate}) && !$drive->{replicate};
+
+	if (!PVE::Storage::volume_has_feature($storecfg, 'replicate', $volid)) {
+	    return if $noerr;
+	    die "missing replicate feature on volume '$volid'\n"; 
+	}
+
+	$volhash->{$volid} = 1;
+    };
+
+    foreach_drive($conf, sub {
+	my ($ds, $drive) = @_;
+	$test_volid->($drive->{file}, $drive);
+    });
+
+    foreach my $snapname (keys %{$conf->{snapshots}}) {
+	my $snap = $conf->{snapshots}->{$snapname};
+	# fixme: what about $snap->{vmstate}
+	foreach_drive($snap, sub {
+	    my ($ds, $drive) = @_;
+	    $test_volid->($drive->{file}, $drive);
+        });
+    }
+
+    return $volhash;
+}
+
 sub vga_conf_has_spice {
     my ($vga) = @_;
 

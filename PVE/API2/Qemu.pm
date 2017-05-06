@@ -24,7 +24,6 @@ use PVE::INotify;
 use PVE::Network;
 use PVE::Firewall;
 use PVE::API2::Firewall::VM;
-use PVE::ReplicationTools;
 
 BEGIN {
     if (!$ENV{PVE_GENERATING_DOCS}) {
@@ -1052,8 +1051,8 @@ my $update_vm_api  = sub {
 
 		    &$create_disks($rpcenv, $authuser, $conf->{pending}, $storecfg, $vmid, undef, {$opt => $param->{$opt}});
 		} elsif ($opt eq "replicate") {
-		    die "Not all volumes are syncable, please check your config\n"
-			if !PVE::ReplicationTools::check_guest_volumes_syncable($conf, 'qemu');
+		    # check if all volumes have replicate feature
+		    PVE::QemuServer::get_replicatable_volumes($storecfg, $conf);
 		    my $repl = PVE::JSONSchema::check_format('pve-replicate', $param->{opt});
 		    PVE::Cluster::check_node_exists($repl->{target});
 		    $conf->{$opt} = $param->{$opt};
