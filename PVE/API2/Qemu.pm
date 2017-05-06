@@ -119,7 +119,8 @@ my $create_disks = sub {
     my $vollist = [];
 
     my $res = {};
-    PVE::QemuServer::foreach_drive($settings, sub {
+
+    my $code = sub {
 	my ($ds, $disk) = @_;
 
 	my $volid = $disk->{file};
@@ -190,7 +191,9 @@ my $create_disks = sub {
 
 	    $res->{$ds} = PVE::QemuServer::print_drive($vmid, $disk);
 	}
-    });
+    };
+
+    eval { PVE::QemuServer::foreach_drive($settings, $code); };
 
     # free allocated images on error
     if (my $err = $@) {
