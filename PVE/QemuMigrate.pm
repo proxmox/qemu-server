@@ -10,7 +10,6 @@ use PVE::INotify;
 use PVE::Tools;
 use PVE::Cluster;
 use PVE::Storage;
-use PVE::ReplicationTools;
 use PVE::QemuServer;
 use Time::HiRes qw( usleep );
 use PVE::RPCEnvironment;
@@ -438,16 +437,6 @@ sub phase1 {
 
     sync_disks($self, $vmid);
 
-    # set new replica_target if we migrate to replica target.
-    if ($conf->{replica}) {
-	$self->log('info', "change replica target to Node: $self->{opts}->{node}");
-	if ($conf->{replica_target} eq $self->{node}) {
-	    $conf->{replica_target} = $self->{opts}->{node};
-	}
-
-	PVE::ReplicationTools::job_remove($vmid);
-	PVE::QemuConfig->write_config($vmid, $conf);
-    }
 };
 
 sub phase1_cleanup {
@@ -855,22 +844,13 @@ sub phase3 {
     my $volids = $self->{volumes};
     return if $self->{phase2errors};
 
-    my $synced_volumes = PVE::ReplicationTools::get_syncable_guestdisks($self->{vmconf}, 'qemu')
-	if $self->{vmconf}->{replica};
-
-
     # destroy local copies
     foreach my $volid (@$volids) {
-
-	# do not destroy if new target is local_host
-	if (!($self->{vmconf}->{replica} && defined($synced_volumes->{$volid})
-	    && $self->{vmconf}->{replica_target} eq $self->{opts}->{node}) ) {
-	    eval { PVE::Storage::vdisk_free($self->{storecfg}, $volid); };
-	    if (my $err = $@) {
-		$self->log('err', "removing local copy of '$volid' failed - $err");
-		$self->{errors} = 1;
-		last if $err =~ /^interrupted by signal$/;
-	    }
+	eval { PVE::Storage::vdisk_free($self->{storecfg}, $volid); };
+	if (my $err = $@) {
+	    $self->log('err', "removing local copy of '$volid' failed - $err");
+	    $self->{errors} = 1;
+	    last if $err =~ /^interrupted by signal$/;
 	}
     }
 }
@@ -984,11 +964,6 @@ sub phase3_cleanup {
     # clear migrate lock
     my $cmd = [ @{$self->{rem_ssh}}, 'qm', 'unlock', $vmid ];
     $self->cmd_logerr($cmd, errmsg => "failed to clear migrate lock");
-
-    if ($self->{vmconf}->{replica}) {
-	my $cmd = [ @{$self->{rem_ssh}}, 'qm', 'set', $vmid, '--replica'];
-	$self->cmd_logerr($cmd, errmsg => "failed to activate replica");
-    }
 }
 
 sub final_cleanup {
