@@ -1055,7 +1055,7 @@ my $update_vm_api  = sub {
 		    &$create_disks($rpcenv, $authuser, $conf->{pending}, $storecfg, $vmid, undef, {$opt => $param->{$opt}});
 		} elsif ($opt eq "replicate") {
 		    # check if all volumes have replicate feature
-		    PVE::QemuServer::get_replicatable_volumes($storecfg, $conf);
+		    PVE::QemuConfig->get_replicatable_volumes($storecfg, $conf);
 		    my $repl = PVE::JSONSchema::check_format('pve-replicate', $param->{opt});
 		    PVE::Cluster::check_node_exists($repl->{target});
 		    $conf->{$opt} = $param->{$opt};
