@@ -861,16 +861,16 @@ sub phase3 {
 
     # destroy local copies
     foreach my $volid (@$volids) {
-	# do not destroy if new target is local_host
-	next if $self->{vmconf}->{replica} &&
-	    defined($synced_volumes->{$volid}) &&
-	    $self->{vmconf}->{replica_target} eq $self->{opts}->{node};
 
-	eval { PVE::Storage::vdisk_free($self->{storecfg}, $volid); };
-	if (my $err = $@) {
-	    $self->log('err', "removing local copy of '$volid' failed - $err");
-	    $self->{errors} = 1;
-	    last if $err =~ /^interrupted by signal$/;
+	# do not destroy if new target is local_host
+	if (!($self->{vmconf}->{replica} && defined($synced_volumes->{$volid})
+	    && $self->{vmconf}->{replica_target} eq $self->{opts}->{node}) ) {
+	    eval { PVE::Storage::vdisk_free($self->{storecfg}, $volid); };
+	    if (my $err = $@) {
+		$self->log('err', "removing local copy of '$volid' failed - $err");
+		$self->{errors} = 1;
+		last if $err =~ /^interrupted by signal$/;
+	    }
 	}
     }
 }
