@@ -491,31 +491,7 @@ EODESCR
 	maxLength => 256,
 	optional => 1,
     },
-    replica => {
-	optional => 1,
-	description => "Storage replica for local storage.",
-	type => 'boolean',
-	default => 0,
-    },
-    replica_rate_limit => {
-	optional => 1,
-	description => "Storage replica rate limit in KBytes/s.",
-	type => 'integer',
-	minimum => 1,
-    },
-    replica_interval => {
-	optional => 1,
-	description => "Storage replica sync interval",
-	type => 'integer',
-	minimum => 1,
-	maximum => 1440,
-	default => 15,
-    },
-    replica_target => {
-	optional => 1,
-	description => "Storage replica taget node.",
-	type => 'string',
-    },
+    replicate => get_standard_option('pve-replicate'),
     protection => {
 	optional => 1,
 	type => 'boolean',

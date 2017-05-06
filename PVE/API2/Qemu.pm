@@ -1029,16 +1029,6 @@ my $update_vm_api  = sub {
 			if defined($conf->{pending}->{$opt});
 		    PVE::QemuServer::vmconfig_delete_pending_option($conf, $opt, $force);
 		    PVE::QemuConfig->write_config($vmid, $conf);
-		} elsif ($opt eq "replica" || $opt eq "replica_target") {
-		    delete $conf->{$opt};
-		    delete $conf->{replica} if $opt eq "replica_target";
-
-		    PVE::ReplicationTools::job_remove($vmid);
-		    PVE::QemuConfig->write_config($vmid, $conf);
-		} elsif ($opt eq "replica_interval" || $opt eq "replica_rate_limit") {
-		    delete $conf->{$opt};
-		    PVE::ReplicationTools::update_conf($vmid, $opt, $param->{$opt});
-		    PVE::QemuConfig->write_config($vmid, $conf);
 		} else {
 		    PVE::QemuServer::vmconfig_delete_pending_option($conf, $opt, $force);
 		    PVE::QemuConfig->write_config($vmid, $conf);
@@ -1061,26 +1051,11 @@ my $update_vm_api  = sub {
 			if defined($conf->{pending}->{$opt});
 
 		    &$create_disks($rpcenv, $authuser, $conf->{pending}, $storecfg, $vmid, undef, {$opt => $param->{$opt}});
-		} elsif ($opt eq "replica") {
+		} elsif ($opt eq "replicate") {
 		    die "Not all volumes are syncable, please check your config\n"
 			if !PVE::ReplicationTools::check_guest_volumes_syncable($conf, 'qemu');
-		    die "replica_target is required\n"
-			if !$conf->{replica_target} && !$param->{replica_target};
-		    my $value = $param->{$opt};
-		    if ($value) {
-			PVE::ReplicationTools::job_enable($vmid);
-		    } else {
-			PVE::ReplicationTools::job_disable($vmid);
-		    }
-		    $conf->{$opt} = $param->{$opt};
-		} elsif ($opt eq "replica_interval" || $opt eq "replica_rate_limit") {
-		    $conf->{$opt} = $param->{$opt};
-		    PVE::ReplicationTools::update_conf($vmid, $opt, $param->{$opt});
-		} elsif ($opt eq "replica_target" ) {
-		    die "Node: $param->{$opt} does not exists in Cluster.\n"
-			if !PVE::Cluster::check_node_exists($param->{$opt});
-		    PVE::ReplicationTools::update_conf($vmid, $opt, $param->{$opt})
-			if defined($conf->{$opt});
+		    my $repl = PVE::JSONSchema::check_format('pve-replicate', $param->{opt});
+		    PVE::Cluster::check_node_exists($repl->{target});
 		    $conf->{$opt} = $param->{$opt};
 		} else {
 		    $conf->{pending}->{$opt} = $param->{$opt};
@@ -1316,9 +1291,6 @@ __PACKAGE__->register_method({
 	    my $upid = shift;
 
 	    syslog('info', "destroy VM $vmid: $upid\n");
-
-	    # return without error if vm has no replica job
-	    PVE::ReplicationTools::destroy_replica($vmid);
 
 	    PVE::QemuServer::vm_destroy($storecfg, $vmid, $skiplock);
 
