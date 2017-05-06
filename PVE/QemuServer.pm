@@ -748,7 +748,7 @@ my %drivedesc_base = (
 	description => "Whether the drive should be included when making backups.",
 	optional => 1,
     },
-    replica => {
+    replicate => {
 	type => 'boolean',
 	description => 'Will include this drive to an storage replical job.',
 	optional => 1,
