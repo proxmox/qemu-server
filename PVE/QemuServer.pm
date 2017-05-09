@@ -491,7 +491,6 @@ EODESCR
 	maxLength => 256,
 	optional => 1,
     },
-    replicate => get_standard_option('pve-replicate'),
     protection => {
 	optional => 1,
 	type => 'boolean',
@@ -750,7 +749,7 @@ my %drivedesc_base = (
     },
     replicate => {
 	type => 'boolean',
-	description => 'Will include this drive to an storage replical job.',
+	description => 'Whether the drive should considered for replication jobs.',
 	optional => 1,
 	default => 1,
     },
