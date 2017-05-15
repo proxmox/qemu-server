@@ -5819,7 +5819,7 @@ sub restore_tar_archive {
     warn $@ if $@;
 };
 
-sub foreach_writable_storage {
+sub foreach_storage_used_by_vm {
     my ($conf, $func) = @_;
 
     my $sidhash = {};

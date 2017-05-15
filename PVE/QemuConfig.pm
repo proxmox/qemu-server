@@ -125,7 +125,7 @@ sub __snapshot_save_vmstate {
 
     if (!$target) {
 	my ($shared, $local);
-	PVE::QemuServer::foreach_writable_storage($conf, sub {
+	PVE::QemuServer::foreach_storage_used_by_vm($conf, sub {
 	    my ($sid) = @_;
 	    my $scfg = PVE::Storage::storage_config($storecfg, $sid);
 	    my $dst = $scfg->{shared} ? \$shared : \$local;
