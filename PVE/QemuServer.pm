@@ -4076,6 +4076,7 @@ my $fast_plug_option = {
     'startup' => 1,
     'description' => 1,
     'protection' => 1,
+    'vmstatestorage' => 1,
 };
 
 # hotplug changes in [PENDING]
