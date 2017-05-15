@@ -5825,18 +5825,15 @@ sub foreach_storage_used_by_vm {
 
     my $sidhash = {};
 
-    foreach my $ds (keys %$conf) {
-	next if !is_valid_drivename($ds);
-
-	my $drive = parse_drive($ds, $conf->{$ds});
-	next if !$drive;
-	next if drive_is_cdrom($drive);
+    foreach_drive($conf, sub {
+	my ($ds, $drive) = @_;
+	return if drive_is_cdrom($drive);
 
 	my $volid = $drive->{file};
 
 	my ($sid, $volname) = PVE::Storage::parse_volume_id($volid, 1);
 	$sidhash->{$sid} = $sid if $sid;
-    }
+    });
 
     foreach my $sid (sort keys %$sidhash) {
 	&$func($sid);
