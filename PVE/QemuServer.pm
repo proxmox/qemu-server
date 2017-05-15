@@ -477,6 +477,10 @@ EODESCR
 	type => 'string', format => 'pve-volume-id',
 	description => "Reference to a volume which stores the VM state. This is used internally for snapshots.",
     },
+    vmstatestorage => get_standard_option('pve-storage-id', {
+	description => "Default storage for VM state volumes/files.",
+	optional => 1,
+    }),
     machine => {
 	description => "Specific the Qemu machine type.",
 	type => 'string',

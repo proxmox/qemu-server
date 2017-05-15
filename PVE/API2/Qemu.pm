@@ -78,6 +78,9 @@ my $check_storage_access = sub {
 	    PVE::Storage::check_volume_access($rpcenv, $authuser, $storecfg, $vmid, $volid);
 	}
     });
+
+   $rpcenv->check($authuser, "/storage/$settings->{vmstatestorage}", ['Datastore.AllocateSpace'])
+       if defined($settings->{vmstatestorage});
 };
 
 my $check_storage_access_clone = sub {
@@ -113,6 +116,9 @@ my $check_storage_access_clone = sub {
 	    $rpcenv->check($authuser, "/storage/$sid", ['Datastore.AllocateSpace']);
 	}
     });
+
+   $rpcenv->check($authuser, "/storage/$conf->{vmstatestorage}", ['Datastore.AllocateSpace'])
+       if defined($conf->{vmstatestorage});
 
    return $sharedvm;
 };
@@ -257,6 +263,7 @@ my $vmpoweroptions = {
 my $diskoptions = {
     'boot' => 1,
     'bootdisk' => 1,
+    'vmstatestorage' => 1,
 };
 
 my $check_vm_modify_config_perm = sub {
