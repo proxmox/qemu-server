@@ -120,29 +120,23 @@ sub __snapshot_save_vmstate {
 
     my $snap = $conf->{snapshots}->{$snapname};
 
-    my $target;
-
-    # search shared storage first
-    PVE::QemuServer::foreach_writable_storage($conf, sub {
-	my ($sid) = @_;
-	my $scfg = PVE::Storage::storage_config($storecfg, $sid);
-	return if !$scfg->{shared};
-
-	$target = $sid if !$target || $scfg->{path}; # prefer file based storage
-    });
+    # first, use explicitly configured storage
+    my $target = $conf->{vmstatestorage};
 
     if (!$target) {
-	# now search local storage
+	my ($shared, $local);
 	PVE::QemuServer::foreach_writable_storage($conf, sub {
 	    my ($sid) = @_;
 	    my $scfg = PVE::Storage::storage_config($storecfg, $sid);
-	    return if $scfg->{shared};
-
-	    $target = $sid if !$target || $scfg->{path}; # prefer file based storage;
+	    my $dst = $scfg->{shared} ? \$shared : \$local;
+	    $$dst = $sid if !$$dst || $scfg->{path}; # prefer file based storage
 	});
-    }
 
-    $target = 'local' if !$target;
+	# second, use shared storage where VM has at least one disk
+	# third, use local storage where VM has at least one disk
+	# fall back to local storage
+	$target = $shared // $local // 'local';
+    }
 
     my $driver_state_size = 500; # assume 32MB is enough to safe all driver state;
     # we abort live save after $conf->{memory}, so we need at max twice that space
