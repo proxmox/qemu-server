@@ -1718,7 +1718,7 @@ sub print_cpu_device {
     my $cores = $conf->{cores} || 1;
 
     my $current_core = ($id - 1) % $cores;
-    my $current_socket = int(($id - $current_core)/$cores);
+    my $current_socket = int(($id - 1 - $current_core)/$cores);
 
     return "$cpu-x86_64-cpu,id=cpu$id,socket-id=$current_socket,core-id=$current_core,thread-id=0";
 }
