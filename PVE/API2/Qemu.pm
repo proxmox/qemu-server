@@ -1433,6 +1433,7 @@ __PACKAGE__->register_method({
 		$cmd = [@$remcmd, "/usr/sbin/qm", 'vncproxy', $vmid];
 
 		my $sock = IO::Socket::IP->new(
+		    ReuseAddr => 1,
 		    Listen => 1,
 		    LocalPort => $port,
 		    Proto => 'tcp',
