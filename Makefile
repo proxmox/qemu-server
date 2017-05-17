@@ -90,7 +90,7 @@ install: ${PKGSOURCES}
 
 .PHONY: deb
 deb: ${DEB}
-${DEB}: ${PKGSOURCES}
+${DEB}: ${PKGSOURCES} check
 	rm -f *.deb
 	rm -rf build
 	mkdir build
@@ -107,6 +107,10 @@ ${DEB}: ${PKGSOURCES}
 	fakeroot dpkg-deb --build build
 	mv build.deb ${DEB}
 	lintian ${DEB}
+
+.PHONY: check
+check: test
+	make -C test
 
 .PHONY: upload
 upload: ${DEB}
