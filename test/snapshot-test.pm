@@ -104,6 +104,24 @@ sub mocked_volume_rollback_is_possible {
     die "volume_rollback_is_possible failed\n";
 }
 
+sub mocked_activate_volumes {
+    my ($storecfg, $volumes) = @_;
+    die "Storage config not mocked! aborting\n"
+	if defined($storecfg);
+    die "wrong volume - fake vmstate expected!\n"
+	if ((scalar @$volumes != 1) || @$volumes[0] ne "somestorage:state-volume");
+    return;
+}
+
+sub mocked_deactivate_volumes {
+    my ($storecfg, $volumes) = @_;
+    die "Storage config not mocked! aborting\n"
+	if defined($storecfg);
+    die "wrong volume - fake vmstate expected!\n"
+	if ((scalar @$volumes != 1) || @$volumes[0] ne "somestorage:state-volume");
+    return;
+}
+
 sub mocked_vdisk_free {
     my ($storecfg, $vmstate) = @_;
     die "Storage config not mocked! aborting\n"
@@ -454,6 +472,8 @@ printf("Setting up Mocking for PVE::Storage\n");
 my $storage_module = new Test::MockModule('PVE::Storage');
 $storage_module->mock('config', sub { return undef; });
 $storage_module->mock('path', sub { return "/some/store/statefile/path"; });
+$storage_module->mock('activate_volumes', \&mocked_activate_volumes);
+$storage_module->mock('deactivate_volumes', \&mocked_deactivate_volumes);
 $storage_module->mock('vdisk_free', \&mocked_vdisk_free);
 $storage_module->mock('volume_snapshot', \&mocked_volume_snapshot);
 $storage_module->mock('volume_snapshot_delete', \&mocked_volume_snapshot_delete);
