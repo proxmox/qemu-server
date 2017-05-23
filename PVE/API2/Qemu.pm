@@ -2439,12 +2439,12 @@ __PACKAGE__->register_method({
 			$newconf->{$opt} = $value; # simply copy configuration
 		    } else {
 			if ($param->{full}) {
-			    die "Full clone feature is not available"
+			    die "Full clone feature is not supported for drive '$opt'\n"
 				if !PVE::Storage::volume_has_feature($storecfg, 'copy', $drive->{file}, $snapname, $running);
 			    $fullclone->{$opt} = 1;
 			} else {
 			    # not full means clone instead of copy
-			    die "Linked clone feature is not available"
+			    die "Linked clone feature is not supported for drive '$opt'\n"
 				if !PVE::Storage::volume_has_feature($storecfg, 'clone', $drive->{file}, $snapname, $running);
 			}
 			$drives->{$opt} = $drive;
