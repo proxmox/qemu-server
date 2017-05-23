@@ -15,6 +15,7 @@ use PVE::Exception qw(raise raise_param_exc raise_perm_exc);
 use PVE::Storage;
 use PVE::JSONSchema qw(get_standard_option);
 use PVE::RESTHandler;
+use PVE::ReplicationConfig;
 use PVE::QemuConfig;
 use PVE::QemuServer;
 use PVE::QemuMigrate;
@@ -1278,6 +1279,10 @@ __PACKAGE__->register_method({
 
 	die "unable to remove VM $vmid - used in HA resources\n"
 	    if PVE::HA::Config::vm_is_ha_managed($vmid);
+
+	# do not allow destroy if there are replication jobs
+	my $repl_conf = PVE::ReplicationConfig->new();
+	$repl_conf->check_for_existing_jobs($vmid);
 
 	# early tests (repeat after locking)
 	die "VM $vmid is running - destroy failed\n"
