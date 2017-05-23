@@ -1720,8 +1720,6 @@ sub print_cpu_device {
 	$cpu = $cpuconf->{cputype};
     }
 
-    my $sockets = 1;
-    $sockets = $conf->{sockets} if  $conf->{sockets};
     my $cores = $conf->{cores} || 1;
 
     my $current_core = ($id - 1) % $cores;
