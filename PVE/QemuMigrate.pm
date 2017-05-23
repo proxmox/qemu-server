@@ -399,7 +399,7 @@ sub sync_disks {
 		push @{$self->{online_local_volumes}}, $volid;
 	    } else {
 		push @{$self->{volumes}}, $volid;
-		PVE::Storage::storage_migrate($self->{storecfg}, $volid, $self->{nodeip}, $sid);
+		PVE::Storage::storage_migrate($self->{storecfg}, $volid, $self->{ssh_info}, $sid);
 	    }
 	}
     };
