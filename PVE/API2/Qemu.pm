@@ -16,6 +16,7 @@ use PVE::Storage;
 use PVE::JSONSchema qw(get_standard_option);
 use PVE::RESTHandler;
 use PVE::ReplicationConfig;
+use PVE::GuestHelpers;
 use PVE::QemuConfig;
 use PVE::QemuServer;
 use PVE::QemuMigrate;
@@ -2856,13 +2857,17 @@ __PACKAGE__->register_method({
 
 	} else {
 
-	    my $realcmd = sub {
-		my $upid = shift;
+	    my $code = sub {
+		my $realcmd = sub {
+		    my $upid = shift;
 
-		PVE::QemuMigrate->migrate($target, $targetip, $vmid, $param);
+		    PVE::QemuMigrate->migrate($target, $targetip, $vmid, $param);
+		};
+
+		return $rpcenv->fork_worker('qmigrate', $vmid, $authuser, $realcmd);
 	    };
 
-	    return $rpcenv->fork_worker('qmigrate', $vmid, $authuser, $realcmd);
+	    return PVE::GuestHelpers::guest_migration_lock($vmid, 10, $code);
 	}
 
     }});
