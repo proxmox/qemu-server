@@ -1007,7 +1007,7 @@ my $update_vm_api  = sub {
 	    foreach my $opt (@delete) {
 		$modified->{$opt} = 1;
 		$conf = PVE::QemuConfig->load_config($vmid); # update/reload
-		if (!defined($conf->{$opt})) {
+		if (!defined($conf->{$opt}) && !defined($conf->{pending}->{$opt})) {
 		    warn "cannot delete '$opt' - not set in current configuration!\n";
 		    $modified->{$opt} = 0;
 		    next;
