@@ -3157,9 +3157,12 @@ sub config_to_command {
 
 	my $nodename = PVE::INotify::nodename();
 	my $pfamily = PVE::Tools::get_host_address_family($nodename);
-	$spice_port = PVE::Tools::next_spice_port($pfamily);
+	my @nodeaddrs = PVE::Tools::getaddrinfo_all('localhost', family => $pfamily);
+	die "failed to get an ip address of type $pfamily for 'localhost'\n" if !@nodeaddrs;
+	my $localhost = PVE::Network::addr_to_ip($nodeaddrs[0]->{addr});
+	$spice_port = PVE::Tools::next_spice_port($pfamily, $localhost);
 
-	push @$devices, '-spice', "tls-port=${spice_port},addr=localhost,tls-ciphers=HIGH,seamless-migration=on";
+	push @$devices, '-spice', "tls-port=${spice_port},addr=$localhost,tls-ciphers=HIGH,seamless-migration=on";
 
 	push @$devices, '-device', "virtio-serial,id=spice$pciaddr";
 	push @$devices, '-chardev', "spicevmc,id=vdagent,name=vdagent";
