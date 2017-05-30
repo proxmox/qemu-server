@@ -858,12 +858,18 @@ $add_throttle_desc->('iops_rd_max', 'integer', 'unthrottled read I/O pool',  'io
 $add_throttle_desc->('iops_wr_max', 'integer', 'unthrottled write I/O pool', 'iops', 'operations per second');
 
 # burst lengths
-$add_throttle_desc->('bps_max_length',  'integer', 'length of I/O bursts',       'seconds', 'seconds', 1);
-$add_throttle_desc->('bps_rd_length',   'integer', 'length of read I/O bursts',  'seconds', 'seconds', 1);
-$add_throttle_desc->('bps_wr_length',   'integer', 'length of write I/O bursts', 'seconds', 'seconds', 1);
-$add_throttle_desc->('iops_max_length', 'integer', 'length of I/O bursts',       'seconds', 'seconds', 1);
-$add_throttle_desc->('iops_rd_length',  'integer', 'length of read I/O bursts',  'seconds', 'seconds', 1);
-$add_throttle_desc->('iops_wr_length',  'integer', 'length of write I/O bursts', 'seconds', 'seconds', 1);
+$add_throttle_desc->('bps_max_length',     'integer', 'length of I/O bursts',       'seconds', 'seconds', 1);
+$add_throttle_desc->('bps_rd_max_length',  'integer', 'length of read I/O bursts',  'seconds', 'seconds', 1);
+$add_throttle_desc->('bps_wr_max_length',  'integer', 'length of write I/O bursts', 'seconds', 'seconds', 1);
+$add_throttle_desc->('iops_max_length',    'integer', 'length of I/O bursts',       'seconds', 'seconds', 1);
+$add_throttle_desc->('iops_rd_max_length', 'integer', 'length of read I/O bursts',  'seconds', 'seconds', 1);
+$add_throttle_desc->('iops_wr_max_length', 'integer', 'length of write I/O bursts', 'seconds', 'seconds', 1);
+
+# legacy support
+$drivedesc_base{'bps_rd_length'} = { alias => 'bps_rd_max_length' };
+$drivedesc_base{'bps_wr_length'} = { alias => 'bps_wr_max_length' };
+$drivedesc_base{'iops_rd_length'} = { alias => 'iops_rd_max_length' };
+$drivedesc_base{'iops_wr_length'} = { alias => 'iops_wr_max_length' };
 
 my $ide_fmt = {
     %drivedesc_base,
@@ -1358,6 +1364,12 @@ sub parse_drive {
 
     # can't use the schema's 'requires' because of the mbps* => bps* "transforming aliases"
     for my $requirement (
+	[mbps_max => 'mbps'],
+	[mbps_rd_max => 'mbps_rd'],
+	[mbps_wr_max => 'mbps_wr'],
+	[miops_max => 'miops'],
+	[miops_rd_max => 'miops_rd'],
+	[miops_wr_max => 'miops_wr'],
 	[bps_max_length => 'mbps_max'],
 	[bps_rd_max_length => 'mbps_rd_max'],
 	[bps_wr_max_length => 'mbps_wr_max'],
@@ -1582,21 +1594,38 @@ sub print_drive_full {
    }
 
     my $opts = '';
-    my @qemu_drive_options = qw(heads secs cyls trans media format cache snapshot rerror werror aio discard iops iops_rd iops_wr iops_max iops_rd_max iops_wr_max);
+    my @qemu_drive_options = qw(heads secs cyls trans media format cache snapshot rerror werror aio discard);
     foreach my $o (@qemu_drive_options) {
 	$opts .= ",$o=$drive->{$o}" if $drive->{$o};
     }
+    foreach my $type (['', '-total'], [_rd => '-read'], [_wr => '-write']) {
+	my ($dir, $qmpname) = @$type;
+	if (my $v = $drive->{"mbps$dir"}) {
+	    $opts .= ",throttling.bps$qmpname=".int($v*1024*1024);
+	}
+	if (my $v = $drive->{"mbps${dir}_max"}) {
+	    $opts .= ",throttling.bps$qmpname-max=".int($v*1024*1024);
+	}
+	if (my $v = $drive->{"bps${dir}_max_length"}) {
+	    $opts .= ",throttling.bps$qmpname-max-length=$v";
+	}
+	if (my $v = $drive->{"iops${dir}"}) {
+	    $opts .= ",throttling.iops$qmpname=$v";
+	}
+	if (my $v = $drive->{"iops${dir}_max"}) {
+	    $opts .= ",throttling.iops$qmpname=-max$v";
+	}
+	if (my $v = $drive->{"iops${dir}_max_length"}) {
+	    $opts .= ",throttling.iops$qmpname=-max-length$v";
+	}
+    }
+
     if (my $serial = $drive->{serial}) {
 	$serial = URI::Escape::uri_unescape($serial);
 	$opts .= ",serial=$serial";
     }
 
     $opts .= ",format=$format" if $format && !$drive->{format};
-
-    foreach my $o (qw(bps bps_rd bps_wr)) {
-	my $v = $drive->{"m$o"};
-	$opts .= ",$o=" . int($v*1024*1024) if $v;
-    }
 
     my $cache_direct = 0;
 
