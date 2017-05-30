@@ -399,7 +399,8 @@ sub sync_disks {
 		push @{$self->{online_local_volumes}}, $volid;
 	    } else {
 		push @{$self->{volumes}}, $volid;
-		PVE::Storage::storage_migrate($self->{storecfg}, $volid, $self->{ssh_info}, $sid);
+		my $insecure = $self->{opts}->{migration_type} eq 'insecure';
+		PVE::Storage::storage_migrate($self->{storecfg}, $volid, $self->{ssh_info}, $sid, undef, undef, undef, undef, $insecure);
 	    }
 	}
     };
@@ -434,6 +435,20 @@ sub phase1 {
     # set migrate lock in config file
     $conf->{lock} = 'migrate';
     PVE::QemuConfig->write_config($vmid, $conf);
+
+    # we use TCP only for unsecure migrations as TCP ssh forward tunnels often
+    # did appeared to late (they are hard, if not impossible, to check for)
+    # secure migration use UNIX sockets now, this *breaks* compatibilty when trying
+    # to migrate from new to old but *not* from old to new.
+    my $datacenterconf = PVE::Cluster::cfs_read_file('datacenter.cfg');
+
+    my $migration_type = 'secure';
+    if (defined($self->{opts}->{migration_type})) {
+	$migration_type = $self->{opts}->{migration_type};
+    } elsif (defined($datacenterconf->{migration}->{type})) {
+        $migration_type = $datacenterconf->{migration}->{type};
+    }
+    $self->{opts}->{migration_type} = $migration_type;
 
     sync_disks($self, $vmid);
 
@@ -482,18 +497,7 @@ sub phase2 {
 
     push @$cmd , 'qm', 'start', $vmid, '--skiplock', '--migratedfrom', $nodename;
 
-    # we use TCP only for unsecure migrations as TCP ssh forward tunnels often
-    # did appeared to late (they are hard, if not impossible, to check for)
-    # secure migration use UNIX sockets now, this *breaks* compatibilty when trying
-    # to migrate from new to old but *not* from old to new.
-    my $datacenterconf = PVE::Cluster::cfs_read_file('datacenter.cfg');
-
-    my $migration_type = 'secure';
-    if (defined($self->{opts}->{migration_type})) {
-	$migration_type = $self->{opts}->{migration_type};
-    } elsif (defined($datacenterconf->{migration}->{type})) {
-        $migration_type = $datacenterconf->{migration}->{type};
-    }
+    my $migration_type = $self->{opts}->{migration_type};
 
     push @$cmd, '--migration_type', $migration_type;
 
