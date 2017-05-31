@@ -1,3 +1,39 @@
+qemu-server (5.0-6) unstable; urgency=medium
+
+  * fix burst length parameter names and pass them to qemu
+
+  * fix #1229: more explicit spice port allocation
+
+  * migrate: aquire guest_migration_lock during migration
+
+  * do not allow destroy if there are replication jobs
+
+  * use new PVE::ReplicationConfig class
+
+  * improve error on '{full, linked} clone not available' error
+
+  * Fix #1384: add missing decrement to calculation of socket-id
+
+  * migrate: pass ssh_info to storage_migrate
+
+  * tests: fix broken snapshot create tests
+
+  * tests: fix broken snapshot delete tests
+
+  * use ReuseAddr for vncproxy
+
+  * Fix #1361: create disk: stricter parsing of storage:size
+
+  * PVE::QemuServer::create_disks - run code inside eval
+
+  * implement get_replicatable_volumes
+
+  * add description of read/writes statistics in vzdump output
+
+  *  start vncproxy worker in the background
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 31 May 2017 09:21:27 +0200
+
 qemu-server (5.0-5) unstable; urgency=medium
 
   * added rerror option to scsi drives
