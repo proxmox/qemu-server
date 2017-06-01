@@ -52,7 +52,7 @@ sub do_import {
 
 	if ($drive_name) {
 		# should never happen as setting $drive_name is not exposed to public interface
-		die "cowardly refusing to overwrite existing entry: $drive_name" if $vm_conf->{$drive_name};
+		die "cowardly refusing to overwrite existing entry: $drive_name\n" if $vm_conf->{$drive_name};
 
 		my $modified = {}; # record what $option we modify
 		$modified->{$drive_name} = 1;
