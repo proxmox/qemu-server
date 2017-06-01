@@ -6175,20 +6175,11 @@ sub clone_disk {
 	my ($storeid, $volname) = PVE::Storage::parse_volume_id($drive->{file});
 	$storeid = $storage if $storage;
 
-	my ($defFormat, $validFormats) = PVE::Storage::storage_default_format($storecfg, $storeid);
-	if (!$format) {
-	    my $scfg = PVE::Storage::storage_config($storecfg, $storeid);
-	    $format = qemu_img_format($scfg, $volname);
-	}
-
-	# test if requested format is supported - else use default
-	my $supported = grep { $_ eq $format } @$validFormats;
-	$format = $defFormat if !$supported;
-
+	my $dst_format = resolve_dst_disk_format($storecfg, $storeid, $volname, $format);
 	my ($size) = PVE::Storage::volume_size_info($storecfg, $drive->{file}, 3);
 
 	print "create full clone of drive $drivename ($drive->{file})\n";
-	$newvolid = PVE::Storage::vdisk_alloc($storecfg, $storeid, $newvmid, $format, undef, ($size/1024));
+	$newvolid = PVE::Storage::vdisk_alloc($storecfg, $storeid, $newvmid, $dst_format, undef, ($size/1024));
 	push @$newvollist, $newvolid;
 
 	PVE::Storage::activate_volumes($storecfg, [$newvolid]);
@@ -6392,6 +6383,26 @@ sub windows_version {
     }
 
     return $winversion;
+}
+
+sub resolve_dst_disk_format {
+	my ($storecfg, $storeid, $src_volname, $format) = @_;
+	my ($defFormat, $validFormats) = PVE::Storage::storage_default_format($storecfg, $storeid);
+
+	if (!$format) {
+	    # if no target format is specified, use the source disk format as hint
+	    if ($src_volname) {
+		my $scfg = PVE::Storage::storage_config($storecfg, $storeid);
+		$format = qemu_img_format($scfg, $src_volname);
+	    } else {
+		return $defFormat;
+	    }
+	}
+
+	# test if requested format is supported - else use default
+	my $supported = grep { $_ eq $format } @$validFormats;
+	$format = $defFormat if !$supported;
+	return $format;
 }
 
 # bash completion helper
