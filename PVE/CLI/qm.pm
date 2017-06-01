@@ -17,6 +17,7 @@ use PVE::SafeSyslog;
 use PVE::INotify;
 use PVE::RPCEnvironment;
 use PVE::QemuServer;
+use PVE::QemuServer::ImportDisk;
 use PVE::API2::Qemu;
 use JSON;
 use PVE::JSONSchema qw(get_standard_option);
@@ -380,6 +381,54 @@ __PACKAGE__->register_method ({
     }});
 
 __PACKAGE__->register_method ({
+    name => 'importdisk',
+    path => 'importdisk',
+    method => 'POST',
+    description => "Import an external disk image as an unused disk in a VM. The
+ image format has to be supported by qemu-img(1).",
+    parameters => {
+	additionalProperties => 0,
+	properties => {
+	    vmid => get_standard_option('pve-vmid', {completion => \&PVE::QemuServer::complete_vmid}),
+	    source => {
+		description => 'Path to the disk image to import',
+		type => 'string',
+		optional => 0,
+	    },
+            storage => get_standard_option('pve-storage-id', {
+		description => 'Target storage ID',
+		completion => \&PVE::QemuServer::complete_storage,
+		optional => 0,
+            }),
+	    format => {
+		type => 'string',
+		description => 'Target format',
+		enum => [ 'raw', 'qcow2', 'vmdk' ],
+		optional => 1,
+	    },
+	},
+    },
+    returns => { type => 'null'},
+    code => sub {
+	my ($param) = @_;
+
+	my $vmid = extract_param($param, 'vmid');
+	my $source = extract_param($param, 'source');
+	my $storeid = extract_param($param, 'storage');
+	my $format = extract_param($param, 'format');
+
+	my $vm_conf = PVE::QemuConfig->load_config($vmid);
+	PVE::QemuConfig->check_lock($vm_conf);
+	die "$source: non-existent or non-regular file\n" if (! -f $source);
+	my $storecfg = PVE::Storage::config();
+	PVE::Storage::storage_check_enabled($storecfg, $storeid);
+
+	PVE::QemuServer::ImportDisk::do_import($source, $vmid, $storeid, { format => $format });
+
+	return undef;
+    }});
+
+__PACKAGE__->register_method ({
     name => 'terminal',
     path => 'terminal',
     method => 'POST',
@@ -587,6 +636,8 @@ our $cmddef = {
     nbdstop => [ __PACKAGE__, 'nbdstop', ['vmid']],
 
     terminal => [ __PACKAGE__, 'terminal', ['vmid']],
+
+    importdisk => [ __PACKAGE__, 'importdisk', ['vmid', 'source', 'storage']],
 };
 
 1;
