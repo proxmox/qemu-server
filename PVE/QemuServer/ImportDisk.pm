@@ -63,7 +63,12 @@ sub do_import {
 		if ($running) {
 		    my $errors = {};
 		    PVE::QemuServer::vmconfig_hotplug_pending($vmid, $vm_conf, $storecfg, $modified, $errors);
-		    raise_param_exc($errors) if scalar(keys %$errors);
+		    if (scalar(keys %$errors)) {
+			foreach my $k (keys %$errors) {
+			    warn "$k: $errors->{$k}\n" if $debug;
+			    warn "hotplugging imported disk failed\n";
+			}
+		    }
 		} else {
 		    PVE::QemuServer::vmconfig_apply_pending($vmid, $vm_conf, $storecfg);
 		}
