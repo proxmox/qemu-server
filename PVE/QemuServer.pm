@@ -6304,6 +6304,12 @@ sub lspci {
 	    push @{$devices->{$id}}, $res;
     });
 
+    # Entries should be sorted by functions.
+    foreach my $id (keys %$devices) {
+	my $dev = $devices->{$id};
+	$devices->{$id} = [ sort { $a->{function} <=> $b->{function} } @$dev ];
+    }
+
     return $devices;
 }
 
