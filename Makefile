@@ -28,17 +28,13 @@ DEB=${PACKAGE}_${VERSION}-${PKGREL}_${ARCH}.deb
 export NOVIEW=1
 include /usr/share/pve-doc-generator/pve-doc-generator.mk
 
-all: ${DEB}
+export SOURCE_DATE_EPOCH ?= $(shell dpkg-parsechangelog -STimestamp)
+
+all:
 
 .PHONY: dinstall
 dinstall: deb
 	dpkg -i ${DEB}
-
-control: control.in
-	sed -e s/@@VERSION@@/${VERSION}/ -e s/@@PKGRELEASE@@/${PKGREL}/ -e s/@@ARCH@@/${ARCH}/<$< >$@
-
-vzsyscalls.ph: vzsyscalls.h
-	 h2ph -d . vzsyscalls.h
 
 vmtar: vmtar.c utils.c
 	gcc ${CFLAGS} -o vmtar vmtar.c
@@ -54,7 +50,7 @@ qmrestore.bash-completion:
 	PVE_GENERATING_DOCS=1 perl -I. -T -e "use PVE::CLI::qmrestore; PVE::CLI::qmrestore->generate_bash_completions();" >$@.tmp
 	mv $@.tmp $@
 
-PKGSOURCES=qm qm.1 qmrestore qmrestore.1 qmextract sparsecp vmtar control qm.conf.5 qm.bash-completion qmrestore.bash-completion
+PKGSOURCES=qm qm.1 qmrestore qmrestore.1 qmextract sparsecp vmtar qm.conf.5 qm.bash-completion qmrestore.bash-completion
 
 .PHONY: install
 install: ${PKGSOURCES}
@@ -90,26 +86,17 @@ install: ${PKGSOURCES}
 
 .PHONY: deb
 deb: ${DEB}
-${DEB}: ${PKGSOURCES} check
-	rm -f *.deb
+${DEB}:
 	rm -rf build
-	mkdir build
-	make DESTDIR=${CURDIR}/build install
-	PVE_GENERATING_DOCS=1 perl -I. ./qm verifyapi
-	install -d -m 0755 build/DEBIAN
-	install -m 0644 control build/DEBIAN
-	install -m 0644 triggers build/DEBIAN
-	echo "/etc/modules-load.d/qemu-server.conf" >>build/DEBIAN/conffiles
-	install -D -m 0644 copyright build/${DOCDIR}/${PACKAGE}/copyright
-	install -m 0644 changelog.Debian build/${DOCDIR}/${PACKAGE}/
-	gzip -9 -n build/${DOCDIR}/${PACKAGE}/changelog.Debian
-	echo "git clone git://git.proxmox.com/git/qemu-server.git\\ngit checkout ${GITVERSION}" > build/${DOCDIR}/${PACKAGE}/SOURCE
-	fakeroot dpkg-deb --build build
-	mv build.deb ${DEB}
+	rsync -a * build
+	sed -e s/@@ARCH@@/${ARCH}/ <debian/control.in >build/debian/control
+	echo "git clone git://git.proxmox.com/git/qemu-server.git\\ngit checkout ${GITVERSION}" > build/debian/SOURCE
+	cd build; dpkg-buildpackage -rfakeroot -b -us -uc
 	lintian ${DEB}
 
-.PHONY: check
-check: test
+.PHONY: test
+test:
+	PVE_GENERATING_DOCS=1 perl -I. ./qm verifyapi
 	make -C test
 
 .PHONY: upload
@@ -117,10 +104,9 @@ upload: ${DEB}
 	tar cf - ${DEB} | ssh repoman@repo.proxmox.com upload --product pve --dist stretch
 
 .PHONY: clean
-clean: 	
+clean:
 	make cleanup-docgen
-	rm -rf build *.deb control vzsyscalls.ph _h2ph_pre.ph ${PACKAGE}-*.tar.gz dist *.1 *.5 *.pod vmtar sparsecp *.tmp *.bash-completion
-	rm -f *.buildinfo
+	rm -rf build *.deb *.buildinfo *.changes
 	find . -name '*~' -exec rm {} ';'
 
 
