@@ -64,7 +64,7 @@ sub has_feature {
 }
 
 sub get_replicatable_volumes {
-    my ($class, $storecfg, $conf, $noerr) = @_;
+    my ($class, $storecfg, $conf, $cleanup, $noerr) = @_;
 
     my $volhash = {};
 
@@ -75,10 +75,10 @@ sub get_replicatable_volumes {
 
 	return if PVE::QemuServer::drive_is_cdrom($drive);
 
-	return if defined($drive->{replicate}) && !$drive->{replicate};
+	return if !$cleanup && defined($drive->{replicate}) && !$drive->{replicate};
 
 	if (!PVE::Storage::volume_has_feature($storecfg, 'replicate', $volid)) {
-	    return if $noerr;
+	    return if $cleanup || $noerr;
 	    die "missing replicate feature on volume '$volid'\n";
 	}
 
