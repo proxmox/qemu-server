@@ -29,6 +29,8 @@ Depends: libc6 (>= 2.7-18),
          pve-ha-manager,
          dbus,
          libpve-common-perl (>= 4.0-92),
-         libpve-guest-common-perl
+         libpve-guest-common-perl,
+         ${perl:Depends},
+         ${shlibs:Depends}
 Description: Qemu Server Tools
  This package contains the Qemu Server tools used by Proxmox VE
