@@ -2857,17 +2857,17 @@ __PACKAGE__->register_method({
 
 	} else {
 
-	    my $code = sub {
-		my $realcmd = sub {
-		    my $upid = shift;
+	    my $realcmd = sub {
+		my $upid = shift;
 
-		    PVE::QemuMigrate->migrate($target, $targetip, $vmid, $param);
-		};
-
-		return $rpcenv->fork_worker('qmigrate', $vmid, $authuser, $realcmd);
+		PVE::QemuMigrate->migrate($target, $targetip, $vmid, $param);
 	    };
 
-	    return PVE::GuestHelpers::guest_migration_lock($vmid, 10, $code);
+	    my $worker = sub {
+		return PVE::GuestHelpers::guest_migration_lock($vmid, 10, $realcmd);
+	    };
+
+	    return $rpcenv->fork_worker('qmigrate', $vmid, $authuser, $worker);
 	}
 
     }});
