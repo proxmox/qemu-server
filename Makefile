@@ -89,7 +89,6 @@ deb: ${DEB}
 ${DEB}:
 	rm -rf build
 	rsync -a * build
-	sed -e s/@@ARCH@@/${ARCH}/ <debian/control.in >build/debian/control
 	echo "git clone git://git.proxmox.com/git/qemu-server.git\\ngit checkout ${GITVERSION}" > build/debian/SOURCE
 	cd build; dpkg-buildpackage -rfakeroot -b -us -uc
 	lintian ${DEB}
