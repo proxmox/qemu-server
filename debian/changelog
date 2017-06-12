@@ -4,7 +4,7 @@ qemu-server (5.0-6) unstable; urgency=medium
 
   * fix #1229: more explicit spice port allocation
 
-  * migrate: aquire guest_migration_lock during migration
+  * migrate: acquire guest_migration_lock during migration
 
   * do not allow destroy if there are replication jobs
 
