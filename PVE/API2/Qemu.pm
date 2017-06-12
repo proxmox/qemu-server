@@ -2858,8 +2858,6 @@ __PACKAGE__->register_method({
 	} else {
 
 	    my $realcmd = sub {
-		my $upid = shift;
-
 		PVE::QemuMigrate->migrate($target, $targetip, $vmid, $param);
 	    };
 
