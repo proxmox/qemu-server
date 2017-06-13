@@ -281,9 +281,9 @@ sub sync_disks {
 	    if ($attr->{cdrom}) {
 		if ($volid eq 'cdrom') {
 		    my $msg = "can't migrate local cdrom drive";
-		    if (defined($snaprefs) && !$attr->{referenced_in_config))
+		    if (defined($snaprefs) && !$attr->{referenced_in_config}) {
 			my $snapnames = join(', ', sort keys %$snaprefs);
-			$msg .= " (referenced in snapshot - $snapnames)"
+			$msg .= " (referenced in snapshot - $snapnames)";
 		    }
 		    &$log_error("$msg\n");
 		    return;
@@ -302,7 +302,7 @@ sub sync_disks {
 
 	    $sharedvm = 0;
 
-	    $local_volumes->{$volid} = $attr->{referenced_in_config) ? 'config' : 'snapshot';
+	    $local_volumes->{$volid} = $attr->{referenced_in_config} ? 'config' : 'snapshot';
 
 	    die "local cdrom image\n" if $attr->{cdrom};
 
