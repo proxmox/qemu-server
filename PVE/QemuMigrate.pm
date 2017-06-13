@@ -269,21 +269,22 @@ sub sync_disks {
 	}
 
 	my $test_volid = sub {
-	    my ($volid, $is_cdrom, $snapname) = @_;
-
-	    return if !$volid;
+	    my ($volid, $attr) = @_;
 
 	    if ($volid =~ m|^/|) {
 		$local_volumes->{$volid} = 'config';
 		die "local file/device\n";
 	    }
 
-	    if ($is_cdrom) {
+	    my $snaprefs = $attr->{referenced_in_snapshot};
+
+	    if ($attr->{cdrom}) {
 		if ($volid eq 'cdrom') {
 		    my $msg = "can't migrate local cdrom drive";
-		    $msg .= " (referenced in snapshot '$snapname')"
-			if defined($snapname);
-
+		    if (defined($snaprefs) && !$attr->{referenced_in_config))
+			my $snapnames = join(', ', sort keys %$snaprefs);
+			$msg .= " (referenced in snapshot - $snapnames)"
+		    }
 		    &$log_error("$msg\n");
 		    return;
 		}
@@ -301,16 +302,16 @@ sub sync_disks {
 
 	    $sharedvm = 0;
 
-	    $local_volumes->{$volid} = defined($snapname) ? 'snapshot' : 'config';
+	    $local_volumes->{$volid} = $attr->{referenced_in_config) ? 'config' : 'snapshot';
 
-	    die "local cdrom image\n" if $is_cdrom;
+	    die "local cdrom image\n" if $attr->{cdrom};
 
 	    my ($path, $owner) = PVE::Storage::path($self->{storecfg}, $volid);
 
 	    die "owned by other VM (owner = VM $owner)\n"
 		if !$owner || ($owner != $self->{vmid});
 
-	    if (defined($snapname)) {
+	    if (defined($snaprefs)) {
 		# we cannot migrate shapshots on local storage
 		# exceptions: 'zfspool' or 'qcow2' files (on directory storage)
 
@@ -325,26 +326,13 @@ sub sync_disks {
 		if PVE::Storage::volume_is_base_and_used($self->{storecfg}, $volid);
 	};
 
-	my $test_drive = sub {
-	    my ($ds, $drive, $snapname) = @_;
-
-	    eval {
-		&$test_volid($drive->{file}, PVE::QemuServer::drive_is_cdrom($drive), $snapname);
-	    };
-
-	    &$log_error($@, $drive->{file}) if $@;
-	};
-
-	foreach my $snapname (keys %{$conf->{snapshots}}) {
-	    eval {
-		&$test_volid($conf->{snapshots}->{$snapname}->{'vmstate'}, 0, undef)
-		    if defined($conf->{snapshots}->{$snapname}->{'vmstate'});
-	    };
-	    &$log_error($@, $conf->{snapshots}->{$snapname}->{'vmstate'}) if $@;
-
-	    PVE::QemuServer::foreach_drive($conf->{snapshots}->{$snapname}, $test_drive, $snapname);
-	}
-	PVE::QemuServer::foreach_drive($conf, $test_drive);
+	PVE::QemuServer::foreach_volid($conf, sub {
+	    my ($volid, $attr) = @_;
+	    eval { $test_volid->($volid, $attr); };
+	    if (my $err = $@) {
+		&$log_error($err, $volid);
+	    }
+        });
 
 	foreach my $vol (sort keys %$local_volumes) {
 	    if ($local_volumes->{$vol} eq 'storage') {
