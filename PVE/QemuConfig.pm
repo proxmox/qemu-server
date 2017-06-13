@@ -77,7 +77,12 @@ sub get_replicatable_volumes {
 	my $scfg = storage_config($storecfg, $storeid);
 	return if $scfg->{shared};
 
+	my ($path, $owner, $vtype) = PVE::Storage::path($storecfg, $volid);
+	return if !$owner || ($owner != $vmid);
+
 	return if $attr->{cdrom};
+
+	die "unable to replicate volume '$volid', type '$vtype'\n" if $vtype ne 'images';
 
 	return if !$cleanup && !$attr->{replicate};
 
