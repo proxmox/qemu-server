@@ -73,6 +73,12 @@ sub get_replicatable_volumes {
 
 	return if !$volid;
 
+	my ($storeid, $volname) = PVE::Storage::parse_volume_id($volid, $noerr);
+	return if !$storeid;
+
+	my $scfg = storage_config($storecfg, $storeid);
+	return if $scfg->{shared};
+
 	return if PVE::QemuServer::drive_is_cdrom($drive);
 
 	return if !$cleanup && defined($drive->{replicate}) && !$drive->{replicate};
