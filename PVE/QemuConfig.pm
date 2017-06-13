@@ -69,9 +69,7 @@ sub get_replicatable_volumes {
     my $volhash = {};
 
     my $test_volid = sub {
-	my ($volid, $drive) = @_;
-
-	return if !$volid;
+	my ($volid, $attr) = @_;
 
 	my ($storeid, $volname) = PVE::Storage::parse_volume_id($volid, $noerr);
 	return if !$storeid;
@@ -79,9 +77,9 @@ sub get_replicatable_volumes {
 	my $scfg = storage_config($storecfg, $storeid);
 	return if $scfg->{shared};
 
-	return if PVE::QemuServer::drive_is_cdrom($drive);
+	return if $attr->{cdrom};
 
-	return if !$cleanup && defined($drive->{replicate}) && !$drive->{replicate};
+	return if !$cleanup && !$attr->{replicate};
 
 	if (!PVE::Storage::volume_has_feature($storecfg, 'replicate', $volid)) {
 	    return if $cleanup || $noerr;
@@ -91,19 +89,7 @@ sub get_replicatable_volumes {
 	$volhash->{$volid} = 1;
     };
 
-    PVE::QemuServer::foreach_drive($conf, sub {
-	my ($ds, $drive) = @_;
-	$test_volid->($drive->{file}, $drive);
-    });
-
-    foreach my $snapname (keys %{$conf->{snapshots}}) {
-	my $snap = $conf->{snapshots}->{$snapname};
-	# fixme: what about $snap->{vmstate}
-	PVE::QemuServer::foreach_drive($snap, sub {
-	    my ($ds, $drive) = @_;
-	    $test_volid->($drive->{file}, $drive);
-        });
-    }
+    PVE::QemuServer::foreach_volid($conf, $test_volid);
 
     return $volhash;
 }
