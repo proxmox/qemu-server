@@ -2776,7 +2776,7 @@ sub foreach_volid {
     my $volhash = {};
 
     my $test_volid = sub {
-	my ($volid, $is_cdrom, $replicate) = @_;
+	my ($volid, $is_cdrom, $replicate, $snapname) = @_;
 
 	return if !$volid;
 
@@ -2785,19 +2785,25 @@ sub foreach_volid {
 
 	$volhash->{$volid}->{replicate} //= 0;
 	$volhash->{$volid}->{replicate} = 1 if $replicate;
+
+	$volhash->{$volid}->{referenced_in_config} //= 0;
+	$volhash->{$volid}->{referenced_in_config} = 1 if !defined($snapname);
+
+	$volhash->{$volid}->{referenced_in_snapshot}->{$snapname} = 1
+	    if defined($snapname);
     };
 
     foreach_drive($conf, sub {
 	my ($ds, $drive) = @_;
-	&$test_volid($drive->{file}, drive_is_cdrom($drive), $drive->{replicate} // 1);
+	$test_volid->($drive->{file}, drive_is_cdrom($drive), $drive->{replicate} // 1, undef);
     });
 
     foreach my $snapname (keys %{$conf->{snapshots}}) {
 	my $snap = $conf->{snapshots}->{$snapname};
-	&$test_volid($snap->{vmstate}, 0, 1);
+	$test_volid->($snap->{vmstate}, 0, 1, $snapname);
 	foreach_drive($snap, sub {
 	    my ($ds, $drive) = @_;
-	    &$test_volid($drive->{file}, drive_is_cdrom($drive), $drive->{replicate} // 1);
+	    $test_volid->($drive->{file}, drive_is_cdrom($drive), $drive->{replicate} // 1, $snapname);
         });
     }
 
