@@ -74,7 +74,7 @@ sub get_replicatable_volumes {
 	my ($storeid, $volname) = PVE::Storage::parse_volume_id($volid, $noerr);
 	return if !$storeid;
 
-	my $scfg = storage_config($storecfg, $storeid);
+	my $scfg = PVE::Storage::storage_config($storecfg, $storeid);
 	return if $scfg->{shared};
 
 	my ($path, $owner, $vtype) = PVE::Storage::path($storecfg, $volid);
