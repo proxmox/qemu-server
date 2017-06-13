@@ -96,6 +96,13 @@ sub get_replicatable_volumes {
 
     PVE::QemuServer::foreach_volid($conf, $test_volid);
 
+    # add 'unusedX' volumes to volhash
+    foreach my $key (keys %$conf) {
+	if ($key =~ m/^unused/) {
+	    $test_volid->($conf->{$key}, { replicate => 1 });
+	}
+    }
+
     return $volhash;
 }
 
