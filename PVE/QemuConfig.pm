@@ -71,6 +71,13 @@ sub get_replicatable_volumes {
     my $test_volid = sub {
 	my ($volid, $attr) = @_;
 
+	if ($volid =~ m|^/|) {
+	    return if !$attr->{replicate};
+	    die "unable to replicate local file/device '$volid'\n";
+	}
+
+	return if $attr->{cdrom};
+
 	my ($storeid, $volname) = PVE::Storage::parse_volume_id($volid, $noerr);
 	return if !$storeid;
 
@@ -79,8 +86,6 @@ sub get_replicatable_volumes {
 
 	my ($path, $owner, $vtype) = PVE::Storage::path($storecfg, $volid);
 	return if !$owner || ($owner != $vmid);
-
-	return if $attr->{cdrom};
 
 	die "unable to replicate volume '$volid', type '$vtype'\n" if $vtype ne 'images';
 
