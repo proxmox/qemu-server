@@ -191,8 +191,8 @@ sub extract_archive {
 	exec 'dd', 'ibs=256K', 'obs=256K', "of=$path";
 	die "couldn't exec dd: $!\n";
     } else {
-	exec '/usr/lib/qemu-server/sparsecp', $path;
-	die "couldn't exec sparsecp: $!\n";
+	exec '/bin/cp', '--sparse=always', '/dev/stdin', $path;
+	die "couldn't exec cp: $!\n";
     }
 }
 

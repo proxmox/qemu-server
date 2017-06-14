@@ -36,9 +36,6 @@ all:
 dinstall: deb
 	dpkg -i ${DEB}
 
-sparsecp: sparsecp.c utils.c
-	gcc ${CFLAGS} -o sparsecp sparsecp.c
-
 qm.bash-completion:
 	PVE_GENERATING_DOCS=1 perl -I. -T -e "use PVE::CLI::qm; PVE::CLI::qm->generate_bash_completions();" >$@.tmp
 	mv $@.tmp $@
@@ -47,7 +44,7 @@ qmrestore.bash-completion:
 	PVE_GENERATING_DOCS=1 perl -I. -T -e "use PVE::CLI::qmrestore; PVE::CLI::qmrestore->generate_bash_completions();" >$@.tmp
 	mv $@.tmp $@
 
-PKGSOURCES=qm qm.1 qmrestore qmrestore.1 qmextract sparsecp qm.conf.5 qm.bash-completion qmrestore.bash-completion
+PKGSOURCES=qm qm.1 qmrestore qmrestore.1 qmextract qm.conf.5 qm.bash-completion qmrestore.bash-completion
 
 .PHONY: install
 install: ${PKGSOURCES}
@@ -69,7 +66,6 @@ install: ${PKGSOURCES}
 	install -m 0755 pve-bridge ${DESTDIR}${VARLIBDIR}/pve-bridge
 	install -m 0755 pve-bridge-hotplug ${DESTDIR}${VARLIBDIR}/pve-bridge-hotplug
 	install -m 0755 pve-bridgedown ${DESTDIR}${VARLIBDIR}/pve-bridgedown
-	install -s -m 0755 sparsecp ${DESTDIR}${LIBDIR}
 	install -D -m 0644 modules-load.conf ${DESTDIR}/etc/modules-load.d/qemu-server.conf
 	install -m 0755 qmextract ${DESTDIR}${LIBDIR}
 	install -m 0644 qm.1 ${DESTDIR}/${MAN1DIR}
