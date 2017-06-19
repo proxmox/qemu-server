@@ -68,6 +68,9 @@ my $check_storage_access = sub {
 	    my ($storeid, $size) = ($2 || $default_storage, $3);
 	    die "no storage ID specified (and no default storage)\n" if !$storeid;
 	    $rpcenv->check($authuser, "/storage/$storeid", ['Datastore.AllocateSpace']);
+	    my $scfg = PVE::Storage::storage_config($storecfg, $storeid);
+	    raise_param_exc({ storage => "storage '$storeid' does not support vm images"})
+		if !$scfg->{content}->{images};
 	} else {
 	    PVE::Storage::check_volume_access($rpcenv, $authuser, $storecfg, $vmid, $volid);
 	}
