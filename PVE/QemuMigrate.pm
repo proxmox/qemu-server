@@ -13,6 +13,9 @@ use PVE::Storage;
 use PVE::QemuServer;
 use Time::HiRes qw( usleep );
 use PVE::RPCEnvironment;
+use PVE::ReplicationConfig;
+use PVE::ReplicationState;
+use JSON;
 
 use base qw(PVE::AbstractMigrate);
 
@@ -338,7 +341,8 @@ sub sync_disks {
 	    if ($local_volumes->{$vol} eq 'storage') {
 		$self->log('info', "found local disk '$vol' (via storage)\n");
 	    } elsif ($local_volumes->{$vol} eq 'config') {
-		die "can't live migrate attached local disks without with-local-disks option\n" if $self->{running} && !$self->{opts}->{"with-local-disks"};
+		&$log_error("can't live migrate attached local disks without with-local-disks option\n", $vol)
+		    if $self->{running} && !$self->{opts}->{"with-local-disks"};
 		$self->log('info', "found local disk '$vol' (in current VM config)\n");
 	    } elsif ($local_volumes->{$vol} eq 'snapshot') {
 		$self->log('info', "found local disk '$vol' (referenced by snapshot(s))\n");
@@ -379,16 +383,30 @@ sub sync_disks {
 	    }
 	}
 
+	my $rep_volumes;
+
 	$self->log('info', "copying disk images");
+
+	my $rep_cfg = PVE::ReplicationConfig->new();
+
+	if (my $jobcfg = $rep_cfg->find_local_replication_job($vmid, $self->{node})) {
+	    die "can't live migrate VM with replicated volumes\n" if $self->{running};
+	    my $start_time = time();
+	    my $logfunc = sub { my ($msg) = @_;  $self->log('info', $msg); };
+	    $rep_volumes = PVE::Replication::run_replication(
+	       'PVE::QemuConfig', $jobcfg, $start_time, $start_time, $logfunc);
+	}
 
 	foreach my $volid (keys %$local_volumes) {
 	    my ($sid, $volname) = PVE::Storage::parse_volume_id($volid);
 	    if ($self->{running} && $self->{opts}->{targetstorage} && $local_volumes->{$volid} eq 'config') {
 		push @{$self->{online_local_volumes}}, $volid;
 	    } else {
+		next if $rep_volumes->{$volid};
 		push @{$self->{volumes}}, $volid;
 		my $insecure = $self->{opts}->{migration_type} eq 'insecure';
-		PVE::Storage::storage_migrate($self->{storecfg}, $volid, $self->{ssh_info}, $sid, undef, undef, undef, undef, $insecure);
+		PVE::Storage::storage_migrate($self->{storecfg}, $volid, $self->{ssh_info}, $sid,
+					      undef, undef, undef, undef, $insecure);
 	    }
 	}
     };
@@ -833,6 +851,39 @@ sub phase3 {
     }
 }
 
+
+# transfer replication state for vmid to migration target node.
+my $transfer_replication_state = sub {
+    my ($self, $vmid) = @_;
+
+    my $stateobj = PVE::ReplicationState::read_state();
+
+    if (defined($stateobj->{$vmid})) {
+	# This have to be quoted when it run it over ssh.
+	my $state = PVE::Tools::shellquote(encode_json($stateobj->{$vmid}));
+
+	my $cmd = [ @{$self->{rem_ssh}}, 'pvesr', 'set-state', $vmid, $state];
+	$self->cmd($cmd);
+    }
+};
+
+# switch replication job target
+my $switch_replication_job_target = sub {
+    my ($self, $vmid) = @_;
+    my $transfer_job = sub {
+	my $rep_cfg = PVE::ReplicationConfig->new();
+	my $jobcfg = $rep_cfg->find_local_replication_job($vmid, $self->{node});
+
+	return if !$jobcfg;
+
+	$jobcfg->{target} = PVE::INotify::nodename();
+
+	$rep_cfg->write();
+    };
+
+    PVE::ReplicationConfig::lock($transfer_job);
+};
+
 sub phase3_cleanup {
     my ($self, $vmid, $err) = @_;
 
@@ -856,12 +907,25 @@ sub phase3_cleanup {
 	}
     }
 
+    # transfer replication state before move config
+    eval { $transfer_replication_state->($self, $vmid); };
+    if (my $err = $@) {
+	$self->log('err', "transfer replication state failed - $err");
+	$self->{errors} = 1;
+    }
+
     # move config to remote node
     my $conffile = PVE::QemuConfig->config_file($vmid);
     my $newconffile = PVE::QemuConfig->config_file($vmid, $self->{node});
 
     die "Failed to move config to node '$self->{node}' - rename failed: $!\n"
         if !rename($conffile, $newconffile);
+
+    eval { $switch_replication_job_target->($self, $vmid); };
+    if (my $err = $@) {
+	$self->log('err', "switch replication job target failed - $err");
+	$self->{errors} = 1;
+    }
 
     if ($self->{livemigration}) {
 	if ($self->{storage_migration}) {
