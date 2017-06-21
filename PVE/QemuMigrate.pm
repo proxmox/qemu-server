@@ -851,47 +851,6 @@ sub phase3 {
     }
 }
 
-
-# transfer replication state for vmid to migration target node.
-my $transfer_replication_state = sub {
-    my ($self, $vmid) = @_;
-
-    my $stateobj = PVE::ReplicationState::read_state();
-
-    my $target_node = $self->{node};
-    my $local_node = PVE::INotify::nodename();
-
-    my $oldid = PVE::ReplicationConfig::Cluster->get_unique_target_id({ target => $target_node });
-    my $newid = PVE::ReplicationConfig::Cluster->get_unique_target_id({ target => $local_node });
-
-    if (defined(my $vmstate = $stateobj->{$vmid})) {
-	$vmstate->{$newid} = delete($vmstate->{$oldid}) if defined($vmstate->{$oldid});
-
-	# This have to be quoted when it run it over ssh.
-	my $state = PVE::Tools::shellquote(encode_json($vmstate));
-
-	my $cmd = [ @{$self->{rem_ssh}}, 'pvesr', 'set-state', $vmid, $state];
-	$self->cmd($cmd);
-    }
-};
-
-# switch replication job target
-my $switch_replication_job_target = sub {
-    my ($self, $vmid) = @_;
-    my $transfer_job = sub {
-	my $rep_cfg = PVE::ReplicationConfig->new();
-	my $jobcfg = $rep_cfg->find_local_replication_job($vmid, $self->{node});
-
-	return if !$jobcfg;
-
-	$jobcfg->{target} = PVE::INotify::nodename();
-
-	$rep_cfg->write();
-    };
-
-    PVE::ReplicationConfig::lock($transfer_job);
-};
-
 sub phase3_cleanup {
     my ($self, $vmid, $err) = @_;
 
@@ -916,11 +875,7 @@ sub phase3_cleanup {
     }
 
     # transfer replication state before move config
-    eval { $transfer_replication_state->($self, $vmid); };
-    if (my $err = $@) {
-	$self->log('err', "transfer replication state failed - $err");
-	$self->{errors} = 1;
-    }
+    $self->transfer_replication_state();
 
     # move config to remote node
     my $conffile = PVE::QemuConfig->config_file($vmid);
@@ -929,11 +884,7 @@ sub phase3_cleanup {
     die "Failed to move config to node '$self->{node}' - rename failed: $!\n"
         if !rename($conffile, $newconffile);
 
-    eval { $switch_replication_job_target->($self, $vmid); };
-    if (my $err = $@) {
-	$self->log('err', "switch replication job target failed - $err");
-	$self->{errors} = 1;
-    }
+    $self->switch_replication_job_target();
 
     if ($self->{livemigration}) {
 	if ($self->{storage_migration}) {
