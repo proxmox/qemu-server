@@ -858,9 +858,17 @@ my $transfer_replication_state = sub {
 
     my $stateobj = PVE::ReplicationState::read_state();
 
-    if (defined($stateobj->{$vmid})) {
+    my $target_node = $self->{node};
+    my $local_node = PVE::INotify::nodename();
+
+    my $oldid = PVE::ReplicationConfig::Cluster->get_unique_target_id({ target => $target_node });
+    my $newid = PVE::ReplicationConfig::Cluster->get_unique_target_id({ target => $local_node });
+
+    if (defined(my $vmstate = $stateobj->{$vmid})) {
+	$vmstate->{$newid} = delete($vmstate->{$oldid}) if defined($vmstate->{$oldid});
+
 	# This have to be quoted when it run it over ssh.
-	my $state = PVE::Tools::shellquote(encode_json($stateobj->{$vmid}));
+	my $state = PVE::Tools::shellquote(encode_json($vmstate));
 
 	my $cmd = [ @{$self->{rem_ssh}}, 'pvesr', 'set-state', $vmid, $state];
 	$self->cmd($cmd);
