@@ -1756,7 +1756,7 @@ __PACKAGE__->register_method({
 
 		my $cmd = ['ha-manager', 'set', $service, '--state', 'started'];
 
-		print "Executing HA start for VM $vmid\n";
+		print "Requesting HA start for VM $vmid\n";
 
 		PVE::Tools::run_command($cmd);
 
@@ -1853,7 +1853,7 @@ __PACKAGE__->register_method({
 
 		my $cmd = ['ha-manager', 'set', $service, '--state', 'stopped'];
 
-		print "Executing HA stop for VM $vmid\n";
+		print "Requesting HA stop for VM $vmid\n";
 
 		PVE::Tools::run_command($cmd);
 
@@ -2023,7 +2023,7 @@ __PACKAGE__->register_method({
 
 		my $cmd = ['ha-manager', 'set', $service, '--state', 'stopped'];
 
-		print "Executing HA stop for VM $vmid\n";
+		print "Requesting HA stop for VM $vmid\n";
 
 		PVE::Tools::run_command($cmd);
 
@@ -2846,7 +2846,7 @@ __PACKAGE__->register_method({
 
 		my $cmd = ['ha-manager', 'migrate', $service, $target];
 
-		print "Executing HA migrate for VM $vmid to node $target\n";
+		print "Requesting HA migration for VM $vmid to node $target\n";
 
 		PVE::Tools::run_command($cmd);
 
