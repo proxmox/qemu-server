@@ -15,7 +15,7 @@ use Time::HiRes qw( usleep );
 use PVE::RPCEnvironment;
 use PVE::ReplicationConfig;
 use PVE::ReplicationState;
-use JSON;
+use PVE::Replication;
 
 use base qw(PVE::AbstractMigrate);
 
