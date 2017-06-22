@@ -1,3 +1,39 @@
+qemu-server (5.0-7) unstable; urgency=medium
+
+  * PVE/QemuMigrate.pm: use new replication job helpers from AbstractMigrate
+
+  * Change target in replication-state when replication direction is switched
+
+  * PVE/QemuMigrate.pm: use replication job, transfer replication state
+
+  * add regression tests for get_replicatable_volumes
+
+  * get_replicatable_volumes: fix CDROM and local file/device handling
+
+  * get_replicatable_volumes: add unused volumes
+
+  * get_replicatable_volumes: skip volumes if we do not 'own' them
+
+  * PVE::QemuServer::foreach_volid - pass $attr hash to callback
+
+  * get_replicatable_volumes: skip volumes on shared storage
+
+  * PVE/API2/Qemu.pm: aquire guest_migration_lock inside worker
+
+  * Add a migration lock to avoid a replication on rollback-time
+
+  * change from dpkg-deb to dpkg-buildpackage
+
+  * fix #1405: sort pci ids by functions
+
+  * Add new qm command 'importdisk' to import external disk images
+
+  * migration: implement insecure offline migration
+
+  * check also pending changes when reverting/deleting
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 22 Jun 2017 08:50:45 +0200
+
 qemu-server (5.0-6) unstable; urgency=medium
 
   * fix burst length parameter names and pass them to qemu
