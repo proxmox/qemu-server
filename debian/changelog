@@ -1,3 +1,9 @@
+qemu-server (5.0-8) unstable; urgency=medium
+
+  * migrate: pass the with_snapshots parameter
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 22 Jun 2017 12:58:33 +0200
+
 qemu-server (5.0-7) unstable; urgency=medium
 
   * PVE/QemuMigrate.pm: use new replication job helpers from AbstractMigrate
