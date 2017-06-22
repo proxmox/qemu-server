@@ -267,7 +267,7 @@ sub sync_disks {
 	    PVE::Storage::foreach_volid($dl, sub {
 		my ($volid, $sid, $volname) = @_;
 
-		$local_volumes->{$volid} = 'storage';
+		$local_volumes->{$volid}->{ref} = 'storage';
 	    });
 	}
 
@@ -275,7 +275,7 @@ sub sync_disks {
 	    my ($volid, $attr) = @_;
 
 	    if ($volid =~ m|^/|) {
-		$local_volumes->{$volid} = 'config';
+		$local_volumes->{$volid}->{ref} = 'config';
 		die "local file/device\n";
 	    }
 
@@ -305,7 +305,7 @@ sub sync_disks {
 
 	    $sharedvm = 0;
 
-	    $local_volumes->{$volid} = $attr->{referenced_in_config} ? 'config' : 'snapshot';
+	    $local_volumes->{$volid}->{ref} = $attr->{referenced_in_config} ? 'config' : 'snapshot';
 
 	    die "local cdrom image\n" if $attr->{cdrom};
 
@@ -314,11 +314,12 @@ sub sync_disks {
 	    die "owned by other VM (owner = VM $owner)\n"
 		if !$owner || ($owner != $self->{vmid});
 
+	    my $format = PVE::QemuServer::qemu_img_format($scfg, $volname);
+	    $local_volumes->{$volid}->{snapshots} = defined($snaprefs) || ($format =~ /^(?:qcow2|vmdk)$/);
 	    if (defined($snaprefs)) {
 		# we cannot migrate shapshots on local storage
 		# exceptions: 'zfspool' or 'qcow2' files (on directory storage)
 
-		my $format = PVE::QemuServer::qemu_img_format($scfg, $volname);
 		die "online storage migration not possible if snapshot exists\n" if $self->{running};
 		if (!($scfg->{type} eq 'zfspool' || $format eq 'qcow2')) {
 		    die "non-migratable snapshot exists\n";
@@ -338,13 +339,14 @@ sub sync_disks {
         });
 
 	foreach my $vol (sort keys %$local_volumes) {
-	    if ($local_volumes->{$vol} eq 'storage') {
+	    my $ref = $local_volumes->{$vol}->{ref};
+	    if ($ref eq 'storage') {
 		$self->log('info', "found local disk '$vol' (via storage)\n");
-	    } elsif ($local_volumes->{$vol} eq 'config') {
+	    } elsif ($ref eq 'config') {
 		&$log_error("can't live migrate attached local disks without with-local-disks option\n", $vol)
 		    if $self->{running} && !$self->{opts}->{"with-local-disks"};
 		$self->log('info', "found local disk '$vol' (in current VM config)\n");
-	    } elsif ($local_volumes->{$vol} eq 'snapshot') {
+	    } elsif ($ref eq 'snapshot') {
 		$self->log('info', "found local disk '$vol' (referenced by snapshot(s))\n");
 	    } else {
 		$self->log('info', "found local disk '$vol'\n");
@@ -399,14 +401,15 @@ sub sync_disks {
 
 	foreach my $volid (keys %$local_volumes) {
 	    my ($sid, $volname) = PVE::Storage::parse_volume_id($volid);
-	    if ($self->{running} && $self->{opts}->{targetstorage} && $local_volumes->{$volid} eq 'config') {
+	    if ($self->{running} && $self->{opts}->{targetstorage} && $local_volumes->{$volid}->{ref} eq 'config') {
 		push @{$self->{online_local_volumes}}, $volid;
 	    } else {
 		next if $rep_volumes->{$volid};
 		push @{$self->{volumes}}, $volid;
 		my $insecure = $self->{opts}->{migration_type} eq 'insecure';
+		my $with_snapshots = $local_volumes->{$volid}->{snapshots};
 		PVE::Storage::storage_migrate($self->{storecfg}, $volid, $self->{ssh_info}, $sid,
-					      undef, undef, undef, undef, $insecure);
+					      undef, undef, undef, undef, $insecure, $with_snapshots);
 	    }
 	}
     };
