@@ -96,7 +96,7 @@ sub fork_tunnel {
 
     my @localtunnelinfo = defined($tunnel_addr) ? ('-L' , $tunnel_addr ) : ();
 
-    my $cmd = [@{$self->{rem_ssh}}, '-o ExitOnForwardFailure=yes', @localtunnelinfo, 'qm', 'mtunnel' ];
+    my $cmd = [@{$self->{rem_ssh}}, '-o ExitOnForwardFailure=yes', @localtunnelinfo, '/usr/bin/pvecm', 'mtunnel' ];
 
     my $tunnel = $self->fork_command_pipe($cmd);
 
