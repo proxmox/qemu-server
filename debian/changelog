@@ -1,3 +1,9 @@
+qemu-server (5.0-9) unstable; urgency=medium
+
+  * migrate: use 'mtunnel' from pvecm
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 23 Jun 2017 11:01:15 +0200
+
 qemu-server (5.0-8) unstable; urgency=medium
 
   * migrate: pass the with_snapshots parameter
