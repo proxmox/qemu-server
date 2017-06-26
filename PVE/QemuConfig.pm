@@ -55,7 +55,7 @@ sub has_feature {
 	my ($ds, $drive) = @_;
 
 	return if PVE::QemuServer::drive_is_cdrom($drive);
-	return if $backup_only && !$drive->{backup};
+	return if $backup_only && defined($drive->{backup}) && !$drive->{backup};
 	my $volid = $drive->{file};
 	$err = 1 if !PVE::Storage::volume_has_feature($storecfg, $feature, $volid, $snapname, $running);
    });
