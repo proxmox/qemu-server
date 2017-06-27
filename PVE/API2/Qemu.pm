@@ -526,6 +526,9 @@ __PACKAGE__->register_method({
 		PVE::AccessControl::add_vm_to_pool($vmid, $pool) if $pool;
 	    };
 
+	    # ensure no old replication state are exists
+	    PVE::ReplicationState::delete_guest_states($vmid);
+
 	    return $rpcenv->fork_worker('qmrestore', $vmid, $authuser, $realcmd);
 	};
 
@@ -533,6 +536,9 @@ __PACKAGE__->register_method({
 
 	    # test after locking
 	    PVE::Cluster::check_vmid_unused($vmid);
+
+	    # ensure no old replication state are exists
+	    PVE::ReplicationState::delete_guest_states($vmid);
 
 	    my $realcmd = sub {
 
