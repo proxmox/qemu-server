@@ -972,6 +972,8 @@ my $update_vm_api  = sub {
 	    $format = (PVE::Storage::parse_volname($storecfg, $volid))[6];
 	}
 	return if PVE::Storage::storage_can_replicate($storecfg, $storeid, $format);
+	my $scfg = PVE::Storage::storage_config($storecfg, $storeid);
+	return if $scfg->{shared};
 	die "cannot add non-replicatable volume to a replicated VM\n";
     };
 
