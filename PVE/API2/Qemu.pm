@@ -115,6 +115,7 @@ my $check_storage_access_clone = sub {
 
 # Note: $pool is only needed when creating a VM, because pool permissions
 # are automatically inherited if VM already exists inside a pool.
+my $NEW_DISK_RE = qr!^(([^/:\s]+):)?(\d+(\.\d+)?)$!;
 my $create_disks = sub {
     my ($rpcenv, $authuser, $conf, $storecfg, $vmid, $pool, $settings, $default_storage) = @_;
 
@@ -130,7 +131,7 @@ my $create_disks = sub {
 	if (!$volid || $volid eq 'none' || $volid eq 'cdrom') {
 	    delete $disk->{size};
 	    $res->{$ds} = PVE::QemuServer::print_drive($vmid, $disk);
-	} elsif ($volid =~ m!^(([^/:\s]+):)?(\d+(\.\d+)?)$!) {
+	} elsif ($volid =~ $NEW_DISK_RE) {
 	    my ($storeid, $size) = ($2 || $default_storage, $3);
 	    die "no storage ID specified (and no default storage)\n" if !$storeid;
 	    my $defformat = PVE::Storage::storage_default_format($storecfg, $storeid);
@@ -954,12 +955,33 @@ my $update_vm_api  = sub {
 	push @delete, $opt;
     }
 
+    my $repl_conf = PVE::ReplicationConfig->new();
+    my $is_replicated = $repl_conf->check_for_existing_jobs($vmid, 1);
+    my $check_replication = sub {
+	my ($drive) = @_;
+	return if !$is_replicated;
+	my $volid = $drive->{file};
+	return if !$volid || !($drive->{replicate}//1);
+	return if PVE::QemuServer::drive_is_cdrom($drive);
+	my ($storeid, $format);
+	if ($volid =~ $NEW_DISK_RE) {
+	    $storeid = $2;
+	    $format = $drive->{format} || PVE::Storage::storage_default_format($storecfg, $storeid);
+	} else {
+	    ($storeid, undef) = PVE::Storage::parse_volume_id($volid, 1);
+	    $format = (PVE::Storage::parse_volname($storecfg, $volid))[6];
+	}
+	return if PVE::Storage::storage_can_replicate($storecfg, $storeid, $format);
+	die "cannot add non-replicatable volume to a replicated VM\n";
+    };
+
     foreach my $opt (keys %$param) {
 	if (PVE::QemuServer::is_valid_drivename($opt)) {
 	    # cleanup drive path
 	    my $drive = PVE::QemuServer::parse_drive($opt, $param->{$opt});
 	    raise_param_exc({ $opt => "unable to parse drive options" }) if !$drive;
 	    PVE::QemuServer::cleanup_drive_path($opt, $storecfg, $drive);
+	    $check_replication->($drive);
 	    $param->{$opt} = PVE::QemuServer::print_drive($vmid, $drive);
 	} elsif ($opt =~ m/^net(\d+)$/) {
 	    # add macaddr
