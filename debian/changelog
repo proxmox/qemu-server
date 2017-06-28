@@ -1,3 +1,17 @@
+qemu-server (5.0-10) unstable; urgency=medium
+
+  * don't use cirrus by default for sane OS'
+
+  * replication: remove guest states to ensure no old states are exists
+
+  * allow disks on shared storages on replicated VMs
+
+  * refuse to add non-replicatable disks to replicating VMs
+
+  * config: has_feature() take default for backup into account
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 28 Jun 2017 13:26:38 +0200
+
 qemu-server (5.0-9) unstable; urgency=medium
 
   * migrate: use 'mtunnel' from pvecm
