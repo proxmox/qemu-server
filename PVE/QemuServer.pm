@@ -2925,7 +2925,7 @@ sub config_to_command {
     $vga = 'qxl' if $qxlnum;
 
     if (!$vga) {
-	$vga = $winversion >= 6 ? 'std' : 'cirrus';
+	$vga = (!$winversion || $winversion >= 6) ? 'std' : 'cirrus';
     }
 
     # enable absolute mouse coordinates (needed by vnc)
