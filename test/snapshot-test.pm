@@ -10,6 +10,7 @@ use PVE::Storage::Plugin;
 use PVE::QemuServer;
 use PVE::QemuConfig;
 use PVE::Tools;
+use PVE::ReplicationConfig;
 
 use Test::MockModule;
 use Test::More;
@@ -375,6 +376,10 @@ $qemu_config_module->mock('load_config', \&load_config);
 $qemu_config_module->mock('write_config', \&write_config);
 $qemu_config_module->mock('has_feature', \&has_feature);
 $qemu_config_module->mock('__snapshot_save_vmstate', \&__snapshot_save_vmstate);
+
+# ignore existing replication config
+my $repl_config_module = new Test::MockModule('PVE::ReplicationConfig');
+$repl_config_module->mock('check_for_existing_jobs' => sub { return undef });
 
 $running = 1;
 $freeze_possible = 1;
