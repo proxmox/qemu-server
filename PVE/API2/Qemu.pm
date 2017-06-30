@@ -52,6 +52,7 @@ my $resolve_cdrom_alias = sub {
     }
 };
 
+my $NEW_DISK_RE = qr!^(([^/:\s]+):)?(\d+(\.\d+)?)$!;
 my $check_storage_access = sub {
    my ($rpcenv, $authuser, $storecfg, $vmid, $settings, $default_storage) = @_;
 
@@ -66,7 +67,7 @@ my $check_storage_access = sub {
 	    # nothing to check
 	} elsif ($isCDROM && ($volid eq 'cdrom')) {
 	    $rpcenv->check($authuser, "/", ['Sys.Console']);
-	} elsif (!$isCDROM && ($volid =~ m/^(([^:\s]+):)?(\d+(\.\d+)?)$/)) {
+	} elsif (!$isCDROM && ($volid =~ $NEW_DISK_RE)) {
 	    my ($storeid, $size) = ($2 || $default_storage, $3);
 	    die "no storage ID specified (and no default storage)\n" if !$storeid;
 	    $rpcenv->check($authuser, "/storage/$storeid", ['Datastore.AllocateSpace']);
@@ -118,7 +119,6 @@ my $check_storage_access_clone = sub {
 
 # Note: $pool is only needed when creating a VM, because pool permissions
 # are automatically inherited if VM already exists inside a pool.
-my $NEW_DISK_RE = qr!^(([^/:\s]+):)?(\d+(\.\d+)?)$!;
 my $create_disks = sub {
     my ($rpcenv, $authuser, $conf, $storecfg, $vmid, $pool, $settings, $default_storage) = @_;
 
