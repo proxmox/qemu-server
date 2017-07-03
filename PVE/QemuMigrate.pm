@@ -640,8 +640,9 @@ sub phase2 {
     };
     warn $@ if $@;
 
-    #set cachesize 10% of the total memory
-    my $cachesize = int($conf->{memory}*1048576/10);
+    # set cachesize to 10% of the total memory
+    my $memory =  $conf->{memory} || $defaults->{memory};
+    my $cachesize = int($memory * 1048576 / 10);
     $self->log('info', "set cachesize: $cachesize");
     eval {
 	PVE::QemuServer::vm_mon_cmd_nocheck($vmid, "migrate-set-cache-size", value => int($cachesize));
@@ -712,7 +713,7 @@ sub phase2 {
 	    if ($stat->{status} eq 'completed') {
 		my $delay = time() - $start;
 		if ($delay > 0) {
-		    my $mbps = sprintf "%.2f", $conf->{memory}/$delay;
+		    my $mbps = sprintf "%.2f", $memory / $delay;
 		    my $downtime = $stat->{downtime} || 0;
 		    $self->log('info', "migration speed: $mbps MB/s - downtime $downtime ms");
 		}
