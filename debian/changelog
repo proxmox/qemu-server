@@ -1,3 +1,9 @@
+qemu-server (5.0-12) unstable; urgency=medium
+
+  * Use default values when memory is not set in vm.conf when migrating
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 03 Jul 2017 14:39:25 +0200
+
 qemu-server (5.0-11) unstable; urgency=medium
 
   * Fix #1417: properly check for 'images' content type when allocating disks
