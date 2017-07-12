@@ -420,8 +420,14 @@ __PACKAGE__->register_method ({
 	my $vm_conf = PVE::QemuConfig->load_config($vmid);
 	PVE::QemuConfig->check_lock($vm_conf);
 	die "$source: non-existent or non-regular file\n" if (! -f $source);
+
 	my $storecfg = PVE::Storage::config();
 	PVE::Storage::storage_check_enabled($storecfg, $storeid);
+
+	my $target_storage_config =
+	    PVE::Storage::storage_config($storecfg, $storeid);
+	die "storage $storeid does not support vm images\n"
+	    if !$target_storage_config->{content}->{images};
 
 	PVE::QemuServer::ImportDisk::do_import($source, $vmid, $storeid, { format => $format });
 
