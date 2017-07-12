@@ -2925,7 +2925,11 @@ sub config_to_command {
     $vga = 'qxl' if $qxlnum;
 
     if (!$vga) {
-	$vga = (!$winversion || $winversion >= 6) ? 'std' : 'cirrus';
+	if (qemu_machine_feature_enabled($machine_type, $kvmver, 2, 9)) {
+	    $vga = (!$winversion || $winversion >= 6) ? 'std' : 'cirrus';
+	} else {
+	    $vga = ($winversion >= 6) ? 'std' : 'cirrus';
+	}
     }
 
     # enable absolute mouse coordinates (needed by vnc)
