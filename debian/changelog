@@ -1,3 +1,9 @@
+qemu-server (5.0-13) unstable; urgency=medium
+
+  * Fix #1417: make sure the target storage allows disk images before importing
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 13 Jul 2017 06:48:43 +0200
+
 qemu-server (5.0-12) unstable; urgency=medium
 
   * Use default values when memory is not set in vm.conf when migrating
