@@ -1613,10 +1613,10 @@ sub print_drive_full {
 	    $opts .= ",throttling.iops$qmpname=$v";
 	}
 	if (my $v = $drive->{"iops${dir}_max"}) {
-	    $opts .= ",throttling.iops$qmpname=-max$v";
+	    $opts .= ",throttling.iops$qmpname-max=$v";
 	}
 	if (my $v = $drive->{"iops${dir}_max_length"}) {
-	    $opts .= ",throttling.iops$qmpname=-max-length$v";
+	    $opts .= ",throttling.iops$qmpname-max-length=$v";
 	}
     }
 
