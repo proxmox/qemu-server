@@ -1,4 +1,28 @@
-qemu-server (4.0-109) unstable; urgency=medium
+qemu-server (4.0-111) unstable; urgency=medium
+  
+  * Fix #1229: more explicit spice port allocation
+
+  * Fix #1384: add missing decrement to calculation of socket-id
+
+  * Fix #1405: sort pci ids by functions
+
+  * Fix #1417: check if storage has 'images' set in content
+
+  * add rerror for all drives
+
+  * improve compatibility when live-migrating to pve-5
+
+  * fix some inconsistent default value assumptions
+
+  * check pending changes changes when reverting/deleting
+
+  * improve vnc connection handling
+
+  * improve error messages
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 14 Jul 2017 13:28:50 +0200
+
+qemu-server (4.0-110) unstable; urgency=medium
 
   * drop netcat6 dependency
 
