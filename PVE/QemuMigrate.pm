@@ -269,8 +269,6 @@ sub sync_disks {
     # local volumes which have been copied
     $self->{volumes} = [];
 
-    my $res = [];
-
     eval {
 
 	# found local volumes and their origin
