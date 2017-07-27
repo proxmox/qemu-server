@@ -930,11 +930,6 @@ sub phase3_cleanup {
 
     if ($self->{livemigration}) {
 	if ($self->{storage_migration}) {
-	    # remove drives referencing the nbd server from source
-	    # otherwise vm_stop might hang later on
-	    foreach my $drive (keys %{$self->{target_drive}}){
-		PVE::QemuServer::vm_mon_cmd_nocheck($vmid, "device_del", id => $drive);
-	    }
 	    # stop nbd server on remote vm - requirement for resume since 2.9
 	    my $cmd = [@{$self->{rem_ssh}}, 'qm', 'nbdstop', $vmid];
 
