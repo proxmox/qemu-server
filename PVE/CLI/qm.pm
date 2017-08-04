@@ -277,7 +277,10 @@ __PACKAGE__->register_method ({
 
 	while (my $line = <>) {
 	    chomp $line;
-	    last if $line =~ m/^quit$/;
+	    if ($line =~ /^quit$/) {
+		$tunnel_write->("OK");
+		last;
+	    }
 	}
 
 	return undef;

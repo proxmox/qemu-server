@@ -123,6 +123,17 @@ sub write_tunnel {
 	});
     };
     die "writing to tunnel failed: $@\n" if $@;
+
+    if ($tunnel->{version} && $tunnel->{version} >= 1) {
+	my $res = eval { $self->read_tunnel($tunnel, 10); };
+	die "no reply to command '$command': $@\n" if $@;
+
+	if ($res eq 'OK') {
+	    return;
+	} else {
+	    die "tunnel replied '$res' to command '$command'\n";
+	}
+    }
 }
 
 sub fork_tunnel {
