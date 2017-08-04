@@ -91,6 +91,40 @@ sub finish_command_pipe {
 	if !&$collect_child_process();
 }
 
+sub read_tunnel {
+    my ($self, $tunnel, $timeout) = @_;
+
+    $timeout = 60 if !defined($timeout);
+
+    my $reader = $tunnel->{reader};
+
+    my $output;
+    eval {
+	PVE::Tools::run_with_timeout($timeout, sub { $output = <$reader>; });
+    };
+    die "reading from tunnel failed: $@\n" if $@;
+
+    chomp $output;
+
+    return $output;
+}
+
+sub write_tunnel {
+    my ($self, $tunnel, $timeout, $command) = @_;
+
+    $timeout = 60 if !defined($timeout);
+
+    my $writer = $tunnel->{writer};
+
+    eval {
+	PVE::Tools::run_with_timeout($timeout, sub {
+	    print $writer "$command\n";
+	    $writer->flush();
+	});
+    };
+    die "writing to tunnel failed: $@\n" if $@;
+}
+
 sub fork_tunnel {
     my ($self, $tunnel_addr) = @_;
 
@@ -100,11 +134,8 @@ sub fork_tunnel {
 
     my $tunnel = $self->fork_command_pipe($cmd);
 
-    my $reader = $tunnel->{reader};
-
-    my $helo;
     eval {
-	PVE::Tools::run_with_timeout(60, sub { $helo = <$reader>; });
+	my $helo = $self->read_tunnel($tunnel, 60);
 	die "no reply\n" if !$helo;
 	die "no quorum on target node\n" if $helo =~ m/^no quorum$/;
 	die "got strange reply from mtunnel ('$helo')\n"
@@ -122,14 +153,7 @@ sub fork_tunnel {
 sub finish_tunnel {
     my ($self, $tunnel) = @_;
 
-    my $writer = $tunnel->{writer};
-
-    eval {
-	PVE::Tools::run_with_timeout(30, sub {
-	    print $writer "quit\n";
-	    $writer->flush();
-	});
-    };
+    eval { $self->write_tunnel($tunnel, 30, 'quit'); };
     my $err = $@;
 
     $self->finish_command_pipe($tunnel, 30);
