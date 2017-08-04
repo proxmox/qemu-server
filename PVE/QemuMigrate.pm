@@ -906,6 +906,8 @@ sub phase3_cleanup {
     my $conf = $self->{vmconf};
     return if $self->{phase2errors};
 
+    my $tunnel = $self->{tunnel};
+
     if ($self->{storage_migration}) {
 	# finish block-job
 	eval { PVE::QemuServer::qemu_drive_mirror_monitor($vmid, undef, $self->{storage_migration_jobs}); };
@@ -951,17 +953,27 @@ sub phase3_cleanup {
 		$self->{errors} = 1;
 	    }
 	}
+
 	# config moved and nbd server stopped - now we can resume vm on target
-	my $cmd = [@{$self->{rem_ssh}}, 'qm', 'resume', $vmid, '--skiplock', '--nocheck'];
-	eval{ PVE::Tools::run_command($cmd, outfunc => sub {}, 
-		errfunc => sub {
-		    my $line = shift;
-        	    $self->log('err', $line);
-		});
-	};
-	if (my $err = $@) {
-	    $self->log('err', $err);
-	    $self->{errors} = 1;
+	if ($tunnel && $tunnel->{version} && $tunnel->{version} >= 1) {
+	    eval {
+		$self->write_tunnel($tunnel, 30, "resume $vmid");
+	    };
+	    if (my $err = $@) {
+		$self->log('err', $err);
+		$self->{errors} = 1;
+	    }
+	} else {
+	    my $cmd = [@{$self->{rem_ssh}}, 'qm', 'resume', $vmid, '--skiplock', '--nocheck'];
+	    my $logf = sub {
+		my $line = shift;
+		$self->log('err', $line);
+	    };
+	    eval { PVE::Tools::run_command($cmd, outfunc => sub {}, errfunc => $logf); };
+	    if (my $err = $@) {
+		$self->log('err', $err);
+		$self->{errors} = 1;
+	    }
 	}
     }
 

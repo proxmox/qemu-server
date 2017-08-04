@@ -280,6 +280,18 @@ __PACKAGE__->register_method ({
 	    if ($line =~ /^quit$/) {
 		$tunnel_write->("OK");
 		last;
+	    } elsif ($line =~ /^resume (\d+)$/) {
+		my $vmid = $1;
+		if (PVE::QemuServer::check_running($vmid, 1)) {
+		    eval { PVE::QemuServer::vm_resume($vmid, 1, 1); };
+		    if ($@) {
+			$tunnel_write->("ERR: resume failed - $@");
+		    } else {
+			$tunnel_write->("OK");
+		    }
+		} else {
+		    $tunnel_write->("ERR: resume failed - VM $vmid not running");
+		}
 	    }
 	}
 
