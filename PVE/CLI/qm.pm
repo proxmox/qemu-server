@@ -265,11 +265,15 @@ __PACKAGE__->register_method ({
 	    return undef;
 	}
 
-	print "tunnel online\n";
-	*STDOUT->flush();
+	my $tunnel_write = sub {
+	    my $text = shift;
+	    chomp $text;
+	    print "$text\n";
+	    *STDOUT->flush();
+	};
 
-	print "ver 1\n";
-	*STDOUT->flush();
+	$tunnel_write->("tunnel online");
+	$tunnel_write->("ver 1");
 
 	while (my $line = <>) {
 	    chomp $line;
