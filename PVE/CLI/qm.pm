@@ -268,6 +268,9 @@ __PACKAGE__->register_method ({
 	print "tunnel online\n";
 	*STDOUT->flush();
 
+	print "ver 1\n";
+	*STDOUT->flush();
+
 	while (my $line = <>) {
 	    chomp $line;
 	    last if $line =~ m/^quit$/;
