@@ -723,7 +723,7 @@ sub phase2 {
     $self->log('info', "migrate uri => $ruri failed: $merr") if $merr;
 
     my $lstat = 0;
-    my $usleep = 2000000;
+    my $usleep = 1000000;
     my $i = 0;
     my $err_count = 0;
     my $lastrem = undef;
@@ -784,8 +784,8 @@ sub phase2 {
 		my $xbzrlepages = $stat->{"xbzrle-cache"}->{"pages"} || 0;
 		my $xbzrlecachemiss = $stat->{"xbzrle-cache"}->{"cache-miss"} || 0;
 		my $xbzrleoverflow = $stat->{"xbzrle-cache"}->{"overflow"} || 0;
-		#reduce sleep if remainig memory if lower than the everage transfert 
-		$usleep = 300000 if $avglstat && $rem < $avglstat;
+		# reduce sleep if remainig memory is lower than the average transfer speed
+		$usleep = 100000 if $avglstat && $rem < $avglstat;
 
 		$self->log('info', "migration status: $stat->{status} (transferred ${trans}, " .
 			   "remaining ${rem}), total ${total})");
