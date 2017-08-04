@@ -143,6 +143,16 @@ sub fork_tunnel {
     };
     my $err = $@;
 
+    eval {
+	my $ver = $self->read_tunnel($tunnel, 10);
+	if ($ver =~ /^ver (\d+)$/) {
+	    $tunnel->{version} = $1;
+	    $self->log('info', "ssh tunnel $ver\n");
+	} else {
+	    $err = "received invalid tunnel version string '$ver'\n" if !$err;
+	}
+    };
+
     if ($err) {
 	$self->finish_command_pipe($tunnel);
 	die "can't open migration tunnel - $err";
