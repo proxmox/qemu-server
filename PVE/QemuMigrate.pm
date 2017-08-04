@@ -442,6 +442,7 @@ sub sync_disks {
 	    my $logfunc = sub { my ($msg) = @_;  $self->log('info', $msg); };
 	    $rep_volumes = PVE::Replication::run_replication(
 	       'PVE::QemuConfig', $jobcfg, $start_time, $start_time, $logfunc);
+	    $self->{replicated_volumes} = $rep_volumes;
 	}
 
 	foreach my $volid (keys %$local_volumes) {
@@ -916,7 +917,7 @@ sub phase3_cleanup {
     }
 
     # transfer replication state before move config
-    $self->transfer_replication_state();
+    $self->transfer_replication_state() if $self->{replicated_volumes};
 
     # move config to remote node
     my $conffile = PVE::QemuConfig->config_file($vmid);
@@ -925,7 +926,7 @@ sub phase3_cleanup {
     die "Failed to move config to node '$self->{node}' - rename failed: $!\n"
         if !rename($conffile, $newconffile);
 
-    $self->switch_replication_job_target();
+    $self->switch_replication_job_target() if $self->{replicated_volumes};
 
     if ($self->{livemigration}) {
 	if ($self->{storage_migration}) {
