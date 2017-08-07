@@ -1,3 +1,11 @@
+qemu-server (5.0-15) unstable; urgency=medium
+
+  * reduce migration downtime
+
+  * fix freezing logic when saving vm states
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 07 Aug 2017 10:46:33 +0200
+
 qemu-server (5.0-14) unstable; urgency=medium
 
   * fix disk throttle parameters
