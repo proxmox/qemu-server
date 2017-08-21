@@ -2837,6 +2837,8 @@ sub config_to_command {
     my $winversion = windows_version($ostype);
     my $kvm = $conf->{kvm} // 1;
 
+    die "KVM virtualisation configured, but not available. Either disable in VM configuration or enable in BIOS.\n" if (!$cpuinfo->{hvm} && $kvm);
+
     if ($kvmver =~ m/^(\d+)\.(\d+)$/) {
 	$vernum = $1*1000000+$2*1000;
     } elsif ($kvmver =~ m/^(\d+)\.(\d+)\.(\d+)$/) {
@@ -3106,8 +3108,6 @@ sub config_to_command {
 
     if (!$kvm) {
 	push @$machineFlags, 'accel=tcg';
-    } else {
-	die "No accelerator found!\n" if !$cpuinfo->{hvm};
     }
 
     if ($machine_type) {
