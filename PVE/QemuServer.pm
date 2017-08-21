@@ -1740,8 +1740,8 @@ sub print_netdev_full {
 sub print_cpu_device {
     my ($conf, $id) = @_;
 
-    my $nokvm = defined($conf->{kvm}) && $conf->{kvm} == 0 ? 1 : 0;
-    my $cpu = $nokvm ? "qemu64" : "kvm64";
+    my $kvm = $conf->{kvm} // 1;
+    my $cpu = $kvm ? "kvm64" : "qemu64";
     if (my $cputype = $conf->{cpu}) {
 	my $cpuconf = PVE::JSONSchema::parse_property_string($cpu_fmt, $cputype)
 	    or die "Cannot parse cpu description: $cputype\n";
@@ -2835,6 +2835,7 @@ sub config_to_command {
     my $vernum = 0; # unknown
     my $ostype = $conf->{ostype};
     my $winversion = windows_version($ostype);
+    my $kvm = $conf->{kvm} // 1;
 
     if ($kvmver =~ m/^(\d+)\.(\d+)$/) {
 	$vernum = $1*1000000+$2*1000;
@@ -3085,7 +3086,6 @@ sub config_to_command {
     # time drift fix
     my $tdf = defined($conf->{tdf}) ? $conf->{tdf} : $defaults->{tdf};
 
-    my $nokvm = defined($conf->{kvm}) && $conf->{kvm} == 0 ? 1 : 0;
     my $useLocaltime = $conf->{localtime};
 
     if ($winversion >= 5) { # windows
@@ -3104,7 +3104,7 @@ sub config_to_command {
 
     push @$rtcFlags, 'driftfix=slew' if $tdf;
 
-    if ($nokvm) {
+    if (!$kvm) {
 	push @$machineFlags, 'accel=tcg';
     } else {
 	die "No accelerator found!\n" if !$cpuinfo->{hvm};
@@ -3120,7 +3120,7 @@ sub config_to_command {
 	push @$rtcFlags, 'base=localtime';
     }
 
-    my $cpu = $nokvm ? "qemu64" : "kvm64";
+    my $cpu = $kvm ? "kvm64" : "qemu64";
     if (my $cputype = $conf->{cpu}) {
 	my $cpuconf = PVE::JSONSchema::parse_property_string($cpu_fmt, $cputype)
 	    or die "Cannot parse cpu description: $cputype\n";
@@ -3139,13 +3139,13 @@ sub config_to_command {
 
     if (qemu_machine_feature_enabled ($machine_type, $kvmver, 2, 3)) {
 
-	push @$cpuFlags , '+kvm_pv_unhalt' if !$nokvm;
-	push @$cpuFlags , '+kvm_pv_eoi' if !$nokvm;
+	push @$cpuFlags , '+kvm_pv_unhalt' if $kvm;
+	push @$cpuFlags , '+kvm_pv_eoi' if $kvm;
     }
 
-    add_hyperv_enlightenments($cpuFlags, $winversion, $machine_type, $kvmver, $conf->{bios}, $gpu_passthrough) if !$nokvm;
+    add_hyperv_enlightenments($cpuFlags, $winversion, $machine_type, $kvmver, $conf->{bios}, $gpu_passthrough) if $kvm;
 
-    push @$cpuFlags, 'enforce' if $cpu ne 'host' && !$nokvm;
+    push @$cpuFlags, 'enforce' if $cpu ne 'host' && $kvm;
 
     push @$cpuFlags, 'kvm=off' if $kvm_off;
 
