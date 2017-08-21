@@ -3143,7 +3143,7 @@ sub config_to_command {
 	push @$cpuFlags , '+kvm_pv_eoi' if !$nokvm;
     }
 
-    add_hyperv_enlighments($cpuFlags, $winversion, $machine_type, $kvmver, $nokvm, $conf->{bios}, $gpu_passthrough);
+    add_hyperv_enlightenments($cpuFlags, $winversion, $machine_type, $kvmver, $conf->{bios}, $gpu_passthrough) if !$nokvm;
 
     push @$cpuFlags, 'enforce' if $cpu ne 'host' && !$nokvm;
 
@@ -6359,10 +6359,9 @@ sub scsihw_infos {
     return ($maxdev, $controller, $controller_prefix);
 }
 
-sub add_hyperv_enlighments {
-    my ($cpuFlags, $winversion, $machine_type, $kvmver, $nokvm, $bios, $gpu_passthrough) = @_;
+sub add_hyperv_enlightenments {
+    my ($cpuFlags, $winversion, $machine_type, $kvmver, $bios, $gpu_passthrough) = @_;
 
-    return if $nokvm;
     return if $winversion < 6;
     return if $bios && $bios eq 'ovmf' && $winversion < 8;
 
