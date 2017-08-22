@@ -1,5 +1,12 @@
+qemu-server (4.0-112) unstable; urgency=medium
+
+  * fix freezing logic when saving vm states
+
+  * keep VM paused when migrating via unix socket
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 22 Aug 2017 13:58:02 +0200
+
 qemu-server (4.0-111) unstable; urgency=medium
-  
   * Fix #1229: more explicit spice port allocation
 
   * Fix #1384: add missing decrement to calculation of socket-id
