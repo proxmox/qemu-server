@@ -599,8 +599,9 @@ sub phase2 {
 
     die "unable to detect remote migration address\n" if !$raddr;
 
+    $self->log('info', "start remote tunnel");
+
     if ($migration_type eq 'secure') {
-	$self->log('info', "start remote tunnel");
 
 	if ($ruri =~ /^unix:/) {
 	    unlink $raddr;
@@ -633,6 +634,9 @@ sub phase2 {
 	} else {
 	    die "unsupported protocol in migration URI: $ruri\n";
 	}
+    } else {
+	#fork tunnel for insecure migration, to send faster commands like resume
+	$self->{tunnel} = $self->fork_tunnel();
     }
 
     my $start = time();
