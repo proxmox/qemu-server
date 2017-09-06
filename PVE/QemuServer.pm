@@ -5437,9 +5437,10 @@ sub restore_vma_archive {
     rmtree $tmpdir;
 
     # disable interrupts (always do cleanups)
-    local $SIG{INT} = $SIG{TERM} = $SIG{QUIT} = $SIG{HUP} = sub {
-	warn "got interrupt - ignored\n";
-    };
+    local $SIG{INT} =
+	local $SIG{TERM} =
+	local $SIG{QUIT} =
+	local $SIG{HUP} = sub { warn "got interrupt - ignored\n"; };
 
     my $mapfifo = "/var/tmp/vzdumptmp$$.fifo";
     POSIX::mkfifo($mapfifo, 0600);
