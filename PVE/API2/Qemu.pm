@@ -896,7 +896,7 @@ my $update_vm_api  = sub {
     my $background_delay = extract_param($param, 'background_delay');
 
     my @paramarr = (); # used for log message
-    foreach my $key (keys %$param) {
+    foreach my $key (sort keys %$param) {
 	push @paramarr, "-$key", $param->{$key};
     }
 
