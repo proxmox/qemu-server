@@ -2493,7 +2493,10 @@ __PACKAGE__->register_method({
 		my $jobs = {};
 
 		eval {
-		    local $SIG{INT} = $SIG{TERM} = $SIG{QUIT} = $SIG{HUP} = sub { die "interrupted by signal\n"; };
+		    local $SIG{INT} =
+			local $SIG{TERM} =
+			local $SIG{QUIT} =
+			local $SIG{HUP} = sub { die "interrupted by signal\n"; };
 
 		    PVE::Storage::activate_volumes($storecfg, $vollist, $snapname);
 
