@@ -39,7 +39,6 @@ use URI::Escape;
 
 my $OVMF_CODE = '/usr/share/kvm/OVMF_CODE-pure-efi.fd';
 my $OVMF_VARS = '/usr/share/kvm/OVMF_VARS-pure-efi.fd';
-my $OVMF_IMG = '/usr/share/kvm/OVMF-pure-efi.fd';
 
 my $qemu_snap_storage = {rbd => 1, sheepdog => 1};
 
@@ -2878,44 +2877,25 @@ sub config_to_command {
     }
 
     if ($conf->{bios} && $conf->{bios} eq 'ovmf') {
-	my $ovmfbase;
+	die "uefi base image not found\n" if ! -f $OVMF_CODE;
 
-	# prefer the OVMF_CODE variant
-	if (-f $OVMF_CODE) {
-	    $ovmfbase = $OVMF_CODE;
-	} elsif (-f $OVMF_IMG) {
-	    $ovmfbase = $OVMF_IMG;
-	}
-
-	die "no uefi base img found\n" if !$ovmfbase;
-	push @$cmd, '-drive', "if=pflash,unit=0,format=raw,readonly,file=$ovmfbase";
-
-	if (defined($conf->{efidisk0}) && ($ovmfbase eq $OVMF_CODE)) {
-	    my $d = PVE::JSONSchema::parse_property_string($efidisk_fmt, $conf->{efidisk0});
-	    my $format = $d->{format} // 'raw';
-	    my $path;
+	my $path;
+	if (my $efidisk = $conf->{efidisk0}) {
+	    my $d = PVE::JSONSchema::parse_property_string($efidisk_fmt, $efidisk);
 	    my ($storeid, $volname) = PVE::Storage::parse_volume_id($d->{file}, 1);
 	    if ($storeid) {
 		$path = PVE::Storage::path($storecfg, $d->{file});
-		my $scfg = PVE::Storage::storage_config($storecfg, $storeid);
-		$format = qemu_img_format($scfg, $volname);
 	    } else {
 		$path = $d->{file};
-		$format = "raw";
 	    }
-	    push @$cmd, '-drive', "if=pflash,unit=1,id=drive-efidisk0,format=$format,file=$path";
-	} elsif ($ovmfbase eq $OVMF_CODE) {
-	    warn "using uefi without permanent efivars disk\n";
-	    my $ovmfvar_dst = "/tmp/$vmid-ovmf.fd";
-	    PVE::Tools::file_copy($OVMF_VARS, $ovmfvar_dst, 256*1024);
-	    push @$cmd, '-drive', "if=pflash,unit=1,format=raw,file=$ovmfvar_dst";
 	} else {
-	    # if the base img is not OVMF_CODE, we do not have to bother
-	    # to create/use a vars image, since it will not be used anyway
-	    # this can only happen if someone manually deletes the OVMF_CODE image
-	    # or has an old pve-qemu-kvm version installed.
-	    # both should not happen, but we ignore it here
+	    warn "no efidisk configured! Using temporary efivars disk.\n";
+	    $path = "/tmp/$vmid-ovmf.fd";
+	    PVE::Tools::file_copy($OVMF_VARS, $path, -s $OVMF_VARS);
 	}
+
+	push @$cmd, '-drive', "if=pflash,unit=0,format=raw,readonly,file=$OVMF_CODE";
+	push @$cmd, '-drive', "if=pflash,unit=1,id=drive-efidisk0,file=$path";
     }
 
 
@@ -3243,6 +3223,9 @@ sub config_to_command {
 	    push @$vollist, $drive->{file};
 	}
 
+	# ignore efidisk here, already added in bios/fw handling code above
+	return if $drive->{interface} eq 'efidisk';
+
 	$use_virtio = 1 if $ds =~ m/^virtio/;
 
 	if (drive_is_cdrom ($drive)) {
@@ -3291,11 +3274,6 @@ sub config_to_command {
            push @$devices, '-device', "ahci,id=ahci$controller,multifunction=on$pciaddr" if !$ahcicontroller->{$controller};
            $ahcicontroller->{$controller}=1;
         }
-
-	if ($drive->{interface} eq 'efidisk') {
-	    # this will be added somewhere else
-	    return;
-	}
 
 	my $drive_cmd = print_drive_full($storecfg, $vmid, $drive);
 	push @$devices, '-drive',$drive_cmd;
