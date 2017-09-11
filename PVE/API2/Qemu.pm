@@ -144,24 +144,7 @@ my $create_disks = sub {
 
 	    my $volid;
 	    if ($ds eq 'efidisk0') {
-		# handle efidisk
-		my $ovmfvars = '/usr/share/kvm/OVMF_VARS-pure-efi.fd';
-		die "uefi vars image not found\n" if ! -f $ovmfvars;
-		$size = PVE::Tools::convert_size(-s $ovmfvars, 'b' => 'kb');
-		$volid = PVE::Storage::vdisk_alloc($storecfg, $storeid, $vmid, $fmt, undef, $size);
-		my ($storeid, $volname) = PVE::Storage::parse_volume_id($volid);
-		my $scfg = PVE::Storage::storage_config($storecfg, $storeid);
-		my $qemufmt = PVE::QemuServer::qemu_img_format($scfg, $volname);
-		my $path = PVE::Storage::path($storecfg, $volid);
-		my $efidiskcmd = ['/usr/bin/qemu-img', 'convert', '-n', '-f', 'raw', '-O', $qemufmt];
-		push @$efidiskcmd, $ovmfvars;
-		push @$efidiskcmd, $path;
-
-		PVE::Storage::activate_volumes($storecfg, [$volid]);
-
-		eval { PVE::Tools::run_command($efidiskcmd); };
-		my $err = $@;
-		die "Copying of EFI Vars image failed: $err" if $err;
+		($volid, $size) = PVE::QemuServer::create_efidisk($storecfg, $storeid, $vmid, $fmt);
 	    } else {
 		$volid = PVE::Storage::vdisk_alloc($storecfg, $storeid, $vmid, $fmt, undef, $size);
 	    }

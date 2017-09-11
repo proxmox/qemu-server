@@ -6309,6 +6309,24 @@ sub qemu_use_old_bios_files {
     return ($use_old_bios_files, $machine_type);
 }
 
+sub create_efidisk {
+    my ($storecfg, $storeid, $vmid, $fmt) = @_;
+
+    die "EFI vars default image not found\n" if ! -f $OVMF_VARS;
+
+    my $vars_size = PVE::Tools::convert_size(-s $OVMF_VARS, 'b' => 'kb');
+    my $volid = PVE::Storage::vdisk_alloc($storecfg, $storeid, $vmid, $fmt, undef, $vars_size);
+    PVE::Storage::activate_volumes($storecfg, [$volid]);
+
+    my $path = PVE::Storage::path($storecfg, $volid);
+    eval {
+	run_command(['/usr/bin/qemu-img', 'convert', '-n', '-f', 'raw', '-O', $fmt, $OVMF_VARS, $path]);
+    };
+    die "Copying EFI vars image failed: $@" if $@;
+
+    return ($volid, $vars_size);
+}
+
 sub lspci {
 
     my $devices = {};
