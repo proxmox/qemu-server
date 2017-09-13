@@ -18,10 +18,12 @@ use PVE::INotify;
 use PVE::RPCEnvironment;
 use PVE::QemuServer;
 use PVE::QemuServer::ImportDisk;
+use PVE::QemuServer::OVF;
 use PVE::API2::Qemu;
 use JSON;
 use PVE::JSONSchema qw(get_standard_option);
 use Term::ReadLine;
+use Data::Dumper;
 
 use PVE::CLIHandler;
 
@@ -509,6 +511,100 @@ __PACKAGE__->register_method ({
 	return undef;
     }});
 
+__PACKAGE__->register_method ({
+    name => 'importovf',
+    path => 'importovf',
+    description => "Create a new VM using parameters read from an OVF manifest",
+    parameters => {
+	additionalProperties => 0,
+	properties => {
+	    vmid => get_standard_option('pve-vmid', { completion => \&PVE::Cluster::complete_next_vmid }),
+	    manifest => {
+		type => 'string',
+		description => 'path to the ovf file',
+		},
+	    storage => get_standard_option('pve-storage-id', {
+		description => 'Target storage ID',
+		completion => \&PVE::QemuServer::complete_storage,
+		optional => 0,
+	    }),
+	    format => {
+		type => 'string',
+		description => 'Target format',
+		enum => [ 'raw', 'qcow2', 'vmdk' ],
+		optional => 1,
+	    },
+	    dryrun => {
+		type => 'boolean',
+		description => 'Print a parsed representation of the extracted OVF parameters, but do not create a VM',
+		optional => 1,
+		}
+	},
+    },
+    returns => { type => 'string'},
+    code => sub {
+	my ($param) = @_;
+
+	my $vmid = PVE::Tools::extract_param($param, 'vmid');
+	my $ovf_file = PVE::Tools::extract_param($param, 'manifest');
+	my $storeid = PVE::Tools::extract_param($param, 'storage');
+	my $format = PVE::Tools::extract_param($param, 'format');
+	my $dryrun = PVE::Tools::extract_param($param, 'dryrun');
+
+	die "$ovf_file: non-existent or non-regular file\n" if (! -f $ovf_file);
+	my $storecfg = PVE::Storage::config();
+	PVE::Storage::storage_check_enabled($storecfg, $storeid);
+
+	my $parsed = PVE::QemuServer::OVF::parse_ovf($ovf_file);
+
+	if ($dryrun) {
+	    print Dumper($parsed);
+	    exit(0);
+	}
+
+	$param->{name} = $parsed->{qm}->{name} if defined($parsed->{qm}->{name});
+	$param->{memory} = $parsed->{qm}->{memory} if defined($parsed->{qm}->{memory});
+	$param->{cores} = $parsed->{qm}->{cores} if defined($parsed->{qm}->{cores});
+
+	my $importfn = sub {
+
+	    PVE::Cluster::check_vmid_unused($vmid);
+
+	    my $conf = $param;
+
+	    eval {
+		# order matters, as do_import() will load_config() internally
+		$conf->{smbios1} = PVE::QemuServer::generate_smbios1_uuid();
+		PVE::QemuConfig->write_config($vmid, $conf);
+
+		foreach my $disk (@{ $parsed->{disks} }) {
+		    my ($file, $drive) = ($disk->{backing_file}, $disk->{disk_address});
+		    PVE::QemuServer::ImportDisk::do_import($file, $vmid, $storeid,
+			{ drive_name => $drive, format => $format });
+		}
+
+		# reload after disks entries have been created
+		$conf = PVE::QemuConfig->load_config($vmid);
+		PVE::QemuConfig->check_lock($conf);
+		my $firstdisk = PVE::QemuServer::resolve_first_disk($conf);
+		$conf->{bootdisk} = $firstdisk if $firstdisk;
+		PVE::QemuConfig->write_config($vmid, $conf);
+	   };
+
+	    my $err = $@;
+	    if ($err) {
+		my $skiplock = 1;
+		eval { PVE::QemuServer::vm_destroy($storecfg, $vmid, $skiplock); };
+		die "import failed - $err";
+	    }
+
+	};
+
+	my $wait_for_lock = 1;
+	return PVE::QemuConfig->lock_config_full($vmid, $wait_for_lock, $importfn);
+
+    }
+});
 
 my $print_agent_result = sub {
     my ($data) = @_;
@@ -666,6 +762,9 @@ our $cmddef = {
     terminal => [ __PACKAGE__, 'terminal', ['vmid']],
 
     importdisk => [ __PACKAGE__, 'importdisk', ['vmid', 'source', 'storage']],
+
+    importovf => [ __PACKAGE__, 'importovf', ['vmid', 'manifest', 'storage']],
+
 };
 
 1;
