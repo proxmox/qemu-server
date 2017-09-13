@@ -3342,7 +3342,7 @@ __PACKAGE__->register_method({
     proxyto => 'node',
     description => "Get snapshot configuration",
     permissions => {
-	check => ['perm', '/vms/{vmid}', [ 'VM.Snapshot' ]],
+	check => ['perm', '/vms/{vmid}', [ 'VM.Snapshot', 'VM.Snapshot.Rollback' ], any => 1],
     },
     parameters => {
 	additionalProperties => 0,
@@ -3381,7 +3381,7 @@ __PACKAGE__->register_method({
     proxyto => 'node',
     description => "Rollback VM state to specified snapshot.",
     permissions => {
-	check => ['perm', '/vms/{vmid}', [ 'VM.Snapshot' ]],
+	check => ['perm', '/vms/{vmid}', [ 'VM.Snapshot', 'VM.Snapshot.Rollback' ], any => 1],
     },
     parameters => {
 	additionalProperties => 0,
