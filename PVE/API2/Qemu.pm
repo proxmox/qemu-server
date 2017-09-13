@@ -542,26 +542,14 @@ __PACKAGE__->register_method({
 
 		    $vollist = &$create_disks($rpcenv, $authuser, $conf, $storecfg, $vmid, $pool, $param, $storage);
 
-		    # try to be smart about bootdisk
-		    my @disks = PVE::QemuServer::valid_drive_names();
-		    my $firstdisk;
-		    foreach my $ds (reverse @disks) {
-			next if !$conf->{$ds};
-			my $disk = PVE::QemuServer::parse_drive($ds, $conf->{$ds});
-			next if PVE::QemuServer::drive_is_cdrom($disk);
-			$firstdisk = $ds;
-		    }
-
-		    if (!$conf->{bootdisk} && $firstdisk) {
-			$conf->{bootdisk} = $firstdisk;
+		    if (!$conf->{bootdisk}) {
+			my $firstdisk = PVE::QemuServer::resolve_first_disk($conf);
+			$conf->{bootdisk} = $firstdisk if $firstdisk;
 		    }
 
 		    # auto generate uuid if user did not specify smbios1 option
 		    if (!$conf->{smbios1}) {
-			my ($uuid, $uuid_str);
-			UUID::generate($uuid);
-			UUID::unparse($uuid, $uuid_str);
-			$conf->{smbios1} = "uuid=$uuid_str";
+			$conf->{smbios1} = PVE::QemuServer::generate_smbios1_uuid();
 		    }
 
 		    PVE::QemuConfig->write_config($vmid, $conf);

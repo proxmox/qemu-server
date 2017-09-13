@@ -6428,6 +6428,26 @@ sub resolve_dst_disk_format {
 	return $format;
 }
 
+sub resolve_first_disk {
+    my $conf = shift;
+    my @disks = PVE::QemuServer::valid_drive_names();
+    my $firstdisk;
+    foreach my $ds (reverse @disks) {
+	next if !$conf->{$ds};
+	my $disk = PVE::QemuServer::parse_drive($ds, $conf->{$ds});
+	next if PVE::QemuServer::drive_is_cdrom($disk);
+	$firstdisk = $ds;
+    }
+    return $firstdisk;
+}
+
+sub generate_smbios1_uuid {
+    my ($uuid, $uuid_str);
+    UUID::generate($uuid);
+    UUID::unparse($uuid, $uuid_str);
+    return "uuid=$uuid_str";
+}
+
 # bash completion helper
 
 sub complete_backup_archives {
