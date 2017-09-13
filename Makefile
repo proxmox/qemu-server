@@ -69,12 +69,12 @@ install: ${PKGSOURCES}
 	install -D -m 0644 modules-load.conf ${DESTDIR}/etc/modules-load.d/qemu-server.conf
 	install -m 0755 qmextract ${DESTDIR}${LIBDIR}
 	install -m 0644 qm.1 ${DESTDIR}/${MAN1DIR}
-	gzip -9 -n ${DESTDIR}/${MAN1DIR}/qm.1
+	gzip -9 -n -f ${DESTDIR}/${MAN1DIR}/qm.1
 	install -m 0644 qmrestore.1 ${DESTDIR}/${MAN1DIR}
-	gzip -9 -n ${DESTDIR}/${MAN1DIR}/qmrestore.1
+	gzip -9 -n -f ${DESTDIR}/${MAN1DIR}/qmrestore.1
 	install -m 0644 qm.conf.5 ${DESTDIR}/${MAN5DIR}
-	gzip -9 -n ${DESTDIR}/${MAN5DIR}/qm.conf.5
-	cd ${DESTDIR}/${MAN5DIR}; ln -s qm.conf.5.gz vm.conf.5.gz
+	gzip -9 -n -f ${DESTDIR}/${MAN5DIR}/qm.conf.5
+	cd ${DESTDIR}/${MAN5DIR}; ln -s -f qm.conf.5.gz vm.conf.5.gz
 
 .PHONY: deb
 deb: ${DEB}
