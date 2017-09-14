@@ -82,9 +82,11 @@ sub do_import {
 
     eval {
 	# trap interrupts so we have a chance to clean up
-	local $SIG{INT} = $SIG{TERM} = $SIG{QUIT} = $SIG{HUP} = $SIG{PIPE} = sub {
-	    die "interrupted by signal\n";
-	};
+	local $SIG{INT} =
+	    local $SIG{TERM} =
+	    local $SIG{QUIT} =
+	    local $SIG{HUP} =
+	    local $SIG{PIPE} = sub { die "interrupted by signal\n"; };
 	PVE::Storage::activate_volumes($storecfg, [$dst_volid]);
 	run_command($convert_command);
 	PVE::Storage::deactivate_volumes($storecfg, [$dst_volid]);

@@ -2697,7 +2697,10 @@ __PACKAGE__->register_method({
 		my $newvollist = [];
 
 		eval {
-		    local $SIG{INT} = $SIG{TERM} = $SIG{QUIT} = $SIG{HUP} = sub { die "interrupted by signal\n"; };
+		    local $SIG{INT} =
+			local $SIG{TERM} =
+			local $SIG{QUIT} =
+			local $SIG{HUP} = sub { die "interrupted by signal\n"; };
 
 		    warn "moving disk with snapshots, snapshots will not be moved!\n"
 			if $snapshotted;

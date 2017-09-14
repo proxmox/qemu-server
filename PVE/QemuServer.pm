@@ -5622,9 +5622,11 @@ sub restore_vma_archive {
 
     eval {
 	# enable interrupts
-	local $SIG{INT} = $SIG{TERM} = $SIG{QUIT} = $SIG{HUP} = $SIG{PIPE} = sub {
-	    die "interrupted by signal\n";
-	};
+	local $SIG{INT} =
+	    local $SIG{TERM} =
+	    local $SIG{QUIT} =
+	    local $SIG{HUP} =
+	    local $SIG{PIPE} = sub { die "interrupted by signal\n"; };
 	local $SIG{ALRM} = sub { die "got timeout\n"; };
 
 	$oldtimeout = alarm($timeout);
@@ -5738,15 +5740,18 @@ sub restore_tar_archive {
     my $tmpfn = "$conffile.$$.tmp";
 
     # disable interrupts (always do cleanups)
-    local $SIG{INT} = $SIG{TERM} = $SIG{QUIT} = $SIG{HUP} = sub {
-	print STDERR "got interrupt - ignored\n";
-    };
+    local $SIG{INT} =
+	local $SIG{TERM} =
+	local $SIG{QUIT} =
+	local $SIG{HUP} = sub { print STDERR "got interrupt - ignored\n"; };
 
     eval {
 	# enable interrupts
-	local $SIG{INT} = $SIG{TERM} = $SIG{QUIT} = $SIG{HUP} = $SIG{PIPE} = sub {
-	    die "interrupted by signal\n";
-	};
+	local $SIG{INT} =
+	    local $SIG{TERM} =
+	    local $SIG{QUIT} =
+	    local $SIG{HUP} =
+	    local $SIG{PIPE} = sub { die "interrupted by signal\n"; };
 
 	if ($archive eq '-') {
 	    print "extracting archive from STDIN\n";
