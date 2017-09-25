@@ -538,7 +538,7 @@ __PACKAGE__->register_method ({
 		type => 'boolean',
 		description => 'Print a parsed representation of the extracted OVF parameters, but do not create a VM',
 		optional => 1,
-		}
+	    }
 	},
     },
     returns => { type => 'string'},
@@ -589,7 +589,7 @@ __PACKAGE__->register_method ({
 		my $firstdisk = PVE::QemuServer::resolve_first_disk($conf);
 		$conf->{bootdisk} = $firstdisk if $firstdisk;
 		PVE::QemuConfig->write_config($vmid, $conf);
-	   };
+	    };
 
 	    my $err = $@;
 	    if ($err) {
@@ -597,7 +597,6 @@ __PACKAGE__->register_method ({
 		eval { PVE::QemuServer::vm_destroy($storecfg, $vmid, $skiplock); };
 		die "import failed - $err";
 	    }
-
 	};
 
 	my $wait_for_lock = 1;
