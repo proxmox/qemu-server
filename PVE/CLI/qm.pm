@@ -23,7 +23,6 @@ use PVE::API2::Qemu;
 use JSON;
 use PVE::JSONSchema qw(get_standard_option);
 use Term::ReadLine;
-use Data::Dumper;
 
 use PVE::CLIHandler;
 
@@ -558,8 +557,8 @@ __PACKAGE__->register_method ({
 	my $parsed = PVE::QemuServer::OVF::parse_ovf($ovf_file);
 
 	if ($dryrun) {
-	    print Dumper($parsed);
-	    exit(0);
+	    print to_json($parsed, { pretty => 1, canonical => 1});
+	    return;
 	}
 
 	$param->{name} = $parsed->{qm}->{name} if defined($parsed->{qm}->{name});
