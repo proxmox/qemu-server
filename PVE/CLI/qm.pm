@@ -541,7 +541,7 @@ __PACKAGE__->register_method ({
 	    }
 	},
     },
-    returns => { type => 'string'},
+    returns => { type => 'null' },
     code => sub {
 	my ($param) = @_;
 
