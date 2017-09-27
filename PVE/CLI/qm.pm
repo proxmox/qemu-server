@@ -599,7 +599,9 @@ __PACKAGE__->register_method ({
 	};
 
 	my $wait_for_lock = 1;
-	return PVE::QemuConfig->lock_config_full($vmid, $wait_for_lock, $importfn);
+	PVE::QemuConfig->lock_config_full($vmid, $wait_for_lock, $importfn);
+
+	return undef;
 
     }
 });
