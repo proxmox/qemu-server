@@ -4,34 +4,34 @@ Priority: optional
 Maintainer: Proxmox Support Team <support@proxmox.com>
 Build-Depends: debhelper (>= 7.0.50~),
                libpve-common-perl,
-               perl (>= 5.10.0-19),
                lintian,
-               pve-doc-generator
+               perl (>= 5.10.0-19),
+               pve-doc-generator,
 Standards-Version: 3.9.5
 Homepage: http://www.proxmox.com
 
 Package: qemu-server
 Architecture: any
-Depends: libc6 (>= 2.7-18),
-         perl (>= 5.10.0-19),
-         libterm-readline-gnu-perl,
-         pve-qemu-kvm (>= 2.2-1),
-         libpve-access-control,
-         libpve-storage-perl,
-         pve-cluster,
+Depends: dbus,
+         libc6 (>= 2.7-18),
+         libio-multiplex-perl,
          libjson-perl,
          libjson-xs-perl,
-         libio-multiplex-perl,
          libnet-ssleay-perl,
-         libxml-libxml-perl,
-         socat,
-         pve-firewall,
-         libuuid-perl,
-         pve-ha-manager,
-         dbus,
+         libpve-access-control,
          libpve-common-perl (>= 4.0-92),
          libpve-guest-common-perl,
+         libpve-storage-perl,
+         libterm-readline-gnu-perl,
+         libuuid-perl,
+         libxml-libxml-perl,
+         perl (>= 5.10.0-19),
+         pve-cluster,
+         pve-firewall,
+         pve-ha-manager,
+         pve-qemu-kvm (>= 2.2-1),
+         socat,
          ${perl:Depends},
-         ${shlibs:Depends}
+         ${shlibs:Depends},
 Description: Qemu Server Tools
  This package contains the Qemu Server tools used by Proxmox VE
