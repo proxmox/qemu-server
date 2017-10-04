@@ -1,3 +1,16 @@
+qemu-server (4.0-113) unstable; urgency=medium
+
+  * live storage migration : fix check of target storage availability
+
+  * fix #1338: migrate: stop nbd before resuming
+
+  * fix an issue with signal handlers being replaced leading to services not
+    shutting down properly
+
+  * update_vm: sort logged parameters
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 4 Oct 2017 11:16:40 +0200
+
 qemu-server (4.0-112) unstable; urgency=medium
 
   * fix freezing logic when saving vm states
