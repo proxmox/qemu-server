@@ -1,3 +1,35 @@
+qemu-server (5.0-16) unstable; urgency=medium
+
+  * add new qm command 'importovf', to create VMs from an OVF manifest
+
+  * snapshot: use explicitly configured vmstate storage
+
+  * config: add vmstatestorage option
+
+  * VM.Snapshot.Rollback privilege added
+
+  * migration : enable mtunnel for insecure migration
+
+  * ovmf: deprecate old legay ovmf image and refactor
+
+  * improve efidisk creation
+
+  * efidisk: do not hard code efivar base image size
+
+  * fix #1441: do not unplug controllers when the mirroring is finished
+
+  * do not overwrite global signal handlers
+
+  * update_vm: sort logged parameters
+
+  * remove legacy sparsecp
+
+  * remove unused obsolete vmtar
+
+  * fix #1125: check for KVM support before starting VM
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 5 Oct 2017 11:17:26 +0200
+
 qemu-server (5.0-15) unstable; urgency=medium
 
   * reduce migration downtime
