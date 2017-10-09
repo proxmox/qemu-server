@@ -214,9 +214,9 @@ my $confdesc = {
 	optional => 1,
 	type => 'integer',
         description => "CPU weight for a VM.",
-	verbose_description => "CPU weight for a VM. Argument is used in the kernel fair scheduler. The larger the number is, the more CPU time this VM gets. Number is relative to weights of all the other running VMs.\n\nNOTE: You can disable fair-scheduler configuration by setting this to 0.",
-	minimum => 0,
-	maximum => 500000,
+	verbose_description => "CPU weight for a VM. Argument is used in the kernel fair scheduler. The larger the number is, the more CPU time this VM gets. Number is relative to weights of all the other running VMs.",
+	minimum => 2,
+	maximum => 262144,
 	default => 1024,
     },
     memory => {
