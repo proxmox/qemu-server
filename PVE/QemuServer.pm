@@ -2111,6 +2111,23 @@ sub destroy_vm {
 
     PVE::QemuConfig->check_lock($conf) if !$skiplock;
 
+    if ($conf->{template}) {
+	# check if any base image is still used by a linked clone
+	foreach_drive($conf, sub {
+		my ($ds, $drive) = @_;
+
+		return if drive_is_cdrom($drive);
+
+		my $volid = $drive->{file};
+
+		return if !$volid || $volid =~ m|^/|;
+
+		die "base volume '$volid' is still in use by linked cloned\n"
+		    if PVE::Storage::volume_is_base_and_used($storecfg, $volid);
+
+	});
+    }
+
     # only remove disks owned by this VM
     foreach_drive($conf, sub {
 	my ($ds, $drive) = @_;
