@@ -1,3 +1,11 @@
+qemu-server (5.0-17) unstable; urgency=medium
+
+  * correct cpuunits range
+
+  * check if base volumes are unused before deleting a template
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 17 Oct 2017 14:58:00 +0200
+
 qemu-server (5.0-16) unstable; urgency=medium
 
   * add new qm command 'importovf', to create VMs from an OVF manifest
