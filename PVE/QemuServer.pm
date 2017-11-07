@@ -2901,6 +2901,7 @@ sub config_to_command {
 	die "uefi base image not found\n" if ! -f $OVMF_CODE;
 
 	my $path;
+	my $format = 'raw';
 	if (my $efidisk = $conf->{efidisk0}) {
 	    my $d = PVE::JSONSchema::parse_property_string($efidisk_fmt, $efidisk);
 	    my ($storeid, $volname) = PVE::Storage::parse_volume_id($d->{file}, 1);
@@ -2909,6 +2910,7 @@ sub config_to_command {
 	    } else {
 		$path = $d->{file};
 	    }
+	    $format = $d->{format} if $d->{format};
 	} else {
 	    warn "no efidisk configured! Using temporary efivars disk.\n";
 	    $path = "/tmp/$vmid-ovmf.fd";
@@ -2916,7 +2918,7 @@ sub config_to_command {
 	}
 
 	push @$cmd, '-drive', "if=pflash,unit=0,format=raw,readonly,file=$OVMF_CODE";
-	push @$cmd, '-drive', "if=pflash,unit=1,id=drive-efidisk0,file=$path";
+	push @$cmd, '-drive', "if=pflash,unit=1,format=$format,id=drive-efidisk0,file=$path";
     }
 
 
