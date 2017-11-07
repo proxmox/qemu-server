@@ -281,7 +281,8 @@ w2k3;; Microsoft Windows 2003
 w2k8;; Microsoft Windows 2008
 wvista;; Microsoft Windows Vista
 win7;; Microsoft Windows 7
-win8;; Microsoft Windows 8/2012
+win8;; Microsoft Windows 8/2012/2012r2
+win10;; Microsoft Windows 10/2016
 l24;; Linux 2.4 Kernel
 l26;; Linux 2.6/3.X Kernel
 solaris;; Solaris/OpenSolaris/OpenIndiania kernel
