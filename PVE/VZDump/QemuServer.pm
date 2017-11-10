@@ -404,7 +404,13 @@ sub archive {
 	$qmpclient->queue_cmd($vmid, $add_fd_cb, 'getfd',
 			      fd => $outfileno, fdname => "backup");
 
-	if ($self->{vmlist}->{$vmid}->{agent} && $vm_is_running){
+	my $agent_running = 0;
+
+	if ($self->{vmlist}->{$vmid}->{agent} && $vm_is_running) {
+	    $agent_running = PVE::QemuServer::qga_check_running($vmid);
+	}
+
+	if ($agent_running){
 	    eval { PVE::QemuServer::vm_mon_cmd($vmid, "guest-fsfreeze-freeze"); };
 	    if (my $err = $@) {
 		$self->logerr($err);
@@ -413,7 +419,7 @@ sub archive {
 
 	$qmpclient->queue_execute();
 
-	if ($self->{vmlist}->{$vmid}->{agent} && $vm_is_running ){
+	if ($agent_running){
 	    eval { PVE::QemuServer::vm_mon_cmd($vmid, "guest-fsfreeze-thaw"); };
 	    if (my $err = $@) {
 		$self->logerr($err);
