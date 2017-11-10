@@ -5882,7 +5882,7 @@ sub qga_check_running {
 
     eval { vm_mon_cmd($vmid, "guest-ping", timeout => 3); };
     if ($@) {
-	warn "Qemu Guest Agent are not running - $@";
+	warn "Qemu Guest Agent is not running - $@";
 	return 0;
     }
     return 1;
