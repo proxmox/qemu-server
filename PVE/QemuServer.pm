@@ -5361,13 +5361,14 @@ sub update_disksize {
 
     my $changes;
 
-    my $used = {};
+    # used and unused disks
+    my $referenced = {};
 
     # Note: it is allowed to define multiple storages with same path (alias), so
     # we need to check both 'volid' and real 'path' (two different volid can point
     # to the same path).
 
-    my $usedpath = {};
+    my $referencedpath = {};
 
     # update size info
     foreach my $opt (keys %$conf) {
@@ -5376,10 +5377,10 @@ sub update_disksize {
 	    my $volid = $drive->{file};
 	    next if !$volid;
 
-	    $used->{$volid} = 1;
+	    $referenced->{$volid} = 1;
 	    if ($volid_hash->{$volid} &&
 		(my $path = $volid_hash->{$volid}->{path})) {
-		$usedpath->{$path} = 1;
+		$referencedpath->{$path} = 1;
 	    }
 
 	    next if drive_is_cdrom($drive);
@@ -5399,21 +5400,24 @@ sub update_disksize {
 	next if $opt !~ m/^unused\d+$/;
 	my $volid = $conf->{$opt};
 	my $path = $volid_hash->{$volid}->{path} if $volid_hash->{$volid};
-	if ($used->{$volid} || ($path && $usedpath->{$path})) {
+	if ($referenced->{$volid} || ($path && $referencedpath->{$path})) {
 	    $changes = 1;
 	    delete $conf->{$opt};
 	}
+
+	$referenced->{$volid} = 1;
+	$referencedpath->{$path} = 1 if $path;
     }
 
     foreach my $volid (sort keys %$volid_hash) {
 	next if $volid =~ m/vm-$vmid-state-/;
-	next if $used->{$volid};
+	next if $referenced->{$volid};
 	my $path = $volid_hash->{$volid}->{path};
 	next if !$path; # just to be sure
-	next if $usedpath->{$path};
+	next if $referencedpath->{$path};
 	$changes = 1;
 	PVE::QemuConfig->add_unused_volume($conf, $volid);
-	$usedpath->{$path} = 1; # avoid to add more than once (aliases)
+	$referencedpath->{$path} = 1; # avoid to add more than once (aliases)
     }
 
     return $changes;
