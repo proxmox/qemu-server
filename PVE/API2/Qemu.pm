@@ -1394,7 +1394,7 @@ __PACKAGE__->register_method({
 	if ($node ne 'localhost' && $node ne PVE::INotify::nodename()) {
 	    ($remip, $family) = PVE::Cluster::remote_node_ip($node);
 	    # NOTE: kvm VNC traffic is already TLS encrypted or is known unsecure
-	    $remcmd = ['/usr/bin/ssh', '-T', '-o', 'BatchMode=yes', $remip];
+	    $remcmd = ['/usr/bin/ssh', '-e', 'none', '-T', '-o', 'BatchMode=yes', $remip];
 	} else {
 	    $family = PVE::Tools::get_host_address_family($node);
 	}
