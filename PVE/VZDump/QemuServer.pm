@@ -274,7 +274,7 @@ sub archive {
 	    $outcmd = "exec:cat";
 	}
 
-	$outcmd .= ">$filename" if !$opts->{stdout};
+	$outcmd .= " > $filename" if !$opts->{stdout};
 
 	my $cmd = ['/usr/bin/vma', 'create', '-v', '-c', $conffile];
 	push @$cmd, '-c', $firewall if -e $firewall;
