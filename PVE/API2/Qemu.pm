@@ -1429,14 +1429,22 @@ __PACKAGE__->register_method({
 
 	    if ($conf->{vga} && ($conf->{vga} =~ m/^serial\d+$/)) {
 
-		die "Websocket mode is not supported in vga serial mode!" if $websocket;
 
 		my $termcmd = [ '/usr/sbin/qm', 'terminal', $vmid, '-iface', $conf->{vga} ];
-		#my $termcmd = "/usr/bin/qm terminal -iface $conf->{vga}";
+
 		$cmd = ['/usr/bin/vncterm', '-rfbport', $port,
 			'-timeout', $timeout, '-authpath', $authpath,
-			'-perm', 'Sys.Console', '-c', @$remcmd, @$termcmd];
+			'-perm', 'Sys.Console'];
+
+		if ($param->{websocket}) {
+		    $ENV{PVE_VNC_TICKET} = $ticket; # pass ticket to vncterm
+		    push @$cmd, '-notls', '-listen', 'localhost';
+		}
+
+		push @$cmd, '-c', @$remcmd, @$termcmd;
+
 		PVE::Tools::run_command($cmd);
+
 	    } else {
 
 		$ENV{LC_PVE_TICKET} = $ticket if $websocket; # set ticket with "qm vncproxy"
