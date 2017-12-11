@@ -609,6 +609,7 @@ __PACKAGE__->register_method({
 	    { subdir => 'status' },
 	    { subdir => 'unlink' },
 	    { subdir => 'vncproxy' },
+	    { subdir => 'termproxy' },
 	    { subdir => 'migrate' },
 	    { subdir => 'resize' },
 	    { subdir => 'move' },
@@ -1479,6 +1480,100 @@ __PACKAGE__->register_method({
 	    port => $port,
 	    upid => $upid,
 	    cert => $sslcert,
+	};
+    }});
+
+__PACKAGE__->register_method({
+    name => 'termproxy',
+    path => '{vmid}/termproxy',
+    method => 'POST',
+    protected => 1,
+    permissions => {
+	check => ['perm', '/vms/{vmid}', [ 'VM.Console' ]],
+    },
+    description => "Creates a TCP proxy connections.",
+    parameters => {
+	additionalProperties => 0,
+	properties => {
+	    node => get_standard_option('pve-node'),
+	    vmid => get_standard_option('pve-vmid'),
+	    serial=> {
+		optional => 1,
+		type => 'string',
+		enum => [qw(serial0 serial1 serial2 serial3)],
+		description => "opens a serial terminal (defaults to display)",
+	    },
+	},
+    },
+    returns => {
+	additionalProperties => 0,
+	properties => {
+	    user => { type => 'string' },
+	    ticket => { type => 'string' },
+	    port => { type => 'integer' },
+	    upid => { type => 'string' },
+	},
+    },
+    code => sub {
+	my ($param) = @_;
+
+	my $rpcenv = PVE::RPCEnvironment::get();
+
+	my $authuser = $rpcenv->get_user();
+
+	my $vmid = $param->{vmid};
+	my $node = $param->{node};
+	my $serial = $param->{serial};
+
+	my $conf = PVE::QemuConfig->load_config($vmid, $node); # check if VM exists
+
+	if (!defined($serial)) {
+	    if ($conf->{vga} && $conf->{vga} =~ m/^serial\d+$/) {
+		$serial = $conf->{vga};
+	    }
+	}
+
+	my $authpath = "/vms/$vmid";
+
+	my $ticket = PVE::AccessControl::assemble_vnc_ticket($authuser, $authpath);
+
+	my ($remip, $family);
+
+	if ($node ne 'localhost' && $node ne PVE::INotify::nodename()) {
+	    ($remip, $family) = PVE::Cluster::remote_node_ip($node);
+	} else {
+	    $family = PVE::Tools::get_host_address_family($node);
+	}
+
+	my $port = PVE::Tools::next_vnc_port($family);
+
+	my $remcmd = $remip ?
+	    ['/usr/bin/ssh', '-e', 'none', '-t', $remip, '--'] : [];
+
+	my $termcmd = [ '/usr/sbin/qm', 'terminal', $vmid];
+	push @$termcmd, '-iface', $serial if $serial;
+
+	my $realcmd = sub {
+	    my $upid = shift;
+
+	    syslog('info', "starting qemu termproxy $upid\n");
+
+	    my $cmd = ['/usr/bin/termproxy', $port, '--path', $authpath,
+		       '--perm', 'VM.Console', '--'];
+	    push @$cmd, @$remcmd, @$termcmd;
+
+	    PVE::Tools::run_command($cmd);
+	};
+
+	my $upid = $rpcenv->fork_worker('vncproxy', $vmid, $authuser, $realcmd, 1);
+
+	PVE::Tools::wait_for_vnc_port($port);
+
+	return {
+	    user => $authuser,
+	    ticket => $ticket,
+	    port => $port,
+	    upid => $upid,
 	};
     }});
 
