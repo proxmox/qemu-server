@@ -1430,7 +1430,7 @@ __PACKAGE__->register_method({
 	    if ($conf->{vga} && ($conf->{vga} =~ m/^serial\d+$/)) {
 
 
-		my $termcmd = [ '/usr/sbin/qm', 'terminal', $vmid, '-iface', $conf->{vga} ];
+		my $termcmd = [ '/usr/sbin/qm', 'terminal', $vmid, '-iface', $conf->{vga}, '-escape', '0' ];
 
 		$cmd = ['/usr/bin/vncterm', '-rfbport', $port,
 			'-timeout', $timeout, '-authpath', $authpath,
@@ -1558,7 +1558,7 @@ __PACKAGE__->register_method({
 	my $remcmd = $remip ?
 	    ['/usr/bin/ssh', '-e', 'none', '-t', $remip, '--'] : [];
 
-	my $termcmd = [ '/usr/sbin/qm', 'terminal', $vmid];
+	my $termcmd = [ '/usr/sbin/qm', 'terminal', $vmid, '-escape', '0'];
 	push @$termcmd, '-iface', $serial if $serial;
 
 	my $realcmd = sub {
