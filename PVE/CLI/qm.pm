@@ -471,7 +471,13 @@ __PACKAGE__->register_method ({
 		type => 'string',
 		optional => 1,
 		enum => [qw(serial0 serial1 serial2 serial3)],
-	    }
+	    },
+	    escape => {
+		description => "Escape character.",
+		type => 'string',
+		optional => 1,
+		default => '^O',
+	    },
 	},
     },
     returns => { type => 'null'},
@@ -479,6 +485,24 @@ __PACKAGE__->register_method ({
 	my ($param) = @_;
 
 	my $vmid = $param->{vmid};
+
+	my $escape = $param->{escape} // '^O';
+	if ($escape =~ /^\^([\x40-\x7a])$/) {
+	    $escape = ord($1) & 0x1F;
+	} elsif ($escape =~ /^0x[0-9a-f]+$/i) {
+	    $escape = hex($escape);
+	} elsif ($escape =~ /^[0-9]+$/) {
+	    $escape = int($escape);
+	} else {
+	    die "invalid escape character definition: $escape\n";
+	}
+	my $escapemsg = '';
+	if ($escape) {
+	    $escapemsg = sprintf(' (press Ctrl+%c to exit)', $escape+0x40);
+	    $escape = sprintf(',escape=0x%x', $escape);
+	} else {
+	    $escape = '';
+	}
 
 	my $conf = PVE::QemuConfig->load_config ($vmid); # check if VM exists
 
@@ -501,9 +525,9 @@ __PACKAGE__->register_method ({
 
 	my $socket = "/var/run/qemu-server/${vmid}.$iface";
 
-	my $cmd = "socat UNIX-CONNECT:$socket STDIO,raw,echo=0,escape=0x0f";
+	my $cmd = "socat UNIX-CONNECT:$socket STDIO,raw,echo=0$escape";
 
-	print "starting serial terminal on interface $iface (press control-O to exit)\n";
+	print "starting serial terminal on interface ${iface}${escapemsg}\n";
 
 	system($cmd);
 
