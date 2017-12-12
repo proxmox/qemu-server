@@ -2591,6 +2591,8 @@ sub vmstatus {
     my $storecfg = PVE::Storage::config();
 
     my $list = vzlist();
+    my $defaults = load_defaults();
+
     my ($uptime) = PVE::ProcFSTools::read_proc_uptime(1);
 
     my $cpucount = $cpuinfo->{cpus} || 1;
@@ -2616,16 +2618,19 @@ sub vmstatus {
 	    $d->{maxdisk} = 0;
 	}
 
-	$d->{cpus} = ($conf->{sockets} || 1) * ($conf->{cores} || 1);
+	$d->{cpus} = ($conf->{sockets} || $defaults->{sockets})
+	    * ($conf->{cores} || $defaults->{cores});
 	$d->{cpus} = $cpucount if $d->{cpus} > $cpucount;
 	$d->{cpus} = $conf->{vcpus} if $conf->{vcpus};
 
 	$d->{name} = $conf->{name} || "VM $vmid";
-	$d->{maxmem} = $conf->{memory} ? $conf->{memory}*(1024*1024) : 0;
+	$d->{maxmem} = $conf->{memory} ? $conf->{memory}*(1024*1024)
+	    : $defaults->{memory}*(1024*1024);
 
 	if ($conf->{balloon}) {
 	    $d->{balloon_min} = $conf->{balloon}*(1024*1024);
-	    $d->{shares} = defined($conf->{shares}) ? $conf->{shares} : 1000;
+	    $d->{shares} = defined($conf->{shares}) ? $conf->{shares}
+		: $defaults->{shares};
 	}
 
 	$d->{uptime} = 0;
