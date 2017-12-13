@@ -1,3 +1,26 @@
+qemu-server (5.0-18) unstable; urgency=medium
+
+  * fix #1570: fix template backup with pigz
+
+  * fix #1471: change keyboard default to undef
+
+  * fix efi disks in raw mode not being fully writable
+
+  * qm terminal: add --escape option to change or disable the escape key
+
+  * enable vncproxy with vncterm for serial ports
+
+  * add termproxy api call
+
+  * stop adding the same disk as unused multiple times when they are reachable
+    through multiple storage definitions
+
+  * check if the guest agent actually runs before a fsfreeze-freeze/thaw
+
+  * update ostype documentation
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 13 Dec 2017 14:56:59 +0100
+
 qemu-server (5.0-17) unstable; urgency=medium
 
   * correct cpuunits range
