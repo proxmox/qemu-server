@@ -2908,20 +2908,27 @@ sub config_to_command {
 	die "uefi base image not found\n" if ! -f $OVMF_CODE;
 
 	my $path;
-	my $format = 'raw';
+	my $format;
 	if (my $efidisk = $conf->{efidisk0}) {
 	    my $d = PVE::JSONSchema::parse_property_string($efidisk_fmt, $efidisk);
 	    my ($storeid, $volname) = PVE::Storage::parse_volume_id($d->{file}, 1);
+	    $format = $d->{format};
 	    if ($storeid) {
 		$path = PVE::Storage::path($storecfg, $d->{file});
+		if (!defined($format)) {
+		    my $scfg = PVE::Storage::storage_config($storecfg, $storeid);
+		    $format = qemu_img_format($scfg, $volname);
+		}
 	    } else {
 		$path = $d->{file};
+		die "efidisk format must be specified\n"
+		    if !defined($format);
 	    }
-	    $format = $d->{format} if $d->{format};
 	} else {
 	    warn "no efidisk configured! Using temporary efivars disk.\n";
 	    $path = "/tmp/$vmid-ovmf.fd";
 	    PVE::Tools::file_copy($OVMF_VARS, $path, -s $OVMF_VARS);
+	    $format = 'raw';
 	}
 
 	push @$cmd, '-drive', "if=pflash,unit=0,format=raw,readonly,file=$OVMF_CODE";
