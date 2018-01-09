@@ -117,6 +117,12 @@ __PACKAGE__->register_method ({
 	additionalProperties => 0,
 	properties => {
 	    vmid => get_standard_option('pve-vmid', { completion => \&PVE::QemuServer::complete_vmid }),
+	    pretty => {
+		description => "Puts each option on a new line to enhance human readability",
+		type => 'boolean',
+		optional => 1,
+		default => 0,
+	    }
 	},
     },
     returns => { type => 'null'},
@@ -124,7 +130,11 @@ __PACKAGE__->register_method ({
 	my ($param) = @_;
 
 	my $storecfg = PVE::Storage::config();
-	print PVE::QemuServer::vm_commandline($storecfg, $param->{vmid}) . "\n";
+	my $cmdline = PVE::QemuServer::vm_commandline($storecfg, $param->{vmid});
+
+	$cmdline =~ s/ -/ \\\n-/g if $param->{pretty};
+
+	print "$cmdline\n";
 
 	return undef;
     }});
