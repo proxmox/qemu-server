@@ -1,3 +1,11 @@
+qemu-server (4.0-114) unstable; urgency=medium
+
+  * add 'flags' property to cpu option to allow passing PCID support to VMs
+
+  * make ssh connection transparent
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 9 Jan 2018 15:52:39 +0100
+
 qemu-server (4.0-113) unstable; urgency=medium
 
   * live storage migration : fix check of target storage availability
