@@ -151,6 +151,16 @@ my $cpu_fmt = {
 	optional => 1,
 	default => 0
     },
+    flags => {
+	description => "Override CPU flags. Currently only the 'pcid' flag is supported."
+		     . " Use '+pcid' or '-pcid' to enable or disable."
+		     . " This takes precedence over flags coming from the cpu type or changed implicitly via the OS type.",
+	format_description => 'flaglist',
+	type => 'string',
+	pattern => '[+-]pcid',
+	optional => 1,
+	default => '',
+    },
 };
 
 my $watchdog_fmt = {
@@ -3081,6 +3091,10 @@ sub config_to_command {
 	    or die "Cannot parse cpu description: $cputype\n";
 	$cpu = $cpuconf->{cputype};
 	$kvm_off = 1 if $cpuconf->{hidden};
+
+	if (defined(my $flags = $cpuconf->{flags})) {
+	    push @$cpuFlags, $flags;
+	}
     }
 
     push @$cpuFlags , '+lahf_lm' if $cpu eq 'kvm64';
