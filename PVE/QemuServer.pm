@@ -4688,7 +4688,8 @@ sub vm_start {
 	my $cpuunits = defined($conf->{cpuunits}) ? $conf->{cpuunits}
 	                                          : $defaults->{cpuunits};
 
-	my %run_params = (timeout => $statefile ? undef : 30, umask => 0077);
+	my $start_timeout = $conf->{hugepages} ? 300 : 30;
+	my %run_params = (timeout => $statefile ? undef : $start_timeout, umask => 0077);
 
 	my %properties = (
 	    Slice => 'qemu.slice',
