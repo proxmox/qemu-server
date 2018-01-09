@@ -1,3 +1,13 @@
+qemu-server (5.0-19) unstable; urgency=medium
+
+  * add 'flags' property to cpu option to allow passing PCID support to VMs
+
+  * fix efi disk format detection
+
+  * use default values from load_defaults() when none is specified in conf
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 9 Jan 2018 15:49:35 +0100
+
 qemu-server (5.0-18) unstable; urgency=medium
 
   * fix #1570: fix template backup with pigz
