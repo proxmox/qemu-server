@@ -132,7 +132,7 @@ __PACKAGE__->register_method ({
 	my $storecfg = PVE::Storage::config();
 	my $cmdline = PVE::QemuServer::vm_commandline($storecfg, $param->{vmid});
 
-	$cmdline =~ s/ -/ \\\n-/g if $param->{pretty};
+	$cmdline =~ s/ -/ \\\n  -/g if $param->{pretty};
 
 	print "$cmdline\n";
 
