@@ -148,6 +148,8 @@ my $cpu_vendor_list = {
     max => 'default',
 };
 
+my $cpu_flag = qr/[+-](pcid|spec-ctrl)/;
+
 my $cpu_fmt = {
     cputype => {
 	description => "Emulated CPU type.",
@@ -163,14 +165,13 @@ my $cpu_fmt = {
 	default => 0
     },
     flags => {
-	description => "Override CPU flags. Currently only the 'pcid' flag is supported."
-		     . " Use '+pcid' or '-pcid' to enable or disable."
-		     . " This takes precedence over flags coming from the cpu type or changed implicitly via the OS type.",
-	format_description => 'flaglist',
+	description => "List of additional CPU flags separated by ';'."
+		     . " Use '+FLAG' to enable, '-FLAG' to disable a flag."
+		     . " Currently supported flags: 'pcid', 'spec-ctrl'.",
+	format_description => '+FLAG[;-FLAG...]',
 	type => 'string',
-	pattern => '[+-]pcid',
+	pattern => qr/$cpu_flag(;$cpu_flag)*/,
 	optional => 1,
-	default => '',
     },
 };
 
@@ -3167,7 +3168,7 @@ sub config_to_command {
 	$kvm_off = 1 if $cpuconf->{hidden};
 
 	if (defined(my $flags = $cpuconf->{flags})) {
-	    push @$cpuFlags, $flags;
+	    push @$cpuFlags, split(";", $flags);
 	}
     }
 
