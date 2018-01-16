@@ -128,6 +128,8 @@ my $cpu_vendor_list = {
     'Broadwell-noTSX-IBRS' => 'GenuineIntel',
     'Skylake-Client' => 'GenuineIntel',
     'Skylake-Client-IBRS' => 'GenuineIntel',
+    'Skylake-Server' => 'GenuineIntel',
+    'Skylake-Server-IBRS' => 'GenuineIntel',
 
     # AMD CPUs
     athlon => 'AuthenticAMD',
@@ -144,6 +146,7 @@ my $cpu_vendor_list = {
     kvm64 => 'default',
     qemu32 => 'default',
     qemu64 => 'default',
+    max => 'default',
 };
 
 my $cpu_fmt = {
