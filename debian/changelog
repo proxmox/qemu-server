@@ -1,3 +1,18 @@
+qemu-server (5.0-20) unstable; urgency=medium
+
+  * added spec-ctrl flag to cpu 'flags' property
+
+  * added -IBRS cpu type variants
+
+  * added Skylake-Server cpu type
+
+  * added --pretty option to 'qm showcmd'
+
+  * increase start timeout when hugepages are enabled to compensate for long
+    allocation times
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 16 Jan 2018 14:26:30 +0100
+
 qemu-server (5.0-19) unstable; urgency=medium
 
   * add 'flags' property to cpu option to allow passing PCID support to VMs
