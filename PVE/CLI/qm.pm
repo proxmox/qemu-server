@@ -286,7 +286,7 @@ __PACKAGE__->register_method ({
 	$tunnel_write->("tunnel online");
 	$tunnel_write->("ver 1");
 
-	while (my $line = <>) {
+	while (my $line = <STDIN>) {
 	    chomp $line;
 	    if ($line =~ /^quit$/) {
 		$tunnel_write->("OK");
