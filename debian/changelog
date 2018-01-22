@@ -1,3 +1,10 @@
+qemu-server (5.0-21) unstable; urgency=medium
+
+  * fix a case where with the upcoming introduction of sub-commands the spice
+    ticket could be read from a file rather than received via stdin
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 22 Jan 2018 15:13:23 +0100
+
 qemu-server (5.0-20) unstable; urgency=medium
 
   * added spec-ctrl flag to cpu 'flags' property
