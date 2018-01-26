@@ -2668,6 +2668,8 @@ sub vmstatus {
 
         $d->{template} = PVE::QemuConfig->is_template($conf);
 
+	$d->{serial} = 1 if conf_has_serial($conf);
+
 	$res->{$vmid} = $d;
     }
 
@@ -2860,6 +2862,18 @@ sub foreach_volid {
     foreach my $volid (keys %$volhash) {
 	&$func($volid, $volhash->{$volid}, @param);
     }
+}
+
+sub conf_has_serial {
+    my ($conf) = @_;
+
+    for (my $i = 0; $i < $MAX_SERIAL_PORTS; $i++)  {
+	if ($conf->{"serial$i"}) {
+	    return 1;
+	}
+    }
+
+    return 0;
 }
 
 sub vga_conf_has_spice {
