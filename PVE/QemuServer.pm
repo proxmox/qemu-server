@@ -5347,6 +5347,13 @@ sub restore_update_config_line {
 	} else {
 	    print $outfd $line;
 	}
+    } elsif (($line =~ m/^(smbios1: )(.*)/) && $unique) {
+	my ($uuid, $uuid_str);
+	UUID::generate($uuid);
+	UUID::unparse($uuid, $uuid_str);
+	my $smbios1 = parse_smbios1($2);
+	$smbios1->{uuid} = $uuid_str;
+	print $outfd $1.print_smbios1($smbios1)."\n";
     } else {
 	print $outfd $line;
     }
