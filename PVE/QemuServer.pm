@@ -1624,7 +1624,7 @@ sub print_drive_full {
     my $opts = '';
     my @qemu_drive_options = qw(heads secs cyls trans media format cache rerror werror aio discard);
     foreach my $o (@qemu_drive_options) {
-	$opts .= ",$o=$drive->{$o}" if $drive->{$o};
+	$opts .= ",$o=$drive->{$o}" if defined($drive->{$o});
     }
 
     # snapshot only accepts on|off
