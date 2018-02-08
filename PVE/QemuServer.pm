@@ -753,7 +753,9 @@ my %drivedesc_base = (
     },
     snapshot => {
 	type => 'boolean',
-	description => "Whether the drive should be included when making snapshots.",
+	description => "Controls qemu's snapshot mode feature."
+	    . " If activated, changes made to the disk are temporary and will"
+	    . " be discarded when the VM is shutdown.",
 	optional => 1,
     },
     cache => {
