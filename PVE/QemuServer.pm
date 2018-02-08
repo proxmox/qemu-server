@@ -1622,10 +1622,17 @@ sub print_drive_full {
    }
 
     my $opts = '';
-    my @qemu_drive_options = qw(heads secs cyls trans media format cache snapshot rerror werror aio discard);
+    my @qemu_drive_options = qw(heads secs cyls trans media format cache rerror werror aio discard);
     foreach my $o (@qemu_drive_options) {
 	$opts .= ",$o=$drive->{$o}" if $drive->{$o};
     }
+
+    # snapshot only accepts on|off
+    if (defined($drive->{snapshot})) {
+	my $v = $drive->{snapshot} ? 'on' : 'off';
+	$opts .= ",snapshot=$v";
+    }
+
     foreach my $type (['', '-total'], [_rd => '-read'], [_wr => '-write']) {
 	my ($dir, $qmpname) = @$type;
 	if (my $v = $drive->{"mbps$dir"}) {
