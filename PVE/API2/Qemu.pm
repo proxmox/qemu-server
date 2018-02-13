@@ -1760,6 +1760,8 @@ __PACKAGE__->register_method({
 
 	$status->{spice} = 1 if PVE::QemuServer::vga_conf_has_spice($conf->{vga});
 
+	$status->{agent} = 1 if $conf->{agent};
+
 	return $status;
     }});
 
