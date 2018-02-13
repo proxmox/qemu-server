@@ -20,6 +20,7 @@ use PVE::QemuServer;
 use PVE::QemuServer::ImportDisk;
 use PVE::QemuServer::OVF;
 use PVE::API2::Qemu;
+use PVE::API2::Qemu::Agent;
 use JSON;
 use PVE::JSONSchema qw(get_standard_option);
 use Term::ReadLine;
@@ -786,7 +787,7 @@ our $cmddef = {
 
     monitor  => [ __PACKAGE__, 'monitor', ['vmid']],
 
-    agent  => [ "PVE::API2::Qemu", 'agent', ['vmid', 'command'],
+    agent  => [ "PVE::API2::Qemu::Agent", 'agent', ['vmid', 'command'],
 		{ node => $nodename }, $print_agent_result ],
 
     mtunnel => [ __PACKAGE__, 'mtunnel', []],
