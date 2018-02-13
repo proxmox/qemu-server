@@ -692,6 +692,8 @@ sub phase2 {
     # set cachesize to 10% of the total memory
     my $memory =  $conf->{memory} || $defaults->{memory};
     my $cachesize = int($memory * 1048576 / 10);
+    $cachesize = round_powerof2($cachesize);
+
     $self->log('info', "set cachesize: $cachesize");
     eval {
 	PVE::QemuServer::vm_mon_cmd_nocheck($vmid, "migrate-set-cache-size", value => int($cachesize));
@@ -1030,6 +1032,11 @@ sub final_cleanup {
     my ($self, $vmid) = @_;
 
     # nothing to do
+}
+
+sub round_powerof2 {
+    return 1 if $_[0] < 2;
+    return 2 << int(log($_[0]-1)/log(2));
 }
 
 1;
