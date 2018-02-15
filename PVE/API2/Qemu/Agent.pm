@@ -63,6 +63,44 @@ my $guest_agent_commands = {
     },
 };
 
+__PACKAGE__->register_method({
+    name => 'index',
+    path => '',
+    proxyto => 'node',
+    method => 'GET',
+    description => "Qemu Agent command index.",
+    permissions => {
+	user => 'all',
+    },
+    parameters => {
+	additionalProperties => 1,
+	properties => {
+	    node => get_standard_option('pve-node'),
+	    vmid => get_standard_option('pve-vmid', {
+                   completion => \&PVE::QemuServer::complete_vmid_running }),
+	},
+    },
+    returns => {
+	type => 'array',
+	items => {
+	    type => "object",
+	    properties => {},
+	},
+	links => [ { rel => 'child', href => '{name}' } ],
+	description => "Returns the list of Qemu Agent commands",
+    },
+    code => sub {
+	my ($param) = @_;
+
+	my $result = [];
+
+	for my $cmd (sort keys %$guest_agent_commands) {
+	    push @$result, { name => $cmd };
+	}
+
+	return $result;
+    }});
+
 sub register_command {
     my ($class, $command, $method, $perm) = @_;
 
