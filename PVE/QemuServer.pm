@@ -819,6 +819,13 @@ my %drivedesc_base = (
 	maxLength => 20*3, # *3 since it's %xx url enoded
 	description => "The drive's reported serial number, url-encoded, up to 20 bytes long.",
 	optional => 1,
+    },
+    shared => {
+	type => 'boolean',
+	description => 'Mark this locally-managed volume as available on all nodes',
+	verbose_description => "Mark this locally-managed volume as available on all nodes.\n\nWARNING: This option does not share the volume automatically, it assumes it is shared already!",
+	optional => 1,
+	default => 0,
     }
 );
 
@@ -2837,7 +2844,7 @@ sub foreach_volid {
     my $volhash = {};
 
     my $test_volid = sub {
-	my ($volid, $is_cdrom, $replicate, $snapname) = @_;
+	my ($volid, $is_cdrom, $replicate, $shared, $snapname) = @_;
 
 	return if !$volid;
 
@@ -2846,6 +2853,9 @@ sub foreach_volid {
 
 	$volhash->{$volid}->{replicate} //= 0;
 	$volhash->{$volid}->{replicate} = 1 if $replicate;
+
+	$volhash->{$volid}->{shared} //= 0;
+	$volhash->{$volid}->{shared} = 1 if $shared;
 
 	$volhash->{$volid}->{referenced_in_config} //= 0;
 	$volhash->{$volid}->{referenced_in_config} = 1 if !defined($snapname);
@@ -2856,7 +2866,7 @@ sub foreach_volid {
 
     foreach_drive($conf, sub {
 	my ($ds, $drive) = @_;
-	$test_volid->($drive->{file}, drive_is_cdrom($drive), $drive->{replicate} // 1, undef);
+	$test_volid->($drive->{file}, drive_is_cdrom($drive), $drive->{replicate} // 1, $drive->{shared}, undef);
     });
 
     foreach my $snapname (keys %{$conf->{snapshots}}) {
@@ -2864,7 +2874,7 @@ sub foreach_volid {
 	$test_volid->($snap->{vmstate}, 0, 1, $snapname);
 	foreach_drive($snap, sub {
 	    my ($ds, $drive) = @_;
-	    $test_volid->($drive->{file}, drive_is_cdrom($drive), $drive->{replicate} // 1, $snapname);
+	    $test_volid->($drive->{file}, drive_is_cdrom($drive), $drive->{replicate} // 1, $drive->{shared}, $snapname);
         });
     }
 

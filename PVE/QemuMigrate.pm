@@ -318,6 +318,7 @@ sub sync_disks {
 	    my ($volid, $attr) = @_;
 
 	    if ($volid =~ m|^/|) {
+		return if $attr->{shared};
 		$local_volumes->{$volid}->{ref} = 'config';
 		die "local file/device\n";
 	    }
