@@ -17,10 +17,10 @@ my $guest_agent_commands = {
 	method => 'POST',
     },
     'get-time' => {
-	method => 'POST',
+	method => 'GET',
     },
     'info' => {
-	method => 'POST',
+	method => 'GET',
     },
     'fsfreeze-status' => {
 	method => 'POST',
@@ -35,19 +35,19 @@ my $guest_agent_commands = {
 	method => 'POST',
     },
     'network-get-interfaces' => {
-	method => 'POST',
+	method => 'GET',
     },
     'get-vcpus' => {
-	method => 'POST',
+	method => 'GET',
     },
     'get-fsinfo' => {
-	method => 'POST',
+	method => 'GET',
     },
     'get-memory-blocks' => {
-	method => 'POST',
+	method => 'GET',
     },
     'get-memory-block-info' => {
-	method => 'POST',
+	method => 'GET',
     },
     'suspend-hybrid' => {
 	method => 'POST',
