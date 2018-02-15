@@ -61,6 +61,19 @@ my $guest_agent_commands = {
     'shutdown' => {
 	method => 'POST',
     },
+    # added since qemu 2.9
+    'get-host-name' => {
+	method => 'GET',
+    },
+    'get-osinfo' => {
+	method => 'GET',
+    },
+    'get-users' => {
+	method => 'GET',
+    },
+    'get-timezone' => {
+	method => 'GET',
+    },
 };
 
 __PACKAGE__->register_method({
