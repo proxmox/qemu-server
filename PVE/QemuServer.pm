@@ -6062,31 +6062,8 @@ sub qemu_drive_mirror {
     $jobs->{"drive-$drive"} = {};
 
     if ($dst_volid =~ /^nbd:(localhost|[\d\.]+|\[[\d\.:a-fA-F]+\]):(\d+):exportname=(\S+)/) {
-	my $server = $1;
-	my $port = $2;
-	my $exportname = $3;
-
+	$qemu_target = $dst_volid;
 	$format = "nbd";
-	my $unixsocket = "/run/qemu-server/$vmid.mirror-drive-$drive";
-	$qemu_target = "nbd+unix:///$exportname?socket=$unixsocket";
-	my $cmd = ['socat', '-T30', "UNIX-LISTEN:$unixsocket,fork", "TCP:$server:$2,connect-timeout=5"];
-
-	my $pid = fork();
-	if (!defined($pid)) {
-	    die "forking socat tunnel failed\n";
-	} elsif ($pid == 0) {
-	    exec(@$cmd);
-	    warn "exec failed: $!\n";
-	    POSIX::_exit(-1);
-	}
-	$jobs->{"drive-$drive"}->{pid} = $pid;
-
-	my $timeout = 0;
-	while (!-S $unixsocket) {
-	    die "nbd connection helper timed out\n"
-		if $timeout++ > 5;
-	    sleep 1;
-	}
     } else {
 	my $storecfg = PVE::Storage::config();
 	my ($dst_storeid, $dst_volname) = PVE::Storage::parse_volume_id($dst_volid);
@@ -6198,7 +6175,6 @@ sub qemu_drive_mirror_monitor {
 			}else {
 			    print "$job: Completed successfully.\n";
 			    $jobs->{$job}->{complete} = 1;
-			    eval { qemu_blockjobs_finish_tunnel($vmid, $job, $jobs->{$job}->{pid}) } ;
 			}
 		    }
 		}
@@ -6236,7 +6212,6 @@ sub qemu_blockjobs_cancel {
 
 	    if (defined($jobs->{$job}->{cancel}) && !defined($running_jobs->{$job})) {
 		print "$job: Done.\n";
-		eval { qemu_blockjobs_finish_tunnel($vmid, $job, $jobs->{$job}->{pid}) } ;
 		delete $jobs->{$job};
 	    }
 	}
@@ -6245,25 +6220,6 @@ sub qemu_blockjobs_cancel {
 
 	sleep 1;
     }
-}
-
-sub qemu_blockjobs_finish_tunnel {
-   my ($vmid, $job, $cpid) = @_;
-
-   return if !$cpid;
-
-   for (my $i = 1; $i < 20; $i++) {
-	my $waitpid = waitpid($cpid, WNOHANG);
-	last if (defined($waitpid) && ($waitpid == $cpid));
- 
-	if ($i == 10) {
-	    kill(15, $cpid);
-	} elsif ($i >= 15) {
-	    kill(9, $cpid);
-	}
-	sleep (1);
-    }
-    unlink "/run/qemu-server/$vmid.mirror-$job";
 }
 
 sub clone_disk {
