@@ -6061,7 +6061,7 @@ sub qemu_drive_mirror {
     my $format;
     $jobs->{"drive-$drive"} = {};
 
-    if ($dst_volid =~ /^nbd:(localhost|[\d\.]+|\[[\d\.:a-fA-F]+\]):(\d+):exportname=(\S+)/) {
+    if ($dst_volid =~ /^nbd:/) {
 	$qemu_target = $dst_volid;
 	$format = "nbd";
     } else {
