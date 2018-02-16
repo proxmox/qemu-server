@@ -9,68 +9,134 @@ use PVE::QemuServer;
 
 use base qw(PVE::RESTHandler);
 
-my $guest_agent_commands = [
-    'ping',
-    'get-time',
-    'info',
-    'fsfreeze-status',
-    'fsfreeze-freeze',
-    'fsfreeze-thaw',
-    'fstrim',
-    'network-get-interfaces',
-    'get-vcpus',
-    'get-fsinfo',
-    'get-memory-blocks',
-    'get-memory-block-info',
-    'suspend-hybrid',
-    'suspend-ram',
-    'suspend-disk',
-    'shutdown',
-    ];
-
-__PACKAGE__->register_method({
-    name => 'agent',
-    path => '',
-    method => 'POST',
-    protected => 1,
-    proxyto => 'node',
-    description => "Execute Qemu Guest Agent commands.",
-    permissions => {
-	check => ['perm', '/vms/{vmid}', [ 'VM.Monitor' ]],
+# list of commands
+# will generate one api endpoint per command
+# needs a 'method' property and optionally a 'perms' property (default VM.Monitor)
+my $guest_agent_commands = {
+    'ping' => {
+	method => 'POST',
     },
-    parameters => {
+    'get-time' => {
+	method => 'POST',
+    },
+    'info' => {
+	method => 'POST',
+    },
+    'fsfreeze-status' => {
+	method => 'POST',
+    },
+    'fsfreeze-freeze' => {
+	method => 'POST',
+    },
+    'fsfreeze-thaw' => {
+	method => 'POST',
+    },
+    'fstrim' => {
+	method => 'POST',
+    },
+    'network-get-interfaces' => {
+	method => 'POST',
+    },
+    'get-vcpus' => {
+	method => 'POST',
+    },
+    'get-fsinfo' => {
+	method => 'POST',
+    },
+    'get-memory-blocks' => {
+	method => 'POST',
+    },
+    'get-memory-block-info' => {
+	method => 'POST',
+    },
+    'suspend-hybrid' => {
+	method => 'POST',
+    },
+    'suspend-ram' => {
+	method => 'POST',
+    },
+    'suspend-disk' => {
+	method => 'POST',
+    },
+    'shutdown' => {
+	method => 'POST',
+    },
+};
+
+sub register_command {
+    my ($class, $command, $method, $perm) = @_;
+
+    die "no method given\n" if !$method;
+    die "no command given\n" if !defined($command);
+
+    my $permission;
+
+    if (ref($perm) eq 'HASH') {
+	$permission = $perm;
+    } else {
+	$perm //= 'VM.Monitor';
+	$permission = { check => [ 'perm', '/vms/{vmid}', [ $perm ]]};
+    }
+
+    my $parameters = {
 	additionalProperties => 0,
 	properties => {
 	    node => get_standard_option('pve-node'),
 	    vmid => get_standard_option('pve-vmid', {
-                   completion => \&PVE::QemuServer::complete_vmid_running }),
+		    completion => \&PVE::QemuServer::complete_vmid_running }),
 	    command => {
 		type => 'string',
 		description => "The QGA command.",
-		enum => $guest_agent_commands,
+		enum => [ sort keys %$guest_agent_commands ],
 	    },
 	},
-    },
-    returns => {
-	type => 'object',
-	description => "Returns an object with a single `result` property. The type of that
-property depends on the executed command.",
-    },
-    code => sub {
-	my ($param) = @_;
+    };
 
-	my $vmid = $param->{vmid};
+    my $description = "Execute Qemu Guest Agent commands.";
+    my $name = 'agent';
 
-	my $conf = PVE::QemuConfig->load_config ($vmid); # check if VM exists
+    if ($command ne '') {
+	$description = "Execute $command.";
+	$name = $command;
+	delete $parameters->{properties}->{command};
+    }
 
-	die "No Qemu Guest Agent\n" if !defined($conf->{agent});
-	die "VM $vmid is not running\n" if !PVE::QemuServer::check_running($vmid);
+    __PACKAGE__->register_method({
+	name => $name,
+	path => $command,
+	method => $method,
+	protected => 1,
+	proxyto => 'node',
+	description => $description,
+	permissions => $permission,
+	parameters => $parameters,
+	returns => {
+	    type => 'object',
+	    description => "Returns an object with a single `result` property.",
+	},
+	code => sub {
+	    my ($param) = @_;
 
-	my $cmd = $param->{command};
+	    my $vmid = $param->{vmid};
 
-	my $res = PVE::QemuServer::vm_mon_cmd($vmid, "guest-$cmd");
+	    my $conf = PVE::QemuConfig->load_config ($vmid); # check if VM exists
 
-	return { result => $res };
-    }});
+	    die "No Qemu Guest Agent\n" if !defined($conf->{agent});
+	    die "VM $vmid is not running\n" if !PVE::QemuServer::check_running($vmid);
+
+	    my $cmd = $param->{command} // $command;
+	    my $res = PVE::QemuServer::vm_mon_cmd($vmid, "guest-$cmd");
+
+	    return { result => $res };
+	}});
+}
+
+# old {vmid}/agent POST endpoint, here for compatibility
+__PACKAGE__->register_command('', 'POST');
+
+for my $cmd (sort keys %$guest_agent_commands) {
+    my $props = $guest_agent_commands->{$cmd};
+    __PACKAGE__->register_command($cmd, $props->{method}, $props->{perms});
+}
 
 1;
