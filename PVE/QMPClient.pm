@@ -92,6 +92,7 @@ sub cmd {
     my $callback = sub {
 	my ($vmid, $resp) = @_;
 	$result = $resp->{'return'};
+	$result = { error => $resp->{'error'} } if !defined($result) && $resp->{'error'};
     };
 
     die "no command specified" if !($cmd && $cmd->{execute});
