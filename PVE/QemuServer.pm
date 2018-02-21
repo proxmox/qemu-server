@@ -3644,10 +3644,6 @@ sub vm_deviceunplug {
 
     } elsif ($deviceid =~ m/^(scsi)(\d+)$/) {
 
-	#qemu 2.3 segfault on drive_del with virtioscsi + iothread
-	my $device = parse_drive($deviceid, $conf->{$deviceid});
-	die "virtioscsi with iothread is not hot-unplugglable currently" if $device->{iothread};
-
         qemu_devicedel($vmid, $deviceid);
         qemu_drivedel($vmid, $deviceid);
 	qemu_deletescsihw($conf, $vmid, $deviceid);
