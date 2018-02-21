@@ -651,7 +651,7 @@ sub phase2 {
 	    if (scalar(keys %{$self->{target_drive}}) != scalar @{$self->{online_local_volumes}});
 	foreach my $drive (keys %{$self->{target_drive}}){
 	    my $nbd_uri = $self->{target_drive}->{$drive}->{nbd_uri};
-	    $self->log('info', "$drive: start migration to to $nbd_uri");
+	    $self->log('info', "$drive: start migration to $nbd_uri");
 	    PVE::QemuServer::qemu_drive_mirror($vmid, $drive, $nbd_uri, $vmid, undef, $self->{storage_migration_jobs}, 1);
 	}
     }
