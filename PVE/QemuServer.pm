@@ -138,6 +138,8 @@ my $cpu_vendor_list = {
     Opteron_G3  => 'AuthenticAMD',
     Opteron_G4  => 'AuthenticAMD',
     Opteron_G5  => 'AuthenticAMD',
+    EPYC => 'AuthenticAMD',
+    'EPYC-IBPB' => 'AuthenticAMD',
 
     # generic types, use vendor from host node
     host => 'default',
