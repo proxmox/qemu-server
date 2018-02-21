@@ -1,3 +1,28 @@
+qemu-server (5.0-22) unstable; urgency=medium
+
+  * fix #1664: nbd mirror: remove socat tunnel now that it is not required
+    anymore to avoid a 30s inactivity timeout
+
+  * fix #1569: add shared flag to disks
+
+  * fix #1662: make the 'snapshot' disk parameter work again
+
+  * correct 'snapshot' flag description
+
+  * CPU types: add EPYC and EPYC-IBPB
+
+  * forward returned errors from guest-agent commands
+
+  * add new guest-agent commands and add commands as separate api calls
+
+  * add agent flag to vm status api call
+
+  * clone/restore: make the smbios UUID unique if --unique is used
+
+  * add serial:1 to vm-status when config has a serial device configured
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 21 Feb 2018 09:56:08 +0100
+
 qemu-server (5.0-21) unstable; urgency=medium
 
   * fix a case where with the upcoming introduction of sub-commands the spice
