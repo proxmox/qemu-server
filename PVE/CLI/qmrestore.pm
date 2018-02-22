@@ -53,6 +53,12 @@ __PACKAGE__->register_method({
 		type => 'string', format => 'pve-poolid',
 		description => "Add the VM to the specified pool.",
 	    },
+	    bwlimit => {
+		description => "Override io bandwidth.",
+		optional => 1,
+		type => 'number',
+		minimum => '0',
+	    }
 	},
     },
     returns => { 

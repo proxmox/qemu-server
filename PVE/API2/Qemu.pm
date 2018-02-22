@@ -430,6 +430,12 @@ __PACKAGE__->register_method({
 		    type => 'string', format => 'pve-poolid',
 		    description => "Add the VM to the specified pool.",
 		},
+		bwlimit => {
+		    description => "Override io bandwidth.",
+		    optional => 1,
+		    type => 'integer',
+		    minimum => '0',
+		}
 	    }),
     },
     returns => {
@@ -455,6 +461,8 @@ __PACKAGE__->register_method({
 	my $unique = extract_param($param, 'unique');
 
 	my $pool = extract_param($param, 'pool');
+
+	my $bwlimit = extract_param($param, 'bwlimit');
 
 	my $filename = PVE::QemuConfig->config_file($vmid);
 
@@ -543,7 +551,8 @@ __PACKAGE__->register_method({
 		PVE::QemuServer::restore_archive($archive, $vmid, $authuser, {
 		    storage => $storage,
 		    pool => $pool,
-		    unique => $unique });
+		    unique => $unique,
+		    bwlimit => $bwlimit, });
 
 		PVE::AccessControl::add_vm_to_pool($vmid, $pool) if $pool;
 	    };

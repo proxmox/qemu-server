@@ -5635,21 +5635,52 @@ sub rescan {
 sub restore_vma_archive {
     my ($archive, $vmid, $user, $opts, $comp) = @_;
 
-    my $input = $archive eq '-' ? "<&STDIN" : undef;
     my $readfrom = $archive;
 
-    my $uncomp = '';
-    if ($comp) {
+    my $cfg = PVE::Storage::config();
+    my $commands = [];
+    my $bwlimit = $opts->{bwlimit};
+
+    my $dbg_cmdstring = '';
+    my $add_pipe = sub {
+	my ($cmd) = @_;
+	push @$commands, $cmd;
+	$dbg_cmdstring .= ' | ' if length($dbg_cmdstring);
+	$dbg_cmdstring .= PVE::Tools::cmd2string($cmd);
 	$readfrom = '-';
-	my $qarchive = PVE::Tools::shellquote($archive);
+    };
+
+    my $input = undef;
+    if ($archive eq '-') {
+	$input = '<&STDIN';
+    } else {
+	# If we use a backup from a PVE defined storage we also consider that
+	# storage's rate limit:
+	my (undef, $volid) = PVE::Storage::path_to_volume_id($cfg, $archive);
+	if (defined($volid)) {
+	    my ($sid, undef) = PVE::Storage::parse_volume_id($volid);
+	    my $readlimit = PVE::Storage::get_bandwidth_limit('restore', [$sid], $bwlimit);
+	    if ($readlimit) {
+		print STDERR "applying read rate limit: $readlimit\n";
+		my $cstream = ['cstream', '-t', $readlimit*1024];
+		if ($readfrom ne '-') {
+		    push @$cstream, '--', $readfrom;
+		}
+		$add_pipe->($cstream);
+	    }
+	}
+    }
+
+    if ($comp) {
+	my $cmd;
 	if ($comp eq 'gzip') {
-	    $uncomp = "zcat $qarchive|";
+	    $cmd = ['zcat', $readfrom];
 	} elsif ($comp eq 'lzop') {
-	    $uncomp = "lzop -d -c $qarchive|";
+	    $cmd = ['lzop', '-d', '-c', $readfrom];
 	} else {
 	    die "unknown compression method '$comp'\n";
 	}
-
+	$add_pipe->($cmd);
     }
 
     my $tmpdir = "/var/tmp/vzdumptmp$$";
@@ -5669,7 +5700,7 @@ sub restore_vma_archive {
 	open($fifofh, '>', $mapfifo) || die $!;
     };
 
-    my $cmd = "${uncomp}vma extract -v -r $mapfifo $readfrom $tmpdir";
+    $add_pipe->(['vma', 'extract', '-v', '-r', $mapfifo, $readfrom, $tmpdir]);
 
     my $oldtimeout;
     my $timeout = 5;
@@ -5684,6 +5715,8 @@ sub restore_vma_archive {
     # Note: $oldconf is undef if VM does not exists
     my $cfs_path = PVE::QemuConfig->cfs_config_path($vmid);
     my $oldconf = PVE::Cluster::cfs_read_file($cfs_path);
+
+    my %storage_limits;
 
     my $print_devmap = sub {
 	my $virtdev_hash = {};
@@ -5723,16 +5756,23 @@ sub restore_vma_archive {
 		    $rpcenv->check($user, "/storage/$storeid", ['Datastore.AllocateSpace']);
 		}
 
+		$storage_limits{$storeid} = $bwlimit;
+
 		$virtdev_hash->{$virtdev} = $devinfo->{$devname};
 	    }
+	}
+
+	foreach my $key (keys %storage_limits) {
+	    my $limit = PVE::Storage::get_bandwidth_limit('restore', [$key], $bwlimit);
+	    next if !$limit;
+	    print STDERR "rate limit for storage $key: $limit KiB/s\n";
+	    $storage_limits{$key} = $limit * 1024;
 	}
 
 	foreach my $devname (keys %$devinfo) {
 	    die "found no device mapping information for device '$devname'\n"
 		if !$devinfo->{$devname}->{virtdev};
 	}
-
-	my $cfg = PVE::Storage::config();
 
 	# create empty/temp config
 	if ($oldconf) {
@@ -5776,14 +5816,20 @@ sub restore_vma_archive {
 	foreach my $virtdev (sort keys %$virtdev_hash) {
 	    my $d = $virtdev_hash->{$virtdev};
 	    my $alloc_size = int(($d->{size} + 1024 - 1)/1024);
-	    my $scfg = PVE::Storage::storage_config($cfg, $d->{storeid});
+	    my $storeid = $d->{storeid};
+	    my $scfg = PVE::Storage::storage_config($cfg, $storeid);
+
+	    my $map_opts = '';
+	    if (my $limit = $storage_limits{$storeid}) {
+		$map_opts .= "throttling.bps=$limit:throttling.group=$storeid:";
+	    }
 
 	    # test if requested format is supported
-	    my ($defFormat, $validFormats) = PVE::Storage::storage_default_format($cfg, $d->{storeid});
+	    my ($defFormat, $validFormats) = PVE::Storage::storage_default_format($cfg, $storeid);
 	    my $supported = grep { $_ eq $d->{format} } @$validFormats;
 	    $d->{format} = $defFormat if !$supported;
 
-	    my $volid = PVE::Storage::vdisk_alloc($cfg, $d->{storeid}, $vmid,
+	    my $volid = PVE::Storage::vdisk_alloc($cfg, $storeid, $vmid,
 						  $d->{format}, undef, $alloc_size);
 	    print STDERR "new volume ID is '$volid'\n";
 	    $d->{volid} = $volid;
@@ -5796,7 +5842,7 @@ sub restore_vma_archive {
 		$write_zeros = 0;
 	    }
 
-	    print $fifofh "format=$d->{format}:${write_zeros}:$d->{devname}=$path\n";
+	    print $fifofh "${map_opts}format=$d->{format}:${write_zeros}:$d->{devname}=$path\n";
 
 	    print "map '$d->{devname}' to '$path' (write zeros = ${write_zeros})\n";
 	    $map->{$virtdev} = $volid;
@@ -5849,8 +5895,8 @@ sub restore_vma_archive {
 	    }
 	};
 
-	print "restore vma archive: $cmd\n";
-	run_command($cmd, input => $input, outfunc => $parser, afterfork => $openfifo);
+	print "restore vma archive: $dbg_cmdstring\n";
+	run_command($commands, input => $input, outfunc => $parser, afterfork => $openfifo);
     };
     my $err = $@;
 
@@ -5862,7 +5908,6 @@ sub restore_vma_archive {
 	push @$vollist, $volid if $volid;
     }
 
-    my $cfg = PVE::Storage::config();
     PVE::Storage::deactivate_volumes($cfg, $vollist);
 
     unlink $mapfifo;
