@@ -11,36 +11,14 @@ use PVE::Tools qw(run_command file_set_contents);
 use PVE::Storage;
 use PVE::QemuServer;
 
-sub nbd_stop {
-    my ($vmid) = @_;
-
-    PVE::QemuServer::vm_mon_cmd($vmid, 'nbd-server-stop');
-}
-
-sub next_free_nbd_dev {
-    for(my $i = 0;;$i++) {
-	my $dev = "/dev/nbd$i";
-	last if ! -b $dev;
-	next if -f "/sys/block/nbd$i/pid"; # busy
-	return $dev;
-    }
-    die "unable to find free nbd device\n";
-}
-
 sub commit_cloudinit_disk {
     my ($file_path, $iso_path, $format) = @_;
 
-    my $nbd_dev = next_free_nbd_dev();
-    run_command(['qemu-nbd', '-c', $nbd_dev, $iso_path, '-f', $format]);
+    my $size = PVE::Storage::file_size_info($iso_path);
 
-    eval {
-	run_command([['genisoimage', '-R', '-V', 'config-2', $file_path],
-		     ['dd', "of=$nbd_dev", 'conv=fsync']]);
-    };
-    my $err = $@;
-    eval { run_command(['qemu-nbd', '-d', $nbd_dev]); };
-    warn $@ if $@;
-    die $err if $err;
+    run_command([['genisoimage', '-R', '-V', 'config-2', $file_path],
+		 ['qemu-img', 'dd', '-f', 'raw', '-O', $format,
+		  'isize=0', "osize=$size", "of=$iso_path"]]);
 }
 
 sub generate_cloudinitconfig {
