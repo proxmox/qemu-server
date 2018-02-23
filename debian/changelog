@@ -1,3 +1,15 @@
+qemu-server (5.0-23) unstable; urgency=medium
+
+  * fix migrate cache size parameter for qemu 2.11
+
+  * typo fixes in migrate task log
+
+  * depend on pve-qemu-kvm >= 2.9.1-9
+
+  * allow virtio-scsi+iothread controller hot-unplug
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 23 Feb 2018 13:21:08 +0100
+
 qemu-server (5.0-22) unstable; urgency=medium
 
   * fix #1664: nbd mirror: remove socat tunnel now that it is not required
