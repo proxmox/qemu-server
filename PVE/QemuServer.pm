@@ -6395,7 +6395,17 @@ sub clone_disk {
 	my ($size) = PVE::Storage::volume_size_info($storecfg, $drive->{file}, 3);
 
 	print "create full clone of drive $drivename ($drive->{file})\n";
-	$newvolid = PVE::Storage::vdisk_alloc($storecfg, $storeid, $newvmid, $dst_format, undef, ($size/1024));
+	my $name = undef;
+	if (drive_is_cloudinit($drive)) {
+	    $name = "vm-$newvmid-cloudinit";
+	    # cloudinit only supports raw and qcow2 atm:
+	    if ($dst_format eq 'qcow2') {
+		$name .= '.qcow2';
+	    } elsif ($dst_format ne 'raw') {
+		die "clone: unhandled format for cloudinit image\n";
+	    }
+	}
+	$newvolid = PVE::Storage::vdisk_alloc($storecfg, $storeid, $newvmid, $dst_format, $name, ($size/1024));
 	push @$newvollist, $newvolid;
 
 	PVE::Storage::activate_volumes($storecfg, [$newvolid]);

@@ -2601,10 +2601,10 @@ __PACKAGE__->register_method({
 		} elsif (PVE::QemuServer::is_valid_drivename($opt)) {
 		    my $drive = PVE::QemuServer::parse_drive($opt, $value);
 		    die "unable to parse drive options for '$opt'\n" if !$drive;
-		    if (PVE::QemuServer::drive_is_cdrom($drive)) {
+		    if (PVE::QemuServer::drive_is_cdrom($drive, 1)) {
 			$newconf->{$opt} = $value; # simply copy configuration
 		    } else {
-			if ($param->{full}) {
+			if ($param->{full} || PVE::QemuServer::drive_is_cloudinit($drive)) {
 			    die "Full clone feature is not supported for drive '$opt'\n"
 				if !PVE::Storage::volume_has_feature($storecfg, 'copy', $drive->{file}, $snapname, $running);
 			    $fullclone->{$opt} = 1;
@@ -2812,7 +2812,7 @@ __PACKAGE__->register_method({
 
 	    my $old_volid = $drive->{file} || die "disk '$disk' has no associated volume\n";
 
-	    die "you can't move a cdrom\n" if PVE::QemuServer::drive_is_cdrom($drive);
+	    die "you can't move a cdrom\n" if PVE::QemuServer::drive_is_cdrom($drive, 1);
 
 	    my $oldfmt;
 	    my ($oldstoreid, $oldvolname) = PVE::Storage::parse_volume_id($old_volid);
