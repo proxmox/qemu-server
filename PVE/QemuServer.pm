@@ -540,6 +540,12 @@ EODESCR
 };
 
 my $confdesc_cloudinit = {
+    citype => {
+	optional => 1,
+	type => 'string',
+	description => 'Specifies the cloud-init configuration format.',
+	enum => ['configdrive2', 'nocloud'],
+    },
     searchdomain => {
 	optional => 1,
 	type => 'string',
