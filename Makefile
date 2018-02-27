@@ -20,7 +20,7 @@ export PERLDIR=${PREFIX}/share/perl5
 PERLINCDIR=${PERLDIR}/asm-x86_64
 
 ARCH:=$(shell dpkg-architecture -qDEB_BUILD_ARCH)
-GITVERSION:=$(shell cat .git/refs/heads/master)
+GITVERSION:=$(shell git rev-parse HEAD)
 
 DEB=${PACKAGE}_${VERSION}-${PKGREL}_${ARCH}.deb
 
