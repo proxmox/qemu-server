@@ -10,6 +10,7 @@ use Fcntl ':flock';
 use File::Path;
 use IO::Socket::UNIX;
 use IO::Select;
+use URI::Escape;
 
 use PVE::Tools qw(extract_param);
 use PVE::Cluster;
@@ -662,6 +663,20 @@ my $print_agent_result = sub {
 
     print to_json($result, { pretty => 1, canonical => 1});
 };
+
+sub param_mapping {
+    my ($name) = @_;
+
+    my $ssh_key_map = ['sshkeys', sub {
+	return URI::Escape::uri_escape(PVE::Tools::file_get_contents($_[0]));
+    }];
+    my $mapping = {
+	'update_vm' => [$ssh_key_map],
+	'create_vm' => [$ssh_key_map],
+    };
+
+    return $mapping->{$name};
+}
 
 our $cmddef = {
     list => [ "PVE::API2::Qemu", 'vmlist', [],
