@@ -546,6 +546,17 @@ my $confdesc_cloudinit = {
 	description => 'Specifies the cloud-init configuration format.',
 	enum => ['configdrive2', 'nocloud'],
     },
+    ciuser => {
+	optional => 1,
+	type => 'string',
+	description => "cloud-init: User name to change ssh keys and password for instead of the image's configured default user.",
+    },
+    cipassword => {
+	optional => 1,
+	type => 'string',
+	description => 'cloud-init: Password to assign the user. Using this is generally not recommended. Use ssh keys instead. '
+	             . 'Also note that older cloud-init versions do not support hashed passwords.',
+    },
     searchdomain => {
 	optional => 1,
 	type => 'string',

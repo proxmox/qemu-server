@@ -61,16 +61,15 @@ sub cloudinit_userdata {
 
     my $fqdn = get_fqdn($conf);
 
-    my $content = <<"EOF";
-#cloud-config
-manage_resolv_conf: true
-EOF
+    my $content = "#cloud-config\n";
+    $content .= "manage_resolv_conf: true\n";
 
-    my $username = 'blub';
-    my $encpw = PVE::Tools::encrypt_pw('foo');
+    my $username = $conf->{ciuser};
+    my $password = $conf->{cipassword};
 
     $content .= "user: $username\n" if defined($username);
-    $content .= "password: $encpw\n" if defined($encpw);
+    $content .= "disable_root: False\n" if defined($username) && $username eq 'root';
+    $content .= "password: $password\n" if defined($password);
 
     if (defined(my $keys = $conf->{sshkeys})) {
 	$keys = URI::Escape::uri_unescape($keys);
@@ -84,9 +83,10 @@ EOF
     $content .= "chpasswd:\n";
     $content .= "  expire: False\n";
 
-    # FIXME: we probably need an option to disable this?
-    $content .= "users:\n";
-    $content .= "  - default\n";
+    if (!defined($username) || $username ne 'root') {
+	$content .= "users:\n";
+	$content .= "  - default\n";
+    }
 
     $content .= "package_upgrade: true\n";
 
