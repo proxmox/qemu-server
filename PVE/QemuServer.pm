@@ -554,8 +554,7 @@ my $confdesc_cloudinit = {
     cipassword => {
 	optional => 1,
 	type => 'string',
-	description => 'cloud-init: Password to assign the user. Using this is generally not recommended. Use ssh keys instead. '
-	             . 'Also note that older cloud-init versions do not support hashed passwords.',
+	description => 'cloud-init: Password to assign the user. Using this is generally not recommended. Use ssh keys instead. Also note that older cloud-init versions do not support hashed passwords.',
     },
     searchdomain => {
 	optional => 1,
@@ -571,8 +570,7 @@ my $confdesc_cloudinit = {
 	optional => 1,
 	type => 'string',
 	format => 'urlencoded',
-	description => "cloud-init : Setup public SSH keys (one key per line, " .
-			"OpenSSH format).",
+	description => "cloud-init: Setup public SSH keys (one key per line, OpenSSH format).",
     },
 };
 
