@@ -12,7 +12,20 @@ use PVE::Storage;
 use PVE::QemuServer;
 
 sub commit_cloudinit_disk {
-    my ($conf, $drive, $volname, $storeid, $file_path, $label) = @_;
+    my ($vmid, $conf, $drive, $volname, $storeid, $files, $label) = @_;
+
+    my $path = "/run/pve/cloudinit/$vmid/";
+    mkpath $path;
+    foreach my $filepath (keys %$files) {
+	if ($filepath !~ m@^(.*)\/[^/]+$@) {
+	    die "internal error: bad file name in cloud-init image: $filepath\n";
+	}
+	my $dirname = $1;
+	mkpath "$path/$dirname";
+
+	my $contents = $files->{$filepath};
+	file_set_contents("$path/$filepath", $contents);
+    }
 
     my $storecfg = PVE::Storage::config();
     my $iso_path = PVE::Storage::path($storecfg, $drive->{file});
@@ -21,9 +34,14 @@ sub commit_cloudinit_disk {
 
     my $size = PVE::Storage::file_size_info($iso_path);
 
-    run_command([['genisoimage', '-R', '-V', $label, $file_path],
-		 ['qemu-img', 'dd', '-f', 'raw', '-O', $format,
-		  'isize=0', "osize=$size", "of=$iso_path"]]);
+    eval {
+	run_command([['genisoimage', '-R', '-V', $label, $path],
+		     ['qemu-img', 'dd', '-f', 'raw', '-O', $format,
+		      'isize=0', "osize=$size", "of=$iso_path"]]);
+    };
+    my $err = $@;
+    rmtree($path);
+    die $err if $err;
 }
 
 sub get_cloudinit_format {
@@ -162,20 +180,12 @@ sub generate_configdrive2 {
 
     my $meta_data = configdrive2_metadata($uuid_str);
 
-    mkdir "/tmp/cloudinit";
-    my $path = "/tmp/cloudinit/$vmid";
-    mkdir $path;
-    mkdir "$path/drive";
-    mkdir "$path/drive/openstack";
-    mkdir "$path/drive/openstack/latest";
-    mkdir "$path/drive/openstack/content";
-    file_set_contents("$path/drive/openstack/latest/user_data", $user_data);
-    file_set_contents("$path/drive/openstack/content/0000", $network_data);
-    file_set_contents("$path/drive/openstack/latest/meta_data.json", $meta_data);
-
-    commit_cloudinit_disk($conf, $drive, $volname, $storeid, "$path/drive", 'config-2');
-
-    rmtree("$path/drive");
+    my $files = {
+	'/openstack/latest/user_data' => $user_data,
+	'/openstack/content/0000' => $network_data,
+	'/openstack/latest/meta_data.json' => $meta_data
+    };
+    commit_cloudinit_disk($vmid, $conf, $drive, $volname, $storeid, $files, 'config-2');
 }
 
 sub nocloud_network_v2 {
@@ -343,17 +353,12 @@ sub generate_nocloud {
 
     my $meta_data = nocloud_metadata($uuid_str);
 
-    mkdir "/tmp/cloudinit";
-    my $path = "/tmp/cloudinit/$vmid";
-    mkdir $path;
-    rmtree("$path/drive");
-    mkdir "$path/drive";
-    file_set_contents("$path/drive/user-data", $user_data);
-    file_set_contents("$path/drive/network-config", $network_data);
-    file_set_contents("$path/drive/meta-data", $meta_data);
-
-    commit_cloudinit_disk($conf, $drive, $volname, $storeid, "$path/drive", 'cidata');
-
+    my $files = {
+	'/user-data' => $user_data,
+	'/network-config' => $network_data,
+	'/meta-data' => $meta_data
+    };
+    commit_cloudinit_disk($vmid, $conf, $drive, $volname, $storeid, $files, 'cidata');
 }
 
 my $cloudinit_methods = {
