@@ -2234,6 +2234,12 @@ sub json_config_properties {
     return $prop;
 }
 
+# return copy of $confdesc_cloudinit to generate documentation
+sub cloudinit_config_properties {
+
+    return dclone($confdesc_cloudinit);
+}
+
 sub check_type {
     my ($key, $value) = @_;
 
