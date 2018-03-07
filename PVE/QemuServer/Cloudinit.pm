@@ -44,25 +44,29 @@ sub get_cloudinit_format {
     return 'nocloud';
 }
 
-sub get_fqdn {
+sub get_hostname_fqdn {
     my ($conf) = @_;
-    my $fqdn = $conf->{hostname};
-    if (!defined($fqdn)) {
-	$fqdn = $conf->{name};
-	if (my $search = $conf->{searchdomain}) {
-	    $fqdn .= ".$search";
-	}
+    my $hostname = $conf->{name};
+    my $fqdn;
+    if ($hostname =~ /\./) {
+	$fqdn = $hostname;
+	$hostname =~ s/\..*$//;
+    } elsif (my $search = $conf->{searchdomain}) {
+	$fqdn = "$hostname.$search";
     }
-    return $fqdn;
+    return ($hostname, $fqdn);
 }
 
 sub cloudinit_userdata {
     my ($conf) = @_;
 
-    my $fqdn = get_fqdn($conf);
+    my ($hostname, $fqdn) = get_hostname_fqdn($conf);
 
     my $content = "#cloud-config\n";
     $content .= "manage_resolv_conf: true\n";
+
+    $content .= "hostname: $hostname\n";
+    $content .= "fqdn: $fqdn\n" if defined($fqdn);
 
     my $username = $conf->{ciuser};
     my $password = $conf->{cipassword};
@@ -324,24 +328,20 @@ sub nocloud_network {
 }
 
 sub nocloud_metadata {
-    my ($uuid, $hostname) = @_;
-    return <<"EOF";
-instance-id: $uuid
-local-hostname: $hostname
-EOF
+    my ($uuid) = @_;
+    return "instance-id: $uuid\n";
 }
 
 sub generate_nocloud {
     my ($conf, $vmid, $drive, $volname, $storeid) = @_;
 
-    my $hostname = $conf->{hostname} // '';
     my $user_data = cloudinit_userdata($conf);
     my $network_data = nocloud_network($conf);
 
-    my $digest_data = $user_data . $network_data . "local-hostname: $hostname\n";
+    my $digest_data = $user_data . $network_data;
     my $uuid_str = Digest::SHA::sha1_hex($digest_data);
 
-    my $meta_data = nocloud_metadata($uuid_str, $hostname);
+    my $meta_data = nocloud_metadata($uuid_str);
 
     mkdir "/tmp/cloudinit";
     my $path = "/tmp/cloudinit/$vmid";

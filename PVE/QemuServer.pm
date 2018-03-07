@@ -574,12 +574,6 @@ my $confdesc_cloudinit = {
 	description => "cloud-init : Setup public SSH keys (one key per line, " .
 			"OpenSSH format).",
     },
-    hostname => {
-	optional => 1,
-	description => "cloud-init: Hostname to use instead of the vm-name + search-domain.",
-	type => 'string', format => 'dns-name',
-	maxLength => 255,
-    },
 };
 
 # what about other qemu settings ?
