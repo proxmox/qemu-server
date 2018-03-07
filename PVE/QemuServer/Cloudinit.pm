@@ -75,13 +75,32 @@ sub get_hostname_fqdn {
     return ($hostname, $fqdn);
 }
 
+sub get_dns_conf {
+    my ($conf) = @_;
+
+    # Same logic as in pve-container, but without the testcase special case
+    my $host_resolv_conf = PVE::INotify::read_file('resolvconf');
+
+    my $searchdomains = [
+	split(/\s+/, $conf->{searchdomain} // $host_resolv_conf->{search})
+    ];
+
+    my $nameserver = $conf->{nameserver};
+    if (!defined($nameserver)) {
+	$nameserver = [grep { $_ } $host_resolv_conf->@{qw(dns1 dns2 dns3)}];
+    } else {
+	$nameserver = [split(/\s+/, $nameserver)];
+    }
+
+    return ($searchdomains, $nameserver);
+}
+
 sub cloudinit_userdata {
     my ($conf) = @_;
 
     my ($hostname, $fqdn) = get_hostname_fqdn($conf);
 
     my $content = "#cloud-config\n";
-    $content .= "manage_resolv_conf: true\n";
 
     $content .= "hostname: $hostname\n";
     $content .= "fqdn: $fqdn\n" if defined($fqdn);
@@ -119,7 +138,17 @@ sub configdrive2_network {
     my ($conf) = @_;
 
     my $content = "auto lo\n";
-    $content .="iface lo inet loopback\n\n";
+    $content .= "iface lo inet loopback\n\n";
+
+    my ($searchdomains, $nameservers) = get_dns_conf($conf);
+    if ($nameservers && @$nameservers) {
+	$nameservers = join(' ', @$nameservers);
+	$content .= "        dns_nameservers $nameservers\n";
+    }
+    if ($searchdomains && @$searchdomains) {
+	$searchdomains = join(' ', @$searchdomains);
+	$content .= "        dns_search $searchdomains\n";
+    }
 
     my @ifaces = grep(/^net(\d+)$/, keys %$conf);
     foreach my $iface (@ifaces) {
@@ -152,9 +181,6 @@ sub configdrive2_network {
 	    }
 	}
     }
-
-    $content .="        dns_nameservers $conf->{nameserver}\n" if $conf->{nameserver};
-    $content .="        dns_search $conf->{searchdomain}\n" if $conf->{searchdomain};
 
     return $content;
 }
@@ -196,7 +222,7 @@ sub nocloud_network_v2 {
     my $head = "version: 2\n"
              . "ethernets:\n";
 
-    my $nameservers_done;
+    my $dns_done;
 
     my @ifaces = grep(/^net(\d+)$/, keys %$conf);
     foreach my $iface (@ifaces) {
@@ -212,55 +238,52 @@ sub nocloud_network_v2 {
 	my $mac = $net->{macaddr}
 	    or die "network interface '$iface' has no mac address\n";
 
-	my $data = "${i}$iface:\n";
+	$content .= "${i}$iface:\n";
 	$i .= '    ';
-	$data .= "${i}match:\n"
-	       . "${i}    macaddress: \"$mac\"\n"
-	       . "${i}set-name: eth$id\n";
+	$content .= "${i}match:\n"
+	         . "${i}    macaddress: \"$mac\"\n"
+	         . "${i}set-name: eth$id\n";
 	my @addresses;
 	if (defined(my $ip = $ipconfig->{ip})) {
 	    if ($ip eq 'dhcp') {
-		$data .= "${i}dhcp4: true\n";
+		$content .= "${i}dhcp4: true\n";
 	    } else {
 		push @addresses, $ip;
 	    }
 	}
 	if (defined(my $ip = $ipconfig->{ip6})) {
 	    if ($ip eq 'dhcp') {
-		$data .= "${i}dhcp6: true\n";
+		$content .= "${i}dhcp6: true\n";
 	    } else {
 		push @addresses, $ip;
 	    }
 	}
 	if (@addresses) {
-	    $data .= "${i}addresses:\n";
-	    $data .= "${i}- $_\n" foreach @addresses;
+	    $content .= "${i}addresses:\n";
+	    $content .= "${i}- $_\n" foreach @addresses;
 	}
 	if (defined(my $gw = $ipconfig->{gw})) {
-	    $data .= "${i}gateway4: $gw\n";
+	    $content .= "${i}gateway4: $gw\n";
 	}
 	if (defined(my $gw = $ipconfig->{gw6})) {
-	    $data .= "${i}gateway6: $gw\n";
+	    $content .= "${i}gateway6: $gw\n";
 	}
 
-	if (!$nameservers_done) {
-	    $nameservers_done = 1;
+	next if $dns_done;
+	$dns_done = 1;
 
-	    my $nameserver = $conf->{nameserver} // '';
-	    my $searchdomain = $conf->{searchdomain} // '';
-	    my @nameservers = PVE::Tools::split_list($nameserver);
-	    my @searchdomains = PVE::Tools::split_list($searchdomain);
-	    if (@nameservers || @searchdomains) {
-		$data .= "${i}nameservers:\n";
-		$data .= "${i}    addresses: [".join(',', @nameservers)."]\n"
-		    if @nameservers;
-		$data .= "${i}    search: [".join(',', @searchdomains)."]\n"
-		    if @searchdomains;
+	my ($searchdomains, $nameservers) = get_dns_conf($conf);
+	if ($searchdomains || $nameservers) {
+	    $content .= "${i}nameservers:\n";
+	    if (defined($nameservers) && @$nameservers) {
+		$content .= "${i}  addresses:\n";
+		$content .= "${i}  - $_\n" foreach @$nameservers;
+	    }
+	    if (defined($searchdomains) && @$searchdomains) {
+		$content .= "${i}  search:\n";
+		$content .= "${i}  - $_\n" foreach @$searchdomains;
 	    }
 	}
-
-
-	$content .= $data;
     }
 
     return $head.$content;
@@ -286,51 +309,46 @@ sub nocloud_network {
 	my $mac = $net->{macaddr}
 	    or die "network interface '$iface' has no mac address\n";
 
-	my $data = "${i}- type: physical\n"
-	         . "${i}  name: eth$id\n"
-	         . "${i}  mac_address: $mac\n"
-	         . "${i}  subnets:\n";
+	$content .= "${i}- type: physical\n"
+	          . "${i}  name: eth$id\n"
+	          . "${i}  mac_address: $mac\n"
+	          . "${i}  subnets:\n";
 	$i .= '  ';
 	if (defined(my $ip = $ipconfig->{ip})) {
 	    if ($ip eq 'dhcp') {
-		$data .= "${i}- type: dhcp4\n";
+		$content .= "${i}- type: dhcp4\n";
 	    } else {
-		$data .= "${i}- type: static\n"
+		$content .= "${i}- type: static\n"
 		       . "${i}  address: $ip\n";
 		if (defined(my $gw = $ipconfig->{gw})) {
-		    $data .= "${i}  gateway: $gw\n";
+		    $content .= "${i}  gateway: $gw\n";
 		}
 	    }
 	}
 	if (defined(my $ip = $ipconfig->{ip6})) {
 	    if ($ip eq 'dhcp') {
-		$data .= "${i}- type: dhcp6\n";
+		$content .= "${i}- type: dhcp6\n";
 	    } else {
-		$data .= "${i}- type: static6\n"
+		$content .= "${i}- type: static6\n"
 		       . "${i}  address: $ip\n";
 		if (defined(my $gw = $ipconfig->{gw6})) {
-		    $data .= "${i}  gateway: $gw\n";
+		    $content .= "${i}  gateway: $gw\n";
 		}
 	    }
 	}
-
-	$content .= $data;
     }
 
-    my $nameserver = $conf->{nameserver} // '';
-    my $searchdomain = $conf->{searchdomain} // '';
-    my @nameservers = PVE::Tools::split_list($nameserver);
-    my @searchdomains = PVE::Tools::split_list($searchdomain);
-    if (@nameservers || @searchdomains) {
-	my $i = '    ';
+    my $i = '    ';
+    my ($searchdomains, $nameservers) = get_dns_conf($conf);
+    if ($searchdomains || $nameservers) {
 	$content .= "${i}- type: nameserver\n";
-	if (@nameservers) {
+	if (defined($nameservers) && @$nameservers) {
 	    $content .= "${i}  address:\n";
-	    $content .= "${i}  - $_\n" foreach @nameservers;
+	    $content .= "${i}  - $_\n" foreach @$nameservers;
 	}
-	if (@searchdomains) {
+	if (defined($searchdomains) && @$searchdomains) {
 	    $content .= "${i}  search:\n";
-	    $content .= "${i}  - $_\n" foreach @searchdomains;
+	    $content .= "${i}  - $_\n" foreach @$searchdomains;
 	}
     }
 
