@@ -937,8 +937,8 @@ my $update_vm_api  = sub {
     my $force = extract_param($param, 'force');
 
     if (defined(my $ssh_keys = $param->{sshkeys})) {
-	    $ssh_keys = URI::Escape::uri_unescape($ssh_keys);
-	    PVE::Tools::validate_ssh_public_keys($ssh_keys);
+	$ssh_keys = URI::Escape::uri_unescape($ssh_keys);
+	PVE::Tools::validate_ssh_public_keys($ssh_keys);
     }
 
     die "no options specified\n" if !$delete_str && !$revert_str && !scalar(keys %$param);
