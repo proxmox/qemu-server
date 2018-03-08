@@ -941,6 +941,12 @@ my $update_vm_api  = sub {
 	PVE::Tools::validate_ssh_public_keys($ssh_keys);
     }
 
+    if (defined(my $cipassword = $param->{cipassword})) {
+	# Same logic as in cloud-init (but with the regex fixed...)
+	$param->{cipassword} = PVE::Tools::encrypt_pw($cipassword)
+	    if $cipassword !~ /^\$(?:[156]|2[ay])(\$.+){2}/;
+    }
+
     die "no options specified\n" if !$delete_str && !$revert_str && !scalar(keys %$param);
 
     my $storecfg = PVE::Storage::config();
