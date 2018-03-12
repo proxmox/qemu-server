@@ -13,6 +13,7 @@ use IO::Select;
 use URI::Escape;
 
 use PVE::Tools qw(extract_param);
+use PVE::PTY;
 use PVE::Cluster;
 use PVE::SafeSyslog;
 use PVE::INotify;
@@ -670,9 +671,18 @@ sub param_mapping {
     my $ssh_key_map = ['sshkeys', sub {
 	return URI::Escape::uri_escape(PVE::Tools::file_get_contents($_[0]));
     }];
+    my $cipassword_map = ['cipassword', sub {
+	my ($value) = @_;
+	return $value if $value;
+
+	my $pw = PVE::PTY::read_password('New cloud-init user password: ');
+	my $pw2 = PVE::PTY::read_password('Repeat password: ');
+	die "passwords do not match\n" if $pw ne $pw2;
+	return $pw;
+    }, '<password>', 1];
     my $mapping = {
-	'update_vm' => [$ssh_key_map],
-	'create_vm' => [$ssh_key_map],
+	'update_vm' => [$ssh_key_map, $cipassword_map],
+	'create_vm' => [$ssh_key_map, $cipassword_map],
     };
 
     return $mapping->{$name};
