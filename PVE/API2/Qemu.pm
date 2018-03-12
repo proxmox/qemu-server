@@ -920,10 +920,16 @@ my $update_vm_api  = sub {
 
     my $background_delay = extract_param($param, 'background_delay');
 
+    if (defined(my $cipassword = $param->{cipassword})) {
+	# Same logic as in cloud-init (but with the regex fixed...)
+	$param->{cipassword} = PVE::Tools::encrypt_pw($cipassword)
+	    if $cipassword !~ /^\$(?:[156]|2[ay])(\$.+){2}/;
+    }
 
     my @paramarr = (); # used for log message
     foreach my $key (sort keys %$param) {
-	push @paramarr, "-$key", $param->{$key};
+	my $value = $key eq 'cipassword' ? '<hidden>' : $param->{$key};
+	push @paramarr, "-$key", $value;
     }
 
     my $skiplock = extract_param($param, 'skiplock');
@@ -939,12 +945,6 @@ my $update_vm_api  = sub {
     if (defined(my $ssh_keys = $param->{sshkeys})) {
 	$ssh_keys = URI::Escape::uri_unescape($ssh_keys);
 	PVE::Tools::validate_ssh_public_keys($ssh_keys);
-    }
-
-    if (defined(my $cipassword = $param->{cipassword})) {
-	# Same logic as in cloud-init (but with the regex fixed...)
-	$param->{cipassword} = PVE::Tools::encrypt_pw($cipassword)
-	    if $cipassword !~ /^\$(?:[156]|2[ay])(\$.+){2}/;
     }
 
     die "no options specified\n" if !$delete_str && !$revert_str && !scalar(keys %$param);
