@@ -12,7 +12,7 @@ use PVE::Storage;
 use PVE::QemuServer;
 
 sub commit_cloudinit_disk {
-    my ($vmid, $conf, $drive, $volname, $storeid, $files, $label) = @_;
+    my ($conf, $vmid, $drive, $volname, $storeid, $files, $label) = @_;
 
     my $path = "/run/pve/cloudinit/$vmid/";
     mkpath $path;
@@ -212,7 +212,7 @@ sub generate_configdrive2 {
 	'/openstack/content/0000' => $network_data,
 	'/openstack/latest/meta_data.json' => $meta_data
     };
-    commit_cloudinit_disk($vmid, $conf, $drive, $volname, $storeid, $files, 'config-2');
+    commit_cloudinit_disk($conf, $vmid, $drive, $volname, $storeid, $files, 'config-2');
 }
 
 sub nocloud_network_v2 {
@@ -377,7 +377,7 @@ sub generate_nocloud {
 	'/network-config' => $network_data,
 	'/meta-data' => $meta_data
     };
-    commit_cloudinit_disk($vmid, $conf, $drive, $volname, $storeid, $files, 'cidata');
+    commit_cloudinit_disk($conf, $vmid, $drive, $volname, $storeid, $files, 'cidata');
 }
 
 my $cloudinit_methods = {
