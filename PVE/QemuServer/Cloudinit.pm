@@ -103,6 +103,7 @@ sub cloudinit_userdata {
     my $content = "#cloud-config\n";
 
     $content .= "hostname: $hostname\n";
+    $content .= "manage_etc_hosts: true\n";
     $content .= "fqdn: $fqdn\n" if defined($fqdn);
 
     my $username = $conf->{ciuser};
