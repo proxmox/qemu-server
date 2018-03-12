@@ -63,8 +63,8 @@ sub get_cloudinit_format {
 }
 
 sub get_hostname_fqdn {
-    my ($conf) = @_;
-    my $hostname = $conf->{name};
+    my ($conf, $vmid) = @_;
+    my $hostname = $conf->{name} // "VM$vmid";
     my $fqdn;
     if ($hostname =~ /\./) {
 	$fqdn = $hostname;
@@ -96,9 +96,9 @@ sub get_dns_conf {
 }
 
 sub cloudinit_userdata {
-    my ($conf) = @_;
+    my ($conf, $vmid) = @_;
 
-    my ($hostname, $fqdn) = get_hostname_fqdn($conf);
+    my ($hostname, $fqdn) = get_hostname_fqdn($conf, $vmid);
 
     my $content = "#cloud-config\n";
 
@@ -198,7 +198,7 @@ EOF
 sub generate_configdrive2 {
     my ($conf, $vmid, $drive, $volname, $storeid) = @_;
 
-    my $user_data = cloudinit_userdata($conf);
+    my $user_data = cloudinit_userdata($conf, $vmid);
     my $network_data = configdrive2_network($conf);
 
     my $digest_data = $user_data . $network_data;
@@ -363,7 +363,7 @@ sub nocloud_metadata {
 sub generate_nocloud {
     my ($conf, $vmid, $drive, $volname, $storeid) = @_;
 
-    my $user_data = cloudinit_userdata($conf);
+    my $user_data = cloudinit_userdata($conf, $vmid);
     my $network_data = nocloud_network($conf);
 
     my $digest_data = $user_data . $network_data;
