@@ -3093,6 +3093,10 @@ sub config_to_command {
 
     push @$cmd, '-id', $vmid;
 
+    my $vmname = $conf->{name} || "vm$vmid";
+
+    push @$cmd, '-name', $vmname;
+
     my $use_virtio = 0;
 
     my $qmpsocket = qmp_socket($vmid);
@@ -3249,9 +3253,6 @@ sub config_to_command {
 	}
     }
 
-    my $vmname = $conf->{name} || "vm$vmid";
-
-    push @$cmd, '-name', $vmname;
 
     my $sockets = 1;
     $sockets = $conf->{smp} if $conf->{smp}; # old style - no longer iused
