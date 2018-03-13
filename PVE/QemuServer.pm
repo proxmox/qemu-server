@@ -4169,81 +4169,6 @@ sub __read_avail {
     return $res;
 }
 
-# old code, only used to shutdown old VM after update
-sub vm_monitor_command {
-    my ($vmid, $cmdstr, $nocheck) = @_;
-
-    my $res;
-
-    eval {
-	die "VM $vmid not running\n" if !check_running($vmid, $nocheck);
-
-	my $sname = "${var_run_tmpdir}/$vmid.mon";
-
-	my $sock = IO::Socket::UNIX->new( Peer => $sname ) ||
-	    die "unable to connect to VM $vmid socket - $!\n";
-
-	my $timeout = 3;
-
-	# hack: migrate sometime blocks the monitor (when migrate_downtime
-	# is set)
-	if ($cmdstr =~ m/^(info\s+migrate|migrate\s)/) {
-	    $timeout = 60*60; # 1 hour
-	}
-
-	# read banner;
-	my $data = __read_avail($sock, $timeout);
-
-	if ($data !~ m/^QEMU\s+(\S+)\s+monitor\s/) {
-	    die "got unexpected qemu monitor banner\n";
-	}
-
-	my $sel = new IO::Select;
-	$sel->add($sock);
-
-	if (!scalar(my @ready = $sel->can_write($timeout))) {
-	    die "monitor write error - timeout";
-	}
-
-	my $fullcmd = "$cmdstr\r";
-
-	# syslog('info', "VM $vmid monitor command: $cmdstr");
-
-	my $b;
-	if (!($b = $sock->syswrite($fullcmd)) || ($b != length($fullcmd))) {
-	    die "monitor write error - $!";
-	}
-
-	return if ($cmdstr eq 'q') || ($cmdstr eq 'quit');
-
-	$timeout = 20;
-
-	if ($cmdstr =~ m/^(info\s+migrate|migrate\s)/) {
-	    $timeout = 60*60; # 1 hour
-	} elsif ($cmdstr =~ m/^(eject|change)/) {
-	    $timeout = 60; # note: cdrom mount command is slow
-	}
-	if ($res = __read_avail($sock, $timeout)) {
-
-	    my @lines = split("\r?\n", $res);
-
-	    shift @lines if $lines[0] !~ m/^unknown command/; # skip echo
-
-	    $res = join("\n", @lines);
-	    $res .= "\n";
-	}
-    };
-
-    my $err = $@;
-
-    if ($err) {
-	syslog("err", "VM $vmid monitor command failed - $err");
-	die $err;
-    }
-
-    return $res;
-}
-
 sub qemu_block_resize {
     my ($vmid, $deviceid, $storecfg, $volid, $size) = @_;
 
@@ -5049,10 +4974,6 @@ sub vm_qmp_command {
 	    my $qmpclient = PVE::QMPClient->new();
 
 	    $res = $qmpclient->cmd($vmid, $cmd, $timeout);
-	} elsif (-e "${var_run_tmpdir}/$vmid.mon") {
-	    die "can't execute complex command on old monitor - stop/start your vm to fix the problem\n"
-		if scalar(%{$cmd->{arguments}});
-	    vm_monitor_command($vmid, $cmd->{execute}, $nocheck);
 	} else {
 	    die "unable to open monitor socket\n";
 	}
