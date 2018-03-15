@@ -807,6 +807,11 @@ __PACKAGE__->register_method({
 
 	delete $conf->{pending};
 
+	# hide cloudinit password
+	if ($conf->{cipassword}) {
+	    $conf->{cipassword} = '**********';
+	}
+
 	return $conf;
     }});
 
@@ -871,6 +876,13 @@ __PACKAGE__->register_method({
 	    $item->{value} = $conf->{$opt} if defined($conf->{$opt});
 	    $item->{pending} = $conf->{pending}->{$opt} if defined($conf->{pending}->{$opt});
 	    $item->{delete} = ($pending_delete_hash->{$opt} ? 2 : 1) if exists $pending_delete_hash->{$opt};
+
+	    # hide cloudinit password
+	    if ($opt eq 'cipassword') {
+		$item->{value} = '**********' if defined($item->{value});
+		# the trailing space so that the pending string is different
+		$item->{pending} = '********** ' if defined($item->{pending});
+	    }
 	    push @$res, $item;
 	}
 
@@ -880,6 +892,11 @@ __PACKAGE__->register_method({
 	    next if defined($conf->{$opt});
 	    my $item = { key => $opt };
 	    $item->{pending} = $conf->{pending}->{$opt};
+
+	    # hide cloudinit password
+	    if ($opt eq 'cipassword') {
+		$item->{pending} = '**********' if defined($item->{pending});
+	    }
 	    push @$res, $item;
 	}
 
