@@ -2472,7 +2472,9 @@ __PACKAGE__->register_method({
 	properties => {
 	    node => get_standard_option('pve-node'),
 	    vmid => get_standard_option('pve-vmid', { completion => \&PVE::QemuServer::complete_vmid }),
-	    newid => get_standard_option('pve-vmid', { description => 'VMID for the clone.' }),
+	    newid => get_standard_option('pve-vmid', {
+		completion => \&PVE::Cluster::complete_next_vmid,
+		description => 'VMID for the clone.' }),
 	    name => {
 		optional => 1,
 		type => 'string', format => 'dns-name',
