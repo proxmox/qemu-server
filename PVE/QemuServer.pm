@@ -38,8 +38,9 @@ use Time::HiRes qw(gettimeofday);
 use File::Copy qw(copy);
 use URI::Escape;
 
-my $OVMF_CODE = '/usr/share/kvm/OVMF_CODE-pure-efi.fd';
-my $OVMF_VARS = '/usr/share/kvm/OVMF_VARS-pure-efi.fd';
+my $EDK2_FW_BASE = '/usr/share/pve-edk2-firmware/';
+my $OVMF_CODE = "$EDK2_FW_BASE/OVMF_CODE.fd";
+my $OVMF_VARS = "$EDK2_FW_BASE/OVMF_VARS.fd";
 
 my $qemu_snap_storage = {rbd => 1, sheepdog => 1};
 
