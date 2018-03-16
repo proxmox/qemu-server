@@ -2493,12 +2493,10 @@ __PACKAGE__->register_method({
             }),
 	    storage => get_standard_option('pve-storage-id', {
 		description => "Target storage for full clone.",
-		requires => 'full',
 		optional => 1,
 	    }),
 	    'format' => {
-		description => "Target format for file storage.",
-		requires => 'full',
+		description => "Target format for file storage. Only valid for full clone.",
 		type => 'string',
 		optional => 1,
 	        enum => [ 'raw', 'qcow2', 'vmdk'],
@@ -2506,9 +2504,8 @@ __PACKAGE__->register_method({
 	    full => {
 		optional => 1,
 	        type => 'boolean',
-	        description => "Create a full copy of all disk. This is always done when " .
+	        description => "Create a full copy of all disks. This is always done when " .
 		    "you clone a normal VM. For VM templates, we try to create a linked clone by default.",
-		default => 0,
 	    },
 	    target => get_standard_option('pve-node', {
 		description => "Target node. Only allowed if the original VM is on shared storage.",
@@ -2589,6 +2586,17 @@ __PACKAGE__->register_method({
 	    die "snapshot '$snapname' does not exist\n"
 		if $snapname && !defined( $conf->{snapshots}->{$snapname});
 
+	    my $full = extract_param($param, 'full');
+	    if (!defined($full)) {
+		$full = !PVE::QemuConfig->is_template($conf);
+	    }
+
+	    die "parameter 'storage' not allowed for linked clones\n"
+		if defined($storage) && !$full;
+
+	    die "parameter 'format' not allowed for linked clones\n"
+		if defined($format) && !$full;
+
 	    my $oldconf = $snapname ? $conf->{snapshots}->{$snapname} : $conf;
 
 	    my $sharedvm = &$check_storage_access_clone($rpcenv, $authuser, $storecfg, $oldconf, $storage);
@@ -2627,7 +2635,7 @@ __PACKAGE__->register_method({
 		    if (PVE::QemuServer::drive_is_cdrom($drive, 1)) {
 			$newconf->{$opt} = $value; # simply copy configuration
 		    } else {
-			if ($param->{full} || PVE::QemuServer::drive_is_cloudinit($drive)) {
+			if ($full || PVE::QemuServer::drive_is_cloudinit($drive)) {
 			    die "Full clone feature is not supported for drive '$opt'\n"
 				if !PVE::Storage::volume_has_feature($storecfg, 'copy', $drive->{file}, $snapname, $running);
 			    $fullclone->{$opt} = 1;
