@@ -2572,9 +2572,6 @@ sub load_defaults {
 	}
     }
 
-    my $conf = PVE::Cluster::cfs_read_file('datacenter.cfg');
-    $res->{keyboard} = $conf->{keyboard} if $conf->{keyboard};
-
     return $res;
 }
 
@@ -3388,9 +3385,7 @@ sub config_to_command {
     
     push @$cmd, '-S' if $conf->{freeze};
 
-    # set keyboard layout
-    my $kb = $conf->{keyboard} || $defaults->{keyboard};
-    push @$cmd, '-k', $kb if $kb;
+    push @$cmd, '-k', $conf->{keyboard} if defined($conf->{keyboard});
 
     # enable sound
     #my $soundhw = $conf->{soundhw} || $defaults->{soundhw};
