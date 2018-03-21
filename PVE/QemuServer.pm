@@ -1971,7 +1971,6 @@ sub parse_net {
 	my $dc = PVE::Cluster::cfs_read_file('datacenter.cfg');
 	$res->{macaddr} = PVE::Tools::random_ether_addr($dc->{mac_prefix});
     }
-    $res->{macaddr} = PVE::Tools::random_ether_addr() if !defined($res->{macaddr});
     return $res;
 }
 
