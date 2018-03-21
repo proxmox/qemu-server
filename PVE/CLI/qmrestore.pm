@@ -54,7 +54,7 @@ __PACKAGE__->register_method({
 		description => "Add the VM to the specified pool.",
 	    },
 	    bwlimit => {
-		description => "Override io bandwidth.",
+		description => "Override i/o bandwidth limit (in KiB/s).",
 		optional => 1,
 		type => 'number',
 		minimum => '0',
