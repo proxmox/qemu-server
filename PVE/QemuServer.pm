@@ -5662,10 +5662,7 @@ sub restore_vma_archive {
 	    my $readlimit = PVE::Storage::get_bandwidth_limit('restore', [$sid], $bwlimit);
 	    if ($readlimit) {
 		print STDERR "applying read rate limit: $readlimit\n";
-		my $cstream = ['cstream', '-t', $readlimit*1024];
-		if ($readfrom ne '-') {
-		    push @$cstream, '--', $readfrom;
-		}
+		my $cstream = ['cstream', '-t', $readlimit*1024, '--', $readfrom];
 		$add_pipe->($cstream);
 	    }
 	}
