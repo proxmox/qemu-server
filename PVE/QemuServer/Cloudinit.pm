@@ -36,7 +36,7 @@ sub commit_cloudinit_disk {
 
     eval {
 	run_command([['genisoimage', '-R', '-V', $label, $path],
-		     ['qemu-img', 'dd', '-f', 'raw', '-O', $format,
+		     ['qemu-img', 'dd', '-n', '-f', 'raw', '-O', $format,
 		      'isize=0', "osize=$size", "of=$iso_path"]]);
     };
     my $err = $@;
