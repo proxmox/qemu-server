@@ -1,3 +1,21 @@
+qemu-server (5.0-24) unstable; urgency=medium
+
+  * use pve-edk2-firmware for supporting OVMF
+
+  * restore: implement rate limiting
+
+  * stop passing default '-k' (keyboard) QEMU option from datacenter.cfg
+
+  * create linked clones of templates by default
+
+  * remove legacy vm_monitor_command
+
+  * start: always stop an existing $vmid.scope
+
+  * implement cloudinit support
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 22 Mar 2018 09:24:08 +0100
+
 qemu-server (5.0-23) unstable; urgency=medium
 
   * fix migrate cache size parameter for qemu 2.11
