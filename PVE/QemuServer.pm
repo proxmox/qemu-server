@@ -6146,7 +6146,8 @@ sub qemu_img_convert {
 	my $cmd = [];
 	push @$cmd, '/usr/bin/qemu-img', 'convert', '-p', '-n';
 	push @$cmd, '-s', $snapname if($snapname && $src_format eq "qcow2");
-	push @$cmd, '-t', 'none', '-T', 'none';
+	push @$cmd, '-t', 'none' if $dst_scfg->{type} eq 'zfspool';
+	push @$cmd, '-T', 'none' if $src_scfg->{type} eq 'zfspool';
 	push @$cmd, '-f', $src_format, '-O', $dst_format, $src_path;
 	if ($is_zero_initialized) {
 	    push @$cmd, "zeroinit:$dst_path";
