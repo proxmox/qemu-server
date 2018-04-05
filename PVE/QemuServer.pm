@@ -1689,6 +1689,12 @@ sub print_drivedevice_full {
 
     $device .= ",bootindex=$drive->{bootindex}" if $drive->{bootindex};
 
+    if (my $serial = $drive->{serial}) {
+	$serial = URI::Escape::uri_unescape($serial);
+	$device .= ",serial=$serial";
+    }
+
+
     return $device;
 }
 
@@ -1759,11 +1765,6 @@ sub print_drive_full {
 	if (my $v = $drive->{"iops${dir}_max_length"}) {
 	    $opts .= ",throttling.iops$qmpname-max-length=$v";
 	}
-    }
-
-    if (my $serial = $drive->{serial}) {
-	$serial = URI::Escape::uri_unescape($serial);
-	$opts .= ",serial=$serial";
     }
 
     $opts .= ",format=$format" if $format && !$drive->{format};
