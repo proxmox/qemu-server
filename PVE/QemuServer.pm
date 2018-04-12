@@ -3601,21 +3601,22 @@ sub vm_devices_list {
     my ($vmid) = @_;
 
     my $res = vm_mon_cmd($vmid, 'query-pci');
+    my $devices_to_check = [];
     my $devices = {};
     foreach my $pcibus (@$res) {
-	foreach my $device (@{$pcibus->{devices}}) {
-	    next if !$device->{'qdev_id'};
-	    if ($device->{'pci_bridge'}) {
-		$devices->{$device->{'qdev_id'}} = 1;
-		foreach my $bridge_device (@{$device->{'pci_bridge'}->{devices}}) {
-		    next if !$bridge_device->{'qdev_id'};
-		    $devices->{$bridge_device->{'qdev_id'}} = 1;
-		    $devices->{$device->{'qdev_id'}}++;
-		}
-	    } else {
-		$devices->{$device->{'qdev_id'}} = 1;
-	    }
+	push @$devices_to_check, @{$pcibus->{devices}},
+    }
+
+    while (@$devices_to_check) {
+	my $to_check = [];
+	for my $d (@$devices_to_check) {
+	    $devices->{$d->{'qdev_id'}} = 1 if $d->{'qdev_id'};
+	    next if !$d->{'pci_bridge'};
+
+	    $devices->{$d->{'qdev_id'}} += scalar(@{$d->{'pci_bridge'}->{devices}});
+	    push @$to_check, @{$d->{'pci_bridge'}->{devices}};
 	}
+	$devices_to_check = $to_check;
     }
 
     my $resblock = vm_mon_cmd($vmid, 'query-block');
