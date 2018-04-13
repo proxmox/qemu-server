@@ -6725,4 +6725,10 @@ sub complete_storage {
     return $res;
 }
 
+sub nbd_stop {
+    my ($vmid) = @_;
+
+    vm_mon_cmd($vmid, 'nbd-server-stop');
+}
+
 1;
