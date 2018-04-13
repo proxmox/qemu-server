@@ -1,3 +1,17 @@
+qemu-server (5.0-25) unstable; urgency=medium
+
+  * fix #1697: only check machine type for pxe
+
+  * fix scsi hotplug issue with q35 machines
+
+  * fix live migration with local disk issue with nbd
+
+  * switch to new method of passing disk serials to qemu
+
+  * qemu-img convert: use cache=none for ZFS to not fill up the ARC
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 13 Apr 2018 15:11:58 +0200
+
 qemu-server (5.0-24) unstable; urgency=medium
 
   * use pve-edk2-firmware for supporting OVMF
