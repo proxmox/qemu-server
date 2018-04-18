@@ -1,4 +1,6 @@
 *.deb
+*.buildinfo
+*.changes
 *.1.gz
 *.1.pod
 *.5.gz
