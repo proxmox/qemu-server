@@ -2723,6 +2723,13 @@ __PACKAGE__->register_method({
 		    }
 
 		    delete $newconf->{lock};
+
+		    # do not write pending changes
+		    if ($newconf->{pending}) {
+			warn "found pending changes, discarding for clone\n";
+			delete $newconf->{pending};
+		    }
+
 		    PVE::QemuConfig->write_config($newid, $newconf);
 
                     if ($target) {
