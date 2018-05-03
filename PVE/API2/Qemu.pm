@@ -291,6 +291,15 @@ my $diskoptions = {
     'vmstatestorage' => 1,
 };
 
+my $cloudinitoptions = {
+    cipassword => 1,
+    citype => 1,
+    ciuser => 1,
+    nameserver => 1,
+    searchdomain => 1,
+    sshkeys => 1,
+};
+
 my $check_vm_modify_config_perm = sub {
     my ($rpcenv, $authuser, $vmid, $pool, $key_list) = @_;
 
@@ -318,7 +327,7 @@ my $check_vm_modify_config_perm = sub {
 	    $rpcenv->check_vm_perm($authuser, $vmid, $pool, ['VM.PowerMgmt']);
 	} elsif ($diskoptions->{$opt}) {
 	    $rpcenv->check_vm_perm($authuser, $vmid, $pool, ['VM.Config.Disk']);
-	} elsif ($opt =~ m/^(?:net|ipconfig)\d+$/) {
+	} elsif ($cloudinitoptions->{$opt} || ($opt =~ m/^(?:net|ipconfig)\d+$/)) {
 	    $rpcenv->check_vm_perm($authuser, $vmid, $pool, ['VM.Config.Network']);
 	} else {
 	    # catches usb\d+, hostpci\d+, args, lock, etc.
