@@ -4841,6 +4841,13 @@ sub vm_start {
 	}
 	$properties{timeout} = 10 if $statefile; # setting up the scope shoul be quick
 
+	my $run_qemu = sub {
+	    PVE::Tools::run_fork sub {
+		PVE::Tools::enter_systemd_scope($vmid, "Proxmox VE VM $vmid", %properties);
+		run_command($cmd, %run_params);
+	    };
+	};
+
 	if ($conf->{hugepages}) {
 
 	    my $code = sub {
@@ -4850,11 +4857,7 @@ sub vm_start {
 		PVE::QemuServer::Memory::hugepages_mount();
 		PVE::QemuServer::Memory::hugepages_allocate($hugepages_topology, $hugepages_host_topology);
 
-		eval  {
-		    PVE::Tools::enter_systemd_scope($vmid, "Proxmox VE VM $vmid", %properties);
-		    run_command($cmd, %run_params);
-		};
-
+		eval { $run_qemu->() };
 		if (my $err = $@) {
 		    PVE::QemuServer::Memory::hugepages_reset($hugepages_host_topology);
 		    die $err;
@@ -4865,10 +4868,7 @@ sub vm_start {
 	    eval { PVE::QemuServer::Memory::hugepages_update_locked($code); };
 
 	} else {
-	    eval  {
-		PVE::Tools::enter_systemd_scope($vmid, "Proxmox VE VM $vmid", %properties);
-		run_command($cmd, %run_params);
-	    };
+	    eval { $run_qemu->() };
 	}
 
 	if (my $err = $@) {
