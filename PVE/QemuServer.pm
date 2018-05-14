@@ -4297,7 +4297,10 @@ sub vmconfig_hotplug_pending {
 		qemu_cpu_hotplug($vmid, $conf, undef);
             } elsif ($opt eq 'balloon') {
 		# enable balloon device is not hotpluggable
-		die "skip\n" if !defined($conf->{balloon}) || $conf->{balloon};
+		die "skip\n" if defined($conf->{balloon}) && $conf->{balloon} == 0;
+		# here we reset the ballooning value to memory
+		my $balloon = $conf->{memory} || $defaults->{memory};
+		vm_mon_cmd($vmid, "balloon", value => $balloon*1024*1024);
 	    } elsif ($fast_plug_option->{$opt}) {
 		# do nothing
 	    } elsif ($opt =~ m/^net(\d+)$/) {
