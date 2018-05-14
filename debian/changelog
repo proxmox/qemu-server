@@ -1,3 +1,15 @@
+qemu-server (5.0-26) unstable; urgency=medium
+
+  * fix #1749: do not copy pending changes when cloning a vm
+
+  * make q35 and virtio-scsi-single compatible
+
+  * fix an issue where cleanup operations run as part of a VM's systemd scope
+
+  * associate cloud-init options with with the VM.Config.Network permission
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 14 May 2018 14:04:26 +0200
+
 qemu-server (5.0-25) unstable; urgency=medium
 
   * fix #1697: only check machine type for pxe
