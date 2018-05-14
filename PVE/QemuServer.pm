@@ -4922,10 +4922,8 @@ sub vm_start {
 	    }
 
 	} else {
-	    if (!$statefile && (!defined($conf->{balloon}) || $conf->{balloon})) {
-		vm_mon_cmd_nocheck($vmid, "balloon", value => $conf->{balloon}*1024*1024)
-		    if $conf->{balloon};
-	    }
+	    vm_mon_cmd_nocheck($vmid, "balloon", value => $conf->{balloon}*1024*1024)
+		if !$statefile && $conf->{balloon};
 
 	    foreach my $opt (keys %$conf) {
 		next if $opt !~  m/^net\d+$/;
