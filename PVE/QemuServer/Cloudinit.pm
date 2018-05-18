@@ -30,6 +30,8 @@ sub commit_cloudinit_disk {
     my $storecfg = PVE::Storage::config();
     my $iso_path = PVE::Storage::path($storecfg, $drive->{file});
     my $scfg = PVE::Storage::storage_config($storecfg, $storeid);
+    my $plugin = PVE::Storage::Plugin->lookup($scfg->{type});
+    $plugin->activate_volume($storeid, $scfg, $volname);
     my $format = PVE::QemuServer::qemu_img_format($scfg, $volname);
 
     my $size = PVE::Storage::file_size_info($iso_path);
