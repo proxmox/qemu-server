@@ -272,7 +272,7 @@ my $confdesc = {
     keyboard => {
 	optional => 1,
 	type => 'string',
-	description => "Keybord layout for vnc server. Default is read from the '/etc/pve/datacenter.conf' configuration file.".
+	description => "Keybord layout for vnc server. Default is read from the '/etc/pve/datacenter.cfg' configuration file.".
 		       "It should not be necessary to set it.",
 	enum => PVE::Tools::kvmkeymaplist(),
 	default => undef,
