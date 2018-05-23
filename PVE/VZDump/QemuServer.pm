@@ -417,7 +417,8 @@ sub archive {
 	    }
 	}
 
-	$qmpclient->queue_execute();
+	eval { $qmpclient->queue_execute() };
+	my $qmperr = $@;
 
 	if ($agent_running){
 	    eval { PVE::QemuServer::vm_mon_cmd($vmid, "guest-fsfreeze-thaw"); };
@@ -425,6 +426,7 @@ sub archive {
 		$self->logerr($err);
 	    }
 	}
+	die $qmperr if $qmperr;
 	die $qmpclient->{errors}->{$vmid} if $qmpclient->{errors}->{$vmid};
 
 	if ($cpid) {
