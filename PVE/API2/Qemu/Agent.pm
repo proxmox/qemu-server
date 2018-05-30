@@ -174,7 +174,7 @@ sub register_command {
 
 	    die "No Qemu Guest Agent\n" if !defined($conf->{agent});
 	    die "VM $vmid is not running\n" if !PVE::QemuServer::check_running($vmid);
-	    die "Qemu Guest Agent is not running\n" if !PVE::QemuServer::qga_check_running($vmid);
+	    die "Qemu Guest Agent is not running\n" if !PVE::QemuServer::qga_check_running($vmid, 1);
 
 	    my $cmd = $param->{command} // $command;
 	    my $res = PVE::QemuServer::vm_mon_cmd($vmid, "guest-$cmd");

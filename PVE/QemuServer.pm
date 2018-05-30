@@ -6095,11 +6095,11 @@ sub do_snapshots_with_qemu {
 }
 
 sub qga_check_running {
-    my ($vmid) = @_;
+    my ($vmid, $nowarn) = @_;
 
     eval { vm_mon_cmd($vmid, "guest-ping", timeout => 3); };
     if ($@) {
-	warn "Qemu Guest Agent is not running - $@";
+	warn "Qemu Guest Agent is not running - $@" if !$nowarn;
 	return 0;
     }
     return 1;
