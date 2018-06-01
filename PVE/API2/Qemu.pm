@@ -534,28 +534,18 @@ __PACKAGE__->register_method({
 	    }
 	}
 
+	my $emsg = $is_restore ? "unable to restore VM $vmid -" : "unable to create VM $vmid -";
+
+	eval { PVE::QemuConfig->create_and_lock_config($vmid, $force) };
+	die "$emsg $@" if $@;
+
 	my $restorefn = sub {
-	    my $vmlist = PVE::Cluster::get_vmlist();
-	    if ($vmlist->{ids}->{$vmid}) {
-		my $current_node = $vmlist->{ids}->{$vmid}->{node};
-		if ($current_node eq $node) {
-		    my $conf = PVE::QemuConfig->load_config($vmid);
+	    my $conf = PVE::QemuConfig->load_config($vmid);
 
-		    PVE::QemuConfig->check_protection($conf, "unable to restore VM $vmid");
+	    PVE::QemuConfig->check_protection($conf, $emsg);
 
-		    die "unable to restore vm $vmid - config file already exists\n"
-			if !$force;
-
-		    die "unable to restore vm $vmid - vm is running\n"
-			if PVE::QemuServer::check_running($vmid);
-
-		    die "unable to restore vm $vmid - vm is a template\n"
-			if PVE::QemuConfig->is_template($conf);
-
-		} else {
-		    die "unable to restore vm $vmid - already existing on cluster node '$current_node'\n";
-		}
-	    }
+	    die "$emsg vm is running\n" if PVE::QemuServer::check_running($vmid);
+	    die "$emsg vm is a template\n" if PVE::QemuConfig->is_template($conf);
 
 	    my $realcmd = sub {
 		PVE::QemuServer::restore_archive($archive, $vmid, $authuser, {
@@ -574,10 +564,6 @@ __PACKAGE__->register_method({
 	};
 
 	my $createfn = sub {
-
-	    # test after locking
-	    PVE::Cluster::check_vmid_unused($vmid);
-
 	    # ensure no old replication state are exists
 	    PVE::ReplicationState::delete_guest_states($vmid);
 
@@ -611,7 +597,7 @@ __PACKAGE__->register_method({
 			eval { PVE::Storage::vdisk_free($storecfg, $volid); };
 			warn $@ if $@;
 		    }
-		    die "create failed - $err";
+		    die "$emsg $err";
 		}
 
 		PVE::AccessControl::add_vm_to_pool($vmid, $pool) if $pool;
