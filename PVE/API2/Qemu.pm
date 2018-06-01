@@ -444,7 +444,13 @@ __PACKAGE__->register_method({
 		    optional => 1,
 		    type => 'integer',
 		    minimum => '0',
-		}
+		},
+		start => {
+		    optional => 1,
+		    type => 'boolean',
+		    default => 0,
+		    description => "Start VM after it was created successfully.",
+		},
 	    }),
     },
     returns => {
@@ -473,6 +479,8 @@ __PACKAGE__->register_method({
 	my $pool = extract_param($param, 'pool');
 
 	my $bwlimit = extract_param($param, 'bwlimit');
+
+	my $start_after_create = extract_param($param, 'start');
 
 	my $filename = PVE::QemuConfig->config_file($vmid);
 
@@ -555,6 +563,8 @@ __PACKAGE__->register_method({
 		    bwlimit => $bwlimit, });
 
 		PVE::AccessControl::add_vm_to_pool($vmid, $pool) if $pool;
+
+		PVE::API2::Qemu->vm_start({ vmid => $vmid, node => $node }) if $start_after_create;
 	    };
 
 	    # ensure no old replication state are exists
@@ -603,7 +613,12 @@ __PACKAGE__->register_method({
 		PVE::AccessControl::add_vm_to_pool($vmid, $pool) if $pool;
 	    };
 
-	    return PVE::QemuConfig->lock_config_full($vmid, 1, $realcmd);
+	    PVE::QemuConfig->lock_config_full($vmid, 1, $realcmd);
+
+	    if ($start_after_create) {
+		print "Execute autostart\n";
+		PVE::API2::Qemu->vm_start({vmid => $vmid, node => $node});
+	    }
 	};
 
 	my $worker_name = $is_restore ? 'qmrestore' : 'qmcreate';
