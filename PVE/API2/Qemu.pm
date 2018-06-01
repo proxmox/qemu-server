@@ -462,6 +462,7 @@ __PACKAGE__->register_method({
 	my $vmid = extract_param($param, 'vmid');
 
 	my $archive = extract_param($param, 'archive');
+	my $is_restore = !!$archive;
 
 	my $storage = extract_param($param, 'storage');
 
@@ -569,7 +570,7 @@ __PACKAGE__->register_method({
 	    # ensure no old replication state are exists
 	    PVE::ReplicationState::delete_guest_states($vmid);
 
-	    return $rpcenv->fork_worker('qmrestore', $vmid, $authuser, $realcmd);
+	    return PVE::QemuConfig->lock_config_full($vmid, 1, $realcmd);
 	};
 
 	my $createfn = sub {
@@ -616,10 +617,13 @@ __PACKAGE__->register_method({
 		PVE::AccessControl::add_vm_to_pool($vmid, $pool) if $pool;
 	    };
 
-	    return $rpcenv->fork_worker('qmcreate', $vmid, $authuser, $realcmd);
+	    return PVE::QemuConfig->lock_config_full($vmid, 1, $realcmd);
 	};
 
-	return PVE::QemuConfig->lock_config_full($vmid, 1, $archive ? $restorefn : $createfn);
+	my $worker_name = $is_restore ? 'qmrestore' : 'qmcreate';
+	my $code = $is_restore ? $restorefn : $createfn;
+
+	return $rpcenv->fork_worker($worker_name, $vmid, $authuser, $code);
     }});
 
 __PACKAGE__->register_method({
