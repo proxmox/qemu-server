@@ -1,3 +1,17 @@
+qemu-server (5.0-27) unstable; urgency=medium
+
+  * qm agent: check if qga service is running
+
+  * fix #1779: vzdump: ensure guest-fsfreeze-thaw is called on error
+
+  * fix #1780: change datacenter.conf to datacenter.cfg in description
+
+  * fix logic of deleting balloon config property
+
+  * activate volume for cloudinit disk
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 05 Jun 2018 15:24:14 +0200
+
 qemu-server (5.0-26) unstable; urgency=medium
 
   * fix #1749: do not copy pending changes when cloning a vm
