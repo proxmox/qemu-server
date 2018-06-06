@@ -316,7 +316,7 @@ sub nocloud_network {
 	my $net = PVE::QemuServer::parse_net($conf->{$iface});
 	my $ipconfig = PVE::QemuServer::parse_ipconfig($conf->{"ipconfig$id"});
 
-	my $mac = $net->{macaddr}
+	my $mac = lc($net->{macaddr})
 	    or die "network interface '$iface' has no mac address\n";
 
 	$content .= "${i}- type: physical\n"
