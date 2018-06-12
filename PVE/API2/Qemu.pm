@@ -564,7 +564,10 @@ __PACKAGE__->register_method({
 
 		PVE::AccessControl::add_vm_to_pool($vmid, $pool) if $pool;
 
-		PVE::API2::Qemu->vm_start({ vmid => $vmid, node => $node }) if $start_after_create;
+		if ($start_after_create) {
+		    eval { PVE::API2::Qemu->vm_start({ vmid => $vmid, node => $node }) };
+		    warn $@ if $@;
+		}
 	    };
 
 	    # ensure no old replication state are exists
@@ -617,12 +620,37 @@ __PACKAGE__->register_method({
 
 	    if ($start_after_create) {
 		print "Execute autostart\n";
-		PVE::API2::Qemu->vm_start({vmid => $vmid, node => $node});
+		eval { PVE::API2::Qemu->vm_start({vmid => $vmid, node => $node}) };
+		warn $@ if $@;
 	    }
 	};
 
-	my $worker_name = $is_restore ? 'qmrestore' : 'qmcreate';
-	my $code = $is_restore ? $restorefn : $createfn;
+	my ($code, $worker_name);
+	if ($is_restore) {
+	    $worker_name = 'qmrestore';
+	    $code = sub {
+		eval { $restorefn->() };
+		if (my $err = $@) {
+		    eval { PVE::QemuConfig->remove_lock($vmid, 'create') };
+		    warn $@ if $@;
+		    die $err;
+		}
+	    };
+	} else {
+	    $worker_name = 'qmcreate';
+	    $code = sub {
+		eval { $createfn->() };
+		if (my $err = $@) {
+		    eval {
+			my $conffile = PVE::QemuConfig->config_file($vmid);
+			unlink($conffile)
+			    or die "failed to remove config file: $@\n";
+		    };
+		    warn $@ if $@;
+		    die $err;
+		}
+	    };
+	}
 
 	return $rpcenv->fork_worker($worker_name, $vmid, $authuser, $code);
     }});
