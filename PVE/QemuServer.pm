@@ -5170,6 +5170,13 @@ sub vm_resume {
 
     PVE::QemuConfig->lock_config($vmid, sub {
 
+	my $res = vm_mon_cmd($vmid, 'query-status');
+	my $resume_cmd = 'cont';
+
+	if ($res->{status} && $res->{status} eq 'suspended') {
+	    $resume_cmd = 'system_wakeup';
+	}
+
 	if (!$nocheck) {
 
 	    my $conf = PVE::QemuConfig->load_config($vmid);
@@ -5177,10 +5184,10 @@ sub vm_resume {
 	    PVE::QemuConfig->check_lock($conf)
 		if !($skiplock || PVE::QemuConfig->has_lock($conf, 'backup'));
 
-	    vm_mon_cmd($vmid, "cont");
+	    vm_mon_cmd($vmid, $resume_cmd);
 
 	} else {
-	    vm_mon_cmd_nocheck($vmid, "cont");
+	    vm_mon_cmd_nocheck($vmid, $resume_cmd);
 	}
     });
 }
