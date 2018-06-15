@@ -1,3 +1,13 @@
+qemu-server (5.0-29) unstable; urgency=medium
+
+  * reserve new VM config with create lock early
+
+  * api: allow auto vm start after create finished
+
+  * use 'system_wakeup' to resume VMs suspended by their guest OS
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 15 Jun 2018 12:11:29 +0200
+
 qemu-server (5.0-28) unstable; urgency=medium
 
   * cloud-init: improve handling of network settings for broken
