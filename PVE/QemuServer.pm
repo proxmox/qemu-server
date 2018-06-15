@@ -34,6 +34,7 @@ use PVE::QemuServer::PCI qw(print_pci_addr print_pcie_addr);
 use PVE::QemuServer::Memory;
 use PVE::QemuServer::USB qw(parse_usb_device);
 use PVE::QemuServer::Cloudinit;
+use PVE::Systemd;
 use Time::HiRes qw(gettimeofday);
 use File::Copy qw(copy);
 use URI::Escape;
@@ -4846,7 +4847,7 @@ sub vm_start {
 
 	my $run_qemu = sub {
 	    PVE::Tools::run_fork sub {
-		PVE::Tools::enter_systemd_scope($vmid, "Proxmox VE VM $vmid", %properties);
+		PVE::Systemd::enter_systemd_scope($vmid, "Proxmox VE VM $vmid", %properties);
 		run_command($cmd, %run_params);
 	    };
 	};
