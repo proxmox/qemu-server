@@ -7,6 +7,8 @@ use PVE::RESTHandler;
 use PVE::JSONSchema qw(get_standard_option);
 use PVE::QemuServer;
 use PVE::QemuServer::Agent qw(agent_available);
+use MIME::Base64 qw(encode_base64 decode_base64);
+use JSON;
 
 use base qw(PVE::RESTHandler);
 
@@ -108,7 +110,12 @@ __PACKAGE__->register_method({
 
 	my $result = [];
 
-	for my $cmd (sort keys %$guest_agent_commands) {
+	my $cmds = [keys %$guest_agent_commands];
+	push @$cmds, qw(
+	    set-user-password
+	);
+
+	for my $cmd ( sort @$cmds) {
 	    push @$result, { name => $cmd };
 	}
 
@@ -189,5 +196,58 @@ for my $cmd (sort keys %$guest_agent_commands) {
     my $props = $guest_agent_commands->{$cmd};
     __PACKAGE__->register_command($cmd, $props->{method}, $props->{perms});
 }
+
+# commands with parameters are complicated and we want to register them manually
+__PACKAGE__->register_method({
+    name => 'set-user-password',
+    path => 'set-user-password',
+    method => 'POST',
+    protected => 1,
+    proxyto => 'node',
+    description => "Sets the password for the given user to the given password",
+    permissions => { check => [ 'perm', '/vms/{vmid}', [ 'VM.Monitor' ]]},
+    parameters => {
+	additionalProperties => 0,
+	properties => {
+	    node => get_standard_option('pve-node'),
+	    vmid => get_standard_option('pve-vmid', {
+		    completion => \&PVE::QemuServer::complete_vmid_running }),
+	    username => {
+		type => 'string',
+		description => 'The user to set the password for.'
+	    },
+	    password => {
+		type => 'string',
+		description => 'The new password.',
+		minLength => 5,
+		maxLength => 64,
+	    },
+	    crypted => {
+		type => 'boolean',
+		description => 'set to 1 if the password has already been passed through crypt()',
+		optional => 1,
+		default => 0,
+	    },
+	},
+    },
+    returns => {
+	type => 'object',
+	description => "Returns an object with a single `result` property.",
+    },
+    code => sub {
+	my ($param) = @_;
+
+	my $vmid = $param->{vmid};
+
+	my $crypted = $param->{crypted} // 0;
+	my $args = {
+	    username => $param->{username},
+	    password => encode_base64($param->{password}),
+	    crypted => $crypted ? JSON::true : JSON::false,
+	};
+	my $res = agent_cmd($vmid, "set-user-password", %$args, 'cannot set user password');
+
+	return { result => $res };
+    }});
 
 1;
