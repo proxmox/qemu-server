@@ -4,6 +4,7 @@ SOURCES=PCI.pm		\
 	ImportDisk.pm	\
 	OVF.pm		\
 	Cloudinit.pm	\
+	Agent.pm	\
 
 .PHONY: install
 install: ${SOURCES}

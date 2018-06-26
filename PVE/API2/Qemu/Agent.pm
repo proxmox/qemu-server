@@ -6,6 +6,7 @@ use warnings;
 use PVE::RESTHandler;
 use PVE::JSONSchema qw(get_standard_option);
 use PVE::QemuServer;
+use PVE::QemuServer::Agent qw(agent_available);
 
 use base qw(PVE::RESTHandler);
 
@@ -172,9 +173,7 @@ sub register_command {
 
 	    my $conf = PVE::QemuConfig->load_config ($vmid); # check if VM exists
 
-	    die "No Qemu Guest Agent\n" if !defined($conf->{agent});
-	    die "VM $vmid is not running\n" if !PVE::QemuServer::check_running($vmid);
-	    die "Qemu Guest Agent is not running\n" if !PVE::QemuServer::qga_check_running($vmid, 1);
+	    agent_available($vmid, $conf);
 
 	    my $cmd = $param->{command} // $command;
 	    my $res = PVE::QemuServer::vm_mon_cmd($vmid, "guest-$cmd");
