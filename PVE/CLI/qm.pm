@@ -17,9 +17,11 @@ use PVE::Cluster;
 use PVE::SafeSyslog;
 use PVE::INotify;
 use PVE::RPCEnvironment;
+use PVE::Exception qw(raise_param_exc);
 use PVE::QemuServer;
 use PVE::QemuServer::ImportDisk;
 use PVE::QemuServer::OVF;
+use PVE::QemuServer::Agent qw(agent_available);
 use PVE::API2::Qemu;
 use PVE::API2::Qemu::Agent;
 use JSON;
@@ -652,10 +654,77 @@ __PACKAGE__->register_method ({
     }
 });
 
+__PACKAGE__->register_method({
+    name => 'exec',
+    path => 'exec',
+    method => 'POST',
+    protected => 1,
+    description => "Executes the given command via the guest agent",
+    parameters => {
+	additionalProperties => 0,
+	properties => {
+	    node => get_standard_option('pve-node'),
+	    vmid => get_standard_option('pve-vmid', {
+		    completion => \&PVE::QemuServer::complete_vmid_running }),
+	    synchronous => {
+		type => 'boolean',
+		optional => 1,
+		default => 1,
+		description => "If set to off, returns the pid immediately instead of waiting for the commmand to finish or the timeout.",
+	    },
+	    'timeout' => {
+		type => 'integer',
+		description => "The maximum time to wait synchronously for the command to finish. If reached, the pid gets returned. Set to 0 to deactivate",
+		minimum => 0,
+		optional => 1,
+		default => 30,
+	    },
+	    'extra-args' => get_standard_option('extra-args'),
+	},
+    },
+    returns => {
+	type => 'object',
+    },
+    code => sub {
+	my ($param) = @_;
+
+	my $vmid = $param->{vmid};
+	my $sync = $param->{synchronous} // 1;
+	if (!$param->{'extra-args'} || !@{$param->{'extra-args'}}) {
+	    raise_param_exc( { 'extra-args' => "No command given" });
+	}
+	if (defined($param->{timeout}) && !$sync) {
+	    raise_param_exc({ synchronous => "needs to be set for 'timeout'"});
+	}
+
+	my $res = PVE::QemuServer::Agent::qemu_exec($vmid, $param->{'extra-args'});
+
+	if ($sync) {
+	    my $pid = $res->{pid};
+	    my $timeout = $param->{timeout} // 30;
+	    my $starttime = time();
+
+	    while ($timeout == 0 || (time() - $starttime) < $timeout) {
+		my $out = PVE::QemuServer::Agent::qemu_exec_status($vmid, $pid);
+		if ($out->{exited}) {
+		    $res = $out;
+		    last;
+		}
+		sleep 1;
+	    }
+
+	    if (!$res->{exited}) {
+		warn "timeout reached, returning pid\n";
+	    }
+	}
+
+	return { result => $res };
+    }});
+
 my $print_agent_result = sub {
     my ($data) = @_;
 
-    my $result = $data->{result};
+    my $result = $data->{result} // $data;
     return if !defined($result);
 
     my $class = ref($result);
@@ -820,6 +889,8 @@ our $cmddef = {
 
     ga => {
 	passwd => [ "PVE::API2::Qemu::Agent", 'set-user-password', [ 'vmid', 'username' ], { node => $nodename }],
+	exec => [ __PACKAGE__, 'exec', [ 'vmid', 'extra-args' ], { node => $nodename }, $print_agent_result],
+	'exec-status' => [ "PVE::API2::Qemu::Agent", 'exec-status', [ 'vmid', 'pid' ], { node => $nodename }, $print_agent_result],
     },
 
     mtunnel => [ __PACKAGE__, 'mtunnel', []],
