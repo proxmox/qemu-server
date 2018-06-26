@@ -681,9 +681,11 @@ sub param_mapping {
 	return URI::Escape::uri_escape(PVE::Tools::file_get_contents($_[0]));
     }];
     my $cipassword_map = PVE::CLIHandler::get_standard_mapping('pve-password', { name => 'cipassword' });
+    my $password_map = PVE::CLIHandler::get_standard_mapping('pve-password');
     my $mapping = {
 	'update_vm' => [$ssh_key_map, $cipassword_map],
 	'create_vm' => [$ssh_key_map, $cipassword_map],
+	'set-user-password' => [$password_map],
     };
 
     return $mapping->{$name};
@@ -815,6 +817,10 @@ our $cmddef = {
 
     agent  => [ "PVE::API2::Qemu::Agent", 'agent', ['vmid', 'command'],
 		{ node => $nodename }, $print_agent_result ],
+
+    ga => {
+	passwd => [ "PVE::API2::Qemu::Agent", 'set-user-password', [ 'vmid', 'username' ], { node => $nodename }],
+    },
 
     mtunnel => [ __PACKAGE__, 'mtunnel', []],
 
