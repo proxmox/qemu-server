@@ -118,6 +118,7 @@ __PACKAGE__->register_method({
 	    exec
 	    exec-status
 	    file-read
+	    file-write
 	    set-user-password
 	);
 
@@ -436,6 +437,45 @@ __PACKAGE__->register_method({
 	}
 
 	return $result;
+    }});
+
+__PACKAGE__->register_method({
+    name => 'file-write',
+    path => 'file-write',
+    method => 'POST',
+    protected => 1,
+    proxyto => 'node',
+    description => "Writes the given file via guest agent.",
+    permissions => { check => [ 'perm', '/vms/{vmid}', [ 'VM.Monitor' ]]},
+    parameters => {
+	additionalProperties => 0,
+	properties => {
+	    node => get_standard_option('pve-node'),
+	    vmid => get_standard_option('pve-vmid', {
+		    completion => \&PVE::QemuServer::complete_vmid_running }),
+	    file => {
+		type => 'string',
+		description => 'The path to the file.'
+	    },
+	    content => {
+		type => 'string',
+		maxLength => 60*1024, # 60k, smaller than our 64k POST limit
+		description => "The content to write into the file."
+	    }
+	},
+    },
+    returns => { type => 'null' },
+    code => sub {
+	my ($param) = @_;
+
+	my $vmid = $param->{vmid};
+	my $buf = encode_base64($param->{content});
+
+	my $qgafh = agent_cmd($vmid, "file-open",  { path => $param->{file}, mode => 'wb' }, "can't open file");
+	my $write = agent_cmd($vmid, "file-write", { handle => $qgafh, 'buf-b64' => $buf }, "can't write to file");
+	my $res = agent_cmd($vmid, "file-close", { handle => $qgafh }, "can't close file");
+
+	return undef;
     }});
 
 1;
