@@ -12,6 +12,9 @@ use JSON;
 
 use base qw(PVE::RESTHandler);
 
+# max size for file-read over the api
+my $MAX_READ_SIZE = 16 * 1024 * 1024; # 16 MiB
+
 # list of commands
 # will generate one api endpoint per command
 # needs a 'method' property and optionally a 'perms' property (default VM.Monitor)
@@ -114,6 +117,7 @@ __PACKAGE__->register_method({
 	push @$cmds, qw(
 	    exec
 	    exec-status
+	    file-read
 	    set-user-password
 	);
 
@@ -360,6 +364,78 @@ __PACKAGE__->register_method({
 	my $res = PVE::QemuServer::Agent::qemu_exec_status($vmid, $pid);
 
 	return $res;
+    }});
+
+__PACKAGE__->register_method({
+    name => 'file-read',
+    path => 'file-read',
+    method => 'GET',
+    protected => 1,
+    proxyto => 'node',
+    description => "Reads the given file via guest agent. Is limited to $MAX_READ_SIZE bytes.",
+    permissions => { check => [ 'perm', '/vms/{vmid}', [ 'VM.Monitor' ]]},
+    parameters => {
+	additionalProperties => 0,
+	properties => {
+	    node => get_standard_option('pve-node'),
+	    vmid => get_standard_option('pve-vmid', {
+		    completion => \&PVE::QemuServer::complete_vmid_running }),
+	    file => {
+		type => 'string',
+		description => 'The path to the file'
+	    },
+	},
+    },
+    returns => {
+	type => 'object',
+	description => "Returns an object with a `content` property.",
+	properties => {
+	    content => {
+		type => 'string',
+		description => "The content of the file, maximum $MAX_READ_SIZE",
+	    },
+	    truncated => {
+		type => 'boolean',
+		optional => 1,
+		description => "If set to 1, the output is truncated and not complete"
+	    }
+	},
+    },
+    code => sub {
+	my ($param) = @_;
+
+	my $vmid = $param->{vmid};
+
+	my $qgafh = agent_cmd($vmid, "file-open",  { path => $param->{file} }, "can't open file");
+
+	my $bytes_left = $MAX_READ_SIZE;
+	my $eof = 0;
+	my $read_size = 1024*1024;
+	my $content = "";
+
+	while ($bytes_left > 0 && !$eof) {
+	    my $read = PVE::QemuServer::vm_mon_cmd($vmid, "guest-file-read", handle => $qgafh, count => int($read_size));
+	    check_agent_error($read, "can't read from file");
+
+	    $content .= decode_base64($read->{'buf-b64'});
+	    $bytes_left -= $read->{count};
+	    $eof = $read->{eof} // 0;
+	}
+
+	my $res = PVE::QemuServer::vm_mon_cmd($vmid, "guest-file-close", handle => $qgafh);
+	check_agent_error($res, "can't close file", 1);
+
+	my $result = {
+	    content => $content,
+	    'bytes-read' => ($MAX_READ_SIZE-$bytes_left),
+	};
+
+	if (!$eof) {
+	    warn "agent file-read: reached maximum read size: $MAX_READ_SIZE bytes. output might be truncated.\n";
+	    $result->{truncated} = 1;
+	}
+
+	return $result;
     }});
 
 1;
