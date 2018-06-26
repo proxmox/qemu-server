@@ -3,6 +3,8 @@ package PVE::QemuServer::Agent;
 use strict;
 use warnings;
 use PVE::QemuServer;
+use MIME::Base64 qw(decode_base64);
+use JSON;
 use base 'Exporter';
 
 our @EXPORT_OK = qw(
@@ -58,6 +60,54 @@ sub agent_cmd {
 
     my $res = PVE::QemuServer::vm_mon_cmd($vmid, "guest-$cmd", %$params);
     check_agent_error($res, $errormsg, $noerr);
+
+    return $res;
+}
+
+sub qemu_exec {
+    my ($vmid, $cmd) = @_;
+
+
+    my $path = shift @$cmd;
+    my $arguments = $cmd;
+
+    my $args = {
+	path => $path,
+	arg => $arguments,
+	'capture-output' => JSON::true,
+    };
+    my $res = agent_cmd($vmid, "exec", $args, "can't execute command '$path $arguments'");
+
+    return $res;
+}
+
+sub qemu_exec_status {
+    my ($vmid, $pid) = @_;
+
+    my $res = agent_cmd($vmid, "exec-status", { pid => $pid }, "can't get exec status for '$pid'");
+
+    if ($res->{'out-data'}) {
+	my $decoded = eval { decode_base64($res->{'out-data'}) };
+	warn $@ if $@;
+	if (defined($decoded)) {
+	    $res->{'out-data'} = $decoded;
+	}
+    }
+
+    if ($res->{'err-data'}) {
+	my $decoded = eval { decode_base64($res->{'err-data'}) };
+	warn $@ if $@;
+	if (defined($decoded)) {
+	    $res->{'err-data'} = $decoded;
+	}
+    }
+
+    # convert JSON::Boolean to 1/0
+    foreach my $d (keys %$res) {
+	if (JSON::is_bool($res->{$d})) {
+	    $res->{$d} = ($res->{$d})? 1 : 0;
+	}
+    }
 
     return $res;
 }

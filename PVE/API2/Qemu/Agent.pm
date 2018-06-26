@@ -112,6 +112,8 @@ __PACKAGE__->register_method({
 
 	my $cmds = [keys %$guest_agent_commands];
 	push @$cmds, qw(
+	    exec
+	    exec-status
 	    set-user-password
 	);
 
@@ -248,6 +250,116 @@ __PACKAGE__->register_method({
 	my $res = agent_cmd($vmid, "set-user-password", %$args, 'cannot set user password');
 
 	return { result => $res };
+    }});
+
+__PACKAGE__->register_method({
+    name => 'exec',
+    path => 'exec',
+    method => 'POST',
+    protected => 1,
+    proxyto => 'node',
+    description => "Executes the given command in the vm via the guest-agent and returns an object with the pid.",
+    permissions => { check => [ 'perm', '/vms/{vmid}', [ 'VM.Monitor' ]]},
+    parameters => {
+	additionalProperties => 0,
+	properties => {
+	    node => get_standard_option('pve-node'),
+	    vmid => get_standard_option('pve-vmid', {
+		    completion => \&PVE::QemuServer::complete_vmid_running }),
+	    command => {
+		type => 'string',
+		format => 'string-alist',
+		description => 'The command as a list of program + arguments',
+	    }
+	},
+    },
+    returns => {
+	type => 'object',
+	properties => {
+	    pid => {
+		type => 'integer',
+		description => "The PID of the process started by the guest-agent.",
+	    },
+	},
+    },
+    code => sub {
+	my ($param) = @_;
+
+	my $vmid = $param->{vmid};
+	my $cmd = [PVE::Tools::split_list($param->{command})];
+
+	my $res = PVE::QemuServer::Agent::qemu_exec($vmid, $cmd);
+	return $res;
+    }});
+
+__PACKAGE__->register_method({
+    name => 'exec-status',
+    path => 'exec-status',
+    method => 'GET',
+    protected => 1,
+    proxyto => 'node',
+    description => "Gets the status of the given pid started by the guest-agent",
+    permissions => { check => [ 'perm', '/vms/{vmid}', [ 'VM.Monitor' ]]},
+    parameters => {
+	additionalProperties => 0,
+	properties => {
+	    node => get_standard_option('pve-node'),
+	    vmid => get_standard_option('pve-vmid', {
+		    completion => \&PVE::QemuServer::complete_vmid_running }),
+	    pid => {
+		type => 'integer',
+		description => 'The PID to query'
+	    },
+	},
+    },
+    returns => {
+	type => 'object',
+	properties => {
+	    exited => {
+		type => 'boolean',
+		description => 'Tells if the given command has exited yet.',
+	    },
+	    exitcode => {
+		type => 'integer',
+		optional => 1,
+		description => 'process exit code if it was normally terminated.',
+	    },
+	    signal=> {
+		type => 'integer',
+		optional => 1,
+		description => 'signal number or exception code if the process was abnormally terminated.',
+	    },
+	    'out-data' => {
+		type => 'string',
+		optional => 1,
+		description => 'stdout of the process',
+	    },
+	    'err-data' => {
+		type => 'string',
+		optional => 1,
+		description => 'stderr of the process',
+	    },
+	    'out-truncated' => {
+		type => 'boolean',
+		optional => 1,
+		description => 'true if stdout was not fully captured',
+	    },
+	    'err-truncated' => {
+		type => 'boolean',
+		optional => 1,
+		description => 'true if stderr was not fully captured',
+	    },
+	},
+    },
+    code => sub {
+	my ($param) = @_;
+
+	my $vmid = $param->{vmid};
+	my $pid = int($param->{pid});
+
+	my $res = PVE::QemuServer::Agent::qemu_exec_status($vmid, $pid);
+
+	return $res;
     }});
 
 1;
