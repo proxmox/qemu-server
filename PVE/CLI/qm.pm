@@ -13,7 +13,6 @@ use IO::Select;
 use URI::Escape;
 
 use PVE::Tools qw(extract_param);
-use PVE::PTY;
 use PVE::Cluster;
 use PVE::SafeSyslog;
 use PVE::INotify;
