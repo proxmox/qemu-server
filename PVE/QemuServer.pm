@@ -5606,6 +5606,10 @@ sub rescan {
 
     my $cfg = PVE::Storage::config();
 
+    foreach my $stor (keys %{$cfg->{ids}}) {
+	delete($cfg->{ids}->{$stor}) if ! $cfg->{ids}->{$stor}->{content}->{images};
+    }
+
     my $volid_hash = scan_volids($cfg, $vmid);
 
     my $updatefn =  sub {
