@@ -3410,7 +3410,7 @@ sub config_to_command {
 	    if ($winversion){
 		for(my $i = 1; $i < $qxlnum; $i++){
 		    my $pciaddr = print_pci_addr("vga$i", $bridges);
-		    push @$cmd, '-device', "qxl,id=vga$i,ram_size=67108864,vram_size=33554432$pciaddr";
+		    push @$devices, '-device', "qxl,id=vga$i,ram_size=67108864,vram_size=33554432$pciaddr";
 		}
 	    } else {
 		# assume other OS works like Linux
