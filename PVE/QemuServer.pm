@@ -5606,6 +5606,8 @@ sub rescan {
 
     my $cfg = PVE::Storage::config();
 
+    # FIXME: Remove once our RBD plugin can handle CT and VM on a single storage
+    # see: https://pve.proxmox.com/pipermail/pve-devel/2018-July/032900.html
     foreach my $stor (keys %{$cfg->{ids}}) {
 	delete($cfg->{ids}->{$stor}) if ! $cfg->{ids}->{$stor}->{content}->{images};
     }
