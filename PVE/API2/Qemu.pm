@@ -365,7 +365,41 @@ __PACKAGE__->register_method({
 	type => 'array',
 	items => {
 	    type => "object",
-	    properties => {},
+	    properties => {
+		vmid => get_standard_option('pve-vmid'),
+		status => {
+		    description => "Qemu process status.",
+		    type => 'string',
+		    enum => ['stopped', 'running'],
+		},
+		maxmem => {
+		    description => "Maximum memory in bytes.",
+		    type => 'integer',
+		    optional => 1,
+		    renderer => 'bytes',
+		},
+		maxdisk => {
+		    description => "Root disk size in bytes.",
+		    type => 'integer',
+		    optional => 1,
+		    renderer => 'bytes',
+		},
+		name => {
+		    description => "VM name.",
+		    type => 'string',
+		    optional => 1,
+		},
+		qmpstatus => {
+		    description => "Qemu QMP agent status.",
+		    type => 'string',
+		    optional => 1,
+		},
+		pid => {
+		    description => "PID of running qemu process.",
+		    type => 'integer',
+		    optional => 1,
+		},
+	    },
 	},
 	links => [ { rel => 'child', href => "{vmid}" } ],
     },
@@ -828,13 +862,14 @@ __PACKAGE__->register_method({
 	},
     },
     returns => {
+	description => "The current VM configuration.",
 	type => "object",
-	properties => {
+	properties => PVE::QemuServer::json_config_properties({
 	    digest => {
 		type => 'string',
 		description => 'SHA1 digest of configuration file. This can be used to prevent concurrent modifications.',
 	    }
-	},
+	}),
     },
     code => sub {
 	my ($param) = @_;
@@ -3319,7 +3354,32 @@ __PACKAGE__->register_method({
 	type => 'array',
 	items => {
 	    type => "object",
-	    properties => {},
+	    properties => {
+		name => {
+		    description => "Snapshot identifier. Value 'current' identifies the current VM.",
+		    type => 'string',
+		},
+		vmstate => {
+		    description => "Snapshot includes RAM.",
+		    type => 'boolean',
+		    optional => 1,
+		},
+		description => {
+		    description => "Snapshot description.",
+		    type => 'string',
+		},
+		snaptime => {
+		    description => "Snapshot creation time",
+		    type => 'integer',
+		    renderer => 'timestamp',
+		    optional => 1,
+		},
+		parent => {
+		    description => "Parent snapshot identifier.",
+		    type => 'string',
+		    optional => 1,
+		},
+	    },
 	},
 	links => [ { rel => 'child', href => "{name}" } ],
     },
@@ -3347,7 +3407,12 @@ __PACKAGE__->register_method({
 	}
 
 	my $running = PVE::QemuServer::check_running($vmid, 1) ? 1 : 0;
-	my $current = { name => 'current', digest => $conf->{digest}, running => $running };
+	my $current = {
+	    name => 'current',
+	    digest => $conf->{digest},
+	    running => $running,
+	    description => "You are here!",
+	};
 	$current->{parent} = $conf->{parent} if $conf->{parent};
 
 	push @$res, $current;
