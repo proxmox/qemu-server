@@ -2,6 +2,7 @@ package PVE::QemuServer::Agent;
 
 use strict;
 use warnings;
+
 use PVE::QemuServer;
 use MIME::Base64 qw(decode_base64);
 use JSON;
@@ -19,9 +20,9 @@ sub check_agent_error {
     $errmsg //= '';
     my $error = '';
     if (ref($result) eq 'HASH' && $result->{error} && $result->{error}->{desc}) {
-	$error = "Agent Error: $result->{error}->{desc}\n";
+	$error = "Agent error: $result->{error}->{desc}\n";
     } elsif (!defined($result)) {
-	$error = "Agent Error: $errmsg\n";
+	$error = "Agent error: $errmsg\n";
     }
 
     if ($error) {
@@ -38,9 +39,9 @@ sub agent_available {
     my ($vmid, $conf, $noerr) = @_;
 
     eval {
-	die "No Qemu Guest Agent\n" if !defined($conf->{agent});
+	die "No QEMU guest agent configured\n" if !defined($conf->{agent});
 	die "VM $vmid is not running\n" if !PVE::QemuServer::check_running($vmid);
-	die "Qemu Guest Agent is not running\n" if !PVE::QemuServer::qga_check_running($vmid, 1);
+	die "QEMU guest agent is not running\n" if !PVE::QemuServer::qga_check_running($vmid, 1);
     };
 
     if (my $err = $@) {
