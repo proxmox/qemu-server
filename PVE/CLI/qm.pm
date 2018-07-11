@@ -884,10 +884,10 @@ our $cmddef = {
 
     monitor  => [ __PACKAGE__, 'monitor', ['vmid']],
 
-    agent  => [ "PVE::API2::Qemu::Agent", 'agent', ['vmid', 'command'],
-		{ node => $nodename }, $print_agent_result ],
+    agent  => { alias => 'guest cmd' },
 
     guest => {
+	cmd  => [ "PVE::API2::Qemu::Agent", 'agent', ['vmid', 'command'], { node => $nodename }, $print_agent_result ],
 	passwd => [ "PVE::API2::Qemu::Agent", 'set-user-password', [ 'vmid', 'username' ], { node => $nodename }],
 	exec => [ __PACKAGE__, 'exec', [ 'vmid', 'extra-args' ], { node => $nodename }, $print_agent_result],
 	'exec-status' => [ "PVE::API2::Qemu::Agent", 'exec-status', [ 'vmid', 'pid' ], { node => $nodename }, $print_agent_result],
