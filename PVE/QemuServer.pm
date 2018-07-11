@@ -5538,6 +5538,7 @@ sub update_disksize {
     my ($vmid, $conf, $volid_hash) = @_;
 
     my $changes;
+    my $prefix = "VM $vmid:";
 
     # used and unused disks
     my $referenced = {};
@@ -5569,6 +5570,7 @@ sub update_disksize {
 	    if ($new ne $conf->{$opt}) {
 		$changes = 1;
 		$conf->{$opt} = $new;
+		print "$prefix update disk '$opt' information.\n";
 	    }
 	}
     }
@@ -5579,6 +5581,7 @@ sub update_disksize {
 	my $volid = $conf->{$opt};
 	my $path = $volid_hash->{$volid}->{path} if $volid_hash->{$volid};
 	if ($referenced->{$volid} || ($path && $referencedpath->{$path})) {
+	    print "$prefix remove entry '$opt', its volume '$volid' is in use.\n";
 	    $changes = 1;
 	    delete $conf->{$opt};
 	}
@@ -5594,7 +5597,8 @@ sub update_disksize {
 	next if !$path; # just to be sure
 	next if $referencedpath->{$path};
 	$changes = 1;
-	PVE::QemuConfig->add_unused_volume($conf, $volid);
+	my $key = PVE::QemuConfig->add_unused_volume($conf, $volid);
+	print "$prefix add unreferenced volume '$volid' as '$key' to config.\n";
 	$referencedpath->{$path} = 1; # avoid to add more than once (aliases)
     }
 
@@ -5612,6 +5616,7 @@ sub rescan {
 	delete($cfg->{ids}->{$stor}) if ! $cfg->{ids}->{$stor}->{content}->{images};
     }
 
+    print "rescan volumes...\n";
     my $volid_hash = scan_volids($cfg, $vmid);
 
     my $updatefn =  sub {
