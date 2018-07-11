@@ -4197,6 +4197,16 @@ sub qemu_volume_snapshot_delete {
 
     my $running = check_running($vmid);
 
+    if($running) {
+
+	$running = undef;
+	my $conf = PVE::QemuConfig->load_config($vmid);
+	foreach_drive($conf, sub {
+	    my ($ds, $drive) = @_;
+	    $running = 1 if $drive->{file} eq $volid;
+	});
+    }
+
     if ($running && do_snapshots_with_qemu($storecfg, $volid)){
 	vm_mon_cmd($vmid, "delete-drive-snapshot", device => $deviceid, name => $snap);
     } else {
