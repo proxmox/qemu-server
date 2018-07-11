@@ -5606,7 +5606,7 @@ sub update_disksize {
 }
 
 sub rescan {
-    my ($vmid, $nolock) = @_;
+    my ($vmid, $nolock, $dryrun) = @_;
 
     my $cfg = PVE::Storage::config();
 
@@ -5634,7 +5634,7 @@ sub rescan {
 
 	my $changes = update_disksize($vmid, $conf, $vm_volids);
 
-	PVE::QemuConfig->write_config($vmid, $conf) if $changes;
+	PVE::QemuConfig->write_config($vmid, $conf) if $changes && !$dryrun;
     };
 
     if (defined($vmid)) {

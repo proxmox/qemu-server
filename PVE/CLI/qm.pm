@@ -404,13 +404,23 @@ __PACKAGE__->register_method ({
 		optional => 1,
 		completion => \&PVE::QemuServer::complete_vmid,
 	    }),
+	    dryrun => {
+		type => 'boolean',
+		optional => 1,
+		default => 0,
+		description => 'Do not actually write changes out to conifg.',
+	    },
 	},
     },
     returns => { type => 'null'},
     code => sub {
 	my ($param) = @_;
 
-	PVE::QemuServer::rescan($param->{vmid});
+	my $dryrun = $param->{dryrun};
+
+	print "NOTE: running in dry-run mode, won't write changes out!\n" if $dryrun;
+
+	PVE::QemuServer::rescan($param->{vmid}, 0, $dryrun);
 
 	return undef;
     }});
