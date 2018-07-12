@@ -887,7 +887,7 @@ our $cmddef = {
     agent  => [ "PVE::API2::Qemu::Agent", 'agent', ['vmid', 'command'],
 		{ node => $nodename }, $print_agent_result ],
 
-    ga => {
+    guest => {
 	passwd => [ "PVE::API2::Qemu::Agent", 'set-user-password', [ 'vmid', 'username' ], { node => $nodename }],
 	exec => [ __PACKAGE__, 'exec', [ 'vmid', 'extra-args' ], { node => $nodename }, $print_agent_result],
 	'exec-status' => [ "PVE::API2::Qemu::Agent", 'exec-status', [ 'vmid', 'pid' ], { node => $nodename }, $print_agent_result],
