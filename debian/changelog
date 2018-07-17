@@ -1,3 +1,19 @@
+qemu-server (5.0-30) unstable; urgency=medium
+
+  * Fix SPICE multi-monitor mode on VMs using q35 machine type
+
+  * extend QEMU guest agent API with file read/write, setting VM user password
+    and executing arbitrary commands in VM
+
+  * add guest command group to qm CLI tool
+
+  * add 'dryrun' to qm rescan, which only list changes but does not actually
+    saves them
+
+  * add a workaround for bug #1650: add content type filter to rescan
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 17 Jul 2018 11:39:01 +0200
+
 qemu-server (5.0-29) unstable; urgency=medium
 
   * reserve new VM config with create lock early
