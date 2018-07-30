@@ -6,7 +6,7 @@ use warnings;
 use PVE::RESTHandler;
 use PVE::JSONSchema qw(get_standard_option);
 use PVE::QemuServer;
-use PVE::QemuServer::Agent qw(agent_available agent_cmd);
+use PVE::QemuServer::Agent qw(agent_available agent_cmd check_agent_error);
 use MIME::Base64 qw(encode_base64 decode_base64);
 use JSON;
 
