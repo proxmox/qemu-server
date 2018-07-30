@@ -1,3 +1,11 @@
+qemu-server (5.0-31) unstable; urgency=medium
+
+  * fix #1717: delete snapshot when vm running and drive not attached
+
+  * fix qemu agent commands: add missing import of 'agent_cmd' method
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 30 Jul 2018 10:24:27 +0200
+
 qemu-server (5.0-30) unstable; urgency=medium
 
   * Fix SPICE multi-monitor mode on VMs using q35 machine type
