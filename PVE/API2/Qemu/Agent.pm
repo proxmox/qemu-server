@@ -252,7 +252,7 @@ __PACKAGE__->register_method({
 	    password => encode_base64($param->{password}),
 	    crypted => $crypted ? JSON::true : JSON::false,
 	};
-	my $res = agent_cmd($vmid, "set-user-password", %$args, 'cannot set user password');
+	my $res = agent_cmd($vmid, "set-user-password", $args, 'cannot set user password');
 
 	return { result => $res };
     }});
