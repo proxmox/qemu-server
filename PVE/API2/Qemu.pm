@@ -399,6 +399,17 @@ __PACKAGE__->register_method({
 		    type => 'integer',
 		    optional => 1,
 		},
+		uptime => {
+		    description => "Uptime.",
+		    type => 'integer',
+		    optional => 1,
+		    renderer => 'duration',
+		},
+		cpus => {
+		    description => "Maximum usable CPUs.",
+		    type => 'number',
+		    optional => 1,
+		},
 	    },
 	},
 	links => [ { rel => 'child', href => "{vmid}" } ],
