@@ -1894,8 +1894,7 @@ __PACKAGE__->register_method({
 	$status->{ha} = PVE::HA::Config::get_service_status("vm:$param->{vmid}");
 
 	$status->{spice} = 1 if PVE::QemuServer::vga_conf_has_spice($conf->{vga});
-
-	$status->{agent} = 1 if $conf->{agent};
+	$status->{agent} = 1 if (PVE::QemuServer::parse_guest_agent($conf)->{enabled});
 
 	return $status;
     }});

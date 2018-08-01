@@ -200,6 +200,21 @@ my $watchdog_fmt = {
 };
 PVE::JSONSchema::register_format('pve-qm-watchdog', $watchdog_fmt);
 
+my $agent_fmt = {
+    enabled => {
+	description => "Enable/disable Qemu GuestAgent.",
+	type => 'boolean',
+	default => 0,
+	default_key => 1,
+    },
+    fstrim_cloned_disks => {
+	description => "Run fstrim after cloning/moving a disk.",
+	type => 'boolean',
+	optional => 1,
+	default => 0
+    },
+};
+
 my $confdesc = {
     onboot => {
 	optional => 1,
@@ -380,9 +395,9 @@ EODESC
     },
     agent => {
 	optional => 1,
-	type => 'boolean',
-	description => "Enable/disable Qemu GuestAgent.",
-	default => 0,
+	description => "Enable/disable Qemu GuestAgent and its properties.",
+	type => 'string',
+	format => $agent_fmt,
     },
     kvm => {
 	optional => 1,
@@ -2211,6 +2226,19 @@ sub parse_watchdog {
     return $res;
 }
 
+sub parse_guest_agent {
+    my ($value) = @_;
+
+    return {} if !defined($value->{agent});
+
+    my $res = eval { PVE::JSONSchema::parse_property_string($agent_fmt, $value->{agent}) };
+    warn $@ if $@;
+
+    # if the agent is disabled ignore the other potentially set properties
+    return {} if !$res->{enabled};
+    return $res;
+}
+
 PVE::JSONSchema::register_format('pve-qm-usb-device', \&verify_usb_device);
 sub verify_usb_device {
     my ($value, $noerr) = @_;
@@ -3442,7 +3470,7 @@ sub config_to_command {
     #push @$cmd, '-soundhw', 'es1370';
     #push @$cmd, '-soundhw', $soundhw if $soundhw;
 
-    if($conf->{agent}) {
+    if (parse_guest_agent($conf)->{enabled}) {
 	my $qgasocket = qmp_socket($vmid, 1);
 	my $pciaddr = print_pci_addr("qga0", $bridges);
 	push @$devices, '-chardev', "socket,path=$qgasocket,server,nowait,id=qga0";
@@ -5152,7 +5180,7 @@ sub vm_stop {
 
 	eval {
 	    if ($shutdown) {
-		if (defined($conf) && $conf->{agent}) {
+		if (defined($conf) && parse_guest_agent($conf)->{enabled}) {
 		    vm_qmp_command($vmid, { execute => "guest-shutdown" }, $nocheck);
 		} else {
 		    vm_qmp_command($vmid, { execute => "system_powerdown" }, $nocheck);

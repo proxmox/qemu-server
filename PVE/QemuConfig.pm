@@ -161,7 +161,7 @@ sub __snapshot_check_freeze_needed {
 
     my $running = $class->__snapshot_check_running($vmid);
     if (!$save_vmstate) {
-	return ($running, $running && $config->{agent} && PVE::QemuServer::qga_check_running($vmid));
+	return ($running, $running && PVE::QemuServer::parse_guest_agent($config)->{enabled} && PVE::QemuServer::qga_check_running($vmid));
     } else {
 	return ($running, 0);
     }
