@@ -2764,6 +2764,53 @@ sub disksize {
     return $drive->{size};
 }
 
+our $vmstatus_return_properties = {
+    vmid => get_standard_option('pve-vmid'),
+    status => {
+	description => "Qemu process status.",
+	type => 'string',
+	enum => ['stopped', 'running'],
+    },
+    maxmem => {
+	description => "Maximum memory in bytes.",
+	type => 'integer',
+	optional => 1,
+	renderer => 'bytes',
+    },
+    maxdisk => {
+	description => "Root disk size in bytes.",
+	type => 'integer',
+	optional => 1,
+	renderer => 'bytes',
+    },
+    name => {
+	description => "VM name.",
+	type => 'string',
+	optional => 1,
+    },
+    qmpstatus => {
+	description => "Qemu QMP agent status.",
+	type => 'string',
+	optional => 1,
+    },
+    pid => {
+	description => "PID of running qemu process.",
+	type => 'integer',
+	optional => 1,
+    },
+    uptime => {
+	description => "Uptime.",
+	type => 'integer',
+	optional => 1,
+	renderer => 'duration',
+    },
+    cpus => {
+	description => "Maximum usable CPUs.",
+	type => 'number',
+	optional => 1,
+    },
+};
+
 my $last_proc_pid_stat;
 
 # get VM status information
@@ -2789,7 +2836,7 @@ sub vmstatus {
 	my $cfspath = PVE::QemuConfig->cfs_config_path($vmid);
 	my $conf = PVE::Cluster::cfs_read_file($cfspath) || {};
 
-	my $d = {};
+	my $d = { vmid => $vmid };
 	$d->{pid} = $list->{$vmid}->{pid};
 
 	# fixme: better status?

@@ -365,52 +365,7 @@ __PACKAGE__->register_method({
 	type => 'array',
 	items => {
 	    type => "object",
-	    properties => {
-		vmid => get_standard_option('pve-vmid'),
-		status => {
-		    description => "Qemu process status.",
-		    type => 'string',
-		    enum => ['stopped', 'running'],
-		},
-		maxmem => {
-		    description => "Maximum memory in bytes.",
-		    type => 'integer',
-		    optional => 1,
-		    renderer => 'bytes',
-		},
-		maxdisk => {
-		    description => "Root disk size in bytes.",
-		    type => 'integer',
-		    optional => 1,
-		    renderer => 'bytes',
-		},
-		name => {
-		    description => "VM name.",
-		    type => 'string',
-		    optional => 1,
-		},
-		qmpstatus => {
-		    description => "Qemu QMP agent status.",
-		    type => 'string',
-		    optional => 1,
-		},
-		pid => {
-		    description => "PID of running qemu process.",
-		    type => 'integer',
-		    optional => 1,
-		},
-		uptime => {
-		    description => "Uptime.",
-		    type => 'integer',
-		    optional => 1,
-		    renderer => 'duration',
-		},
-		cpus => {
-		    description => "Maximum usable CPUs.",
-		    type => 'number',
-		    optional => 1,
-		},
-	    },
+	    properties => $PVE::QemuServer::vmstatus_return_properties,
 	},
 	links => [ { rel => 'child', href => "{vmid}" } ],
     },
@@ -427,7 +382,6 @@ __PACKAGE__->register_method({
 	    next if !$rpcenv->check($authuser, "/vms/$vmid", [ 'VM.Audit' ], 1);
 
 	    my $data = $vmstatus->{$vmid};
-	    $data->{vmid} = int($vmid);
 	    push @$res, $data;
 	}
 
@@ -1908,7 +1862,26 @@ __PACKAGE__->register_method({
 	    vmid => get_standard_option('pve-vmid'),
 	},
     },
-    returns => { type => 'object' },
+    returns => {
+	type => 'object',
+	properties => {
+	    %$PVE::QemuServer::vmstatus_return_properties,
+	    ha => {
+		description => "HA manager service status.",
+		type => 'object',
+	    },
+	    spice => {
+		description => "Qemu VGA configuration supports spice.",
+		type => 'boolean',
+		optional => 1,
+	    },
+	    agent => {
+		description => "Qemu GuestAgent enabled in config.",
+		type => 'boolean',
+		optional => 1,
+	    },
+	},
+    },
     code => sub {
 	my ($param) = @_;
 
