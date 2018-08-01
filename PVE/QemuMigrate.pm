@@ -966,6 +966,11 @@ sub phase3_cleanup {
 		$self->{errors} = 1;
 	    }
 	}
+
+	if ($self->{storage_migration} && PVE::QemuServer::parse_guest_agent($conf)->{fstrim_cloned_disks} && $self->{running}) {
+	    my $cmd = [@{$self->{rem_ssh}}, 'qm', 'guest', 'cmd', $vmid, 'fstrim'];
+	    eval{ PVE::Tools::run_command($cmd, outfunc => sub {}, errfunc => sub {}) };
+	}
     }
 
     # close tunnel on successful migration, on error phase2_cleanup closed it

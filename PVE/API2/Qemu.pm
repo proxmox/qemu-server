@@ -2969,6 +2969,10 @@ __PACKAGE__->register_method({
 
 		    PVE::QemuConfig->write_config($vmid, $conf);
 
+		    if ($running && PVE::QemuServer::parse_guest_agent($conf)->{fstrim_cloned_disks} && PVE::QemuServer::qga_check_running($vmid)) {
+			eval { PVE::QemuServer::vm_mon_cmd($vmid, "guest-fstrim"); };
+		    }
+
 		    eval {
 			# try to deactivate volumes - avoid lvm LVs to be active on several nodes
 			PVE::Storage::deactivate_volumes($storecfg, [ $newdrive->{file} ])
