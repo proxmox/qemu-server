@@ -155,7 +155,7 @@ my $cpu_vendor_list = {
     max => 'default',
 };
 
-my $cpu_flag = qr/[+-](pcid|spec-ctrl)/;
+my $cpu_flag = qr/[+-](pcid|spec-ctrl|ibpb|ssbd|virt-ssbd|amd-ssbd|amd-no-ssb|pdpe1gb)/;
 
 my $cpu_fmt = {
     cputype => {
@@ -174,7 +174,7 @@ my $cpu_fmt = {
     flags => {
 	description => "List of additional CPU flags separated by ';'."
 		     . " Use '+FLAG' to enable, '-FLAG' to disable a flag."
-		     . " Currently supported flags: 'pcid', 'spec-ctrl'.",
+		     . " Currently supported flags: 'pcid', 'spec-ctrl', 'ibpb', 'ssbd', 'virt-ssbd', 'amd-ssbd', 'amd-no-ssb', 'pdpe1gb'.",
 	format_description => '+FLAG[;-FLAG...]',
 	type => 'string',
 	pattern => qr/$cpu_flag(;$cpu_flag)*/,
