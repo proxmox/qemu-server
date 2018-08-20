@@ -1,3 +1,12 @@
+qemu-server (5.0-33) unstable; urgency=medium
+
+  * fix #1242: allow one to setup an automatic QEMU guest agent fstrim
+    command after cloning or moving a disk live
+
+  * define return properties for vmstatus API call
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 20 Aug 2018 14:40:46 +0200
+
 qemu-server (5.0-32) unstable; urgency=medium
 
   * api/agent: do not dereference parameter hash before passing to
