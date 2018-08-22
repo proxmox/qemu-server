@@ -341,7 +341,7 @@ sub nocloud_network {
 	    if ($ip eq 'dhcp') {
 		$content .= "${i}- type: dhcp6\n";
 	    } else {
-		$content .= "${i}- type: static6\n"
+		$content .= "${i}- type: static\n"
 		       . "${i}  address: $ip\n";
 		if (defined(my $gw = $ipconfig->{gw6})) {
 		    $content .= "${i}  gateway: $gw\n";
