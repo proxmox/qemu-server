@@ -3,6 +3,7 @@ Section: admin
 Priority: optional
 Maintainer: Proxmox Support Team <support@proxmox.com>
 Build-Depends: debhelper (>= 7.0.50~),
+               libio-multiplex-perl,
                libpve-common-perl,
                lintian,
                perl (>= 5.10.0-19),
