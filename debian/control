@@ -8,6 +8,7 @@ Build-Depends: debhelper (>= 7.0.50~),
                lintian,
                perl (>= 5.10.0-19),
                pve-doc-generator,
+               qemu-utils,
 Standards-Version: 3.9.5
 Homepage: http://www.proxmox.com
 
