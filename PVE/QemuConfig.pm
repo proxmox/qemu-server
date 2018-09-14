@@ -281,6 +281,25 @@ sub __snapshot_delete_vol_snapshot {
     push @$unused, $volid;
 }
 
+sub __snapshot_rollback_hook {
+    my ($class, $vmid, $conf, $snap, $prepare, $data) = @_;
+
+    if ($prepare) {
+	# we save the machine of the current config
+	$data->{oldmachine} = $conf->{machine};
+    } else {
+	# Note: old code did not store 'machine', so we try to be smart
+	# and guess the snapshot was generated with kvm 1.4 (pc-i440fx-1.4).
+	$data->{forcemachine} = $conf->{machine} || 'pc-i440fx-1.4';
+
+	# we remove the 'machine' configuration if not explicitly specified
+	# in the original config.
+	delete $conf->{machine} if $snap->{vmstate} && !defined($data->{oldmachine});
+    }
+
+    return;
+}
+
 sub __snapshot_rollback_vol_possible {
     my ($class, $drive, $snapname) = @_;
 
@@ -309,11 +328,11 @@ sub __snapshot_rollback_vm_stop {
 }
 
 sub __snapshot_rollback_vm_start {
-    my ($class, $vmid, $vmstate, $forcemachine) = @_;
+    my ($class, $vmid, $vmstate, $data) = @_;
 
     my $storecfg = PVE::Storage::config();
     my $statefile = PVE::Storage::path($storecfg, $vmstate);
-    PVE::QemuServer::vm_start($storecfg, $vmid, $statefile, undef, undef, undef, $forcemachine);
+    PVE::QemuServer::vm_start($storecfg, $vmid, $statefile, undef, undef, undef, $data->{forcemachine});
 }
 
 sub __snapshot_rollback_get_unused {
