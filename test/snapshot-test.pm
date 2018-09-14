@@ -528,6 +528,8 @@ printf("Expected error for snapshot_create when Qemu mon command 'savevm-start' 
 testcase_create("203", "test", 0, "test comment", "savevm-start disabled\n\n");
 $vm_mon->{savevm_start} = 1;
 
+printf("Successful snapshot_create with no existing snapshots but set machine type\n");
+testcase_create("301", "test", 1, "test comment", "", { "local:snapshotable-disk-1" => "test" });
 
 $nodename = "delete";
 printf("\n");
@@ -610,5 +612,11 @@ testcase_rollback("206", "test", "volume_rollback_is_possible failed\n");
 
 printf("Expected error for snapshot_rollback with mp rollback failure (results in inconsistent state)\n");
 testcase_rollback("207", "test", "volume snapshot rollback disabled\n", { "local:snapshotable-disk-1" => "test", "local:snapshotable-disk-2" => "test" });
+
+printf("Successful snapshot_rollback with saved vmstate and machine config only in snapshot\n");
+testcase_rollback("301", "test", "", { "local:snapshotable-disk-1" => "test" });
+
+printf("Successful snapshot_rollback with saved vmstate and machine config and runningmachine \n");
+testcase_rollback("302", "test", "", { "local:snapshotable-disk-1" => "test" });
 
 done_testing();
