@@ -295,7 +295,7 @@ sub __snapshot_save_vmstate {
 
     my $snap = $conf->{snapshots}->{$snapname};
     $snap->{vmstate} = "somestorage:state-volume";
-    $snap->{machine} = "somemachine";
+    $snap->{runningmachine} = "somemachine"
 }
 # END mocked PVE::QemuConfig methods
 

@@ -146,9 +146,7 @@ sub __snapshot_save_vmstate {
     my $scfg = PVE::Storage::storage_config($storecfg, $target);
     $name .= ".raw" if $scfg->{path}; # add filename extension for file base storage
     $snap->{vmstate} = PVE::Storage::vdisk_alloc($storecfg, $target, $vmid, 'raw', $name, $size*1024);
-    # always overwrite machine if we save vmstate. This makes sure we
-    # can restore it later using correct machine type
-    $snap->{machine} = PVE::QemuServer::get_current_qemu_machine($vmid);
+    $snap->{runningmachine} = PVE::QemuServer::get_current_qemu_machine($vmid);
 }
 
 sub __snapshot_check_running {
@@ -288,13 +286,21 @@ sub __snapshot_rollback_hook {
 	# we save the machine of the current config
 	$data->{oldmachine} = $conf->{machine};
     } else {
-	# Note: old code did not store 'machine', so we try to be smart
-	# and guess the snapshot was generated with kvm 1.4 (pc-i440fx-1.4).
-	$data->{forcemachine} = $conf->{machine} || 'pc-i440fx-1.4';
+	# if we have a 'runningmachine' entry in the snapshot
+	# we use that for the forcemachine parameter,
+	# else we use the old logic
+	if (defined($conf->{runningmachine})) {
+	    $data->{forcemachine} = $conf->{runningmachine};
+	    delete $conf->{runningmachine};
+	} else {
+	    # Note: old code did not store 'machine', so we try to be smart
+	    # and guess the snapshot was generated with kvm 1.4 (pc-i440fx-1.4).
+	    $data->{forcemachine} = $conf->{machine} || 'pc-i440fx-1.4';
 
-	# we remove the 'machine' configuration if not explicitly specified
-	# in the original config.
-	delete $conf->{machine} if $snap->{vmstate} && !defined($data->{oldmachine});
+	    # we remove the 'machine' configuration if not explicitly specified
+	    # in the original config.
+	    delete $conf->{machine} if $snap->{vmstate} && !defined($data->{oldmachine});
+	}
     }
 
     return;

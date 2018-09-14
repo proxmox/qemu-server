@@ -80,6 +80,14 @@ PVE::JSONSchema::register_standard_option('pve-qm-image-format', {
     optional => 1,
 });
 
+PVE::JSONSchema::register_standard_option('pve-qemu-machine', {
+	description => "Specifies the Qemu machine type.",
+	type => 'string',
+	pattern => '(pc|pc(-i440fx)?-\d+\.\d+(\.pxe)?|q35|pc-q35-\d+\.\d+(\.pxe)?)',
+	maxLength => 40,
+	optional => 1,
+});
+
 #no warnings 'redefine';
 
 sub cgroups_write {
@@ -528,13 +536,10 @@ EODESCR
 	description => "Default storage for VM state volumes/files.",
 	optional => 1,
     }),
-    machine => {
-	description => "Specific the Qemu machine type.",
-	type => 'string',
-	pattern => '(pc|pc(-i440fx)?-\d+\.\d+(\.pxe)?|q35|pc-q35-\d+\.\d+(\.pxe)?)',
-	maxLength => 40,
-	optional => 1,
-    },
+    runningmachine => get_standard_option('pve-qemu-machine', {
+	description => "Specifies the Qemu machine type of the running vm. This is used internally for snapshots.",
+    }),
+    machine => get_standard_option('pve-qemu-machine'),
     smbios1 => {
 	description => "Specify SMBIOS type 1 fields.",
 	type => 'string', format => 'pve-qm-smbios1',
@@ -2255,7 +2260,7 @@ sub json_config_properties {
     my $prop = shift;
 
     foreach my $opt (keys %$confdesc) {
-	next if $opt eq 'parent' || $opt eq 'snaptime' || $opt eq 'vmstate';
+	next if $opt eq 'parent' || $opt eq 'snaptime' || $opt eq 'vmstate' || $opt eq 'runningmachine';
 	$prop->{$opt} = $confdesc->{$opt};
     }
 
