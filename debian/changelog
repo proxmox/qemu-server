@@ -1,3 +1,11 @@
+qemu-server (5.0-35) unstable; urgency=medium
+
+  * add hv_synic and hv_stimer HyperV Enlightment flags on QEMU 3.0 and later
+
+  * improve setting QEMU machine type on snapshot and rollback
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 17 Sep 2018 15:29:18 +0200
+
 qemu-server (5.0-34) unstable; urgency=medium
 
   * fix #1865: CloudInit doesn't add IPv6
