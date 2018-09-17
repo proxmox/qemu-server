@@ -286,9 +286,8 @@ sub __snapshot_rollback_hook {
 	# we save the machine of the current config
 	$data->{oldmachine} = $conf->{machine};
     } else {
-	# if we have a 'runningmachine' entry in the snapshot
-	# we use that for the forcemachine parameter,
-	# else we use the old logic
+	# if we have a 'runningmachine' entry in the snapshot we use that
+	# for the forcemachine parameter, else we use the old logic
 	if (defined($conf->{runningmachine})) {
 	    $data->{forcemachine} = $conf->{runningmachine};
 	    delete $conf->{runningmachine};
