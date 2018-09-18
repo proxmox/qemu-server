@@ -6565,9 +6565,9 @@ sub qemu_machine_feature_enabled {
 	$current_minor = $2;
     }
 
-    return 1 if $current_major >= $version_major && $current_minor >= $version_minor;
-
-
+    return 1 if $current_major > $version_major ||
+                ($current_major == $version_major &&
+                 $current_minor >= $version_minor);
 }
 
 sub qemu_machine_pxe {
