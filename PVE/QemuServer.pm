@@ -5577,7 +5577,7 @@ sub restore_update_config_line {
 	    print $outfd $line;
 	}
     } elsif (($line =~ m/^vmgenid: (.*)/)) {
-	my $vmgenid = $2;
+	my $vmgenid = $1;
 	if ($vmgenid ne '0') {
 	    # always generate a new vmgenid if there was a valid one setup
 	    $vmgenid = generate_uuid();
