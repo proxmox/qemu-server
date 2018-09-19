@@ -559,6 +559,13 @@ EODESCR
 	description => "Select BIOS implementation.",
 	default => 'seabios',
     },
+    vmgenid => {
+	type => 'string',
+	pattern => '(?:[a-fA-F0-9]{8}(?:-[a-fA-F0-9]{4}){3}-[a-fA-F0-9]{12}|[01])',
+	format_description => 'UUID',
+        description => "Set VM Generation ID UUID. Use special value 1 to autogenerate one (API only). Use special value 0 to disable explicitly.",
+	optional => 1,
+    },
 };
 
 my $confdesc_cloudinit = {
@@ -3191,6 +3198,10 @@ sub config_to_command {
 	push @$cmd, '-smbios', "type=1,$conf->{smbios1}";
     }
 
+    if ($conf->{vmgenid}) {
+	push @$devices, '-device', 'vmgenid,guid='.$conf->{vmgenid};
+    }
+
     if ($conf->{bios} && $conf->{bios} eq 'ovmf') {
 	die "uefi base image not found\n" if ! -f $OVMF_CODE;
 
@@ -5554,6 +5565,13 @@ sub restore_update_config_line {
 	} else {
 	    print $outfd $line;
 	}
+    } elsif (($line =~ m/^(vmgenid: )(.*)/)) {
+	# always generate a new vmgenid
+	my $vmgenid = $2;
+	if ($vmgenid ne '0') {
+	    $vmgenid = generate_uuid();
+	}
+	print $outfd $1.$vmgenid."\n";
     } elsif (($line =~ m/^(smbios1: )(.*)/) && $unique) {
 	my ($uuid, $uuid_str);
 	UUID::generate($uuid);
@@ -6756,11 +6774,15 @@ sub resolve_first_disk {
     return $firstdisk;
 }
 
-sub generate_smbios1_uuid {
+sub generate_uuid {
     my ($uuid, $uuid_str);
     UUID::generate($uuid);
     UUID::unparse($uuid, $uuid_str);
-    return "uuid=$uuid_str";
+    return $uuid_str;
+}
+
+sub generate_smbios1_uuid {
+    return "uuid=".generate_uuid();
 }
 
 # bash completion helper

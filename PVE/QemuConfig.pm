@@ -300,6 +300,10 @@ sub __snapshot_rollback_hook {
 	    # in the original config.
 	    delete $conf->{machine} if $snap->{vmstate} && !defined($data->{oldmachine});
 	}
+
+	if ($conf->{vmgenid}) {
+	    $conf->{vmgenid} = PVE::QemuServer::generate_uuid();
+	}
     }
 
     return;

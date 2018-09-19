@@ -621,6 +621,7 @@ __PACKAGE__->register_method ({
 
 	    eval {
 		# order matters, as do_import() will load_config() internally
+		$conf->{vmgenid} = PVE::QemuServer::generate_uuid();
 		$conf->{smbios1} = PVE::QemuServer::generate_smbios1_uuid();
 		PVE::QemuConfig->write_config($vmid, $conf);
 

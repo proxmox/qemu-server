@@ -599,6 +599,10 @@ __PACKAGE__->register_method({
 			$conf->{smbios1} = PVE::QemuServer::generate_smbios1_uuid();
 		    }
 
+		    if (!defined($conf->{vmgenid}) || $conf->{vmgenid} eq '1') {
+			$conf->{vmgenid} = PVE::QemuServer::generate_uuid();
+		    }
+
 		    PVE::QemuConfig->write_config($vmid, $conf);
 
 		};
@@ -1091,6 +1095,10 @@ my $update_vm_api  = sub {
 	    # add macaddr
 	    my $net = PVE::QemuServer::parse_net($param->{$opt});
 	    $param->{$opt} = PVE::QemuServer::print_net($net);
+	} elsif ($opt eq 'vmgenid') {
+	    if ($param->{$opt} eq '1') {
+		$param->{$opt} = PVE::QemuServer::generate_uuid();
+	    }
 	}
     }
 
@@ -2725,12 +2733,14 @@ __PACKAGE__->register_method({
 	    }
 
             # auto generate a new uuid
-            my ($uuid, $uuid_str);
-            UUID::generate($uuid);
-            UUID::unparse($uuid, $uuid_str);
 	    my $smbios1 = PVE::QemuServer::parse_smbios1($newconf->{smbios1} || '');
-	    $smbios1->{uuid} = $uuid_str;
+	    $smbios1->{uuid} = PVE::QemuServer::generate_uuid();
 	    $newconf->{smbios1} = PVE::QemuServer::print_smbios1($smbios1);
+
+	    # auto generate a new vmgenid if the option was set
+	    if ($newconf->{vmgenid}) {
+		$newconf->{vmgenid} = PVE::QemuServer::generate_uuid();
+	    }
 
 	    delete $newconf->{template};
 
