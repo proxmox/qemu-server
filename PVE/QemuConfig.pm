@@ -302,6 +302,9 @@ sub __snapshot_rollback_hook {
 	}
 
 	if ($conf->{vmgenid}) {
+	    # tell the VM that it's another generation, so it can react
+	    # appropriately, e.g. dirty-mark copies of distributed databases or
+	    # re-initializing its random number generator
 	    $conf->{vmgenid} = PVE::QemuServer::generate_uuid();
 	}
     }
