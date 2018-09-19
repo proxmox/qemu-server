@@ -5565,13 +5565,13 @@ sub restore_update_config_line {
 	} else {
 	    print $outfd $line;
 	}
-    } elsif (($line =~ m/^(vmgenid: )(.*)/)) {
-	# always generate a new vmgenid
+    } elsif (($line =~ m/^vmgenid: (.*)/)) {
 	my $vmgenid = $2;
 	if ($vmgenid ne '0') {
+	    # always generate a new vmgenid if there was a valid one setup
 	    $vmgenid = generate_uuid();
 	}
-	print $outfd $1.$vmgenid."\n";
+	print $outfd "vmgenid: $vmgenid\n";
     } elsif (($line =~ m/^(smbios1: )(.*)/) && $unique) {
 	my ($uuid, $uuid_str);
 	UUID::generate($uuid);
