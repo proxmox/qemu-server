@@ -126,6 +126,8 @@ sub cmd {
 		 $cmd->{execute} eq 'query-savevm' ||
 		 $cmd->{execute} eq 'delete-drive-snapshot' || 
 		 $cmd->{execute} eq 'guest-shutdown' ||
+		 $cmd->{execute} eq 'blockdev-snapshot-internal-sync' ||
+		 $cmd->{execute} eq 'blockdev-snapshot-delete-internal-sync' ||
 		 $cmd->{execute} eq 'snapshot-drive'  ) {
 	    $timeout = 10*60; # 10 mins ?
 	} else {
