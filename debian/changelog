@@ -1,3 +1,15 @@
+qemu-server (5.0-36) unstable; urgency=medium
+
+  * fix #1908: add VM Generation ID (vmgenid) device by default on new VMs and
+    allow to set on existing ones
+
+  * fix version check in qemu_machine_feature_enabled
+
+  * use qemu's internal blockdev-snapshot functions to avoid some issues with
+    snapshots on qcow2 files
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 24 Sep 2018 11:14:32 +0200
+
 qemu-server (5.0-35) unstable; urgency=medium
 
   * add hv_synic and hv_stimer HyperV Enlightment flags on QEMU 3.0 and later
