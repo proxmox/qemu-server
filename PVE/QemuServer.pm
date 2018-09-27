@@ -441,7 +441,7 @@ EODESC
 	    "displays you want, Linux guests can add displays them self. " .
 	    "You can also run without any graphic card, using a serial device" .
 	    " as terminal.",
-	enum => [qw(std cirrus vmware qxl serial0 serial1 serial2 serial3 qxl2 qxl3 qxl4)],
+	enum => [qw(cirrus qxl qxl2 qxl3 qxl4 serial0 serial1 serial2 serial3 std virtio vmware)],
     },
     watchdog => {
 	optional => 1,
