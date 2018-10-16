@@ -6727,7 +6727,7 @@ sub add_hyperv_enlightenments {
     if ($winversion >= 7) {
 	push @$cpuFlags , 'hv_relaxed';
 
-	if (qemu_machine_feature_enabled ($machine_type, $kvmver, 3, 0)) {
+	if (qemu_machine_feature_enabled ($machine_type, $kvmver, 2, 12)) {
 	    push @$cpuFlags , 'hv_synic';
 	    push @$cpuFlags , 'hv_stimer';
 	}
