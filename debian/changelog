@@ -1,3 +1,13 @@
+qemu-server (5.0-37) unstable; urgency=medium
+
+  * add virtio to the list of valid gpu types
+
+  * lower qemu requirement for hv_synic and hv_stimer to 2.12
+
+  * prepare for deprecated functionality in qemu 3.0
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 16 Oct 2018 14:53:04 +0200
+
 qemu-server (5.0-36) unstable; urgency=medium
 
   * fix #1908: add VM Generation ID (vmgenid) device by default on new VMs and
