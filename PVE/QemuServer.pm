@@ -3200,6 +3200,11 @@ sub config_to_command {
     push @$cmd, '-chardev', "socket,id=qmp,path=$qmpsocket,server,nowait";
     push @$cmd, '-mon', "chardev=qmp,mode=control";
 
+    if (qemu_machine_feature_enabled($machine_type, $kvmver, 2, 12)) {
+	my $eventsocket = qmp_socket($vmid, 0, 'event');
+	push @$cmd, '-chardev', "socket,id=qmp-event,path=$eventsocket,server,nowait";
+	push @$cmd, '-mon', "chardev=qmp-event,mode=control";
+    }
 
     push @$cmd, '-pidfile' , pidfile_name($vmid);
 
@@ -3690,9 +3695,10 @@ sub spice_port {
 }
 
 sub qmp_socket {
-    my ($vmid, $qga) = @_;
+    my ($vmid, $qga, $name) = @_;
     my $sockettype = $qga ? 'qga' : 'qmp';
-    return "${var_run_tmpdir}/$vmid.$sockettype";
+    my $ext = $name ? '-'.$name : '';
+    return "${var_run_tmpdir}/$vmid$ext.$sockettype";
 }
 
 sub pidfile_name {
