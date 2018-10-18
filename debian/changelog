@@ -1,3 +1,10 @@
+qemu-server (5.0-38) unstable; urgency=medium
+
+  * add second qmp socket when running qemu >= 2.12 for pending event/reboot
+    changes
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 18 Oct 2018 12:28:49 +0200
+
 qemu-server (5.0-37) unstable; urgency=medium
 
   * add virtio to the list of valid gpu types
