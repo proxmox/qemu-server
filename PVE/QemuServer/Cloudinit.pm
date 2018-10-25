@@ -340,6 +340,9 @@ sub nocloud_network {
 	if (defined(my $ip = $ipconfig->{ip6})) {
 	    if ($ip eq 'dhcp') {
 		$content .= "${i}- type: dhcp6\n";
+	    } elsif ($ip eq 'auto') {
+		# SLAAC is not supported by cloud-init, this fallback should work with an up-to-date netplan at least
+		$content .= "${i}- type: dhcp6\n";
 	    } else {
 		$content .= "${i}- type: static\n"
 		       . "${i}  address: $ip\n";
