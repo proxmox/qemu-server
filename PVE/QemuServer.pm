@@ -1000,6 +1000,14 @@ my %scsiblock_fmt = (
     },
 );
 
+my %ssd_fmt = (
+    ssd => {
+	type => 'boolean',
+	description => "Whether to expose this drive as an SSD, rather than a rotational hard disk.",
+	optional => 1,
+    },
+);
+
 my $add_throttle_desc = sub {
     my ($key, $type, $what, $unit, $longunit, $minimum) = @_;
     my $d = {
@@ -1047,6 +1055,7 @@ $drivedesc_base{'iops_wr_length'} = { alias => 'iops_wr_max_length' };
 my $ide_fmt = {
     %drivedesc_base,
     %model_fmt,
+    %ssd_fmt,
 };
 PVE::JSONSchema::register_format("pve-qm-ide", $ide_fmt);
 
@@ -1062,6 +1071,7 @@ my $scsi_fmt = {
     %iothread_fmt,
     %queues_fmt,
     %scsiblock_fmt,
+    %ssd_fmt,
 };
 my $scsidesc = {
     optional => 1,
@@ -1072,6 +1082,7 @@ PVE::JSONSchema::register_standard_option("pve-qm-scsi", $scsidesc);
 
 my $sata_fmt = {
     %drivedesc_base,
+    %ssd_fmt,
 };
 my $satadesc = {
     optional => 1,
@@ -1097,6 +1108,7 @@ my $alldrive_fmt = {
     %model_fmt,
     %queues_fmt,
     %scsiblock_fmt,
+    %ssd_fmt,
 };
 
 my $efidisk_fmt = {
@@ -1704,21 +1716,33 @@ sub print_drivedevice_full {
 	    $device = "scsi-$devicetype,bus=$controller_prefix$controller.0,channel=0,scsi-id=0,lun=$drive->{index},drive=drive-$drive->{interface}$drive->{index},id=$drive->{interface}$drive->{index}";
 	}
 
-    } elsif ($drive->{interface} eq 'ide'){
-	$maxdev = 2;
+	if ($drive->{ssd} && ($devicetype eq 'block' || $devicetype eq 'hd')) {
+	    $device .= ",rotation_rate=1";
+	}
+
+    } elsif ($drive->{interface} eq 'ide' || $drive->{interface} eq 'sata') {
+	my $maxdev = ($drive->{interface} eq 'sata') ? $MAX_SATA_DISKS : 2;
 	my $controller = int($drive->{index} / $maxdev);
 	my $unit = $drive->{index} % $maxdev;
 	my $devicetype = ($drive->{media} && $drive->{media} eq 'cdrom') ? "cd" : "hd";
 
-	$device = "ide-$devicetype,bus=ide.$controller,unit=$unit,drive=drive-$drive->{interface}$drive->{index},id=$drive->{interface}$drive->{index}";
-	if ($devicetype eq 'hd' && (my $model = $drive->{model})) {
-	    $model = URI::Escape::uri_unescape($model);
-	    $device .= ",model=$model";
+	$device = "ide-$devicetype";
+	if ($drive->{interface} eq 'ide') {
+	    $device .= ",bus=ide.$controller,unit=$unit";
+	} else {
+	    $device .= ",bus=ahci$controller.$unit";
 	}
-    } elsif ($drive->{interface} eq 'sata'){
-	my $controller = int($drive->{index} / $MAX_SATA_DISKS);
-	my $unit = $drive->{index} % $MAX_SATA_DISKS;
-	$device = "ide-drive,bus=ahci$controller.$unit,drive=drive-$drive->{interface}$drive->{index},id=$drive->{interface}$drive->{index}";
+	$device .= ",drive=drive-$drive->{interface}$drive->{index},id=$drive->{interface}$drive->{index}";
+
+	if ($devicetype eq 'hd') {
+	    if (my $model = $drive->{model}) {
+		$model = URI::Escape::uri_unescape($model);
+		$device .= ",model=$model";
+	    }
+	    if ($drive->{ssd}) {
+		$device .= ",rotation_rate=1";
+	    }
+	}
     } elsif ($drive->{interface} eq 'usb') {
 	die "implement me";
 	#  -device ide-drive,bus=ide.1,unit=0,drive=drive-ide0-1-0,id=ide0-1-0
