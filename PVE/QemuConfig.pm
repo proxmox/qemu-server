@@ -20,7 +20,7 @@ mkdir $confdir;
 my $lock_dir = "/var/lock/qemu-server";
 mkdir $lock_dir;
 
-my $MAX_UNUSED_DISKS = 8;
+my $MAX_UNUSED_DISKS = 256;
 
 # BEGIN implemented abstract methods from PVE::AbstractConfig
 
