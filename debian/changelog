@@ -1,3 +1,11 @@
+qemu-server (5.0-39) unstable; urgency=medium
+
+  * Add `ssd` property to IDE, SATA, and SCSI drives
+
+  * fix #1952: make vga memory configurable
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 09 Nov 2018 16:20:39 +0100
+
 qemu-server (5.0-38) unstable; urgency=medium
 
   * add second qmp socket when running qemu >= 2.12 for pending event/reboot
