@@ -4,7 +4,9 @@ qemu-server (5.0-39) unstable; urgency=medium
 
   * fix #1952: make vga memory configurable
 
- -- Proxmox Support Team <support@proxmox.com>  Fri, 09 Nov 2018 16:20:39 +0100
+  * fix #1969: increase max unused disks
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 09 Nov 2018 16:23:26 +0100
 
 qemu-server (5.0-38) unstable; urgency=medium
 
