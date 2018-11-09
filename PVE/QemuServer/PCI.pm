@@ -9,7 +9,7 @@ print_pcie_addr
 
 my $devices = {
     piix3 => { bus => 0, addr => 1 },
-    #addr2 : first videocard
+    vga => { bus => 0, addr => 2 },
     balloon0 => { bus => 0, addr => 3 },
     watchdog => { bus => 0, addr => 4 },
     scsihw0 => { bus => 0, addr => 5 },
@@ -130,6 +130,7 @@ sub print_pcie_addr {
 
     my $res = '';
     my $devices = {
+	vga => { bus => 'pcie.0', addr => 1 },
 	hostpci0 => { bus => "ich9-pcie-port-1", addr => 0 },
 	hostpci1 => { bus => "ich9-pcie-port-2", addr => 0 },
 	hostpci2 => { bus => "ich9-pcie-port-3", addr => 0 },

@@ -223,6 +223,24 @@ my $agent_fmt = {
     },
 };
 
+my $vga_fmt = {
+    type => {
+	description => "Select the VGA type.",
+	type => 'string',
+	default => 'std',
+	optional => 1,
+	default_key => 1,
+	enum => [qw(cirrus qxl qxl2 qxl3 qxl4 serial0 serial1 serial2 serial3 std virtio vmware)],
+    },
+    memory => {
+	description => "Sets the VGA memory (in MiB). Has no effect with serial display.",
+	type => 'integer',
+	optional => 1,
+	minimum => 4,
+	maximum => 512,
+    },
+};
+
 my $confdesc = {
     onboot => {
 	optional => 1,
@@ -431,17 +449,16 @@ EODESC
     },
     vga => {
 	optional => 1,
-	type => 'string',
-	description => "Select the VGA type.",
-        verbose_description => "Select the VGA type. If you want to use high resolution" .
-	    " modes (>= 1280x1024x16) then you should use the options " .
-	    "'std' or 'vmware'. Default is 'std' for win8/win7/w2k8, and " .
-	    "'cirrus' for other OS types. The 'qxl' option enables the SPICE " .
-	    "display sever. For win* OS you can select how many independent " .
-	    "displays you want, Linux guests can add displays them self. " .
-	    "You can also run without any graphic card, using a serial device" .
-	    " as terminal.",
-	enum => [qw(cirrus qxl qxl2 qxl3 qxl4 serial0 serial1 serial2 serial3 std virtio vmware)],
+	type => 'string', format => $vga_fmt,
+	description => "Configure the VGA hardware.",
+	verbose_description => "Configure the VGA Hardware. If you want to use ".
+	    "high resolution modes (>= 1280x1024x16) you may need to increase " .
+	    "the vga memory option. Since QEMU 2.9 the default VGA display type " .
+	    "is 'std' for all OS types besides some Windows versions (XP and " .
+	    "older) which use 'cirrus'. The 'qxl' option enables the SPICE " .
+	    "display server. For win* OS you can select how many independent " .
+	    "displays you want, Linux guests can add displays them self.\n".
+	    "You can also run without any graphic card, using a serial device as terminal.",
     },
     watchdog => {
 	optional => 1,
@@ -1961,6 +1978,54 @@ sub print_cpu_device {
     return "$cpu-x86_64-cpu,id=cpu$id,socket-id=$current_socket,core-id=$current_core,thread-id=0";
 }
 
+my $vga_map = {
+    'cirrus' => 'cirrus-vga',
+    'std' => 'VGA',
+    'vmware' => 'vmware-svga',
+    'virtio' => 'virtio-vga',
+};
+
+sub print_vga_device {
+    my ($conf, $vga, $id, $qxlnum, $bridges) = @_;
+
+    my $type = $vga_map->{$vga->{type}};
+    my $vgamem_mb = $vga->{memory};
+    if ($qxlnum) {
+	$type = $id ? 'qxl' : 'qxl-vga';
+    }
+    die "no devicetype for $vga->{type}\n" if !$type;
+
+    my $memory = "";
+    if ($vgamem_mb) {
+	if ($vga->{type} eq 'virtio') {
+	    my $bytes = PVE::Tools::convert_size($vgamem_mb, "mb" => "b");
+	    $memory = ",max_hostmem=$bytes";
+	} elsif ($qxlnum) {
+	    # from https://www.spice-space.org/multiple-monitors.html
+	    $memory = ",vgamem_mb=$vga->{memory}";
+	    my $ram = $vgamem_mb * 4;
+	    my $vram = $vgamem_mb * 2;
+	    $memory .= ",ram_size_mb=$ram,vram_size_mb=$vram";
+	} else {
+	    $memory = ",vgamem_mb=$vga->{memory}";
+	}
+    } elsif ($qxlnum && $id) {
+	$memory = ",ram_size=67108864,vram_size=33554432";
+    }
+
+    my $q35 = machine_type_is_q35($conf);
+    my $vgaid = "vga" . ($id // '');
+    my $pciaddr;
+    if ($q35 && $vgaid eq 'vga') {
+	# on is on the pcie.0 bus on q35
+	$pciaddr = print_pcie_addr($vgaid, $bridges);
+    } else {
+	$pciaddr = print_pci_addr($vgaid, $bridges);
+    }
+
+    return "$type,id=${vgaid}${memory}${pciaddr}";
+}
+
 sub drive_is_cloudinit {
     my ($drive) = @_;
     return $drive->{file} =~ m@[:/]vm-\d+-cloudinit(?:\.$QEMU_FORMAT_RE)?$@;
@@ -2283,6 +2348,15 @@ sub parse_guest_agent {
 
     # if the agent is disabled ignore the other potentially set properties
     return {} if !$res->{enabled};
+    return $res;
+}
+
+sub parse_vga {
+    my ($value) = @_;
+
+    return {} if !$value;
+    my $res = eval { PVE::JSONSchema::parse_property_string($vga_fmt, $value) };
+    warn $@ if $@;
     return $res;
 }
 
@@ -3167,7 +3241,9 @@ sub conf_has_serial {
 sub vga_conf_has_spice {
     my ($vga) = @_;
 
-    return 0 if !$vga || $vga !~ m/^qxl([234])?$/;
+    my $vgaconf = parse_vga($vga);
+    my $vgatype = $vgaconf->{type};
+    return 0 if !$vgatype || $vgatype !~ m/^qxl([234])?$/;
 
     return $1 || 1;
 }
@@ -3277,16 +3353,16 @@ sub config_to_command {
     # add usb controllers
     my @usbcontrollers = PVE::QemuServer::USB::get_usb_controllers($conf, $bridges, $q35, $usbdesc->{format}, $MAX_USB_DEVICES);
     push @$devices, @usbcontrollers if @usbcontrollers;
-    my $vga = $conf->{vga};
+    my $vga = parse_vga($conf->{vga});
 
-    my $qxlnum = vga_conf_has_spice($vga);
-    $vga = 'qxl' if $qxlnum;
+    my $qxlnum = vga_conf_has_spice($conf->{vga});
+    $vga->{type} = 'qxl' if $qxlnum;
 
-    if (!$vga) {
+    if (!$vga->{type}) {
 	if (qemu_machine_feature_enabled($machine_type, $kvmver, 2, 9)) {
-	    $vga = (!$winversion || $winversion >= 6) ? 'std' : 'cirrus';
+	    $vga->{type} = (!$winversion || $winversion >= 6) ? 'std' : 'cirrus';
 	} else {
-	    $vga = ($winversion >= 6) ? 'std' : 'cirrus';
+	    $vga->{type} = ($winversion >= 6) ? 'std' : 'cirrus';
 	}
     }
 
@@ -3297,7 +3373,7 @@ sub config_to_command {
     } else {
 	$tablet = $defaults->{tablet};
 	$tablet = 0 if $qxlnum; # disable for spice because it is not needed
-	$tablet = 0 if $vga =~ m/^serial\d+$/; # disable if we use serial terminal (no vga card)
+	$tablet = 0 if $vga->{type} =~ m/^serial\d+$/; # disable if we use serial terminal (no vga card)
     }
 
     push @$devices, '-device', print_tabletdevice_full($conf) if $tablet;
@@ -3325,7 +3401,7 @@ sub config_to_command {
 	if ($d->{'x-vga'}) {
 	    $xvga = ',x-vga=on';
 	    $kvm_off = 1;
-	    $vga = 'none';
+	    $vga->{type} = 'none';
 	    $gpu_passthrough = 1;
 
 	    if ($conf->{bios} && $conf->{bios} eq 'ovmf') {
@@ -3428,12 +3504,12 @@ sub config_to_command {
 
     push @$cmd, '-no-reboot' if  defined($conf->{reboot}) && $conf->{reboot} == 0;
 
-    push @$cmd, '-vga', $vga if $vga && $vga !~ m/^serial\d+$/; # for kvm 77 and later
-
-    if ($vga && $vga !~ m/^serial\d+$/ && $vga ne 'none'){
+    if ($vga->{type} && $vga->{type} !~ m/^serial\d+$/ && $vga ne 'none'){
+	push @$devices, '-device', print_vga_device($conf, $vga, undef, $qxlnum, $bridges);
 	my $socket = vnc_socket($vmid);
 	push @$cmd,  '-vnc', "unix:$socket,x509,password";
     } else {
+	push @$cmd, '-vga', 'none' if $vga->{type} eq 'none';
 	push @$cmd, '-nographic';
     }
 
@@ -3540,13 +3616,17 @@ sub config_to_command {
 	if ($qxlnum > 1) {
 	    if ($winversion){
 		for(my $i = 1; $i < $qxlnum; $i++){
-		    my $pciaddr = print_pci_addr("vga$i", $bridges);
-		    push @$devices, '-device', "qxl,id=vga$i,ram_size=67108864,vram_size=33554432$pciaddr";
+		    push @$devices, '-device', print_vga_device($conf, $vga, $i, $qxlnum, $bridges);
 		}
 	    } else {
 		# assume other OS works like Linux
-		push @$cmd, '-global', 'qxl-vga.ram_size=134217728';
-		push @$cmd, '-global', 'qxl-vga.vram_size=67108864';
+		my ($ram, $vram) = ("134217728", "67108864");
+		if ($vga->{memory}) {
+		    $ram = PVE::Tools::convert_size($qxlnum*4*$vga->{memory}, 'mb' => 'b');
+		    $vram = PVE::Tools::convert_size($qxlnum*2*$vga->{memory}, 'mb' => 'b');
+		}
+		push @$cmd, '-global', "qxl-vga.ram_size=$ram";
+		push @$cmd, '-global', "qxl-vga.vram_size=$vram";
 	    }
 	}
 
