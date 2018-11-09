@@ -6907,6 +6907,12 @@ sub generate_smbios1_uuid {
     return "uuid=".generate_uuid();
 }
 
+sub nbd_stop {
+    my ($vmid) = @_;
+
+    vm_mon_cmd($vmid, 'nbd-server-stop');
+}
+
 # bash completion helper
 
 sub complete_backup_archives {
@@ -6978,12 +6984,6 @@ sub complete_storage {
     }
 
     return $res;
-}
-
-sub nbd_stop {
-    my ($vmid) = @_;
-
-    vm_mon_cmd($vmid, 'nbd-server-stop');
 }
 
 1;
