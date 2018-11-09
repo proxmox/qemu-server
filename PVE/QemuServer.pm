@@ -2016,8 +2016,9 @@ sub print_vga_device {
     my $q35 = machine_type_is_q35($conf);
     my $vgaid = "vga" . ($id // '');
     my $pciaddr;
+
     if ($q35 && $vgaid eq 'vga') {
-	# on is on the pcie.0 bus on q35
+	# the first display uses pcie.0 bus on q35 machines
 	$pciaddr = print_pcie_addr($vgaid, $bridges);
     } else {
 	$pciaddr = print_pci_addr($vgaid, $bridges);
