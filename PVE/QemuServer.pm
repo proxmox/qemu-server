@@ -3305,6 +3305,57 @@ sub get_command_for_arch($) {
     return $cmd;
 }
 
+sub get_cpu_options {
+    my ($conf, $arch, $kvm, $machine_type, $kvm_off, $kvmver, $winversion, $gpu_passthrough) = @_;
+
+    my $cpuFlags = [];
+    my $ostype = $conf->{ostype};
+
+    my $cpu = $kvm ? "kvm64" : "qemu64";
+    if (my $cputype = $conf->{cpu}) {
+	my $cpuconf = PVE::JSONSchema::parse_property_string($cpu_fmt, $cputype)
+	    or die "Cannot parse cpu description: $cputype\n";
+	$cpu = $cpuconf->{cputype};
+	$kvm_off = 1 if $cpuconf->{hidden};
+
+	if (defined(my $flags = $cpuconf->{flags})) {
+	    push @$cpuFlags, split(";", $flags);
+	}
+    }
+
+    push @$cpuFlags , '+lahf_lm' if $cpu eq 'kvm64';
+
+    push @$cpuFlags , '-x2apic'
+	if $conf->{ostype} && $conf->{ostype} eq 'solaris';
+
+    push @$cpuFlags, '+sep' if $cpu eq 'kvm64' || $cpu eq 'kvm32';
+
+    push @$cpuFlags, '-rdtscp' if $cpu =~ m/^Opteron/;
+
+    if (qemu_machine_feature_enabled ($machine_type, $kvmver, 2, 3)) {
+
+	push @$cpuFlags , '+kvm_pv_unhalt' if $kvm;
+	push @$cpuFlags , '+kvm_pv_eoi' if $kvm;
+    }
+
+    add_hyperv_enlightenments($cpuFlags, $winversion, $machine_type, $kvmver, $conf->{bios}, $gpu_passthrough) if $kvm;
+
+    push @$cpuFlags, 'enforce' if $cpu ne 'host' && $kvm;
+
+    push @$cpuFlags, 'kvm=off' if $kvm_off;
+
+    if (my $cpu_vendor = $cpu_vendor_list->{$cpu}) {
+	push @$cpuFlags, "vendor=${cpu_vendor}"
+	    if $cpu_vendor ne 'default';
+    } elsif ($arch ne 'aarch64') {
+	die "internal error"; # should not happen
+    }
+
+    $cpu .= "," . join(',', @$cpuFlags) if scalar(@$cpuFlags);
+
+    return ('-cpu', $cpu);
+}
+
 sub config_to_command {
     my ($storecfg, $vmid, $conf, $defaults, $forcemachine) = @_;
 
@@ -3312,7 +3363,6 @@ sub config_to_command {
     my $globalFlags = [];
     my $machineFlags = [];
     my $rtcFlags = [];
-    my $cpuFlags = [];
     my $devices = [];
     my $pciaddr = '';
     my $bridges = {};
@@ -3611,48 +3661,7 @@ sub config_to_command {
 	push @$rtcFlags, 'base=localtime';
     }
 
-    my $cpu = $kvm ? "kvm64" : "qemu64";
-    if (my $cputype = $conf->{cpu}) {
-	my $cpuconf = PVE::JSONSchema::parse_property_string($cpu_fmt, $cputype)
-	    or die "Cannot parse cpu description: $cputype\n";
-	$cpu = $cpuconf->{cputype};
-	$kvm_off = 1 if $cpuconf->{hidden};
-
-	if (defined(my $flags = $cpuconf->{flags})) {
-	    push @$cpuFlags, split(";", $flags);
-	}
-    }
-
-    push @$cpuFlags , '+lahf_lm' if $cpu eq 'kvm64';
-
-    push @$cpuFlags , '-x2apic'
-	if $conf->{ostype} && $conf->{ostype} eq 'solaris';
-
-    push @$cpuFlags, '+sep' if $cpu eq 'kvm64' || $cpu eq 'kvm32';
-
-    push @$cpuFlags, '-rdtscp' if $cpu =~ m/^Opteron/;
-
-    if (qemu_machine_feature_enabled ($machine_type, $kvmver, 2, 3)) {
-
-	push @$cpuFlags , '+kvm_pv_unhalt' if $kvm;
-	push @$cpuFlags , '+kvm_pv_eoi' if $kvm;
-    }
-
-    add_hyperv_enlightenments($cpuFlags, $winversion, $machine_type, $kvmver, $conf->{bios}, $gpu_passthrough) if $kvm;
-
-    push @$cpuFlags, 'enforce' if $cpu ne 'host' && $kvm;
-
-    push @$cpuFlags, 'kvm=off' if $kvm_off;
-
-    my $cpu_vendor = $cpu_vendor_list->{$cpu} ||
-	die "internal error"; # should not happen
-
-    push @$cpuFlags, "vendor=${cpu_vendor}"
-	if $cpu_vendor ne 'default';
-
-    $cpu .= "," . join(',', @$cpuFlags) if scalar(@$cpuFlags);
-
-    push @$cmd, '-cpu', $cpu;
+    push @$cmd, get_cpu_options($conf, $arch, $kvm, $machine_type, $kvm_off, $kvmver, $winversion, $gpu_passthrough);
 
     PVE::QemuServer::Memory::config($conf, $vmid, $sockets, $cores, $defaults, $hotplug_features, $cmd);
     
