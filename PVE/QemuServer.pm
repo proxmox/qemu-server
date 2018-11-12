@@ -3505,7 +3505,7 @@ sub config_to_command {
 
     push @$cmd, '-no-reboot' if  defined($conf->{reboot}) && $conf->{reboot} == 0;
 
-    if ($vga->{type} && $vga->{type} !~ m/^serial\d+$/ && $vga ne 'none'){
+    if ($vga->{type} && $vga->{type} !~ m/^serial\d+$/ && $vga->{type} ne 'none'){
 	push @$devices, '-device', print_vga_device($conf, $vga, undef, $qxlnum, $bridges);
 	my $socket = vnc_socket($vmid);
 	push @$cmd,  '-vnc', "unix:$socket,x509,password";
