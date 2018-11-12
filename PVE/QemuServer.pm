@@ -3558,7 +3558,14 @@ sub config_to_command {
 	    if ($path eq 'socket') {
 		my $socket = "/var/run/qemu-server/${vmid}.serial$i";
 		push @$devices, '-chardev', "socket,id=serial$i,path=$socket,server,nowait";
-		push @$devices, '-device', "isa-serial,chardev=serial$i";
+		# On aarch64, serial0 is the UART device. Qemu only allows
+		# connecting UART devices via the '-serial' command line, as
+		# the device has a fixed slot on the hardware...
+		if ($arch eq 'aarch64' && $i == 0) {
+		    push @$devices, '-serial', "chardev:serial$i";
+		} else {
+		    push @$devices, '-device', "isa-serial,chardev=serial$i";
+		}
 	    } else {
 		die "no such serial device\n" if ! -c $path;
 		push @$devices, '-chardev', "tty,id=serial$i,path=$path";
