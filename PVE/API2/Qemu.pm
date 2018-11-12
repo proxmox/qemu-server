@@ -130,7 +130,7 @@ my $check_storage_access_clone = sub {
 # Note: $pool is only needed when creating a VM, because pool permissions
 # are automatically inherited if VM already exists inside a pool.
 my $create_disks = sub {
-    my ($rpcenv, $authuser, $conf, $storecfg, $vmid, $pool, $settings, $default_storage) = @_;
+    my ($rpcenv, $authuser, $conf, $arch, $storecfg, $vmid, $pool, $settings, $default_storage) = @_;
 
     my $vollist = [];
 
@@ -175,7 +175,7 @@ my $create_disks = sub {
 
 	    my $volid;
 	    if ($ds eq 'efidisk0') {
-		($volid, $size) = PVE::QemuServer::create_efidisk($storecfg, $storeid, $vmid, $fmt);
+		($volid, $size) = PVE::QemuServer::create_efidisk($storecfg, $storeid, $vmid, $fmt, $arch);
 	    } else {
 		$volid = PVE::Storage::vdisk_alloc($storecfg, $storeid, $vmid, $fmt, undef, $size);
 	    }
@@ -589,7 +589,7 @@ __PACKAGE__->register_method({
 
 		eval {
 
-		    $vollist = &$create_disks($rpcenv, $authuser, $conf, $storecfg, $vmid, $pool, $param, $storage);
+		    $vollist = &$create_disks($rpcenv, $authuser, $conf, $arch, $storecfg, $vmid, $pool, $param, $storage);
 
 		    if (!$conf->{bootdisk}) {
 			my $firstdisk = PVE::QemuServer::resolve_first_disk($conf);
@@ -1180,6 +1180,8 @@ my $update_vm_api  = sub {
 		$conf = PVE::QemuConfig->load_config($vmid); # update/reload
 		next if defined($conf->{pending}->{$opt}) && ($param->{$opt} eq $conf->{pending}->{$opt}); # skip if nothing changed
 
+		my ($arch, undef) = PVE::QemuServer::get_basic_machine_info($conf);
+
 		if (PVE::QemuServer::is_valid_drivename($opt)) {
 		    my $drive = PVE::QemuServer::parse_drive($opt, $param->{$opt});
 		    # FIXME: cloudinit: CDROM or Disk?
@@ -1191,7 +1193,7 @@ my $update_vm_api  = sub {
 		    PVE::QemuServer::vmconfig_register_unused_drive($storecfg, $vmid, $conf, PVE::QemuServer::parse_drive($opt, $conf->{pending}->{$opt}))
 			if defined($conf->{pending}->{$opt});
 
-		    &$create_disks($rpcenv, $authuser, $conf->{pending}, $storecfg, $vmid, undef, {$opt => $param->{$opt}});
+		    &$create_disks($rpcenv, $authuser, $conf->{pending}, $arch, $storecfg, $vmid, undef, {$opt => $param->{$opt}});
 		} else {
 		    $conf->{pending}->{$opt} = $param->{$opt};
 		}

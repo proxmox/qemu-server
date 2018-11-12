@@ -40,8 +40,16 @@ use File::Copy qw(copy);
 use URI::Escape;
 
 my $EDK2_FW_BASE = '/usr/share/pve-edk2-firmware/';
-my $OVMF_CODE = "$EDK2_FW_BASE/OVMF_CODE.fd";
-my $OVMF_VARS = "$EDK2_FW_BASE/OVMF_VARS.fd";
+my $OVMF = {
+    x86_64 => [
+	"$EDK2_FW_BASE/OVMF_CODE.fd",
+	"$EDK2_FW_BASE/OVMF_VARS.fd"
+    ],
+    aarch64 => [
+	"$EDK2_FW_BASE/AAVMF_CODE.fd",
+	"$EDK2_FW_BASE/AAVMF_VARS.fd"
+    ],
+};
 
 my $qemu_snap_storage = {rbd => 1, sheepdog => 1};
 
@@ -3275,6 +3283,15 @@ sub get_basic_machine_info {
     return ($arch, $machine);
 }
 
+sub get_ovmf_files($) {
+    my ($arch) = @_;
+
+    my $ovmf = $OVMF->{$arch}
+	or die "no OVMF images known for architecture '$arch'\n";
+
+    return @$ovmf;
+}
+
 sub config_to_command {
     my ($storecfg, $vmid, $conf, $defaults, $forcemachine) = @_;
 
@@ -3350,8 +3367,9 @@ sub config_to_command {
 	push @$devices, '-device', 'vmgenid,guid='.$conf->{vmgenid};
     }
 
+    my ($ovmf_code, $ovmf_vars) = get_ovmf_files($arch);
     if ($conf->{bios} && $conf->{bios} eq 'ovmf') {
-	die "uefi base image not found\n" if ! -f $OVMF_CODE;
+	die "uefi base image not found\n" if ! -f $ovmf_code;
 
 	my $path;
 	my $format;
@@ -3373,11 +3391,11 @@ sub config_to_command {
 	} else {
 	    warn "no efidisk configured! Using temporary efivars disk.\n";
 	    $path = "/tmp/$vmid-ovmf.fd";
-	    PVE::Tools::file_copy($OVMF_VARS, $path, -s $OVMF_VARS);
+	    PVE::Tools::file_copy($ovmf_vars, $path, -s $ovmf_vars);
 	    $format = 'raw';
 	}
 
-	push @$cmd, '-drive', "if=pflash,unit=0,format=raw,readonly,file=$OVMF_CODE";
+	push @$cmd, '-drive', "if=pflash,unit=0,format=raw,readonly,file=$ovmf_code";
 	push @$cmd, '-drive', "if=pflash,unit=1,format=$format,id=drive-efidisk0,file=$path";
     }
 
@@ -6775,18 +6793,19 @@ sub qemu_use_old_bios_files {
     return ($use_old_bios_files, $machine_type);
 }
 
-sub create_efidisk {
-    my ($storecfg, $storeid, $vmid, $fmt) = @_;
+sub create_efidisk($$$$$) {
+    my ($storecfg, $storeid, $vmid, $fmt, $arch) = @_;
 
-    die "EFI vars default image not found\n" if ! -f $OVMF_VARS;
+    my (undef, $ovmf_vars) = get_ovmf_files($arch);
+    die "EFI vars default image not found\n" if ! -f $ovmf_vars;
 
-    my $vars_size = PVE::Tools::convert_size(-s $OVMF_VARS, 'b' => 'kb');
+    my $vars_size = PVE::Tools::convert_size(-s $ovmf_vars, 'b' => 'kb');
     my $volid = PVE::Storage::vdisk_alloc($storecfg, $storeid, $vmid, $fmt, undef, $vars_size);
     PVE::Storage::activate_volumes($storecfg, [$volid]);
 
     my $path = PVE::Storage::path($storecfg, $volid);
     eval {
-	run_command(['/usr/bin/qemu-img', 'convert', '-n', '-f', 'raw', '-O', $fmt, $OVMF_VARS, $path]);
+	run_command(['/usr/bin/qemu-img', 'convert', '-n', '-f', 'raw', '-O', $fmt, $ovmf_vars, $path]);
     };
     die "Copying EFI vars image failed: $@" if $@;
 
