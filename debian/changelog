@@ -1,3 +1,9 @@
+qemu-server (5.0-40) unstable; urgency=medium
+
+  * correctly check display vga type
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 12 Nov 2018 17:27:53 +0100
+
 qemu-server (5.0-39) unstable; urgency=medium
 
   * Add `ssd` property to IDE, SATA, and SCSI drives
