@@ -3344,7 +3344,7 @@ sub get_cpu_options {
 	}
     }
 
-    push @$cpuFlags , '+lahf_lm' if $cpu eq 'kvm64';
+    push @$cpuFlags , '+lahf_lm' if $cpu eq 'kvm64' && $arch eq 'x86_64';
 
     push @$cpuFlags , '-x2apic'
 	if $conf->{ostype} && $conf->{ostype} eq 'solaris';
@@ -3353,7 +3353,7 @@ sub get_cpu_options {
 
     push @$cpuFlags, '-rdtscp' if $cpu =~ m/^Opteron/;
 
-    if (qemu_machine_feature_enabled ($machine_type, $kvmver, 2, 3)) {
+    if (qemu_machine_feature_enabled ($machine_type, $kvmver, 2, 3) && $arch eq 'x86_64') {
 
 	push @$cpuFlags , '+kvm_pv_unhalt' if $kvm;
 	push @$cpuFlags , '+kvm_pv_eoi' if $kvm;
@@ -3361,7 +3361,7 @@ sub get_cpu_options {
 
     add_hyperv_enlightenments($cpuFlags, $winversion, $machine_type, $kvmver, $conf->{bios}, $gpu_passthrough) if $kvm;
 
-    push @$cpuFlags, 'enforce' if $cpu ne 'host' && $kvm;
+    push @$cpuFlags, 'enforce' if $cpu ne 'host' && $kvm && $arch eq 'x86_64';
 
     push @$cpuFlags, 'kvm=off' if $kvm_off;
 
