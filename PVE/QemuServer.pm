@@ -83,7 +83,7 @@ PVE::JSONSchema::register_standard_option('pve-qm-image-format', {
 PVE::JSONSchema::register_standard_option('pve-qemu-machine', {
 	description => "Specifies the Qemu machine type.",
 	type => 'string',
-	pattern => '(pc|pc(-i440fx)?-\d+\.\d+(\.pxe)?|q35|pc-q35-\d+\.\d+(\.pxe)?)',
+	pattern => '(pc|pc(-i440fx)?-\d+\.\d+(\.pxe)?|q35|pc-q35-\d+\.\d+(\.pxe)?|virt(?:-\d+\.\d+)?)',
 	maxLength => 40,
 	optional => 1,
 });
@@ -557,6 +557,12 @@ EODESCR
 	description => "Specifies the Qemu machine type of the running vm. This is used internally for snapshots.",
     }),
     machine => get_standard_option('pve-qemu-machine'),
+    arch => {
+	description => "Virtual processor architecture. Defaults to the host.",
+	optional => 1,
+	type => 'string',
+	enum => [qw(x86_64 aarch64)],
+    },
     smbios1 => {
 	description => "Specify SMBIOS type 1 fields.",
 	type => 'string', format => 'pve-qm-smbios1',
@@ -3245,6 +3251,30 @@ sub vga_conf_has_spice {
     return $1 || 1;
 }
 
+my $host_arch; # FIXME: fix PVE::Tools::get_host_arch
+sub get_host_arch() {
+    $host_arch = (POSIX::uname())[4] if !$host_arch;
+    return $host_arch;
+}
+
+sub is_native($) {
+    my ($arch) = @_;
+    return get_host_arch() eq $arch;
+}
+
+my $default_machines = {
+    x86_64 => 'pc',
+    aarch64 => 'virt',
+};
+
+sub get_basic_machine_info {
+    my ($conf, $forcemachine) = @_;
+
+    my $arch = $conf->{arch} // get_host_arch();
+    my $machine = $forcemachine || $conf->{machine} || $default_machines->{$arch};
+    return ($arch, $machine);
+}
+
 sub config_to_command {
     my ($storecfg, $vmid, $conf, $defaults, $forcemachine) = @_;
 
@@ -3260,9 +3290,15 @@ sub config_to_command {
     my $vernum = 0; # unknown
     my $ostype = $conf->{ostype};
     my $winversion = windows_version($ostype);
-    my $kvm = $conf->{kvm} // 1;
+    my $kvm = $conf->{kvm};
 
-    die "KVM virtualisation configured, but not available. Either disable in VM configuration or enable in BIOS.\n" if (!$cpuinfo->{hvm} && $kvm);
+    my ($arch, $machine_type) = get_basic_machine_info($conf, $forcemachine);
+    $kvm //= 1 if is_native($arch);
+
+    if ($kvm) {
+	die "KVM virtualisation configured, but not available. Either disable in VM configuration or enable in BIOS.\n"
+	    if !defined kvm_version();
+    }
 
     if ($kvmver =~ m/^(\d+)\.(\d+)$/) {
 	$vernum = $1*1000000+$2*1000;
@@ -3276,7 +3312,6 @@ sub config_to_command {
 
     my $q35 = machine_type_is_q35($conf);
     my $hotplug_features = parse_hotplug_features(defined($conf->{hotplug}) ? $conf->{hotplug} : '1');
-    my $machine_type = $forcemachine || $conf->{machine};
     my $use_old_bios_files = undef;
     ($use_old_bios_files, $machine_type) = qemu_use_old_bios_files($machine_type);
 
@@ -6690,7 +6725,7 @@ sub qemu_machine_feature_enabled {
     my $current_major;
     my $current_minor;
 
-    if ($machine && $machine =~ m/^(pc(-i440fx|-q35)?-(\d+)\.(\d+))/) {
+    if ($machine && $machine =~ m/^((?:pc(-i440fx|-q35)?|virt)-(\d+)\.(\d+))/) {
 
 	$current_major = $3;
 	$current_minor = $4;
