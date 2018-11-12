@@ -34,17 +34,20 @@ sub parse_usb_device {
 }
 
 sub get_usb_controllers {
-    my ($conf, $bridges, $isq35, $format, $max_usb_devices) = @_;
+    my ($conf, $bridges, $arch, $machine, $format, $max_usb_devices) = @_;
 
     my $devices = [];
     my $pciaddr = "";
 
-    if ($isq35) {
+    if ($arch eq 'aarch64') {
+        $pciaddr = print_pci_addr('ehci', $bridges, $arch, $machine);
+        push @$devices, '-device', "usb-ehci,id=ehci$pciaddr";
+    } elsif ($machine eq 'q35') {
 	# the q35 chipset support native usb2, so we enable usb controller
 	# by default for this machine type
         push @$devices, '-readconfig', '/usr/share/qemu-server/pve-q35.cfg';
     } else {
-        $pciaddr = print_pci_addr("piix3", $bridges);
+        $pciaddr = print_pci_addr("piix3", $bridges, $arch, $machine);
         push @$devices, '-device', "piix3-usb-uhci,id=uhci$pciaddr.0x2";
 
         my $use_usb2 = 0;
@@ -68,7 +71,7 @@ sub get_usb_controllers {
 	$use_usb3 = 1;
     }
 
-    $pciaddr = print_pci_addr("xhci", $bridges);
+    $pciaddr = print_pci_addr("xhci", $bridges, $arch, $machine);
     push @$devices, '-device', "nec-usb-xhci,id=xhci$pciaddr" if $use_usb3;
 
     return @$devices;

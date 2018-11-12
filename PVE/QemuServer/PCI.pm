@@ -9,6 +9,7 @@ print_pcie_addr
 
 my $devices = {
     piix3 => { bus => 0, addr => 1 },
+    ehci => { bus => 0, addr => 1 }, # instead of piix3 on arm
     vga => { bus => 0, addr => 2 },
     balloon0 => { bus => 0, addr => 3 },
     watchdog => { bus => 0, addr => 4 },
@@ -111,14 +112,23 @@ my $devices = {
 };
 
 sub print_pci_addr {
-    my ($id, $bridges) = @_;
+    my ($id, $bridges, $arch, $machine) = @_;
 
     my $res = '';
+
+    # We use the same bus slots on all hardware, so we need to check special
+    # cases here:
+    my $busname = 'pci';
+    if ($arch eq 'aarch64' && $machine =~ /^virt/) {
+	die "aarch64/virt cannot use IDE devices\n"
+	    if $id =~ /^ide/;
+	$busname = 'pcie';
+    }
 
     if (defined($devices->{$id}->{bus}) && defined($devices->{$id}->{addr})) {
 	   my $addr = sprintf("0x%x", $devices->{$id}->{addr});
 	   my $bus = $devices->{$id}->{bus};
-	   $res = ",bus=pci.$bus,addr=$addr";
+	   $res = ",bus=$busname.$bus,addr=$addr";
 	   $bridges->{$bus} = 1 if $bridges;
     }
     return $res;
