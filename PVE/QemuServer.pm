@@ -3312,6 +3312,9 @@ sub get_cpu_options {
     my $ostype = $conf->{ostype};
 
     my $cpu = $kvm ? "kvm64" : "qemu64";
+    if ($arch eq 'aarch64') {
+	$cpu = 'cortex-a57';
+    }
     if (my $cputype = $conf->{cpu}) {
 	my $cpuconf = PVE::JSONSchema::parse_property_string($cpu_fmt, $cputype)
 	    or die "Cannot parse cpu description: $cputype\n";
