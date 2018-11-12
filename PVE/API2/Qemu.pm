@@ -585,6 +585,8 @@ __PACKAGE__->register_method({
 
 		my $conf = $param;
 
+		my ($arch, undef) = PVE::QemuServer::get_basic_machine_info($conf);
+
 		eval {
 
 		    $vollist = &$create_disks($rpcenv, $authuser, $conf, $storecfg, $vmid, $pool, $param, $storage);
@@ -599,7 +601,7 @@ __PACKAGE__->register_method({
 			$conf->{smbios1} = PVE::QemuServer::generate_smbios1_uuid();
 		    }
 
-		    if (!defined($conf->{vmgenid}) || $conf->{vmgenid} eq '1') {
+		    if ((!defined($conf->{vmgenid}) || $conf->{vmgenid} eq '1') && $arch ne 'aarch64') {
 			$conf->{vmgenid} = PVE::QemuServer::generate_uuid();
 		    }
 
