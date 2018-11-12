@@ -1331,19 +1331,15 @@ for (my $i = 0; $i < $MAX_UNUSED_DISKS; $i++)  {
 my $kvm_api_version = 0;
 
 sub kvm_version {
-
     return $kvm_api_version if $kvm_api_version;
 
-    my $fh = IO::File->new("</dev/kvm") ||
-	return 0;
+    open my $fh, '<', '/dev/kvm'
+	or return undef;
 
-    if (my $v = $fh->ioctl(KVM_GET_API_VERSION(), 0)) {
-	$kvm_api_version = $v;
-    }
+    # 0xae00 => KVM_GET_API_VERSION
+    $kvm_api_version = ioctl($fh, 0xae00, 0);
 
-    $fh->close();
-
-    return  $kvm_api_version;
+    return $kvm_api_version;
 }
 
 my $kvm_user_version;
