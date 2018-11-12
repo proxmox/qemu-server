@@ -3493,7 +3493,9 @@ sub config_to_command {
     $vga->{type} = 'qxl' if $qxlnum;
 
     if (!$vga->{type}) {
-	if (qemu_machine_feature_enabled($machine_type, $kvmver, 2, 9)) {
+	if ($arch eq 'aarch64') {
+	    $vga->{type} = 'virtio';
+	} elsif (qemu_machine_feature_enabled($machine_type, $kvmver, 2, 9)) {
 	    $vga->{type} = (!$winversion || $winversion >= 6) ? 'std' : 'cirrus';
 	} else {
 	    $vga->{type} = ($winversion >= 6) ? 'std' : 'cirrus';
