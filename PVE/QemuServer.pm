@@ -2838,7 +2838,7 @@ sub check_cmdline {
 	my @param = split(/\0/, $line);
 
 	my $cmd = $param[0];
-	return if !$cmd || ($cmd !~ m|kvm$| && $cmd !~ m|qemu-system-x86_64$|);
+	return if !$cmd || ($cmd !~ m|kvm$| && $cmd !~ m@(?:^|/)qemu-system-[^/]+$@);
 
 	for (my $i = 0; $i < scalar (@param); $i++) {
 	    my $p = $param[$i];
@@ -3292,6 +3292,19 @@ sub get_ovmf_files($) {
     return @$ovmf;
 }
 
+my $Arch2Qemu = {
+    aarch64 => '/usr/bin/qemu-system-aarch64',
+    x86_64 => '/usr/bin/qemu-system-x86_64',
+};
+sub get_command_for_arch($) {
+    my ($arch) = @_;
+    return '/usr/bin/kvm' if is_native($arch);
+
+    my $cmd = $Arch2Qemu->{$arch}
+	or die "don't know how to emulate architecture '$arch'\n";
+    return $cmd;
+}
+
 sub config_to_command {
     my ($storecfg, $vmid, $conf, $defaults, $forcemachine) = @_;
 
@@ -3335,7 +3348,7 @@ sub config_to_command {
     my $cpuunits = defined($conf->{cpuunits}) ?
             $conf->{cpuunits} : $defaults->{cpuunits};
 
-    push @$cmd, '/usr/bin/kvm';
+    push @$cmd, get_command_for_arch($arch);
 
     push @$cmd, '-id', $vmid;
 
