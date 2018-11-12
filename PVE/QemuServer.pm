@@ -1950,7 +1950,9 @@ sub print_netdev_full {
         if length($ifname) >= 16;
 
     my $vhostparam = '';
-    $vhostparam = ',vhost=on' if $kernel_has_vhost_net && $net->{model} eq 'virtio';
+    if (is_native($arch)) {
+	$vhostparam = ',vhost=on' if $kernel_has_vhost_net && $net->{model} eq 'virtio';
+    }
 
     my $vmname = $conf->{name} || "vm$vmid";
 
