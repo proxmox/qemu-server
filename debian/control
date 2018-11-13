@@ -35,7 +35,7 @@ Depends: dbus,
          pve-ha-manager,
          pve-qemu-kvm (>= 2.11.1-4),
          socat,
-         pve-edk2-firmware,
+         pve-edk2-firmware (>= 1.20181023-1),
          ${perl:Depends},
          ${shlibs:Depends},
 Description: Qemu Server Tools
