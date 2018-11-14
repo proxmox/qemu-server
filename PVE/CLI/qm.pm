@@ -18,6 +18,7 @@ use PVE::SafeSyslog;
 use PVE::INotify;
 use PVE::RPCEnvironment;
 use PVE::Exception qw(raise_param_exc);
+use PVE::Network;
 use PVE::QemuServer;
 use PVE::QemuServer::ImportDisk;
 use PVE::QemuServer::OVF;
@@ -722,6 +723,65 @@ __PACKAGE__->register_method({
 	return { result => $res };
     }});
 
+__PACKAGE__->register_method({
+    name => 'cleanup',
+    path => 'cleanup',
+    method => 'POST',
+    protected => 1,
+    description => "Cleans up resources like tap devices, vgpus, etc. Called after a vm shuts down, crashes, etc.",
+    parameters => {
+	additionalProperties => 0,
+	properties => {
+	    node => get_standard_option('pve-node'),
+	    vmid => get_standard_option('pve-vmid', {
+		    completion => \&PVE::QemuServer::complete_vmid_running }),
+	    'clean-shutdown' => {
+		type => 'boolean',
+		description => "Indicates if qemu shutdown cleanly.",
+	    },
+	    'guest-requested' => {
+		type => 'boolean',
+		description => "Indicates if the shutdown was requested by the guest or via qmp.",
+	    },
+	},
+    },
+    returns => { type => 'null', },
+    code => sub {
+	my ($param) = @_;
+
+	my $vmid = $param->{vmid};
+	my $clean = $param->{'clean-shutdown'};
+	my $guest = $param->{'guest-requested'};
+
+	my $storecfg = PVE::Storage::config();
+	warn "Starting cleanup for $vmid\n";
+
+	PVE::QemuConfig->lock_config($vmid, sub {
+	    my $conf = PVE::QemuConfig->load_config ($vmid);
+	    my $pid = PVE::QemuServer::check_running ($vmid);
+	    die "vm still running\n" if $pid;
+
+	    if (!$clean) {
+		# we have to cleanup the tap devices after a crash
+
+		foreach my $opt (keys %$conf) {
+		    next if $opt !~  m/^net(\d)+$/;
+		    my $interface = $1;
+		    PVE::Network::tap_unplug("tap${vmid}i${interface}");
+		}
+	    }
+
+	    if (!$clean || $guest) {
+		# vm was shutdown from inside the guest or crashed, doing api cleanup
+		PVE::QemuServer::vm_stop_cleanup($storecfg, $vmid, $conf, 0, 0);
+	    }
+	});
+
+	warn "Finished cleanup for $vmid\n";
+
+	return undef;
+    }});
+
 my $print_agent_result = sub {
     my ($data) = @_;
 
@@ -903,6 +963,8 @@ our $cmddef = {
     importdisk => [ __PACKAGE__, 'importdisk', ['vmid', 'source', 'storage']],
 
     importovf => [ __PACKAGE__, 'importovf', ['vmid', 'manifest', 'storage']],
+
+    cleanup => [ __PACKAGE__, 'cleanup', ['vmid', 'clean-shutdown', 'guest-requested'], { node => $nodename }],
 
 };
 
