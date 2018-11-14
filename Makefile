@@ -2,7 +2,9 @@ VERSION=5.0
 PACKAGE=qemu-server
 PKGREL=40
 
-CFLAGS= -O2 -Werror -Wall -Wtype-limits -Wl,-z,relro 
+CFLAGS=-O2 -Werror -Wall -Wextra -Wpedantic -Wtype-limits -Wl,-z,relro -std=gnu11
+JSON_CFLAGS=$(shell pkg-config --cflags json-c)
+JSON_LIBS=$(shell pkg-config --libs json-c)
 
 DESTDIR=
 PREFIX=/usr
@@ -10,11 +12,13 @@ BINDIR=${PREFIX}/bin
 SBINDIR=${PREFIX}/sbin
 BINDIR=${PREFIX}/bin
 LIBDIR=${PREFIX}/lib/${PACKAGE}
+SERVICEDIR=/lib/systemd/system
 VARLIBDIR=/var/lib/${PACKAGE}
 MANDIR=${PREFIX}/share/man
 DOCDIR=${PREFIX}/share/doc
 MAN1DIR=${MANDIR}/man1/
 MAN5DIR=${MANDIR}/man5/
+MAN8DIR=${MANDIR}/man8/
 BASHCOMPLDIR=${PREFIX}/share/bash-completion/completions/
 export PERLDIR=${PREFIX}/share/perl5
 PERLINCDIR=${PERLDIR}/asm-x86_64
@@ -36,6 +40,9 @@ all:
 dinstall: deb
 	dpkg -i ${DEB}
 
+qmeventd: qmeventd.c
+	$(CC) $(CFLAGS) ${JSON_CFLAGS} -o $@ $< ${JSON_LIBS}
+
 qm.bash-completion:
 	PVE_GENERATING_DOCS=1 perl -I. -T -e "use PVE::CLI::qm; PVE::CLI::qm->generate_bash_completions();" >$@.tmp
 	mv $@.tmp $@
@@ -44,15 +51,17 @@ qmrestore.bash-completion:
 	PVE_GENERATING_DOCS=1 perl -I. -T -e "use PVE::CLI::qmrestore; PVE::CLI::qmrestore->generate_bash_completions();" >$@.tmp
 	mv $@.tmp $@
 
-PKGSOURCES=qm qm.1 qmrestore qmrestore.1 qmextract qm.conf.5 qm.bash-completion qmrestore.bash-completion
+PKGSOURCES=qm qm.1 qmrestore qmrestore.1 qmextract qm.conf.5 qm.bash-completion qmrestore.bash-completion qmeventd qmeventd.8
 
 .PHONY: install
 install: ${PKGSOURCES}
 	install -d ${DESTDIR}/${SBINDIR}
 	install -d ${DESTDIR}${LIBDIR}
 	install -d ${DESTDIR}${VARLIBDIR}
+	install -d ${DESTDIR}${SERVICEDIR}
 	install -d ${DESTDIR}/${MAN1DIR}
 	install -d ${DESTDIR}/${MAN5DIR}
+	install -d ${DESTDIR}/${MAN8DIR}
 	install -d ${DESTDIR}/usr/share/man/man5
 	install -d ${DESTDIR}/usr/share/${PACKAGE}
 	install -m 0644 pve-usb.cfg ${DESTDIR}/usr/share/${PACKAGE}
@@ -63,6 +72,8 @@ install: ${PKGSOURCES}
 	make -C PVE install
 	install -m 0755 qm ${DESTDIR}${SBINDIR}
 	install -m 0755 qmrestore ${DESTDIR}${SBINDIR}
+	install -m 0755 qmeventd ${DESTDIR}${SBINDIR}
+	install -m 0644 qmeventd.service ${DESTDIR}${SERVICEDIR}
 	install -m 0755 pve-bridge ${DESTDIR}${VARLIBDIR}/pve-bridge
 	install -m 0755 pve-bridge-hotplug ${DESTDIR}${VARLIBDIR}/pve-bridge-hotplug
 	install -m 0755 pve-bridgedown ${DESTDIR}${VARLIBDIR}/pve-bridgedown
@@ -70,6 +81,8 @@ install: ${PKGSOURCES}
 	install -m 0755 qmextract ${DESTDIR}${LIBDIR}
 	install -m 0644 qm.1 ${DESTDIR}/${MAN1DIR}
 	gzip -9 -n -f ${DESTDIR}/${MAN1DIR}/qm.1
+	install -m 0644 qmeventd.8 ${DESTDIR}/${MAN8DIR}
+	gzip -9 -n -f ${DESTDIR}/${MAN8DIR}/qmeventd.8
 	install -m 0644 qmrestore.1 ${DESTDIR}/${MAN1DIR}
 	gzip -9 -n -f ${DESTDIR}/${MAN1DIR}/qmrestore.1
 	install -m 0644 qm.conf.5 ${DESTDIR}/${MAN5DIR}
@@ -97,7 +110,7 @@ upload: ${DEB}
 .PHONY: clean
 clean:
 	make cleanup-docgen
-	rm -rf build *.deb *.buildinfo *.changes
+	rm -rf build *.deb *.buildinfo *.changes qmeventd
 	find . -name '*~' -exec rm {} ';'
 
 

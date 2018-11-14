@@ -1,0 +1,10 @@
+[Unit]
+Description=PVE Qemu Event Daemon
+RequiresMountsFor=/var/run
+
+[Service]
+ExecStart=/usr/sbin/qmeventd /var/run/qmeventd.sock
+Type=forking
+
+[Install]
+WantedBy=multi-user.target
