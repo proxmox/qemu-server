@@ -3434,8 +3434,7 @@ sub config_to_command {
     push @$cmd, '-mon', "chardev=qmp,mode=control";
 
     if (qemu_machine_feature_enabled($machine_type, $kvmver, 2, 12)) {
-	my $eventsocket = qmp_socket($vmid, 0, 'event');
-	push @$cmd, '-chardev', "socket,id=qmp-event,path=$eventsocket,server,nowait";
+	push @$cmd, '-chardev', "socket,id=qmp-event,path=/var/run/qmeventd.sock,reconnect=5";
 	push @$cmd, '-mon', "chardev=qmp-event,mode=control";
     }
 
