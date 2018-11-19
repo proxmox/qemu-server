@@ -1,3 +1,15 @@
+qemu-server (5.0-41) unstable; urgency=medium
+
+  * fix #1959: add fallback for auto previously set by SLAAC
+
+  * create_vm: don't add vmgenid for ARM machines by default
+
+  * use qmeventd to execute qm cleanup
+
+  * QemuServer: remove PCI sysfs helpers
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 19 Nov 2018 14:38:42 +0100
+
 qemu-server (5.0-40) unstable; urgency=medium
 
   * correctly check display vga type
