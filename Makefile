@@ -27,6 +27,9 @@ ARCH:=$(shell dpkg-architecture -qDEB_BUILD_ARCH)
 GITVERSION:=$(shell git rev-parse HEAD)
 
 DEB=${PACKAGE}_${VERSION}-${PKGREL}_${ARCH}.deb
+DBG_DEB=${PACKAGE}-dbgsym_${VERSION}-${PKGREL}_${ARCH}.deb
+
+DEBS=${DEB} ${DBG_DEB}
 
 # this requires package pve-doc-generator
 export NOVIEW=1
@@ -90,13 +93,14 @@ install: ${PKGSOURCES}
 	cd ${DESTDIR}/${MAN5DIR}; ln -s -f qm.conf.5.gz vm.conf.5.gz
 
 .PHONY: deb
-deb: ${DEB}
+deb: ${DEBS}
+${DBG_DEB}: ${DEB}
 ${DEB}:
 	rm -rf build
 	rsync -a * build
 	echo "git clone git://git.proxmox.com/git/qemu-server.git\\ngit checkout ${GITVERSION}" > build/debian/SOURCE
 	cd build; dpkg-buildpackage -b -us -uc
-	lintian ${DEB}
+	lintian ${DEBS}
 
 .PHONY: test
 test:
@@ -105,7 +109,7 @@ test:
 
 .PHONY: upload
 upload: ${DEB}
-	tar cf - ${DEB} | ssh repoman@repo.proxmox.com upload --product pve --dist stretch
+	tar cf - ${DEBS} | ssh repoman@repo.proxmox.com upload --product pve --dist stretch
 
 .PHONY: clean
 clean:
