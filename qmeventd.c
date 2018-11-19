@@ -2,7 +2,7 @@
 
     Copyright (C) 2018 Proxmox Server Solutions GmbH
 
-    Copyright: qemumonitor is under GNU GPL, the GNU General Public License.
+    Copyright: qmeventd is under GNU GPL, the GNU General Public License.
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
