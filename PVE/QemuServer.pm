@@ -119,8 +119,6 @@ mkdir $var_run_tmpdir;
 my $lock_dir = "/var/lock/qemu-server";
 mkdir $lock_dir;
 
-my $pcisysfs = "/sys/bus/pci";
-
 my $cpu_vendor_list = {
     # Intel CPUs
     486 => 'GenuineIntel',
