@@ -2,7 +2,7 @@ VERSION=5.0
 PACKAGE=qemu-server
 PKGREL=40
 
-CFLAGS=-O2 -Werror -Wall -Wextra -Wpedantic -Wtype-limits -Wl,-z,relro -std=gnu11
+CFLAGS+=-O2 -Werror -Wall -Wextra -Wpedantic -Wtype-limits -Wl,-z,relro -std=gnu11
 JSON_CFLAGS=$(shell pkg-config --cflags json-c)
 JSON_LIBS=$(shell pkg-config --libs json-c)
 
