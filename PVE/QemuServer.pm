@@ -1244,6 +1244,17 @@ EODESCR
 	optional => 1,
 	default => 0,
     },
+    'mdev' => {
+	type => 'string',
+        format_description => 'string',
+	pattern => '[^/\.:]+',
+	optional => 1,
+	description => <<EODESCR
+The type of mediated device to use.
+An instance of this type will be created on startup of the VM and
+will be cleaned up when the VM stops.
+EODESCR
+    }
 };
 PVE::JSONSchema::register_format('pve-qm-hostpci', $hostpci_fmt);
 
@@ -3539,6 +3550,15 @@ sub config_to_command {
 	}
 	my $pcidevices = $d->{pciid};
 	my $multifunction = 1 if @$pcidevices > 1;
+	my $sysfspath;
+	if ($d->{mdev} && scalar(@$pcidevices) == 1) {
+	    my $id = $pcidevices->[0]->{id};
+	    my $function = $pcidevices->[0]->{function};
+	    my $uuid = PVE::SysFSTools::generate_mdev_uuid($vmid, $i);
+	    $sysfspath = "/sys/bus/pci/devices/0000:$id.$function/$uuid";
+	} elsif ($d->{mdev}) {
+	    warn "ignoring mediated device with multifunction device\n";
+	}
 
 	my $j=0;
         foreach my $pcidevice (@$pcidevices) {
@@ -3547,7 +3567,13 @@ sub config_to_command {
 	    $id .= ".$j" if $multifunction;
 	    my $addr = $pciaddr;
 	    $addr .= ".$j" if $multifunction;
-	    my $devicestr = "vfio-pci,host=$pcidevice->{id}.$pcidevice->{function},id=$id$addr";
+	    my $devicestr = "vfio-pci";
+	    if ($sysfspath) {
+		$devicestr .= ",sysfsdev=$sysfspath";
+	    } else {
+		$devicestr .= ",host=$pcidevice->{id}.$pcidevice->{function}";
+	    }
+	    $devicestr .= ",id=$id$addr";
 
 	    if($j == 0){
 		$devicestr .= "$rombar$xvga";
@@ -5142,10 +5168,16 @@ sub vm_start {
 		my $info = PVE::SysFSTools::pci_device_info("0000:$pciid");
 		die "IOMMU not present\n" if !PVE::SysFSTools::check_iommu_support();
 		die "no pci device info for device '$pciid'\n" if !$info;
-		die "can't unbind/bind pci group to vfio '$pciid'\n"
-		    if !PVE::SysFSTools::pci_dev_group_bind_to_vfio($pciid);
-		die "can't reset pci device '$pciid'\n"
-		    if $info->{has_fl_reset} and !PVE::SysFSTools::pci_dev_reset($info);
+
+		if ($d->{mdev}) {
+		    my $uuid = PVE::SysFSTools::generate_mdev_uuid($vmid, $i);
+		    PVE::SysFSTools::pci_create_mdev_device($pciid, $uuid, $d->{mdev});
+		} else {
+		    die "can't unbind/bind pci group to vfio '$pciid'\n"
+			if !PVE::SysFSTools::pci_dev_group_bind_to_vfio($pciid);
+		    die "can't reset pci device '$pciid'\n"
+			if $info->{has_fl_reset} and !PVE::SysFSTools::pci_dev_reset($info);
+		}
 	  }
         }
 
@@ -5383,6 +5415,18 @@ sub vm_stop_cleanup {
 
 	foreach my $ext (qw(mon qmp pid vnc qga)) {
 	    unlink "/var/run/qemu-server/${vmid}.$ext";
+	}
+
+	foreach my $key (keys %$conf) {
+	    next if $key !~ m/^hostpci(\d+)$/;
+	    my $hostpciindex = $1;
+	    my $d = parse_hostpci($conf->{$key});
+	    my $uuid = PVE::SysFSTools::generate_mdev_uuid($vmid, $hostpciindex);
+
+	    foreach my $pci (@{$d->{pciid}}) {
+		my $pciid = $pci->{id} . "." . $pci->{function};
+		PVE::SysFSTools::pci_cleanup_mdev_device($pciid, $uuid);
+	    }
 	}
 
 	vmconfig_apply_pending($vmid, $conf, $storecfg) if $apply_pending_changes;
