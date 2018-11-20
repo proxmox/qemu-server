@@ -1202,8 +1202,7 @@ my $usbdesc = {
 };
 PVE::JSONSchema::register_standard_option("pve-qm-usb", $usbdesc);
 
-# NOTE: the match-groups of this regex are used in parse_hostpci
-my $PCIRE = qr/([a-f0-9]{2}:[a-f0-9]{2})(?:\.([a-f0-9]))?/;
+my $PCIRE = qr/[a-f0-9]{2}:[a-f0-9]{2}(?:\.[a-f0-9])?/;
 my $hostpci_fmt = {
     host => {
 	default_key => 1,
@@ -2112,16 +2111,12 @@ sub parse_hostpci {
     my @idlist = split(/;/, $res->{host});
     delete $res->{host};
     foreach my $id (@idlist) {
-	if ($id =~ /^$PCIRE$/) {
-	    if (defined($2)) {
-		push @{$res->{pciid}}, { id => $1, function => $2 };
-	    } else {
-		my $pcidevices = PVE::SysFSTools::lspci($1);
-		$res->{pciid} = $pcidevices->{$1};
-	    }
-	} else {
-	    # should have been caught by parse_property_string already
-	    die "failed to parse PCI id: $id\n";
+	if ($id =~ m/\./) { # full id 00:00.1
+	    push @{$res->{pciid}}, {
+		id => $id,
+	    };
+	} else { # partial id 00:00
+	    $res->{pciid} = PVE::SysFSTools::lspci($id);
 	}
     }
     return $res;
@@ -3553,9 +3548,8 @@ sub config_to_command {
 	my $sysfspath;
 	if ($d->{mdev} && scalar(@$pcidevices) == 1) {
 	    my $id = $pcidevices->[0]->{id};
-	    my $function = $pcidevices->[0]->{function};
 	    my $uuid = PVE::SysFSTools::generate_mdev_uuid($vmid, $i);
-	    $sysfspath = "/sys/bus/pci/devices/0000:$id.$function/$uuid";
+	    $sysfspath = "/sys/bus/pci/devices/0000:$id/$uuid";
 	} elsif ($d->{mdev}) {
 	    warn "ignoring mediated device with multifunction device\n";
 	}
@@ -3571,7 +3565,7 @@ sub config_to_command {
 	    if ($sysfspath) {
 		$devicestr .= ",sysfsdev=$sysfspath";
 	    } else {
-		$devicestr .= ",host=$pcidevice->{id}.$pcidevice->{function}";
+		$devicestr .= ",host=$pcidevice->{id}";
 	    }
 	    $devicestr .= ",id=$id$addr";
 
@@ -5163,7 +5157,7 @@ sub vm_start {
           next if !$d;
 	  my $pcidevices = $d->{pciid};
 	  foreach my $pcidevice (@$pcidevices) {
-		my $pciid = $pcidevice->{id}.".".$pcidevice->{function};
+		my $pciid = $pcidevice->{id};
 
 		my $info = PVE::SysFSTools::pci_device_info("0000:$pciid");
 		die "IOMMU not present\n" if !PVE::SysFSTools::check_iommu_support();
@@ -5424,7 +5418,7 @@ sub vm_stop_cleanup {
 	    my $uuid = PVE::SysFSTools::generate_mdev_uuid($vmid, $hostpciindex);
 
 	    foreach my $pci (@{$d->{pciid}}) {
-		my $pciid = $pci->{id} . "." . $pci->{function};
+		my $pciid = $pci->{id};
 		PVE::SysFSTools::pci_cleanup_mdev_device($pciid, $uuid);
 	    }
 	}
