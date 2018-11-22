@@ -1,3 +1,11 @@
+qemu-server (5.0-42) unstable; urgency=medium
+
+  * add mediated devices support
+
+  * use improved lspci
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 22 Nov 2018 11:22:04 +0100
+
 qemu-server (5.0-41) unstable; urgency=medium
 
   * fix #1959: add fallback for auto previously set by SLAAC
