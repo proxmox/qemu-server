@@ -42,7 +42,7 @@ sub get_usb_controllers {
     if ($arch eq 'aarch64') {
         $pciaddr = print_pci_addr('ehci', $bridges, $arch, $machine);
         push @$devices, '-device', "usb-ehci,id=ehci$pciaddr";
-    } elsif ($machine eq 'q35') {
+    } elsif ($machine =~ /q35/) {
 	# the q35 chipset support native usb2, so we enable usb controller
 	# by default for this machine type
         push @$devices, '-readconfig', '/usr/share/qemu-server/pve-q35.cfg';
