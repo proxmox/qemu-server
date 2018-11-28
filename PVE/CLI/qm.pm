@@ -753,6 +753,9 @@ __PACKAGE__->register_method({
 	my $clean = $param->{'clean-shutdown'};
 	my $guest = $param->{'guest-requested'};
 
+	# return if we do not have the config anymore
+	return if !-f PVE::QemuConfig->config_file($vmid);
+
 	my $storecfg = PVE::Storage::config();
 	warn "Starting cleanup for $vmid\n";
 
