@@ -1541,7 +1541,7 @@ __PACKAGE__->register_method({
 	    (undef, $family) = PVE::Cluster::remote_node_ip($node);
 	    my $sshinfo = PVE::Cluster::get_ssh_info($node);
 	    # NOTE: kvm VNC traffic is already TLS encrypted or is known unsecure
-	    $remcmd = PVE::Cluster::ssh_info_to_command($sshinfo, '-T');
+	    $remcmd = PVE::Cluster::ssh_info_to_command($sshinfo, $use_serial ? '-t' : '-T');
 	} else {
 	    $family = PVE::Tools::get_host_address_family($node);
 	}
