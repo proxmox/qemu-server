@@ -1,3 +1,12 @@
+qemu-server (5.0-43) unstable; urgency=medium
+
+  * usb: fix check if machine type is q35
+
+  * qm cleanup: exit silently if VM config does not belong to node
+    anymore
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 29 Nov 2018 12:57:49 +0100
+
 qemu-server (5.0-42) unstable; urgency=medium
 
   * add mediated devices support
