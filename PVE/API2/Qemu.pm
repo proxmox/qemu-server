@@ -1525,6 +1525,7 @@ __PACKAGE__->register_method({
 	my $websocket = $param->{websocket};
 
 	my $conf = PVE::QemuConfig->load_config($vmid, $node); # check if VM exists
+	my $use_serial = ($conf->{vga} && ($conf->{vga} =~ m/^serial\d+$/));
 
 	my $authpath = "/vms/$vmid";
 
@@ -1533,13 +1534,14 @@ __PACKAGE__->register_method({
 	$sslcert = PVE::Tools::file_get_contents("/etc/pve/pve-root-ca.pem", 8192)
 	    if !$sslcert;
 
-	my ($remip, $family);
+	my $family;
 	my $remcmd = [];
 
 	if ($node ne 'localhost' && $node ne PVE::INotify::nodename()) {
-	    ($remip, $family) = PVE::Cluster::remote_node_ip($node);
+	    (undef, $family) = PVE::Cluster::remote_node_ip($node);
+	    my $sshinfo = PVE::Cluster::get_ssh_info($node);
 	    # NOTE: kvm VNC traffic is already TLS encrypted or is known unsecure
-	    $remcmd = ['/usr/bin/ssh', '-e', 'none', '-T', '-o', 'BatchMode=yes', $remip];
+	    $remcmd = PVE::Cluster::ssh_info_to_command($sshinfo, '-T');
 	} else {
 	    $family = PVE::Tools::get_host_address_family($node);
 	}
@@ -1555,8 +1557,7 @@ __PACKAGE__->register_method({
 
 	    my $cmd;
 
-	    if ($conf->{vga} && ($conf->{vga} =~ m/^serial\d+$/)) {
-
+	    if ($use_serial) {
 
 		my $termcmd = [ '/usr/sbin/qm', 'terminal', $vmid, '-iface', $conf->{vga}, '-escape', '0' ];
 
@@ -1673,18 +1674,19 @@ __PACKAGE__->register_method({
 
 	my $ticket = PVE::AccessControl::assemble_vnc_ticket($authuser, $authpath);
 
-	my ($remip, $family);
+	my $family;
+	my $remcmd = [];
 
 	if ($node ne 'localhost' && $node ne PVE::INotify::nodename()) {
-	    ($remip, $family) = PVE::Cluster::remote_node_ip($node);
+	    (undef, $family) = PVE::Cluster::remote_node_ip($node);
+	    my $sshinfo = PVE::Cluster::get_ssh_info($node);
+	    $remcmd = PVE::Cluster::ssh_info_to_command($sshinfo, '-t');
+	    push @$remcmd, '--';
 	} else {
 	    $family = PVE::Tools::get_host_address_family($node);
 	}
 
 	my $port = PVE::Tools::next_vnc_port($family);
-
-	my $remcmd = $remip ?
-	    ['/usr/bin/ssh', '-e', 'none', '-t', $remip, '--'] : [];
 
 	my $termcmd = [ '/usr/sbin/qm', 'terminal', $vmid, '-escape', '0'];
 	push @$termcmd, '-iface', $serial if $serial;
