@@ -2353,7 +2353,7 @@ __PACKAGE__->register_method({
 	};
 
 	return PVE::QemuConfig->lock_config_mode($vmid, 1, $shared_lock, sub {
-	    # Aquire exclusive lock lock for $newid
+	    # Acquire exclusive lock lock for $newid
 	    return PVE::QemuConfig->lock_config_full($newid, 1, $clonefn);
 	});
 
