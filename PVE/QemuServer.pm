@@ -277,7 +277,7 @@ my $confdesc = {
 	optional => 1,
 	type => 'string',
 	description => "Lock/unlock the VM.",
-	enum => [qw(migrate backup snapshot rollback)],
+	enum => [qw(migrate backup snapshot rollback clone)],
     },
     cpulimit => {
 	optional => 1,
