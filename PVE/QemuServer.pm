@@ -237,7 +237,7 @@ my $vga_fmt = {
 	default => 'std',
 	optional => 1,
 	default_key => 1,
-	enum => [qw(cirrus qxl qxl2 qxl3 qxl4 serial0 serial1 serial2 serial3 std virtio vmware)],
+	enum => [qw(cirrus qxl qxl2 qxl3 qxl4 none serial0 serial1 serial2 serial3 std virtio vmware)],
     },
     memory => {
 	description => "Sets the VGA memory (in MiB). Has no effect with serial display.",
