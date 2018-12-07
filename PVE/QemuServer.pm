@@ -6655,6 +6655,7 @@ sub clone_disk {
 	my $name = undef;
 	if (drive_is_cloudinit($drive)) {
 	    $name = "vm-$newvmid-cloudinit";
+	    $snapname = undef;
 	    # cloudinit only supports raw and qcow2 atm:
 	    if ($dst_format eq 'qcow2') {
 		$name .= '.qcow2';
