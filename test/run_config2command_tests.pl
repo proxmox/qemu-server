@@ -190,7 +190,13 @@ sub do_test($) {
 
 	my $exp = join("\n", @$cmd_expected);
 	my $got = join("\n", @$cmd);
-	diff($exp, $got);
+	eval { diff($exp, $got) };
+	if (my $err = $@) {
+	    fail("$testname");
+	    note($err);
+	} else {
+	    pass("$testname");
+	}
     } else {
 	file_set_contents($cmd_fn, $cmdline);
     }
