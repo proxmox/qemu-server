@@ -110,6 +110,9 @@ $qemu_server_module->mock(
     get_host_arch => sub() {
 	return $current_test->{host_arch} // 'x86_64';
     },
+    get_initiator_name => sub {
+	return 'iqn.1993-08.org.debian:01:aabbccddeeff';
+    }
 );
 
 my $qemu_server_config;

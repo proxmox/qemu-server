@@ -20,5 +20,5 @@
   -device 'usb-tablet,id=tablet,bus=uhci.0,port=1' \
   -device 'VGA,id=vga,bus=pci.0,addr=0x2' \
   -device 'virtio-balloon-pci,id=balloon0,bus=pci.0,addr=0x3' \
-  -iscsi 'initiator-name=iqn.1993-08.org.debian:01:a1d15f6610fd' \
+  -iscsi 'initiator-name=iqn.1993-08.org.debian:01:aabbccddeeff' \
   -machine 'type=pc'
