@@ -1,0 +1,85 @@
+QemuServer Config 2 Command Test
+================================
+Thomas Lamprecht <t.lamprecht@proxmox.com>
+
+Overview
+--------
+
+This is a relatively simple configuration to command test program.
+It's main goals are to better enforce stability of commands, thus reducing
+the likelihood that, for example, a migration breaking change which forgot to
+bump/check the KVM/QEMU version, slips through
+
+Further you get a certain regression and functional test coverage. You get a
+safety net against breaking older or not often (manual) tested setups and
+features.
+
+NOTE: The safety net is only as good as the test count *and* quality.
+
+
+Test Specification
+------------------
+
+A single test consists of two files, the input VM config `FILE.conf` and the
+expected output command `FILE.conf.cmd`
+
+Input
+~~~~~
+
+The `FILE.conf` are standard Proxmox VE VM configuration files, so you can just
+copy over a config file from `/etc/pve/qemu-server` to add a configuration you
+want to have tested.
+
+Output
+~~~~~~
+
+For the expected output `FILE.conf.cmd` we check the KVM/QEMU command produced.
+As a single long line would be pretty hard to check for (problematic) changes
+by humans, we use a pretty format, i.e., where each key value pair is on it's
+own line. With this approach we can just diff expected and actual command and
+one can pin point pretty fast in which component (e.g., net, drives, CPU, ...)
+the issue is, if any. Such an output would look like:
+
+----
+/usr/bin/kvm \
+  -id 101 \
+  -name vm101 \
+  ...
+----
+
+TIP: If the expected output file does not exist we have nothing to check, but
+for convenience we will write it out. This should happen from clean code, and
+the result should not get applied blindly, but only after a (quick) sanity
+check.
+
+
+Environment
+~~~~~~~~~~~
+
+It makes sense to have a stable and controlled environment for tests, thus you
+one can use the 'description' in VM configurations to control this. The
+description consists of all lines beginning with a '#' as first non-whitespace
+character. Any environment variable follows the following format:
+
+----
+# NAME: VALUE
+... rest of config...
+----
+
+There are the following variables you can control:
+
+* *TEST*: a one line description for your test, gets outputted one testing and
+  should described in a short way any specialty about this specific test,
+  i.e., what does this test wants to ensure.
+
+* *QEMU_VERSION*: the version we fake for this test, if not set we use the
+  actual one installed on the host.
+
+* *HOST_ARCH*: the architecture we should fake for the test (aarch64 or x86_64),
+  defaults to `x86_64` to allow making this optional and still guarantee
+  stable tests
+
+The storage environment is currently hardcoded in the test code, you can
+extend it there if it's needed.
+
+// vim: noai:tw=78

@@ -1,0 +1,24 @@
+/usr/bin/kvm \
+  -id 8006 \
+  -name vm8006 \
+  -chardev 'socket,id=qmp,path=/var/run/qemu-server/8006.qmp,server,nowait' \
+  -mon 'chardev=qmp,mode=control' \
+  -chardev 'socket,id=qmp-event,path=/var/run/qmeventd.sock,reconnect=5' \
+  -mon 'chardev=qmp-event,mode=control' \
+  -pidfile /var/run/qemu-server/8006.pid \
+  -daemonize \
+  -smbios 'type=1,uuid=6cf17dc3-8341-4ecc-aebd-7503f2583fb3' \
+  -smp '1,sockets=1,cores=1,maxcpus=1' \
+  -nodefaults \
+  -boot 'menu=on,strict=on,reboot-timeout=1000,splash=/usr/share/qemu-server/bootsplash.jpg' \
+  -vnc unix:/var/run/qemu-server/8006.vnc,x509,password \
+  -cpu kvm64,+lahf_lm,+sep,+kvm_pv_unhalt,+kvm_pv_eoi,enforce \
+  -m 512 \
+  -device 'pci-bridge,id=pci.2,chassis_nr=2,bus=pci.0,addr=0x1f' \
+  -device 'pci-bridge,id=pci.1,chassis_nr=1,bus=pci.0,addr=0x1e' \
+  -device 'piix3-usb-uhci,id=uhci,bus=pci.0,addr=0x1.0x2' \
+  -device 'usb-tablet,id=tablet,bus=uhci.0,port=1' \
+  -device 'VGA,id=vga,bus=pci.0,addr=0x2' \
+  -device 'virtio-balloon-pci,id=balloon0,bus=pci.0,addr=0x3' \
+  -iscsi 'initiator-name=iqn.1993-08.org.debian:01:a1d15f6610fd' \
+  -machine 'type=pc'
