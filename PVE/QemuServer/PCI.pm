@@ -145,6 +145,11 @@ sub print_pcie_addr {
 	hostpci1 => { bus => "ich9-pcie-port-2", addr => 0 },
 	hostpci2 => { bus => "ich9-pcie-port-3", addr => 0 },
 	hostpci3 => { bus => "ich9-pcie-port-4", addr => 0 },
+	# win7 is picky about pcie assignments
+	hostpci0bus0 => { bus => "pcie.0", addr => 16 },
+	hostpci1bus0 => { bus => "pcie.0", addr => 17 },
+	hostpci2bus0 => { bus => "pcie.0", addr => 18 },
+	hostpci3bus0 => { bus => "pcie.0", addr => 19 },
     };
 
     if (defined($devices->{$id}->{bus}) && defined($devices->{$id}->{addr})) {

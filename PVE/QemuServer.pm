@@ -3524,7 +3524,13 @@ sub config_to_command {
 	my $pcie = $d->{pcie};
 	if($pcie){
 	    die "q35 machine model is not enabled" if !$q35;
-	    $pciaddr = print_pcie_addr("hostpci$i");
+	    # win7 wants to have the pcie devices directly on the pcie bus
+	    # instead of in the root port
+	    if ($winversion == 7) {
+		$pciaddr = print_pcie_addr("hostpci${i}bus0");
+	    } else {
+		$pciaddr = print_pcie_addr("hostpci$i");
+	    }
 	}else{
 	    $pciaddr = print_pci_addr("hostpci$i", $bridges, $arch, $machine_type);
 	}
