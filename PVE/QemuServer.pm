@@ -2023,7 +2023,7 @@ sub print_vga_device {
     my ($conf, $vga, $arch, $machine, $id, $qxlnum, $bridges) = @_;
 
     my $type = $vga_map->{$vga->{type}};
-    if ($type eq 'virtio-vga' && $arch eq 'aarch64') {
+    if ($arch eq 'aarch64' && defined($type) && $type eq 'virtio-vga') {
 	$type = 'virtio-gpu';
     }
     my $vgamem_mb = $vga->{memory};
