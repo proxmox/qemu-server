@@ -404,10 +404,6 @@ sub sync_disks {
 	    $self->log('warn', "$err");
 	}
 
-	if ($self->{running} && !$sharedvm && !$self->{opts}->{targetstorage}) {
-	    $self->{opts}->{targetstorage} = 1; #use same sid for remote local
-	}
-
 	if ($abort) {
 	    die "can't migrate VM - check log\n";
 	}
@@ -447,7 +443,7 @@ sub sync_disks {
 	foreach my $volid (keys %$local_volumes) {
 	    my ($sid, $volname) = PVE::Storage::parse_volume_id($volid);
 	    my $targetsid = $self->{opts}->{targetstorage} ? $self->{opts}->{targetstorage} : $sid;
-	    if ($self->{running} && $self->{opts}->{targetstorage} && $local_volumes->{$volid}->{ref} eq 'config') {
+	    if ($self->{running} && $local_volumes->{$volid}->{ref} eq 'config') {
 		push @{$self->{online_local_volumes}}, $volid;
 	    } else {
 		next if $rep_volumes->{$volid};
@@ -555,8 +551,8 @@ sub phase2 {
 	push @$cmd, '--machine', $self->{forcemachine};
     }
 
-    if ($self->{opts}->{targetstorage}) {
-	push @$cmd, '--targetstorage', $self->{opts}->{targetstorage};
+    if ($self->{online_local_volumes}) {
+	push @$cmd, '--targetstorage', ($self->{opts}->{targetstorage} // '1');
     }
 
     my $spice_port;
