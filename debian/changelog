@@ -1,3 +1,21 @@
+qemu-server (5.0-44) unstable; urgency=medium
+
+  * fix #1013 : migrate : sync_disk : --targetstorage with offline disk
+
+  * add Windows 7 PCIe quirk for adding 'hostpci' devices
+
+  * fix #2032: check that type is set before assembling a VGA device
+
+  * add configuration to command regression tests
+
+  * allow 'none' as VGA option
+
+  * fix #1267: move args to the end of qemu commandline
+
+  * clone_disk : cloudinit drive: don't clone snapshot name (snapname)
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 20 Dec 2018 10:17:47 +0100
+
 qemu-server (5.0-43) unstable; urgency=medium
 
   * usb: fix check if machine type is q35
