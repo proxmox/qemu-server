@@ -107,6 +107,9 @@ $qemu_server_module->mock(
     kvm_user_version => sub {
 	return $current_test->{qemu_version} // $base_env->{real_qemu_version};
     },
+    kvm_version => sub {
+	return $current_test->{qemu_version} // $base_env->{real_qemu_version};
+    },
     get_host_arch => sub() {
 	return $current_test->{host_arch} // 'x86_64';
     },
