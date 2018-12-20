@@ -234,7 +234,7 @@ sub prepare {
 	my ($sid, $volname) = PVE::Storage::parse_volume_id($volid, 1);
 
 	# check if storage is available on both nodes
-	my $targetsid = $self->{opts}->{targetstorage} ? $self->{opts}->{targetstorage} : $sid;
+	my $targetsid = $self->{opts}->{targetstorage} // $sid;
 
 	my $scfg = PVE::Storage::storage_check_node($self->{storecfg}, $sid);
 	PVE::Storage::storage_check_node($self->{storecfg}, $targetsid, $self->{node});
@@ -269,6 +269,8 @@ sub sync_disks {
     # local volumes which have been copied
     $self->{volumes} = [];
 
+    my $override_targetsid = $self->{opts}->{targetstorage};
+
     eval {
 
 	# found local volumes and their origin
@@ -301,7 +303,7 @@ sub sync_disks {
 
 	    next if @{$dl->{$storeid}} == 0;
 
-	    my $targetsid = $self->{opts}->{targetstorage} ? $self->{opts}->{targetstorage} : $storeid;
+	    my $targetsid = $override_targetsid // $storeid;
 
 	    # check if storage is available on target node
 	    PVE::Storage::storage_check_node($self->{storecfg}, $targetsid, $self->{node});
@@ -340,7 +342,7 @@ sub sync_disks {
 
 	    my ($sid, $volname) = PVE::Storage::parse_volume_id($volid);
 
-	    my $targetsid = $self->{opts}->{targetstorage} ? $self->{opts}->{targetstorage} : $sid;
+	    my $targetsid = $override_targetsid // $sid;
 	    # check if storage is available on both nodes
 	    my $scfg = PVE::Storage::storage_check_node($self->{storecfg}, $sid);
 	    PVE::Storage::storage_check_node($self->{storecfg}, $targetsid, $self->{node});
@@ -442,7 +444,7 @@ sub sync_disks {
 
 	foreach my $volid (keys %$local_volumes) {
 	    my ($sid, $volname) = PVE::Storage::parse_volume_id($volid);
-	    my $targetsid = $self->{opts}->{targetstorage} ? $self->{opts}->{targetstorage} : $sid;
+	    my $targetsid = $override_targetsid // $sid;
 	    if ($self->{running} && $local_volumes->{$volid}->{ref} eq 'config') {
 		push @{$self->{online_local_volumes}}, $volid;
 	    } else {
