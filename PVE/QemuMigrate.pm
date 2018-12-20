@@ -446,6 +446,7 @@ sub sync_disks {
 
 	foreach my $volid (keys %$local_volumes) {
 	    my ($sid, $volname) = PVE::Storage::parse_volume_id($volid);
+	    my $targetsid = $self->{opts}->{targetstorage} ? $self->{opts}->{targetstorage} : $sid;
 	    if ($self->{running} && $self->{opts}->{targetstorage} && $local_volumes->{$volid}->{ref} eq 'config') {
 		push @{$self->{online_local_volumes}}, $volid;
 	    } else {
@@ -453,7 +454,7 @@ sub sync_disks {
 		push @{$self->{volumes}}, $volid;
 		my $insecure = $self->{opts}->{migration_type} eq 'insecure';
 		my $with_snapshots = $local_volumes->{$volid}->{snapshots};
-		PVE::Storage::storage_migrate($self->{storecfg}, $volid, $self->{ssh_info}, $sid,
+		PVE::Storage::storage_migrate($self->{storecfg}, $volid, $self->{ssh_info}, $targetsid,
 					      undef, undef, undef, undef, $insecure, $with_snapshots);
 	    }
 	}
