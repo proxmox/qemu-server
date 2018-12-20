@@ -1387,7 +1387,9 @@ sub kvm_user_version {
 
 }
 
-my $kernel_has_vhost_net = -c '/dev/vhost-net';
+sub kernel_has_vhost_net {
+    return -c '/dev/vhost-net';
+}
 
 sub valid_drive_names {
     # order is important - used to autoselect boot disk
@@ -1973,7 +1975,7 @@ sub print_netdev_full {
 
     my $vhostparam = '';
     if (is_native($arch)) {
-	$vhostparam = ',vhost=on' if $kernel_has_vhost_net && $net->{model} eq 'virtio';
+	$vhostparam = ',vhost=on' if kernel_has_vhost_net() && $net->{model} eq 'virtio';
     }
 
     my $vmname = $conf->{name} || "vm$vmid";
