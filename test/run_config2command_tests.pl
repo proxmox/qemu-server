@@ -137,7 +137,7 @@ sub diff($$) {
     my $ha = IO::Handle->new_from_fd($wa, 'w');
     my $hb = IO::Handle->new_from_fd($wb, 'w');
 
-    open my $diffproc, '-|', 'diff', '-up', "/dev/fd/$ra", "/dev/fd/$rb"
+    open my $diffproc, '-|', 'diff', '-up', "/proc/self/fd/$ra", "/proc/self/fd/$rb"
 	or die "failed to run program 'diff': $!";
     POSIX::close($ra);
     POSIX::close($rb);
