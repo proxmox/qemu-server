@@ -3553,7 +3553,7 @@ sub config_to_command {
 	if ($d->{'x-vga'}) {
 	    $xvga = ',x-vga=on';
 	    $kvm_off = 1;
-	    $vga->{type} = 'none';
+	    $vga->{type} = 'none' if !defined($conf->{vga});
 	    $gpu_passthrough = 1;
 
 	    if ($conf->{bios} && $conf->{bios} eq 'ovmf') {
