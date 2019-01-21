@@ -1,3 +1,11 @@
+qemu-server (5.0-45) unstable; urgency=medium
+
+  * fix #2003: give qm terminal a terminal over ssh
+
+  * migrate: fix local disk migration with online VMs
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 21 Jan 2019 10:42:03 +0100
+
 qemu-server (5.0-44) unstable; urgency=medium
 
   * fix #1013 : migrate : sync_disk : --targetstorage with offline disk
