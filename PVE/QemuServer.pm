@@ -186,6 +186,13 @@ my $cpu_fmt = {
 	optional => 1,
 	default => 0
     },
+    'hv-vendor-id' => {
+	type => 'string',
+	pattern => qr/[a-zA-Z0-9]{1,12}/,
+	format_description => 'vendor-id',
+	description => 'The Hyper-V vendor ID. For some programs inside the guest you want to change this. Only relevant for Windows Guests.',
+	optional => 1,
+    },
     flags => {
 	description => "List of additional CPU flags separated by ';'."
 		     . " Use '+FLAG' to enable, '-FLAG' to disable a flag."
@@ -3331,11 +3338,13 @@ sub get_cpu_options {
     if ($arch eq 'aarch64') {
 	$cpu = 'cortex-a57';
     }
+    my $hv_vendor_id;
     if (my $cputype = $conf->{cpu}) {
 	my $cpuconf = PVE::JSONSchema::parse_property_string($cpu_fmt, $cputype)
 	    or die "Cannot parse cpu description: $cputype\n";
 	$cpu = $cpuconf->{cputype};
 	$kvm_off = 1 if $cpuconf->{hidden};
+	$hv_vendor_id = $cpuconf->{'hv-vendor-id'};
 
 	if (defined(my $flags = $cpuconf->{flags})) {
 	    push @$cpuFlags, split(";", $flags);
@@ -3357,7 +3366,7 @@ sub get_cpu_options {
 	push @$cpuFlags , '+kvm_pv_eoi' if $kvm;
     }
 
-    add_hyperv_enlightenments($cpuFlags, $winversion, $machine_type, $kvmver, $conf->{bios}, $gpu_passthrough) if $kvm;
+    add_hyperv_enlightenments($cpuFlags, $winversion, $machine_type, $kvmver, $conf->{bios}, $gpu_passthrough, $hv_vendor_id) if $kvm;
 
     push @$cpuFlags, 'enforce' if $cpu ne 'host' && $kvm && $arch eq 'x86_64';
 
@@ -6833,12 +6842,15 @@ sub scsihw_infos {
 }
 
 sub add_hyperv_enlightenments {
-    my ($cpuFlags, $winversion, $machine_type, $kvmver, $bios, $gpu_passthrough) = @_;
+    my ($cpuFlags, $winversion, $machine_type, $kvmver, $bios, $gpu_passthrough, $hv_vendor_id) = @_;
 
     return if $winversion < 6;
     return if $bios && $bios eq 'ovmf' && $winversion < 8;
 
-    push @$cpuFlags , 'hv_vendor_id=proxmox' if $gpu_passthrough;
+    if ($gpu_passthrough || defined($hv_vendor_id)) {
+	$hv_vendor_id //= 'proxmox';
+	push @$cpuFlags , "hv_vendor_id=$hv_vendor_id";
+    }
 
     if (qemu_machine_feature_enabled ($machine_type, $kvmver, 2, 3)) {
 	push @$cpuFlags , 'hv_spinlocks=0x1fff';
