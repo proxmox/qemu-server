@@ -190,7 +190,7 @@ my $cpu_fmt = {
 	type => 'string',
 	pattern => qr/[a-zA-Z0-9]{1,12}/,
 	format_description => 'vendor-id',
-	description => 'The Hyper-V vendor ID. For some programs inside the guest you want to change this. Only relevant for Windows Guests.',
+	description => 'The Hyper-V vendor ID. Some drivers or programs inside Windows guests need a specific ID.',
 	optional => 1,
     },
     flags => {
