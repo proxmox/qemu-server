@@ -648,8 +648,7 @@ __PACKAGE__->register_method({
 		if (my $err = $@) {
 		    eval {
 			my $conffile = PVE::QemuConfig->config_file($vmid);
-			unlink($conffile)
-			    or die "failed to remove config file: $@\n";
+			unlink($conffile) or die "failed to remove config file: $!\n";
 		    };
 		    warn $@ if $@;
 		    die $err;
