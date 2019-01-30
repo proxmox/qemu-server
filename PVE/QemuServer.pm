@@ -5378,12 +5378,10 @@ sub vm_commandline {
 
     if ($snapname) {
 	my $snapshot = $conf->{snapshots}->{$snapname};
-	die "snapshot '$snapname' does not exist\n"
-	    if !defined($snapshot);
-	my $digest = $conf->{digest};
+	die "snapshot '$snapname' does not exist\n" if !defined($snapshot);
 
-	# we need the digest of the file
-	$snapshot->{digest} = $conf->{digest};
+	$snapshot->{digest} = $conf->{digest}; # keep file digest for API
+
 	$conf = $snapshot;
     }
 
