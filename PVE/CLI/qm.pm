@@ -127,7 +127,15 @@ __PACKAGE__->register_method ({
 		type => 'boolean',
 		optional => 1,
 		default => 0,
-	    }
+	    },
+	    snapshot => get_standard_option('pve-snapshot-name', {
+		description => "Fetch config values from given snapshot.",
+		optional => 1,
+		completion => sub {
+		    my ($cmd, $pname, $cur, $args) = @_;
+		    PVE::QemuConfig->snapshot_list($args->[0]);
+		}
+	    }),
 	},
     },
     returns => { type => 'null'},
@@ -135,7 +143,7 @@ __PACKAGE__->register_method ({
 	my ($param) = @_;
 
 	my $storecfg = PVE::Storage::config();
-	my $cmdline = PVE::QemuServer::vm_commandline($storecfg, $param->{vmid});
+	my $cmdline = PVE::QemuServer::vm_commandline($storecfg, $param->{vmid}, $param->{snapshot});
 
 	$cmdline =~ s/ -/ \\\n  -/g if $param->{pretty};
 

@@ -829,6 +829,14 @@ __PACKAGE__->register_method({
 		default => 0,
 		type => 'boolean',
             },
+	    snapshot => get_standard_option('pve-snapshot-name', {
+		description => "Fetch config values from given snapshot.",
+		optional => 1,
+		completion => sub {
+		    my ($cmd, $pname, $cur, $args) = @_;
+		    PVE::QemuConfig->snapshot_list($args->[0]);
+		},
+	    }),
 	},
     },
     returns => {
@@ -845,6 +853,17 @@ __PACKAGE__->register_method({
 	my ($param) = @_;
 
 	my $conf = PVE::QemuConfig->load_config($param->{vmid});
+
+	my $snapname = $param->{snapshot};
+	if ($snapname) {
+	    my $snapshot = $conf->{snapshots}->{$snapname};
+	    die "snapshot '$snapname' does not exist\n"
+		if !defined($snapshot);
+
+	    # we need the digest of the file
+	    $snapshot->{digest} = $conf->{digest};
+	    $conf = $snapshot;
+	}
 
 	delete $conf->{snapshots};
 

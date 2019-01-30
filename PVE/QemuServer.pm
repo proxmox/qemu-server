@@ -5372,9 +5372,20 @@ sub vm_human_monitor_command {
 }
 
 sub vm_commandline {
-    my ($storecfg, $vmid) = @_;
+    my ($storecfg, $vmid, $snapname) = @_;
 
     my $conf = PVE::QemuConfig->load_config($vmid);
+
+    if ($snapname) {
+	my $snapshot = $conf->{snapshots}->{$snapname};
+	die "snapshot '$snapname' does not exist\n"
+	    if !defined($snapshot);
+	my $digest = $conf->{digest};
+
+	# we need the digest of the file
+	$snapshot->{digest} = $conf->{digest};
+	$conf = $snapshot;
+    }
 
     my $defaults = load_defaults();
 
