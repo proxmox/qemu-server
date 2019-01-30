@@ -823,12 +823,12 @@ __PACKAGE__->register_method({
 	properties => {
 	    node => get_standard_option('pve-node'),
 	    vmid => get_standard_option('pve-vmid', { completion => \&PVE::QemuServer::complete_vmid }),
-            current => {
-                description => "Get current values (instead of pending values).",
-                optional => 1,
+	    current => {
+		description => "Get current values (instead of pending values).",
+		optional => 1,
 		default => 0,
 		type => 'boolean',
-            },
+	    },
 	    snapshot => get_standard_option('pve-snapshot-name', {
 		description => "Fetch config values from given snapshot.",
 		optional => 1,
