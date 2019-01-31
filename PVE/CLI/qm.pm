@@ -19,6 +19,7 @@ use PVE::INotify;
 use PVE::RPCEnvironment;
 use PVE::Exception qw(raise_param_exc);
 use PVE::Network;
+use PVE::GuestHelpers;
 use PVE::QemuServer;
 use PVE::QemuServer::ImportDisk;
 use PVE::QemuServer::OVF;
@@ -786,6 +787,7 @@ __PACKAGE__->register_method({
 		# vm was shutdown from inside the guest or crashed, doing api cleanup
 		PVE::QemuServer::vm_stop_cleanup($storecfg, $vmid, $conf, 0, 0);
 	    }
+	    PVE::GuestHelpers::exec_hookscript($conf, $vmid, 'post-stop');
 	});
 
 	warn "Finished cleanup for $vmid\n";

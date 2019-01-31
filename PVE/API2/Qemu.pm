@@ -1117,6 +1117,9 @@ my $update_vm_api  = sub {
 	    if ($param->{$opt} eq '1') {
 		$param->{$opt} = PVE::QemuServer::generate_uuid();
 	    }
+	} elsif ($opt eq 'hookscript') {
+	    eval { PVE::GuestHelpers::check_hookscript($param->{$opt}, $storecfg); };
+	    raise_param_exc({ $opt => $@ }) if $@;
 	}
     }
 
