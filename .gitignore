@@ -7,6 +7,5 @@
 *.5.pod
 sparsecp
 vmtar
-control
 build
 qm.bash-completion
