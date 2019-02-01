@@ -1,3 +1,15 @@
+qemu-server (5.0-46) unstable; urgency=medium
+
+  * allow explicit hv-vendor-id
+
+  * allow explicit set vga with gpu passthrough
+
+  * fix #1924: add snapshot parameter
+
+  * allow to add pre- start/stop hook scripts
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 01 Feb 2019 13:04:19 +0100
+
 qemu-server (5.0-45) unstable; urgency=medium
 
   * fix #2003: give qm terminal a terminal over ssh
