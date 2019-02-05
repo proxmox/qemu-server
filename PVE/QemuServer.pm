@@ -5204,7 +5204,7 @@ sub vm_start {
 
 	PVE::Storage::activate_volumes($storecfg, $vollist);
 
-	if (!check_running($vmid, 1)) {
+	if (-d "/sys/fs/cgroup/systemd/qemu.slice/$vmid.scope") {
 	    eval {
 		run_command(['/bin/systemctl', 'stop', "$vmid.scope"],
 		    outfunc => sub {}, errfunc => sub {});
