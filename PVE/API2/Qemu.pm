@@ -292,6 +292,7 @@ my $diskoptions = {
 };
 
 my $cloudinitoptions = {
+    cicustom => 1,
     cipassword => 1,
     citype => 1,
     ciuser => 1,

@@ -644,6 +644,31 @@ EODESCR
     }
 };
 
+my $cicustom_fmt = {
+    meta => {
+	type => 'string',
+	optional => 1,
+	description => 'Specify a custom file containing all meta data passed to the VM via cloud-init. This is provider specific meaning configdrive2 and nocloud differ.',
+	format => 'pve-volume-id',
+	format_description => 'volume',
+    },
+    network => {
+	type => 'string',
+	optional => 1,
+	description => 'Specify a custom file containing all network data passed to the VM via cloud-init.',
+	format => 'pve-volume-id',
+	format_description => 'volume',
+    },
+    user => {
+	type => 'string',
+	optional => 1,
+	description => 'Specify a custom file containing all user data passed to the VM via cloud-init.',
+	format => 'pve-volume-id',
+	format_description => 'volume',
+    },
+};
+PVE::JSONSchema::register_format('pve-qm-cicustom', $cicustom_fmt);
+
 my $confdesc_cloudinit = {
     citype => {
 	optional => 1,
@@ -660,6 +685,12 @@ my $confdesc_cloudinit = {
 	optional => 1,
 	type => 'string',
 	description => 'cloud-init: Password to assign the user. Using this is generally not recommended. Use ssh keys instead. Also note that older cloud-init versions do not support hashed passwords.',
+    },
+    cicustom => {
+	optional => 1,
+	type => 'string',
+	description => 'cloud-init: Specify custom files to replace the automatically generated ones at start.',
+	format => 'pve-qm-cicustom',
     },
     searchdomain => {
 	optional => 1,

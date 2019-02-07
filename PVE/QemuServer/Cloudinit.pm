@@ -208,14 +208,16 @@ EOF
 sub generate_configdrive2 {
     my ($conf, $vmid, $drive, $volname, $storeid) = @_;
 
-    my $user_data = cloudinit_userdata($conf, $vmid);
-    my $network_data = configdrive2_network($conf);
+    my ($user_data, $network_data, $meta_data) = get_custom_cloudinit_files($conf);
+    $user_data = cloudinit_userdata($conf, $vmid) if !defined($user_data);
+    $network_data = configdrive2_network($conf) if !defined($network_data);
 
-    my $digest_data = $user_data . $network_data;
-    my $uuid_str = Digest::SHA::sha1_hex($digest_data);
+    if (!defined($meta_data)) {
+	my $digest_data = $user_data . $network_data;
+	my $uuid_str = Digest::SHA::sha1_hex($digest_data);
 
-    my $meta_data = configdrive2_metadata($uuid_str);
-
+	$meta_data = configdrive2_metadata($uuid_str);
+    }
     my $files = {
 	'/openstack/latest/user_data' => $user_data,
 	'/openstack/content/0000' => $network_data,
@@ -378,13 +380,16 @@ sub nocloud_metadata {
 sub generate_nocloud {
     my ($conf, $vmid, $drive, $volname, $storeid) = @_;
 
-    my $user_data = cloudinit_userdata($conf, $vmid);
-    my $network_data = nocloud_network($conf);
+    my ($user_data, $network_data, $meta_data) = get_custom_cloudinit_files($conf);
+    $user_data = cloudinit_userdata($conf, $vmid) if !defined($user_data);
+    $network_data = nocloud_network($conf) if !defined($network_data);
 
-    my $digest_data = $user_data . $network_data;
-    my $uuid_str = Digest::SHA::sha1_hex($digest_data);
+    if (!defined($meta_data)) {
+	my $digest_data = $user_data . $network_data;
+	my $uuid_str = Digest::SHA::sha1_hex($digest_data);
 
-    my $meta_data = nocloud_metadata($uuid_str);
+	$meta_data = nocloud_metadata($uuid_str);
+    }
 
     my $files = {
 	'/user-data' => $user_data,
@@ -392,6 +397,44 @@ sub generate_nocloud {
 	'/meta-data' => $meta_data
     };
     commit_cloudinit_disk($conf, $vmid, $drive, $volname, $storeid, $files, 'cidata');
+}
+
+sub get_custom_cloudinit_files {
+    my ($conf) = @_;
+
+    my $cicustom = $conf->{cicustom};
+    my $files = $cicustom ? PVE::JSONSchema::parse_property_string('pve-qm-cicustom', $cicustom) : {};
+
+    my $network_volid = $files->{network};
+    my $user_volid = $files->{user};
+    my $meta_volid = $files->{meta};
+
+    my $storage_conf = PVE::Storage::config();
+
+    my $network_data;
+    if ($network_volid) {
+	$network_data = read_cloudinit_snippets_file($storage_conf, $network_volid);
+    }
+
+    my $user_data;
+    if ($user_volid) {
+	$user_data = read_cloudinit_snippets_file($storage_conf, $user_volid);
+    }
+
+    my $meta_data;
+    if ($meta_volid) {
+	$meta_data = read_cloudinit_snippets_file($storage_conf, $meta_volid);
+    }
+
+    return ($user_data, $network_data, $meta_data);
+}
+
+sub read_cloudinit_snippets_file {
+    my ($storage_conf, $volid) = @_;
+
+    my ($full_path, undef, $type) = PVE::Storage::path($storage_conf, $volid);
+    die "$volid is not in the snippets directory\n" if $type ne 'snippets';
+    return PVE::Tools::file_get_contents($full_path);
 }
 
 my $cloudinit_methods = {
