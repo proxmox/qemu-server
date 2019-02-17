@@ -538,6 +538,29 @@ sub hugepages_allocate {
 
 }
 
+sub hugepages_default_nr_hugepages {
+    my ($size) = @_;
+
+    my $cmdline = PVE::Tools::file_read_firstline("/proc/cmdline");
+    my $args = PVE::Tools::split_args($cmdline);
+
+    my $parsed_size = 2; # default is 2M
+
+    foreach my $arg (@$args) {
+	if ($arg eq "hugepagesz=2M") {
+	    $parsed_size = 2;
+	} elsif ($arg eq "hugepagesz=1G") {
+	    $parsed_size = 1024;
+	} elsif ($arg =~ m/^hugepages=(\d+)?$/) {
+	    if ($parsed_size == $size) {
+		return $1;
+	    }
+	}
+    }
+
+    return 0;
+}
+
 sub hugepages_pre_deallocate {
     my ($hugepages_topology) = @_;
 
@@ -545,8 +568,8 @@ sub hugepages_pre_deallocate {
 
 	my $hugepages_size = $size * 1024;
 	my $path = "/sys/kernel/mm/hugepages/hugepages-${hugepages_size}kB/";
-	my $hugepages_nr = PVE::Tools::file_read_firstline($path."nr_hugepages");
-	PVE::ProcFSTools::write_proc_entry($path."nr_hugepages", 0);
+	my $hugepages_nr = hugepages_default_nr_hugepages($size);
+	PVE::ProcFSTools::write_proc_entry($path."nr_hugepages", $hugepages_nr);
     }
 }
 
