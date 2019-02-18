@@ -34,7 +34,7 @@ sub get_numa_guest_to_host_map {
     }
     return $map if %$map;
     my $sockets = $conf->{sockets} || 1;
-    return map { $_ => $_ } (0..($sockets-1));
+    return {map { $_ => $_ } (0..($sockets-1))};
 }
 
 sub foreach_dimm{
