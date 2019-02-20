@@ -579,10 +579,10 @@ sub phase2 {
 	    $rport = int($1);
 	    $ruri = "tcp:$raddr:$rport";
 	}
-        elsif ($line =~ m/^spice listens on port (\d+)$/) {
+	elsif ($line =~ m/^spice listens on port (\d+)$/) {
 	    $spice_port = int($1);
 	}
-        elsif ($line =~ m/^storage migration listens on nbd:(localhost|[\d\.]+|\[[\d\.:a-fA-F]+\]):(\d+):exportname=(\S+) volume:(\S+)$/) {
+ 	elsif ($line =~ m/^storage migration listens on nbd:(localhost|[\d\.]+|\[[\d\.:a-fA-F]+\]):(\d+):exportname=(\S+) volume:(\S+)$/) {
 	    my $volid = $4;
 	    my $nbd_uri = "nbd:$1:$2:exportname=$3";
 	    my $targetdrive = $3;
@@ -706,7 +706,7 @@ sub phase2 {
 	my (undef, $proxyticket) = PVE::AccessControl::assemble_spice_ticket($authuser, $vmid, $self->{node});
 
 	my $filename = "/etc/pve/nodes/$self->{node}/pve-ssl.pem";
-        my $subject =  PVE::AccessControl::read_x509_subject_spice($filename);
+ 	my $subject =  PVE::AccessControl::read_x509_subject_spice($filename);
 
 	$self->log('info', "spice client_migrate_info");
 
