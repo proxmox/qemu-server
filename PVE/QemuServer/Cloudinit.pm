@@ -174,9 +174,9 @@ sub configdrive2_network {
 	    } else {
 		my ($addr, $mask) = split_ip4($net->{ip});
 		$content .= "iface $id inet static\n";
-		$content .= "        address $addr\n";
-		$content .= "        netmask $mask\n";
-		$content .= "        gateway $net->{gw}\n" if $net->{gw};
+		$content .= "        address '$addr'\n";
+		$content .= "        netmask '$mask'\n";
+		$content .= "        gateway '$net->{gw}'\n" if $net->{gw};
 	    }
 	}
 	if ($net->{ip6}) {
@@ -185,9 +185,9 @@ sub configdrive2_network {
 	    } else {
 		my ($addr, $mask) = split('/', $net->{ip6});
 		$content .= "iface $id inet6 static\n";
-		$content .= "        address $addr\n";
-		$content .= "        netmask $mask\n";
-		$content .= "        gateway $net->{gw6}\n" if $net->{gw6};
+		$content .= "        address '$addr'\n";
+		$content .= "        netmask '$mask'\n";
+		$content .= "        gateway '$net->{gw6}'\n" if $net->{gw6};
 	    }
 	}
     }
@@ -270,13 +270,13 @@ sub nocloud_network_v2 {
 	}
 	if (@addresses) {
 	    $content .= "${i}addresses:\n";
-	    $content .= "${i}- $_\n" foreach @addresses;
+	    $content .= "${i}- '$_'\n" foreach @addresses;
 	}
 	if (defined(my $gw = $ipconfig->{gw})) {
-	    $content .= "${i}gateway4: $gw\n";
+	    $content .= "${i}gateway4: '$gw'\n";
 	}
 	if (defined(my $gw = $ipconfig->{gw6})) {
-	    $content .= "${i}gateway6: $gw\n";
+	    $content .= "${i}gateway6: '$gw'\n";
 	}
 
 	next if $dns_done;
@@ -287,11 +287,11 @@ sub nocloud_network_v2 {
 	    $content .= "${i}nameservers:\n";
 	    if (defined($nameservers) && @$nameservers) {
 		$content .= "${i}  addresses:\n";
-		$content .= "${i}  - $_\n" foreach @$nameservers;
+		$content .= "${i}  - '$_'\n" foreach @$nameservers;
 	    }
 	    if (defined($searchdomains) && @$searchdomains) {
 		$content .= "${i}  search:\n";
-		$content .= "${i}  - $_\n" foreach @$searchdomains;
+		$content .= "${i}  - '$_'\n" foreach @$searchdomains;
 	    }
 	}
     }
@@ -321,7 +321,7 @@ sub nocloud_network {
 
 	$content .= "${i}- type: physical\n"
 	          . "${i}  name: eth$id\n"
-	          . "${i}  mac_address: $mac\n"
+	          . "${i}  mac_address: '$mac'\n"
 	          . "${i}  subnets:\n";
 	$i .= '  ';
 	if (defined(my $ip = $ipconfig->{ip})) {
@@ -330,10 +330,10 @@ sub nocloud_network {
 	    } else {
 		my ($addr, $mask) = split_ip4($ip);
 		$content .= "${i}- type: static\n"
-		          . "${i}  address: $addr\n"
-		          . "${i}  netmask: $mask\n";
+		          . "${i}  address: '$addr'\n"
+		          . "${i}  netmask: '$mask'\n";
 		if (defined(my $gw = $ipconfig->{gw})) {
-		    $content .= "${i}  gateway: $gw\n";
+		    $content .= "${i}  gateway: '$gw'\n";
 		}
 	    }
 	}
@@ -345,9 +345,9 @@ sub nocloud_network {
 		$content .= "${i}- type: dhcp6\n";
 	    } else {
 		$content .= "${i}- type: static\n"
-		       . "${i}  address: $ip\n";
+		       . "${i}  address: '$ip'\n";
 		if (defined(my $gw = $ipconfig->{gw6})) {
-		    $content .= "${i}  gateway: $gw\n";
+		    $content .= "${i}  gateway: '$gw'\n";
 		}
 	    }
 	}
@@ -359,11 +359,11 @@ sub nocloud_network {
 	$content .= "${i}- type: nameserver\n";
 	if (defined($nameservers) && @$nameservers) {
 	    $content .= "${i}  address:\n";
-	    $content .= "${i}  - $_\n" foreach @$nameservers;
+	    $content .= "${i}  - '$_'\n" foreach @$nameservers;
 	}
 	if (defined($searchdomains) && @$searchdomains) {
 	    $content .= "${i}  search:\n";
-	    $content .= "${i}  - $_\n" foreach @$searchdomains;
+	    $content .= "${i}  - '$_'\n" foreach @$searchdomains;
 	}
     }
 
