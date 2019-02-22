@@ -256,6 +256,21 @@ my $vga_fmt = {
     },
 };
 
+my $ivshmem_fmt = {
+    size => {
+	type => 'integer',
+	minimum => 1,
+	description => "The size of the file in MB.",
+    },
+    name => {
+	type => 'string',
+	pattern => '[a-zA-Z0-9\-]+',
+	optional => 1,
+	format_description => 'string',
+	description => "The name of the file. Will be prefixed with 'pve-shm-'. Default is the VMID. Will be deleted when the VM is stopped.",
+    },
+};
+
 my $confdesc = {
     onboot => {
 	optional => 1,
@@ -621,6 +636,12 @@ EODESCR
 	optional => 1,
 	description => "Script that will be executed during various steps in the vms lifetime.",
     },
+    ivshmem => {
+	type => 'string',
+	format => $ivshmem_fmt,
+	description => "Inter-VM shared memory. Useful for direct communication between VMs, or to the host.",
+	optional => 1,
+    }
 };
 
 my $confdesc_cloudinit = {
@@ -2808,6 +2829,8 @@ sub check_local_resources {
     $loc_res = 1 if $conf->{hostusb}; # old syntax
     $loc_res = 1 if $conf->{hostpci}; # old syntax
 
+    $loc_res = 1 if $conf->{ivshmem};
+
     foreach my $k (keys %$conf) {
 	next if $k =~ m/^usb/ && ($conf->{$k} eq 'spice');
 	# sockets are safe: they will recreated be on the target side post-migrate
@@ -3906,6 +3929,24 @@ sub config_to_command {
 
          my $netdevicefull = print_netdevice_full($vmid, $conf, $d, "net$i", $bridges, $use_old_bios_files, $arch, $machine_type);
          push @$devices, '-device', $netdevicefull;
+    }
+
+    if ($conf->{ivshmem}) {
+	my $ivshmem = PVE::JSONSchema::parse_property_string($ivshmem_fmt, $conf->{ivshmem});
+	my $bus;
+	if ($q35) {
+	    $bus = print_pcie_addr("ivshmem");
+	} else {
+	    $bus = print_pci_addr("ivshmem", $bridges, $arch, $machine_type);
+	}
+	my $path = '/dev/shm/pve-shm-';
+	if ($ivshmem->{name}) {
+	    $path .= $ivshmem->{name};
+	} else {
+	    $path .= $vmid;
+	}
+	push @$devices, '-device', "ivshmem-plain,memdev=ivshmem$bus,";
+	push @$devices, '-object', "memory-backend-file,id=ivshmem,share=on,mem-path=$path,size=$ivshmem->{size}M";
     }
 
     if (!$q35) {
@@ -5462,6 +5503,11 @@ sub vm_stop_cleanup {
 
 	foreach my $ext (qw(mon qmp pid vnc qga)) {
 	    unlink "/var/run/qemu-server/${vmid}.$ext";
+	}
+
+	if ($conf->{ivshmem}) {
+	    my $ivshmem = PVE::JSONSchema::parse_property_string($ivshmem_fmt, $conf->{ivshmem});
+	    unlink '/dev/shm/pve-shm-' . ($ivshmem->{name} // $vmid);
 	}
 
 	foreach my $key (keys %$conf) {

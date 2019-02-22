@@ -78,6 +78,7 @@ my $devices = {
     'virtio13' => { bus => 2, addr => 8 },
     'virtio14' => { bus => 2, addr => 9 },
     'virtio15' => { bus => 2, addr => 10 },
+    'ivshmem' => { bus => 2, addr => 11 },
     'virtioscsi0' => { bus => 3, addr => 1 },
     'virtioscsi1' => { bus => 3, addr => 2 },
     'virtioscsi2' => { bus => 3, addr => 3 },
@@ -150,6 +151,7 @@ sub print_pcie_addr {
 	hostpci1bus0 => { bus => "pcie.0", addr => 17 },
 	hostpci2bus0 => { bus => "pcie.0", addr => 18 },
 	hostpci3bus0 => { bus => "pcie.0", addr => 19 },
+	ivshmem => { bus => 'pcie.0', addr => 20 },
     };
 
     if (defined($devices->{$id}->{bus}) && defined($devices->{$id}->{addr})) {
