@@ -13,7 +13,7 @@ Build-Depends: debhelper (>= 7.0.50~),
                lintian,
                perl (>= 5.10.0-19),
                pve-cluster,
-               pve-doc-generator,
+               pve-doc-generator (>= 5.3-3),
                pve-firewall,
                qemu-utils,
 Standards-Version: 3.9.5
