@@ -1052,6 +1052,16 @@ my %ssd_fmt = (
     },
 );
 
+my %wwn_fmt = (
+    wwn => {
+	type => 'string',
+	pattern => qr/^(0x)[0-9a-fA-F]{16}/,
+	format_description => 'wwn',
+	description => "The drive's worldwide name, encoded as 16 bytes hex string, prefixed by '0x'.",
+	optional => 1,
+    },
+);
+
 my $add_throttle_desc = sub {
     my ($key, $type, $what, $unit, $longunit, $minimum) = @_;
     my $d = {
@@ -1100,6 +1110,7 @@ my $ide_fmt = {
     %drivedesc_base,
     %model_fmt,
     %ssd_fmt,
+    %wwn_fmt,
 };
 PVE::JSONSchema::register_format("pve-qm-ide", $ide_fmt);
 
@@ -1116,6 +1127,7 @@ my $scsi_fmt = {
     %queues_fmt,
     %scsiblock_fmt,
     %ssd_fmt,
+    %wwn_fmt,
 };
 my $scsidesc = {
     optional => 1,
@@ -1127,6 +1139,7 @@ PVE::JSONSchema::register_standard_option("pve-qm-scsi", $scsidesc);
 my $sata_fmt = {
     %drivedesc_base,
     %ssd_fmt,
+    %wwn_fmt,
 };
 my $satadesc = {
     optional => 1,
@@ -1153,6 +1166,7 @@ my $alldrive_fmt = {
     %queues_fmt,
     %scsiblock_fmt,
     %ssd_fmt,
+    %wwn_fmt,
 };
 
 my $efidisk_fmt = {
@@ -1784,6 +1798,7 @@ sub print_drivedevice_full {
 	if ($drive->{ssd} && ($devicetype eq 'block' || $devicetype eq 'hd')) {
 	    $device .= ",rotation_rate=1";
 	}
+	$device .= ",wwn=$drive->{wwn}" if $drive->{wwn};
 
     } elsif ($drive->{interface} eq 'ide' || $drive->{interface} eq 'sata') {
 	my $maxdev = ($drive->{interface} eq 'sata') ? $MAX_SATA_DISKS : 2;
@@ -1808,6 +1823,7 @@ sub print_drivedevice_full {
 		$device .= ",rotation_rate=1";
 	    }
 	}
+	$device .= ",wwn=$drive->{wwn}" if $drive->{wwn};
     } elsif ($drive->{interface} eq 'usb') {
 	die "implement me";
 	#  -device ide-drive,bus=ide.1,unit=0,drive=drive-ide0-1-0,id=ide0-1-0
