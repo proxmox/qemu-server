@@ -5506,6 +5506,10 @@ sub vm_stop_cleanup {
 
 	if ($conf->{ivshmem}) {
 	    my $ivshmem = PVE::JSONSchema::parse_property_string($ivshmem_fmt, $conf->{ivshmem});
+	    # just delete it for now, VMs which have this already open do not
+	    # are affected, but new VMs will get a separated one. If this
+	    # becomes an issue we either add some sort of ref-counting or just
+	    # add a "don't delete on stop" flag to the ivshmem format.
 	    unlink '/dev/shm/pve-shm-' . ($ivshmem->{name} // $vmid);
 	}
 
