@@ -3933,18 +3933,17 @@ sub config_to_command {
 
     if ($conf->{ivshmem}) {
 	my $ivshmem = PVE::JSONSchema::parse_property_string($ivshmem_fmt, $conf->{ivshmem});
+
 	my $bus;
 	if ($q35) {
 	    $bus = print_pcie_addr("ivshmem");
 	} else {
 	    $bus = print_pci_addr("ivshmem", $bridges, $arch, $machine_type);
 	}
-	my $path = '/dev/shm/pve-shm-';
-	if ($ivshmem->{name}) {
-	    $path .= $ivshmem->{name};
-	} else {
-	    $path .= $vmid;
-	}
+
+	my $ivshmem_name = $ivshmem->{name} // $vmid;
+	my $path = '/dev/shm/pve-shm-' . $ivshmem_name;
+
 	push @$devices, '-device', "ivshmem-plain,memdev=ivshmem$bus,";
 	push @$devices, '-object', "memory-backend-file,id=ivshmem,share=on,mem-path=$path,size=$ivshmem->{size}M";
     }
