@@ -4132,14 +4132,14 @@ sub vm_deviceplug {
 
     } elsif ($deviceid =~ m/^(net)(\d+)$/) {
 
-        return undef if !qemu_netdevadd($vmid, $conf, $arch, $device, $deviceid);
+	return undef if !qemu_netdevadd($vmid, $conf, $arch, $device, $deviceid);
 
-        my $machine_type = PVE::QemuServer::qemu_machine_pxe($vmid, $conf); 
-        my $use_old_bios_files = undef;
-        ($use_old_bios_files, $machine_type) = qemu_use_old_bios_files($machine_type);
+	my $machine_type = PVE::QemuServer::qemu_machine_pxe($vmid, $conf);
+	my $use_old_bios_files = undef;
+	($use_old_bios_files, $machine_type) = qemu_use_old_bios_files($machine_type);
 
-        my $netdevicefull = print_netdevice_full($vmid, $conf, $device, $deviceid, undef, $use_old_bios_files, $arch, $machine_type);
-        qemu_deviceadd($vmid, $netdevicefull);
+	my $netdevicefull = print_netdevice_full($vmid, $conf, $device, $deviceid, undef, $use_old_bios_files, $arch, $machine_type);
+	qemu_deviceadd($vmid, $netdevicefull);
 	eval {
 	    qemu_deviceaddverify($vmid, $deviceid);
 	    qemu_set_link_status($vmid, $deviceid, !$device->{link_down});
@@ -4148,7 +4148,7 @@ sub vm_deviceplug {
 	    eval { qemu_netdevdel($vmid, $deviceid); };
 	    warn $@ if $@;
 	    die $err;
-        }
+	}
 
     } elsif (!$q35 && $deviceid =~ m/^(pci\.)(\d+)$/) {
 
