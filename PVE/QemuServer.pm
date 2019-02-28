@@ -4140,7 +4140,10 @@ sub vm_deviceplug {
 
         my $netdevicefull = print_netdevice_full($vmid, $conf, $device, $deviceid, undef, $use_old_bios_files, $arch, $machine_type);
         qemu_deviceadd($vmid, $netdevicefull);
-        eval { qemu_deviceaddverify($vmid, $deviceid); };
+	eval {
+	    qemu_deviceaddverify($vmid, $deviceid);
+	    qemu_set_link_status($vmid, $deviceid, !$device->{link_down});
+	};
 	if (my $err = $@) {
 	    eval { qemu_netdevdel($vmid, $deviceid); };
 	    warn $@ if $@;
