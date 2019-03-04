@@ -1,3 +1,22 @@
+qemu-server (5.0-47) unstable; urgency=medium
+
+  * fix #2043: always stop existing systemd scopes on VM start
+
+  * use nr_hugepages from /proc/cmdline
+
+  * fix #2101: cloudinit: IPv6 ending in : not parsed as a string
+
+  * fix #1891: Add zsh command completion for qm and qmrestore
+
+  * fix #2097: allow one to set and pass the WWN parameter for IDE, SATA and
+    SCSI disks
+
+  * allow one to add IVSHMEM device to a VM configuration
+
+  * fix #2114: always set correct link status on VM network adapter hotplug
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 04 Mar 2019 10:11:00 +0100
+
 qemu-server (5.0-46) unstable; urgency=medium
 
   * allow explicit hv-vendor-id
