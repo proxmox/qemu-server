@@ -6540,6 +6540,23 @@ sub template_create {
     });
 }
 
+sub convert_iscsi_path {
+    my ($path) = @_;
+
+    if ($path =~ m|^iscsi://([^/]+)/([^/]+)/(.+)$|) {
+	my $portal = $1;
+	my $target = $2;
+	my $lun = $3;
+
+	my $initiator_name = get_initiator_name();
+
+	return "file.driver=iscsi,file.transport=tcp,file.initiator-name=$initiator_name,".
+	       "file.portal=$portal,file.target=$target,file.lun=$lun,driver=raw";
+    }
+
+    die "cannot convert iscsi path '$path', unkown format\n";
+}
+
 sub qemu_img_convert {
     my ($src_volid, $dst_volid, $size, $snapname, $is_zero_initialized) = @_;
 
@@ -6560,13 +6577,32 @@ sub qemu_img_convert {
 	my $src_path = PVE::Storage::path($storecfg, $src_volid, $snapname);
 	my $dst_path = PVE::Storage::path($storecfg, $dst_volid);
 
+	my $src_is_iscsi = ($src_path =~ m|^iscsi://|);
+	my $dst_is_iscsi = ($dst_path =~ m|^iscsi://|);
+
 	my $cmd = [];
 	push @$cmd, '/usr/bin/qemu-img', 'convert', '-p', '-n';
 	push @$cmd, '-l', "snapshot.name=$snapname" if($snapname && $src_format eq "qcow2");
 	push @$cmd, '-t', 'none' if $dst_scfg->{type} eq 'zfspool';
 	push @$cmd, '-T', 'none' if $src_scfg->{type} eq 'zfspool';
-	push @$cmd, '-f', $src_format, '-O', $dst_format, $src_path;
-	if ($is_zero_initialized) {
+
+	if ($src_is_iscsi) {
+	    push @$cmd, '--image-opts';
+	    $src_path = convert_iscsi_path($src_path);
+	} else {
+	    push @$cmd, '-f', $src_format;
+	}
+
+	if ($dst_is_iscsi) {
+	    push @$cmd, '--target-image-opts';
+	    $dst_path = convert_iscsi_path($dst_path);
+	} else {
+	    push @$cmd, '-O', $dst_format;
+	}
+
+	push @$cmd, $src_path;
+
+	if (!$dst_is_iscsi && $is_zero_initialized) {
 	    push @$cmd, "zeroinit:$dst_path";
 	} else {
 	    push @$cmd, $dst_path;
