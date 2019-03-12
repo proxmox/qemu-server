@@ -802,13 +802,9 @@ The DHCP server assign addresses to the guest starting from 10.0.2.15.
 __EOD__
 
 my $net_fmt = {
-    macaddr => {
-	type => 'string',
-	pattern => qr/[0-9a-f]{2}(?::[0-9a-f]{2}){5}/i,
+    macaddr  => get_standard_option('mac-addr', {
 	description => "MAC address. That address must be unique withing your network. This is automatically generated if not specified.",
-	format_description => "XX:XX:XX:XX:XX:XX",
-	optional => 1,
-    },
+    }),
     model => {
 	type => 'string',
 	description => "Network Card Model. The 'virtio' model provides the best performance with very low CPU overhead. If your guest does not support this driver, it is usually best to use 'e1000'.",
