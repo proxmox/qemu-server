@@ -4278,7 +4278,11 @@ sub qemu_iothread_add {
 sub qemu_iothread_del {
     my($conf, $vmid, $deviceid) = @_;
 
-    my $device = parse_drive($deviceid, $conf->{$deviceid});
+    my $confid = $deviceid;
+    if ($deviceid =~ m/^(?:virtioscsi|scsihw)(\d+)$/) {
+	$confid = 'scsi' . $1;
+    }
+    my $device = parse_drive($confid, $conf->{$confid});
     if ($device->{iothread}) {
 	my $iothreads = vm_iothreads_list($vmid);
 	qemu_objectdel($vmid, "iothread-$deviceid") if $iothreads->{"iothread-$deviceid"};
