@@ -2349,6 +2349,12 @@ __PACKAGE__->register_method({
 	    vmid => get_standard_option('pve-vmid',
 					{ completion => \&PVE::QemuServer::complete_vmid_running }),
 	    skiplock => get_standard_option('skiplock'),
+	    todisk => {
+		type => 'boolean',
+		default => 0,
+		optional => 1,
+		description => 'If set, suspends the VM to disk. Will be resumed on next VM start.',
+	    },
 	},
     },
     returns => {
@@ -2365,18 +2371,23 @@ __PACKAGE__->register_method({
 
 	my $vmid = extract_param($param, 'vmid');
 
+	my $todisk = extract_param($param, 'todisk') // 0;
+
 	my $skiplock = extract_param($param, 'skiplock');
 	raise_param_exc({ skiplock => "Only root may use this option." })
 	    if $skiplock && $authuser ne 'root@pam';
 
 	die "VM $vmid not running\n" if !PVE::QemuServer::check_running($vmid);
 
+	die "Cannot suspend HA managed VM to disk\n"
+	    if $todisk && PVE::HA::Config::vm_is_ha_managed($vmid);
+
 	my $realcmd = sub {
 	    my $upid = shift;
 
 	    syslog('info', "suspend VM $vmid: $upid\n");
 
-	    PVE::QemuServer::vm_suspend($vmid, $skiplock);
+	    PVE::QemuServer::vm_suspend($vmid, $skiplock, $todisk);
 
 	    return;
 	};
