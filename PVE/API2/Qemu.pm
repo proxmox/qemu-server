@@ -2355,6 +2355,12 @@ __PACKAGE__->register_method({
 		optional => 1,
 		description => 'If set, suspends the VM to disk. Will be resumed on next VM start.',
 	    },
+	    statestorage => get_standard_option('pve-storage-id', {
+		description => "The storage for the VM state",
+		requires => 'todisk',
+		optional => 1,
+		completion => \&PVE::Storage::complete_storage_enabled,
+	    }),
 	},
     },
     returns => {
@@ -2373,6 +2379,8 @@ __PACKAGE__->register_method({
 
 	my $todisk = extract_param($param, 'todisk') // 0;
 
+	my $statestorage = extract_param($param, 'statestorage');
+
 	my $skiplock = extract_param($param, 'skiplock');
 	raise_param_exc({ skiplock => "Only root may use this option." })
 	    if $skiplock && $authuser ne 'root@pam';
@@ -2387,7 +2395,7 @@ __PACKAGE__->register_method({
 
 	    syslog('info', "suspend VM $vmid: $upid\n");
 
-	    PVE::QemuServer::vm_suspend($vmid, $skiplock, $todisk);
+	    PVE::QemuServer::vm_suspend($vmid, $skiplock, $todisk, $statestorage);
 
 	    return;
 	};

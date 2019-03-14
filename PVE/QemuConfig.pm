@@ -116,10 +116,11 @@ sub get_replicatable_volumes {
 }
 
 sub __snapshot_save_vmstate {
-    my ($class, $vmid, $conf, $snapname, $storecfg, $suspend) = @_;
+    my ($class, $vmid, $conf, $snapname, $storecfg, $statestorage, $suspend) = @_;
 
     # first, use explicitly configured storage
-    my $target = $conf->{vmstatestorage};
+    # either directly via API, or via conf
+    my $target = $statestorage // $conf->{vmstatestorage};
 
     if (!$target) {
 	my ($shared, $local);

@@ -5679,7 +5679,7 @@ sub vm_stop {
 }
 
 sub vm_suspend {
-    my ($vmid, $skiplock, $includestate) = @_;
+    my ($vmid, $skiplock, $includestate, $statestorage) = @_;
 
     my $conf;
     my $path;
@@ -5701,7 +5701,7 @@ sub vm_suspend {
 	    $conf->{lock} = 'suspending';
 	    my $date = strftime("%Y-%m-%d", localtime(time()));
 	    $storecfg = PVE::Storage::config();
-	    $vmstate = PVE::QemuConfig->__snapshot_save_vmstate($vmid, $conf, "suspend-$date", $storecfg, 1);
+	    $vmstate = PVE::QemuConfig->__snapshot_save_vmstate($vmid, $conf, "suspend-$date", $storecfg, $statestorage, 1);
 	    $path = PVE::Storage::path($storecfg, $vmstate);
 	    PVE::QemuConfig->write_config($vmid, $conf);
 	} else {
