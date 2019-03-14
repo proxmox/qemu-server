@@ -3998,6 +3998,12 @@ sub config_to_command {
     push @$cmd, '-global', join(',', @$globalFlags)
 	if scalar(@$globalFlags);
 
+    if (my $vmstate = $conf->{vmstate}) {
+	my $statepath = PVE::Storage::path($storecfg, $vmstate);
+	PVE::Storage::activate_volumes($storecfg, [$vmstate]);
+	push @$cmd, '-loadstate', $statepath;
+    }
+
     # add custom args
     if ($conf->{args}) {
 	my $aa = PVE::Tools::split_args($conf->{args});
@@ -5148,7 +5154,10 @@ sub vm_start {
 
 	die "you can't start a vm if it's a template\n" if PVE::QemuConfig->is_template($conf);
 
-	PVE::QemuConfig->check_lock($conf) if !$skiplock;
+	my $is_suspended = PVE::QemuConfig->has_lock($conf, 'suspended');
+
+	PVE::QemuConfig->check_lock($conf)
+	    if !($skiplock || $is_suspended);
 
 	die "VM $vmid already running\n" if check_running($vmid, undef, $migratedfrom);
 
@@ -5213,6 +5222,11 @@ sub vm_start {
 	}
 
 	PVE::GuestHelpers::exec_hookscript($conf, $vmid, 'pre-start', 1);
+
+	if ($is_suspended) {
+	    # enforce machine type on suspended vm to ensure HW compatibility
+	    $forcemachine = $conf->{runningmachine};
+	}
 
 	my ($cmd, $vollist, $spice_port) = config_to_command($storecfg, $vmid, $conf, $defaults, $forcemachine);
 
@@ -5410,6 +5424,13 @@ sub vm_start {
 		    path => "machine/peripheral/balloon0",
 		    property => "guest-stats-polling-interval",
 		    value => 2) if (!defined($conf->{balloon}) || $conf->{balloon});
+
+	if ($is_suspended && (my $vmstate = $conf->{vmstate})) {
+	    delete $conf->@{qw(lock vmstate runningmachine)};
+	    PVE::Storage::deactivate_volumes($storecfg, [$vmstate]);
+	    PVE::Storage::vdisk_free($storecfg, $vmstate);
+	    PVE::QemuConfig->write_config($vmid, $conf);
+	}
 
 	PVE::GuestHelpers::exec_hookscript($conf, $vmid, 'post-start');
     });
