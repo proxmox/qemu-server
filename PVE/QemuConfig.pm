@@ -138,8 +138,7 @@ sub __snapshot_save_vmstate {
 	$target = $shared // $local // 'local';
     }
 
-    my $driver_state_size = 500; # assume 32MB is enough to safe all driver state;
-    # we abort live save after $conf->{memory}, so we need at max twice that space
+    my $driver_state_size = 500; # assume 500MB is enough to safe all driver state;
     my $size = $conf->{memory}*2 + $driver_state_size;
 
     my $name = "vm-$vmid-state-$snapname";
