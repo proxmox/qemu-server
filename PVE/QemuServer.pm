@@ -300,7 +300,7 @@ my $confdesc = {
 	optional => 1,
 	type => 'string',
 	description => "Lock/unlock the VM.",
-	enum => [qw(backup clone create migrate rollback snapshot snapshot-delete)],
+	enum => [qw(backup clone create migrate rollback snapshot snapshot-delete suspending suspended)],
     },
     cpulimit => {
 	optional => 1,
@@ -5658,17 +5658,83 @@ sub vm_stop {
 }
 
 sub vm_suspend {
-    my ($vmid, $skiplock) = @_;
+    my ($vmid, $skiplock, $includestate) = @_;
+
+    my $conf;
+    my $path;
+    my $storecfg;
+    my $vmstate;
 
     PVE::QemuConfig->lock_config($vmid, sub {
 
-	my $conf = PVE::QemuConfig->load_config($vmid);
+	$conf = PVE::QemuConfig->load_config($vmid);
 
+	my $is_backing_up = PVE::QemuConfig->has_lock($conf, 'backup');
 	PVE::QemuConfig->check_lock($conf)
-	    if !($skiplock || PVE::QemuConfig->has_lock($conf, 'backup'));
+	    if !($skiplock || $is_backing_up);
 
-	vm_mon_cmd($vmid, "stop");
+	die "cannot suspend to disk during backup\n"
+	    if $is_backing_up && $includestate;
+
+	if ($includestate) {
+	    $conf->{lock} = 'suspending';
+	    my $date = strftime("%Y-%m-%d", localtime(time()));
+	    $storecfg = PVE::Storage::config();
+	    $vmstate = PVE::QemuConfig->__snapshot_save_vmstate($vmid, $conf, "suspend-$date", $storecfg, 1);
+	    $path = PVE::Storage::path($storecfg, $vmstate);
+	    PVE::QemuConfig->write_config($vmid, $conf);
+	} else {
+	    vm_mon_cmd($vmid, "stop");
+	}
     });
+
+    if ($includestate) {
+	# save vm state
+	PVE::Storage::activate_volumes($storecfg, [$vmstate]);
+
+	eval {
+	    vm_mon_cmd($vmid, "savevm-start", statefile => $path);
+	    for(;;) {
+		my $state = vm_mon_cmd_nocheck($vmid, "query-savevm");
+		if (!$state->{status}) {
+		    die "savevm not active\n";
+		} elsif ($state->{status} eq 'active') {
+		    sleep(1);
+		    next;
+		} elsif ($state->{status} eq 'completed') {
+		    last;
+		} elsif ($state->{status} eq 'failed' && $state->{error}) {
+		    die "query-savevm failed with error '$state->{error}'\n"
+		} else {
+		    die "query-savevm returned status '$state->{status}'\n";
+		}
+	    }
+	};
+	my $err = $@;
+
+	PVE::QemuConfig->lock_config($vmid, sub {
+	    $conf = PVE::QemuConfig->load_config($vmid);
+	    if ($err) {
+		# cleanup, but leave suspending lock, to indicate something went wrong
+		eval {
+		    vm_mon_cmd($vmid, "savevm-end");
+		    PVE::Storage::deactivate_volumes($storecfg, [$vmstate]);
+		    PVE::Storage::vdisk_free($storecfg, $vmstate);
+		    delete $conf->@{qw(vmstate runningmachine)};
+		    PVE::QemuConfig->write_config($vmid, $conf);
+		};
+		warn $@ if $@;
+		die $err;
+	    }
+
+	    die "lock changed unexpectedly\n"
+		if !PVE::QemuConfig->has_lock($conf, 'suspending');
+
+	    vm_qmp_command($vmid, { execute => "quit" });
+	    $conf->{lock} = 'suspended';
+	    PVE::QemuConfig->write_config($vmid, $conf);
+	});
+    }
 }
 
 sub vm_resume {

@@ -116,9 +116,7 @@ sub get_replicatable_volumes {
 }
 
 sub __snapshot_save_vmstate {
-    my ($class, $vmid, $conf, $snapname, $storecfg) = @_;
-
-    my $snap = $conf->{snapshots}->{$snapname};
+    my ($class, $vmid, $conf, $snapname, $storecfg, $suspend) = @_;
 
     # first, use explicitly configured storage
     my $target = $conf->{vmstatestorage};
@@ -140,12 +138,24 @@ sub __snapshot_save_vmstate {
 
     my $driver_state_size = 500; # assume 500MB is enough to safe all driver state;
     my $size = $conf->{memory}*2 + $driver_state_size;
+    my $scfg = PVE::Storage::storage_config($storecfg, $target);
 
     my $name = "vm-$vmid-state-$snapname";
-    my $scfg = PVE::Storage::storage_config($storecfg, $target);
     $name .= ".raw" if $scfg->{path}; # add filename extension for file base storage
-    $snap->{vmstate} = PVE::Storage::vdisk_alloc($storecfg, $target, $vmid, 'raw', $name, $size*1024);
-    $snap->{runningmachine} = PVE::QemuServer::get_current_qemu_machine($vmid);
+
+    my $statefile = PVE::Storage::vdisk_alloc($storecfg, $target, $vmid, 'raw', $name, $size*1024);
+    my $runningmachine = PVE::QemuServer::get_current_qemu_machine($vmid);
+
+    if ($suspend) {
+	$conf->{vmstate} = $statefile;
+	$conf->{runningmachine} = $runningmachine;
+    } else {
+	my $snap = $conf->{snapshots}->{$snapname};
+	$snap->{vmstate} = $statefile;
+	$snap->{runningmachine} = $runningmachine;
+    }
+
+    return $statefile;
 }
 
 sub __snapshot_check_running {
