@@ -2444,14 +2444,28 @@ __PACKAGE__->register_method({
 
 	my $nocheck = extract_param($param, 'nocheck');
 
-	die "VM $vmid not running\n" if !PVE::QemuServer::check_running($vmid, $nocheck);
+	my $to_disk_suspended;
+	eval {
+	    PVE::QemuConfig->lock_config($vmid, sub {
+		my $conf = PVE::QemuConfig->load_config($vmid);
+		$to_disk_suspended = PVE::QemuConfig->has_lock($conf, 'suspended');
+	    });
+	};
+
+	die "VM $vmid not running\n"
+	    if !$to_disk_suspended && !PVE::QemuServer::check_running($vmid, $nocheck);
 
 	my $realcmd = sub {
 	    my $upid = shift;
 
 	    syslog('info', "resume VM $vmid: $upid\n");
 
-	    PVE::QemuServer::vm_resume($vmid, $skiplock, $nocheck);
+	    if (!$to_disk_suspended) {
+		PVE::QemuServer::vm_resume($vmid, $skiplock, $nocheck);
+	    } else {
+		my $storecfg = PVE::Storage::config();
+		PVE::QemuServer::vm_start($storecfg, $vmid, undef, $skiplock);
+	    }
 
 	    return;
 	};
