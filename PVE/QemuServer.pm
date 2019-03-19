@@ -5226,6 +5226,7 @@ sub vm_start {
 	if ($is_suspended) {
 	    # enforce machine type on suspended vm to ensure HW compatibility
 	    $forcemachine = $conf->{runningmachine};
+	    print "Resuming suspended VM\n";
 	}
 
 	my ($cmd, $vollist, $spice_port) = config_to_command($storecfg, $vmid, $conf, $defaults, $forcemachine);
@@ -5426,6 +5427,7 @@ sub vm_start {
 		    value => 2) if (!defined($conf->{balloon}) || $conf->{balloon});
 
 	if ($is_suspended && (my $vmstate = $conf->{vmstate})) {
+	    print "Resumed VM, removing state\n";
 	    delete $conf->@{qw(lock vmstate runningmachine)};
 	    PVE::Storage::deactivate_volumes($storecfg, [$vmstate]);
 	    PVE::Storage::vdisk_free($storecfg, $vmstate);
@@ -5723,6 +5725,7 @@ sub vm_suspend {
 		    sleep(1);
 		    next;
 		} elsif ($state->{status} eq 'completed') {
+		    print "State saved, quitting\n";
 		    last;
 		} elsif ($state->{status} eq 'failed' && $state->{error}) {
 		    die "query-savevm failed with error '$state->{error}'\n"
