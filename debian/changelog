@@ -1,3 +1,17 @@
+qemu-server (5.0-48) unstable; urgency=medium
+
+  * cloud-init: allow custom network/user data files via snippets
+
+  * fix #2120: use hosts initiator name with qemu-img
+
+  * fix #2131: get correct device when deleting iothreads
+
+  * config: NIC macaddr: enforce unicast MAC addresses
+
+  * implement suspend to disk for running VMs over API and CLI
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 19 Mar 2019 13:25:38 +0100
+
 qemu-server (5.0-47) unstable; urgency=medium
 
   * fix #2043: always stop existing systemd scopes on VM start
