@@ -5319,7 +5319,7 @@ sub vm_start {
 	my $cpuunits = defined($conf->{cpuunits}) ? $conf->{cpuunits}
 	                                          : $defaults->{cpuunits};
 
-	my $start_timeout = $conf->{hugepages} ? 300 : 30;
+	my $start_timeout = ($conf->{hugepages} || $is_suspended) ? 300 : 30;
 	my %run_params = (timeout => $statefile ? undef : $start_timeout, umask => 0077);
 
 	my %properties = (
