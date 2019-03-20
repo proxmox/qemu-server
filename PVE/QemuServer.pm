@@ -3065,6 +3065,11 @@ our $vmstatus_return_properties = {
 	type => 'number',
 	optional => 1,
     },
+    lock => {
+	description => "The current lock, if any.",
+	type => 'string',
+	optional => 1,
+    }
 };
 
 my $last_proc_pid_stat;
@@ -3135,6 +3140,7 @@ sub vmstatus {
         $d->{template} = PVE::QemuConfig->is_template($conf);
 
 	$d->{serial} = 1 if conf_has_serial($conf);
+	$d->{lock} = $conf->{lock} if $conf->{lock};
 
 	$res->{$vmid} = $d;
     }
