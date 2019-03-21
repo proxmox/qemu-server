@@ -3066,7 +3066,7 @@ our $vmstatus_return_properties = {
 	optional => 1,
     },
     lock => {
-	description => "The current lock, if any.",
+	description => "The current config lock, if any.",
 	type => 'string',
 	optional => 1,
     }
