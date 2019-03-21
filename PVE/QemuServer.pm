@@ -2,6 +2,7 @@ package PVE::QemuServer;
 
 use strict;
 use warnings;
+
 use POSIX;
 use IO::Handle;
 use IO::Select;
@@ -75,12 +76,6 @@ PVE::JSONSchema::register_standard_option('pve-qm-stateuri', {
     type => 'string',
     maxLength => 128,
     optional => 1,
-});
-
-PVE::JSONSchema::register_standard_option('pve-snapshot-name', {
-    description => "The name of the snapshot.",
-    type => 'string', format => 'pve-configid',
-    maxLength => 40,
 });
 
 PVE::JSONSchema::register_standard_option('pve-qm-image-format', {
