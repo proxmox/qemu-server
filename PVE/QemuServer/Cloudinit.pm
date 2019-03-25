@@ -174,9 +174,9 @@ sub configdrive2_network {
 	    } else {
 		my ($addr, $mask) = split_ip4($net->{ip});
 		$content .= "iface $id inet static\n";
-		$content .= "        address '$addr'\n";
-		$content .= "        netmask '$mask'\n";
-		$content .= "        gateway '$net->{gw}'\n" if $net->{gw};
+		$content .= "        address $addr\n";
+		$content .= "        netmask $mask\n";
+		$content .= "        gateway $net->{gw}\n" if $net->{gw};
 	    }
 	}
 	if ($net->{ip6}) {
@@ -185,9 +185,9 @@ sub configdrive2_network {
 	    } else {
 		my ($addr, $mask) = split('/', $net->{ip6});
 		$content .= "iface $id inet6 static\n";
-		$content .= "        address '$addr'\n";
-		$content .= "        netmask '$mask'\n";
-		$content .= "        gateway '$net->{gw6}'\n" if $net->{gw6};
+		$content .= "        address $addr\n";
+		$content .= "        netmask $mask\n";
+		$content .= "        gateway $net->{gw6}\n" if $net->{gw6};
 	    }
 	}
     }
