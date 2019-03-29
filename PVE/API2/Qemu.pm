@@ -156,8 +156,8 @@ my $create_disks = sub {
 	    }else{
 		$fmt = 'raw';
 	    }
-	    # FIXME: Reasonable size? qcow2 shouldn't grow if the space isn't used anyway?
-	    my $cloudinit_iso_size = 5; # in MB
+	    # Initial disk created with 4MB, every time it is regenerated the disk is aligned to 4MB again.
+	    my $cloudinit_iso_size = 4; # in MB
 	    my $volid = PVE::Storage::vdisk_alloc($storecfg, $storeid, $vmid, 
 						  $fmt, $name, $cloudinit_iso_size*1024);
 	    $disk->{file} = $volid;
