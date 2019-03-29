@@ -246,6 +246,7 @@ sub prepare {
 		if !$plugin->check_connection($sid, $scfg);
 	} else {
 	    # only activate if not shared
+	    next if ($volid =~ m/vm-\d+-cloudinit/);
 	    push @$need_activate, $volid;
 	}
     }
@@ -353,7 +354,13 @@ sub sync_disks {
 
 	    $local_volumes->{$volid}->{ref} = $attr->{referenced_in_config} ? 'config' : 'snapshot';
 
-	    die "local cdrom image\n" if $attr->{cdrom};
+	    if ($attr->{cdrom}) {
+		if ($volid =~ /vm-\d+-cloudinit/) {
+		    $local_volumes->{$volid}->{ref} = 'generated';
+		    return;
+		}
+		die "local cdrom image\n";
+	    }
 
 	    my ($path, $owner) = PVE::Storage::path($self->{storecfg}, $volid);
 
@@ -394,6 +401,8 @@ sub sync_disks {
 		$self->log('info', "found local disk '$vol' (in current VM config)\n");
 	    } elsif ($ref eq 'snapshot') {
 		$self->log('info', "found local disk '$vol' (referenced by snapshot(s))\n");
+	    } elsif ($ref eq 'generated') {
+		$self->log('info', "found generated disk '$vol' (in current VM config)\n");
 	    } else {
 		$self->log('info', "found local disk '$vol'\n");
 	    }
@@ -445,8 +454,13 @@ sub sync_disks {
 	foreach my $volid (keys %$local_volumes) {
 	    my ($sid, $volname) = PVE::Storage::parse_volume_id($volid);
 	    my $targetsid = $override_targetsid // $sid;
-	    if ($self->{running} && $local_volumes->{$volid}->{ref} eq 'config') {
+	    my $ref = $local_volumes->{$volid}->{ref};
+	    if ($self->{running} && $ref eq 'config') {
 		push @{$self->{online_local_volumes}}, $volid;
+	    } elsif ($ref eq 'generated') {
+		# skip all generated volumes but queue them for deletion in phase3_cleanup
+		push @{$self->{volumes}}, $volid;
+		next;
 	    } else {
 		next if $rep_volumes->{$volid};
 		push @{$self->{volumes}}, $volid;
