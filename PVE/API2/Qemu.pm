@@ -2390,6 +2390,8 @@ __PACKAGE__->register_method({
 	die "Cannot suspend HA managed VM to disk\n"
 	    if $todisk && PVE::HA::Config::vm_is_ha_managed($vmid);
 
+	my $taskname = $todisk ? 'qmsuspend' : 'qmpause';
+
 	my $realcmd = sub {
 	    my $upid = shift;
 
@@ -2400,7 +2402,7 @@ __PACKAGE__->register_method({
 	    return;
 	};
 
-	return $rpcenv->fork_worker('qmsuspend', $vmid, $authuser, $realcmd);
+	return $rpcenv->fork_worker($taskname, $vmid, $authuser, $realcmd);
     }});
 
 __PACKAGE__->register_method({
