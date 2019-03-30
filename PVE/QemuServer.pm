@@ -6757,11 +6757,12 @@ sub qemu_drive_mirror {
 
     print "drive mirror is starting for drive-$drive\n";
 
-    eval { vm_mon_cmd($vmid, "drive-mirror", %$opts); }; #if a job already run for this device,it's throw an error
-
+    # if a job already runs for this device we get an error, catch it for cleanup
+    eval { vm_mon_cmd($vmid, "drive-mirror", %$opts); };
     if (my $err = $@) {
 	eval { PVE::QemuServer::qemu_blockjobs_cancel($vmid, $jobs) };
-	die "mirroring error: $err";
+	warn "$@\n" if $@;
+	die "mirroring error: $err\n";
     }
 
     qemu_drive_mirror_monitor ($vmid, $vmiddst, $jobs, $skipcomplete, $qga);
