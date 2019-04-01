@@ -440,10 +440,11 @@ __PACKAGE__->register_method({
 		    description => "Add the VM to the specified pool.",
 		},
 		bwlimit => {
-		    description => "Override i/o bandwidth limit (in KiB/s).",
+		    description => "Override I/O bandwidth limit (in KiB/s).",
 		    optional => 1,
 		    type => 'integer',
 		    minimum => '0',
+		    default => 'restore limit from datacenter.cfg/storage.cfg',
 		},
 		start => {
 		    optional => 1,
@@ -2651,6 +2652,13 @@ __PACKAGE__->register_method({
 		description => "Target node. Only allowed if the original VM is on shared storage.",
 		optional => 1,
 	    }),
+	    bwlimit => {
+		description => "Override I/O bandwidth limit (in KiB/s).",
+		optional => 1,
+		type => 'integer',
+		minimum => '0',
+		default => 'clone limit from datacenter.cfg/storage.cfg',
+	    },
         },
     },
     returns => {
@@ -2836,6 +2844,8 @@ __PACKAGE__->register_method({
 
 		    PVE::Storage::activate_volumes($storecfg, $vollist, $snapname);
 
+		    my $bwlimit = extract_param($param, 'bwlimit');
+
 		    my $total_jobs = scalar(keys %{$drives});
 		    my $i = 1;
 
@@ -2843,9 +2853,12 @@ __PACKAGE__->register_method({
 			my $drive = $drives->{$opt};
 			my $skipcomplete = ($total_jobs != $i); # finish after last drive
 
+			my $src_sid = PVE::Storage::parse_volume_id($drive->{file});
+			my $clonelimit = PVE::Storage::get_bandwidth_limit('clone', [$src_sid, $storage], $bwlimit);
+
 			my $newdrive = PVE::QemuServer::clone_disk($storecfg, $vmid, $running, $opt, $drive, $snapname,
 								   $newid, $storage, $format, $fullclone->{$opt}, $newvollist,
-								   $jobs, $skipcomplete, $oldconf->{agent});
+								   $jobs, $skipcomplete, $oldconf->{agent}, $clonelimit);
 
 			$newconf->{$opt} = PVE::QemuServer::print_drive($vmid, $newdrive);
 
@@ -2951,6 +2964,13 @@ __PACKAGE__->register_method({
 		maxLength => 40,
 		optional => 1,
 	    },
+	    bwlimit => {
+		description => "Override I/O bandwidth limit (in KiB/s).",
+		optional => 1,
+		type => 'integer',
+		minimum => '0',
+		default => 'move limit from datacenter.cfg/storage.cfg',
+	    },
 	},
     },
     returns => {
@@ -3028,8 +3048,11 @@ __PACKAGE__->register_method({
 		    warn "moving disk with snapshots, snapshots will not be moved!\n"
 			if $snapshotted;
 
+		    my $bwlimit = extract_param($param, 'bwlimit');
+		    my $movelimit = PVE::Storage::get_bandwidth_limit('move', [$oldstoreid, $storeid], $bwlimit);
+
 		    my $newdrive = PVE::QemuServer::clone_disk($storecfg, $vmid, $running, $disk, $drive, undef,
-							       $vmid, $storeid, $format, 1, $newvollist);
+							       $vmid, $storeid, $format, 1, $newvollist, undef, undef, undef, $movelimit);
 
 		    $conf->{$disk} = PVE::QemuServer::print_drive($vmid, $newdrive);
 
@@ -3126,6 +3149,13 @@ __PACKAGE__->register_method({
 		optional => 1,
 		completion => \&PVE::QemuServer::complete_storage,
             }),
+	    bwlimit => {
+		description => "Override I/O bandwidth limit (in KiB/s).",
+		optional => 1,
+		type => 'integer',
+		minimum => '0',
+		default => 'migrate limit from datacenter.cfg/storage.cfg',
+	    },
 	},
     },
     returns => {
