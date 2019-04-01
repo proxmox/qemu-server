@@ -6728,7 +6728,7 @@ sub qemu_img_format {
 }
 
 sub qemu_drive_mirror {
-    my ($vmid, $drive, $dst_volid, $vmiddst, $is_zero_initialized, $jobs, $skipcomplete, $qga) = @_;
+    my ($vmid, $drive, $dst_volid, $vmiddst, $is_zero_initialized, $jobs, $skipcomplete, $qga, $bwlimit) = @_;
 
     $jobs = {} if !$jobs;
 
@@ -6755,7 +6755,12 @@ sub qemu_drive_mirror {
     my $opts = { timeout => 10, device => "drive-$drive", mode => "existing", sync => "full", target => $qemu_target };
     $opts->{format} = $format if $format;
 
-    print "drive mirror is starting for drive-$drive\n";
+    if (defined($bwlimit)) {
+	my $bwlimit_bps = $opts->{speed} = $bwlimit * 1024;
+	print "drive mirror is starting for drive-$drive with bandwidth limit: ${bwlimit}KB/s\n";
+    } else {
+	print "drive mirror is starting for drive-$drive\n";
+    }
 
     # if a job already runs for this device we get an error, catch it for cleanup
     eval { vm_mon_cmd($vmid, "drive-mirror", %$opts); };
