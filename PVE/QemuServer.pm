@@ -6940,6 +6940,7 @@ sub clone_disk {
 
 	my $sparseinit = PVE::Storage::volume_has_feature($storecfg, 'sparseinit', $newvolid);
 	if (!$running || $snapname) {
+	    # TODO: handle bwlimits
 	    qemu_img_convert($drive->{file}, $newvolid, $size, $snapname, $sparseinit);
 	} else {
 
