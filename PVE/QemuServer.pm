@@ -6905,7 +6905,7 @@ sub qemu_blockjobs_cancel {
 
 sub clone_disk {
     my ($storecfg, $vmid, $running, $drivename, $drive, $snapname,
-	$newvmid, $storage, $format, $full, $newvollist, $jobs, $skipcomplete, $qga) = @_;
+	$newvmid, $storage, $format, $full, $newvollist, $jobs, $skipcomplete, $qga, $bwlimit) = @_;
 
     my $newvolid;
 
@@ -6950,7 +6950,7 @@ sub clone_disk {
 		    if $drive->{iothread};
 	    }
 
-	    qemu_drive_mirror($vmid, $drivename, $newvolid, $newvmid, $sparseinit, $jobs, $skipcomplete, $qga);
+	    qemu_drive_mirror($vmid, $drivename, $newvolid, $newvmid, $sparseinit, $jobs, $skipcomplete, $qga, $bwlimit);
 	}
     }
 
