@@ -675,11 +675,21 @@ sub phase2 {
     # load_defaults
     my $defaults = PVE::QemuServer::load_defaults();
 
-    # always set migrate speed (overwrite kvm default of 32m)
-    # we set a very hight default of 8192m which is basically unlimited
-    my $migrate_speed = $defaults->{migrate_speed} || 8192;
-    $migrate_speed = $conf->{migrate_speed} || $migrate_speed;
-    $migrate_speed = $migrate_speed * 1048576;
+    # migrate speed can be set via bwlimit (datacenter.cfg and API) and via the
+    # migrate_speed parameter in qm.conf - take the lower of the two.
+    my $bwlimit = PVE::Storage::get_bandwidth_limit('migrate', undef, $opt_bwlimit) // 0;
+    my $migrate_speed = $conf->{migrate_speed} // $bwlimit;
+    # migrate_speed is in MB/s, bwlimit in KB/s
+    $migrate_speed *= 1024;
+
+    $migrate_speed = ($bwlimit < $migrate_speed) ? $bwlimit : $migrate_speed;
+
+    # always set migrate speed (overwrite kvm default of 32m) we set a very high
+    # default of 8192m which is basically unlimited
+    $migrate_speed ||= ($defaults->{migrate_speed} || 8192) * 1024;
+
+    # qmp takes migrate_speed in B/s.
+    $migrate_speed *= 1024;
     $self->log('info', "migrate_set_speed: $migrate_speed");
     eval {
         PVE::QemuServer::vm_mon_cmd_nocheck($vmid, "migrate_set_speed", value => int($migrate_speed));
