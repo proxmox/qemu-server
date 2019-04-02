@@ -6756,8 +6756,8 @@ sub qemu_drive_mirror {
     $opts->{format} = $format if $format;
 
     if (defined($bwlimit)) {
-	my $bwlimit_bps = $opts->{speed} = $bwlimit * 1024;
-	print "drive mirror is starting for drive-$drive with bandwidth limit: ${bwlimit}KB/s\n";
+	$opts->{speed} = $bwlimit * 1024;
+	print "drive mirror is starting for drive-$drive with bandwidth limit: ${bwlimit} KB/s\n";
     } else {
 	print "drive mirror is starting for drive-$drive\n";
     }
