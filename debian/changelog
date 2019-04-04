@@ -1,3 +1,12 @@
+qemu-server (5.0-50) unstable; urgency=medium
+
+  * fix #2100: ignore cloudinit drive on offline migration
+
+  * honor bandwidth limits (bwlimit) for migrate, drive-mirror, clone
+    and add to API calls
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 04 Apr 2019 16:22:10 +0200
+
 qemu-server (5.0-49) unstable; urgency=medium
 
   * return config lock in vm status
