@@ -2854,7 +2854,9 @@ __PACKAGE__->register_method({
 			my $skipcomplete = ($total_jobs != $i); # finish after last drive
 
 			my $src_sid = PVE::Storage::parse_volume_id($drive->{file});
-			my $clonelimit = PVE::Storage::get_bandwidth_limit('clone', [$src_sid, $storage], $bwlimit);
+			my $storage_list = [$src_sid];
+			push @$storage_list, $storage if (defined($storage));
+			my $clonelimit = PVE::Storage::get_bandwidth_limit('clone', $storage_list, $bwlimit);
 
 			my $newdrive = PVE::QemuServer::clone_disk($storecfg, $vmid, $running, $opt, $drive, $snapname,
 								   $newid, $storage, $format, $fullclone->{$opt}, $newvollist,
