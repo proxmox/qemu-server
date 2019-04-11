@@ -302,7 +302,7 @@ my $cloudinitoptions = {
 };
 
 my $check_vm_modify_config_perm = sub {
-    my ($rpcenv, $authuser, $vmid, $pool, $key_list) = @_;
+    my ($rpcenv, $authuser, $vmid, $pool, $key_list, $values) = @_;
 
     return 1 if $authuser eq 'root@pam';
 
@@ -330,6 +330,14 @@ my $check_vm_modify_config_perm = sub {
 	    $rpcenv->check_vm_perm($authuser, $vmid, $pool, ['VM.Config.Disk']);
 	} elsif ($cloudinitoptions->{$opt} || ($opt =~ m/^(?:net|ipconfig)\d+$/)) {
 	    $rpcenv->check_vm_perm($authuser, $vmid, $pool, ['VM.Config.Network']);
+	} elsif ($opt =~ m/^serial\d+$/) {
+	    if ($values && $values->{$opt} eq 'socket') {
+		$rpcenv->check_vm_perm($authuser, $vmid, $pool, ['VM.Config.HWType']);
+	    } elsif (!$values) {
+		next; # deletion will be checked later since we do not have the config here
+	    } else {
+		die "only root can set '$opt' config to real devices\n";
+	    }
 	} else {
 	    # catches usb\d+, hostpci\d+, args, lock, etc.
 	    # new options will be checked here
@@ -517,7 +525,7 @@ __PACKAGE__->register_method({
 
 	    &$check_storage_access($rpcenv, $authuser, $storecfg, $vmid, $param, $storage);
 
-	    &$check_vm_modify_config_perm($rpcenv, $authuser, $vmid, $pool, [ keys %$param]);
+	    &$check_vm_modify_config_perm($rpcenv, $authuser, $vmid, $pool, [ keys %$param], $param);
 
 	    foreach my $opt (keys %$param) {
 		if (PVE::QemuServer::is_valid_drivename($opt)) {
@@ -1127,7 +1135,7 @@ my $update_vm_api  = sub {
 
     &$check_vm_modify_config_perm($rpcenv, $authuser, $vmid, undef, [@delete]);
 
-    &$check_vm_modify_config_perm($rpcenv, $authuser, $vmid, undef, [keys %$param]);
+    &$check_vm_modify_config_perm($rpcenv, $authuser, $vmid, undef, [keys %$param], $param);
 
     &$check_storage_access($rpcenv, $authuser, $storecfg, $vmid, $param);
 
@@ -1188,6 +1196,14 @@ my $update_vm_api  = sub {
 		    $rpcenv->check_vm_perm($authuser, $vmid, undef, ['VM.Config.Disk']);
 		    PVE::QemuServer::vmconfig_register_unused_drive($storecfg, $vmid, $conf, PVE::QemuServer::parse_drive($opt, $conf->{pending}->{$opt}))
 			if defined($conf->{pending}->{$opt});
+		    PVE::QemuServer::vmconfig_delete_pending_option($conf, $opt, $force);
+		    PVE::QemuConfig->write_config($vmid, $conf);
+		} elsif ($opt =~ m/^serial\d$/) {
+		    if ($conf->{$opt} eq 'socket') {
+			$rpcenv->check_vm_perm($authuser, $vmid, undef, ['VM.Config.HWType']);
+		    } elsif ($authuser ne 'root@pam') {
+			die "only root can delete '$opt' config for real devices\n";
+		    }
 		    PVE::QemuServer::vmconfig_delete_pending_option($conf, $opt, $force);
 		    PVE::QemuConfig->write_config($vmid, $conf);
 		} else {
