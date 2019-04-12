@@ -307,7 +307,8 @@ my $check_vm_modify_config_perm = sub {
     return 1 if $authuser eq 'root@pam';
 
     foreach my $opt (@$key_list) {
-	# some checks need to be done somewhere else
+	# some checks (e.g., disk, serial port, usb) need to be done somewhere
+	# else, as there the permission can be value dependend
 	next if PVE::QemuServer::is_valid_drivename($opt);
 	next if $opt eq 'cdrom';
 	next if $opt =~ m/^(?:unused|serial|usb)\d+$/;
