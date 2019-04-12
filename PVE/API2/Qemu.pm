@@ -302,15 +302,16 @@ my $cloudinitoptions = {
 };
 
 my $check_vm_modify_config_perm = sub {
-    my ($rpcenv, $authuser, $vmid, $pool, $key_list, $values) = @_;
+    my ($rpcenv, $authuser, $vmid, $pool, $key_list) = @_;
 
     return 1 if $authuser eq 'root@pam';
 
     foreach my $opt (@$key_list) {
-	# disk checks need to be done somewhere else
+	# some checks need to be done somewhere else
 	next if PVE::QemuServer::is_valid_drivename($opt);
 	next if $opt eq 'cdrom';
 	next if $opt =~ m/^unused\d+$/;
+	next if $opt =~ m/^serial\d+$/;
 
 	if ($cpuoptions->{$opt} || $opt =~ m/^numa\d+$/) {
 	    $rpcenv->check_vm_perm($authuser, $vmid, $pool, ['VM.Config.CPU']);
@@ -330,14 +331,6 @@ my $check_vm_modify_config_perm = sub {
 	    $rpcenv->check_vm_perm($authuser, $vmid, $pool, ['VM.Config.Disk']);
 	} elsif ($cloudinitoptions->{$opt} || ($opt =~ m/^(?:net|ipconfig)\d+$/)) {
 	    $rpcenv->check_vm_perm($authuser, $vmid, $pool, ['VM.Config.Network']);
-	} elsif ($opt =~ m/^serial\d+$/) {
-	    if ($values && $values->{$opt} eq 'socket') {
-		$rpcenv->check_vm_perm($authuser, $vmid, $pool, ['VM.Config.HWType']);
-	    } elsif (!$values) {
-		next; # deletion will be checked later since we do not have the config here
-	    } else {
-		die "only root can set '$opt' config to real devices\n";
-	    }
 	} else {
 	    # catches usb\d+, hostpci\d+, args, lock, etc.
 	    # new options will be checked here
@@ -525,7 +518,7 @@ __PACKAGE__->register_method({
 
 	    &$check_storage_access($rpcenv, $authuser, $storecfg, $vmid, $param, $storage);
 
-	    &$check_vm_modify_config_perm($rpcenv, $authuser, $vmid, $pool, [ keys %$param], $param);
+	    &$check_vm_modify_config_perm($rpcenv, $authuser, $vmid, $pool, [ keys %$param]);
 
 	    foreach my $opt (keys %$param) {
 		if (PVE::QemuServer::is_valid_drivename($opt)) {
@@ -1135,7 +1128,7 @@ my $update_vm_api  = sub {
 
     &$check_vm_modify_config_perm($rpcenv, $authuser, $vmid, undef, [@delete]);
 
-    &$check_vm_modify_config_perm($rpcenv, $authuser, $vmid, undef, [keys %$param], $param);
+    &$check_vm_modify_config_perm($rpcenv, $authuser, $vmid, undef, [keys %$param]);
 
     &$check_storage_access($rpcenv, $authuser, $storecfg, $vmid, $param);
 
@@ -1198,7 +1191,7 @@ my $update_vm_api  = sub {
 			if defined($conf->{pending}->{$opt});
 		    PVE::QemuServer::vmconfig_delete_pending_option($conf, $opt, $force);
 		    PVE::QemuConfig->write_config($vmid, $conf);
-		} elsif ($opt =~ m/^serial\d$/) {
+		} elsif ($opt =~ m/^serial\d+$/) {
 		    if ($conf->{$opt} eq 'socket') {
 			$rpcenv->check_vm_perm($authuser, $vmid, undef, ['VM.Config.HWType']);
 		    } elsif ($authuser ne 'root@pam') {
@@ -1231,6 +1224,13 @@ my $update_vm_api  = sub {
 			if defined($conf->{pending}->{$opt});
 
 		    &$create_disks($rpcenv, $authuser, $conf->{pending}, $arch, $storecfg, $vmid, undef, {$opt => $param->{$opt}});
+		} elsif ($opt =~ m/^serial\d+/) {
+		    if ((!defined($conf->{$opt}) || $conf->{$opt} eq 'socket') && $param->{$opt} eq 'socket') {
+			$rpcenv->check_vm_perm($authuser, $vmid, undef, ['VM.Config.HWType']);
+		    } elsif ($authuser ne 'root@pam') {
+			die "only root can modify '$opt' config for real devices\n";
+		    }
+		    $conf->{pending}->{$opt} = $param->{$opt};
 		} else {
 		    $conf->{pending}->{$opt} = $param->{$opt};
 		}
