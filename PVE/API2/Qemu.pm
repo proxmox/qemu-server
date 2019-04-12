@@ -310,8 +310,8 @@ my $check_vm_modify_config_perm = sub {
 	# some checks need to be done somewhere else
 	next if PVE::QemuServer::is_valid_drivename($opt);
 	next if $opt eq 'cdrom';
-	next if $opt =~ m/^unused\d+$/;
-	next if $opt =~ m/^serial\d+$/;
+	next if $opt =~ m/^(?:unused|serial|usb)\d+$/;
+
 
 	if ($cpuoptions->{$opt} || $opt =~ m/^numa\d+$/) {
 	    $rpcenv->check_vm_perm($authuser, $vmid, $pool, ['VM.Config.CPU']);
@@ -332,7 +332,7 @@ my $check_vm_modify_config_perm = sub {
 	} elsif ($cloudinitoptions->{$opt} || ($opt =~ m/^(?:net|ipconfig)\d+$/)) {
 	    $rpcenv->check_vm_perm($authuser, $vmid, $pool, ['VM.Config.Network']);
 	} else {
-	    # catches usb\d+, hostpci\d+, args, lock, etc.
+	    # catches hostpci\d+, args, lock, etc.
 	    # new options will be checked here
 	    die "only root can set '$opt' config\n";
 	}
@@ -1199,6 +1199,14 @@ my $update_vm_api  = sub {
 		    }
 		    PVE::QemuServer::vmconfig_delete_pending_option($conf, $opt, $force);
 		    PVE::QemuConfig->write_config($vmid, $conf);
+		} elsif ($opt =~ m/^usb\d+$/) {
+		    if ($conf->{$opt} =~ m/spice/) {
+			$rpcenv->check_vm_perm($authuser, $vmid, undef, ['VM.Config.HWType']);
+		    } elsif ($authuser ne 'root@pam') {
+			die "only root can delete '$opt' config for real devices\n";
+		    }
+		    PVE::QemuServer::vmconfig_delete_pending_option($conf, $opt, $force);
+		    PVE::QemuConfig->write_config($vmid, $conf);
 		} else {
 		    PVE::QemuServer::vmconfig_delete_pending_option($conf, $opt, $force);
 		    PVE::QemuConfig->write_config($vmid, $conf);
@@ -1226,6 +1234,13 @@ my $update_vm_api  = sub {
 		    &$create_disks($rpcenv, $authuser, $conf->{pending}, $arch, $storecfg, $vmid, undef, {$opt => $param->{$opt}});
 		} elsif ($opt =~ m/^serial\d+/) {
 		    if ((!defined($conf->{$opt}) || $conf->{$opt} eq 'socket') && $param->{$opt} eq 'socket') {
+			$rpcenv->check_vm_perm($authuser, $vmid, undef, ['VM.Config.HWType']);
+		    } elsif ($authuser ne 'root@pam') {
+			die "only root can modify '$opt' config for real devices\n";
+		    }
+		    $conf->{pending}->{$opt} = $param->{$opt};
+		} elsif ($opt =~ m/^usb\d+/) {
+		    if ((!defined($conf->{$opt}) || $conf->{$opt} =~ m/spice/) && $param->{$opt} =~ m/spice/) {
 			$rpcenv->check_vm_perm($authuser, $vmid, undef, ['VM.Config.HWType']);
 		    } elsif ($authuser ne 'root@pam') {
 			die "only root can modify '$opt' config for real devices\n";
