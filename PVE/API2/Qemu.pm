@@ -149,13 +149,15 @@ my $create_disks = sub {
 	    die "no storage ID specified (and no default storage)\n" if !$storeid;
 	    my $scfg = PVE::Storage::storage_config($storecfg, $storeid);
 	    my $name = "vm-$vmid-cloudinit";
+
 	    my $fmt = undef;
 	    if ($scfg->{path}) {
-		$name .= ".qcow2";
-		$fmt = 'qcow2';
-	    }else{
-		$fmt = 'raw';
+		$fmt = $disk->{format} ? $disk->{format} : "qcow2";
+		$name .= ".$fmt";
+	    } else {
+		$fmt = $disk->{format};
 	    }
+
 	    # Initial disk created with 4MB, every time it is regenerated the disk is aligned to 4MB again.
 	    my $cloudinit_iso_size = 4; # in MB
 	    my $volid = PVE::Storage::vdisk_alloc($storecfg, $storeid, $vmid, 
