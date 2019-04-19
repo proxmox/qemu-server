@@ -5904,7 +5904,6 @@ sub restore_update_config_line {
     return if $line =~ m/^lock:/;
     return if $line =~ m/^unused\d+:/;
     return if $line =~ m/^parent:/;
-    return if $line =~ m/^template:/; # restored VM is never a template
 
     my $dc = PVE::Cluster::cfs_read_file('datacenter.cfg');
     if (($line =~ m/^(vlan(\d+)):\s*(\S+)\s*$/)) {

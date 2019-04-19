@@ -557,14 +557,21 @@ __PACKAGE__->register_method({
 	    PVE::QemuConfig->check_protection($conf, $emsg);
 
 	    die "$emsg vm is running\n" if PVE::QemuServer::check_running($vmid);
-	    die "$emsg vm is a template\n" if PVE::QemuConfig->is_template($conf);
 
 	    my $realcmd = sub {
 		PVE::QemuServer::restore_archive($archive, $vmid, $authuser, {
 		    storage => $storage,
 		    pool => $pool,
 		    unique => $unique,
-		    bwlimit => $bwlimit, });
+		    bwlimit => $bwlimit,
+		});
+		my $restored_conf = PVE::QemuConfig->load_config($vmid);
+		# Convert restored VM to template if backup was VM template
+		if (PVE::QemuConfig->is_template($restored_conf)) {
+		    warn "Convert to template.\n";
+		    eval { PVE::QemuServer::template_create($vmid, $restored_conf) };
+		    warn $@ if $@;
+		}
 
 		PVE::AccessControl::add_vm_to_pool($vmid, $pool) if $pool;
 
