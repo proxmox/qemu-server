@@ -158,10 +158,9 @@ my $create_disks = sub {
 		$fmt = $disk->{format} // "raw";
 	    }
 
-	    # Initial disk created with 4MB, every time it is regenerated the disk is aligned to 4MB again.
-	    my $cloudinit_iso_size = 4; # in MB
-	    my $volid = PVE::Storage::vdisk_alloc($storecfg, $storeid, $vmid, 
-						  $fmt, $name, $cloudinit_iso_size*1024);
+	    # Initial disk created with 4 MB and aligned to 4MB on regeneration
+	    my $ci_size = 4 * 1024;
+	    my $volid = PVE::Storage::vdisk_alloc($storecfg, $storeid, $vmid, $fmt, $name, $ci_size);
 	    $disk->{file} = $volid;
 	    $disk->{media} = 'cdrom';
 	    push @$vollist, $volid;
