@@ -152,10 +152,10 @@ my $create_disks = sub {
 
 	    my $fmt = undef;
 	    if ($scfg->{path}) {
-		$fmt = $disk->{format} ? $disk->{format} : "qcow2";
+		$fmt = $disk->{format} // "qcow2";
 		$name .= ".$fmt";
 	    } else {
-		$fmt = $disk->{format};
+		$fmt = $disk->{format} // "raw";
 	    }
 
 	    # Initial disk created with 4MB, every time it is regenerated the disk is aligned to 4MB again.
