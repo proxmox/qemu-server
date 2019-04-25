@@ -3074,7 +3074,7 @@ sub config_to_command {
 
     push @$cpuFlags, 'enforce' if $cpu ne 'host' && !$nokvm;
 
-    push @$cpuFlags, 'kvm=off' if $kvm_off;
+    push @$cpuFlags, 'kvm=off', '-hypervisor' if $kvm_off;
 
     $cpu .= "," . join(',', @$cpuFlags) if scalar(@$cpuFlags);
 
