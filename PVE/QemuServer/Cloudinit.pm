@@ -36,8 +36,9 @@ sub commit_cloudinit_disk {
     if ($size <= 0) {
 	$volname =~ m/(vm-$vmid-cloudinit(.(qcow2|raw))?)/;
 	my $name = $1;
-	my $d = PVE::Storage::vdisk_alloc($storecfg, $storeid, $vmid, $format, $name, 4 * 1024);
-	$size = PVE::Storage::file_size_info($iso_path);
+	$size = 4 * 1024;
+	PVE::Storage::vdisk_alloc($storecfg, $storeid, $vmid, $format, $name, $size);
+	$size *= 1024; # vdisk alloc takes KB, qemu-img dd's osize takes byte
     }
 
     my $plugin = PVE::Storage::Plugin->lookup($scfg->{type});
