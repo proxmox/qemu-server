@@ -33,7 +33,7 @@ sub commit_cloudinit_disk {
     my $format = PVE::QemuServer::qemu_img_format($scfg, $volname);
 
     my $size = eval { PVE::Storage::file_size_info($iso_path) };
-    if (!$size) {
+    if ($size <= 0) {
 	$volname =~ m/(vm-$vmid-cloudinit(.(qcow2|raw))?)/;
 	my $name = $1;
 	my $d = PVE::Storage::vdisk_alloc($storecfg, $storeid, $vmid, $format, $name, 4 * 1024);
