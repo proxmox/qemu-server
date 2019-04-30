@@ -31,16 +31,17 @@ sub commit_cloudinit_disk {
     my $iso_path = PVE::Storage::path($storecfg, $drive->{file});
     my $scfg = PVE::Storage::storage_config($storecfg, $storeid);
     my $format = PVE::QemuServer::qemu_img_format($scfg, $volname);
-    if (! -e $iso_path) {
+
+    my $size = eval { PVE::Storage::file_size_info($iso_path) };
+    if (!$size) {
 	$volname =~ m/(vm-$vmid-cloudinit(.(qcow2|raw))?)/;
 	my $name = $1;
 	my $d = PVE::Storage::vdisk_alloc($storecfg, $storeid, $vmid, $format, $name, 4 * 1024);
+	$size = PVE::Storage::file_size_info($iso_path);
     }
 
     my $plugin = PVE::Storage::Plugin->lookup($scfg->{type});
     $plugin->activate_volume($storeid, $scfg, $volname);
-
-    my $size = PVE::Storage::file_size_info($iso_path);
 
     eval {
 	run_command([['genisoimage', '-R', '-V', $label, $path],
