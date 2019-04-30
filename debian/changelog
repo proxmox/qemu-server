@@ -1,3 +1,20 @@
+qemu-server (5.0-51) unstable; urgency=medium
+
+  * fix #1811: allow non root user to edit serialX: socket entries
+
+  * allow non root users to add spice usb port
+
+  * fix #1829: do not ignore format parameter when creating cloudinit
+    disk volume
+
+  * fix: #1075: Restore VM template to VM and try to convert to template
+
+  * fix #2173: use qemu-img to check cloudinit disk existence
+
+  * cloudinit: use detected format in volume name parsing
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 30 Apr 2019 14:07:59 +0000
+
 qemu-server (5.0-50) unstable; urgency=medium
 
   * fix #2100: ignore cloudinit drive on offline migration
