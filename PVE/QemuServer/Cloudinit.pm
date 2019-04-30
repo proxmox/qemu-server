@@ -34,7 +34,7 @@ sub commit_cloudinit_disk {
 
     my $size = eval { PVE::Storage::file_size_info($iso_path) };
     if ($size <= 0) {
-	$volname =~ m/(vm-$vmid-cloudinit(.(qcow2|raw))?)/;
+	$volname =~ m/(vm-$vmid-cloudinit(.\Q$format\E)?)/;
 	my $name = $1;
 	$size = 4 * 1024;
 	PVE::Storage::vdisk_alloc($storecfg, $storeid, $vmid, $format, $name, $size);
