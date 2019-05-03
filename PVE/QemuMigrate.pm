@@ -218,10 +218,10 @@ sub prepare {
 	$self->{forcemachine} = PVE::QemuServer::qemu_machine_pxe($vmid, $conf);
 
     }
-
-    if (my $loc_res = PVE::QemuServer::check_local_resources($conf, 1)) {
+    my $loc_res = PVE::QemuServer::check_local_resources($conf, 1);
+    if (scalar @$loc_res) {
 	if ($self->{running} || !$self->{opts}->{force}) {
-	    die "can't migrate VM which uses local devices\n";
+	    die "can't migrate VM which uses local devices: " . join(", ", @$loc_res) . "\n";
 	} else {
 	    $self->log('info', "migrating VM which uses local devices");
 	}

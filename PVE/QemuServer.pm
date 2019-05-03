@@ -2846,23 +2846,23 @@ sub config_list {
 sub check_local_resources {
     my ($conf, $noerr) = @_;
 
-    my $loc_res = 0;
+    my @loc_res = ();
 
-    $loc_res = 1 if $conf->{hostusb}; # old syntax
-    $loc_res = 1 if $conf->{hostpci}; # old syntax
+    push @loc_res, "hostusb" if $conf->{hostusb}; # old syntax
+    push @loc_res, "hostpci" if $conf->{hostpci}; # old syntax
 
-    $loc_res = 1 if $conf->{ivshmem};
+    push @loc_res, "ivshmem" if $conf->{ivshmem};
 
     foreach my $k (keys %$conf) {
 	next if $k =~ m/^usb/ && ($conf->{$k} eq 'spice');
 	# sockets are safe: they will recreated be on the target side post-migrate
 	next if $k =~ m/^serial/ && ($conf->{$k} eq 'socket');
-	$loc_res = 1 if $k =~ m/^(usb|hostpci|serial|parallel)\d+$/;
+	push @loc_res, $k if $k =~ m/^(usb|hostpci|serial|parallel)\d+$/;
     }
 
-    die "VM uses local resources\n" if $loc_res && !$noerr;
+    die "VM uses local resources\n" if scalar @loc_res && !$noerr;
 
-    return $loc_res;
+    return \@loc_res;
 }
 
 # check if used storages are available on all nodes (use by migrate)
