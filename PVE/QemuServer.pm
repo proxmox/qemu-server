@@ -1281,7 +1281,7 @@ my $hostpci_fmt = {
 	pattern => qr/$PCIRE(;$PCIRE)*/,
 	format_description => 'HOSTPCIID[;HOSTPCIID2...]',
 	description => <<EODESCR,
-Host PCI device pass through. The PCI ID of a host's PCI device or a list 
+Host PCI device pass through. The PCI ID of a host's PCI device or a list
 of PCI virtual functions of the host. HOSTPCIID syntax is:
 
 'bus:dev.func' (hexadecimal numbers)
@@ -1335,7 +1335,7 @@ my $hostpcidesc = {
 	verbose_description =>  <<EODESCR,
 Map host PCI devices into guest.
 
-NOTE: This option allows direct access to host hardware. So it is no longer 
+NOTE: This option allows direct access to host hardware. So it is no longer
 possible to migrate such machines - use with special care.
 
 CAUTION: Experimental! User reported problems with this option.
@@ -1905,7 +1905,7 @@ sub print_drive_full {
     my $path;
     my $volid = $drive->{file};
     my $format;
-    
+
     if (drive_is_cdrom($drive)) {
 	$path = get_iso_path($storecfg, $vmid, $volid);
     } else {
@@ -3798,7 +3798,7 @@ sub config_to_command {
     push @$cmd, get_cpu_options($conf, $arch, $kvm, $machine_type, $kvm_off, $kvmver, $winversion, $gpu_passthrough);
 
     PVE::QemuServer::Memory::config($conf, $vmid, $sockets, $cores, $defaults, $hotplug_features, $cmd);
-    
+
     push @$cmd, '-S' if $conf->{freeze};
 
     push @$cmd, '-k', $conf->{keyboard} if defined($conf->{keyboard});
@@ -3922,7 +3922,7 @@ sub config_to_command {
 	    my $queues = '';
 	    if($conf->{scsihw} && $conf->{scsihw} eq "virtio-scsi-single" && $drive->{queues}){
 		$queues = ",num_queues=$drive->{queues}";
-	    } 
+	    }
 
 	    push @$devices, '-device', "$scsihw_type,id=$controller_prefix$controller$pciaddr$iothread$queues" if !$scsicontroller->{$controller};
 	    $scsicontroller->{$controller}=1;
@@ -6586,7 +6586,7 @@ sub do_snapshots_with_qemu {
 
     my $storage_name = PVE::Storage::parse_volume_id($volid);
 
-    if ($qemu_snap_storage->{$storecfg->{ids}->{$storage_name}->{type}} 
+    if ($qemu_snap_storage->{$storecfg->{ids}->{$storage_name}->{type}}
 	&& !$storecfg->{ids}->{$storage_name}->{krbd}){
 	return 1;
     }

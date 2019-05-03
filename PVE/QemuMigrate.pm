@@ -748,8 +748,8 @@ sub phase2 {
 	$self->log('info', "spice client_migrate_info");
 
 	eval {
-	    PVE::QemuServer::vm_mon_cmd_nocheck($vmid, "client_migrate_info", protocol => 'spice', 
-						hostname => $proxyticket, 'tls-port' => $spice_port, 
+	    PVE::QemuServer::vm_mon_cmd_nocheck($vmid, "client_migrate_info", protocol => 'spice',
+						hostname => $proxyticket, 'tls-port' => $spice_port,
 						'cert-subject' => $subject);
 	};
 	$self->log('info', "client_migrate_info error: $@") if $@;
@@ -854,7 +854,7 @@ sub phase2 {
 
 
 	    $lstat = $stat->{ram}->{transferred};
-	    
+
 	} else {
 	    die $merr if $merr;
 	    die "unable to parse migration status '$stat->{status}' - aborting\n";
@@ -898,7 +898,7 @@ sub phase2_cleanup {
     }
 
     my $nodename = PVE::INotify::nodename();
- 
+
     my $cmd = [@{$self->{rem_ssh}}, 'qm', 'stop', $vmid, '--skiplock', '--migratedfrom', $nodename];
     eval{ PVE::Tools::run_command($cmd, outfunc => sub {}, errfunc => sub {}) };
     if (my $err = $@) {
