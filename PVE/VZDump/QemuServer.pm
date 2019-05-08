@@ -439,7 +439,13 @@ sub archive {
 	$self->loginfo("started backup task '$uuid'");
 
 	if ($resume_on_backup) {
-	    $self->loginfo("resume VM");
+	    if (my $stoptime = $task->{vmstoptime}) {
+		my $delay = time() - $task->{vmstoptime};
+		$task->{vmstoptime} = undef; # avoid printing 'online after ..' twice
+		$self->loginfo("resuming VM again after $delay seconds");
+	    } else {
+		$self->loginfo("resuming VM again");
+	    }
 	    PVE::QemuServer::vm_mon_cmd($vmid, 'cont');
 	}
 
