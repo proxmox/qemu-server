@@ -11,6 +11,7 @@ use File::Path;
 use IO::Socket::UNIX;
 use IO::Select;
 use URI::Escape;
+use POSIX qw(strftime);
 
 use PVE::Tools qw(extract_param);
 use PVE::Cluster;
@@ -922,12 +923,55 @@ our $cmddef = {
     listsnapshot => [ "PVE::API2::Qemu", 'snapshot_list', ['vmid'], { node => $nodename },
 		    sub {
 			my $res = shift;
+
+			# "our" scope for the snaptimesort function
+			my $snapshots = { map { $_->{name} => $_ } @$res };
+
+			my $root;
 			foreach my $e (@$res) {
-			    my $headline = $e->{description} || 'no-description';
-			    $headline =~ s/\n.*//sg;
-			    my $parent = $e->{parent} // 'no-parent';
-			    printf("%-20s %-20s %s\n", $e->{name}, $parent, $headline);
+			    if (my $parent = $e->{parent}) {
+				push @{$snapshots->{$parent}->{children}}, $e->{name};
+			    } else {
+				$root = $e->{name};
+			    }
 			}
+
+			my $prefix = '`->';
+
+			# sort the elements by snaptime - with "current" (no snaptime) highest
+			my $snaptimesort = sub {
+			    return +1 if !defined $snapshots->{$a}->{snaptime};
+			    return -1 if !defined $snapshots->{$b}->{snaptime};
+			    return $snapshots->{$a}->{snaptime} <=> $snapshots->{$b}->{snaptime};
+			};
+
+			# recursion function for displaying the tree
+			my $snapshottree;
+		        $snapshottree = sub {
+			    my ($prefix, $root, $snapshots) = @_;
+			    my $e = $snapshots->{$root};
+
+			    my $description = $e->{description} || 'no-description';
+			    ($description) = $description =~ m/(.*)$/m;
+
+			    # create the timestamp string
+			    my $timestring = "";
+			    if (defined $e->{snaptime}) {
+				$timestring = strftime("%F %H:%M:%S", localtime($e->{snaptime}));
+			    }
+
+			    # for aligning the description
+			    my $len = 30 - length($prefix);
+			    printf("%s %-${len}s %-23s %s\n", $prefix, $root, $timestring, $description);
+			    if ($e->{children}) {
+				$prefix = "    $prefix";
+				foreach my $child (sort $snaptimesort @{$e->{children}}) {
+				    $snapshottree->($prefix, $child, $snapshots);
+				}
+			    }
+			};
+
+			$snapshottree->($prefix, $root, $snapshots);
 		    }],
 
     rollback => [ "PVE::API2::Qemu", 'rollback', ['vmid', 'snapname'], { node => $nodename } , $upid_exit ],
