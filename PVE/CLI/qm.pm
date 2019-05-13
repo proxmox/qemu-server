@@ -924,7 +924,6 @@ our $cmddef = {
 		    sub {
 			my $res = shift;
 
-			# "our" scope for the snaptimesort function
 			my $snapshots = { map { $_->{name} => $_ } @$res };
 
 			my $root;
@@ -935,8 +934,6 @@ our $cmddef = {
 				$root = $e->{name};
 			    }
 			}
-
-			my $prefix = '`->';
 
 			# sort the elements by snaptime - with "current" (no snaptime) highest
 			my $snaptimesort = sub {
@@ -954,15 +951,14 @@ our $cmddef = {
 			    my $description = $e->{description} || 'no-description';
 			    ($description) = $description =~ m/(.*)$/m;
 
-			    # create the timestamp string
 			    my $timestring = "";
 			    if (defined $e->{snaptime}) {
 				$timestring = strftime("%F %H:%M:%S", localtime($e->{snaptime}));
 			    }
 
-			    # for aligning the description
-			    my $len = 30 - length($prefix);
+			    my $len = 30 - length($prefix); # for aligning the description
 			    printf("%s %-${len}s %-23s %s\n", $prefix, $root, $timestring, $description);
+
 			    if ($e->{children}) {
 				$prefix = "    $prefix";
 				foreach my $child (sort $snaptimesort @{$e->{children}}) {
@@ -971,7 +967,7 @@ our $cmddef = {
 			    }
 			};
 
-			$snapshottree->($prefix, $root, $snapshots);
+			$snapshottree->('->', $root, $snapshots);
 		    }],
 
     rollback => [ "PVE::API2::Qemu", 'rollback', ['vmid', 'snapname'], { node => $nodename } , $upid_exit ],
