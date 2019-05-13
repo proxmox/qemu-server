@@ -967,7 +967,7 @@ our $cmddef = {
 			    }
 			};
 
-			$snapshottree->('->', $root, $snapshots);
+			$snapshottree->('`->', $root, $snapshots);
 		    }],
 
     rollback => [ "PVE::API2::Qemu", 'rollback', ['vmid', 'snapname'], { node => $nodename } , $upid_exit ],
