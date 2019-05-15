@@ -32,7 +32,7 @@ sub commit_cloudinit_disk {
     my $scfg = PVE::Storage::storage_config($storecfg, $storeid);
     my $format = PVE::QemuServer::qemu_img_format($scfg, $volname);
 
-    # required before file_size_info for ceph + krbd as it gets mapped too late otherwise
+    # required before file_size_info, some existing vols won't show up else
     my $plugin = PVE::Storage::Plugin->lookup($scfg->{type});
     eval { $plugin->activate_volume($storeid, $scfg, $volname) };
 
@@ -45,7 +45,6 @@ sub commit_cloudinit_disk {
 	$size *= 1024; # vdisk alloc takes KB, qemu-img dd's osize takes byte
 	$plugin->activate_volume($storeid, $scfg, $volname);
     }
-
 
     eval {
 	run_command([['genisoimage', '-R', '-V', $label, $path],
