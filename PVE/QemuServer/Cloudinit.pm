@@ -11,6 +11,8 @@ use PVE::Tools qw(run_command file_set_contents);
 use PVE::Storage;
 use PVE::QemuServer;
 
+use constant CLOUDINIT_DISK_SIZE => 4 * 1024 * 1024; # 4MiB in bytes
+
 sub commit_cloudinit_disk {
     my ($conf, $vmid, $drive, $volname, $storeid, $files, $label) = @_;
 

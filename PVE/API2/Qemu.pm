@@ -159,8 +159,8 @@ my $create_disks = sub {
 	    }
 
 	    # Initial disk created with 4 MB and aligned to 4MB on regeneration
-	    my $ci_size = 4 * 1024;
-	    my $volid = PVE::Storage::vdisk_alloc($storecfg, $storeid, $vmid, $fmt, $name, $ci_size);
+	    my $ci_size = PVE::QemuServer::Cloudinit::CLOUDINIT_DISK_SIZE;
+	    my $volid = PVE::Storage::vdisk_alloc($storecfg, $storeid, $vmid, $fmt, $name, $ci_size/1024);
 	    $disk->{file} = $volid;
 	    $disk->{media} = 'cdrom';
 	    push @$vollist, $volid;
