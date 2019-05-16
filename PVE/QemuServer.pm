@@ -6925,9 +6925,7 @@ sub clone_disk {
 	if (drive_is_cloudinit($drive)) {
 	    $name = "vm-$newvmid-cloudinit";
 	    $snapname = undef;
-	    # accept any format when cloning that's supported by QEMU_FORMAT_RE
-	    # if it is not supported by QEMU_FORMAT_RE we do not reach here as
-	    # it is recognized as cdrom, not cloudinit
+	    # we only get here if it's supported by QEMU_FORMAT_RE, so just accept
 	    if ($dst_format ne 'raw') {
 		$name .= ".$dst_format";
 	    }
