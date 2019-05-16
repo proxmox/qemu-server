@@ -6925,11 +6925,11 @@ sub clone_disk {
 	if (drive_is_cloudinit($drive)) {
 	    $name = "vm-$newvmid-cloudinit";
 	    $snapname = undef;
-	    # cloudinit only supports raw and qcow2 atm:
-	    if ($dst_format eq 'qcow2') {
-		$name .= '.qcow2';
-	    } elsif ($dst_format ne 'raw') {
-		die "clone: unhandled format for cloudinit image\n";
+	    # accept any format when cloning that's supported by QEMU_FORMAT_RE
+	    # if it is not supported by QEMU_FORMAT_RE we do not reach here as
+	    # it is recognized as cdrom, not cloudinit
+	    if ($dst_format ne 'raw') {
+		$name .= ".$dst_format";
 	    }
 	}
 	$newvolid = PVE::Storage::vdisk_alloc($storecfg, $storeid, $newvmid, $dst_format, $name, ($size/1024));
