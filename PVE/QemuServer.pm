@@ -6278,6 +6278,7 @@ sub restore_vma_archive {
 			size => PVE::QemuServer::Cloudinit::CLOUDINIT_DISK_SIZE,
 			file => $drive->{file}, # to make drive_is_cloudinit check possible
 			name => "vm-$vmid-cloudinit",
+			is_cloudinit => 1,
 		    };
 		    $virtdev_hash->{$virtdev} = $d;
 		}
@@ -6351,15 +6352,15 @@ sub restore_vma_archive {
 	    my $supported = grep { $_ eq $d->{format} } @$validFormats;
 	    $d->{format} = $defFormat if !$supported;
 
-	    my $name = $d->{name};
-	    if ($name && $d->{format} ne 'raw') {
-		$name .= ".$d->{format}";
+	    my $name;
+	    if ($d->{is_cloudinit}) {
+		$name = $d->{name};
+		$name .= ".$d->{format}" if $d->{format} ne 'raw';
 	    }
 	    my $volid = PVE::Storage::vdisk_alloc($cfg, $storeid, $vmid,
 						  $d->{format}, $name, $alloc_size);
 	    print STDERR "new volume ID is '$volid'\n";
 	    $d->{volid} = $volid;
-	    my $path = PVE::Storage::path($cfg, $volid);
 
 	    PVE::Storage::activate_volumes($cfg,[$volid]);
 
@@ -6368,8 +6369,9 @@ sub restore_vma_archive {
 		$write_zeros = 0;
 	    }
 
-	    my $is_cloudinit = defined($d->{file}) && drive_is_cloudinit($d);
-	    if (!$is_cloudinit) {
+	    if (!$d->{is_cloudinit}) {
+		my $path = PVE::Storage::path($cfg, $volid);
+
 		print $fifofh "${map_opts}format=$d->{format}:${write_zeros}:$d->{devname}=$path\n";
 
 		print "map '$d->{devname}' to '$path' (write zeros = ${write_zeros})\n";
