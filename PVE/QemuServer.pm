@@ -6303,7 +6303,7 @@ sub restore_vma_archive {
 	    foreach_drive($oldconf, sub {
 		my ($ds, $drive) = @_;
 
-		return if drive_is_cdrom($drive);
+		return if !$drive->{is_cloudinit} && drive_is_cdrom($drive);
 
 		my $volid = $drive->{file};
 		return if !$volid || $volid =~ m|^/|;
