@@ -6306,7 +6306,6 @@ sub restore_vma_archive {
 		return if drive_is_cdrom($drive);
 
 		my $volid = $drive->{file};
-
 		return if !$volid || $volid =~ m|^/|;
 
 		my ($path, $owner) = PVE::Storage::path($cfg, $volid);
@@ -6322,8 +6321,7 @@ sub restore_vma_archive {
 		}
 	    });
 
-	    # delete vmstate files
-	    # since after the restore we have no snapshots anymore
+	    # delete vmstate files, after the restore we have no snapshots anymore
 	    foreach my $snapname (keys %{$oldconf->{snapshots}}) {
 		my $snap = $oldconf->{snapshots}->{$snapname};
 		if ($snap->{vmstate}) {
@@ -6357,12 +6355,12 @@ sub restore_vma_archive {
 		$name = $d->{name};
 		$name .= ".$d->{format}" if $d->{format} ne 'raw';
 	    }
-	    my $volid = PVE::Storage::vdisk_alloc($cfg, $storeid, $vmid,
-						  $d->{format}, $name, $alloc_size);
+
+	    my $volid = PVE::Storage::vdisk_alloc($cfg, $storeid, $vmid, $d->{format}, $name, $alloc_size);
 	    print STDERR "new volume ID is '$volid'\n";
 	    $d->{volid} = $volid;
 
-	    PVE::Storage::activate_volumes($cfg,[$volid]);
+	    PVE::Storage::activate_volumes($cfg, [$volid]);
 
 	    my $write_zeros = 1;
 	    if (PVE::Storage::volume_has_feature($cfg, 'sparseinit', $volid)) {
