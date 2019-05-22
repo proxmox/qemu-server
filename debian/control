@@ -23,7 +23,6 @@ Package: qemu-server
 Architecture: any
 Depends: dbus,
          genisoimage,
-         libc6 (>= 2.7-18),
          libio-multiplex-perl,
          libjson-perl,
          libjson-xs-perl,
