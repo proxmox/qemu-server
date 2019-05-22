@@ -105,10 +105,10 @@ my $qemu_server_module;
 $qemu_server_module = Test::MockModule->new('PVE::QemuServer');
 $qemu_server_module->mock(
     kvm_user_version => sub {
-	return $current_test->{qemu_version} // $base_env->{real_qemu_version};
+	return $current_test->{qemu_version} // $base_env->{real_qemu_version} // '2.12';
     },
     kvm_version => sub {
-	return $current_test->{qemu_version} // $base_env->{real_qemu_version};
+	return $current_test->{qemu_version} // $base_env->{real_qemu_version} // '2.12';
     },
     kernel_has_vhost_net => sub {
 	return 1; # TODO: make this per-test configurable?
