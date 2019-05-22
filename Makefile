@@ -1,6 +1,7 @@
-VERSION=5.0
+include /usr/share/dpkg/pkg-info.mk
+include /usr/share/dpkg/architecture.mk
+
 PACKAGE=qemu-server
-PKGREL=51
 
 CFLAGS+=-O2 -Werror -Wall -Wextra -Wpedantic -Wtype-limits -Wl,-z,relro -std=gnu11
 JSON_CFLAGS=$(shell pkg-config --cflags json-c)
@@ -24,19 +25,16 @@ ZSHCOMPLDIR=${PREFIX}/share/zsh/vendor-completions/
 export PERLDIR=${PREFIX}/share/perl5
 PERLINCDIR=${PERLDIR}/asm-x86_64
 
-ARCH:=$(shell dpkg-architecture -qDEB_BUILD_ARCH)
 GITVERSION:=$(shell git rev-parse HEAD)
 
-DEB=${PACKAGE}_${VERSION}-${PKGREL}_${ARCH}.deb
-DBG_DEB=${PACKAGE}-dbgsym_${VERSION}-${PKGREL}_${ARCH}.deb
+DEB=${PACKAGE}_${DEB_VERSION_UPSTREAM_REVISION}_${DEB_BUILD_ARCH}.deb
+DBG_DEB=${PACKAGE}-dbgsym_${DEB_VERSION_UPSTREAM_REVISION}_${DEB_BUILD_ARCH}.deb
 
 DEBS=${DEB} ${DBG_DEB}
 
 # this requires package pve-doc-generator
 export NOVIEW=1
 include /usr/share/pve-doc-generator/pve-doc-generator.mk
-
-export SOURCE_DATE_EPOCH ?= $(shell dpkg-parsechangelog -STimestamp)
 
 all:
 
