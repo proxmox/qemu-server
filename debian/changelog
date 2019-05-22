@@ -1,8 +1,8 @@
-qemu-server (6.0-0+1) unstable; urgency=medium
+qemu-server (6.0-0+1) pve; urgency=medium
 
   * rebuild for Debian Buster / PVE 6.0
 
- -- Proxmox Support Team <support@proxmox.com>  Wed, 22 May 2019 19:06:01 +0200
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 22 May 2019 19:12:34 +0200
 
 qemu-server (5.0-51) unstable; urgency=medium
 
