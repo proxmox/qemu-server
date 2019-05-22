@@ -3156,7 +3156,7 @@ __PACKAGE__->register_method({
 	properties => {
 	    node => get_standard_option('pve-node'),
 	    vmid => get_standard_option('pve-vmid', { completion => \&PVE::QemuServer::complete_vmid }),
-	    target => get_standard_option('pve-node', { 
+	    target => get_standard_option('pve-node', {
 		description => "Target node.",
 		completion =>  \&PVE::Cluster::complete_migration_target,
             }),
@@ -3414,7 +3414,7 @@ __PACKAGE__->register_method({
 	    my (undef, undef, undef, undef, undef, undef, $format) =
 		PVE::Storage::parse_volname($storecfg, $drive->{file});
 
-	    die "can't resize volume: $disk if snapshot exists\n" 
+	    die "can't resize volume: $disk if snapshot exists\n"
 		if %{$conf->{snapshots}} && $format eq 'qcow2';
 
 	    my $volid = $drive->{file};
@@ -3601,7 +3601,7 @@ __PACKAGE__->register_method({
 
 	my $realcmd = sub {
 	    PVE::Cluster::log_msg('info', $authuser, "snapshot VM $vmid: $snapname");
-	    PVE::QemuConfig->snapshot_create($vmid, $snapname, $param->{vmstate}, 
+	    PVE::QemuConfig->snapshot_create($vmid, $snapname, $param->{vmstate},
 					     $param->{description});
 	};
 
