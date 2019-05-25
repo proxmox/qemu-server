@@ -1,3 +1,19 @@
+qemu-server (5.0-52) unstable; urgency=medium
+
+  * migrate: log which local resource causes error
+  * fix #1999: create a tree view for qm listsnapshot
+  * fix #503: print correct offline time for stop mode backups
+  * ensure cloudinit volume are available for file_size_info
+  * fix cloning a VM using CloudInit if formats other than raw/qcow2 are
+    chosen
+  * map cloudinit disk to new vmid on restore
+  * correctly honor the $nocheck param again to ensure we can directly
+    resume after a migration has finished transferring the VM state over
+    to the target node. Fixes issues when migrating under bulk migration
+    load.
+
+ -- Proxmox Support Team <support@proxmox.com>  Sat, 25 May 2019 11:40:24 +0200
+
 qemu-server (5.0-51) unstable; urgency=medium
 
   * fix #1811: allow non root user to edit serialX: socket entries
