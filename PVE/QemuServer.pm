@@ -166,7 +166,7 @@ my $cpu_vendor_list = {
     max => 'default',
 };
 
-my $cpu_flag = qr/[+-](pcid|spec-ctrl|ibpb|ssbd|virt-ssbd|amd-ssbd|amd-no-ssb|pdpe1gb)/;
+my $cpu_flag = qr/[+-](pcid|spec-ctrl|ibpb|ssbd|virt-ssbd|amd-ssbd|amd-no-ssb|pdpe1gb|md-clear)/;
 
 my $cpu_fmt = {
     cputype => {
