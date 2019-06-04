@@ -6606,9 +6606,9 @@ sub do_snapshots_with_qemu {
     my ($storecfg, $volid) = @_;
 
     my $storage_name = PVE::Storage::parse_volume_id($volid);
+    my $scfg = $storecfg->{ids}->{$storage_name};
 
-    if ($qemu_snap_storage->{$storecfg->{ids}->{$storage_name}->{type}}
-	&& !$storecfg->{ids}->{$storage_name}->{krbd}){
+    if ($qemu_snap_storage->{$scfg->{type}} && !$scfg->{krbd}){
 	return 1;
     }
 
