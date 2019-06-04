@@ -54,7 +54,7 @@ my $OVMF = {
     ],
 };
 
-my $qemu_snap_storage = {rbd => 1, sheepdog => 1};
+my $qemu_snap_storage = { rbd => 1 };
 
 my $cpuinfo = PVE::ProcFSTools::read_cpuinfo();
 
