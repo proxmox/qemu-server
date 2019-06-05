@@ -1023,6 +1023,13 @@ our $cmddef = {
 
     cleanup => [ __PACKAGE__, 'cleanup', ['vmid', 'clean-shutdown', 'guest-requested'], { node => $nodename }],
 
+    cloudinit => {
+	dump => [ "PVE::API2::Qemu", 'cloudinit_generated_config_dump', ['vmid', 'type'], { node => $nodename }, sub {
+		my $data = shift;
+		print "$data\n";
+	    }],
+    },
+
 };
 
 1;
