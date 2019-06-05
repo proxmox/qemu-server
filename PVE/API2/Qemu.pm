@@ -3859,4 +3859,36 @@ __PACKAGE__->register_method({
 	return undef;
     }});
 
+__PACKAGE__->register_method({
+    name => 'cloudinit_generated_config_dump',
+    path => '{vmid}/cloudinit/dump',
+    method => 'GET',
+    proxyto => 'node',
+    description => "Get automatically generated cloudinit config.",
+    permissions => {
+	check => ['perm', '/vms/{vmid}', [ 'VM.Audit' ]],
+    },
+    parameters => {
+	additionalProperties => 0,
+	properties => {
+	    node => get_standard_option('pve-node'),
+	    vmid => get_standard_option('pve-vmid', { completion => \&PVE::QemuServer::complete_vmid }),
+	    type => {
+		description => 'Config type.',
+		type => 'string',
+		enum => ['user', 'network', 'meta'],
+	    },
+	},
+    },
+    returns => {
+	type => 'string',
+    },
+    code => sub {
+	my ($param) = @_;
+
+	my $conf = PVE::QemuConfig->load_config($param->{vmid});
+
+	return PVE::QemuServer::Cloudinit::dump_cloudinit_config($conf, $param->{vmid}, $param->{type});
+    }});
+
 1;
