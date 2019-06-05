@@ -207,6 +207,13 @@ sub configdrive2_network {
     return $content;
 }
 
+sub configdrive2_gen_metadata {
+    my ($user, $network) = @_;
+
+    my $uuid_str = Digest::SHA::sha1_hex($user.$network);
+    return configdrive2_metadata($uuid_str);
+}
+
 sub configdrive2_metadata {
     my ($uuid) = @_;
     return <<"EOF";
@@ -225,10 +232,7 @@ sub generate_configdrive2 {
     $network_data = configdrive2_network($conf) if !defined($network_data);
 
     if (!defined($meta_data)) {
-	my $digest_data = $user_data . $network_data;
-	my $uuid_str = Digest::SHA::sha1_hex($digest_data);
-
-	$meta_data = configdrive2_metadata($uuid_str);
+	$meta_data = configdrive2_gen_metadata($user_data, $network_data);
     }
     my $files = {
 	'/openstack/latest/user_data' => $user_data,
@@ -389,6 +393,13 @@ sub nocloud_metadata {
     return "instance-id: $uuid\n";
 }
 
+sub nocloud_gen_metadata {
+    my ($user, $network) = @_;
+
+    my $uuid_str = Digest::SHA::sha1_hex($user.$network);
+    return nocloud_metadata($uuid_str);
+}
+
 sub generate_nocloud {
     my ($conf, $vmid, $drive, $volname, $storeid) = @_;
 
@@ -397,10 +408,7 @@ sub generate_nocloud {
     $network_data = nocloud_network($conf) if !defined($network_data);
 
     if (!defined($meta_data)) {
-	my $digest_data = $user_data . $network_data;
-	my $uuid_str = Digest::SHA::sha1_hex($digest_data);
-
-	$meta_data = nocloud_metadata($uuid_str);
+	$meta_data = nocloud_gen_metadata($user_data, $network_data);
     }
 
     my $files = {
@@ -471,6 +479,31 @@ sub generate_cloudinitconfig {
 
 	$generator->($conf, $vmid, $drive, $volname, $storeid);
     });
+}
+
+sub dump_cloudinit_config {
+    my ($conf, $vmid, $type) = @_;
+
+    my $format = get_cloudinit_format($conf);
+
+    if ($type eq 'user') {
+	return cloudinit_userdata($conf, $vmid);
+    } elsif ($type eq 'network') {
+	if ($format eq 'nocloud') {
+	    return nocloud_network($conf);
+	} else {
+	    return configdrive2_network($conf);
+	}
+    } else { # metadata config
+	my $user = cloudinit_userdata($conf, $vmid);
+	if ($format eq 'nocloud') {
+	    my $network = nocloud_network($conf);
+	    return nocloud_gen_metadata($user, $network);
+	} else {
+	    my $network = configdrive2_network($conf);
+	    return configdrive2_gen_metadata($user, $network);
+	}
+    }
 }
 
 1;
