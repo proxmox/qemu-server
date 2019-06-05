@@ -926,12 +926,13 @@ our $cmddef = {
 
 			my $snapshots = { map { $_->{name} => $_ } @$res };
 
-			my $root;
+			my @roots;
 			foreach my $e (@$res) {
-			    if (my $parent = $e->{parent}) {
+			    my $parent;
+			    if (($parent = $e->{parent}) && defined $snapshots->{$parent}) {
 				push @{$snapshots->{$parent}->{children}}, $e->{name};
 			    } else {
-				$root = $e->{name};
+				push @roots, $e->{name};
 			    }
 			}
 
@@ -967,7 +968,9 @@ our $cmddef = {
 			    }
 			};
 
-			$snapshottree->('`->', $root, $snapshots);
+			foreach my $root (sort $snaptimesort @roots) {
+			    $snapshottree->('`->', $root, $snapshots);
+			}
 		    }],
 
     rollback => [ "PVE::API2::Qemu", 'rollback', ['vmid', 'snapname'], { node => $nodename } , $upid_exit ],
