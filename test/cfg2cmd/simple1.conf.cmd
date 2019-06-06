@@ -11,11 +11,11 @@
   -smp '3,sockets=1,cores=3,maxcpus=3' \
   -nodefaults \
   -boot 'menu=on,strict=on,reboot-timeout=1000,splash=/usr/share/qemu-server/bootsplash.jpg' \
-  -vnc unix:/var/run/qemu-server/8006.vnc,x509,password \
+  -vnc unix:/var/run/qemu-server/8006.vnc,password \
   -cpu kvm64,+lahf_lm,+sep,+kvm_pv_unhalt,+kvm_pv_eoi,enforce \
   -m 768 \
-  -device 'pci-bridge,id=pci.2,chassis_nr=2,bus=pci.0,addr=0x1f' \
   -device 'pci-bridge,id=pci.1,chassis_nr=1,bus=pci.0,addr=0x1e' \
+  -device 'pci-bridge,id=pci.2,chassis_nr=2,bus=pci.0,addr=0x1f' \
   -device 'vmgenid,guid=c773c261-d800-4348-9f5d-167fadd53cf8' \
   -device 'piix3-usb-uhci,id=uhci,bus=pci.0,addr=0x1.0x2' \
   -device 'usb-tablet,id=tablet,bus=uhci.0,port=1' \

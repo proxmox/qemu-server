@@ -216,7 +216,8 @@ __PACKAGE__->register_method ({
 	    PVE::QemuServer::vm_mon_cmd($vmid, "set_password", protocol => 'vnc', password => $ticket);
 	    PVE::QemuServer::vm_mon_cmd($vmid, "expire_password", protocol => 'vnc', time => "+30");
 	} else {
-	    PVE::QemuServer::vm_mon_cmd($vmid, "change", device => 'vnc', target => "unix:$vnc_socket,x509,password");
+	    # FIXME: remove or allow to add tls-creds object, as x509 vnc param is removed with qemu 4??
+	    PVE::QemuServer::vm_mon_cmd($vmid, "change", device => 'vnc', target => "unix:$vnc_socket,password");
 	}
 
 	run_vnc_proxy($vnc_socket);

@@ -3754,7 +3754,7 @@ sub config_to_command {
     if ($vga->{type} && $vga->{type} !~ m/^serial\d+$/ && $vga->{type} ne 'none'){
 	push @$devices, '-device', print_vga_device($conf, $vga, $arch, $machine_type, undef, $qxlnum, $bridges);
 	my $socket = vnc_socket($vmid);
-	push @$cmd,  '-vnc', "unix:$socket,x509,password";
+	push @$cmd,  '-vnc', "unix:$socket,password";
     } else {
 	push @$cmd, '-vga', 'none' if $vga->{type} eq 'none';
 	push @$cmd, '-nographic';
