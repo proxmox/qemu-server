@@ -2028,29 +2028,19 @@ __PACKAGE__->register_method({
 
 	my $machine = extract_param($param, 'machine');
 
-	my $stateuri = extract_param($param, 'stateuri');
-	raise_param_exc({ stateuri => "Only root may use this option." })
-	    if $stateuri && $authuser ne 'root@pam';
+	my $get_root_param = sub {
+	    my $value = extract_param($param, $_[0]);
+	    raise_param_exc({ "$_[0]" => "Only root may use this option." })
+		if $value && $authuser ne 'root@pam';
+	    return $value;
+	};
 
-	my $skiplock = extract_param($param, 'skiplock');
-	raise_param_exc({ skiplock => "Only root may use this option." })
-	    if $skiplock && $authuser ne 'root@pam';
-
-	my $migratedfrom = extract_param($param, 'migratedfrom');
-	raise_param_exc({ migratedfrom => "Only root may use this option." })
-	    if $migratedfrom && $authuser ne 'root@pam';
-
-	my $migration_type = extract_param($param, 'migration_type');
-	raise_param_exc({ migration_type => "Only root may use this option." })
-	    if $migration_type && $authuser ne 'root@pam';
-
-	my $migration_network = extract_param($param, 'migration_network');
-	raise_param_exc({ migration_network => "Only root may use this option." })
-	    if $migration_network && $authuser ne 'root@pam';
-
-	my $targetstorage = extract_param($param, 'targetstorage');
-	raise_param_exc({ targetstorage => "Only root may use this option." })
-	    if $targetstorage && $authuser ne 'root@pam';
+	my $stateuri = $get_root_param->('stateuri');
+	my $skiplock = $get_root_param->('skiplock');
+	my $migratedfrom = $get_root_param->('migratedfrom');
+	my $migration_type = $get_root_param->('migration_type');
+	my $migration_network = $get_root_param->('migration_network');
+	my $targetstorage = $get_root_param->('targetstorage');
 
 	raise_param_exc({ targetstorage => "targetstorage can only by used with migratedfrom." })
 	    if $targetstorage && !$migratedfrom;
