@@ -192,7 +192,7 @@ my $cpu_fmt = {
     flags => {
 	description => "List of additional CPU flags separated by ';'."
 		     . " Use '+FLAG' to enable, '-FLAG' to disable a flag."
-		     . " Currently supported flags: 'pcid', 'spec-ctrl', 'ibpb', 'ssbd', 'virt-ssbd', 'amd-ssbd', 'amd-no-ssb', 'pdpe1gb'.",
+		     . " Currently supported flags: 'pcid', 'spec-ctrl', 'ibpb', 'ssbd', 'virt-ssbd', 'amd-ssbd', 'amd-no-ssb', 'pdpe1gb', 'md-clear'.",
 	format_description => '+FLAG[;-FLAG...]',
 	type => 'string',
 	pattern => qr/$cpu_flag(;$cpu_flag)*/,
