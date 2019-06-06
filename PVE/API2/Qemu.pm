@@ -2021,11 +2021,9 @@ __PACKAGE__->register_method({
 	my ($param) = @_;
 
 	my $rpcenv = PVE::RPCEnvironment::get();
-
 	my $authuser = $rpcenv->get_user();
 
 	my $node = extract_param($param, 'node');
-
 	my $vmid = extract_param($param, 'vmid');
 
 	my $machine = extract_param($param, 'machine');
@@ -2070,20 +2068,14 @@ __PACKAGE__->register_method({
 
 	my $storecfg = PVE::Storage::config();
 
-	if (PVE::HA::Config::vm_is_ha_managed($vmid) && !$stateuri &&
-	    $rpcenv->{type} ne 'ha') {
-
+	if (PVE::HA::Config::vm_is_ha_managed($vmid) && !$stateuri &&  $rpcenv->{type} ne 'ha') {
 	    my $hacmd = sub {
 		my $upid = shift;
 
-		my $service = "vm:$vmid";
-
-		my $cmd = ['ha-manager', 'set', $service, '--state', 'started'];
-
 		print "Requesting HA start for VM $vmid\n";
 
+		my $cmd = ['ha-manager', 'set',  "vm:$vmid", '--state', 'started'];
 		PVE::Tools::run_command($cmd);
-
 		return;
 	    };
 
@@ -2098,7 +2090,6 @@ __PACKAGE__->register_method({
 
 		PVE::QemuServer::vm_start($storecfg, $vmid, $stateuri, $skiplock, $migratedfrom, undef,
 					  $machine, $spice_ticket, $migration_network, $migration_type, $targetstorage);
-
 		return;
 	    };
 
@@ -2146,11 +2137,9 @@ __PACKAGE__->register_method({
 	my ($param) = @_;
 
 	my $rpcenv = PVE::RPCEnvironment::get();
-
 	my $authuser = $rpcenv->get_user();
 
 	my $node = extract_param($param, 'node');
-
 	my $vmid = extract_param($param, 'vmid');
 
 	my $skiplock = extract_param($param, 'skiplock');
@@ -2173,14 +2162,10 @@ __PACKAGE__->register_method({
 	    my $hacmd = sub {
 		my $upid = shift;
 
-		my $service = "vm:$vmid";
-
-		my $cmd = ['ha-manager', 'set', $service, '--state', 'stopped'];
-
 		print "Requesting HA stop for VM $vmid\n";
 
+		my $cmd = ['ha-manager', 'set',  "vm:$vmid", '--state', 'stopped'];
 		PVE::Tools::run_command($cmd);
-
 		return;
 	    };
 
@@ -2194,7 +2179,6 @@ __PACKAGE__->register_method({
 
 		PVE::QemuServer::vm_stop($storecfg, $vmid, $skiplock, 0,
 					 $param->{timeout}, 0, 1, $keepActive, $migratedfrom);
-
 		return;
 	    };
 
@@ -2297,11 +2281,9 @@ __PACKAGE__->register_method({
 	my ($param) = @_;
 
 	my $rpcenv = PVE::RPCEnvironment::get();
-
 	my $authuser = $rpcenv->get_user();
 
 	my $node = extract_param($param, 'node');
-
 	my $vmid = extract_param($param, 'vmid');
 
 	my $skiplock = extract_param($param, 'skiplock');
@@ -2322,9 +2304,8 @@ __PACKAGE__->register_method({
 	#
 	# checking the qmp status here to get feedback to the gui/cli/api
 	# and the status query should not take too long
-	my $qmpstatus;
-	eval {
-	    $qmpstatus = PVE::QemuServer::vm_qmp_command($vmid, { execute => "query-status" }, 0);
+	my $qmpstatus = eval {
+	    PVE::QemuServer::vm_qmp_command($vmid, { execute => "query-status" }, 0);
 	};
 	my $err = $@ if $@;
 
@@ -2337,20 +2318,15 @@ __PACKAGE__->register_method({
 	    }
 	}
 
-	if (PVE::HA::Config::vm_is_ha_managed($vmid) &&
-	    ($rpcenv->{type} ne 'ha')) {
+	if (PVE::HA::Config::vm_is_ha_managed($vmid) && $rpcenv->{type} ne 'ha') {
 
 	    my $hacmd = sub {
 		my $upid = shift;
 
-		my $service = "vm:$vmid";
-
-		my $cmd = ['ha-manager', 'set', $service, '--state', 'stopped'];
-
 		print "Requesting HA stop for VM $vmid\n";
 
+		my $cmd = ['ha-manager', 'set', "vm:$vmid", '--state', 'stopped'];
 		PVE::Tools::run_command($cmd);
-
 		return;
 	    };
 
@@ -2365,7 +2341,6 @@ __PACKAGE__->register_method({
 
 		PVE::QemuServer::vm_stop($storecfg, $vmid, $skiplock, 0, $param->{timeout},
 					 $shutdown, $param->{forceStop}, $keepActive);
-
 		return;
 	    };
 
@@ -2411,11 +2386,9 @@ __PACKAGE__->register_method({
 	my ($param) = @_;
 
 	my $rpcenv = PVE::RPCEnvironment::get();
-
 	my $authuser = $rpcenv->get_user();
 
 	my $node = extract_param($param, 'node');
-
 	my $vmid = extract_param($param, 'vmid');
 
 	my $todisk = extract_param($param, 'todisk') // 0;
@@ -2431,8 +2404,6 @@ __PACKAGE__->register_method({
 	die "Cannot suspend HA managed VM to disk\n"
 	    if $todisk && PVE::HA::Config::vm_is_ha_managed($vmid);
 
-	my $taskname = $todisk ? 'qmsuspend' : 'qmpause';
-
 	my $realcmd = sub {
 	    my $upid = shift;
 
@@ -2443,6 +2414,7 @@ __PACKAGE__->register_method({
 	    return;
 	};
 
+	my $taskname = $todisk ? 'qmsuspend' : 'qmpause';
 	return $rpcenv->fork_worker($taskname, $vmid, $authuser, $realcmd);
     }});
 
@@ -3208,7 +3180,6 @@ __PACKAGE__->register_method({
 	my ($param) = @_;
 
 	my $rpcenv = PVE::RPCEnvironment::get();
-
 	my $authuser = $rpcenv->get_user();
 
 	my $target = extract_param($param, 'target');
@@ -3262,14 +3233,10 @@ __PACKAGE__->register_method({
 	    my $hacmd = sub {
 		my $upid = shift;
 
-		my $service = "vm:$vmid";
-
-		my $cmd = ['ha-manager', 'migrate', $service, $target];
-
 		print "Requesting HA migration for VM $vmid to node $target\n";
 
+		my $cmd = ['ha-manager', 'migrate', "vm:$vmid", $target];
 		PVE::Tools::run_command($cmd);
-
 		return;
 	    };
 
