@@ -21,6 +21,7 @@ use JSON;
 use Fcntl;
 use PVE::SafeSyslog;
 use Storable qw(dclone);
+use MIME::Base64;
 use PVE::Exception qw(raise raise_param_exc);
 use PVE::Storage;
 use PVE::Tools qw(run_command lock_file lock_file_full file_read_firstline dir_glob_foreach $IPV6RE);
@@ -2358,7 +2359,7 @@ sub vmconfig_cleanup_pending {
     return $changes;
 }
 
-# smbios: [manufacturer=str][,product=str][,version=str][,serial=str][,uuid=uuid][,sku=str][,family=str]
+# smbios: [manufacturer=str][,product=str][,version=str][,serial=str][,uuid=uuid][,sku=str][,family=str][,base64=bool]
 my $smbios1_fmt = {
     uuid => {
 	type => 'string',
@@ -2369,44 +2370,49 @@ my $smbios1_fmt = {
     },
     version => {
 	type => 'string',
-	pattern => '\S+',
-	format_description => 'string',
+	pattern => '[A-Za-z0-9+\/]+={0,2}',
+	format_description => 'Base64 encoded string',
         description => "Set SMBIOS1 version.",
 	optional => 1,
     },
     serial => {
 	type => 'string',
-	pattern => '\S+',
-	format_description => 'string',
+	pattern => '[A-Za-z0-9+\/]+={0,2}',
+	format_description => 'Base64 encoded string',
         description => "Set SMBIOS1 serial number.",
 	optional => 1,
     },
     manufacturer => {
 	type => 'string',
-	pattern => '\S+',
-	format_description => 'string',
+	pattern => '[A-Za-z0-9+\/]+={0,2}',
+	format_description => 'Base64 encoded string',
         description => "Set SMBIOS1 manufacturer.",
 	optional => 1,
     },
     product => {
 	type => 'string',
-	pattern => '\S+',
-	format_description => 'string',
+	pattern => '[A-Za-z0-9+\/]+={0,2}',
+	format_description => 'Base64 encoded string',
         description => "Set SMBIOS1 product ID.",
 	optional => 1,
     },
     sku => {
 	type => 'string',
-	pattern => '\S+',
-	format_description => 'string',
+	pattern => '[A-Za-z0-9+\/]+={0,2}',
+	format_description => 'Base64 encoded string',
         description => "Set SMBIOS1 SKU string.",
 	optional => 1,
     },
     family => {
 	type => 'string',
-	pattern => '\S+',
-	format_description => 'string',
+	pattern => '[A-Za-z0-9+\/]+={0,2}',
+	format_description => 'Base64 encoded string',
         description => "Set SMBIOS1 family string.",
+	optional => 1,
+    },
+    base64 => {
+	type => 'boolean',
+	description => 'Flag to indicate that the SMBIOS values are base64 encoded',
 	optional => 1,
     },
 };
@@ -3524,7 +3530,26 @@ sub config_to_command {
     push @$cmd, '-daemonize';
 
     if ($conf->{smbios1}) {
-	push @$cmd, '-smbios', "type=1,$conf->{smbios1}";
+	my $smbios_conf = parse_smbios1($conf->{smbios1});
+	if ($smbios_conf->{base64}) {
+	    # Do not pass base64 flag to qemu
+	    delete $smbios_conf->{base64};
+	    my $smbios_string = "";
+	    foreach my $key (keys %$smbios_conf) {
+		my $value;
+		if ($key eq "uuid") {
+		    $value = $smbios_conf->{uuid}
+		} else {
+		    $value = decode_base64($smbios_conf->{$key});
+		}
+		# qemu accepts any binary data, only commas need escaping by double comma
+		$value =~ s/,/,,/g;
+		$smbios_string .= "," . $key . "=" . $value if $value;
+	    }
+	    push @$cmd, '-smbios', "type=1" . $smbios_string;
+	} else {
+	    push @$cmd, '-smbios', "type=1,$conf->{smbios1}";
+	}
     }
 
     if ($conf->{vmgenid}) {
