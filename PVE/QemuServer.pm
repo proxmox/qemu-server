@@ -592,7 +592,7 @@ EODESCR
     smbios1 => {
 	description => "Specify SMBIOS type 1 fields.",
 	type => 'string', format => 'pve-qm-smbios1',
-	maxLength => 256,
+	maxLength => 512,
 	optional => 1,
     },
     protection => {
