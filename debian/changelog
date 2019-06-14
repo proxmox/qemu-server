@@ -1,3 +1,25 @@
+qemu-server (6.0-1) pve; urgency=medium
+
+  * SMBIOS: followup: allow now 512 characters for full format string
+
+  * fix #2190: Base64 encode SMBIOS value strings in order to allow more
+    characters
+
+  * allow one to add md-clear cpu flag
+
+  * add qm command for cloudinit config dump
+
+  * drop vnc x509 param, deprecated in 2.5 removed in 4.0
+
+  * Fix #1999: cli: listsnapshot: handle multiple roots and mark orphaned as
+    root
+
+  * drop references to un-maintained sheepdog plugin
+
+  * vm_resume: correctly honor $nocheck
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 14 Jun 2019 20:59:07 +0200
+
 qemu-server (6.0-0+1) pve; urgency=medium
 
   * rebuild for Debian Buster / PVE 6.0
