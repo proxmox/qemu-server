@@ -3103,6 +3103,127 @@ __PACKAGE__->register_method({
 	return PVE::QemuConfig->lock_config($vmid, $updatefn);
     }});
 
+my $check_vm_disks_local = sub {
+    my ($storecfg, $vmconf, $vmid) = @_;
+
+    my $local_disks = {};
+
+    # add some more information to the disks e.g. cdrom
+    PVE::QemuServer::foreach_volid($vmconf, sub {
+	my ($volid, $attr) = @_;
+
+	my ($storeid, $volname) = PVE::Storage::parse_volume_id($volid, 1);
+	if ($storeid) {
+	    my $scfg = PVE::Storage::storage_config($storecfg, $storeid);
+	    return if $scfg->{shared};
+	}
+	# The shared attr here is just a special case where the vdisk
+	# is marked as shared manually
+	return if $attr->{shared};
+	return if $attr->{cdrom} and $volid eq "none";
+
+	if (exists $local_disks->{$volid}) {
+	    @{$local_disks->{$volid}}{keys %$attr} = values %$attr
+	} else {
+	    $local_disks->{$volid} = $attr;
+	    # ensure volid is present in case it's needed
+	    $local_disks->{$volid}->{volid} = $volid;
+	}
+    });
+
+    return $local_disks;
+};
+
+__PACKAGE__->register_method({
+    name => 'migrate_vm_precondition',
+    path => '{vmid}/migrate',
+    method => 'GET',
+    protected => 1,
+    proxyto => 'node',
+    description => "Get preconditions for migration.",
+    permissions => {
+	check => ['perm', '/vms/{vmid}', [ 'VM.Migrate' ]],
+    },
+    parameters => {
+	additionalProperties => 0,
+	properties => {
+	    node => get_standard_option('pve-node'),
+	    vmid => get_standard_option('pve-vmid', { completion => \&PVE::QemuServer::complete_vmid }),
+	    target => get_standard_option('pve-node', {
+		description => "Target node.",
+		completion =>  \&PVE::Cluster::complete_migration_target,
+		optional => 1,
+	    }),
+	},
+    },
+    returns => {
+	type => "object",
+	properties => {
+	    running => { type => 'boolean' },
+	    allowed_nodes => {
+		type => 'array',
+		optional => 1,
+		description => "List nodes allowed for offline migration with same local storage as source node, only passed if VM is offline"
+	    },
+	    local_disks => {
+		type => 'array',
+		description => "List local disks including CD-Rom, unsused and not referenced disks"
+	    },
+	    local_resources => {
+		type => 'array',
+		description => "List local resources e.g. pci, usb"
+	    }
+	},
+    },
+    code => sub {
+	my ($param) = @_;
+
+	my $rpcenv = PVE::RPCEnvironment::get();
+
+	my $authuser = $rpcenv->get_user();
+
+	PVE::Cluster::check_cfs_quorum();
+
+	my $res = {};
+
+	my $vmid = extract_param($param, 'vmid');
+	my $target = extract_param($param, 'target');
+	my $localnode = PVE::INotify::nodename();
+
+
+	# test if VM exists
+	my $vmconf = PVE::QemuConfig->load_config($vmid);
+	my $storecfg = PVE::Storage::config();
+
+
+	# try to detect errors early
+	PVE::QemuConfig->check_lock($vmconf);
+
+	$res->{running} = PVE::QemuServer::check_running($vmid) ? 1:0;
+
+	# if vm is not running, return target nodes where local storage is available
+	# for offline migration
+	if (!$res->{running}) {
+	    my $shared_nodes = PVE::QemuServer::shared_nodes($vmconf, $storecfg);
+
+	    delete $shared_nodes->{$localnode} if $shared_nodes->{$localnode};
+
+	    $res->{allowed_nodes} = [ keys %$shared_nodes ];
+	}
+
+
+	my $local_disks = &$check_vm_disks_local($storecfg, $vmconf, $vmid);
+	$res->{local_disks} = [ values %$local_disks ];;
+
+	my $local_resources =  PVE::QemuServer::check_local_resources($vmconf, 1);
+
+	$res->{local_resources} = $local_resources;
+
+	return $res;
+
+
+    }});
+
 __PACKAGE__->register_method({
     name => 'migrate_vm',
     path => '{vmid}/migrate',
