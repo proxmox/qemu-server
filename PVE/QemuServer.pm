@@ -5310,12 +5310,13 @@ sub vm_start {
 
 	PVE::Storage::activate_volumes($storecfg, $vollist);
 
-	if (-d "/sys/fs/cgroup/systemd/qemu.slice/$vmid.scope") {
-	    eval {
-		run_command(['/bin/systemctl', 'stop', "$vmid.scope"],
-		    outfunc => sub {}, errfunc => sub {});
-	    };
-	}
+	eval {
+	    run_command(['/bin/systemctl', 'stop', "$vmid.scope"],
+		outfunc => sub {}, errfunc => sub {});
+	};
+	# Issues with the above 'stop' not being fully completed are extremely rare, a very low
+	# timeout should be more than enough here...
+	PVE::Systemd::wait_for_unit_removed("$vmid.scope", 5);
 
 	my $cpuunits = defined($conf->{cpuunits}) ? $conf->{cpuunits}
 	                                          : $defaults->{cpuunits};
