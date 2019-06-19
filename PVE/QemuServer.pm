@@ -7174,6 +7174,15 @@ sub add_hyperv_enlightenments {
 	    push @$cpuFlags , 'hv_synic';
 	    push @$cpuFlags , 'hv_stimer';
 	}
+
+	if (qemu_machine_feature_enabled ($machine_type, $kvmver, 3, 0)) {
+	    push @$cpuFlags , 'hv_tlbflush';
+	}
+
+	if (qemu_machine_feature_enabled ($machine_type, $kvmver, 3, 1)) {
+	    push @$cpuFlags , 'hv_ipi';
+	    push @$cpuFlags , 'hv_evmcs';
+	}
     }
 }
 
