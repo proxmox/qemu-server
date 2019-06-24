@@ -5646,12 +5646,13 @@ sub vm_stop {
 	    PVE::GuestHelpers::exec_hookscript($conf, $vmid, 'pre-stop');
 	}
 
-	$timeout = 60 if !defined($timeout);
-
 	eval {
 	    if ($shutdown) {
 		if (defined($conf) && parse_guest_agent($conf)->{enabled}) {
-		    vm_qmp_command($vmid, { execute => "guest-shutdown" }, $nocheck);
+		    vm_qmp_command($vmid, {
+			execute => "guest-shutdown",
+			arguments => { timeout => $timeout }
+		    }, $nocheck);
 		} else {
 		    vm_qmp_command($vmid, { execute => "system_powerdown" }, $nocheck);
 		}
@@ -5662,6 +5663,8 @@ sub vm_stop {
 	my $err = $@;
 
 	if (!$err) {
+	    $timeout = 60 if !defined($timeout);
+
 	    my $count = 0;
 	    while (($count < $timeout) && check_running($vmid, $nocheck)) {
 		$count++;
