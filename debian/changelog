@@ -1,3 +1,16 @@
+qemu-server (6.0-2) pve; urgency=medium
+
+  * add migration precondition api endpoint
+
+  * wait for possible left over VM scopes to be gone through dbus based helper
+    on VM start
+
+  * fix #2244: Allow timeout for guest-agent shutdown
+
+  * fix #2083: Add hv_tlbflush, hv_ipi, hv_evmcs enlightenments
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 24 Jun 2019 17:46:51 +0200
+
 qemu-server (6.0-1) pve; urgency=medium
 
   * SMBIOS: followup: allow now 512 characters for full format string
