@@ -7178,7 +7178,8 @@ sub add_hyperv_enlightenments {
 	if (qemu_machine_feature_enabled ($machine_type, $kvmver, 3, 1)) {
 	    push @$cpuFlags , 'hv_tlbflush';
 	    push @$cpuFlags , 'hv_ipi';
-	    push @$cpuFlags , 'hv_evmcs';
+	    # FIXME: AMD does not supports this currently, only add with special flag??
+	    #push @$cpuFlags , 'hv_evmcs';
 	}
     }
 }
