@@ -1,3 +1,10 @@
+qemu-server (6.0-3) pve; urgency=medium
+
+  * do not add evmcs HyperV enlightment at all for now due to incompatibillity
+    with AMD based hosts
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 25 Jun 2019 14:33:01 +0200
+
 qemu-server (6.0-2) pve; urgency=medium
 
   * add migration precondition api endpoint
