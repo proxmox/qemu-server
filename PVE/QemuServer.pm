@@ -5485,9 +5485,8 @@ sub vm_qmp_command {
     my $res;
 
     my $timeout;
-    if ($cmd->{arguments} && $cmd->{arguments}->{timeout}) {
-	$timeout = $cmd->{arguments}->{timeout};
-	delete $cmd->{arguments}->{timeout};
+    if ($cmd->{arguments}) {
+	$timeout = delete $cmd->{arguments}->{timeout};
     }
 
     eval {
