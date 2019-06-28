@@ -2942,17 +2942,23 @@ sub check_local_storage_availability {
 
 	    if ($scfg->{disable}) {
 		foreach my $node (keys %$nodehash) {
-		    push @{$nodehash->{$node}->{not_available_storages}}, $storeid;
+		    $nodehash->{$node}->{unavailable_storages}->{$storeid} = 1;
 		}
 	    } elsif (my $avail = $scfg->{nodes}) {
 		foreach my $node (keys %$nodehash) {
 		    if (!$avail->{$node}) {
-			push @{$nodehash->{$node}->{not_available_storages}}, $storeid;
+			$nodehash->{$node}->{unavailable_storages}->{$storeid} = 1;
 		    }
 		}
 	    }
 	}
     });
+
+    foreach my $node (values %$nodehash) {
+	if (my $unavail = $node->{unavailable_storages}) {
+	    $node->{unavailable_storages} = [ sort keys %$unavail ];
+	}
+    }
 
     return $nodehash
 }

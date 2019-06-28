@@ -3211,12 +3211,11 @@ __PACKAGE__->register_method({
 	if (!$res->{running}) {
 	    $res->{allowed_nodes} = [];
 	    my $checked_nodes = PVE::QemuServer::check_local_storage_availability($vmconf, $storecfg);
+	    delete $checked_nodes->{$localnode};
 
-	    delete $checked_nodes->{$localnode} if $checked_nodes->{$localnode};
 	    foreach my $node (keys %$checked_nodes) {
-		if (!defined $checked_nodes->{$node}->{not_available_storages}){
+		if (!defined $checked_nodes->{$node}->{unavailable_storages}) {
 		    push @{$res->{allowed_nodes}}, $node;
-		    delete $checked_nodes->{$node};
 		}
 
 	    }
