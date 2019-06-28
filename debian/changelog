@@ -1,3 +1,14 @@
+qemu-server (6.0-4) pve; urgency=medium
+
+  * fix guest shutdown if agent is configured but no timeout was passed
+
+  * cloudinit: set iso-level in genisoimage call
+
+  * migrate pre-condition check: add size to volume attributes and handle
+    storage not selected manually in storage config
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 28 Jun 2019 20:35:09 +0200
+
 qemu-server (6.0-3) pve; urgency=medium
 
   * do not add evmcs HyperV enlightment at all for now due to incompatibillity
