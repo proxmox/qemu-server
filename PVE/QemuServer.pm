@@ -3334,7 +3334,7 @@ sub foreach_volid {
     my $volhash = {};
 
     my $test_volid = sub {
-	my ($volid, $is_cdrom, $replicate, $shared, $snapname) = @_;
+	my ($volid, $is_cdrom, $replicate, $shared, $snapname, $size) = @_;
 
 	return if !$volid;
 
@@ -3352,11 +3352,12 @@ sub foreach_volid {
 
 	$volhash->{$volid}->{referenced_in_snapshot}->{$snapname} = 1
 	    if defined($snapname);
+	$volhash->{$volid}->{size} = $size if $size;
     };
 
     foreach_drive($conf, sub {
 	my ($ds, $drive) = @_;
-	$test_volid->($drive->{file}, drive_is_cdrom($drive), $drive->{replicate} // 1, $drive->{shared}, undef);
+	$test_volid->($drive->{file}, drive_is_cdrom($drive), $drive->{replicate} // 1, $drive->{shared}, undef, $drive->{size});
     });
 
     foreach my $snapname (keys %{$conf->{snapshots}}) {
