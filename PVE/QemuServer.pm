@@ -2924,6 +2924,39 @@ sub shared_nodes {
     return $nodehash
 }
 
+sub check_local_storage_availability {
+    my ($conf, $storecfg) = @_;
+
+    my $nodelist = PVE::Cluster::get_nodelist();
+    my $nodehash = { map { $_ => {} } @$nodelist };
+
+    foreach_drive($conf, sub {
+	my ($ds, $drive) = @_;
+
+	my $volid = $drive->{file};
+	return if !$volid;
+
+	my ($storeid, $volname) = PVE::Storage::parse_volume_id($volid, 1);
+	if ($storeid) {
+	    my $scfg = PVE::Storage::storage_config($storecfg, $storeid);
+
+	    if ($scfg->{disable}) {
+		foreach my $node (keys %$nodehash) {
+		    push @{$nodehash->{$node}->{not_available_storages}}, $storeid;
+		}
+	    } elsif (my $avail = $scfg->{nodes}) {
+		foreach my $node (keys %$nodehash) {
+		    if (!$avail->{$node}) {
+			push @{$nodehash->{$node}->{not_available_storages}}, $storeid;
+		    }
+		}
+	    }
+	}
+    });
+
+    return $nodehash
+}
+
 sub check_cmdline {
     my ($pidfile, $pid) = @_;
 

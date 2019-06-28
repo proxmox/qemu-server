@@ -3163,7 +3163,12 @@ __PACKAGE__->register_method({
 	    allowed_nodes => {
 		type => 'array',
 		optional => 1,
-		description => "List nodes allowed for offline migration with same local storage as source node, only passed if VM is offline"
+		description => "List nodes allowed for offline migration, only passed if VM is offline"
+	    },
+	    not_allowed_nodes => {
+		type => 'object',
+		optional => 1,
+		description => "List not allowed nodes with additional informations, only passed if VM is offline"
 	    },
 	    local_disks => {
 		type => 'array',
@@ -3204,11 +3209,18 @@ __PACKAGE__->register_method({
 	# if vm is not running, return target nodes where local storage is available
 	# for offline migration
 	if (!$res->{running}) {
-	    my $shared_nodes = PVE::QemuServer::shared_nodes($vmconf, $storecfg);
+	    $res->{allowed_nodes} = [];
+	    my $checked_nodes = PVE::QemuServer::check_local_storage_availability($vmconf, $storecfg);
 
-	    delete $shared_nodes->{$localnode} if $shared_nodes->{$localnode};
+	    delete $checked_nodes->{$localnode} if $checked_nodes->{$localnode};
+	    foreach my $node (keys %$checked_nodes) {
+		if (!defined $checked_nodes->{$node}->{not_available_storages}){
+		    push @{$res->{allowed_nodes}}, $node;
+		    delete $checked_nodes->{$node};
+		}
 
-	    $res->{allowed_nodes} = [ keys %$shared_nodes ];
+	    }
+	    $res->{not_allowed_nodes} = $checked_nodes;
 	}
 
 
