@@ -1437,7 +1437,6 @@ __PACKAGE__->register_method({
     }
 });
 
-
 __PACKAGE__->register_method({
     name => 'destroy_vm',
     path => '{vmid}',
@@ -1463,9 +1462,7 @@ __PACKAGE__->register_method({
 	my ($param) = @_;
 
 	my $rpcenv = PVE::RPCEnvironment::get();
-
 	my $authuser = $rpcenv->get_user();
-
 	my $vmid = $param->{vmid};
 
 	my $skiplock = $param->{skiplock};
@@ -1474,11 +1471,8 @@ __PACKAGE__->register_method({
 
 	# test if VM exists
 	my $conf = PVE::QemuConfig->load_config($vmid);
-
 	my $storecfg = PVE::Storage::config();
-
 	PVE::QemuConfig->check_protection($conf, "can't remove VM $vmid");
-
 	die "unable to remove VM $vmid - used in HA resources\n"
 	    if PVE::HA::Config::vm_is_ha_managed($vmid);
 
@@ -1494,11 +1488,8 @@ __PACKAGE__->register_method({
 	    my $upid = shift;
 
 	    syslog('info', "destroy VM $vmid: $upid\n");
-
 	    PVE::QemuServer::vm_destroy($storecfg, $vmid, $skiplock);
-
 	    PVE::AccessControl::remove_vm_access($vmid);
-
             PVE::Firewall::remove_vmfw_conf($vmid);
 	};
 
