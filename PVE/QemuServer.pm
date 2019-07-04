@@ -3789,7 +3789,7 @@ sub config_to_command {
 	push @$machineFlags, "type=${machine_type}";
     }
 
-    if ($conf->{startdate}) {
+    if (($conf->{startdate}) && ($conf->{startdate} ne 'now')) {
 	push @$rtcFlags, "base=$conf->{startdate}";
     } elsif ($useLocaltime) {
 	push @$rtcFlags, 'base=localtime';
