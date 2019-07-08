@@ -77,6 +77,7 @@ install: ${PKGSOURCES}
 	install -d ${DESTDIR}/usr/share/${PACKAGE}
 	install -m 0644 pve-usb.cfg ${DESTDIR}/usr/share/${PACKAGE}
 	install -m 0644 pve-q35.cfg ${DESTDIR}/usr/share/${PACKAGE}
+	install -m 0644 pve-q35-4.0.cfg ${DESTDIR}/usr/share/${PACKAGE}
 	install -m 0644 -D qm.bash-completion ${DESTDIR}/${BASHCOMPLDIR}/qm
 	install -m 0644 -D qmrestore.bash-completion ${DESTDIR}/${BASHCOMPLDIR}/qmrestore
 	install -m 0644 -D qm.zsh-completion ${DESTDIR}/${ZSHCOMPLDIR}/_qm

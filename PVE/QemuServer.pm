@@ -3628,6 +3628,15 @@ sub config_to_command {
 	push @$cmd, '-drive', "if=pflash,unit=1,format=$format,id=drive-efidisk0,file=$path";
     }
 
+    # load q35 config
+    if ($q35) {
+	# we use different pcie-port hardware for qemu >= 4.0 for passthrough
+	if (qemu_machine_feature_enabled($machine_type, $kvmver, 4, 0)) {
+	    push @$devices, '-readconfig', '/usr/share/qemu-server/pve-q35-4.0.cfg';
+	} else {
+	    push @$devices, '-readconfig', '/usr/share/qemu-server/pve-q35.cfg';
+	}
+    }
 
     # add usb controllers
     my @usbcontrollers = PVE::QemuServer::USB::get_usb_controllers($conf, $bridges, $arch, $machine_type, $usbdesc->{format}, $MAX_USB_DEVICES);
