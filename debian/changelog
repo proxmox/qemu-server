@@ -1,3 +1,12 @@
+qemu-server (6.0-5) pve; urgency=medium
+
+  * do not pass Proxmox VE internal startdate 'now' to QEMU, it does not
+    understands it
+
+  * use new pcie port hardware for 4.0 and newer q35 machine types
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 11 Jul 2019 19:44:28 +0200
+
 qemu-server (6.0-4) pve; urgency=medium
 
   * fix guest shutdown if agent is configured but no timeout was passed
