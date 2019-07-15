@@ -5574,8 +5574,6 @@ sub vm_qmp_command {
 sub vm_human_monitor_command {
     my ($vmid, $cmdline) = @_;
 
-    my $res;
-
     my $cmd = {
 	execute => 'human-monitor-command',
 	arguments => { 'command-line' => $cmdline},
