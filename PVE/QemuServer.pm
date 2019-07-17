@@ -637,7 +637,13 @@ EODESCR
 	format => $ivshmem_fmt,
 	description => "Inter-VM shared memory. Useful for direct communication between VMs, or to the host.",
 	optional => 1,
-    }
+    },
+    audio0 => {
+	type => 'string',
+	enum => [qw(ich9-intel-hda intel-hda AC97)],
+	description => "Configure a audio device.",
+	optional => 1
+    },
 };
 
 my $cicustom_fmt = {
@@ -3780,6 +3786,18 @@ sub config_to_command {
 	}
     }
 
+    if ($conf->{"audio0"}) {
+	my $audiodevice = $conf->{audio0};
+	my $audiopciaddr = print_pci_addr("audio0", $bridges, $arch, $machine_type);
+
+	if ($audiodevice eq 'AC97') {
+	    push @$devices, '-device', "AC97,id=sound0${audiopciaddr}";
+	} else {
+	    push @$devices, '-device', "${audiodevice},id=sound5${audiopciaddr}";
+	    push @$devices, '-device', "hda-micro,id=sound5-codec0,bus=sound5.0,cad=0";
+	    push @$devices, '-device', "hda-duplex,id=sound5-codec1,bus=sound5.0,cad=1";
+	}
+    }
 
     my $sockets = 1;
     $sockets = $conf->{smp} if $conf->{smp}; # old style - no longer iused
@@ -3876,11 +3894,6 @@ sub config_to_command {
     push @$cmd, '-S' if $conf->{freeze};
 
     push @$cmd, '-k', $conf->{keyboard} if defined($conf->{keyboard});
-
-    # enable sound
-    #my $soundhw = $conf->{soundhw} || $defaults->{soundhw};
-    #push @$cmd, '-soundhw', 'es1370';
-    #push @$cmd, '-soundhw', $soundhw if $soundhw;
 
     if (parse_guest_agent($conf)->{enabled}) {
 	my $qgasocket = qmp_socket($vmid, 1);
