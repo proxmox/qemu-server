@@ -79,6 +79,7 @@ my $devices = {
     'virtio14' => { bus => 2, addr => 9 },
     'virtio15' => { bus => 2, addr => 10 },
     'ivshmem' => { bus => 2, addr => 11 },
+    'audio0' => { bus => 2, addr => 12 },
     'virtioscsi0' => { bus => 3, addr => 1 },
     'virtioscsi1' => { bus => 3, addr => 2 },
     'virtioscsi2' => { bus => 3, addr => 3 },
