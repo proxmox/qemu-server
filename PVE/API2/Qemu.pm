@@ -260,6 +260,7 @@ my $hwtypeoptions = {
     'tablet' => 1,
     'vga' => 1,
     'watchdog' => 1,
+    'audio0' => 1,
 };
 
 my $generaloptions = {
