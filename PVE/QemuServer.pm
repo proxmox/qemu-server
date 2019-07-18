@@ -3786,16 +3786,17 @@ sub config_to_command {
 	}
     }
 
-    if ($conf->{"audio0"}) {
-	my $audiodevice = $conf->{audio0};
+    if (my $audiodevice = $conf->{audio0}) {
 	my $audiopciaddr = print_pci_addr("audio0", $bridges, $arch, $machine_type);
 
 	if ($audiodevice eq 'AC97') {
 	    push @$devices, '-device', "AC97,id=sound0${audiopciaddr}";
-	} else {
+	} elsif ($audiodevice =~ /intel\-hda$/) {
 	    push @$devices, '-device', "${audiodevice},id=sound5${audiopciaddr}";
 	    push @$devices, '-device', "hda-micro,id=sound5-codec0,bus=sound5.0,cad=0";
 	    push @$devices, '-device', "hda-duplex,id=sound5-codec1,bus=sound5.0,cad=1";
+	} else {
+	    die "unkown audio device '$audiodevice', implement me!";
 	}
     }
 
