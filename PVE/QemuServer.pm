@@ -641,7 +641,7 @@ EODESCR
     audio0 => {
 	type => 'string',
 	enum => [qw(ich9-intel-hda intel-hda AC97)],
-	description => "Configure a audio device.",
+	description => "Configure a audio device, useful in combination with QXL/Spice.",
 	optional => 1
     },
 };
