@@ -267,6 +267,21 @@ my $ivshmem_fmt = {
     },
 };
 
+my $audio_fmt = {
+    device => {
+	type => 'string',
+	enum => [qw(ich9-intel-hda intel-hda AC97)],
+	description =>  "Configure an audio device."
+    },
+    driver =>  {
+	type => 'string',
+	enum => ['spice'],
+	default => 'spice',
+	optional => 1,
+	description => "Driver backend for the audio device."
+    },
+};
+
 my $confdesc = {
     onboot => {
 	optional => 1,
@@ -640,7 +655,7 @@ EODESCR
     },
     audio0 => {
 	type => 'string',
-	enum => [qw(ich9-intel-hda intel-hda AC97)],
+	format => $audio_fmt,
 	description => "Configure a audio device, useful in combination with QXL/Spice.",
 	optional => 1
     },
@@ -3786,7 +3801,10 @@ sub config_to_command {
 	}
     }
 
-    if (my $audiodevice = $conf->{audio0}) {
+    if ($conf->{audio0}) {
+	my $audioproperties = PVE::JSONSchema::parse_property_string($audio_fmt, $conf->{audio0});
+	my $audiodevice = $audioproperties->{device};
+	my $audiodriver = $audioproperties->{driver} // 'spice';
 	my $audiopciaddr = print_pci_addr("audio0", $bridges, $arch, $machine_type);
 
 	if ($audiodevice eq 'AC97') {
@@ -3798,6 +3816,8 @@ sub config_to_command {
 	} else {
 	    die "unkown audio device '$audiodevice', implement me!";
 	}
+
+	push @$devices, '-audiodev', "${audiodriver},id=${audiodriver}-driver";
     }
 
     my $sockets = 1;
