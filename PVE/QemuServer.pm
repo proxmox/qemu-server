@@ -3413,6 +3413,24 @@ sub conf_has_serial {
     return 0;
 }
 
+sub conf_has_audio {
+    my ($conf, $id) = @_;
+
+    $id //= 0;
+    my $audio = $conf->{"audio$id"};
+    return undef if !defined($audio);
+
+    my $audioproperties = PVE::JSONSchema::parse_property_string($audio_fmt, $audio);
+    my $audiodriver = $audioproperties->{driver} // 'spice';
+
+    return {
+	dev => $audioproperties->{device},
+	dev_id => "audio$id",
+	backend => $audiodriver,
+	backend_id => "$audiodriver-backend${id}",
+    };
+}
+
 sub vga_conf_has_spice {
     my ($vga) = @_;
 
@@ -3801,23 +3819,22 @@ sub config_to_command {
 	}
     }
 
-    if ($conf->{audio0}) {
-	my $audioproperties = PVE::JSONSchema::parse_property_string($audio_fmt, $conf->{audio0});
-	my $audiodevice = $audioproperties->{device};
-	my $audiodriver = $audioproperties->{driver} // 'spice';
+    if (my $audio = conf_has_audio($conf)) {
+
 	my $audiopciaddr = print_pci_addr("audio0", $bridges, $arch, $machine_type);
 
-	if ($audiodevice eq 'AC97') {
-	    push @$devices, '-device', "AC97,id=sound0${audiopciaddr}";
-	} elsif ($audiodevice =~ /intel\-hda$/) {
-	    push @$devices, '-device', "${audiodevice},id=sound5${audiopciaddr}";
-	    push @$devices, '-device', "hda-micro,id=sound5-codec0,bus=sound5.0,cad=0";
-	    push @$devices, '-device', "hda-duplex,id=sound5-codec1,bus=sound5.0,cad=1";
+	my $id = $audio->{dev_id};
+	if ($audio->{dev} eq 'AC97') {
+	    push @$devices, '-device', "AC97,id=${id}${audiopciaddr}";
+	} elsif ($audio->{dev} =~ /intel\-hda$/) {
+	    push @$devices, '-device', "$audio->{dev},id=${id}${audiopciaddr}";
+	    push @$devices, '-device', "hda-micro,id=${id}-codec0,bus=${id}.0,cad=0";
+	    push @$devices, '-device', "hda-duplex,id=${id}-codec1,bus=${id}.0,cad=1";
 	} else {
-	    die "unkown audio device '$audiodevice', implement me!";
+	    die "unkown audio device '$audio->{dev}', implement me!";
 	}
 
-	push @$devices, '-audiodev', "${audiodriver},id=${audiodriver}-driver";
+	push @$devices, '-audiodev', "$audio->{backend},id=$audio->{backend_id}";
     }
 
     my $sockets = 1;
