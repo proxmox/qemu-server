@@ -1,3 +1,13 @@
+qemu-server (6.0-6) pve; urgency=medium
+
+  * Add SPICE audio device support
+
+  * fix #2275: die on invalid sendkey
+
+  * Make sometimes problematic 'hv-tlbflush' and 'hv-evmcs' CPU flags optional
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 23 Jul 2019 18:20:10 +0200
+
 qemu-server (6.0-5) pve; urgency=medium
 
   * do not pass Proxmox VE internal startdate 'now' to QEMU, it does not
