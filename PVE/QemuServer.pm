@@ -167,7 +167,20 @@ my $cpu_vendor_list = {
     max => 'default',
 };
 
-my $cpu_flag = qr/[+-](pcid|spec-ctrl|ibpb|ssbd|virt-ssbd|amd-ssbd|amd-no-ssb|pdpe1gb|md-clear)/;
+my @supported_cpu_flags = (
+    'pcid',
+    'spec-ctrl',
+    'ibpb',
+    'ssbd',
+    'virt-ssbd',
+    'amd-ssbd',
+    'amd-no-ssb',
+    'pdpe1gb',
+    'md-clear',
+    'hv-tlbflush',
+    'hv-evmcs'
+);
+my $cpu_flag = qr/[+-](@{[join('|', @supported_cpu_flags)]})/;
 
 my $cpu_fmt = {
     cputype => {
@@ -193,7 +206,7 @@ my $cpu_fmt = {
     flags => {
 	description => "List of additional CPU flags separated by ';'."
 		     . " Use '+FLAG' to enable, '-FLAG' to disable a flag."
-		     . " Currently supported flags: 'pcid', 'spec-ctrl', 'ibpb', 'ssbd', 'virt-ssbd', 'amd-ssbd', 'amd-no-ssb', 'pdpe1gb', 'md-clear'.",
+		     . " Currently supported flags: @{[join(', ', @supported_cpu_flags)]}.",
 	format_description => '+FLAG[;-FLAG...]',
 	type => 'string',
 	pattern => qr/$cpu_flag(;$cpu_flag)*/,
@@ -7274,10 +7287,7 @@ sub add_hyperv_enlightenments {
 	}
 
 	if (qemu_machine_feature_enabled ($machine_type, $kvmver, 3, 1)) {
-	    push @$cpuFlags , 'hv_tlbflush';
 	    push @$cpuFlags , 'hv_ipi';
-	    # FIXME: AMD does not supports this currently, only add with special flag??
-	    #push @$cpuFlags , 'hv_evmcs';
 	}
     }
 }
