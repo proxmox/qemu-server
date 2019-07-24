@@ -137,12 +137,14 @@ sub __snapshot_save_vmstate {
 	$target = $shared // $local // 'local';
     }
 
+    my $defaults = PVE::QemuServer::load_defaults();
+    my $mem_size = $conf->{memory} // $defaults->{memory};
     my $driver_state_size = 500; # assume 500MB is enough to safe all driver state;
     # our savevm-start does live-save of the memory until the space left in the
     # volume is just enough for the remaining memory content + internal state
     # then it stops the vm and copies the rest so we reserve twice the
     # memory content + state to minimize vm downtime
-    my $size = $conf->{memory}*2 + $driver_state_size;
+    my $size = $mem_size*2 + $driver_state_size;
     my $scfg = PVE::Storage::storage_config($storecfg, $target);
 
     my $name = "vm-$vmid-state-$snapname";
