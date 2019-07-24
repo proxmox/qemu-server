@@ -1,3 +1,9 @@
+qemu-server (6.0-7) pve; urgency=medium
+
+  * ensure new SPICE audio device works also with 'q35' based VMs
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 24 Jul 2019 15:13:35 +0200
+
 qemu-server (6.0-6) pve; urgency=medium
 
   * Add SPICE audio device support
