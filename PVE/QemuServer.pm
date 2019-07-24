@@ -3438,7 +3438,7 @@ sub conf_has_audio {
 
     return {
 	dev => $audioproperties->{device},
-	dev_id => "audio$id",
+	dev_id => "audiodev$id",
 	backend => $audiodriver,
 	backend_id => "$audiodriver-backend${id}",
     };
