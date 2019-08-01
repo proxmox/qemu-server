@@ -178,7 +178,8 @@ my @supported_cpu_flags = (
     'pdpe1gb',
     'md-clear',
     'hv-tlbflush',
-    'hv-evmcs'
+    'hv-evmcs',
+    'aes'
 );
 my $cpu_flag = qr/[+-](@{[join('|', @supported_cpu_flags)]})/;
 
