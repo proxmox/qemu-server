@@ -7178,9 +7178,9 @@ sub qemu_machine_feature_enabled {
 }
 
 sub qemu_machine_pxe {
-    my ($vmid, $conf, $machine) = @_;
+    my ($vmid, $conf) = @_;
 
-    $machine =  PVE::QemuServer::get_current_qemu_machine($vmid) if !$machine;
+    my $machine =  PVE::QemuServer::get_current_qemu_machine($vmid);
 
     if ($conf->{machine} && $conf->{machine} =~ m/\.pxe$/) {
 	$machine .= '.pxe';
