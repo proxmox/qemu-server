@@ -1471,25 +1471,33 @@ sub kvm_version {
     return $kvm_api_version;
 }
 
-my $kvm_user_version;
+my $kvm_user_version = {};
+my $kvm_mtime = {};
 
 sub kvm_user_version {
+    my ($binary) = @_;
 
-    return $kvm_user_version if $kvm_user_version;
+    $binary //= get_command_for_arch(get_host_arch()); # get the native arch by default
+    my $st = stat($binary);
 
-    $kvm_user_version = 'unknown';
+    my $cachedmtime = $kvm_mtime->{$binary} // -1;
+    return $kvm_user_version->{$binary} if $kvm_user_version->{$binary} &&
+	$cachedmtime == $st->mtime;
+
+    $kvm_user_version->{$binary} = 'unknown';
+    $kvm_mtime->{$binary} = $st->mtime;
 
     my $code = sub {
 	my $line = shift;
 	if ($line =~ m/^QEMU( PC)? emulator version (\d+\.\d+(\.\d+)?)(\.\d+)?[,\s]/) {
-	    $kvm_user_version = $2;
+	    $kvm_user_version->{$binary} = $2;
 	}
     };
 
-    eval { run_command("kvm -version", outfunc => $code); };
+    eval { run_command([$binary, '--version'], outfunc => $code); };
     warn $@ if $@;
 
-    return $kvm_user_version;
+    return $kvm_user_version->{$binary};
 
 }
 
@@ -3566,13 +3574,14 @@ sub config_to_command {
     my $devices = [];
     my $pciaddr = '';
     my $bridges = {};
-    my $kvmver = kvm_user_version();
     my $vernum = 0; # unknown
     my $ostype = $conf->{ostype};
     my $winversion = windows_version($ostype);
     my $kvm = $conf->{kvm};
 
     my ($arch, $machine_type) = get_basic_machine_info($conf, $forcemachine);
+    my $kvm_binary = get_command_for_arch($arch);
+    my $kvmver = kvm_user_version($kvm_binary);
     $kvm //= 1 if is_native($arch);
 
     if ($kvm) {
@@ -3598,7 +3607,7 @@ sub config_to_command {
     my $cpuunits = defined($conf->{cpuunits}) ?
             $conf->{cpuunits} : $defaults->{cpuunits};
 
-    push @$cmd, get_command_for_arch($arch);
+    push @$cmd, $kvm_binary;
 
     push @$cmd, '-id', $vmid;
 
