@@ -749,7 +749,7 @@ sub phase2 {
 
 	eval {
 	    PVE::QemuServer::vm_mon_cmd_nocheck($vmid, "client_migrate_info", protocol => 'spice',
-						hostname => $proxyticket, 'tls-port' => $spice_port,
+						hostname => $proxyticket, 'port' => 0, 'tls-port' => $spice_port,
 						'cert-subject' => $subject);
 	};
 	$self->log('info', "client_migrate_info error: $@") if $@;
