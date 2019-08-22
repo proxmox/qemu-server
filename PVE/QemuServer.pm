@@ -296,6 +296,20 @@ my $audio_fmt = {
     },
 };
 
+my $spice_enhancements_fmt = {
+    foldersharing => {
+	type => 'boolean',
+	optional => 1,
+	description =>  "Enable folder sharing via SPICE. Needs Spice-WebDAV daemon installed in the VM."
+    },
+    videostreaming =>  {
+	type => 'string',
+	enum => ['off', 'all', 'filter'],
+	optional => 1,
+	description => "Enable video streaming. Uses compression for detected video streams."
+    },
+};
+
 my $confdesc = {
     onboot => {
 	optional => 1,
@@ -671,6 +685,12 @@ EODESCR
 	type => 'string',
 	format => $audio_fmt,
 	description => "Configure a audio device, useful in combination with QXL/Spice.",
+	optional => 1
+    },
+    spice_enhancements => {
+	type => 'string',
+	format => $spice_enhancements_fmt,
+	description => "Configure additional enhancements for SPICE.",
 	optional => 1
     },
 };
@@ -3993,11 +4013,21 @@ sub config_to_command {
 	my $localhost = PVE::Network::addr_to_ip($nodeaddrs[0]->{addr});
 	$spice_port = PVE::Tools::next_spice_port($pfamily, $localhost);
 
-	push @$devices, '-spice', "tls-port=${spice_port},addr=$localhost,tls-ciphers=HIGH,seamless-migration=on";
+	my $spice = {};
+	my $spice_enhancements = $conf->{spice_enhancements} ? PVE::JSONSchema::parse_property_string($spice_enhancements_fmt, $conf->{spice_enhancements}) : {};
+	$spice->{videostreaming} = $spice_enhancements->{videostreaming} ? ",streaming-video=$spice_enhancements->{videostreaming}" : '';
+	$spice->{foldersharing} = $spice_enhancements->{foldersharing};
+
+	push @$devices, '-spice', "tls-port=${spice_port},addr=$localhost,tls-ciphers=HIGH,seamless-migration=on$spice->{videostreaming}";
 
 	push @$devices, '-device', "virtio-serial,id=spice$pciaddr";
 	push @$devices, '-chardev', "spicevmc,id=vdagent,name=vdagent";
 	push @$devices, '-device', "virtserialport,chardev=vdagent,name=com.redhat.spice.0";
+
+	if ($spice_enhancements->{foldersharing}) {
+	    push @$devices, '-chardev', "spiceport,id=foldershare,name=org.spice-space.webdav.0";
+	    push @$devices, '-device', "virtserialport,chardev=foldershare,name=org.spice-space.webdav.0";
+	}
     }
 
     # enable balloon by default, unless explicitly disabled
