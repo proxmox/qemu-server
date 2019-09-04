@@ -300,11 +300,13 @@ my $spice_enhancements_fmt = {
     foldersharing => {
 	type => 'boolean',
 	optional => 1,
+	default => '0',
 	description =>  "Enable folder sharing via SPICE. Needs Spice-WebDAV daemon installed in the VM."
     },
     videostreaming =>  {
 	type => 'string',
 	enum => ['off', 'all', 'filter'],
+	default => 'off',
 	optional => 1,
 	description => "Enable video streaming. Uses compression for detected video streams."
     },
