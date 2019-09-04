@@ -4013,21 +4013,20 @@ sub config_to_command {
 	my $localhost = PVE::Network::addr_to_ip($nodeaddrs[0]->{addr});
 	$spice_port = PVE::Tools::next_spice_port($pfamily, $localhost);
 
-	my $spice = {};
-	my $spice_enhancements = $conf->{spice_enhancements} ? PVE::JSONSchema::parse_property_string($spice_enhancements_fmt, $conf->{spice_enhancements}) : {};
-	$spice->{videostreaming} = $spice_enhancements->{videostreaming} ? ",streaming-video=$spice_enhancements->{videostreaming}" : '';
-	$spice->{foldersharing} = $spice_enhancements->{foldersharing};
+	my $spice_enhancement = PVE::JSONSchema::parse_property_string($spice_enhancements_fmt, $conf->{spice_enhancements} // '');
+	if ($spice_enhancement->{foldersharing}) {
+	    push @$devices, '-chardev', "spiceport,id=foldershare,name=org.spice-space.webdav.0";
+	    push @$devices, '-device', "virtserialport,chardev=foldershare,name=org.spice-space.webdav.0";
+	}
 
-	push @$devices, '-spice', "tls-port=${spice_port},addr=$localhost,tls-ciphers=HIGH,seamless-migration=on$spice->{videostreaming}";
+	my $spice_opts = "tls-port=${spice_port},addr=$localhost,tls-ciphers=HIGH,seamless-migration=on";
+	$spice_opts .= ",streaming-video=$spice_enhancement->{videostreaming}" if $spice_enhancement->{videostreaming};
+	push @$devices, '-spice', "$spice_opts";
 
 	push @$devices, '-device', "virtio-serial,id=spice$pciaddr";
 	push @$devices, '-chardev', "spicevmc,id=vdagent,name=vdagent";
 	push @$devices, '-device', "virtserialport,chardev=vdagent,name=com.redhat.spice.0";
 
-	if ($spice_enhancements->{foldersharing}) {
-	    push @$devices, '-chardev', "spiceport,id=foldershare,name=org.spice-space.webdav.0";
-	    push @$devices, '-device', "virtserialport,chardev=foldershare,name=org.spice-space.webdav.0";
-	}
     }
 
     # enable balloon by default, unless explicitly disabled
