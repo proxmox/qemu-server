@@ -33,7 +33,7 @@ use PVE::QemuConfig;
 use PVE::QMPClient;
 use PVE::RPCEnvironment;
 use PVE::GuestHelpers;
-use PVE::QemuServer::PCI qw(print_pci_addr print_pcie_addr);
+use PVE::QemuServer::PCI qw(print_pci_addr print_pcie_addr print_pcie_root_port);
 use PVE::QemuServer::Memory;
 use PVE::QemuServer::USB qw(parse_usb_device);
 use PVE::QemuServer::Cloudinit;
@@ -791,7 +791,7 @@ my $MAX_SATA_DISKS = 6;
 my $MAX_USB_DEVICES = 5;
 my $MAX_NETS = 32;
 my $MAX_UNUSED_DISKS = 256;
-my $MAX_HOSTPCI_DEVICES = 4;
+my $MAX_HOSTPCI_DEVICES = 16;
 my $MAX_SERIAL_PORTS = 4;
 my $MAX_PARALLEL_PORTS = 3;
 my $MAX_NUMA = 8;
@@ -3772,6 +3772,10 @@ sub config_to_command {
 	    if ($winversion == 7) {
 		$pciaddr = print_pcie_addr("hostpci${i}bus0");
 	    } else {
+		# add more root ports if needed, 4 are present by default
+		if ($i > 3) {
+		    push @$devices, '-device', print_pcie_root_port($i);
+		}
 		$pciaddr = print_pcie_addr("hostpci$i");
 	    }
 	} else {

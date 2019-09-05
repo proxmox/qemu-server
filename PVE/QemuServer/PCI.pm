@@ -5,6 +5,7 @@ use base 'Exporter';
 our @EXPORT_OK = qw(
 print_pci_addr
 print_pcie_addr
+print_pcie_root_port
 );
 
 my $devices = {
@@ -80,6 +81,18 @@ my $devices = {
     'virtio15' => { bus => 2, addr => 10 },
     'ivshmem' => { bus => 2, addr => 11 },
     'audio0' => { bus => 2, addr => 12 },
+    hostpci4 => { bus => 2, addr => 13 },
+    hostpci5 => { bus => 2, addr => 14 },
+    hostpci6 => { bus => 2, addr => 15 },
+    hostpci7 => { bus => 2, addr => 16 },
+    hostpci8 => { bus => 2, addr => 17 },
+    hostpci9 => { bus => 2, addr => 18 },
+    hostpci10 => { bus => 2, addr => 19 },
+    hostpci11 => { bus => 2, addr => 20 },
+    hostpci12 => { bus => 2, addr => 21 },
+    hostpci13 => { bus => 2, addr => 22 },
+    hostpci14 => { bus => 2, addr => 23 },
+    hostpci15 => { bus => 2, addr => 24 },
     'virtioscsi0' => { bus => 3, addr => 1 },
     'virtioscsi1' => { bus => 3, addr => 2 },
     'virtioscsi2' => { bus => 3, addr => 3 },
@@ -147,12 +160,36 @@ sub print_pcie_addr {
 	hostpci1 => { bus => "ich9-pcie-port-2", addr => 0 },
 	hostpci2 => { bus => "ich9-pcie-port-3", addr => 0 },
 	hostpci3 => { bus => "ich9-pcie-port-4", addr => 0 },
+	hostpci4 => { bus => "ich9-pcie-port-5", addr => 0 },
+	hostpci5 => { bus => "ich9-pcie-port-6", addr => 0 },
+	hostpci6 => { bus => "ich9-pcie-port-7", addr => 0 },
+	hostpci7 => { bus => "ich9-pcie-port-8", addr => 0 },
+	hostpci8 => { bus => "ich9-pcie-port-9", addr => 0 },
+	hostpci9 => { bus => "ich9-pcie-port-10", addr => 0 },
+	hostpci10 => { bus => "ich9-pcie-port-11", addr => 0 },
+	hostpci11 => { bus => "ich9-pcie-port-12", addr => 0 },
+	hostpci12 => { bus => "ich9-pcie-port-13", addr => 0 },
+	hostpci13 => { bus => "ich9-pcie-port-14", addr => 0 },
+	hostpci14 => { bus => "ich9-pcie-port-15", addr => 0 },
+	hostpci15 => { bus => "ich9-pcie-port-16", addr => 0 },
 	# win7 is picky about pcie assignments
 	hostpci0bus0 => { bus => "pcie.0", addr => 16 },
 	hostpci1bus0 => { bus => "pcie.0", addr => 17 },
 	hostpci2bus0 => { bus => "pcie.0", addr => 18 },
 	hostpci3bus0 => { bus => "pcie.0", addr => 19 },
 	ivshmem => { bus => 'pcie.0', addr => 20 },
+	hostpci4bus0 => { bus => "pcie.0", addr => 9 },
+	hostpci5bus0 => { bus => "pcie.0", addr => 10 },
+	hostpci6bus0 => { bus => "pcie.0", addr => 11 },
+	hostpci7bus0 => { bus => "pcie.0", addr => 12 },
+	hostpci8bus0 => { bus => "pcie.0", addr => 13 },
+	hostpci9bus0 => { bus => "pcie.0", addr => 14 },
+	hostpci10bus0 => { bus => "pcie.0", addr => 15 },
+	hostpci11bus0 => { bus => "pcie.0", addr => 20 },
+	hostpci12bus0 => { bus => "pcie.0", addr => 21 },
+	hostpci13bus0 => { bus => "pcie.0", addr => 22 },
+	hostpci14bus0 => { bus => "pcie.0", addr => 23 },
+	hostpci15bus0 => { bus => "pcie.0", addr => 24 },
     };
 
     if (defined($devices->{$id}->{bus}) && defined($devices->{$id}->{addr})) {
@@ -162,6 +199,39 @@ sub print_pcie_addr {
     }
     return $res;
 
+}
+
+# Generates the device strings for additional pcie root ports. The first 4 pcie
+# root ports are defined in the pve-q35*.cfg files.
+sub print_pcie_root_port {
+    my ($i) = @_;
+    my $res = '';
+
+    my $id = $i + 1;
+
+    my $root_port_addresses = {
+	4 => "10.0",
+	5 => "10.1",
+	6 => "10.2",
+	7 => "10.3",
+	8 => "10.4",
+	9 => "10.5",
+	10 => "10.6",
+	11 => "10.7",
+	12 => "11.0",
+	13 => "11.1",
+	14 => "11.2",
+	15 => "11.3",
+    };
+
+    if (defined($root_port_addresses->{$i})) {
+	$res = "pcie-root-port,id=ich9-pcie-port-${id}";
+	$res .= ",addr=$root_port_addresses->{$i}";
+	$res .= ",x-speed=16,x-width=32,multifunction=on,bus=pcie.0";
+	$res .= ",port=${id},chassis=${id}";
+    }
+
+    return $res;
 }
 
 1;
