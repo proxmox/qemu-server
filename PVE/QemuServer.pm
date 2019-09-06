@@ -3761,71 +3761,66 @@ sub config_to_command {
 
     # host pci devices
     for (my $i = 0; $i < $MAX_HOSTPCI_DEVICES; $i++)  {
-	my $d = parse_hostpci($conf->{"hostpci$i"});
+	my $id = "hostpci$i";
+	my $d = parse_hostpci($conf->{$id});
 	next if !$d;
 
-	my $pcie = $d->{pcie};
-	if ($pcie) {
+	if (my $pcie = $d->{pcie}) {
 	    die "q35 machine model is not enabled" if !$q35;
 	    # win7 wants to have the pcie devices directly on the pcie bus
 	    # instead of in the root port
 	    if ($winversion == 7) {
-		$pciaddr = print_pcie_addr("hostpci${i}bus0");
+		$pciaddr = print_pcie_addr("${id}bus0");
 	    } else {
 		# add more root ports if needed, 4 are present by default
+		# by pve-q35 cfgs, rest added here on demand.
 		if ($i > 3) {
 		    push @$devices, '-device', print_pcie_root_port($i);
 		}
-		$pciaddr = print_pcie_addr("hostpci$i");
+		$pciaddr = print_pcie_addr($id);
 	    }
 	} else {
-	    $pciaddr = print_pci_addr("hostpci$i", $bridges, $arch, $machine_type);
+	    $pciaddr = print_pci_addr($id, $bridges, $arch, $machine_type);
 	}
-
-	my $rombar = defined($d->{rombar}) && !$d->{rombar} ? ',rombar=0' : '';
-	my $romfile = $d->{romfile};
 
 	my $xvga = '';
 	if ($d->{'x-vga'}) {
-	    $xvga = ',x-vga=on';
+	    $xvga = ',x-vga=on' if !($conf->{bios} && $conf->{bios} eq 'ovmf');
 	    $kvm_off = 1;
 	    $vga->{type} = 'none' if !defined($conf->{vga});
 	    $gpu_passthrough = 1;
-
-	    if ($conf->{bios} && $conf->{bios} eq 'ovmf') {
-		$xvga = "";
-	    }
 	}
+
 	my $pcidevices = $d->{pciid};
 	my $multifunction = 1 if @$pcidevices > 1;
+
 	my $sysfspath;
 	if ($d->{mdev} && scalar(@$pcidevices) == 1) {
-	    my $id = $pcidevices->[0]->{id};
+	    my $pci_id = $pcidevices->[0]->{id};
 	    my $uuid = PVE::SysFSTools::generate_mdev_uuid($vmid, $i);
-	    $sysfspath = "/sys/bus/pci/devices/0000:$id/$uuid";
+	    $sysfspath = "/sys/bus/pci/devices/0000:$pci_id/$uuid";
 	} elsif ($d->{mdev}) {
-	    warn "ignoring mediated device with multifunction device\n";
+	    warn "ignoring mediated device '$id' with multifunction device\n";
 	}
 
 	my $j=0;
-        foreach my $pcidevice (@$pcidevices) {
-
-	    my $id = "hostpci$i";
-	    $id .= ".$j" if $multifunction;
-	    my $addr = $pciaddr;
-	    $addr .= ".$j" if $multifunction;
+	foreach my $pcidevice (@$pcidevices) {
 	    my $devicestr = "vfio-pci";
+
 	    if ($sysfspath) {
 		$devicestr .= ",sysfsdev=$sysfspath";
 	    } else {
 		$devicestr .= ",host=$pcidevice->{id}";
 	    }
-	    $devicestr .= ",id=$id$addr";
 
-	    if($j == 0){
-		$devicestr .= "$rombar$xvga";
+	    my $mf_addr = $multifunction ? ".$j" : '';
+	    $devicestr .= ",id=${id}${mf_addr}${pciaddr}${mf_addr}";
+
+	    if ($j == 0) {
+		$devicestr .= ',rombar=0' if defined($d->{rombar}) && !$d->{rombar};
+		$devicestr .= "$xvga";
 		$devicestr .= ",multifunction=on" if $multifunction;
-		$devicestr .= ",romfile=/usr/share/kvm/$romfile" if $romfile;
+		$devicestr .= ",romfile=/usr/share/kvm/$d->{romfile}" if $d->{romfile};
 	    }
 
 	    push @$devices, '-device', $devicestr;
