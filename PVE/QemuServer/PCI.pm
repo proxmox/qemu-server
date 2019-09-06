@@ -193,11 +193,11 @@ sub get_pcie_addr_map {
 	hostpci8bus0 => { bus => "pcie.0", addr => 13 },
 	hostpci9bus0 => { bus => "pcie.0", addr => 14 },
 	hostpci10bus0 => { bus => "pcie.0", addr => 15 },
-	hostpci11bus0 => { bus => "pcie.0", addr => 20 },
-	hostpci12bus0 => { bus => "pcie.0", addr => 21 },
-	hostpci13bus0 => { bus => "pcie.0", addr => 22 },
-	hostpci14bus0 => { bus => "pcie.0", addr => 23 },
-	hostpci15bus0 => { bus => "pcie.0", addr => 24 },
+	hostpci11bus0 => { bus => "pcie.0", addr => 21 },
+	hostpci12bus0 => { bus => "pcie.0", addr => 22 },
+	hostpci13bus0 => { bus => "pcie.0", addr => 23 },
+	hostpci14bus0 => { bus => "pcie.0", addr => 24 },
+	hostpci15bus0 => { bus => "pcie.0", addr => 25 },
     } if !defined($pcie_addr_map);
 
     return $pcie_addr_map;
@@ -222,15 +222,13 @@ sub print_pcie_root_port {
     my ($i) = @_;
     my $res = '';
 
-    my $id = $i + 1;
-
     my $root_port_addresses = {
-	4 => "10.0",
-	5 => "10.1",
-	6 => "10.2",
-	7 => "10.3",
-	8 => "10.4",
-	9 => "10.5",
+	 4 => "10.0",
+	 5 => "10.1",
+	 6 => "10.2",
+	 7 => "10.3",
+	 8 => "10.4",
+	 9 => "10.5",
 	10 => "10.6",
 	11 => "10.7",
 	12 => "11.0",
@@ -240,6 +238,7 @@ sub print_pcie_root_port {
     };
 
     if (defined($root_port_addresses->{$i})) {
+	my $id = $i + 1;
 	$res = "pcie-root-port,id=ich9-pcie-port-${id}";
 	$res .= ",addr=$root_port_addresses->{$i}";
 	$res .= ",x-speed=16,x-width=32,multifunction=on,bus=pcie.0";
