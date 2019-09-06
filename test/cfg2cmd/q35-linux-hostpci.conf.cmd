@@ -14,8 +14,7 @@
   -nodefaults \
   -boot 'menu=on,strict=on,reboot-timeout=1000,splash=/usr/share/qemu-server/bootsplash.jpg' \
   -vnc unix:/var/run/qemu-server/8006.vnc,password \
-  -no-hpet \
-  -cpu 'kvm64,+lahf_lm,+sep,+kvm_pv_unhalt,+kvm_pv_eoi,hv_spinlocks=0x1fff,hv_vapic,hv_time,hv_reset,hv_vpindex,hv_runtime,hv_relaxed,hv_synic,hv_stimer,hv_ipi,enforce' \
+  -cpu kvm64,+lahf_lm,+sep,+kvm_pv_unhalt,+kvm_pv_eoi,enforce \
   -m 512 \
   -object 'memory-backend-ram,id=ram-node0,size=256M' \
   -numa 'node,nodeid=0,cpus=0,memdev=ram-node0' \
@@ -25,14 +24,11 @@
   -readconfig /usr/share/qemu-server/pve-q35-4.0.cfg \
   -device 'usb-tablet,id=tablet,bus=ehci.0,port=1' \
   -device 'vfio-pci,host=00:12.0,id=hostpci0,bus=pci.0,addr=0x10' \
-  -device 'vfio-pci,host=00:12.0,id=hostpci1,bus=ich9-pcie-port-2,addr=0x0' \
   -device 'pcie-root-port,id=ich9-pcie-port-5,addr=10.0,x-speed=16,x-width=32,multifunction=on,bus=pcie.0,port=5,chassis=5' \
-  -device 'vfio-pci,host=00:12.0,id=hostpci4,bus=ich9-pcie-port-5,addr=0x0' \
+  -device 'pcie-root-port,id=ich9-pcie-port-8,addr=10.3,x-speed=16,x-width=32,multifunction=on,bus=pcie.0,port=8,chassis=8' \
   -device 'VGA,id=vga,bus=pcie.0,addr=0x1' \
   -device 'virtio-balloon-pci,id=balloon0,bus=pci.0,addr=0x3' \
   -iscsi 'initiator-name=iqn.1993-08.org.debian:01:aabbccddeeff' \
   -netdev 'type=tap,id=net0,ifname=tap8006i0,script=/var/lib/qemu-server/pve-bridge,downscript=/var/lib/qemu-server/pve-bridgedown,vhost=on' \
   -device 'virtio-net-pci,mac=2E:01:68:F9:9C:87,netdev=net0,bus=pci.0,addr=0x12,id=net0,bootindex=300' \
-  -rtc 'driftfix=slew,base=localtime' \
-  -machine 'type=q35' \
-  -global 'kvm-pit.lost_tick_policy=discard'
+  -machine 'type=q35'
