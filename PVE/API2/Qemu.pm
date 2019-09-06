@@ -1907,6 +1907,9 @@ __PACKAGE__->register_method({
 	    { subdir => 'current' },
 	    { subdir => 'start' },
 	    { subdir => 'stop' },
+	    { subdir => 'reset' },
+	    { subdir => 'shutdown' },
+	    { subdir => 'suspend' },
 	    ];
 
 	return $res;
