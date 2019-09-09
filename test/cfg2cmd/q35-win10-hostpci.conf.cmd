@@ -25,9 +25,9 @@
   -readconfig /usr/share/qemu-server/pve-q35-4.0.cfg \
   -device 'usb-tablet,id=tablet,bus=ehci.0,port=1' \
   -device 'vfio-pci,host=f0:42.0,id=hostpci0,bus=pci.0,addr=0x10' \
-  -device 'vfio-pci,host=00:12.0,id=hostpci1,bus=ich9-pcie-port-2,addr=0x0' \
+  -device 'vfio-pci,host=f0:43.0,id=hostpci1,bus=ich9-pcie-port-2,addr=0x0' \
   -device 'pcie-root-port,id=ich9-pcie-port-5,addr=10.0,x-speed=16,x-width=32,multifunction=on,bus=pcie.0,port=5,chassis=5' \
-  -device 'vfio-pci,host=00:12.0,id=hostpci4,bus=ich9-pcie-port-5,addr=0x0' \
+  -device 'vfio-pci,host=00:43.1,id=hostpci4,bus=ich9-pcie-port-5,addr=0x0' \
   -device 'VGA,id=vga,bus=pcie.0,addr=0x1' \
   -device 'virtio-balloon-pci,id=balloon0,bus=pci.0,addr=0x3' \
   -iscsi 'initiator-name=iqn.1993-08.org.debian:01:aabbccddeeff' \
