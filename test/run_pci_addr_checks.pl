@@ -8,7 +8,53 @@ use lib qw(..);
 
 use Test::More;
 
+use PVE::Tools qw(file_get_contents);
 use PVE::QemuServer::PCI;
+
+# not our format but that what QEMU gets passed with '-readconfig'
+sub slurp_qemu_config {
+    my ($fn) = @_;
+
+    my $raw = file_get_contents($fn);
+
+    my $lineno = 0;
+    my $cfg = {};
+    my $group;
+    my $skip_to_next_group;
+    while ($raw =~ /^\h*(.*?)\h*$/gm) {
+	my $line = $1;
+	$lineno++;
+	next if !$line || $line =~ /^#/;
+
+	# tried to follow qemu's qemu_config_parse function
+	if ($line =~ /\[(\S{1,63}) "([^"\]]{1,63})"\]/) {
+	    $group = $2;
+	    $skip_to_next_group = 0;
+	    if ($1 ne 'device') {
+		$group = undef;
+		$skip_to_next_group = 1;
+	    }
+	} elsif ($line =~ /\[([^\]]{1,63})\]/) {
+	    $group = undef;
+	    $skip_to_next_group = 1;
+	} elsif ($group) {
+	    if ($line =~ /(\S{1,63}) = "([^\"]{1,1023})"/) {
+		my ($k, $v) = ($1, $2);
+		$cfg->{$group}->{$k} = $v;
+	    } else {
+		print "ignoring $fn:$lineno: $line\n";
+	    }
+	} else {
+	    warn "ignore $fn:$lineno, currently no group\n" if !$skip_to_next_group;
+	}
+    }
+
+    #use Data::Dumper;
+    #print Dumper($cfg) . "\n";
+}
+# FIXME: TODO! read those configs and check for conflicts!
+# q35 stuff with PCIe and others with PCI
+# slurp_qemu_config("../pve-q35.cfg");
 
 print "testing PCI(e) address conflicts\n";
 
