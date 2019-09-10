@@ -49,12 +49,25 @@ sub slurp_qemu_config {
 	}
     }
 
-    #use Data::Dumper;
-    #print Dumper($cfg) . "\n";
+    return $cfg;
 }
-# FIXME: TODO! read those configs and check for conflicts!
-# q35 stuff with PCIe and others with PCI
-# slurp_qemu_config("../pve-q35.cfg");
+
+sub extract_qemu_config_addrs {
+    my ($qemu_cfg) = @_;
+
+    my $addr_map = {};
+    for my $k (keys %$qemu_cfg) {
+	my $v = $qemu_cfg->{$k};
+	next if !$v || !defined($v->{bus}) || !defined($v->{addr});
+
+	my $bus = $v->{bus};
+	$bus =~ s/pci\.//;
+
+	$addr_map->{$k} = { bus => $bus,  addr => $v->{addr} };
+    }
+
+    return $addr_map;
+}
 
 print "testing PCI(e) address conflicts\n";
 
@@ -64,7 +77,7 @@ print "testing PCI(e) address conflicts\n";
 my $addr_map = {};
 my ($fail, $ignored) = (0, 0);
 sub check_conflict {
-    my ($id, $what) = @_;
+    my ($id, $what, $ignore_if_same_key) = @_;
 
     my ($bus, $addr) = $what->@{qw(bus addr)};
     my $full_addr = "$bus:$addr";
@@ -77,6 +90,10 @@ sub check_conflict {
 		return;
 	    }
 	}
+	# this allows to read multiple pve-*.cfg qemu configs, and check them
+	# normally their OK if they conflict is on the same key. Else TODO??
+	return if $ignore_if_same_key && $id eq $conflict;
+
 	note("ERR: conflict for '$full_addr' between '$id' and '$conflict'");
 	$fail++;
     } else {
@@ -94,6 +111,25 @@ my $pcie_map = PVE::QemuServer::PCI::get_pcie_addr_map();
 while (my ($id, $what) = each %$pcie_map) {
     check_conflict($id, $what);
 }
+
+my $pve_qm_cfg = slurp_qemu_config('../pve-q35.cfg');
+my $pve_qm_cfg_map = extract_qemu_config_addrs($pve_qm_cfg);
+while (my ($id, $what) = each %$pve_qm_cfg_map) {
+    check_conflict($id, $what);
+}
+
+# FIXME: restart with clean conflict $addr_map with only get_pci*_addr_map ones?
+my $pve_qm4_cfg = slurp_qemu_config('../pve-q35-4.0.cfg');
+my $pve_qm4_cfg_map = extract_qemu_config_addrs($pve_qm4_cfg);
+while (my ($id, $what) = each %$pve_qm4_cfg_map) {
+    check_conflict($id, $what, 1);
+}
+my $pve_qm_usb_cfg = slurp_qemu_config('../pve-usb.cfg');
+my $pve_qm_usb_cfg_map = extract_qemu_config_addrs($pve_qm_usb_cfg);
+while (my ($id, $what) = each %$pve_qm_usb_cfg_map) {
+    check_conflict($id, $what, 1);
+}
+
 
 if ($fail) {
     fail("PCI(e) address conflict check, ignored: $ignored, conflicts: $fail");
