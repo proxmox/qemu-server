@@ -2925,7 +2925,7 @@ sub check_local_resources {
     push @loc_res, "ivshmem" if $conf->{ivshmem};
 
     foreach my $k (keys %$conf) {
-	next if $k =~ m/^usb/ && ($conf->{$k} eq 'spice');
+	next if $k =~ m/^usb/ && ($conf->{$k} =~ m/^spice(?![^,])/);
 	# sockets are safe: they will recreated be on the target side post-migrate
 	next if $k =~ m/^serial/ && ($conf->{$k} eq 'socket');
 	push @loc_res, $k if $k =~ m/^(usb|hostpci|serial|parallel)\d+$/;
