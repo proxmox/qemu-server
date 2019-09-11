@@ -5870,6 +5870,22 @@ sub vm_stop {
    });
 }
 
+sub vm_reboot {
+    my ($vmid, $timeout) = @_;
+
+    PVE::QemuConfig->lock_config($vmid, sub {
+
+	# only reboot if running, as qmeventd starts it again on a stop event
+	return if !check_running($vmid);
+
+	create_reboot_request($vmid);
+
+	my $storecfg = PVE::Storage::config();
+	_do_vm_stop($storecfg, $vmid, undef, undef, $timeout, 1);
+
+   });
+}
+
 sub vm_suspend {
     my ($vmid, $skiplock, $includestate, $statestorage) = @_;
 

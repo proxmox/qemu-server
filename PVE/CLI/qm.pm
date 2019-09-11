@@ -998,6 +998,8 @@ our $cmddef = {
 
     shutdown => [ "PVE::API2::Qemu", 'vm_shutdown', ['vmid'], { node => $nodename }, $upid_exit ],
 
+    reboot => [ "PVE::API2::Qemu", 'vm_reboot', ['vmid'], { node => $nodename }, $upid_exit ],
+
     suspend => [ "PVE::API2::Qemu", 'vm_suspend', ['vmid'], { node => $nodename }, $upid_exit ],
 
     resume => [ "PVE::API2::Qemu", 'vm_resume', ['vmid'], { node => $nodename }, $upid_exit ],
