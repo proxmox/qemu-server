@@ -74,7 +74,7 @@ sub get_usb_controllers {
 }
 
 sub get_usb_devices {
-    my ($conf, $format, $max_usb_devices) = @_;
+    my ($conf, $format, $max_usb_devices, $features) = @_;
 
     my $devices = [];
 
@@ -87,9 +87,12 @@ sub get_usb_devices {
 	    my $hostdevice = parse_usb_device($d->{host});
 	    $hostdevice->{usb3} = $d->{usb3};
 	    if ($hostdevice->{spice}) {
-		# usb redir support for spice, currently no usb3
+		# usb redir support for spice
+		my $bus = 'ehci';
+		$bus = 'xhci' if $hostdevice->{usb3} && $features->{spice_usb3};
+
 		push @$devices, '-chardev', "spicevmc,id=usbredirchardev$i,name=usbredir";
-		push @$devices, '-device', "usb-redir,chardev=usbredirchardev$i,id=usbredirdev$i,bus=ehci.0";
+		push @$devices, '-device', "usb-redir,chardev=usbredirchardev$i,id=usbredirdev$i,bus=$bus.0";
 	    } else {
 		push @$devices, '-device', print_usbdevice_full($conf, "usb$i", $hostdevice);
 	    }

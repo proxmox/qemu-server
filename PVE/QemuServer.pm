@@ -3829,7 +3829,10 @@ sub config_to_command {
     }
 
     # usb devices
-    my @usbdevices = PVE::QemuServer::USB::get_usb_devices($conf, $usbdesc->{format}, $MAX_USB_DEVICES);
+    my $usb_dev_features = {};
+    $usb_dev_features->{spice_usb3} = 1 if qemu_machine_feature_enabled($machine_type, $kvmver, 4, 1);
+
+    my @usbdevices = PVE::QemuServer::USB::get_usb_devices($conf, $usbdesc->{format}, $MAX_USB_DEVICES, $usb_dev_features);
     push @$devices, @usbdevices if @usbdevices;
     # serial devices
     for (my $i = 0; $i < $MAX_SERIAL_PORTS; $i++)  {
