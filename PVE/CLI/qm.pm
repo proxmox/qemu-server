@@ -763,6 +763,7 @@ __PACKAGE__->register_method({
 	my $vmid = $param->{vmid};
 	my $clean = $param->{'clean-shutdown'};
 	my $guest = $param->{'guest-requested'};
+	my $restart = 0;
 
 	# return if we do not have the config anymore
 	return if !-f PVE::QemuConfig->config_file($vmid);
@@ -790,9 +791,20 @@ __PACKAGE__->register_method({
 		PVE::QemuServer::vm_stop_cleanup($storecfg, $vmid, $conf, 0, 0);
 	    }
 	    PVE::GuestHelpers::exec_hookscript($conf, $vmid, 'post-stop');
+
+	    $restart = eval { PVE::QemuServer::clear_reboot_request($vmid) };
+	    warn $@ if $@;
 	});
 
 	warn "Finished cleanup for $vmid\n";
+
+	if ($restart) {
+	    warn "Restarting VM $vmid\n";
+	    PVE::API2::Qemu->vm_start({
+		vmid => $vmid,
+		node => $nodename,
+	    });
+	}
 
 	return undef;
     }});

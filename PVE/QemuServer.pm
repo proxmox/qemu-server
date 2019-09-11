@@ -5340,6 +5340,10 @@ sub vm_start {
 
 	die "VM $vmid already running\n" if check_running($vmid, undef, $migratedfrom);
 
+	# clean up leftover reboot request files
+	eval { clear_reboot_request($vmid); };
+	warn $@ if $@;
+
 	if (!$statefile && scalar(keys %{$conf->{pending}})) {
 	    vmconfig_apply_pending($vmid, $conf, $storecfg);
 	    $conf = PVE::QemuConfig->load_config($vmid); # update/reload
