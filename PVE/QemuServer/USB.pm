@@ -86,7 +86,7 @@ sub get_usb_devices {
 	if (defined($d->{host})) {
 	    my $hostdevice = parse_usb_device($d->{host});
 	    $hostdevice->{usb3} = $d->{usb3};
-	    if (defined($hostdevice->{spice}) && $hostdevice->{spice}) {
+	    if ($hostdevice->{spice}) {
 		# usb redir support for spice, currently no usb3
 		push @$devices, '-chardev', "spicevmc,id=usbredirchardev$i,name=usbredir";
 		push @$devices, '-device', "usb-redir,chardev=usbredirchardev$i,id=usbredirdev$i,bus=ehci.0";
