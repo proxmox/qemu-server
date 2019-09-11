@@ -5768,7 +5768,88 @@ sub vm_stop_cleanup {
     warn $@ if $@; # avoid errors - just warn
 }
 
-# Note: use $nockeck to skip tests if VM configuration file exists.
+# call only in locked context
+sub _do_vm_stop {
+    my ($storecfg, $vmid, $skiplock, $nocheck, $timeout, $shutdown, $force, $keepActive) = @_;
+
+    my $pid = check_running($vmid, $nocheck);
+    return if !$pid;
+
+    my $conf;
+    if (!$nocheck) {
+	$conf = PVE::QemuConfig->load_config($vmid);
+	PVE::QemuConfig->check_lock($conf) if !$skiplock;
+	if (!defined($timeout) && $shutdown && $conf->{startup}) {
+	    my $opts = PVE::JSONSchema::pve_parse_startup_order($conf->{startup});
+	    $timeout = $opts->{down} if $opts->{down};
+	}
+	PVE::GuestHelpers::exec_hookscript($conf, $vmid, 'pre-stop');
+    }
+
+    eval {
+	if ($shutdown) {
+	    if (defined($conf) && parse_guest_agent($conf)->{enabled}) {
+		vm_qmp_command($vmid, {
+			execute => "guest-shutdown",
+			arguments => { timeout => $timeout }
+		    }, $nocheck);
+	    } else {
+		vm_qmp_command($vmid, { execute => "system_powerdown" }, $nocheck);
+	    }
+	} else {
+	    vm_qmp_command($vmid, { execute => "quit" }, $nocheck);
+	}
+    };
+    my $err = $@;
+
+    if (!$err) {
+	$timeout = 60 if !defined($timeout);
+
+	my $count = 0;
+	while (($count < $timeout) && check_running($vmid, $nocheck)) {
+	    $count++;
+	    sleep 1;
+	}
+
+	if ($count >= $timeout) {
+	    if ($force) {
+		warn "VM still running - terminating now with SIGTERM\n";
+		kill 15, $pid;
+	    } else {
+		die "VM quit/powerdown failed - got timeout\n";
+	    }
+	} else {
+	    vm_stop_cleanup($storecfg, $vmid, $conf, $keepActive, 1) if $conf;
+	    return;
+	}
+    } else {
+	if ($force) {
+	    warn "VM quit/powerdown failed - terminating now with SIGTERM\n";
+	    kill 15, $pid;
+	} else {
+	    die "VM quit/powerdown failed\n";
+	}
+    }
+
+    # wait again
+    $timeout = 10;
+
+    my $count = 0;
+    while (($count < $timeout) && check_running($vmid, $nocheck)) {
+	$count++;
+	sleep 1;
+    }
+
+    if ($count >= $timeout) {
+	warn "VM still running - terminating now with SIGKILL\n";
+	kill 9, $pid;
+	sleep 1;
+    }
+
+    vm_stop_cleanup($storecfg, $vmid, $conf, $keepActive, 1) if $conf;
+}
+
+# Note: use $nocheck to skip tests if VM configuration file exists.
 # We need that when migration VMs to other nodes (files already moved)
 # Note: we set $keepActive in vzdump stop mode - volumes need to stay active
 sub vm_stop {
@@ -5785,82 +5866,7 @@ sub vm_stop {
     }
 
     PVE::QemuConfig->lock_config($vmid, sub {
-
-	my $pid = check_running($vmid, $nocheck);
-	return if !$pid;
-
-	my $conf;
-	if (!$nocheck) {
-	    $conf = PVE::QemuConfig->load_config($vmid);
-	    PVE::QemuConfig->check_lock($conf) if !$skiplock;
-	    if (!defined($timeout) && $shutdown && $conf->{startup}) {
-		my $opts = PVE::JSONSchema::pve_parse_startup_order($conf->{startup});
-		$timeout = $opts->{down} if $opts->{down};
-	    }
-	    PVE::GuestHelpers::exec_hookscript($conf, $vmid, 'pre-stop');
-	}
-
-	eval {
-	    if ($shutdown) {
-		if (defined($conf) && parse_guest_agent($conf)->{enabled}) {
-		    vm_qmp_command($vmid, {
-			execute => "guest-shutdown",
-			arguments => { timeout => $timeout }
-		    }, $nocheck);
-		} else {
-		    vm_qmp_command($vmid, { execute => "system_powerdown" }, $nocheck);
-		}
-	    } else {
-		vm_qmp_command($vmid, { execute => "quit" }, $nocheck);
-	    }
-	};
-	my $err = $@;
-
-	if (!$err) {
-	    $timeout = 60 if !defined($timeout);
-
-	    my $count = 0;
-	    while (($count < $timeout) && check_running($vmid, $nocheck)) {
-		$count++;
-		sleep 1;
-	    }
-
-	    if ($count >= $timeout) {
-		if ($force) {
-		    warn "VM still running - terminating now with SIGTERM\n";
-		    kill 15, $pid;
-		} else {
-		    die "VM quit/powerdown failed - got timeout\n";
-		}
-	    } else {
-		vm_stop_cleanup($storecfg, $vmid, $conf, $keepActive, 1) if $conf;
-		return;
-	    }
-	} else {
-	    if ($force) {
-		warn "VM quit/powerdown failed - terminating now with SIGTERM\n";
-		kill 15, $pid;
-	    } else {
-		die "VM quit/powerdown failed\n";
-	    }
-	}
-
-	# wait again
-	$timeout = 10;
-
-	my $count = 0;
-	while (($count < $timeout) && check_running($vmid, $nocheck)) {
-	    $count++;
-	    sleep 1;
-	}
-
-	if ($count >= $timeout) {
-	    warn "VM still running - terminating now with SIGKILL\n";
-	    kill 9, $pid;
-	    sleep 1;
-	}
-
-	vm_stop_cleanup($storecfg, $vmid, $conf, $keepActive, 1) if $conf;
+	_do_vm_stop($storecfg, $vmid, $skiplock, $nocheck, $timeout, $shutdown, $force, $keepActive);
    });
 }
 
