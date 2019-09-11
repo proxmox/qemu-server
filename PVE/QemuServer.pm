@@ -7400,6 +7400,25 @@ sub nbd_stop {
     vm_mon_cmd($vmid, 'nbd-server-stop');
 }
 
+sub create_reboot_request {
+    my ($vmid) = @_;
+    open(my $fh, '>', "/run/qemu-server/$vmid.reboot")
+	or die "failed to create reboot trigger file: $!\n";
+    close($fh);
+}
+
+sub clear_reboot_request {
+    my ($vmid) = @_;
+    my $path = "/run/qemu-server/$vmid.reboot";
+    my $res = 0;
+
+    $res = unlink($path);
+    die "could not remove reboot request for $vmid: $!"
+	if !$res && $! != POSIX::ENOENT;
+
+    return $res;
+}
+
 # bash completion helper
 
 sub complete_backup_archives {
