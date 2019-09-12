@@ -3579,6 +3579,8 @@ __PACKAGE__->register_method({
 	    PVE::Storage::activate_volumes($storecfg, [$volid]);
 	    my $size = PVE::Storage::volume_size_info($storecfg, $volid, 5);
 
+	    die "Size of volume $volid couldn't be determined\n" if (!defined($size));
+
 	    die "internal error" if $sizestr !~ m/^(\+)?(\d+(\.\d+)?)([KMGT])?$/;
 	    my ($ext, $newsize, $unit) = ($1, $2, $4);
 	    if ($unit) {
