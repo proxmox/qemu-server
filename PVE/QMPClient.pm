@@ -57,10 +57,10 @@ my $push_cmd_to_queue = sub {
     my $execute = $cmd->{execute} || die "no command name specified";
 
     my $qga = ($execute =~ /^guest\-+/) ? 1 : 0;
- 
+
     my $sname = PVE::QemuServer::qmp_socket($vmid, $qga);
 
-    $self->{queue_info}->{$sname} = { qga => $qga, vmid => $vmid, sname => $sname, cmds => [] } 
+    $self->{queue_info}->{$sname} = { qga => $qga, vmid => $vmid, sname => $sname, cmds => [] }
         if !$self->{queue_info}->{$sname};
 
     push @{$self->{queue_info}->{$sname}->{cmds}}, $cmd;
@@ -124,7 +124,7 @@ sub cmd {
 		 $cmd->{execute} eq 'block-job-complete' ||
 		 $cmd->{execute} eq 'backup-cancel' ||
 		 $cmd->{execute} eq 'query-savevm' ||
-		 $cmd->{execute} eq 'delete-drive-snapshot' || 
+		 $cmd->{execute} eq 'delete-drive-snapshot' ||
 		 $cmd->{execute} eq 'guest-shutdown' ||
 		 $cmd->{execute} eq 'blockdev-snapshot-internal-sync' ||
 		 $cmd->{execute} eq 'blockdev-snapshot-delete-internal-sync' ||
@@ -161,7 +161,7 @@ my $next_cmdid = sub {
 my $lookup_queue_info = sub {
     my ($self, $fh, $noerr) = @_;
 
-    my $queue_info = $self->{queue_lookup}->{$fh};    
+    my $queue_info = $self->{queue_lookup}->{$fh};
     if (!$queue_info) {
 	warn "internal error - unable to lookup queue info" if !$noerr;
 	return undef;
@@ -175,7 +175,7 @@ my $close_connection = sub {
     if (my $fh = delete $queue_info->{fh}) {
 	delete $self->{queue_lookup}->{$fh};
 	$self->{mux}->close($fh);
-    } 
+    }
 };
 
 my $open_connection = sub {
@@ -262,7 +262,7 @@ my $check_queue = sub {
 
 	    if ($qga) {
 
-		$qmpcmd = to_json({ execute => 'guest-sync-delimited', 
+		$qmpcmd = to_json({ execute => 'guest-sync-delimited',
 				    arguments => { id => int($cmd->{id})}}) .
 		    to_json({ execute => $cmd->{execute}, arguments => $cmd->{arguments}});
 
@@ -304,11 +304,11 @@ sub queue_execute {
     foreach my $sname (keys %{$self->{queue_info}}) {
 	my $queue_info = $self->{queue_info}->{$sname};
 	next if !scalar(@{$queue_info->{cmds}}); # no commands
-	
+
 	$queue_info->{error} = undef;
 	$queue_info->{current} = undef;
 
-	eval {  
+	eval {
 	    &$open_connection($self, $queue_info, $timeout);
 
 	    if (!$queue_info->{qga}) {
@@ -354,10 +354,10 @@ sub queue_execute {
 sub mux_close {
     my ($self, $mux, $fh) = @_;
 
-    my $queue_info = &$lookup_queue_info($self, $fh, 1); 
+    my $queue_info = &$lookup_queue_info($self, $fh, 1);
     return if !$queue_info;
 
-    $queue_info->{error} = "client closed connection\n" 
+    $queue_info->{error} = "client closed connection\n"
 	if !$queue_info->{error};
 }
 
@@ -365,16 +365,16 @@ sub mux_close {
 sub mux_input {
     my ($self, $mux, $fh, $input) = @_;
 
-    my $queue_info = &$lookup_queue_info($self, $fh); 
+    my $queue_info = &$lookup_queue_info($self, $fh);
     return if !$queue_info;
 
-    my $sname = $queue_info->{sname};    
-    my $vmid = $queue_info->{vmid};    
+    my $sname = $queue_info->{sname};
+    my $vmid = $queue_info->{vmid};
     my $qga = $queue_info->{qga};
 
     my $curcmd = $queue_info->{current};
     die "unable to lookup current command for VM $vmid ($sname)\n" if !$curcmd;
- 
+
     my $raw;
 
     if ($qga) {
@@ -399,7 +399,7 @@ sub mux_input {
 
 	    # skip results fro previous commands
 	    return if $cmdid < $curcmd->{id};
-	    
+
 	    if ($curcmd->{id} ne $cmdid) {
 		die "got wrong command id '$cmdid' (expected $curcmd->{id})\n";
 	    }
@@ -458,7 +458,7 @@ sub mux_input {
 sub mux_timeout {
     my ($self, $mux, $fh) = @_;
 
-    if (my $queue_info = &$lookup_queue_info($self, $fh)) { 
+    if (my $queue_info = &$lookup_queue_info($self, $fh)) {
 	$queue_info->{error} = "got timeout\n";
 	$self->{mux}->inbuffer($fh, ''); # clear to avoid warnings
     }
@@ -472,10 +472,10 @@ sub mux_eof {
     my $queue_info = &$lookup_queue_info($self, $fh);
     return if !$queue_info;
 
-    my $sname = $queue_info->{sname};    
-    my $vmid = $queue_info->{vmid};    
+    my $sname = $queue_info->{sname};
+    my $vmid = $queue_info->{vmid};
     my $qga = $queue_info->{qga};
-  
+
     my $curcmd = $queue_info->{current};
     die "unable to lookup current command for VM $vmid ($sname)\n" if !$curcmd;
 

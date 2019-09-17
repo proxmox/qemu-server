@@ -215,7 +215,7 @@ sub qemu_dimm_list {
 
 sub config {
     my ($conf, $vmid, $sockets, $cores, $defaults, $hotplug_features, $cmd) = @_;
-    
+
     my $memory = $conf->{memory} || $defaults->{memory};
     my $static_memory = 0;
 

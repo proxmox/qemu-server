@@ -222,7 +222,7 @@ sub __snapshot_create_vol_snapshots_hook {
 		PVE::QemuServer::vm_mon_cmd($vmid, "savevm-start");
 	    }
 	} elsif ($hook eq "after") {
-	    eval { 
+	    eval {
 		PVE::QemuServer::vm_mon_cmd($vmid, "savevm-end");
 		PVE::Storage::deactivate_volumes($storecfg, [$snap->{vmstate}]) if $snap->{vmstate};
 	    };

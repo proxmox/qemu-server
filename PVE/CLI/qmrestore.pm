@@ -19,8 +19,8 @@ sub setup_environment {
 }
 
 __PACKAGE__->register_method({
-    name => 'qmrestore', 
-    path => 'qmrestore', 
+    name => 'qmrestore',
+    path => 'qmrestore',
     method => 'POST',
     description => "Restore QemuServer vzdump backups.",
     parameters => {
@@ -29,7 +29,7 @@ __PACKAGE__->register_method({
 	    vmid => get_standard_option('pve-vmid', { completion => \&PVE::Cluster::complete_next_vmid }),
 	    archive => {
 		description => "The backup file. You can pass '-' to read from standard input.",
-		type => 'string', 
+		type => 'string',
 		maxLength => 255,
 		completion => \&PVE::QemuServer::complete_backup_archives,
 	    },
@@ -39,16 +39,16 @@ __PACKAGE__->register_method({
 		completion => \&PVE::QemuServer::complete_storage,
 	    }),
 	    force => {
-		optional => 1, 
+		optional => 1,
 		type => 'boolean',
 		description => "Allow to overwrite existing VM.",
 	    },
 	    unique => {
-		optional => 1, 
+		optional => 1,
 		type => 'boolean',
 		description => "Assign a unique random ethernet address.",
 	    },
-	    pool => { 
+	    pool => {
 		optional => 1,
 		type => 'string', format => 'pve-poolid',
 		description => "Add the VM to the specified pool.",
@@ -61,7 +61,7 @@ __PACKAGE__->register_method({
 	    }
 	},
     },
-    returns => { 
+    returns => {
 	type => 'string',
     },
     code => sub {
@@ -70,9 +70,9 @@ __PACKAGE__->register_method({
 	$param->{node} = PVE::INotify::nodename();
 
 	return PVE::API2::Qemu->create_vm($param);
-    }});    
+    }});
 
-our $cmddef = [ __PACKAGE__, 'qmrestore', ['archive', 'vmid'], undef, 
+our $cmddef = [ __PACKAGE__, 'qmrestore', ['archive', 'vmid'], undef,
 		sub {
 		    my $upid = shift;
 		    my $status = PVE::Tools::upid_read_status($upid);
