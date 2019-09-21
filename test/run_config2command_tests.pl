@@ -131,6 +131,21 @@ $qemu_server_config->mock(
     },
 );
 
+my $pve_common_tools;
+$pve_common_tools = Test::MockModule->new('PVE::Tools');
+$pve_common_tools->mock(
+    next_vnc_port => sub {
+	my ($family, $address) = @_;
+
+	return '5900';
+    },
+    next_spice_port => sub {
+	my ($family, $address) = @_;
+
+	return '61000';
+    },
+);
+
 sub diff($$) {
     my ($a, $b) = @_;
     return if $a eq $b;
