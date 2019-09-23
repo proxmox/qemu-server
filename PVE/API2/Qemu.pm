@@ -3314,7 +3314,7 @@ __PACKAGE__->register_method({
             }),
 	    online => {
 		type => 'boolean',
-		description => "Use online/live migration.",
+		description => "Use online/live migration if VM is running. Ignored if VM is stopped.",
 		optional => 1,
 	    },
 	    force => {
@@ -3375,9 +3375,6 @@ __PACKAGE__->register_method({
 
 	my $vmid = extract_param($param, 'vmid');
 
-	raise_param_exc({ targetstorage => "Live storage migration can only be done online." })
-	    if !$param->{online} && $param->{targetstorage};
-
 	raise_param_exc({ force => "Only root may use this option." })
 	    if $param->{force} && $authuser ne 'root@pam';
 
@@ -3398,7 +3395,13 @@ __PACKAGE__->register_method({
 	if (PVE::QemuServer::check_running($vmid)) {
 	    die "cant migrate running VM without --online\n"
 		if !$param->{online};
+	} else {
+	    warn "VM isn't running. Doing offline migration instead." if $param->{online};
+	    $param->{online} = 0;
 	}
+
+	raise_param_exc({ targetstorage => "Live storage migration can only be done online." })
+	    if !$param->{online} && $param->{targetstorage};
 
 	my $storecfg = PVE::Storage::config();
 
