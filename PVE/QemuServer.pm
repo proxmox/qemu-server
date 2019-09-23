@@ -1319,7 +1319,7 @@ EODESCR
     usb3 => {
 	optional => 1,
 	type => 'boolean',
-	description => "Specifies whether if given host option is a USB3 device or port (this does currently not work reliably with spice redirection and is then ignored).",
+	description => "Specifies whether if given host option is a USB3 device or port.",
         default => 0,
     },
 };
