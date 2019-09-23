@@ -1202,7 +1202,7 @@ my $update_vm_api  = sub {
 		    PVE::QemuServer::vmconfig_delete_pending_option($conf, $opt, $force);
 		    PVE::QemuConfig->write_config($vmid, $conf);
 		} elsif ($opt =~ m/^serial\d+$/) {
-		    if ($conf->{$opt} eq 'socket') {
+		    if ($conf->{$opt} eq 'socket' || (!$conf->{$opt} && $conf->{pending}->{$opt} eq 'socket')) {
 			$rpcenv->check_vm_perm($authuser, $vmid, undef, ['VM.Config.HWType']);
 		    } elsif ($authuser ne 'root@pam') {
 			die "only root can delete '$opt' config for real devices\n";
@@ -1210,7 +1210,7 @@ my $update_vm_api  = sub {
 		    PVE::QemuServer::vmconfig_delete_pending_option($conf, $opt, $force);
 		    PVE::QemuConfig->write_config($vmid, $conf);
 		} elsif ($opt =~ m/^usb\d+$/) {
-		    if ($conf->{$opt} =~ m/spice/) {
+		    if ($conf->{$opt} =~ m/spice/ || (!$conf->{$opt} && $conf->{pending}->{$opt} =~ m/spice/)) {
 			$rpcenv->check_vm_perm($authuser, $vmid, undef, ['VM.Config.HWType']);
 		    } elsif ($authuser ne 'root@pam') {
 			die "only root can delete '$opt' config for real devices\n";
