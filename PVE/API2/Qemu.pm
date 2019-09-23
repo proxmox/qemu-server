@@ -3393,10 +3393,9 @@ __PACKAGE__->register_method({
 	PVE::QemuConfig->check_lock($conf);
 
 	if (PVE::QemuServer::check_running($vmid)) {
-	    die "cant migrate running VM without --online\n"
-		if !$param->{online};
+	    die "can't migrate running VM without --online\n" if !$param->{online};
 	} else {
-	    warn "VM isn't running. Doing offline migration instead." if $param->{online};
+	    warn "VM isn't running. Doing offline migration instead\n." if $param->{online};
 	    $param->{online} = 0;
 	}
 
