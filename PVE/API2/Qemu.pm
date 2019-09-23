@@ -1180,14 +1180,18 @@ my $update_vm_api  = sub {
 	    foreach my $opt (@delete) {
 		$modified->{$opt} = 1;
 		$conf = PVE::QemuConfig->load_config($vmid); # update/reload
-		if (!defined($conf->{$opt}) && !defined($conf->{pending}->{$opt})) {
+
+		# value of what we want to delete, independent if pending or not
+		my $val = $conf->{$opt} // $conf->{pending}->{$opt};
+		if (!defined($val)) {
 		    warn "cannot delete '$opt' - not set in current configuration!\n";
 		    $modified->{$opt} = 0;
 		    next;
 		}
+		my $is_pending_val = defined($conf->{pending}->{$opt});
 
 		if ($opt =~ m/^unused/) {
-		    my $drive = PVE::QemuServer::parse_drive($opt, $conf->{$opt});
+		    my $drive = PVE::QemuServer::parse_drive($opt, $val);
 		    PVE::QemuConfig->check_protection($conf, "can't remove unused disk '$drive->{file}'");
 		    $rpcenv->check_vm_perm($authuser, $vmid, undef, ['VM.Config.Disk']);
 		    if (PVE::QemuServer::try_deallocate_drive($storecfg, $vmid, $conf, $opt, $drive, $rpcenv, $authuser)) {
@@ -1197,12 +1201,12 @@ my $update_vm_api  = sub {
 		} elsif (PVE::QemuServer::is_valid_drivename($opt)) {
 		    PVE::QemuConfig->check_protection($conf, "can't remove drive '$opt'");
 		    $rpcenv->check_vm_perm($authuser, $vmid, undef, ['VM.Config.Disk']);
-		    PVE::QemuServer::vmconfig_register_unused_drive($storecfg, $vmid, $conf, PVE::QemuServer::parse_drive($opt, $conf->{pending}->{$opt}))
-			if defined($conf->{pending}->{$opt});
+		    PVE::QemuServer::vmconfig_register_unused_drive($storecfg, $vmid, $conf, PVE::QemuServer::parse_drive($opt, $val))
+			if $is_pending_val;
 		    PVE::QemuServer::vmconfig_delete_pending_option($conf, $opt, $force);
 		    PVE::QemuConfig->write_config($vmid, $conf);
 		} elsif ($opt =~ m/^serial\d+$/) {
-		    if ($conf->{$opt} eq 'socket' || (!$conf->{$opt} && $conf->{pending}->{$opt} eq 'socket')) {
+		    if ($val eq 'socket') {
 			$rpcenv->check_vm_perm($authuser, $vmid, undef, ['VM.Config.HWType']);
 		    } elsif ($authuser ne 'root@pam') {
 			die "only root can delete '$opt' config for real devices\n";
@@ -1210,7 +1214,7 @@ my $update_vm_api  = sub {
 		    PVE::QemuServer::vmconfig_delete_pending_option($conf, $opt, $force);
 		    PVE::QemuConfig->write_config($vmid, $conf);
 		} elsif ($opt =~ m/^usb\d+$/) {
-		    if ($conf->{$opt} =~ m/spice/ || (!$conf->{$opt} && $conf->{pending}->{$opt} =~ m/spice/)) {
+		    if ($val =~ m/spice/) {
 			$rpcenv->check_vm_perm($authuser, $vmid, undef, ['VM.Config.HWType']);
 		    } elsif ($authuser ne 'root@pam') {
 			die "only root can delete '$opt' config for real devices\n";
