@@ -21,6 +21,7 @@ docs: qmeventd.8
 install: qmeventd docs
 	install -d ${DESTDIR}/${SBINDIR}
 	install -d ${DESTDIR}${SERVICEDIR}
+	install -d ${DESTDIR}${MANDIR}/man8
 	install -m 0644 qmeventd.service ${DESTDIR}${SERVICEDIR}
 	install -m 0755 qmeventd ${DESTDIR}${SBINDIR}
 	install -m 0644 qmeventd.8 ${DESTDIR}/${MANDIR}/man8

@@ -5,14 +5,12 @@ PACKAGE=qemu-server
 
 DESTDIR=
 PREFIX=/usr
-BINDIR=${PREFIX}/bin
 SBINDIR=${PREFIX}/sbin
 LIBDIR=${PREFIX}/lib/${PACKAGE}
 MANDIR=${PREFIX}/share/man
 DOCDIR=${PREFIX}/share/doc
 MAN1DIR=${MANDIR}/man1/
 MAN5DIR=${MANDIR}/man5/
-MAN8DIR=${MANDIR}/man8/
 BASHCOMPLDIR=${PREFIX}/share/bash-completion/completions/
 ZSHCOMPLDIR=${PREFIX}/share/zsh/vendor-completions/
 export PERLDIR=${PREFIX}/share/perl5
@@ -60,8 +58,6 @@ install: ${PKGSOURCES}
 	install -d ${DESTDIR}${LIBDIR}
 	install -d ${DESTDIR}/${MAN1DIR}
 	install -d ${DESTDIR}/${MAN5DIR}
-	install -d ${DESTDIR}/${MAN8DIR}
-	install -d ${DESTDIR}/usr/share/man/man5
 	install -d ${DESTDIR}/usr/share/${PACKAGE}
 	install -m 0644 -D qm.bash-completion ${DESTDIR}/${BASHCOMPLDIR}/qm
 	install -m 0644 -D qmrestore.bash-completion ${DESTDIR}/${BASHCOMPLDIR}/qmrestore
