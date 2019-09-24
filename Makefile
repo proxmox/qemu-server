@@ -3,17 +3,11 @@ include /usr/share/dpkg/architecture.mk
 
 PACKAGE=qemu-server
 
-CFLAGS+=-O2 -Werror -Wall -Wextra -Wpedantic -Wtype-limits -Wl,-z,relro -std=gnu11
-JSON_CFLAGS=$(shell pkg-config --cflags json-c)
-JSON_LIBS=$(shell pkg-config --libs json-c)
-
 DESTDIR=
 PREFIX=/usr
 BINDIR=${PREFIX}/bin
 SBINDIR=${PREFIX}/sbin
-BINDIR=${PREFIX}/bin
 LIBDIR=${PREFIX}/lib/${PACKAGE}
-SERVICEDIR=/lib/systemd/system
 VARLIBDIR=/var/lib/${PACKAGE}
 MANDIR=${PREFIX}/share/man
 DOCDIR=${PREFIX}/share/doc
@@ -42,9 +36,6 @@ all:
 dinstall: deb
 	dpkg -i ${DEB}
 
-qmeventd: qmeventd.c
-	$(CC) $(CFLAGS) ${JSON_CFLAGS} -o $@ $< ${JSON_LIBS}
-
 qm.bash-completion:
 	PVE_GENERATING_DOCS=1 perl -I. -T -e "use PVE::CLI::qm; PVE::CLI::qm->generate_bash_completions();" >$@.tmp
 	mv $@.tmp $@
@@ -62,14 +53,13 @@ qmrestore.zsh-completion:
 	mv $@.tmp $@
 
 PKGSOURCES=qm qm.1 qmrestore qmrestore.1 qmextract qm.conf.5 qm.bash-completion qmrestore.bash-completion \
-	    qm.zsh-completion qmrestore.zsh-completion qmeventd qmeventd.8
+	    qm.zsh-completion qmrestore.zsh-completion
 
 .PHONY: install
 install: ${PKGSOURCES}
 	install -d ${DESTDIR}/${SBINDIR}
 	install -d ${DESTDIR}${LIBDIR}
 	install -d ${DESTDIR}${VARLIBDIR}
-	install -d ${DESTDIR}${SERVICEDIR}
 	install -d ${DESTDIR}/${MAN1DIR}
 	install -d ${DESTDIR}/${MAN5DIR}
 	install -d ${DESTDIR}/${MAN8DIR}
@@ -84,17 +74,15 @@ install: ${PKGSOURCES}
 	install -m 0644 -D qmrestore.zsh-completion ${DESTDIR}/${ZSHCOMPLDIR}/_qmrestore
 	install -m 0644 -D bootsplash.jpg ${DESTDIR}/usr/share/${PACKAGE}
 	$(MAKE) -C PVE install
+	$(MAKE) -C qmeventd install
 	install -m 0755 qm ${DESTDIR}${SBINDIR}
 	install -m 0755 qmrestore ${DESTDIR}${SBINDIR}
-	install -m 0755 qmeventd ${DESTDIR}${SBINDIR}
-	install -m 0644 qmeventd.service ${DESTDIR}${SERVICEDIR}
 	install -m 0755 pve-bridge ${DESTDIR}${VARLIBDIR}/pve-bridge
 	install -m 0755 pve-bridge-hotplug ${DESTDIR}${VARLIBDIR}/pve-bridge-hotplug
 	install -m 0755 pve-bridgedown ${DESTDIR}${VARLIBDIR}/pve-bridgedown
 	install -D -m 0644 modules-load.conf ${DESTDIR}/etc/modules-load.d/qemu-server.conf
 	install -m 0755 qmextract ${DESTDIR}${LIBDIR}
 	install -m 0644 qm.1 ${DESTDIR}/${MAN1DIR}
-	install -m 0644 qmeventd.8 ${DESTDIR}/${MAN8DIR}
 	install -m 0644 qmrestore.1 ${DESTDIR}/${MAN1DIR}
 	install -m 0644 qm.conf.5 ${DESTDIR}/${MAN5DIR}
 	cd ${DESTDIR}/${MAN5DIR}; ln -s -f qm.conf.5.gz vm.conf.5.gz
@@ -121,7 +109,7 @@ upload: ${DEB}
 .PHONY: clean
 clean:
 	$(MAKE) cleanup-docgen
-	rm -rf build *.deb *.buildinfo *.changes qmeventd
+	rm -rf build *.deb *.buildinfo *.changes
 	find . -name '*~' -exec rm {} ';'
 
 
