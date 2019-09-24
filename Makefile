@@ -65,9 +65,6 @@ install: ${PKGSOURCES}
 	install -d ${DESTDIR}/${MAN8DIR}
 	install -d ${DESTDIR}/usr/share/man/man5
 	install -d ${DESTDIR}/usr/share/${PACKAGE}
-	install -m 0644 pve-usb.cfg ${DESTDIR}/usr/share/${PACKAGE}
-	install -m 0644 pve-q35.cfg ${DESTDIR}/usr/share/${PACKAGE}
-	install -m 0644 pve-q35-4.0.cfg ${DESTDIR}/usr/share/${PACKAGE}
 	install -m 0644 -D qm.bash-completion ${DESTDIR}/${BASHCOMPLDIR}/qm
 	install -m 0644 -D qmrestore.bash-completion ${DESTDIR}/${BASHCOMPLDIR}/qmrestore
 	install -m 0644 -D qm.zsh-completion ${DESTDIR}/${ZSHCOMPLDIR}/_qm
@@ -75,6 +72,7 @@ install: ${PKGSOURCES}
 	install -m 0644 -D bootsplash.jpg ${DESTDIR}/usr/share/${PACKAGE}
 	$(MAKE) -C PVE install
 	$(MAKE) -C qmeventd install
+	$(MAKE) -C qemu-configs install
 	install -m 0755 qm ${DESTDIR}${SBINDIR}
 	install -m 0755 qmrestore ${DESTDIR}${SBINDIR}
 	install -m 0755 pve-bridge ${DESTDIR}${VARLIBDIR}/pve-bridge

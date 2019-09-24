@@ -11,6 +11,8 @@ use Test::More;
 use PVE::Tools qw(file_get_contents);
 use PVE::QemuServer::PCI;
 
+my $qemu_cfg_base_path = "../qemu-configs";
+
 # not our format but that what QEMU gets passed with '-readconfig'
 sub slurp_qemu_config {
     my ($fn) = @_;
@@ -112,19 +114,19 @@ while (my ($id, $what) = each %$pcie_map) {
     check_conflict($id, $what);
 }
 
-my $pve_qm_cfg = slurp_qemu_config('../pve-q35.cfg');
+my $pve_qm_cfg = slurp_qemu_config("$qemu_cfg_base_path/pve-q35.cfg");
 my $pve_qm_cfg_map = extract_qemu_config_addrs($pve_qm_cfg);
 while (my ($id, $what) = each %$pve_qm_cfg_map) {
     check_conflict($id, $what);
 }
 
 # FIXME: restart with clean conflict $addr_map with only get_pci*_addr_map ones?
-my $pve_qm4_cfg = slurp_qemu_config('../pve-q35-4.0.cfg');
+my $pve_qm4_cfg = slurp_qemu_config("$qemu_cfg_base_path/pve-q35-4.0.cfg");
 my $pve_qm4_cfg_map = extract_qemu_config_addrs($pve_qm4_cfg);
 while (my ($id, $what) = each %$pve_qm4_cfg_map) {
     check_conflict($id, $what, 1);
 }
-my $pve_qm_usb_cfg = slurp_qemu_config('../pve-usb.cfg');
+my $pve_qm_usb_cfg = slurp_qemu_config("$qemu_cfg_base_path/pve-usb.cfg");
 my $pve_qm_usb_cfg_map = extract_qemu_config_addrs($pve_qm_usb_cfg);
 while (my ($id, $what) = each %$pve_qm_usb_cfg_map) {
     check_conflict($id, $what, 1);
