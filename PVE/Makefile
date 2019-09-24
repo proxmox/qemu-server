@@ -8,7 +8,7 @@ PERLSOURCE = 			\
 install:
 	install -d ${DESTDIR}${PERLDIR}/PVE
 	install -m 0644 ${PERLSOURCE} ${DESTDIR}${PERLDIR}/PVE/
-	make -C VZDump install
-	make -C API2 install
-	make -C CLI install
-	make -C QemuServer install
+	$(MAKE) -C VZDump install
+	$(MAKE) -C API2 install
+	$(MAKE) -C CLI install
+	$(MAKE) -C QemuServer install

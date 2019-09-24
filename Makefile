@@ -83,7 +83,7 @@ install: ${PKGSOURCES}
 	install -m 0644 -D qm.zsh-completion ${DESTDIR}/${ZSHCOMPLDIR}/_qm
 	install -m 0644 -D qmrestore.zsh-completion ${DESTDIR}/${ZSHCOMPLDIR}/_qmrestore
 	install -m 0644 -D bootsplash.jpg ${DESTDIR}/usr/share/${PACKAGE}
-	make -C PVE install
+	$(MAKE) -C PVE install
 	install -m 0755 qm ${DESTDIR}${SBINDIR}
 	install -m 0755 qmrestore ${DESTDIR}${SBINDIR}
 	install -m 0755 qmeventd ${DESTDIR}${SBINDIR}
@@ -112,7 +112,7 @@ ${DEB}:
 .PHONY: test
 test:
 	PVE_GENERATING_DOCS=1 perl -I. ./qm verifyapi
-	make -C test
+	$(MAKE) -C test
 
 .PHONY: upload
 upload: ${DEB}
@@ -120,7 +120,7 @@ upload: ${DEB}
 
 .PHONY: clean
 clean:
-	make cleanup-docgen
+	$(MAKE) cleanup-docgen
 	rm -rf build *.deb *.buildinfo *.changes qmeventd
 	find . -name '*~' -exec rm {} ';'
 
