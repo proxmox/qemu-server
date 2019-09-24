@@ -8,7 +8,6 @@ PREFIX=/usr
 BINDIR=${PREFIX}/bin
 SBINDIR=${PREFIX}/sbin
 LIBDIR=${PREFIX}/lib/${PACKAGE}
-VARLIBDIR=/var/lib/${PACKAGE}
 MANDIR=${PREFIX}/share/man
 DOCDIR=${PREFIX}/share/doc
 MAN1DIR=${MANDIR}/man1/
@@ -59,7 +58,6 @@ PKGSOURCES=qm qm.1 qmrestore qmrestore.1 qmextract qm.conf.5 qm.bash-completion 
 install: ${PKGSOURCES}
 	install -d ${DESTDIR}/${SBINDIR}
 	install -d ${DESTDIR}${LIBDIR}
-	install -d ${DESTDIR}${VARLIBDIR}
 	install -d ${DESTDIR}/${MAN1DIR}
 	install -d ${DESTDIR}/${MAN5DIR}
 	install -d ${DESTDIR}/${MAN8DIR}
@@ -73,11 +71,9 @@ install: ${PKGSOURCES}
 	$(MAKE) -C PVE install
 	$(MAKE) -C qmeventd install
 	$(MAKE) -C qemu-configs install
+	$(MAKE) -C vm-network-scripts install
 	install -m 0755 qm ${DESTDIR}${SBINDIR}
 	install -m 0755 qmrestore ${DESTDIR}${SBINDIR}
-	install -m 0755 pve-bridge ${DESTDIR}${VARLIBDIR}/pve-bridge
-	install -m 0755 pve-bridge-hotplug ${DESTDIR}${VARLIBDIR}/pve-bridge-hotplug
-	install -m 0755 pve-bridgedown ${DESTDIR}${VARLIBDIR}/pve-bridgedown
 	install -D -m 0644 modules-load.conf ${DESTDIR}/etc/modules-load.d/qemu-server.conf
 	install -m 0755 qmextract ${DESTDIR}${LIBDIR}
 	install -m 0644 qm.1 ${DESTDIR}/${MAN1DIR}
