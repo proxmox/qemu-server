@@ -1,3 +1,33 @@
+qemu-server (6.0-8) pve; urgency=medium
+
+  * fix issue where a SPICE remote viewer was disconnected during live migration
+
+  * Add VM reboot API/CLI integration, allowing to reboot a VM and applying any
+    pending changes in-between
+
+  * CPU flags: allow one to add aes flag
+
+  * fix #2263: die on live migration with local cloudinit disk
+
+  * fix #2041, #2272: Add Spice enhancements
+
+  * Add support for more (up to 16) PCI(e) devices
+
+  * usb: Allow one to make SPICE USB ports USB3 capabile
+
+  * rework kvm_user_version cache mechanism
+
+  * api: deletion: check also pending values for serial/usb
+
+  * migration api: explicitly clear "online" flag if VM is stopped to avoid
+    issues with storage migrations which are handled different for stopped VMs
+
+  * abort resize disk if current size could not be determined
+
+  * fix #2382: delete cloudinit disk before restoring
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 25 Sep 2019 17:07:00 +0200
+
 qemu-server (6.0-7) pve; urgency=medium
 
   * ensure new SPICE audio device works also with 'q35' based VMs
