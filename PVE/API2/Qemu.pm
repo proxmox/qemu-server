@@ -2840,10 +2840,10 @@ __PACKAGE__->register_method({
 		} elsif (PVE::QemuServer::is_valid_drivename($opt)) {
 		    my $drive = PVE::QemuServer::parse_drive($opt, $value);
 		    die "unable to parse drive options for '$opt'\n" if !$drive;
-		    if (PVE::QemuServer::drive_is_cdrom($drive, 1)) {
+		    if (PVE::QemuServer::drive_is_cdrom($drive)) {
 			$newconf->{$opt} = $value; # simply copy configuration
 		    } else {
-			if ($full || PVE::QemuServer::drive_is_cloudinit($drive)) {
+			if ($full) {
 			    die "Full clone feature is not supported for drive '$opt'\n"
 				if !PVE::Storage::volume_has_feature($storecfg, 'copy', $drive->{file}, $snapname, $running);
 			    $fullclone->{$opt} = 1;

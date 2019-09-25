@@ -7152,14 +7152,6 @@ sub clone_disk {
 
 	print "create full clone of drive $drivename ($drive->{file})\n";
 	my $name = undef;
-	if (drive_is_cloudinit($drive)) {
-	    $name = "vm-$newvmid-cloudinit";
-	    $snapname = undef;
-	    # we only get here if it's supported by QEMU_FORMAT_RE, so just accept
-	    if ($dst_format ne 'raw') {
-		$name .= ".$dst_format";
-	    }
-	}
 	$newvolid = PVE::Storage::vdisk_alloc($storecfg, $storeid, $newvmid, $dst_format, $name, ($size/1024));
 	push @$newvollist, $newvolid;
 
