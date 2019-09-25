@@ -109,7 +109,7 @@ upload: ${DEB}
 .PHONY: clean
 clean:
 	$(MAKE) cleanup-docgen
-	rm -rf $(PACKAGE)-*/ *.deb *.buildinfo *.changes *.dsc
+	rm -rf $(PACKAGE)-*/ *.deb *.buildinfo *.changes *.dsc $(PACKAGE)_*.tar.gz
 	find . -name '*~' -exec rm {} ';'
 
 
