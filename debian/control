@@ -2,7 +2,7 @@ Source: qemu-server
 Section: admin
 Priority: optional
 Maintainer: Proxmox Support Team <support@proxmox.com>
-Build-Depends: debhelper (>= 10~),
+Build-Depends: debhelper (>= 11~),
                libio-multiplex-perl,
                libjson-c-dev,
                libpve-common-perl (>= 5.0-49),
@@ -16,7 +16,7 @@ Build-Depends: debhelper (>= 10~),
                pve-doc-generator (>= 5.3-3),
                pve-firewall,
                qemu-utils,
-Standards-Version: 3.9.5
+Standards-Version: 4.3.0
 Homepage: http://www.proxmox.com
 
 Package: qemu-server
