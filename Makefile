@@ -2,6 +2,7 @@ include /usr/share/dpkg/pkg-info.mk
 include /usr/share/dpkg/architecture.mk
 
 PACKAGE=qemu-server
+BUILDDIR ?= ${PACKAGE}-${DEB_VERSION_UPSTREAM}
 
 DESTDIR=
 PREFIX=/usr
@@ -77,14 +78,16 @@ install: ${PKGSOURCES}
 	install -m 0644 qm.conf.5 ${DESTDIR}/${MAN5DIR}
 	cd ${DESTDIR}/${MAN5DIR}; ln -s -f qm.conf.5.gz vm.conf.5.gz
 
+${BUILDDIR}:
+	rm -rf $(BUILDDIR)
+	rsync -a * $(BUILDDIR)
+	echo "git clone git://git.proxmox.com/git/qemu-server.git\\ngit checkout $(GITVERSION)" > $(BUILDDIR)/debian/SOURCE
+
 .PHONY: deb
 deb: ${DEBS}
 ${DBG_DEB}: ${DEB}
-${DEB}:
-	rm -rf build
-	rsync -a * build
-	echo "git clone git://git.proxmox.com/git/qemu-server.git\\ngit checkout ${GITVERSION}" > build/debian/SOURCE
-	cd build; dpkg-buildpackage -b -us -uc
+${DEB}: $(BUILDDIR)
+	cd $(BUILDDIR); dpkg-buildpackage -b -us -uc
 	lintian ${DEBS}
 
 .PHONY: test
@@ -99,7 +102,7 @@ upload: ${DEB}
 .PHONY: clean
 clean:
 	$(MAKE) cleanup-docgen
-	rm -rf build *.deb *.buildinfo *.changes
+	rm -rf $(PACKAGE)-*/ *.deb *.buildinfo *.changes
 	find . -name '*~' -exec rm {} ';'
 
 
