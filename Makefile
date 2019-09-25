@@ -21,6 +21,7 @@ GITVERSION:=$(shell git rev-parse HEAD)
 
 DEB=${PACKAGE}_${DEB_VERSION_UPSTREAM_REVISION}_${DEB_BUILD_ARCH}.deb
 DBG_DEB=${PACKAGE}-dbgsym_${DEB_VERSION_UPSTREAM_REVISION}_${DEB_BUILD_ARCH}.deb
+DSC=${PACKAGE}_${DEB_VERSION_UPSTREAM_REVISION}.dsc
 
 DEBS=${DEB} ${DBG_DEB}
 
@@ -90,6 +91,12 @@ ${DEB}: $(BUILDDIR)
 	cd $(BUILDDIR); dpkg-buildpackage -b -us -uc
 	lintian ${DEBS}
 
+.PHONY: dsc
+dsc: ${DSC}
+${DSC}: ${BUILDDIR}
+	cd ${BUILDDIR}; dpkg-buildpackage -S -us -uc -d
+	lintian ${DSC}
+
 .PHONY: test
 test:
 	PVE_GENERATING_DOCS=1 perl -I. ./qm verifyapi
@@ -102,7 +109,7 @@ upload: ${DEB}
 .PHONY: clean
 clean:
 	$(MAKE) cleanup-docgen
-	rm -rf $(PACKAGE)-*/ *.deb *.buildinfo *.changes
+	rm -rf $(PACKAGE)-*/ *.deb *.buildinfo *.changes *.dsc
 	find . -name '*~' -exec rm {} ';'
 
 
