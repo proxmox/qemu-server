@@ -1,4 +1,4 @@
-qemu-server (6.0-8) pve; urgency=medium
+qemu-server (6.0-9) pve; urgency=medium
 
   * fix issue where a SPICE remote viewer was disconnected during live migration
 
@@ -15,6 +15,13 @@ qemu-server (6.0-8) pve; urgency=medium
 
   * usb: Allow one to make SPICE USB ports USB3 capabile
 
+  * allow one to use USB3 for SPICE USB ports with VMs started already with
+    QEMU version 4.0.0, as live-migrations were not possible with this previous
+    unsupported setup anyway. Live-snapshots from VMs with a SPICE USB device
+    which was manually set (wasn't possible over Webinterface) to USB3 with a
+    machine version of 4.0.0, need to remove the "usb3" flag again from the
+    snapshot config when restoring it.
+
   * rework kvm_user_version cache mechanism
 
   * api: deletion: check also pending values for serial/usb
@@ -26,7 +33,7 @@ qemu-server (6.0-8) pve; urgency=medium
 
   * fix #2382: delete cloudinit disk before restoring
 
- -- Proxmox Support Team <support@proxmox.com>  Wed, 25 Sep 2019 17:07:00 +0200
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 26 Sep 2019 12:01:58 +0200
 
 qemu-server (6.0-7) pve; urgency=medium
 
