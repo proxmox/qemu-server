@@ -3830,7 +3830,7 @@ sub config_to_command {
 
     # usb devices
     my $usb_dev_features = {};
-    $usb_dev_features->{spice_usb3} = 1 if qemu_machine_feature_enabled($machine_type, $kvmver, 4, 1);
+    $usb_dev_features->{spice_usb3} = 1 if qemu_machine_feature_enabled($machine_type, $kvmver, 4, 0);
 
     my @usbdevices = PVE::QemuServer::USB::get_usb_devices($conf, $usbdesc->{format}, $MAX_USB_DEVICES, $usb_dev_features);
     push @$devices, @usbdevices if @usbdevices;
