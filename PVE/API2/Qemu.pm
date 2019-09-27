@@ -65,10 +65,9 @@ my $check_storage_access = sub {
 	my $isCDROM = PVE::QemuServer::drive_is_cdrom($drive);
 
 	my $volid = $drive->{file};
+	my ($storeid, $volname) = PVE::Storage::parse_volume_id($volid, 1);
 
-	if (!$volid || ($volid eq 'none' || $volid eq 'cloudinit')) {
-	    # nothing to check
-	} elsif ($volid =~ m/^(([^:\s]+):)?(cloudinit)$/) {
+	if (!$volid || ($volid eq 'none' || $volid eq 'cloudinit' || $volname eq 'cloudinit')) {
 	    # nothing to check
 	} elsif ($isCDROM && ($volid eq 'cdrom')) {
 	    $rpcenv->check($authuser, "/", ['Sys.Console']);
@@ -141,12 +140,13 @@ my $create_disks = sub {
 	my ($ds, $disk) = @_;
 
 	my $volid = $disk->{file};
+	my ($storeid, $volname) = PVE::Storage::parse_volume_id($volid, 1);
 
 	if (!$volid || $volid eq 'none' || $volid eq 'cdrom') {
 	    delete $disk->{size};
 	    $res->{$ds} = PVE::QemuServer::print_drive($vmid, $disk);
-	} elsif ($volid =~ m!^(?:([^/:\s]+):)?cloudinit$!) {
-	    my $storeid = $1 || $default_storage;
+	} elsif ($volname eq 'cloudinit') {
+	    $storeid = $storeid // $default_storage;
 	    die "no storage ID specified (and no default storage)\n" if !$storeid;
 	    my $scfg = PVE::Storage::storage_config($storecfg, $storeid);
 	    my $name = "vm-$vmid-cloudinit";
@@ -198,8 +198,6 @@ my $create_disks = sub {
 	    }
 
 	    if ($volid_is_new) {
-
-		my ($storeid, $volname) = PVE::Storage::parse_volume_id($volid, 1);
 
 		PVE::Storage::activate_volumes($storecfg, [ $volid ]) if $storeid;
 
@@ -1044,12 +1042,15 @@ my $update_vm_api  = sub {
 	my $volid = $drive->{file};
 	return if !$volid || !($drive->{replicate}//1);
 	return if PVE::QemuServer::drive_is_cdrom($drive);
-	my ($storeid, $format);
+
+	my ($storeid, $volname) = PVE::Storage::parse_volume_id($volid, 1);
+	return if $volname eq 'cloudinit';
+
+	my $format;
 	if ($volid =~ $NEW_DISK_RE) {
 	    $storeid = $2;
 	    $format = $drive->{format} || PVE::Storage::storage_default_format($storecfg, $storeid);
 	} else {
-	    ($storeid, undef) = PVE::Storage::parse_volume_id($volid, 1);
 	    $format = (PVE::Storage::parse_volname($storecfg, $volid))[6];
 	}
 	return if PVE::Storage::storage_can_replicate($storecfg, $storeid, $format);
