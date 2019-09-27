@@ -34,19 +34,16 @@ sub commit_cloudinit_disk {
     my $scfg = PVE::Storage::storage_config($storecfg, $storeid);
     my $format = PVE::QemuServer::qemu_img_format($scfg, $volname);
 
-    # required before file_size_info, some existing vols won't show up else
-    my $plugin = PVE::Storage::Plugin->lookup($scfg->{type});
-    eval { $plugin->activate_volume($storeid, $scfg, $volname) };
-
-    my $size = eval { PVE::Storage::file_size_info($iso_path) };
-    if ($size <= 0) {
+    my $size = eval { PVE::Storage::volume_size_info($storecfg, $drive->{file}) };
+    if (!defined($size) || $size <= 0) {
 	$volname =~ m/(vm-$vmid-cloudinit(.\Q$format\E)?)/;
 	my $name = $1;
 	$size = 4 * 1024;
 	PVE::Storage::vdisk_alloc($storecfg, $storeid, $vmid, $format, $name, $size);
 	$size *= 1024; # vdisk alloc takes KB, qemu-img dd's osize takes byte
-	$plugin->activate_volume($storeid, $scfg, $volname);
     }
+    my $plugin = PVE::Storage::Plugin->lookup($scfg->{type});
+    $plugin->activate_volume($storeid, $scfg, $volname);
 
     eval {
 	run_command([['genisoimage', '-iso-level', '3', '-R', '-V', $label, $path],
