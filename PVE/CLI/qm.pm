@@ -933,58 +933,7 @@ our $cmddef = {
 
     delsnapshot => [ "PVE::API2::Qemu", 'delsnapshot', ['vmid', 'snapname'], { node => $nodename } , $upid_exit ],
 
-    listsnapshot => [ "PVE::API2::Qemu", 'snapshot_list', ['vmid'], { node => $nodename },
-		    sub {
-			my $res = shift;
-
-			my $snapshots = { map { $_->{name} => $_ } @$res };
-
-			my @roots;
-			foreach my $e (@$res) {
-			    my $parent;
-			    if (($parent = $e->{parent}) && defined $snapshots->{$parent}) {
-				push @{$snapshots->{$parent}->{children}}, $e->{name};
-			    } else {
-				push @roots, $e->{name};
-			    }
-			}
-
-			# sort the elements by snaptime - with "current" (no snaptime) highest
-			my $snaptimesort = sub {
-			    return +1 if !defined $snapshots->{$a}->{snaptime};
-			    return -1 if !defined $snapshots->{$b}->{snaptime};
-			    return $snapshots->{$a}->{snaptime} <=> $snapshots->{$b}->{snaptime};
-			};
-
-			# recursion function for displaying the tree
-			my $snapshottree;
-		        $snapshottree = sub {
-			    my ($prefix, $root, $snapshots) = @_;
-			    my $e = $snapshots->{$root};
-
-			    my $description = $e->{description} || 'no-description';
-			    ($description) = $description =~ m/(.*)$/m;
-
-			    my $timestring = "";
-			    if (defined $e->{snaptime}) {
-				$timestring = strftime("%F %H:%M:%S", localtime($e->{snaptime}));
-			    }
-
-			    my $len = 30 - length($prefix); # for aligning the description
-			    printf("%s %-${len}s %-23s %s\n", $prefix, $root, $timestring, $description);
-
-			    if ($e->{children}) {
-				$prefix = "    $prefix";
-				foreach my $child (sort $snaptimesort @{$e->{children}}) {
-				    $snapshottree->($prefix, $child, $snapshots);
-				}
-			    }
-			};
-
-			foreach my $root (sort $snaptimesort @roots) {
-			    $snapshottree->('`->', $root, $snapshots);
-			}
-		    }],
+    listsnapshot => [ "PVE::API2::Qemu", 'snapshot_list', ['vmid'], { node => $nodename }, \&PVE::GuestHelpers::print_snapshot_tree],
 
     rollback => [ "PVE::API2::Qemu", 'rollback', ['vmid', 'snapname'], { node => $nodename } , $upid_exit ],
 
