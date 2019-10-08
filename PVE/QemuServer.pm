@@ -4017,6 +4017,11 @@ sub config_to_command {
 	my $pfamily = PVE::Tools::get_host_address_family($nodename);
 	my @nodeaddrs = PVE::Tools::getaddrinfo_all('localhost', family => $pfamily);
 	die "failed to get an ip address of type $pfamily for 'localhost'\n" if !@nodeaddrs;
+
+	push @$devices, '-device', "virtio-serial,id=spice$pciaddr";
+	push @$devices, '-chardev', "spicevmc,id=vdagent,name=vdagent";
+	push @$devices, '-device', "virtserialport,chardev=vdagent,name=com.redhat.spice.0";
+
 	my $localhost = PVE::Network::addr_to_ip($nodeaddrs[0]->{addr});
 	$spice_port = PVE::Tools::next_spice_port($pfamily, $localhost);
 
@@ -4029,11 +4034,6 @@ sub config_to_command {
 	my $spice_opts = "tls-port=${spice_port},addr=$localhost,tls-ciphers=HIGH,seamless-migration=on";
 	$spice_opts .= ",streaming-video=$spice_enhancement->{videostreaming}" if $spice_enhancement->{videostreaming};
 	push @$devices, '-spice', "$spice_opts";
-
-	push @$devices, '-device', "virtio-serial,id=spice$pciaddr";
-	push @$devices, '-chardev', "spicevmc,id=vdagent,name=vdagent";
-	push @$devices, '-device', "virtserialport,chardev=vdagent,name=com.redhat.spice.0";
-
     }
 
     # enable balloon by default, unless explicitly disabled
