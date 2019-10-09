@@ -14,18 +14,18 @@
   -vnc unix:/var/run/qemu-server/8006.vnc,password \
   -cpu kvm64,+lahf_lm,+sep,+kvm_pv_unhalt,+kvm_pv_eoi,enforce \
   -m 768 \
-  -device 'pci-bridge,id=pci.2,chassis_nr=2,bus=pci.0,addr=0x1f' \
   -device 'pci-bridge,id=pci.1,chassis_nr=1,bus=pci.0,addr=0x1e' \
+  -device 'pci-bridge,id=pci.2,chassis_nr=2,bus=pci.0,addr=0x1f' \
   -device 'vmgenid,guid=c773c261-d800-4348-9f5d-167fadd53cf8' \
   -device 'piix3-usb-uhci,id=uhci,bus=pci.0,addr=0x1.0x2' \
   -device 'nec-usb-xhci,id=xhci,bus=pci.1,addr=0x1b' \
   -chardev 'spicevmc,id=usbredirchardev1,name=usbredir' \
   -device 'usb-redir,chardev=usbredirchardev1,id=usbredirdev1,bus=xhci.0' \
   -device 'qxl-vga,id=vga,bus=pci.0,addr=0x2' \
-  -spice 'tls-port=61000,addr=127.0.0.1,tls-ciphers=HIGH,seamless-migration=on' \
   -device 'virtio-serial,id=spice,bus=pci.0,addr=0x9' \
   -chardev 'spicevmc,id=vdagent,name=vdagent' \
   -device 'virtserialport,chardev=vdagent,name=com.redhat.spice.0' \
+  -spice 'tls-port=61000,addr=127.0.0.1,tls-ciphers=HIGH,seamless-migration=on' \
   -device 'virtio-balloon-pci,id=balloon0,bus=pci.0,addr=0x3' \
   -iscsi 'initiator-name=iqn.1993-08.org.debian:01:aabbccddeeff' \
   -netdev 'type=tap,id=net0,ifname=tap8006i0,script=/var/lib/qemu-server/pve-bridge,downscript=/var/lib/qemu-server/pve-bridgedown,vhost=on' \

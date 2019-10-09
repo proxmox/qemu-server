@@ -203,8 +203,8 @@ sub do_test($) {
     if (-f $cmd_fn) {
 	my $cmdline_expected = file_get_contents($cmd_fn);
 
-	my $cmd_expected = [ sort split /\s*\\?\n\s*/, $cmdline_expected ];
-	my $cmd = [ sort split /\s*\\?\n\s*/, $cmdline ];
+	my $cmd_expected = [ split /\s*\\?\n\s*/, $cmdline_expected ];
+	my $cmd = [ split /\s*\\?\n\s*/, $cmdline ];
 
 	# comment out for easier debugging
 	#file_set_contents("$cmd_fn.tmp", $cmdline);

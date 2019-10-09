@@ -21,8 +21,8 @@
   -numa 'node,nodeid=0,cpus=0,memdev=ram-node0' \
   -object 'memory-backend-ram,id=ram-node1,size=256M' \
   -numa 'node,nodeid=1,cpus=1,memdev=ram-node1' \
-  -device 'pci-bridge,id=pci.2,chassis_nr=2,bus=pci.0,addr=0x1f' \
   -device 'pci-bridge,id=pci.1,chassis_nr=1,bus=pci.0,addr=0x1e' \
+  -device 'pci-bridge,id=pci.2,chassis_nr=2,bus=pci.0,addr=0x1f' \
   -device 'vmgenid,guid=54d1c06c-8f5b-440f-b5b2-6eab1380e13d' \
   -device 'piix3-usb-uhci,id=uhci,bus=pci.0,addr=0x1.0x2' \
   -device 'usb-tablet,id=tablet,bus=uhci.0,port=1' \
