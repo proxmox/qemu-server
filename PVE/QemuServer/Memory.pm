@@ -358,7 +358,7 @@ sub hugepages_mount {
    my $mountdata = PVE::ProcFSTools::parse_proc_mounts();
 
    foreach my $size (qw(2048 1048576)) {
-	return if (! -d "/sys/kernel/mm/hugepages/hugepages-${size}kB");
+	next if (! -d "/sys/kernel/mm/hugepages/hugepages-${size}kB");
 
 	my $path = "/run/hugepages/kvm/${size}kB";
 
@@ -398,20 +398,26 @@ sub hugepages_size {
    if ($conf->{hugepages} eq 'any') {
 
 	#try to use 1GB if available && memory size is matching
-	if (-d "/sys/kernel/mm/hugepages/hugepages-1048576kB" && ($size % 1024 == 0)) {
+	my $gb_exists = -d "/sys/kernel/mm/hugepages/hugepages-1048576kB";
+	if ($gb_exists && ($size % 1024 == 0)) {
 	    return 1024;
-	} else {
+	} elsif (-d "/sys/kernel/mm/hugepages/hugepages-2048kB") {
 	    return 2;
 	}
+
+	die "your system doesn't support hugepages for memory size $size\n"
+	    if $gb_exists;
+
+	die "your system doesn't support hugepages\n";
 
    } else {
 
 	my $hugepagesize = $conf->{hugepages} * 1024 . "kB";
 
 	if (! -d "/sys/kernel/mm/hugepages/hugepages-$hugepagesize") {
-		die "your system doesn't support hugepages of $hugepagesize";
+		die "your system doesn't support hugepages of $hugepagesize\n";
 	}
-	die "Memory size $size is not a multiple of the requested hugepages size $hugepagesize" if ($size % $conf->{hugepages}) != 0;
+	die "Memory size $size is not a multiple of the requested hugepages size $hugepagesize\n" if ($size % $conf->{hugepages}) != 0;
 	return $conf->{hugepages};
    }
 
