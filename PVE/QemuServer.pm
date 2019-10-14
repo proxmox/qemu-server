@@ -3623,8 +3623,6 @@ sub config_to_command {
 
     die "detected old qemu-kvm binary ($kvmver)\n" if $vernum < 15000;
 
-    my $have_ovz = -f '/proc/vz/vestat';
-
     my $q35 = machine_type_is_q35($conf);
     my $hotplug_features = parse_hotplug_features(defined($conf->{hotplug}) ? $conf->{hotplug} : '1');
     my $use_old_bios_files = undef;
