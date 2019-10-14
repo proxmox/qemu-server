@@ -5418,7 +5418,6 @@ sub vm_start {
 
 	my ($cmd, $vollist, $spice_port) = config_to_command($storecfg, $vmid, $conf, $defaults, $forcemachine);
 
-	my $migrate_port = 0;
 	my $migrate_uri;
 	if ($statefile) {
 	    if ($statefile eq 'tcp') {
@@ -5446,7 +5445,7 @@ sub vm_start {
 		}
 
 		my $pfamily = PVE::Tools::get_host_address_family($nodename);
-		$migrate_port = PVE::Tools::next_migrate_port($pfamily);
+		my $migrate_port = PVE::Tools::next_migrate_port($pfamily);
 		$migrate_uri = "tcp:${localip}:${migrate_port}";
 		push @$cmd, '-incoming', $migrate_uri;
 		push @$cmd, '-S';
@@ -5570,16 +5569,16 @@ sub vm_start {
 	    my $migrate_network_addr = PVE::Cluster::get_local_migration_ip($migration_network);
 	    my $localip = $migrate_network_addr ? $migrate_network_addr : PVE::Cluster::remote_node_ip($nodename, 1);
 	    my $pfamily = PVE::Tools::get_host_address_family($nodename);
-	    $migrate_port = PVE::Tools::next_migrate_port($pfamily);
+	    my $storage_migrate_port = PVE::Tools::next_migrate_port($pfamily);
 
-	    vm_mon_cmd_nocheck($vmid, "nbd-server-start", addr => { type => 'inet', data => { host => "${localip}", port => "${migrate_port}" } } );
+	    vm_mon_cmd_nocheck($vmid, "nbd-server-start", addr => { type => 'inet', data => { host => "${localip}", port => "${storage_migrate_port}" } } );
 
 	    $localip = "[$localip]" if Net::IP::ip_is_ipv6($localip);
 
 	    foreach my $opt (sort keys %$local_volumes) {
 		my $volid = $local_volumes->{$opt};
 		vm_mon_cmd_nocheck($vmid, "nbd-server-add", device => "drive-$opt", writable => JSON::true );
-		my $migrate_storage_uri = "nbd:${localip}:${migrate_port}:exportname=drive-$opt";
+		my $migrate_storage_uri = "nbd:${localip}:${storage_migrate_port}:exportname=drive-$opt";
 		print "storage migration listens on $migrate_storage_uri volume:$volid\n";
 	    }
 	}
