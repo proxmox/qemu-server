@@ -2350,40 +2350,6 @@ sub vm_is_volid_owner {
     return undef;
 }
 
-sub split_flagged_list {
-    my $text = shift || '';
-    $text =~ s/[,;]/ /g;
-    $text =~ s/^\s+//;
-    return { map { /^(!?)(.*)$/ && ($2, $1) } ($text =~ /\S+/g) };
-}
-
-sub join_flagged_list {
-    my ($how, $lst) = @_;
-    join $how, map { $lst->{$_} . $_ } keys %$lst;
-}
-
-sub vmconfig_delete_pending_option {
-    my ($conf, $key, $force) = @_;
-
-    delete $conf->{pending}->{$key};
-    my $pending_delete_hash = split_flagged_list($conf->{pending}->{delete});
-    $pending_delete_hash->{$key} = $force ? '!' : '';
-    $conf->{pending}->{delete} = join_flagged_list(',', $pending_delete_hash);
-}
-
-sub vmconfig_undelete_pending_option {
-    my ($conf, $key) = @_;
-
-    my $pending_delete_hash = split_flagged_list($conf->{pending}->{delete});
-    delete $pending_delete_hash->{$key};
-
-    if (%$pending_delete_hash) {
-	$conf->{pending}->{delete} = join_flagged_list(',', $pending_delete_hash);
-    } else {
-	delete $conf->{pending}->{delete};
-    }
-}
-
 sub vmconfig_register_unused_drive {
     my ($storecfg, $vmid, $conf, $drive) = @_;
 
@@ -2396,37 +2362,6 @@ sub vmconfig_register_unused_drive {
 	    PVE::QemuConfig->add_unused_volume($conf, $volid, $vmid);
 	}
     }
-}
-
-sub vmconfig_cleanup_pending {
-    my ($conf) = @_;
-
-    # remove pending changes when nothing changed
-    my $changes;
-    foreach my $opt (keys %{$conf->{pending}}) {
-	if (defined($conf->{$opt}) && ($conf->{pending}->{$opt} eq  $conf->{$opt})) {
-	    $changes = 1;
-	    delete $conf->{pending}->{$opt};
-	}
-    }
-
-    my $current_delete_hash = split_flagged_list($conf->{pending}->{delete});
-    my $pending_delete_hash = {};
-    while (my ($opt, $force) = each %$current_delete_hash) {
-	if (defined($conf->{$opt})) {
-	    $pending_delete_hash->{$opt} = $force;
-	} else {
-	    $changes = 1;
-	}
-    }
-
-    if (%$pending_delete_hash) {
-	$conf->{pending}->{delete} = join_flagged_list(',', $pending_delete_hash);
-    } else {
-	delete $conf->{pending}->{delete};
-    }
-
-    return $changes;
 }
 
 # smbios: [manufacturer=str][,product=str][,version=str][,serial=str][,uuid=uuid][,sku=str][,family=str][,base64=bool]
@@ -4920,7 +4855,7 @@ sub vmconfig_hotplug_pending {
 
     my $hotplug_features = parse_hotplug_features(defined($conf->{hotplug}) ? $conf->{hotplug} : '1');
 
-    my $pending_delete_hash = split_flagged_list($conf->{pending}->{delete});
+    my $pending_delete_hash = PVE::QemuConfig->parse_pending_delete($conf->{pending}->{delete});
     while (my ($opt, $force) = each %$pending_delete_hash) {
 	next if $selection && !$selection->{$opt};
 	eval {
@@ -4976,7 +4911,7 @@ sub vmconfig_hotplug_pending {
 	} else {
 	    # save new config if hotplug was successful
 	    delete $conf->{$opt};
-	    vmconfig_undelete_pending_option($conf, $opt);
+	    PVE::QemuConfig->remove_from_pending_delete($conf, $opt);
 	    PVE::QemuConfig->write_config($vmid, $conf);
 	    $conf = PVE::QemuConfig->load_config($vmid); # update/reload
 	}
@@ -5111,25 +5046,27 @@ sub vmconfig_delete_or_detach_drive {
     }
 }
 
+
+
 sub vmconfig_apply_pending {
     my ($vmid, $conf, $storecfg) = @_;
 
     # cold plug
 
-    my $pending_delete_hash = split_flagged_list($conf->{pending}->{delete});
+    my $pending_delete_hash = PVE::QemuConfig->parse_pending_delete($conf->{pending}->{delete});
     while (my ($opt, $force) = each %$pending_delete_hash) {
 	die "internal error" if $opt =~ m/^unused/;
 	$conf = PVE::QemuConfig->load_config($vmid); # update/reload
 	if (!defined($conf->{$opt})) {
-	    vmconfig_undelete_pending_option($conf, $opt);
+	    PVE::QemuConfig->remove_from_pending_delete($conf, $opt);
 	    PVE::QemuConfig->write_config($vmid, $conf);
 	} elsif (is_valid_drivename($opt)) {
 	    vmconfig_delete_or_detach_drive($vmid, $storecfg, $conf, $opt, $force);
-	    vmconfig_undelete_pending_option($conf, $opt);
+	    PVE::QemuConfig->remove_from_pending_delete($conf, $opt);
 	    delete $conf->{$opt};
 	    PVE::QemuConfig->write_config($vmid, $conf);
 	} else {
-	    vmconfig_undelete_pending_option($conf, $opt);
+	    PVE::QemuConfig->remove_from_pending_delete($conf, $opt);
 	    delete $conf->{$opt};
 	    PVE::QemuConfig->write_config($vmid, $conf);
 	}

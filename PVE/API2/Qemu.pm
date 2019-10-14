@@ -931,7 +931,7 @@ __PACKAGE__->register_method({
 
 	my $conf = PVE::QemuConfig->load_config($param->{vmid});
 
-	my $pending_delete_hash = PVE::QemuServer::split_flagged_list($conf->{pending}->{delete});
+	my $pending_delete_hash = PVE::QemuConfig->parse_pending_delete($conf->{pending}->{delete});
 
 	my $res = [];
 
@@ -1182,7 +1182,7 @@ my $update_vm_api  = sub {
 		    $rpcenv->check_vm_perm($authuser, $vmid, undef, ['VM.Config.Disk']);
 		    PVE::QemuServer::vmconfig_register_unused_drive($storecfg, $vmid, $conf, PVE::QemuServer::parse_drive($opt, $val))
 			if $is_pending_val;
-		    PVE::QemuServer::vmconfig_delete_pending_option($conf, $opt, $force);
+		    PVE::QemuConfig->add_to_pending_delete($conf, $opt, $force);
 		    PVE::QemuConfig->write_config($vmid, $conf);
 		} elsif ($opt =~ m/^serial\d+$/) {
 		    if ($val eq 'socket') {
@@ -1190,7 +1190,7 @@ my $update_vm_api  = sub {
 		    } elsif ($authuser ne 'root@pam') {
 			die "only root can delete '$opt' config for real devices\n";
 		    }
-		    PVE::QemuServer::vmconfig_delete_pending_option($conf, $opt, $force);
+		    PVE::QemuConfig->add_to_pending_delete($conf, $opt, $force);
 		    PVE::QemuConfig->write_config($vmid, $conf);
 		} elsif ($opt =~ m/^usb\d+$/) {
 		    if ($val =~ m/spice/) {
@@ -1198,10 +1198,10 @@ my $update_vm_api  = sub {
 		    } elsif ($authuser ne 'root@pam') {
 			die "only root can delete '$opt' config for real devices\n";
 		    }
-		    PVE::QemuServer::vmconfig_delete_pending_option($conf, $opt, $force);
+		    PVE::QemuConfig->add_to_pending_delete($conf, $opt, $force);
 		    PVE::QemuConfig->write_config($vmid, $conf);
 		} else {
-		    PVE::QemuServer::vmconfig_delete_pending_option($conf, $opt, $force);
+		    PVE::QemuConfig->add_to_pending_delete($conf, $opt, $force);
 		    PVE::QemuConfig->write_config($vmid, $conf);
 		}
 	    }
@@ -1242,13 +1242,13 @@ my $update_vm_api  = sub {
 		} else {
 		    $conf->{pending}->{$opt} = $param->{$opt};
 		}
-		PVE::QemuServer::vmconfig_undelete_pending_option($conf, $opt);
+		PVE::QemuConfig->remove_from_pending_delete($conf, $opt);
 		PVE::QemuConfig->write_config($vmid, $conf);
 	    }
 
 	    # remove pending changes when nothing changed
 	    $conf = PVE::QemuConfig->load_config($vmid); # update/reload
-	    my $changes = PVE::QemuServer::vmconfig_cleanup_pending($conf);
+	    my $changes = PVE::QemuConfig->cleanup_pending($conf);
 	    PVE::QemuConfig->write_config($vmid, $conf) if $changes;
 
 	    return if !scalar(keys %{$conf->{pending}});
