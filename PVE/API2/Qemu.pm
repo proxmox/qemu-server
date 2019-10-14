@@ -865,40 +865,19 @@ __PACKAGE__->register_method({
     code => sub {
 	my ($param) = @_;
 
-	my $conf = PVE::QemuConfig->load_config($param->{vmid});
+	raise_param_exc({ snapshot => "cannot use 'snapshot' parameter with 'current'",
+	                  current => "cannot use 'snapshot' parameter with 'current'"})
+	    if ($param->{snapshot} && $param->{current});
 
-	if (my $snapname = $param->{snapshot}) {
-	    my $snapshot = $conf->{snapshots}->{$snapname};
-	    die "snapshot '$snapname' does not exist\n" if !defined($snapshot);
-
-	    $snapshot->{digest} = $conf->{digest}; # keep file digest for API
-
-	    $conf = $snapshot;
+	my $conf;
+	if ($param->{snapshot}) {
+	    $conf = PVE::QemuConfig->load_snapshot_config($param->{vmid}, $param->{snapshot});
+	} else {
+	    $conf = PVE::QemuConfig->load_current_config($param->{vmid}, $param->{current});
 	}
-
-	delete $conf->{snapshots};
-
-	if (!$param->{current}) {
-	    foreach my $opt (keys %{$conf->{pending}}) {
-		next if $opt eq 'delete';
-		my $value = $conf->{pending}->{$opt};
-		next if ref($value); # just to be sure
-		$conf->{$opt} = $value;
-	    }
-	    my $pending_delete_hash = PVE::QemuServer::split_flagged_list($conf->{pending}->{delete});
-	    foreach my $opt (keys %$pending_delete_hash) {
-		delete $conf->{$opt} if $conf->{$opt};
-	    }
-	}
-
-	delete $conf->{pending};
-
-	# hide cloudinit password
-	if ($conf->{cipassword}) {
-	    $conf->{cipassword} = '**********';
-	}
-
+	$conf->{cipassword} = '**********' if $conf->{cipassword};
 	return $conf;
+
     }});
 
 __PACKAGE__->register_method({
