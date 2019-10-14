@@ -933,47 +933,11 @@ __PACKAGE__->register_method({
 
 	my $pending_delete_hash = PVE::QemuConfig->parse_pending_delete($conf->{pending}->{delete});
 
-	my $res = [];
+	$conf->{cipassword} = '**********' if defined($conf->{cipassword});
+	$conf->{pending}->{cipassword} = '********** ' if defined($conf->{pending}->{cipassword});
 
-	foreach my $opt (keys %$conf) {
-	    next if ref($conf->{$opt});
-	    my $item = { key => $opt };
-	    $item->{value} = $conf->{$opt} if defined($conf->{$opt});
-	    $item->{pending} = $conf->{pending}->{$opt} if defined($conf->{pending}->{$opt});
-	    $item->{delete} = ($pending_delete_hash->{$opt} ? 2 : 1) if exists $pending_delete_hash->{$opt};
-
-	    # hide cloudinit password
-	    if ($opt eq 'cipassword') {
-		$item->{value} = '**********' if defined($item->{value});
-		# the trailing space so that the pending string is different
-		$item->{pending} = '********** ' if defined($item->{pending});
-	    }
-	    push @$res, $item;
-	}
-
-	foreach my $opt (keys %{$conf->{pending}}) {
-	    next if $opt eq 'delete';
-	    next if ref($conf->{pending}->{$opt}); # just to be sure
-	    next if defined($conf->{$opt});
-	    my $item = { key => $opt };
-	    $item->{pending} = $conf->{pending}->{$opt};
-
-	    # hide cloudinit password
-	    if ($opt eq 'cipassword') {
-		$item->{pending} = '**********' if defined($item->{pending});
-	    }
-	    push @$res, $item;
-	}
-
-	while (my ($opt, $force) = each %$pending_delete_hash) {
-	    next if $conf->{pending}->{$opt}; # just to be sure
-	    next if $conf->{$opt};
-	    my $item = { key => $opt, delete => ($force ? 2 : 1)};
-	    push @$res, $item;
-	}
-
-	return $res;
-    }});
+	return PVE::GuestHelpers::conf_table_with_pending($conf, $pending_delete_hash);
+   }});
 
 # POST/PUT {vmid}/config implementation
 #
