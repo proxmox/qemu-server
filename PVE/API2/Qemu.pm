@@ -28,6 +28,7 @@ use PVE::Network;
 use PVE::Firewall;
 use PVE::API2::Firewall::VM;
 use PVE::API2::Qemu::Agent;
+use PVE::VZDump::Plugin;
 
 BEGIN {
     if (!$ENV{PVE_GENERATING_DOCS}) {
@@ -1400,6 +1401,11 @@ __PACKAGE__->register_method({
 	    node => get_standard_option('pve-node'),
 	    vmid => get_standard_option('pve-vmid', { completion => \&PVE::QemuServer::complete_vmid_stopped }),
 	    skiplock => get_standard_option('skiplock'),
+	    purge => {
+		type => 'boolean',
+		description => "Remove vmid from backup cron jobs.",
+		optional => 1,
+	    },
 	},
     },
     returns => {
@@ -1423,9 +1429,11 @@ __PACKAGE__->register_method({
 	die "unable to remove VM $vmid - used in HA resources\n"
 	    if PVE::HA::Config::vm_is_ha_managed($vmid);
 
-	# do not allow destroy if there are replication jobs
-	my $repl_conf = PVE::ReplicationConfig->new();
-	$repl_conf->check_for_existing_jobs($vmid);
+	if (!$param->{purge}) {
+	    # don't allow destroy if with replication jobs but no purge param
+	    my $repl_conf = PVE::ReplicationConfig->new();
+	    $repl_conf->check_for_existing_jobs($vmid);
+	}
 
 	# early tests (repeat after locking)
 	die "VM $vmid is running - destroy failed\n"
@@ -1438,9 +1446,15 @@ __PACKAGE__->register_method({
 	    PVE::QemuConfig->lock_config($vmid, sub {
 		die "VM $vmid is running - destroy failed\n"
 		    if (PVE::QemuServer::check_running($vmid));
+
 		PVE::QemuServer::destroy_vm($storecfg, $vmid, 1, $skiplock);
+
 		PVE::AccessControl::remove_vm_access($vmid);
 		PVE::Firewall::remove_vmfw_conf($vmid);
+		if ($param->{purge}) {
+		    PVE::ReplicationConfig::remove_vmid_jobs($vmid);
+		    PVE::VZDump::Plugin::remove_vmid_from_backup_jobs($vmid);
+		}
 
 		# only now remove the zombie config, else we can have reuse race
 		PVE::QemuConfig->destroy_config($vmid);
