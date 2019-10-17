@@ -4183,7 +4183,7 @@ sub config_to_command {
 
     if (my $vmstate = $conf->{vmstate}) {
 	my $statepath = PVE::Storage::path($storecfg, $vmstate);
-	PVE::Storage::activate_volumes($storecfg, [$vmstate]);
+	push @$vollist, $statepath;
 	push @$cmd, '-loadstate', $statepath;
     }
 
