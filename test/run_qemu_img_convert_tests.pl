@@ -152,6 +152,38 @@ my $tests = [
 	parameters => [ "local-lvm:vm-$vmid-disk-0", "not-existing:$vmid/vm-$vmid-disk-0.raw", 1024*10, undef, 1 ],
 	expected => "storage 'not-existing' does not exists\n",
     },
+    {
+	name => "vmdkfile",
+	parameters => [ "./test.vmdk", "local:$vmid/vm-$vmid-disk-0.raw", 1024*10, undef, 0 ],
+	expected => [
+	    "/usr/bin/qemu-img", "convert", "-p", "-n", "-f", "vmdk", "-O", "raw",
+	    "./test.vmdk",
+	    "/var/lib/vz/images/$vmid/vm-$vmid-disk-0.raw",
+	]
+    },
+    {
+	name => "notexistingfile",
+	parameters => [ "/foo/bar", "local:$vmid/vm-$vmid-disk-0.raw", 1024*10, undef, 0 ],
+	expected => "source '/foo/bar' is not a valid volid nor path for qemu-img convert\n",
+    },
+    {
+	name => "efidisk",
+	parameters => [ "/usr/share/kvm/OVMF_VARS-pure-efi.fd", "local:$vmid/vm-$vmid-disk-0.raw", 1024*10, undef, 0 ],
+	expected => [
+	    "/usr/bin/qemu-img", "convert", "-p", "-n", "-f", "raw", "-O", "raw",
+	    "/usr/share/kvm/OVMF_VARS-pure-efi.fd",
+	    "/var/lib/vz/images/$vmid/vm-$vmid-disk-0.raw",
+	]
+    },
+    {
+	name => "efi2zos",
+	parameters => [ "/usr/share/kvm/OVMF_VARS-pure-efi.fd", "zfs-over-iscsi:vm-$vmid-disk-0", 1024*10, undef, 0 ],
+	expected => [
+	    "/usr/bin/qemu-img", "convert", "-p", "-n", "-f", "raw", "--target-image-opts",
+	    "/usr/share/kvm/OVMF_VARS-pure-efi.fd",
+	    "file.driver=iscsi,file.transport=tcp,file.initiator-name=foobar,file.portal=127.0.0.1,file.target=iqn.2019-10.org.test:foobar,file.lun=1,driver=raw",
+	]
+    }
 ];
 
 my $command;

@@ -6884,66 +6884,77 @@ sub qemu_img_convert {
     my ($src_storeid, $src_volname) = PVE::Storage::parse_volume_id($src_volid, 1);
     my ($dst_storeid, $dst_volname) = PVE::Storage::parse_volume_id($dst_volid, 1);
 
-    if ($src_storeid && $dst_storeid) {
+    die "destination '$dst_volid' is not a valid volid form qemu-img convert\n" if !$dst_storeid;
 
+    my $cachemode;
+    my $src_path;
+    my $src_is_iscsi = 0;
+    my $src_format = 'raw';
+
+    if ($src_storeid) {
 	PVE::Storage::activate_volumes($storecfg, [$src_volid], $snapname);
-
 	my $src_scfg = PVE::Storage::storage_config($storecfg, $src_storeid);
-	my $dst_scfg = PVE::Storage::storage_config($storecfg, $dst_storeid);
-
-	my $src_format = qemu_img_format($src_scfg, $src_volname);
-	my $dst_format = qemu_img_format($dst_scfg, $dst_volname);
-
-	my $src_path = PVE::Storage::path($storecfg, $src_volid, $snapname);
-	my $dst_path = PVE::Storage::path($storecfg, $dst_volid);
-
-	my $src_is_iscsi = ($src_path =~ m|^iscsi://|);
-	my $dst_is_iscsi = ($dst_path =~ m|^iscsi://|);
-
-	my $cmd = [];
-	push @$cmd, '/usr/bin/qemu-img', 'convert', '-p', '-n';
-	push @$cmd, '-l', "snapshot.name=$snapname" if($snapname && $src_format eq "qcow2");
-	push @$cmd, '-t', 'none' if $dst_scfg->{type} eq 'zfspool';
-	push @$cmd, '-T', 'none' if $src_scfg->{type} eq 'zfspool';
-
-	if ($src_is_iscsi) {
-	    push @$cmd, '--image-opts';
-	    $src_path = convert_iscsi_path($src_path);
-	} else {
-	    push @$cmd, '-f', $src_format;
+	$src_format = qemu_img_format($src_scfg, $src_volname);
+	$src_path = PVE::Storage::path($storecfg, $src_volid, $snapname);
+	$src_is_iscsi = ($src_path =~ m|^iscsi://|);
+	$cachemode = 'none' if $src_scfg->{type} eq 'zfspool';
+    } elsif (-f $src_volid) {
+	$src_path = $src_volid;
+	if ($src_path =~ m/\.($QEMU_FORMAT_RE)$/) {
+	    $src_format = $1;
 	}
-
-	if ($dst_is_iscsi) {
-	    push @$cmd, '--target-image-opts';
-	    $dst_path = convert_iscsi_path($dst_path);
-	} else {
-	    push @$cmd, '-O', $dst_format;
-	}
-
-	push @$cmd, $src_path;
-
-	if (!$dst_is_iscsi && $is_zero_initialized) {
-	    push @$cmd, "zeroinit:$dst_path";
-	} else {
-	    push @$cmd, $dst_path;
-	}
-
-	my $parser = sub {
-	    my $line = shift;
-	    if($line =~ m/\((\S+)\/100\%\)/){
-		my $percent = $1;
-		my $transferred = int($size * $percent / 100);
-		my $remaining = $size - $transferred;
-
-		print "transferred: $transferred bytes remaining: $remaining bytes total: $size bytes progression: $percent %\n";
-	    }
-
-	};
-
-	eval  { run_command($cmd, timeout => undef, outfunc => $parser); };
-	my $err = $@;
-	die "copy failed: $err" if $err;
     }
+
+    die "source '$src_volid' is not a valid volid nor path for qemu-img convert\n" if !$src_path;
+
+    my $dst_scfg = PVE::Storage::storage_config($storecfg, $dst_storeid);
+    my $dst_format = qemu_img_format($dst_scfg, $dst_volname);
+    my $dst_path = PVE::Storage::path($storecfg, $dst_volid);
+    my $dst_is_iscsi = ($dst_path =~ m|^iscsi://|);
+
+    my $cmd = [];
+    push @$cmd, '/usr/bin/qemu-img', 'convert', '-p', '-n';
+    push @$cmd, '-l', "snapshot.name=$snapname" if($snapname && $src_format eq "qcow2");
+    push @$cmd, '-t', 'none' if $dst_scfg->{type} eq 'zfspool';
+    push @$cmd, '-T', $cachemode if defined($cachemode);
+
+    if ($src_is_iscsi) {
+	push @$cmd, '--image-opts';
+	$src_path = convert_iscsi_path($src_path);
+    } else {
+	push @$cmd, '-f', $src_format;
+    }
+
+    if ($dst_is_iscsi) {
+	push @$cmd, '--target-image-opts';
+	$dst_path = convert_iscsi_path($dst_path);
+    } else {
+	push @$cmd, '-O', $dst_format;
+    }
+
+    push @$cmd, $src_path;
+
+    if (!$dst_is_iscsi && $is_zero_initialized) {
+	push @$cmd, "zeroinit:$dst_path";
+    } else {
+	push @$cmd, $dst_path;
+    }
+
+    my $parser = sub {
+	my $line = shift;
+	if($line =~ m/\((\S+)\/100\%\)/){
+	    my $percent = $1;
+	    my $transferred = int($size * $percent / 100);
+	    my $remaining = $size - $transferred;
+
+	    print "transferred: $transferred bytes remaining: $remaining bytes total: $size bytes progression: $percent %\n";
+	}
+
+    };
+
+    eval  { run_command($cmd, timeout => undef, outfunc => $parser); };
+    my $err = $@;
+    die "copy failed: $err" if $err;
 }
 
 sub qemu_img_format {
@@ -7269,15 +7280,12 @@ sub create_efidisk($$$$$) {
     my (undef, $ovmf_vars) = get_ovmf_files($arch);
     die "EFI vars default image not found\n" if ! -f $ovmf_vars;
 
-    my $vars_size = PVE::Tools::convert_size(-s $ovmf_vars, 'b' => 'kb');
+    my $vars_size_b = -s $ovmf_vars;
+    my $vars_size = PVE::Tools::convert_size($vars_size_b, 'b' => 'kb');
     my $volid = PVE::Storage::vdisk_alloc($storecfg, $storeid, $vmid, $fmt, undef, $vars_size);
     PVE::Storage::activate_volumes($storecfg, [$volid]);
 
-    my $path = PVE::Storage::path($storecfg, $volid);
-    eval {
-	run_command(['/usr/bin/qemu-img', 'convert', '-n', '-f', 'raw', '-O', $fmt, $ovmf_vars, $path]);
-    };
-    die "Copying EFI vars image failed: $@" if $@;
+    qemu_img_convert($ovmf_vars, $volid, $vars_size_b, undef, 0);
 
     return ($volid, $vars_size);
 }

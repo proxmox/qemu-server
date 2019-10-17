@@ -37,14 +37,7 @@ sub do_import {
     warn "args:  $src_path, $vmid, $storage_id, $optional\n",
 	"\$dst_volid: $dst_volid\n", if $debug;
 
-    # qemu-img convert does the hard job
-    # we don't attempt to guess filetypes ourselves
-    my $convert_command = ['qemu-img', 'convert', $src_path, '-p', '-n', '-O', $dst_format];
-    if (PVE::Storage::volume_has_feature($storecfg, 'sparseinit', $dst_volid)) {
-	push @$convert_command, "zeroinit:$dst_path";
-    } else {
-	push @$convert_command, $dst_path;
-    }
+    my $zeroinit = PVE::Storage::volume_has_feature($storecfg, 'sparseinit', $dst_volid);
 
     my $create_drive = sub {
 	my $vm_conf = PVE::QemuConfig->load_config($vmid);
@@ -88,7 +81,7 @@ sub do_import {
 	    local $SIG{HUP} =
 	    local $SIG{PIPE} = sub { die "interrupted by signal\n"; };
 	PVE::Storage::activate_volumes($storecfg, [$dst_volid]);
-	run_command($convert_command);
+	PVE::QemuServer::qemu_img_convert($src_path, $dst_volid, $src_size, undef, $zeroinit);
 	PVE::Storage::deactivate_volumes($storecfg, [$dst_volid]);
 	PVE::QemuConfig->lock_config($vmid, $create_drive);
     };
