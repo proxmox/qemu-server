@@ -359,8 +359,7 @@ sub __snapshot_rollback_vm_start {
     my ($class, $vmid, $vmstate, $data) = @_;
 
     my $storecfg = PVE::Storage::config();
-    my $statefile = PVE::Storage::path($storecfg, $vmstate);
-    PVE::QemuServer::vm_start($storecfg, $vmid, $statefile, undef, undef, undef, $data->{forcemachine});
+    PVE::QemuServer::vm_start($storecfg, $vmid, $vmstate, undef, undef, undef, $data->{forcemachine});
 }
 
 sub __snapshot_rollback_get_unused {

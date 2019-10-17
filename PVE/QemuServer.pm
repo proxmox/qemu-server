@@ -4001,7 +4001,7 @@ sub config_to_command {
 
     if (my $vmstate = $conf->{vmstate}) {
 	my $statepath = PVE::Storage::path($storecfg, $vmstate);
-	push @$vollist, $statepath;
+	push @$vollist, $vmstate;
 	push @$cmd, '-loadstate', $statepath;
     }
 
@@ -5277,8 +5277,12 @@ sub vm_start {
 		push @$cmd, '-incoming', $migrate_uri;
 		push @$cmd, '-S';
 
-	    } else {
+	    } elsif (-e $statefile) {
 		push @$cmd, '-loadstate', $statefile;
+	    } else {
+		my $statepath = PVE::Storage::path($storecfg, $statefile);
+		push @$vollist, $statefile;
+		push @$cmd, '-loadstate', $statepath;
 	    }
 	} elsif ($paused) {
 	    push @$cmd, '-S';
