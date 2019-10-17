@@ -5462,8 +5462,12 @@ sub vm_start {
 		push @$cmd, '-incoming', $migrate_uri;
 		push @$cmd, '-S';
 
-	    } else {
+	    } elsif (-e $statefile) {
 		push @$cmd, '-loadstate', $statefile;
+	    } else {
+		my $statepath = PVE::Storage::path($storecfg, $statefile);
+		push @$vollist, $statepath;
+		push @$cmd, '-loadstate', $statepath;
 	    }
 	} elsif ($paused) {
 	    push @$cmd, '-S';
