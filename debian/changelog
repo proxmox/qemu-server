@@ -1,4 +1,4 @@
-qemu-server (6.0-10) UNRELEASED; urgency=medium
+qemu-server (6.0-10) pve; urgency=medium
 
   * fix #2344: ignore cloudinit in replication check
 
@@ -23,7 +23,7 @@ qemu-server (6.0-10) UNRELEASED; urgency=medium
 
   * fix #2217: don't copy cloudinit disk on clone
 
- -- Proxmox Support Team <support@proxmox.com>  Fri, 18 Oct 2019 21:53:10 +0200
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 18 Oct 2019 22:04:50 +0200
 
 qemu-server (6.0-9) pve; urgency=medium
 
