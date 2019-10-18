@@ -1498,8 +1498,9 @@ __PACKAGE__->register_method({
 		PVE::QemuServer::destroy_vm($storecfg, $vmid, 1, $skiplock);
 		PVE::AccessControl::remove_vm_access($vmid);
 		PVE::Firewall::remove_vmfw_conf($vmid);
-		unlink PVE::QemuConfig->config_file($vmid)
-		    or die "Removal of VM $vmid config file failed: $!\n";
+
+		# only now remove the zombie config, else we can have reuse race
+		PVE::QemuConfig->destroy_config($vmid);
 	    });
 	};
 

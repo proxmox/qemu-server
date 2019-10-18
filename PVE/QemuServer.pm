@@ -2665,7 +2665,7 @@ sub destroy_vm {
     if ($keep_empty_config) {
 	PVE::Tools::file_set_contents($conffile, "memory: 128\n");
     } else {
-	unlink $conffile;
+	PVE::QemuConfig->destroy_config($vmid);
     }
 
     # also remove unused disk
