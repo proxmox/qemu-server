@@ -936,7 +936,7 @@ __PACKAGE__->register_method({
 	$conf->{cipassword} = '**********' if defined($conf->{cipassword});
 	$conf->{pending}->{cipassword} = '********** ' if defined($conf->{pending}->{cipassword});
 
-	return PVE::GuestHelpers::conf_table_with_pending($conf, $pending_delete_hash);
+	return PVE::GuestHelpers::config_with_pending_array($conf, $pending_delete_hash);
    }});
 
 # POST/PUT {vmid}/config implementation
