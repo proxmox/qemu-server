@@ -1,3 +1,30 @@
+qemu-server (6.0-10) UNRELEASED; urgency=medium
+
+  * fix #2344: ignore cloudinit in replication check
+
+  * fix #1291: add option purge for vm_destroy api call
+
+  * increase code re-use with pve-container for pending changes in
+    configuration
+
+  * fix #2412: only do the final configuration destroy after all the VMs
+    resources, and references in other configurations like Firewall or resource
+    pools was successfully cleaned up
+
+  * fix #2171: ensure that non filesystem based statefiles get activated on VM
+    start
+
+  * fix #2395: improve QEMU image converter to cope better with pure file based
+    sources and iSCSI source and destinations
+
+  * fix #2402: allow 1GB hugepages if 2MB is unavailable
+
+  * qemu 4.0 : add Cascadelake-Server and KnightsMill Intel CPU models
+
+  * fix #2217: don't copy cloudinit disk on clone
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 18 Oct 2019 21:53:10 +0200
+
 qemu-server (6.0-9) pve; urgency=medium
 
   * fix issue where a SPICE remote viewer was disconnected during live migration
