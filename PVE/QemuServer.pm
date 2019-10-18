@@ -2663,7 +2663,7 @@ sub destroy_vm {
     });
 
     if ($keep_empty_config) {
-	PVE::QemuConfig->write_config($vmid, "memory: 128\n");
+	PVE::QemuConfig->write_config($vmid, { memory => 128 });
     } else {
 	PVE::QemuConfig->destroy_config($vmid);
     }
