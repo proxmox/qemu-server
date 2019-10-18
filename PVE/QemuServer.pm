@@ -2619,8 +2619,6 @@ sub touch_config {
 sub destroy_vm {
     my ($storecfg, $vmid, $keep_empty_config, $skiplock) = @_;
 
-    my $conffile = PVE::QemuConfig->config_file($vmid);
-
     my $conf = PVE::QemuConfig->load_config($vmid);
 
     PVE::QemuConfig->check_lock($conf) if !$skiplock;
@@ -2663,7 +2661,7 @@ sub destroy_vm {
     });
 
     if ($keep_empty_config) {
-	PVE::Tools::file_set_contents($conffile, "memory: 128\n");
+	PVE::QemuConfig->write_config($vmid, "memory: 128\n");
     } else {
 	PVE::QemuConfig->destroy_config($vmid);
     }
