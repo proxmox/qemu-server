@@ -1,3 +1,9 @@
+qemu-server (6.0-12) pve; urgency=medium
+
+  * fix regression from 6.0-10 with vmstate restore on RBD
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 22 Oct 2019 16:31:46 +0200
+
 qemu-server (6.0-11) pve; urgency=medium
 
   * fix #1071: VMs with IOThread enabled disks can now be backed up
