@@ -1898,7 +1898,8 @@ sub print_drivedevice_full {
 		 $path = PVE::Storage::path($storecfg, $drive->{file});
 	    }
 
-	    if($path =~ m/^iscsi\:\/\//){
+	    if($path =~ m/^iscsi\:\/\// &&
+		!qemu_machine_feature_enabled($machine_type, undef, 4, 1)) {
 		$devicetype = 'generic';
 	    }
 	}
