@@ -5403,7 +5403,7 @@ sub vm_start {
 		push @$cmd, '-loadstate', $statefile;
 	    } else {
 		my $statepath = PVE::Storage::path($storecfg, $statefile);
-		push @$vollist, $statepath;
+		push @$vollist, $statefile;
 		push @$cmd, '-loadstate', $statepath;
 	    }
 	} elsif ($paused) {
