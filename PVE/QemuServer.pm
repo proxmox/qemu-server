@@ -4856,7 +4856,8 @@ sub vmconfig_hotplug_pending {
     my $hotplug_features = parse_hotplug_features(defined($conf->{hotplug}) ? $conf->{hotplug} : '1');
 
     my $pending_delete_hash = PVE::QemuConfig->parse_pending_delete($conf->{pending}->{delete});
-    while (my ($opt, $force) = each %$pending_delete_hash) {
+    foreach my $opt (keys %$pending_delete_hash) {
+	my $force = $pending_delete_hash->{$opt}->{force};
 	next if $selection && !$selection->{$opt};
 	eval {
 	    if ($opt eq 'hotplug') {
@@ -5054,8 +5055,9 @@ sub vmconfig_apply_pending {
     # cold plug
 
     my $pending_delete_hash = PVE::QemuConfig->parse_pending_delete($conf->{pending}->{delete});
-    while (my ($opt, $force) = each %$pending_delete_hash) {
+    foreach my $opt (keys %$pending_delete_hash) {
 	die "internal error" if $opt =~ m/^unused/;
+	my $force = $pending_delete_hash->{$opt}->{force};
 	$conf = PVE::QemuConfig->load_config($vmid); # update/reload
 	if (!defined($conf->{$opt})) {
 	    PVE::QemuConfig->remove_from_pending_delete($conf, $opt);
