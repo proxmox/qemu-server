@@ -1,3 +1,14 @@
+qemu-server (6.0-11) pve; urgency=medium
+
+  * fix #1071: VMs with IOThread enabled disks can now be backed up
+
+  * fix regression from 6.0-10 with snapshot restore and statefile
+
+  * fix regression with from 6.0-10 where forced was always assumed to be true
+    for applying pending changes
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 22 Oct 2019 12:50:18 +0200
+
 qemu-server (6.0-10) pve; urgency=medium
 
   * fix #2344: ignore cloudinit in replication check
