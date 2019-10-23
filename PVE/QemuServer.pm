@@ -2548,13 +2548,6 @@ sub check_type {
     }
 }
 
-sub touch_config {
-    my ($vmid) = @_;
-
-    my $conf = PVE::QemuConfig->config_file($vmid);
-    utime undef, undef, $conf;
-}
-
 sub destroy_vm {
     my ($storecfg, $vmid, $keep_empty_config, $skiplock) = @_;
 
