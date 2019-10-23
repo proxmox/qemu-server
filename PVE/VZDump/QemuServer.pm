@@ -73,6 +73,8 @@ sub prepare {
 	if (defined($drive->{backup}) && !$drive->{backup}) {
 	    $self->loginfo("exclude disk '$ds' '$volid' (backup=no)");
 	    return;
+	} elsif ($drive->{iothread}) {
+	    die "disk '$ds' '$volid' (iothread=on) can't use backup feature currently. Please set backup=no for this drive";
 	} else {
 	    my $log = "include disk '$ds' '$volid'";
 	   if (defined $drive->{size}) {
