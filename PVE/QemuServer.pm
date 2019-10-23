@@ -4139,10 +4139,9 @@ sub spice_port {
 }
 
 sub qmp_socket {
-    my ($vmid, $qga, $name) = @_;
+    my ($vmid, $qga) = @_;
     my $sockettype = $qga ? 'qga' : 'qmp';
-    my $ext = $name ? '-'.$name : '';
-    return "${var_run_tmpdir}/$vmid$ext.$sockettype";
+    return "${var_run_tmpdir}/$vmid.$sockettype";
 }
 
 sub pidfile_name {
