@@ -1134,6 +1134,7 @@ my $update_vm_api  = sub {
 		    next;
 		}
 		my $is_pending_val = defined($conf->{pending}->{$opt});
+		delete $conf->{pending}->{$opt};
 
 		if ($opt =~ m/^unused/) {
 		    my $drive = PVE::QemuServer::parse_drive($opt, $val);
