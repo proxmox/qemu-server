@@ -76,7 +76,7 @@ sub prepare {
 	if (defined($drive->{backup}) && !$drive->{backup}) {
 	    $self->loginfo("exclude disk '$ds' '$volid' (backup=no)");
 	    return;
-	} elsif ($drive->{iothread}) {
+	} elsif ($self->{vm_was_running} && $drive->{iothread}) {
 	    if (!PVE::QemuServer::runs_at_least_qemu_version($vmid, 4, 0, 1)) {
 		die "disk '$ds' '$volid' (iothread=on) can't use backup feature with running QEMU " .
 		    "version < 4.0.1! Either set backup=no for this drive or upgrade QEMU and restart VM\n";
