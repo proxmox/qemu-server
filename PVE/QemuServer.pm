@@ -3132,8 +3132,7 @@ sub vmstatus {
     foreach my $vmid (keys %$list) {
 	next if $opt_vmid && ($vmid ne $opt_vmid);
 
-	my $cfspath = PVE::QemuConfig->cfs_config_path($vmid);
-	my $conf = PVE::Cluster::cfs_read_file($cfspath) || {};
+	my $conf = PVE::QemuConfig->load_config($vmid);
 
 	my $d = { vmid => $vmid };
 	$d->{pid} = $list->{$vmid}->{pid};
