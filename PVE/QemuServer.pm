@@ -2740,7 +2740,10 @@ sub write_vm_config {
     &$cleanup_config($conf->{pending}, 1);
 
     foreach my $snapname (keys %{$conf->{snapshots}}) {
-	die "internal error" if $snapname eq 'pending';
+	# TODO: we can allow snapshots with name 'pending' after PVE 7.0
+	# since pending section is namespaced with 'pve:'
+	# but for now, we should forbid it to avoid confusion in parser
+	die "internal error: snapshot name '$snapname' is forbidden" if lc($snapname) eq 'pending';
 	&$cleanup_config($conf->{snapshots}->{$snapname}, undef, $snapname);
     }
 
