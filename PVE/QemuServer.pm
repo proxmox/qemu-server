@@ -7199,7 +7199,7 @@ sub version_cmp {
 sub runs_at_least_qemu_version {
     my ($vmid, $major, $minor, $extra) = @_;
 
-    my $v = eval { PVE::QemuServer::vm_qmp_command($vmid, { execute => 'query-version' }) } // {};
+    my $v = eval { vm_qmp_command($vmid, { execute => 'query-version' }) } // {};
     $v = $v->{qemu};
 
     return version_cmp($v->{major}, $major, $v->{minor}, $minor, $v->{micro}, $extra) >= 0;
