@@ -91,7 +91,7 @@ PVE::JSONSchema::register_standard_option('pve-qm-image-format', {
 PVE::JSONSchema::register_standard_option('pve-qemu-machine', {
 	description => "Specifies the Qemu machine type.",
 	type => 'string',
-	pattern => '(pc|pc(-i440fx)?-\d+\.\d+(\.pxe)?|q35|pc-q35-\d+\.\d+(\.pxe)?|virt(?:-\d+\.\d+)?)',
+	pattern => '(pc|pc(-i440fx)?-\d+(\.\d+)+(\.pxe)?|q35|pc-q35-\d+(\.\d+)+(\.pxe)?|virt(?:-\d+(\.\d+)+)?)',
 	maxLength => 40,
 	optional => 1,
 });
