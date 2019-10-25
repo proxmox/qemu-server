@@ -2592,12 +2592,6 @@ sub destroy_vm {
 
     });
 
-    if ($keep_empty_config) {
-	PVE::QemuConfig->write_config($vmid, { memory => 128 });
-    } else {
-	PVE::QemuConfig->destroy_config($vmid);
-    }
-
     # also remove unused disk
     eval {
 	my $dl = PVE::Storage::vdisk_list($storecfg, undef, $vmid);
@@ -2612,6 +2606,12 @@ sub destroy_vm {
 
     };
     warn $@ if $@;
+
+    if ($keep_empty_config) {
+	PVE::QemuConfig->write_config($vmid, { memory => 128 });
+    } else {
+	PVE::QemuConfig->destroy_config($vmid);
+    }
 }
 
 sub parse_vm_config {
