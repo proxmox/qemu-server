@@ -12,7 +12,7 @@ use PVE::Tools qw(run_command extract_param);
 # $optional->{drive_name} may be used to specify ide0, scsi1, etc ...
 # $optional->{format} may be used to specify qcow2, raw, etc ...
 sub do_import {
-    my ($src_path, $vmid, $storage_id, $optional) = @_;
+    my ($src_path, $vmid, $storage_id, $skiplock, $optional) = @_;
 
     my $drive_name = extract_param($optional, 'drive_name');
     my $format = extract_param($optional, 'format');
@@ -41,7 +41,9 @@ sub do_import {
 
     my $create_drive = sub {
 	my $vm_conf = PVE::QemuConfig->load_config($vmid);
-	PVE::QemuConfig->check_lock($vm_conf);
+	if (!$skiplock) {
+	    PVE::QemuConfig->check_lock($vm_conf);
+	}
 
 	if ($drive_name) {
 		# should never happen as setting $drive_name is not exposed to public interface

@@ -488,7 +488,7 @@ __PACKAGE__->register_method ({
 	die "storage $storeid does not support vm images\n"
 	    if !$target_storage_config->{content}->{images};
 
-	PVE::QemuServer::ImportDisk::do_import($source, $vmid, $storeid, { format => $format });
+	PVE::QemuServer::ImportDisk::do_import($source, $vmid, $storeid, 0, { format => $format });
 
 	return undef;
     }});
@@ -640,7 +640,7 @@ __PACKAGE__->register_method ({
 		foreach my $disk (@{ $parsed->{disks} }) {
 		    my ($file, $drive) = ($disk->{backing_file}, $disk->{disk_address});
 		    PVE::QemuServer::ImportDisk::do_import($file, $vmid, $storeid,
-			{ drive_name => $drive, format => $format });
+			0, { drive_name => $drive, format => $format });
 		}
 
 		# reload after disks entries have been created
