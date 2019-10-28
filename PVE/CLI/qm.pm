@@ -621,47 +621,45 @@ __PACKAGE__->register_method ({
 	    return;
 	}
 
-	$param->{name} = $parsed->{qm}->{name} if defined($parsed->{qm}->{name});
-	$param->{memory} = $parsed->{qm}->{memory} if defined($parsed->{qm}->{memory});
-	$param->{cores} = $parsed->{qm}->{cores} if defined($parsed->{qm}->{cores});
+	eval { PVE::QemuConfig->create_and_lock_config($vmid, 0) };
+	die "Reserving empty config for OVF import failed: $@" if $@;
 
-	my $importfn = sub {
+	my $conf = PVE::QemuConfig->load_config($vmid);
+	die "Internal error: Expected 'create' lock in config of VM $vmid!"
+	    if !PVE::QemuConfig->has_lock($conf, "create");
 
-	    PVE::Cluster::check_vmid_unused($vmid);
+	$conf->{name} = $parsed->{qm}->{name} if defined($parsed->{qm}->{name});
+	$conf->{memory} = $parsed->{qm}->{memory} if defined($parsed->{qm}->{memory});
+	$conf->{cores} = $parsed->{qm}->{cores} if defined($parsed->{qm}->{cores});
 
-	    my $conf = $param;
+	eval {
+	    # order matters, as do_import() will load_config() internally
+	    $conf->{vmgenid} = PVE::QemuServer::generate_uuid();
+	    $conf->{smbios1} = PVE::QemuServer::generate_smbios1_uuid();
+	    PVE::QemuConfig->write_config($vmid, $conf);
 
-	    eval {
-		# order matters, as do_import() will load_config() internally
-		$conf->{vmgenid} = PVE::QemuServer::generate_uuid();
-		$conf->{smbios1} = PVE::QemuServer::generate_smbios1_uuid();
-		PVE::QemuConfig->write_config($vmid, $conf);
-
-		foreach my $disk (@{ $parsed->{disks} }) {
-		    my ($file, $drive) = ($disk->{backing_file}, $disk->{disk_address});
-		    PVE::QemuServer::ImportDisk::do_import($file, $vmid, $storeid,
-			0, { drive_name => $drive, format => $format });
-		}
-
-		# reload after disks entries have been created
-		$conf = PVE::QemuConfig->load_config($vmid);
-		my $firstdisk = PVE::QemuServer::resolve_first_disk($conf);
-		$conf->{bootdisk} = $firstdisk if $firstdisk;
-		PVE::QemuConfig->write_config($vmid, $conf);
-	    };
-
-	    my $err = $@;
-	    if ($err) {
-		my $skiplock = 1;
-		# eval for additional safety in error path
-		eval { PVE::QemuServer::destroy_vm($storecfg, $vmid, undef, $skiplock) };
-		warn "Could not destroy VM $vmid: $@" if "$@";
-		die "import failed - $err";
+	    foreach my $disk (@{ $parsed->{disks} }) {
+		my ($file, $drive) = ($disk->{backing_file}, $disk->{disk_address});
+		PVE::QemuServer::ImportDisk::do_import($file, $vmid, $storeid,
+		    1, { drive_name => $drive, format => $format });
 	    }
+
+	    # reload after disks entries have been created
+	    $conf = PVE::QemuConfig->load_config($vmid);
+	    my $firstdisk = PVE::QemuServer::resolve_first_disk($conf);
+	    $conf->{bootdisk} = $firstdisk if $firstdisk;
+	    PVE::QemuConfig->write_config($vmid, $conf);
 	};
 
-	my $wait_for_lock = 1;
-	PVE::QemuConfig->lock_config_full($vmid, $wait_for_lock, $importfn);
+	my $err = $@;
+	if ($err) {
+	    my $skiplock = 1;
+	    # eval for additional safety in error path
+	    eval { PVE::QemuServer::destroy_vm($storecfg, $vmid, undef, $skiplock) };
+	    warn "Could not destroy VM $vmid: $@" if "$@";
+	    die "import failed - $err";
+	}
+	PVE::QemuConfig->remove_lock ($vmid, "create");
 
 	return undef;
 
