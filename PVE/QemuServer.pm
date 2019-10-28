@@ -36,7 +36,7 @@ use PVE::SafeSyslog;
 use PVE::Storage;
 use PVE::SysFSTools;
 use PVE::Systemd;
-use PVE::Tools qw(run_command lock_file lock_file_full file_read_firstline dir_glob_foreach $IPV6RE);
+use PVE::Tools qw(run_command lock_file lock_file_full file_read_firstline dir_glob_foreach get_host_arch $IPV6RE);
 
 use PVE::QMPClient;
 use PVE::QemuConfig;
@@ -3415,12 +3415,6 @@ sub vga_conf_has_spice {
     return 0 if !$vgatype || $vgatype !~ m/^qxl([234])?$/;
 
     return $1 || 1;
-}
-
-my $host_arch; # FIXME: fix PVE::Tools::get_host_arch
-sub get_host_arch() {
-    $host_arch = (POSIX::uname())[4] if !$host_arch;
-    return $host_arch;
 }
 
 sub is_native($) {
