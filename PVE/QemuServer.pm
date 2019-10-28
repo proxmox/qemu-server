@@ -5937,21 +5937,6 @@ sub vm_sendkey {
     });
 }
 
-sub vm_destroy {
-    my ($storecfg, $vmid, $skiplock) = @_;
-
-    PVE::QemuConfig->lock_config($vmid, sub {
-
-	my $conf = PVE::QemuConfig->load_config($vmid);
-
-	if (!check_running($vmid)) {
-	    destroy_vm($storecfg, $vmid, undef, $skiplock);
-	} else {
-	    die "VM $vmid is running - destroy failed\n";
-	}
-    });
-}
-
 # vzdump restore implementaion
 
 sub tar_archive_read_firstfile {

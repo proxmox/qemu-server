@@ -645,7 +645,6 @@ __PACKAGE__->register_method ({
 
 		# reload after disks entries have been created
 		$conf = PVE::QemuConfig->load_config($vmid);
-		PVE::QemuConfig->check_lock($conf);
 		my $firstdisk = PVE::QemuServer::resolve_first_disk($conf);
 		$conf->{bootdisk} = $firstdisk if $firstdisk;
 		PVE::QemuConfig->write_config($vmid, $conf);
@@ -654,7 +653,9 @@ __PACKAGE__->register_method ({
 	    my $err = $@;
 	    if ($err) {
 		my $skiplock = 1;
-		eval { PVE::QemuServer::vm_destroy($storecfg, $vmid, $skiplock); };
+		# eval for additional safety in error path
+		eval { PVE::QemuServer::destroy_vm($storecfg, $vmid, undef, $skiplock) };
+		warn "Could not destroy VM $vmid: $@" if "$@";
 		die "import failed - $err";
 	    }
 	};
