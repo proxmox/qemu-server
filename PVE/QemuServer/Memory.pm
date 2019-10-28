@@ -402,10 +402,11 @@ sub hugepages_size {
 	if ($gb_exists && ($size % 1024 == 0)) {
 	    return 1024;
 	} elsif (-d "/sys/kernel/mm/hugepages/hugepages-2048kB") {
+	    die "memory size must be even to use hugepages\n" if $size % 2 != 0;
 	    return 2;
 	}
 
-	die "your system doesn't support hugepages for memory size $size\n"
+	die "your system doesn't support hugepages for memory size $size (1GB hugepages would be supported)\n"
 	    if $gb_exists;
 
 	die "your system doesn't support hugepages\n";
