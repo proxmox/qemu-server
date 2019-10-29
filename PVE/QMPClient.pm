@@ -2,15 +2,15 @@ package PVE::QMPClient;
 
 use strict;
 use warnings;
-use PVE::QemuServer;
-use IO::Multiplex;
-use POSIX qw(EINTR EAGAIN);
-use JSON;
-use Time::HiRes qw(usleep gettimeofday tv_interval);
-use Scalar::Util qw(weaken);
-use PVE::IPCC;
 
-use Data::Dumper;
+use IO::Multiplex;
+use JSON;
+use POSIX qw(EINTR EAGAIN);
+use Scalar::Util qw(weaken);
+use Time::HiRes qw(usleep gettimeofday tv_interval);
+
+use PVE::IPCC;
+use PVE::QemuServer;
 
 # Qemu Monitor Protocol (QMP) client.
 #

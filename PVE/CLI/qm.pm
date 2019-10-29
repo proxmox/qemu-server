@@ -8,31 +8,31 @@ use Getopt::Long qw(:config no_getopt_compat);
 
 use Fcntl ':flock';
 use File::Path;
-use IO::Socket::UNIX;
 use IO::Select;
-use URI::Escape;
+use IO::Socket::UNIX;
+use JSON;
 use POSIX qw(strftime);
+use Term::ReadLine;
+use URI::Escape;
 
-use PVE::Tools qw(extract_param);
 use PVE::Cluster;
-use PVE::SafeSyslog;
-use PVE::INotify;
-use PVE::RPCEnvironment;
 use PVE::Exception qw(raise_param_exc);
-use PVE::Network;
 use PVE::GuestHelpers;
-use PVE::QemuServer;
+use PVE::INotify;
+use PVE::JSONSchema qw(get_standard_option);
+use PVE::Network;
+use PVE::RPCEnvironment;
+use PVE::SafeSyslog;
+use PVE::Tools qw(extract_param);
+
+use PVE::API2::Qemu::Agent;
+use PVE::API2::Qemu;
+use PVE::QemuServer::Agent qw(agent_available);
 use PVE::QemuServer::ImportDisk;
 use PVE::QemuServer::OVF;
-use PVE::QemuServer::Agent qw(agent_available);
-use PVE::API2::Qemu;
-use PVE::API2::Qemu::Agent;
-use JSON;
-use PVE::JSONSchema qw(get_standard_option);
-use Term::ReadLine;
+use PVE::QemuServer;
 
 use PVE::CLIHandler;
-
 use base qw(PVE::CLIHandler);
 
 my $upid_exit = sub {
