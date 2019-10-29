@@ -413,13 +413,15 @@ sub hugepages_size {
 	}
     } else {
 
-	my $hugepagesize = $conf->{hugepages} * 1024 . "kB";
+	my $hugepagesize = $conf->{hugepages};
 
-	if (! -d "/sys/kernel/mm/hugepages/hugepages-$hugepagesize") {
-	    die "your system doesn't support hugepages of $hugepagesize\n";
+	if (!$page_chunk->($hugepagesize)) {
+	    die "your system doesn't support hugepages of $hugepagesize MB\n";
+	} elsif (($size % $hugepagesize) != 0) {
+	    die "Memory size $size is not a multiple of the requested hugepages size $hugepagesize\n";
 	}
-	die "Memory size $size is not a multiple of the requested hugepages size $hugepagesize\n" if ($size % $conf->{hugepages}) != 0;
-	return $conf->{hugepages};
+
+	return $hugepagesize
     }
 }
 
