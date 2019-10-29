@@ -2,9 +2,11 @@ package PVE::QemuServer::Memory;
 
 use strict;
 use warnings;
-use PVE::QemuServer;
+
 use PVE::Tools qw(run_command lock_file lock_file_full file_read_firstline dir_glob_foreach);
 use PVE::Exception qw(raise raise_param_exc);
+
+use PVE::QemuServer;
 
 my $MAX_NUMA = 8;
 my $MAX_MEM = 4194304;
@@ -391,37 +393,34 @@ sub hugepages_nr {
 }
 
 sub hugepages_size {
-   my ($conf, $size) = @_;
+    my ($conf, $size) = @_;
+    die "hugepages option is not enabled" if !$conf->{hugepages};
+    die "memory size '$size' is not a positive even integer; cannot use for hugepages\n"
+	if $size <= 0 || $size & 1;
 
-   die "hugepages option is not enabled" if !$conf->{hugepages};
+    my $page_chunk = sub { -d  "/sys/kernel/mm/hugepages/hugepages-". ($_[0] * 1024) ."kB" };
+    die "your system doesn't support hugepages\n" if !$page_chunk->(2) && !$page_chunk->(1024);
 
-   if ($conf->{hugepages} eq 'any') {
+    if ($conf->{hugepages} eq 'any') {
 
-	#try to use 1GB if available && memory size is matching
-	my $gb_exists = -d "/sys/kernel/mm/hugepages/hugepages-1048576kB";
-	if ($gb_exists && ($size % 1024 == 0)) {
+	# try to use 1GB if available && memory size is matching
+	if ($page_chunk->(1024) && ($size & 1023) == 0) {
 	    return 1024;
-	} elsif (-d "/sys/kernel/mm/hugepages/hugepages-2048kB") {
-	    die "memory size must be even to use hugepages\n" if $size % 2 != 0;
+	} elsif ($page_chunk->(2)) {
 	    return 2;
+	} else {
+	    die "host only supports 1024 GB hugepages, but requested size '$size' is not a multiple of 1024 MB\n"
 	}
-
-	die "your system doesn't support hugepages for memory size $size (1GB hugepages would be supported)\n"
-	    if $gb_exists;
-
-	die "your system doesn't support hugepages\n";
-
-   } else {
+    } else {
 
 	my $hugepagesize = $conf->{hugepages} * 1024 . "kB";
 
 	if (! -d "/sys/kernel/mm/hugepages/hugepages-$hugepagesize") {
-		die "your system doesn't support hugepages of $hugepagesize\n";
+	    die "your system doesn't support hugepages of $hugepagesize\n";
 	}
 	die "Memory size $size is not a multiple of the requested hugepages size $hugepagesize\n" if ($size % $conf->{hugepages}) != 0;
 	return $conf->{hugepages};
-   }
-
+    }
 }
 
 sub hugepages_topology {
