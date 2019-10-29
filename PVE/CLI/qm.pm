@@ -622,8 +622,8 @@ __PACKAGE__->register_method ({
 	    return;
 	}
 
-	eval { PVE::QemuConfig->create_and_lock_config($vmid, 0) };
-	die "Reserving empty config for OVF import failed: $@" if $@;
+	eval { PVE::QemuConfig->create_and_lock_config($vmid) };
+	die "Reserving empty config for OVF import to VM $vmid failed: $@" if $@;
 
 	my $conf = PVE::QemuConfig->load_config($vmid);
 	die "Internal error: Expected 'create' lock in config of VM $vmid!"
@@ -663,7 +663,8 @@ __PACKAGE__->register_method ({
 	    warn "Could not destroy VM $vmid: $@" if "$@";
 	    die "import failed - $err";
 	}
-	PVE::QemuConfig->remove_lock ($vmid, "create");
+
+	PVE::QemuConfig->remove_lock($vmid, "create");
 
 	return undef;
 
