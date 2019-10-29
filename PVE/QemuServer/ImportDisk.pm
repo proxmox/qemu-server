@@ -55,7 +55,7 @@ sub do_import {
 		PVE::QemuServer::vmconfig_apply_pending($vmid, $vm_conf, $storecfg);
 	    }
 	} else {
-	    PVE::QemuConfig->add_unused_volume($vm_conf, $dst_volid);
+	    $drive_name = PVE::QemuConfig->add_unused_volume($vm_conf, $dst_volid);
 	    PVE::QemuConfig->write_config($vmid, $vm_conf);
 	}
     };
@@ -78,6 +78,8 @@ sub do_import {
 	warn "cleanup of $dst_volid failed: $@\n" if $@;
 	die $err;
     }
+
+    return ($drive_name, $dst_volid);
 }
 
 1;

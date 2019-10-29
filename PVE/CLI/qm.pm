@@ -483,12 +483,13 @@ __PACKAGE__->register_method ({
 	my $storecfg = PVE::Storage::config();
 	PVE::Storage::storage_check_enabled($storecfg, $storeid);
 
-	my $target_storage_config =
-	    PVE::Storage::storage_config($storecfg, $storeid);
+	my $target_storage_config =  PVE::Storage::storage_config($storecfg, $storeid);
 	die "storage $storeid does not support vm images\n"
 	    if !$target_storage_config->{content}->{images};
 
-	PVE::QemuServer::ImportDisk::do_import($source, $vmid, $storeid, { format => $format });
+	print "importing disk '$source' to VM $vmid ...\n";
+	my ($drive_id, $volid) = PVE::QemuServer::ImportDisk::do_import($source, $vmid, $storeid, { format => $format });
+	print "Successfully imported disk as '$drive_id:$volid'\n";
 
 	return undef;
     }});
