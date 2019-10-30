@@ -1,3 +1,25 @@
+qemu-server (6.0-13) pve; urgency=medium
+
+  * fix #2434: extend machine regex to support stable release machine updates
+
+  * prepare to fix #2408, #2355, #2380: use scsi-hd backend for iSCSI as well
+
+  * fix deleting pending changes for not yet existing options
+
+  * improve hugepage memory size detection
+
+  * avoid a race for VMID reservation when importing an OVF manifest to a new
+    VM
+
+  * cleanup importidsk CLI command, and say to which exact disk we imported
+
+  * add simple runtime heuristic for IOThread backup support, to ensure the VM
+    to backup was started with a recent QEMU version.
+
+  * QMPClient: ensure QMP connection is also closed in certain edge cases
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 30 Oct 2019 17:43:41 +0100
+
 qemu-server (6.0-12) pve; urgency=medium
 
   * fix regression from 6.0-10 with vmstate restore on RBD
