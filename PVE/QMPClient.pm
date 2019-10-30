@@ -509,4 +509,13 @@ sub mux_eof {
     }
 }
 
+sub DESTROY {
+    my ($self) = @_;
+
+    foreach my $sname (keys %{$self->{queue_info}}) {
+	my $queue_info = $self->{queue_info}->{$sname};
+	$close_connection->($self, $queue_info);
+    }
+}
+
 1;
