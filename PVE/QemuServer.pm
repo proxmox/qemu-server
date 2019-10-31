@@ -699,6 +699,11 @@ EODESCR
 	description => "Configure additional enhancements for SPICE.",
 	optional => 1
     },
+    tags => {
+	type => 'string', format => 'pve-tag-list',
+	description => 'Tags of the VM. This is only meta information.',
+	optional => 1,
+    },
 };
 
 my $cicustom_fmt = {
@@ -3024,7 +3029,12 @@ our $vmstatus_return_properties = {
 	description => "The current config lock, if any.",
 	type => 'string',
 	optional => 1,
-    }
+    },
+    tags => {
+	description  => "The current configured tags, if any",
+	type => 'string',
+	optional => 1,
+    },
 };
 
 my $last_proc_pid_stat;
@@ -3095,6 +3105,7 @@ sub vmstatus {
 
 	$d->{serial} = 1 if conf_has_serial($conf);
 	$d->{lock} = $conf->{lock} if $conf->{lock};
+	$d->{tags} = $conf->{tags} if defined($conf->{tags});
 
 	$res->{$vmid} = $d;
     }
@@ -4713,6 +4724,7 @@ my $fast_plug_option = {
     'protection' => 1,
     'vmstatestorage' => 1,
     'hookscript' => 1,
+    'tags' => 1,
 };
 
 # hotplug changes in [PENDING]

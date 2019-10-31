@@ -283,6 +283,7 @@ my $generaloptions = {
     'startup' => 1,
     'tdf' => 1,
     'template' => 1,
+    'tags' => 1,
 };
 
 my $vmpoweroptions = {
