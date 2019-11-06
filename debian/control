@@ -16,7 +16,7 @@ Build-Depends: debhelper (>= 11~),
                pve-cluster,
                pve-doc-generator (>= 5.3-3),
                pve-firewall,
-               qemu-utils,
+               pve-qemu-kvm,
 Standards-Version: 4.3.0
 Homepage: http://www.proxmox.com
 
