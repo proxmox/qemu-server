@@ -15,6 +15,7 @@ Build-Depends: debhelper (>= 11~),
                perl (>= 5.10.0-19),
                pve-cluster,
                pve-doc-generator (>= 5.3-3),
+               pve-edk2-firmware,
                pve-firewall,
                pve-qemu-kvm,
 Standards-Version: 4.3.0
