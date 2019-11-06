@@ -4,7 +4,6 @@ use strict;
 use warnings;
 use Cwd 'abs_path';
 use Net::SSLeay;
-use UUID;
 use POSIX;
 use IO::Socket::IP;
 use URI::Escape;

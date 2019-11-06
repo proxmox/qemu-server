@@ -24,6 +24,7 @@ use POSIX;
 use Storable qw(dclone);
 use Time::HiRes qw(gettimeofday);
 use URI::Escape;
+use UUID;
 
 use PVE::Cluster qw(cfs_register_file cfs_read_file cfs_write_file cfs_lock_file);
 use PVE::Exception qw(raise raise_param_exc);
