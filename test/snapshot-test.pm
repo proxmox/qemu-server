@@ -382,6 +382,17 @@ my $repl_config_module = new Test::MockModule('PVE::ReplicationConfig');
 $repl_config_module->mock('new' => sub { return bless {}, "PVE::ReplicationConfig" });
 $repl_config_module->mock('check_for_existing_jobs' => sub { return undef });
 
+my $storage_module = new Test::MockModule('PVE::Storage');
+$storage_module->mock('config', sub { return undef; });
+$storage_module->mock('path', sub { return "/some/store/statefile/path"; });
+$storage_module->mock('activate_volumes', \&mocked_activate_volumes);
+$storage_module->mock('deactivate_volumes', \&mocked_deactivate_volumes);
+$storage_module->mock('vdisk_free', \&mocked_vdisk_free);
+$storage_module->mock('volume_snapshot', \&mocked_volume_snapshot);
+$storage_module->mock('volume_snapshot_delete', \&mocked_volume_snapshot_delete);
+$storage_module->mock('volume_snapshot_rollback', \&mocked_volume_snapshot_rollback);
+$storage_module->mock('volume_rollback_is_possible', \&mocked_volume_rollback_is_possible);
+
 $running = 1;
 $freeze_possible = 1;
 $save_vmstate_works = 1;
@@ -473,19 +484,6 @@ $vm_mon->{savevm_end} = 1;
 # possible, but fails
 $vol_snapshot_rollback_possible->{"local:snapshotable-disk-4"} = 1;
 
-printf("\n");
-printf("Setting up Mocking for PVE::Storage\n");
-my $storage_module = new Test::MockModule('PVE::Storage');
-$storage_module->mock('config', sub { return undef; });
-$storage_module->mock('path', sub { return "/some/store/statefile/path"; });
-$storage_module->mock('activate_volumes', \&mocked_activate_volumes);
-$storage_module->mock('deactivate_volumes', \&mocked_deactivate_volumes);
-$storage_module->mock('vdisk_free', \&mocked_vdisk_free);
-$storage_module->mock('volume_snapshot', \&mocked_volume_snapshot);
-$storage_module->mock('volume_snapshot_delete', \&mocked_volume_snapshot_delete);
-$storage_module->mock('volume_snapshot_rollback', \&mocked_volume_snapshot_rollback);
-$storage_module->mock('volume_rollback_is_possible', \&mocked_volume_rollback_is_possible);
-printf("\tconfig(), volume_snapshot(), volume_snapshot_delete(), volume_snapshot_rollback() and volume_rollback_is_possible() mocked\n");
 
 #printf("\n");
 #printf("Setting up Mocking for PVE::Tools\n");
