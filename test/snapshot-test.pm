@@ -379,6 +379,7 @@ $qemu_config_module->mock('__snapshot_save_vmstate', \&__snapshot_save_vmstate);
 
 # ignore existing replication config
 my $repl_config_module = new Test::MockModule('PVE::ReplicationConfig');
+$repl_config_module->mock('new' => sub { return bless {}, "PVE::ReplicationConfig" });
 $repl_config_module->mock('check_for_existing_jobs' => sub { return undef });
 
 $running = 1;
