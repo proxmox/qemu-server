@@ -463,31 +463,20 @@ __PACKAGE__->register_method({
 	my ($param) = @_;
 
 	my $rpcenv = PVE::RPCEnvironment::get();
-
 	my $authuser = $rpcenv->get_user();
 
 	my $node = extract_param($param, 'node');
-
 	my $vmid = extract_param($param, 'vmid');
 
 	my $archive = extract_param($param, 'archive');
 	my $is_restore = !!$archive;
 
-	my $storage = extract_param($param, 'storage');
-
-	my $force = extract_param($param, 'force');
-
-	my $unique = extract_param($param, 'unique');
-
-	my $pool = extract_param($param, 'pool');
-
 	my $bwlimit = extract_param($param, 'bwlimit');
-
+	my $force = extract_param($param, 'force');
+	my $pool = extract_param($param, 'pool');
 	my $start_after_create = extract_param($param, 'start');
-
-	my $filename = PVE::QemuConfig->config_file($vmid);
-
-	my $storecfg = PVE::Storage::config();
+	my $storage = extract_param($param, 'storage');
+	my $unique = extract_param($param, 'unique');
 
 	if (defined(my $ssh_keys = $param->{sshkeys})) {
 		$ssh_keys = URI::Escape::uri_unescape($ssh_keys);
@@ -495,6 +484,9 @@ __PACKAGE__->register_method({
 	}
 
 	PVE::Cluster::check_cfs_quorum();
+
+	my $filename = PVE::QemuConfig->config_file($vmid);
+	my $storecfg = PVE::Storage::config();
 
 	if (defined($pool)) {
 	    $rpcenv->check_pool_exist($pool);
