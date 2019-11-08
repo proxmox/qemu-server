@@ -2560,11 +2560,9 @@ sub destroy_vm {
 	# check if any base image is still used by a linked clone
 	foreach_drive($conf, sub {
 		my ($ds, $drive) = @_;
-
 		return if drive_is_cdrom($drive);
 
 		my $volid = $drive->{file};
-
 		return if !$volid || $volid =~ m|^/|;
 
 		die "base volume '$volid' is still in use by linked cloned\n"
@@ -2576,37 +2574,25 @@ sub destroy_vm {
     # only remove disks owned by this VM
     foreach_drive($conf, sub {
 	my ($ds, $drive) = @_;
-
  	return if drive_is_cdrom($drive, 1);
 
 	my $volid = $drive->{file};
-
 	return if !$volid || $volid =~ m|^/|;
 
 	my ($path, $owner) = PVE::Storage::path($storecfg, $volid);
 	return if !$path || !$owner || ($owner != $vmid);
 
-	eval {
-	    PVE::Storage::vdisk_free($storecfg, $volid);
-	};
+	eval { PVE::Storage::vdisk_free($storecfg, $volid) };
 	warn "Could not remove disk '$volid', check manually: $@" if $@;
-
     });
 
     # also remove unused disk
-    eval {
-	my $dl = PVE::Storage::vdisk_list($storecfg, undef, $vmid);
-
-	eval {
-	    PVE::Storage::foreach_volid($dl, sub {
-		my ($volid, $sid, $volname, $d) = @_;
-		PVE::Storage::vdisk_free($storecfg, $volid);
-	    });
-	};
+    my $vmdisks = PVE::Storage::vdisk_list($storecfg, undef, $vmid);
+    PVE::Storage::foreach_volid($vmdisks, sub {
+	my ($volid, $sid, $volname, $d) = @_;
+	eval { PVE::Storage::vdisk_free($storecfg, $volid) };
 	warn $@ if $@;
-
-    };
-    warn $@ if $@;
+    });
 
     if ($keep_empty_config) {
 	PVE::QemuConfig->write_config($vmid, { memory => 128 });
