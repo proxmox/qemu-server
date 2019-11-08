@@ -6605,12 +6605,9 @@ sub restore_tar_archive {
 
     my $storecfg = PVE::Storage::config();
 
-    # Restoring a backup can replace an existing VM. In this case, we need to
-    # remove existing data such as disks as they would pile up as unused disks
-    # in the new VM otherwise.
-    # keep_empty_config=1 to prevent races until overwriting it with the
-    # restored config.
-    # skiplock=1 because qmrestore has set the lock itself.
+    # avoid zombie disks when restoring over an existing VM -> cleanup first
+    # pass keep_empty_config=1 to keep the config (thus VMID) reserved for us
+    # skiplock=1 because qmrestore has set the 'create' lock itself already
     my $vmcfgfn = PVE::QemuConfig->config_file($vmid);
     destroy_vm($storecfg, $vmid, 1, 1) if -f $vmcfgfn;
 
