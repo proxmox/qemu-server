@@ -2550,7 +2550,7 @@ sub check_type {
 }
 
 sub destroy_vm {
-    my ($storecfg, $vmid, $keep_empty_config, $skiplock) = @_;
+    my ($storecfg, $vmid, $skiplock, $replacement_conf) = @_;
 
     my $conf = PVE::QemuConfig->load_config($vmid);
 
@@ -2594,8 +2594,8 @@ sub destroy_vm {
 	warn $@ if $@;
     });
 
-    if ($keep_empty_config) {
-	PVE::QemuConfig->write_config($vmid, { memory => 128 });
+    if (defined $replacement_conf) {
+	PVE::LXC::Config->write_config($vmid, $replacement_conf);
     } else {
 	PVE::QemuConfig->destroy_config($vmid);
     }
@@ -6595,7 +6595,7 @@ sub restore_tar_archive {
     # pass keep_empty_config=1 to keep the config (thus VMID) reserved for us
     # skiplock=1 because qmrestore has set the 'create' lock itself already
     my $vmcfgfn = PVE::QemuConfig->config_file($vmid);
-    destroy_vm($storecfg, $vmid, 1, 1) if -f $vmcfgfn;
+    destroy_vm($storecfg, $vmid, 1, { lock => 'restore' }) if -f $vmcfgfn;
 
     my $tocmd = "/usr/lib/qemu-server/qmextract";
 

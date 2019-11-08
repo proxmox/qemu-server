@@ -659,7 +659,7 @@ __PACKAGE__->register_method ({
 	if ($err) {
 	    my $skiplock = 1;
 	    # eval for additional safety in error path
-	    eval { PVE::QemuServer::destroy_vm($storecfg, $vmid, undef, $skiplock) };
+	    eval { PVE::QemuServer::destroy_vm($storecfg, $vmid, $skiplock) };
 	    warn "Could not destroy VM $vmid: $@" if "$@";
 	    die "import failed - $err";
 	}

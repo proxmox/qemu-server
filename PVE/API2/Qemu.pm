@@ -1448,7 +1448,7 @@ __PACKAGE__->register_method({
 		die "VM $vmid is running - destroy failed\n"
 		    if (PVE::QemuServer::check_running($vmid));
 
-		PVE::QemuServer::destroy_vm($storecfg, $vmid, 1, $skiplock);
+		PVE::QemuServer::destroy_vm($storecfg, $vmid, $skiplock, { lock => 'destroyed' });
 
 		PVE::AccessControl::remove_vm_access($vmid);
 		PVE::Firewall::remove_vmfw_conf($vmid);
