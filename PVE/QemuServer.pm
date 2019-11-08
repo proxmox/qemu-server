@@ -6673,14 +6673,9 @@ sub restore_tar_archive {
 	$srcfd->close();
 	$outfd->close();
     };
-    my $err = $@;
-
-    if ($err) {
-
+    if (my $err = $@) {
 	unlink $tmpfn;
-
 	tar_restore_cleanup($storecfg, "$tmpdir/qmrestore.stat") if !$opts->{info};
-
 	die $err;
     }
 
