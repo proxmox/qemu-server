@@ -5332,6 +5332,35 @@ sub vm_start {
 
 	my ($cmd, $vollist, $spice_port) = config_to_command($storecfg, $vmid, $conf, $defaults, $forcemachine);
 
+	my $migration_ip;
+	my $get_migration_ip = sub {
+	    my ($cidr, $nodename) = @_;
+
+	    return $migration_ip if defined($migration_ip);
+
+	    if (!defined($cidr)) {
+		my $dc_conf = PVE::Cluster::cfs_read_file('datacenter.cfg');
+		$cidr = $dc_conf->{migration}->{network};
+	    }
+
+	    if (defined($cidr)) {
+		my $ips = PVE::Network::get_local_ip_from_cidr($cidr);
+
+		die "could not get IP: no address configured on local " .
+		    "node for network '$cidr'\n" if scalar(@$ips) == 0;
+
+		die "could not get IP: multiple addresses configured on local " .
+		    "node for network '$cidr'\n" if scalar(@$ips) > 1;
+
+		$migration_ip = @$ips[0];
+	    }
+
+	    $migration_ip = PVE::Cluster::remote_node_ip($nodename, 1)
+		if !defined($migration_ip);
+
+	    return $migration_ip;
+	};
+
 	my $migrate_uri;
 	if ($statefile) {
 	    if ($statefile eq 'tcp') {
@@ -5348,13 +5377,7 @@ sub vm_start {
 		}
 
 		if ($migration_type eq 'insecure') {
-		    my $migrate_network_addr = PVE::Cluster::get_local_migration_ip($migration_network);
-		    if ($migrate_network_addr) {
-			$localip = $migrate_network_addr;
-		    } else {
-			$localip = PVE::Cluster::remote_node_ip($nodename, 1);
-		    }
-
+		    $localip = $get_migration_ip->($migration_network, $nodename);
 		    $localip = "[$localip]" if Net::IP::ip_is_ipv6($localip);
 		}
 
@@ -5484,8 +5507,7 @@ sub vm_start {
 	#start nbd server for storage migration
 	if ($targetstorage) {
 	    my $nodename = PVE::INotify::nodename();
-	    my $migrate_network_addr = PVE::Cluster::get_local_migration_ip($migration_network);
-	    my $localip = $migrate_network_addr ? $migrate_network_addr : PVE::Cluster::remote_node_ip($nodename, 1);
+	    my $localip = $get_migration_ip->($migration_network, $nodename);
 	    my $pfamily = PVE::Tools::get_host_address_family($nodename);
 	    my $storage_migrate_port = PVE::Tools::next_migrate_port($pfamily);
 
