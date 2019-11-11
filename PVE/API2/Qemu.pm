@@ -28,6 +28,7 @@ use PVE::Firewall;
 use PVE::API2::Firewall::VM;
 use PVE::API2::Qemu::Agent;
 use PVE::VZDump::Plugin;
+use PVE::DataCenterConfig;
 
 BEGIN {
     if (!$ENV{PVE_GENERATING_DOCS}) {

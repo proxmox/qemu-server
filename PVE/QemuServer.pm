@@ -27,6 +27,7 @@ use URI::Escape;
 use UUID;
 
 use PVE::Cluster qw(cfs_register_file cfs_read_file cfs_write_file cfs_lock_file);
+use PVE::DataCenterConfig;
 use PVE::Exception qw(raise raise_param_exc);
 use PVE::GuestHelpers;
 use PVE::INotify;
