@@ -5806,7 +5806,7 @@ sub vm_reboot {
 
 	};
 	if (my $err = $@) {
-	    # clear reboot request if reboot fails for some reason
+	    # avoid that the next normal shutdown will be confused for a reboot
 	    clear_reboot_request($vmid);
 	    die $err;
 	}
