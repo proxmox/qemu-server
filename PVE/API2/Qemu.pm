@@ -9,6 +9,7 @@ use IO::Socket::IP;
 use URI::Escape;
 
 use PVE::Cluster qw (cfs_read_file cfs_write_file);;
+use PVE::RRD;
 use PVE::SafeSyslog;
 use PVE::Tools qw(extract_param);
 use PVE::Exception qw(raise raise_param_exc raise_perm_exc);
@@ -766,7 +767,7 @@ __PACKAGE__->register_method({
     code => sub {
 	my ($param) = @_;
 
-	return PVE::Cluster::create_rrd_graph(
+	return PVE::RRD::create_rrd_graph(
 	    "pve2-vm/$param->{vmid}", $param->{timeframe},
 	    $param->{ds}, $param->{cf});
 
@@ -809,7 +810,7 @@ __PACKAGE__->register_method({
     code => sub {
 	my ($param) = @_;
 
-	return PVE::Cluster::create_rrd_data(
+	return PVE::RRD::create_rrd_data(
 	    "pve2-vm/$param->{vmid}", $param->{timeframe}, $param->{cf});
     }});
 
