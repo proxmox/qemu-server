@@ -1,3 +1,19 @@
+qemu-server (6.0-14) pve; urgency=medium
+
+  * use PVE::DataCenterConfig, use PVE::SSHInfo, use PVE::RRD for RRD data
+
+  * refactor migration IP retrieval
+
+  * add missing packages to (build-)dependencies
+
+  * fix #2457: ga: set-user-password: increase maxLength of password
+
+  * fix restoring old VM backups made with Promxox VE earlier than 2.3
+
+  * improve test mocking
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 18 Nov 2019 12:12:03 +0100
+
 qemu-server (6.0-13) pve; urgency=medium
 
   * fix #2434: extend machine regex to support stable release machine updates
