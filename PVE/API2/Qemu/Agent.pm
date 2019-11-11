@@ -227,7 +227,7 @@ __PACKAGE__->register_method({
 		type => 'string',
 		description => 'The new password.',
 		minLength => 5,
-		maxLength => 64,
+		maxLength => 1024,
 	    },
 	    crypted => {
 		type => 'boolean',
