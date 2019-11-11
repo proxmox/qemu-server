@@ -29,6 +29,7 @@ use PVE::API2::Firewall::VM;
 use PVE::API2::Qemu::Agent;
 use PVE::VZDump::Plugin;
 use PVE::DataCenterConfig;
+use PVE::SSHInfo;
 
 BEGIN {
     if (!$ENV{PVE_GENERATING_DOCS}) {
@@ -1554,9 +1555,9 @@ __PACKAGE__->register_method({
 
 	if ($node ne 'localhost' && $node ne PVE::INotify::nodename()) {
 	    (undef, $family) = PVE::Cluster::remote_node_ip($node);
-	    my $sshinfo = PVE::Cluster::get_ssh_info($node);
+	    my $sshinfo = PVE::SSHInfo::get_ssh_info($node);
 	    # NOTE: kvm VNC traffic is already TLS encrypted or is known unsecure
-	    $remcmd = PVE::Cluster::ssh_info_to_command($sshinfo, $use_serial ? '-t' : '-T');
+	    $remcmd = PVE::SSHInfo::ssh_info_to_command($sshinfo, $use_serial ? '-t' : '-T');
 	} else {
 	    $family = PVE::Tools::get_host_address_family($node);
 	}
@@ -1694,8 +1695,8 @@ __PACKAGE__->register_method({
 
 	if ($node ne 'localhost' && $node ne PVE::INotify::nodename()) {
 	    (undef, $family) = PVE::Cluster::remote_node_ip($node);
-	    my $sshinfo = PVE::Cluster::get_ssh_info($node);
-	    $remcmd = PVE::Cluster::ssh_info_to_command($sshinfo, '-t');
+	    my $sshinfo = PVE::SSHInfo::get_ssh_info($node);
+	    $remcmd = PVE::SSHInfo::ssh_info_to_command($sshinfo, '-t');
 	    push @$remcmd, '--';
 	} else {
 	    $family = PVE::Tools::get_host_address_family($node);
