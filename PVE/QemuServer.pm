@@ -1335,7 +1335,7 @@ my $usbdesc = {
 };
 PVE::JSONSchema::register_standard_option("pve-qm-usb", $usbdesc);
 
-my $PCIRE = qr/[a-f0-9]{2}:[a-f0-9]{2}(?:\.[a-f0-9])?/;
+my $PCIRE = qr/([a-f0-9]{4}:)?[a-f0-9]{2}:[a-f0-9]{2}(?:\.[a-f0-9])?/;
 my $hostpci_fmt = {
     host => {
 	default_key => 1,
@@ -3639,7 +3639,7 @@ sub config_to_command {
 	if ($d->{mdev} && scalar(@$pcidevices) == 1) {
 	    my $pci_id = $pcidevices->[0]->{id};
 	    my $uuid = PVE::SysFSTools::generate_mdev_uuid($vmid, $i);
-	    $sysfspath = "/sys/bus/pci/devices/0000:$pci_id/$uuid";
+	    $sysfspath = "/sys/bus/pci/devices/$pci_id/$uuid";
 	} elsif ($d->{mdev}) {
 	    warn "ignoring mediated device '$id' with multifunction device\n";
 	}
@@ -5340,7 +5340,7 @@ sub vm_start {
 	  foreach my $pcidevice (@$pcidevices) {
 		my $pciid = $pcidevice->{id};
 
-		my $info = PVE::SysFSTools::pci_device_info("0000:$pciid");
+		my $info = PVE::SysFSTools::pci_device_info("$pciid");
 		die "IOMMU not present\n" if !PVE::SysFSTools::check_iommu_support();
 		die "no pci device info for device '$pciid'\n" if !$info;
 
