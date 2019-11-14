@@ -2111,7 +2111,7 @@ __PACKAGE__->register_method({
 
 		print "Requesting HA stop for VM $vmid\n";
 
-		my $cmd = ['ha-manager', 'set',  "vm:$vmid", '--state', 'stopped'];
+		my $cmd = ['ha-manager', 'crm-command', 'stop',  "vm:$vmid", '0'];
 		PVE::Tools::run_command($cmd);
 		return;
 	    };
@@ -2267,12 +2267,13 @@ __PACKAGE__->register_method({
 
 	if (PVE::HA::Config::vm_is_ha_managed($vmid) && $rpcenv->{type} ne 'ha') {
 
+	    my $timeout = $param->{timeout} // 60;
 	    my $hacmd = sub {
 		my $upid = shift;
 
 		print "Requesting HA stop for VM $vmid\n";
 
-		my $cmd = ['ha-manager', 'set', "vm:$vmid", '--state', 'stopped'];
+		my $cmd = ['ha-manager', 'crm-command', 'stop', "vm:$vmid", "$timeout"];
 		PVE::Tools::run_command($cmd);
 		return;
 	    };
