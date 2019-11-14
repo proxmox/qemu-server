@@ -2595,7 +2595,7 @@ sub destroy_vm {
     });
 
     if (defined $replacement_conf) {
-	PVE::LXC::Config->write_config($vmid, $replacement_conf);
+	PVE::QemuConfig->write_config($vmid, $replacement_conf);
     } else {
 	PVE::QemuConfig->destroy_config($vmid);
     }
