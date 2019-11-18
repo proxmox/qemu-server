@@ -458,6 +458,7 @@ sub sync_disks {
 	    if ($self->{running} && $ref eq 'config') {
 		push @{$self->{online_local_volumes}}, $volid;
 	    } elsif ($ref eq 'generated') {
+		die "can't live migrate VM with local cloudinit disk. use a shared storage instead\n" if $self->{running};
 		# skip all generated volumes but queue them for deletion in phase3_cleanup
 		push @{$self->{volumes}}, $volid;
 		next;
