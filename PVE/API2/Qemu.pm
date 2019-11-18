@@ -3302,7 +3302,7 @@ __PACKAGE__->register_method({
             targetstorage => get_standard_option('pve-storage-id', {
 		description => "Default target storage.",
 		optional => 1,
-		completion => \&PVE::QemuServer::complete_storage,
+		completion => \&PVE::QemuServer::complete_migration_storage,
             }),
 	    bwlimit => {
 		description => "Override I/O bandwidth limit (in KiB/s).",

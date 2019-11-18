@@ -7482,4 +7482,22 @@ sub complete_storage {
     return $res;
 }
 
+sub complete_migration_storage {
+    my ($cmd, $param, $current_value, $all_args) = @_;
+
+    my $targetnode = @$all_args[1];
+
+    my $cfg = PVE::Storage::config();
+    my $ids = $cfg->{ids};
+
+    my $res = [];
+    foreach my $sid (keys %$ids) {
+	next if !PVE::Storage::storage_check_enabled($cfg, $sid, $targetnode, 1);
+	next if !$ids->{$sid}->{content}->{images};
+	push @$res, $sid;
+    }
+
+    return $res;
+}
+
 1;
