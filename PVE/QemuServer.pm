@@ -253,6 +253,13 @@ my $agent_fmt = {
 	optional => 1,
 	default => 0
     },
+    type => {
+	description => "Select the agent type",
+	type => 'string',
+	default => 'virtio',
+	optional => 1,
+	enum => [qw(virtio isa)],
+    },
 };
 
 my $vga_fmt = {
@@ -3892,12 +3899,19 @@ sub config_to_command {
 
     push @$cmd, '-k', $conf->{keyboard} if defined($conf->{keyboard});
 
-    if (parse_guest_agent($conf)->{enabled}) {
+    my $guest_agent = parse_guest_agent($conf);
+
+    if ($guest_agent->{enabled}) {
 	my $qgasocket = qmp_socket($vmid, 1);
-	my $pciaddr = print_pci_addr("qga0", $bridges, $arch, $machine_type);
 	push @$devices, '-chardev', "socket,path=$qgasocket,server,nowait,id=qga0";
-	push @$devices, '-device', "virtio-serial,id=qga0$pciaddr";
-	push @$devices, '-device', 'virtserialport,chardev=qga0,name=org.qemu.guest_agent.0';
+
+	if ($guest_agent->{type} eq 'virtio') {
+	    my $pciaddr = print_pci_addr("qga0", $bridges, $arch, $machine_type);
+	    push @$devices, '-device', "virtio-serial,id=qga0$pciaddr";
+	    push @$devices, '-device', 'virtserialport,chardev=qga0,name=org.qemu.guest_agent.0';
+	} elsif ($guest_agent->{type} eq 'isa') {
+	    push @$devices, '-device', "isa-serial,chardev=qga0";
+	}
     }
 
     my $spice_port;
