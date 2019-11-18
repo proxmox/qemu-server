@@ -5797,7 +5797,8 @@ sub vm_sendkey {
 	my $conf = PVE::QemuConfig->load_config($vmid);
 
 	# there is no qmp command, so we use the human monitor command
-	vm_human_monitor_command($vmid, "sendkey $key");
+	my $res = vm_human_monitor_command($vmid, "sendkey $key");
+	die $res if $res ne '';
     });
 }
 
