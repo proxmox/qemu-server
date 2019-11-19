@@ -297,14 +297,22 @@ sub __snapshot_save_vmstate {
     $snap->{vmstate} = "somestorage:state-volume";
     $snap->{runningmachine} = "somemachine"
 }
+
+sub assert_config_exists_on_node {
+    my ($vmid, $node) = @_;
+    return -f cfs_config_path(undef, $vmid, $node);
+}
 # END mocked PVE::QemuConfig methods
 
-# BEGIN redefine PVE::QemuServer methods
+# BEGIN mocked PVE::QemuServer::Helpers methods
 
-sub check_running {
+sub vm_running_locally {
     return $running;
 }
 
+# END mocked PVE::QemuServer::Helpers methods
+
+# BEGIN redefine PVE::QemuServer methods
 
 sub do_snapshots_with_qemu {
     return 0;
@@ -369,6 +377,9 @@ sub vm_stop {
 PVE::Tools::run_command("rm -rf snapshot-working");
 PVE::Tools::run_command("cp -a snapshot-input snapshot-working");
 
+my $qemu_helpers_module = new Test::MockModule('PVE::QemuServer::Helpers');
+$qemu_helpers_module->mock('vm_running_locally', \&vm_running_locally);
+
 my $qemu_config_module = new Test::MockModule('PVE::QemuConfig');
 $qemu_config_module->mock('config_file_lock', \&config_file_lock);
 $qemu_config_module->mock('cfs_config_path', \&cfs_config_path);
@@ -376,6 +387,7 @@ $qemu_config_module->mock('load_config', \&load_config);
 $qemu_config_module->mock('write_config', \&write_config);
 $qemu_config_module->mock('has_feature', \&has_feature);
 $qemu_config_module->mock('__snapshot_save_vmstate', \&__snapshot_save_vmstate);
+$qemu_config_module->mock('assert_config_exists_on_node', \&assert_config_exists_on_node);
 
 # ignore existing replication config
 my $repl_config_module = new Test::MockModule('PVE::ReplicationConfig');

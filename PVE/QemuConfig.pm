@@ -22,6 +22,19 @@ mkdir $lock_dir;
 
 my $MAX_UNUSED_DISKS = 256;
 
+sub assert_config_exists_on_node {
+    my ($vmid, $node) = @_;
+
+    $node //= $nodename;
+
+    my $filename = __PACKAGE__->config_file($vmid, $node);
+    my $exists = -f $filename;
+
+    my $type = guest_type();
+    die "unable to find configuration file for $type $vmid on node '$node'\n"
+	if !$exists;
+}
+
 # BEGIN implemented abstract methods from PVE::AbstractConfig
 
 sub guest_type {
@@ -167,7 +180,7 @@ sub __snapshot_save_vmstate {
 
 sub __snapshot_check_running {
     my ($class, $vmid) = @_;
-    return PVE::QemuServer::check_running($vmid);
+    return PVE::QemuServer::Helpers::vm_running_locally($vmid);
 }
 
 sub __snapshot_check_freeze_needed {
