@@ -4907,10 +4907,12 @@ sub vmconfig_hotplug_pending {
 	}
     }
 
-    my $apply_pending_cloudinit;
+    my ($apply_pending_cloudinit, $apply_pending_cloudinit_done);
     $apply_pending_cloudinit = sub {
+	return if $apply_pending_cloudinit_done; # once is enough
+	$apply_pending_cloudinit_done = 1; # once is enough
+
 	my ($key, $value) = @_;
-	$apply_pending_cloudinit = sub {}; # once is enough
 
 	my @cloudinit_opts = keys %$confdesc_cloudinit;
 	foreach my $opt (keys %{$conf->{pending}}) {
