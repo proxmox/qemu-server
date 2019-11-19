@@ -7,6 +7,7 @@ SOURCES=PCI.pm		\
 	Agent.pm	\
 	Helpers.pm	\
 	Monitor.pm	\
+	Machine.pm	\
 
 .PHONY: install
 install: ${SOURCES}

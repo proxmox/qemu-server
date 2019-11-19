@@ -8,6 +8,7 @@ use PVE::INotify;
 use PVE::QemuServer::Helpers;
 use PVE::QemuServer::Monitor qw(mon_cmd);
 use PVE::QemuServer;
+use PVE::QemuServer::Machine;
 use PVE::Storage;
 use PVE::Tools;
 
@@ -165,7 +166,7 @@ sub __snapshot_save_vmstate {
     $name .= ".raw" if $scfg->{path}; # add filename extension for file base storage
 
     my $statefile = PVE::Storage::vdisk_alloc($storecfg, $target, $vmid, 'raw', $name, $size*1024);
-    my $runningmachine = PVE::QemuServer::get_current_qemu_machine($vmid);
+    my $runningmachine = PVE::QemuServer::Machine::get_current_qemu_machine($vmid);
 
     if ($suspend) {
 	$conf->{vmstate} = $statefile;

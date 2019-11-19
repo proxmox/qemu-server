@@ -11,6 +11,7 @@ use PVE::Tools;
 use PVE::Cluster;
 use PVE::Storage;
 use PVE::QemuServer;
+use PVE::QemuServer::Machine;
 use PVE::QemuServer::Monitor qw(mon_cmd);
 use Time::HiRes qw( usleep );
 use PVE::RPCEnvironment;
@@ -216,7 +217,7 @@ sub prepare {
 	die "can't migrate running VM without --online\n" if !$online;
 	$running = $pid;
 
-	$self->{forcemachine} = PVE::QemuServer::qemu_machine_pxe($vmid, $conf);
+	$self->{forcemachine} = PVE::QemuServer::Machine::qemu_machine_pxe($vmid, $conf);
 
     }
     my $loc_res = PVE::QemuServer::check_local_resources($conf, 1);

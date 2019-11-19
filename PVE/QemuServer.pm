@@ -43,6 +43,7 @@ use PVE::QMPClient;
 use PVE::QemuConfig;
 use PVE::QemuServer::Helpers;
 use PVE::QemuServer::Cloudinit;
+use PVE::QemuServer::Machine qw(qemu_machine_feature_enabled);
 use PVE::QemuServer::Memory;
 use PVE::QemuServer::Monitor qw(mon_cmd);
 use PVE::QemuServer::PCI qw(print_pci_addr print_pcie_addr print_pcie_root_port);
@@ -1814,20 +1815,14 @@ sub path_is_scsi {
     return $res;
 }
 
-sub machine_type_is_q35 {
-    my ($conf) = @_;
-
-    return $conf->{machine} && ($conf->{machine} =~ m/q35/) ? 1 : 0;
-}
-
 sub print_tabletdevice_full {
     my ($conf, $arch) = @_;
 
-    my $q35 = machine_type_is_q35($conf);
+    my $q35 = PVE::QemuServer::Machine::machine_type_is_q35($conf);
 
     # we use uhci for old VMs because tablet driver was buggy in older qemu
     my $usbbus;
-    if (machine_type_is_q35($conf) || $arch eq 'aarch64') {
+    if (PVE::QemuServer::Machine::machine_type_is_q35($conf) || $arch eq 'aarch64') {
 	$usbbus = 'ehci';
     } else {
 	$usbbus = 'uhci';
@@ -2186,7 +2181,7 @@ sub print_vga_device {
 	$memory = ",ram_size=67108864,vram_size=33554432";
     }
 
-    my $q35 = machine_type_is_q35($conf);
+    my $q35 = PVE::QemuServer::Machine::machine_type_is_q35($conf);
     my $vgaid = "vga" . ($id // '');
     my $pciaddr;
 
@@ -3468,7 +3463,7 @@ sub config_to_command {
 
     die "detected old qemu-kvm binary ($kvmver)\n" if $vernum < 15000;
 
-    my $q35 = machine_type_is_q35($conf);
+    my $q35 = PVE::QemuServer::Machine::machine_type_is_q35($conf);
     my $hotplug_features = parse_hotplug_features(defined($conf->{hotplug}) ? $conf->{hotplug} : '1');
     my $use_old_bios_files = undef;
     ($use_old_bios_files, $machine_type) = qemu_use_old_bios_files($machine_type);
@@ -4109,7 +4104,7 @@ sub vm_devices_list {
 sub vm_deviceplug {
     my ($storecfg, $conf, $vmid, $deviceid, $device, $arch, $machine_type) = @_;
 
-    my $q35 = machine_type_is_q35($conf);
+    my $q35 = PVE::QemuServer::Machine::machine_type_is_q35($conf);
 
     my $devices_list = vm_devices_list($vmid);
     return 1 if defined($devices_list->{$deviceid});
@@ -4185,7 +4180,7 @@ sub vm_deviceplug {
 
 	return undef if !qemu_netdevadd($vmid, $conf, $arch, $device, $deviceid);
 
-	my $machine_type = PVE::QemuServer::qemu_machine_pxe($vmid, $conf);
+	my $machine_type = PVE::QemuServer::Machine::qemu_machine_pxe($vmid, $conf);
 	my $use_old_bios_files = undef;
 	($use_old_bios_files, $machine_type) = qemu_use_old_bios_files($machine_type);
 
@@ -4499,7 +4494,7 @@ sub qemu_usb_hotplug {
 sub qemu_cpu_hotplug {
     my ($vmid, $conf, $vcpus) = @_;
 
-    my $machine_type = PVE::QemuServer::get_current_qemu_machine($vmid);
+    my $machine_type = PVE::QemuServer::Machine::get_current_qemu_machine($vmid);
 
     my $sockets = 1;
     $sockets = $conf->{smp} if $conf->{smp}; # old style - no longer iused
@@ -7007,92 +7002,10 @@ no_data_clone:
     return $disk;
 }
 
-# this only works if VM is running
-sub get_current_qemu_machine {
-    my ($vmid) = @_;
-
-    my $res = mon_cmd($vmid, "query-machines");
-
-    my ($current, $default);
-    foreach my $e (@$res) {
-	$default = $e->{name} if $e->{'is-default'};
-	$current = $e->{name} if $e->{'is-current'};
-    }
-
-    # fallback to the default machine if current is not supported by qemu
-    return $current || $default || 'pc';
-}
-
 sub get_running_qemu_version {
     my ($vmid) = @_;
     my $res = mon_cmd($vmid, "query-version");
     return "$res->{qemu}->{major}.$res->{qemu}->{minor}";
-}
-
-sub qemu_machine_feature_enabled {
-    my ($machine, $kvmver, $version_major, $version_minor) = @_;
-
-    my $current_major;
-    my $current_minor;
-
-    if ($machine && $machine =~ m/^((?:pc(-i440fx|-q35)?|virt)-(\d+)\.(\d+))/) {
-
-	$current_major = $3;
-	$current_minor = $4;
-
-    } elsif ($kvmver =~ m/^(\d+)\.(\d+)/) {
-
-	$current_major = $1;
-	$current_minor = $2;
-    }
-
-    return 1 if version_cmp($current_major, $version_major, $current_minor, $version_minor) >= 0;
-}
-
-# gets in pairs the versions you want to compares, i.e.:
-# ($a-major, $b-major, $a-minor, $b-minor, $a-extra, $b-extra, ...)
-# returns 0 if same, -1 if $a is older than $b, +1 if $a is newer than $b
-sub version_cmp {
-    my @versions = @_;
-
-    my $size = scalar(@versions);
-
-    return 0 if $size == 0;
-    die "cannot compare odd count of versions" if $size & 1;
-
-    for (my $i = 0; $i < $size; $i += 2) {
-	my ($a, $b) = splice(@versions, 0, 2);
-	$a //= 0;
-	$b //= 0;
-
-	return 1 if $a > $b;
-	return -1 if $a < $b;
-    }
-    return 0;
-}
-
-# dies if a) VM not running or not exisiting b) Version query failed
-# So, any defined return value is valid, any invalid state can be caught by eval
-sub runs_at_least_qemu_version {
-    my ($vmid, $major, $minor, $extra) = @_;
-
-    my $v = mon_cmd($vmid, "query-version");
-    die "could not query currently running version for VM $vmid\n" if !defined($v);
-    $v = $v->{qemu};
-
-    return version_cmp($v->{major}, $major, $v->{minor}, $minor, $v->{micro}, $extra) >= 0;
-}
-
-sub qemu_machine_pxe {
-    my ($vmid, $conf) = @_;
-
-    my $machine =  PVE::QemuServer::get_current_qemu_machine($vmid);
-
-    if ($conf->{machine} && $conf->{machine} =~ m/\.pxe$/) {
-	$machine .= '.pxe';
-    }
-
-    return $machine;
 }
 
 sub qemu_use_old_bios_files {

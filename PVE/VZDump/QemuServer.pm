@@ -19,6 +19,7 @@ use PVE::Tools;
 use PVE::VZDump;
 
 use PVE::QemuServer;
+use PVE::QemuServer::Machine;
 use PVE::QemuServer::Monitor qw(mon_cmd);
 
 use base qw (PVE::VZDump::Plugin);
@@ -79,7 +80,7 @@ sub prepare {
 	    $self->loginfo("exclude disk '$ds' '$volid' (backup=no)");
 	    return;
 	} elsif ($self->{vm_was_running} && $drive->{iothread}) {
-	    if (!PVE::QemuServer::runs_at_least_qemu_version($vmid, 4, 0, 1)) {
+	    if (!PVE::QemuServer::Machine::runs_at_least_qemu_version($vmid, 4, 0, 1)) {
 		die "disk '$ds' '$volid' (iothread=on) can't use backup feature with running QEMU " .
 		    "version < 4.0.1! Either set backup=no for this drive or upgrade QEMU and restart VM\n";
 	    }
