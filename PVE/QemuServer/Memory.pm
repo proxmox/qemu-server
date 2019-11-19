@@ -7,6 +7,7 @@ use PVE::Tools qw(run_command lock_file lock_file_full file_read_firstline dir_g
 use PVE::Exception qw(raise raise_param_exc);
 
 use PVE::QemuServer;
+use PVE::QemuServer::Monitor qw(mon_cmd);
 
 my $MAX_NUMA = 8;
 my $MAX_MEM = 4194304;
@@ -141,7 +142,7 @@ sub qemu_memory_hotplug {
 			my $hugepages_host_topology = hugepages_host_topology();
 			hugepages_allocate($hugepages_topology, $hugepages_host_topology);
 
-			eval { PVE::QemuServer::vm_mon_cmd($vmid, "object-add", 'qom-type' => "memory-backend-file", id => "mem-$name", props => {
+			eval { mon_cmd($vmid, "object-add", 'qom-type' => "memory-backend-file", id => "mem-$name", props => {
 					     size => int($dimm_size*1024*1024), 'mem-path' => $path, share => JSON::true, prealloc => JSON::true } ); };
 			if (my $err = $@) {
 			    hugepages_reset($hugepages_host_topology);
@@ -153,7 +154,7 @@ sub qemu_memory_hotplug {
 		    eval { hugepages_update_locked($code); };
 
 		} else {
-		    eval { PVE::QemuServer::vm_mon_cmd($vmid, "object-add", 'qom-type' => "memory-backend-ram", id => "mem-$name", props => { size => int($dimm_size*1024*1024) } ) };
+		    eval { mon_cmd($vmid, "object-add", 'qom-type' => "memory-backend-ram", id => "mem-$name", props => { size => int($dimm_size*1024*1024) } ) };
 		}
 
 		if (my $err = $@) {
@@ -161,7 +162,7 @@ sub qemu_memory_hotplug {
 		    die $err;
 		}
 
-		eval { PVE::QemuServer::vm_mon_cmd($vmid, "device_add", driver => "pc-dimm", id => "$name", memdev => "mem-$name", node => $numanode) };
+		eval { mon_cmd($vmid, "device_add", driver => "pc-dimm", id => "$name", memdev => "mem-$name", node => $numanode) };
 		if (my $err = $@) {
 		    eval { PVE::QemuServer::qemu_objectdel($vmid, "mem-$name"); };
 		    die $err;
@@ -201,7 +202,7 @@ sub qemu_memory_hotplug {
 sub qemu_dimm_list {
     my ($vmid) = @_;
 
-    my $dimmarray = PVE::QemuServer::vm_mon_cmd_nocheck($vmid, "query-memory-devices");
+    my $dimmarray = mon_cmd($vmid, "query-memory-devices");
     my $dimms = {};
 
     foreach my $dimm (@$dimmarray) {

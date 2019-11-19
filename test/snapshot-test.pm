@@ -312,13 +312,9 @@ sub vm_running_locally {
 
 # END mocked PVE::QemuServer::Helpers methods
 
-# BEGIN redefine PVE::QemuServer methods
+# BEGIN mocked PVE::QemuServer::Monitor methods
 
-sub do_snapshots_with_qemu {
-    return 0;
-}
-
-sub vm_qmp_command {
+sub qmp_cmd {
     my ($vmid, $cmd, $nocheck) = @_;
 
     my $exec = $cmd->{execute};
@@ -351,6 +347,14 @@ sub vm_qmp_command {
     die "unexpected vm_qmp_command!\n";
 }
 
+# END mocked PVE::QemuServer::Monitor methods
+
+# BEGIN redefine PVE::QemuServer methods
+
+sub do_snapshots_with_qemu {
+    return 0;
+}
+
 sub vm_start {
     my ($storecfg, $vmid, $statefile, $skiplock, $migratedfrom, $paused, $forcemachine) = @_;
 
@@ -379,6 +383,9 @@ PVE::Tools::run_command("cp -a snapshot-input snapshot-working");
 
 my $qemu_helpers_module = new Test::MockModule('PVE::QemuServer::Helpers');
 $qemu_helpers_module->mock('vm_running_locally', \&vm_running_locally);
+
+my $qemu_monitor_module = new Test::MockModule('PVE::QemuServer::Monitor');
+$qemu_monitor_module->mock('qmp_cmd', \&qmp_cmd);
 
 my $qemu_config_module = new Test::MockModule('PVE::QemuConfig');
 $qemu_config_module->mock('config_file_lock', \&config_file_lock);

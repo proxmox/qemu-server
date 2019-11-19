@@ -11,6 +11,7 @@ use PVE::Tools;
 use PVE::Cluster;
 use PVE::Storage;
 use PVE::QemuServer;
+use PVE::QemuServer::Monitor qw(mon_cmd);
 use Time::HiRes qw( usleep );
 use PVE::RPCEnvironment;
 use PVE::ReplicationConfig;
@@ -548,7 +549,7 @@ sub phase2 {
 
     my $spice_ticket;
     if (PVE::QemuServer::vga_conf_has_spice($conf->{vga})) {
-	my $res = PVE::QemuServer::vm_mon_cmd($vmid, 'query-spice');
+	my $res = mon_cmd($vmid, 'query-spice');
 	$spice_ticket = $res->{ticket};
     }
 
@@ -703,7 +704,7 @@ sub phase2 {
     $migrate_speed *= 1024;
     $self->log('info', "migrate_set_speed: $migrate_speed");
     eval {
-        PVE::QemuServer::vm_mon_cmd_nocheck($vmid, "migrate_set_speed", value => int($migrate_speed));
+	mon_cmd($vmid, "migrate_set_speed", value => int($migrate_speed));
     };
     $self->log('info', "migrate_set_speed error: $@") if $@;
 
@@ -712,7 +713,7 @@ sub phase2 {
     if (defined($migrate_downtime)) {
 	$self->log('info', "migrate_set_downtime: $migrate_downtime");
 	eval {
-	    PVE::QemuServer::vm_mon_cmd_nocheck($vmid, "migrate_set_downtime", value => int($migrate_downtime*100)/100);
+	    mon_cmd($vmid, "migrate_set_downtime", value => int($migrate_downtime*100)/100);
 	};
 	$self->log('info', "migrate_set_downtime error: $@") if $@;
     }
@@ -730,7 +731,7 @@ sub phase2 {
 
     $self->log('info', "set cachesize: $cachesize");
     eval {
-	PVE::QemuServer::vm_mon_cmd_nocheck($vmid, "migrate-set-cache-size", value => int($cachesize));
+	mon_cmd($vmid, "migrate-set-cache-size", value => int($cachesize));
     };
     $self->log('info', "migrate-set-cache-size error: $@") if $@;
 
@@ -746,7 +747,7 @@ sub phase2 {
 	$self->log('info', "spice client_migrate_info");
 
 	eval {
-	    PVE::QemuServer::vm_mon_cmd_nocheck($vmid, "client_migrate_info", protocol => 'spice',
+	    mon_cmd($vmid, "client_migrate_info", protocol => 'spice',
 						hostname => $proxyticket, 'port' => 0, 'tls-port' => $spice_port,
 						'cert-subject' => $subject);
 	};
@@ -756,7 +757,7 @@ sub phase2 {
 
     $self->log('info', "start migrate command to $ruri");
     eval {
-        PVE::QemuServer::vm_mon_cmd_nocheck($vmid, "migrate", uri => $ruri);
+	mon_cmd($vmid, "migrate", uri => $ruri);
     };
     my $merr = $@;
     $self->log('info', "migrate uri => $ruri failed: $merr") if $merr;
@@ -774,7 +775,7 @@ sub phase2 {
 	usleep($usleep);
 	my $stat;
 	eval {
-	    $stat = PVE::QemuServer::vm_mon_cmd_nocheck($vmid, "query-migrate");
+	    $stat = mon_cmd($vmid, "query-migrate");
 	};
 	if (my $err = $@) {
 	    $err_count++;
@@ -843,7 +844,7 @@ sub phase2 {
 		    $migrate_downtime *= 2;
 		    $self->log('info', "migrate_set_downtime: $migrate_downtime");
 		    eval {
-			PVE::QemuServer::vm_mon_cmd_nocheck($vmid, "migrate_set_downtime", value => int($migrate_downtime*100)/100);
+			mon_cmd($vmid, "migrate_set_downtime", value => int($migrate_downtime*100)/100);
 		    };
 		    $self->log('info', "migrate_set_downtime error: $@") if $@;
             	}
@@ -870,7 +871,7 @@ sub phase2_cleanup {
 
     $self->log('info', "migrate_cancel");
     eval {
-	PVE::QemuServer::vm_mon_cmd_nocheck($vmid, "migrate_cancel");
+	mon_cmd($vmid, "migrate_cancel");
     };
     $self->log('info', "migrate_cancel error: $@") if $@;
 
@@ -1021,7 +1022,7 @@ sub phase3_cleanup {
 	if (PVE::QemuServer::vga_conf_has_spice($conf->{vga}) && $self->{running}) {
 	    $self->log('info', "Waiting for spice server migration");
 	    while (1) {
-		my $res = PVE::QemuServer::vm_mon_cmd_nocheck($vmid, 'query-spice');
+		my $res = mon_cmd($vmid, 'query-spice');
 		last if int($res->{'migrated'}) == 1;
 		last if $timer > 50;
 		$timer ++;

@@ -6,6 +6,7 @@ SOURCES=PCI.pm		\
 	Cloudinit.pm	\
 	Agent.pm	\
 	Helpers.pm	\
+	Monitor.pm	\
 
 .PHONY: install
 install: ${SOURCES}

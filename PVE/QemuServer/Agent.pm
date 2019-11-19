@@ -4,6 +4,7 @@ use strict;
 use warnings;
 
 use PVE::QemuServer;
+use PVE::QemuServer::Monitor;
 use MIME::Base64 qw(decode_base64);
 use JSON;
 use base 'Exporter';
@@ -59,7 +60,7 @@ sub agent_cmd {
     my $conf = PVE::QemuConfig->load_config($vmid); # also checks if VM exists
     agent_available($vmid, $conf, $noerr);
 
-    my $res = PVE::QemuServer::vm_mon_cmd($vmid, "guest-$cmd", %$params);
+    my $res = PVE::QemuServer::Monitor::mon_cmd($vmid, "guest-$cmd", %$params);
     check_agent_error($res, $errormsg, $noerr);
 
     return $res;

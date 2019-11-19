@@ -34,7 +34,6 @@ use PVE::INotify;
 use PVE::JSONSchema qw(get_standard_option);
 use PVE::ProcFSTools;
 use PVE::RPCEnvironment;
-use PVE::SafeSyslog;
 use PVE::Storage;
 use PVE::SysFSTools;
 use PVE::Systemd;
@@ -45,6 +44,7 @@ use PVE::QemuConfig;
 use PVE::QemuServer::Helpers;
 use PVE::QemuServer::Cloudinit;
 use PVE::QemuServer::Memory;
+use PVE::QemuServer::Monitor qw(mon_cmd);
 use PVE::QemuServer::PCI qw(print_pci_addr print_pcie_addr print_pcie_root_port);
 use PVE::QemuServer::USB qw(parse_usb_device);
 
@@ -4051,7 +4051,7 @@ sub config_to_command {
 sub spice_port {
     my ($vmid) = @_;
 
-    my $res = vm_mon_cmd($vmid, 'query-spice');
+    my $res = mon_cmd($vmid, 'query-spice');
 
     return $res->{'tls-port'} || $res->{'port'} || die "no spice port\n";
 }
@@ -4059,7 +4059,7 @@ sub spice_port {
 sub vm_devices_list {
     my ($vmid) = @_;
 
-    my $res = vm_mon_cmd($vmid, 'query-pci');
+    my $res = mon_cmd($vmid, 'query-pci');
     my $devices_to_check = [];
     my $devices = {};
     foreach my $pcibus (@$res) {
@@ -4078,14 +4078,14 @@ sub vm_devices_list {
 	$devices_to_check = $to_check;
     }
 
-    my $resblock = vm_mon_cmd($vmid, 'query-block');
+    my $resblock = mon_cmd($vmid, 'query-block');
     foreach my $block (@$resblock) {
 	if($block->{device} =~ m/^drive-(\S+)/){
 		$devices->{$1} = 1;
 	}
     }
 
-    my $resmice = vm_mon_cmd($vmid, 'query-mice');
+    my $resmice = mon_cmd($vmid, 'query-mice');
     foreach my $mice (@$resmice) {
 	if ($mice->{name} eq 'QEMU HID Tablet') {
 	    $devices->{tablet} = 1;
@@ -4096,7 +4096,7 @@ sub vm_devices_list {
     # for usb devices there is no query-usb
     # but we can iterate over the entries in
     # qom-list path=/machine/peripheral
-    my $resperipheral = vm_mon_cmd($vmid, 'qom-list', path => '/machine/peripheral');
+    my $resperipheral = mon_cmd($vmid, 'qom-list', path => '/machine/peripheral');
     foreach my $per (@$resperipheral) {
 	if ($per->{name} =~ m/^usb\d+$/) {
 	    $devices->{$per->{name}} = 1;
@@ -4277,13 +4277,13 @@ sub qemu_deviceadd {
     $devicefull = "driver=".$devicefull;
     my %options =  split(/[=,]/, $devicefull);
 
-    vm_mon_cmd($vmid, "device_add" , %options);
+    mon_cmd($vmid, "device_add" , %options);
 }
 
 sub qemu_devicedel {
     my ($vmid, $deviceid) = @_;
 
-    my $ret = vm_mon_cmd($vmid, "device_del", id => $deviceid);
+    my $ret = mon_cmd($vmid, "device_del", id => $deviceid);
 }
 
 sub qemu_iothread_add {
@@ -4312,7 +4312,7 @@ sub qemu_iothread_del {
 sub qemu_objectadd {
     my($vmid, $objectid, $qomtype) = @_;
 
-    vm_mon_cmd($vmid, "object-add", id => $objectid, "qom-type" => $qomtype);
+    mon_cmd($vmid, "object-add", id => $objectid, "qom-type" => $qomtype);
 
     return 1;
 }
@@ -4320,7 +4320,7 @@ sub qemu_objectadd {
 sub qemu_objectdel {
     my($vmid, $objectid) = @_;
 
-    vm_mon_cmd($vmid, "object-del", id => $objectid);
+    mon_cmd($vmid, "object-del", id => $objectid);
 
     return 1;
 }
@@ -4330,7 +4330,7 @@ sub qemu_driveadd {
 
     my $drive = print_drive_full($storecfg, $vmid, $device);
     $drive =~ s/\\/\\\\/g;
-    my $ret = vm_human_monitor_command($vmid, "drive_add auto \"$drive\"");
+    my $ret = PVE::QemuServer::Monitor::hmp_cmd($vmid, "drive_add auto \"$drive\"");
 
     # If the command succeeds qemu prints: "OK"
     return 1 if $ret =~ m/OK/s;
@@ -4341,7 +4341,7 @@ sub qemu_driveadd {
 sub qemu_drivedel {
     my($vmid, $deviceid) = @_;
 
-    my $ret = vm_human_monitor_command($vmid, "drive_del drive-$deviceid");
+    my $ret = PVE::QemuServer::Monitor::hmp_cmd($vmid, "drive_del drive-$deviceid");
     $ret =~ s/^\s+//;
 
     return 1 if $ret eq "";
@@ -4451,7 +4451,7 @@ sub qemu_add_pci_bridge {
 sub qemu_set_link_status {
     my ($vmid, $device, $up) = @_;
 
-    vm_mon_cmd($vmid, "set_link", name => $device,
+    mon_cmd($vmid, "set_link", name => $device,
 	       up => $up ? JSON::true : JSON::false);
 }
 
@@ -4461,14 +4461,14 @@ sub qemu_netdevadd {
     my $netdev = print_netdev_full($vmid, $conf, $arch, $device, $deviceid, 1);
     my %options =  split(/[=,]/, $netdev);
 
-    vm_mon_cmd($vmid, "netdev_add",  %options);
+    mon_cmd($vmid, "netdev_add",  %options);
     return 1;
 }
 
 sub qemu_netdevdel {
     my ($vmid, $deviceid) = @_;
 
-    vm_mon_cmd($vmid, "netdev_del", id => $deviceid);
+    mon_cmd($vmid, "netdev_del", id => $deviceid);
 }
 
 sub qemu_usb_hotplug {
@@ -4523,7 +4523,7 @@ sub qemu_cpu_hotplug {
 		my $retry = 0;
 		my $currentrunningvcpus = undef;
 		while (1) {
-		    $currentrunningvcpus = vm_mon_cmd($vmid, "query-cpus");
+		    $currentrunningvcpus = mon_cmd($vmid, "query-cpus");
 		    last if scalar(@{$currentrunningvcpus}) == $i-1;
 		    raise_param_exc({ vcpus => "error unplugging cpu$i" }) if $retry > 5;
 		    $retry++;
@@ -4540,7 +4540,7 @@ sub qemu_cpu_hotplug {
 	return;
     }
 
-    my $currentrunningvcpus = vm_mon_cmd($vmid, "query-cpus");
+    my $currentrunningvcpus = mon_cmd($vmid, "query-cpus");
     die "vcpus in running vm does not match its configuration\n"
 	if scalar(@{$currentrunningvcpus}) != $currentvcpus;
 
@@ -4553,7 +4553,7 @@ sub qemu_cpu_hotplug {
 	    my $retry = 0;
 	    my $currentrunningvcpus = undef;
 	    while (1) {
-		$currentrunningvcpus = vm_mon_cmd($vmid, "query-cpus");
+		$currentrunningvcpus = mon_cmd($vmid, "query-cpus");
 		last if scalar(@{$currentrunningvcpus}) == $i;
 		raise_param_exc({ vcpus => "error hotplugging cpu$i" }) if $retry > 10;
 		sleep 1;
@@ -4566,7 +4566,7 @@ sub qemu_cpu_hotplug {
     } else {
 
 	for (my $i = $currentvcpus; $i < $vcpus; $i++) {
-	    vm_mon_cmd($vmid, "cpu-add", id => int($i));
+	    mon_cmd($vmid, "cpu-add", id => int($i));
 	}
     }
 }
@@ -4580,7 +4580,7 @@ sub qemu_block_set_io_throttle {
 
     return if !check_running($vmid) ;
 
-    vm_mon_cmd($vmid, "block_set_io_throttle", device => $deviceid,
+    mon_cmd($vmid, "block_set_io_throttle", device => $deviceid,
 	bps => int($bps),
 	bps_rd => int($bps_rd),
 	bps_wr => int($bps_wr),
@@ -4645,7 +4645,7 @@ sub qemu_block_resize {
 
     return if !$running;
 
-    vm_mon_cmd($vmid, "block_resize", device => $deviceid, size => int($size));
+    mon_cmd($vmid, "block_resize", device => $deviceid, size => int($size));
 
 }
 
@@ -4655,7 +4655,7 @@ sub qemu_volume_snapshot {
     my $running = check_running($vmid);
 
     if ($running && do_snapshots_with_qemu($storecfg, $volid)){
-	vm_mon_cmd($vmid, 'blockdev-snapshot-internal-sync', device => $deviceid, name => $snap);
+	mon_cmd($vmid, 'blockdev-snapshot-internal-sync', device => $deviceid, name => $snap);
     } else {
 	PVE::Storage::volume_snapshot($storecfg, $volid, $snap);
     }
@@ -4677,7 +4677,7 @@ sub qemu_volume_snapshot_delete {
     }
 
     if ($running && do_snapshots_with_qemu($storecfg, $volid)){
-	vm_mon_cmd($vmid, 'blockdev-snapshot-delete-internal-sync', device => $deviceid, name => $snap);
+	mon_cmd($vmid, 'blockdev-snapshot-delete-internal-sync', device => $deviceid, name => $snap);
     } else {
 	PVE::Storage::volume_snapshot_delete($storecfg, $volid, $snap, $running);
     }
@@ -4696,7 +4696,7 @@ sub set_migration_caps {
 	"compress" => 0
     };
 
-    my $supported_capabilities = vm_mon_cmd_nocheck($vmid, "query-migrate-capabilities");
+    my $supported_capabilities = mon_cmd($vmid, "query-migrate-capabilities");
 
     for my $supported_capability (@$supported_capabilities) {
 	push @$cap_ref, {
@@ -4705,7 +4705,7 @@ sub set_migration_caps {
 	};
     }
 
-    vm_mon_cmd_nocheck($vmid, "migrate-set-capabilities", capabilities => $cap_ref);
+    mon_cmd($vmid, "migrate-set-capabilities", capabilities => $cap_ref);
 }
 
 my $fast_plug_option = {
@@ -4786,7 +4786,7 @@ sub vmconfig_hotplug_pending {
 		die "skip\n" if defined($conf->{balloon}) && $conf->{balloon} == 0;
 		# here we reset the ballooning value to memory
 		my $balloon = $conf->{memory} || $defaults->{memory};
-		vm_mon_cmd($vmid, "balloon", value => $balloon*1024*1024);
+		mon_cmd($vmid, "balloon", value => $balloon*1024*1024);
 	    } elsif ($fast_plug_option->{$opt}) {
 		# do nothing
 	    } elsif ($opt =~ m/^net(\d+)$/) {
@@ -4872,7 +4872,7 @@ sub vmconfig_hotplug_pending {
 		# allow manual ballooning if shares is set to zero
 		if ((defined($conf->{shares}) && ($conf->{shares} == 0))) {
 		    my $balloon = $conf->{pending}->{balloon} || $conf->{memory} || $defaults->{memory};
-		    vm_mon_cmd($vmid, "balloon", value => $balloon*1024*1024);
+		    mon_cmd($vmid, "balloon", value => $balloon*1024*1024);
 		}
 	    } elsif ($opt =~ m/^net(\d+)$/) {
 		# some changes can be done without hotplug
@@ -5148,14 +5148,14 @@ sub vmconfig_update_disk {
 	    } else { # cdrom
 
 		if ($drive->{file} eq 'none') {
-		    vm_mon_cmd($vmid, "eject",force => JSON::true,device => "drive-$opt");
+		    mon_cmd($vmid, "eject",force => JSON::true,device => "drive-$opt");
 		    if (drive_is_cloudinit($old_drive)) {
 			vmconfig_register_unused_drive($storecfg, $vmid, $conf, $old_drive);
 		    }
 		} else {
 		    my $path = get_iso_path($storecfg, $vmid, $drive->{file});
-		    vm_mon_cmd($vmid, "eject", force => JSON::true,device => "drive-$opt"); # force eject if locked
-		    vm_mon_cmd($vmid, "change", device => "drive-$opt",target => "$path") if $path;
+		    mon_cmd($vmid, "eject", force => JSON::true,device => "drive-$opt"); # force eject if locked
+		    mon_cmd($vmid, "change", device => "drive-$opt",target => "$path") if $path;
 		}
 
 		return 1;
@@ -5427,7 +5427,7 @@ sub vm_start {
 	print "migration listens on $migrate_uri\n" if $migrate_uri;
 
 	if ($statefile && $statefile ne 'tcp' && $statefile ne 'unix')  {
-	    eval { vm_mon_cmd_nocheck($vmid, "cont"); };
+	    eval { mon_cmd($vmid, "cont"); };
 	    warn $@ if $@;
 	}
 
@@ -5438,13 +5438,13 @@ sub vm_start {
 	    my $pfamily = PVE::Tools::get_host_address_family($nodename);
 	    my $storage_migrate_port = PVE::Tools::next_migrate_port($pfamily);
 
-	    vm_mon_cmd_nocheck($vmid, "nbd-server-start", addr => { type => 'inet', data => { host => "${localip}", port => "${storage_migrate_port}" } } );
+	    mon_cmd($vmid, "nbd-server-start", addr => { type => 'inet', data => { host => "${localip}", port => "${storage_migrate_port}" } } );
 
 	    $localip = "[$localip]" if Net::IP::ip_is_ipv6($localip);
 
 	    foreach my $opt (sort keys %$local_volumes) {
 		my $volid = $local_volumes->{$opt};
-		vm_mon_cmd_nocheck($vmid, "nbd-server-add", device => "drive-$opt", writable => JSON::true );
+		mon_cmd($vmid, "nbd-server-add", device => "drive-$opt", writable => JSON::true );
 		my $migrate_storage_uri = "nbd:${localip}:${storage_migrate_port}:exportname=drive-$opt";
 		print "storage migration listens on $migrate_storage_uri volume:$volid\n";
 	    }
@@ -5459,13 +5459,13 @@ sub vm_start {
 	    if ($spice_port) {
 	        print "spice listens on port $spice_port\n";
 		if ($spice_ticket) {
-		    vm_mon_cmd_nocheck($vmid, "set_password", protocol => 'spice', password => $spice_ticket);
-		    vm_mon_cmd_nocheck($vmid, "expire_password", protocol => 'spice', time => "+30");
+		    mon_cmd($vmid, "set_password", protocol => 'spice', password => $spice_ticket);
+		    mon_cmd($vmid, "expire_password", protocol => 'spice', time => "+30");
 		}
 	    }
 
 	} else {
-	    vm_mon_cmd_nocheck($vmid, "balloon", value => $conf->{balloon}*1024*1024)
+	    mon_cmd($vmid, "balloon", value => $conf->{balloon}*1024*1024)
 		if !$statefile && $conf->{balloon};
 
 	    foreach my $opt (keys %$conf) {
@@ -5475,7 +5475,7 @@ sub vm_start {
 	    }
 	}
 
-	vm_mon_cmd_nocheck($vmid, 'qom-set',
+	mon_cmd($vmid, 'qom-set',
 		    path => "machine/peripheral/balloon0",
 		    property => "guest-stats-polling-interval",
 		    value => 2) if (!defined($conf->{balloon}) || $conf->{balloon});
@@ -5490,60 +5490,6 @@ sub vm_start {
 
 	PVE::GuestHelpers::exec_hookscript($conf, $vmid, 'post-start');
     });
-}
-
-sub vm_mon_cmd {
-    my ($vmid, $execute, %params) = @_;
-
-    my $cmd = { execute => $execute, arguments => \%params };
-    vm_qmp_command($vmid, $cmd);
-}
-
-sub vm_mon_cmd_nocheck {
-    my ($vmid, $execute, %params) = @_;
-
-    my $cmd = { execute => $execute, arguments => \%params };
-    vm_qmp_command($vmid, $cmd, 1);
-}
-
-sub vm_qmp_command {
-    my ($vmid, $cmd, $nocheck) = @_;
-
-    my $res;
-
-    my $timeout;
-    if ($cmd->{arguments}) {
-	$timeout = delete $cmd->{arguments}->{timeout};
-    }
-
-    eval {
-	die "VM $vmid not running\n" if !check_running($vmid, $nocheck);
-	my $sname = PVE::QemuServer::Helpers::qmp_socket($vmid);
-	if (-e $sname) { # test if VM is reasonambe new and supports qmp/qga
-	    my $qmpclient = PVE::QMPClient->new();
-
-	    $res = $qmpclient->cmd($vmid, $cmd, $timeout);
-	} else {
-	    die "unable to open monitor socket\n";
-	}
-    };
-    if (my $err = $@) {
-	syslog("err", "VM $vmid qmp command failed - $err");
-	die $err;
-    }
-
-    return $res;
-}
-
-sub vm_human_monitor_command {
-    my ($vmid, $cmdline) = @_;
-
-    my $cmd = {
-	execute => 'human-monitor-command',
-	arguments => { 'command-line' => $cmdline},
-    };
-
-    return vm_qmp_command($vmid, $cmd);
 }
 
 sub vm_commandline {
@@ -5580,7 +5526,7 @@ sub vm_reset {
 
 	PVE::QemuConfig->check_lock($conf) if !$skiplock;
 
-	vm_mon_cmd($vmid, "system_reset");
+	mon_cmd($vmid, "system_reset");
     });
 }
 
@@ -5663,15 +5609,12 @@ sub _do_vm_stop {
     eval {
 	if ($shutdown) {
 	    if (defined($conf) && parse_guest_agent($conf)->{enabled}) {
-		vm_qmp_command($vmid, {
-			execute => "guest-shutdown",
-			arguments => { timeout => $timeout }
-		    }, $nocheck);
+		mon_cmd($vmid, "guest-shutdown", timeout => $timeout);
 	    } else {
-		vm_qmp_command($vmid, { execute => "system_powerdown" }, $nocheck);
+		mon_cmd($vmid, "system_powerdown");
 	    }
 	} else {
-	    vm_qmp_command($vmid, { execute => "quit" }, $nocheck);
+	    mon_cmd($vmid, "quit");
 	}
     };
     my $err = $@;
@@ -5794,7 +5737,7 @@ sub vm_suspend {
 	    $path = PVE::Storage::path($storecfg, $vmstate);
 	    PVE::QemuConfig->write_config($vmid, $conf);
 	} else {
-	    vm_mon_cmd($vmid, "stop");
+	    mon_cmd($vmid, "stop");
 	}
     });
 
@@ -5803,9 +5746,9 @@ sub vm_suspend {
 	PVE::Storage::activate_volumes($storecfg, [$vmstate]);
 
 	eval {
-	    vm_mon_cmd($vmid, "savevm-start", statefile => $path);
+	    mon_cmd($vmid, "savevm-start", statefile => $path);
 	    for(;;) {
-		my $state = vm_mon_cmd_nocheck($vmid, "query-savevm");
+		my $state = mon_cmd($vmid, "query-savevm");
 		if (!$state->{status}) {
 		    die "savevm not active\n";
 		} elsif ($state->{status} eq 'active') {
@@ -5828,7 +5771,7 @@ sub vm_suspend {
 	    if ($err) {
 		# cleanup, but leave suspending lock, to indicate something went wrong
 		eval {
-		    vm_mon_cmd($vmid, "savevm-end");
+		    mon_cmd($vmid, "savevm-end");
 		    PVE::Storage::deactivate_volumes($storecfg, [$vmstate]);
 		    PVE::Storage::vdisk_free($storecfg, $vmstate);
 		    delete $conf->@{qw(vmstate runningmachine)};
@@ -5841,7 +5784,7 @@ sub vm_suspend {
 	    die "lock changed unexpectedly\n"
 		if !PVE::QemuConfig->has_lock($conf, 'suspending');
 
-	    vm_qmp_command($vmid, { execute => "quit" });
+	    mon_cmd($vmid, "quit");
 	    $conf->{lock} = 'suspended';
 	    PVE::QemuConfig->write_config($vmid, $conf);
 	});
@@ -5852,8 +5795,7 @@ sub vm_resume {
     my ($vmid, $skiplock, $nocheck) = @_;
 
     PVE::QemuConfig->lock_config($vmid, sub {
-	my $vm_mon_cmd = $nocheck ? \&vm_mon_cmd_nocheck : \&vm_mon_cmd;
-	my $res = $vm_mon_cmd->($vmid, 'query-status');
+	my $res = mon_cmd($vmid, 'query-status');
 	my $resume_cmd = 'cont';
 
 	if ($res->{status} && $res->{status} eq 'suspended') {
@@ -5868,7 +5810,7 @@ sub vm_resume {
 		if !($skiplock || PVE::QemuConfig->has_lock($conf, 'backup'));
 	}
 
-	$vm_mon_cmd->($vmid, $resume_cmd);
+	mon_cmd($vmid, $resume_cmd);
     });
 }
 
@@ -5880,7 +5822,7 @@ sub vm_sendkey {
 	my $conf = PVE::QemuConfig->load_config($vmid);
 
 	# there is no qmp command, so we use the human monitor command
-	my $res = vm_human_monitor_command($vmid, "sendkey $key");
+	my $res = PVE::QemuServer::Monitor::hmp_cmd($vmid, "sendkey $key");
 	die $res if $res ne '';
     });
 }
@@ -6691,7 +6633,7 @@ sub do_snapshots_with_qemu {
 sub qga_check_running {
     my ($vmid, $nowarn) = @_;
 
-    eval { vm_mon_cmd($vmid, "guest-ping", timeout => 3); };
+    eval { mon_cmd($vmid, "guest-ping", timeout => 3); };
     if ($@) {
 	warn "Qemu Guest Agent is not running - $@" if !$nowarn;
 	return 0;
@@ -6863,7 +6805,7 @@ sub qemu_drive_mirror {
     }
 
     # if a job already runs for this device we get an error, catch it for cleanup
-    eval { vm_mon_cmd($vmid, "drive-mirror", %$opts); };
+    eval { mon_cmd($vmid, "drive-mirror", %$opts); };
     if (my $err = $@) {
 	eval { PVE::QemuServer::qemu_blockjobs_cancel($vmid, $jobs) };
 	warn "$@\n" if $@;
@@ -6882,7 +6824,7 @@ sub qemu_drive_mirror_monitor {
 	while (1) {
 	    die "storage migration timed out\n" if $err_complete > 300;
 
-	    my $stats = vm_mon_cmd($vmid, "query-block-jobs");
+	    my $stats = mon_cmd($vmid, "query-block-jobs");
 
 	    my $running_mirror_jobs = {};
 	    foreach my $stat (@$stats) {
@@ -6925,7 +6867,7 @@ sub qemu_drive_mirror_monitor {
 		    my $agent_running = $qga && qga_check_running($vmid);
 		    if ($agent_running) {
 			print "freeze filesystem\n";
-			eval { PVE::QemuServer::vm_mon_cmd($vmid, "guest-fsfreeze-freeze"); };
+			eval { mon_cmd($vmid, "guest-fsfreeze-freeze"); };
 		    } else {
 			print "suspend vm\n";
 			eval { PVE::QemuServer::vm_suspend($vmid, 1); };
@@ -6936,7 +6878,7 @@ sub qemu_drive_mirror_monitor {
 
 		    if ($agent_running) {
 			print "unfreeze filesystem\n";
-			eval { PVE::QemuServer::vm_mon_cmd($vmid, "guest-fsfreeze-thaw"); };
+			eval { mon_cmd($vmid, "guest-fsfreeze-thaw"); };
 		    } else {
 			print "resume vm\n";
 			eval {  PVE::QemuServer::vm_resume($vmid, 1, 1); };
@@ -6949,7 +6891,7 @@ sub qemu_drive_mirror_monitor {
 			# try to switch the disk if source and destination are on the same guest
 			print "$job: Completing block job...\n";
 
-			eval { vm_mon_cmd($vmid, "block-job-complete", device => $job) };
+			eval { mon_cmd($vmid, "block-job-complete", device => $job) };
 			if ($@ =~ m/cannot be completed/) {
 			    print "$job: Block job cannot be completed, try again.\n";
 			    $err_complete++;
@@ -6977,12 +6919,12 @@ sub qemu_blockjobs_cancel {
 
     foreach my $job (keys %$jobs) {
 	print "$job: Cancelling block job\n";
-	eval { vm_mon_cmd($vmid, "block-job-cancel", device => $job); };
+	eval { mon_cmd($vmid, "block-job-cancel", device => $job); };
 	$jobs->{$job}->{cancel} = 1;
     }
 
     while (1) {
-	my $stats = vm_mon_cmd($vmid, "query-block-jobs");
+	my $stats = mon_cmd($vmid, "query-block-jobs");
 
 	my $running_jobs = {};
 	foreach my $stat (@$stats) {
@@ -7069,8 +7011,7 @@ no_data_clone:
 sub get_current_qemu_machine {
     my ($vmid) = @_;
 
-    my $cmd = { execute => 'query-machines', arguments => {} };
-    my $res = vm_qmp_command($vmid, $cmd);
+    my $res = mon_cmd($vmid, "query-machines");
 
     my ($current, $default);
     foreach my $e (@$res) {
@@ -7084,8 +7025,7 @@ sub get_current_qemu_machine {
 
 sub get_running_qemu_version {
     my ($vmid) = @_;
-    my $cmd = { execute => 'query-version', arguments => {} };
-    my $res = vm_qmp_command($vmid, $cmd);
+    my $res = mon_cmd($vmid, "query-version");
     return "$res->{qemu}->{major}.$res->{qemu}->{minor}";
 }
 
@@ -7136,7 +7076,7 @@ sub version_cmp {
 sub runs_at_least_qemu_version {
     my ($vmid, $major, $minor, $extra) = @_;
 
-    my $v = vm_qmp_command($vmid, { execute => 'query-version' });
+    my $v = mon_cmd($vmid, "query-version");
     die "could not query currently running version for VM $vmid\n" if !defined($v);
     $v = $v->{qemu};
 
@@ -7196,7 +7136,7 @@ sub create_efidisk($$$$$) {
 sub vm_iothreads_list {
     my ($vmid) = @_;
 
-    my $res = vm_mon_cmd($vmid, 'query-iothreads');
+    my $res = mon_cmd($vmid, 'query-iothreads');
 
     my $iothreads = {};
     foreach my $iothread (@$res) {
@@ -7329,7 +7269,7 @@ sub generate_smbios1_uuid {
 sub nbd_stop {
     my ($vmid) = @_;
 
-    vm_mon_cmd($vmid, 'nbd-server-stop');
+    mon_cmd($vmid, 'nbd-server-stop');
 }
 
 sub create_reboot_request {

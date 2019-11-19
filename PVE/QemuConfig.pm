@@ -6,6 +6,7 @@ use warnings;
 use PVE::AbstractConfig;
 use PVE::INotify;
 use PVE::QemuServer::Helpers;
+use PVE::QemuServer::Monitor qw(mon_cmd);
 use PVE::QemuServer;
 use PVE::Storage;
 use PVE::Tools;
@@ -198,10 +199,10 @@ sub __snapshot_freeze {
     my ($class, $vmid, $unfreeze) = @_;
 
     if ($unfreeze) {
-	eval { PVE::QemuServer::vm_mon_cmd($vmid, "guest-fsfreeze-thaw"); };
+	eval { mon_cmd($vmid, "guest-fsfreeze-thaw"); };
 	warn "guest-fsfreeze-thaw problems - $@" if $@;
     } else {
-	eval { PVE::QemuServer::vm_mon_cmd($vmid, "guest-fsfreeze-freeze"); };
+	eval { mon_cmd($vmid, "guest-fsfreeze-freeze"); };
 	warn "guest-fsfreeze-freeze problems - $@" if $@;
     }
 }
@@ -217,9 +218,9 @@ sub __snapshot_create_vol_snapshots_hook {
 		my $path = PVE::Storage::path($storecfg, $snap->{vmstate});
 		PVE::Storage::activate_volumes($storecfg, [$snap->{vmstate}]);
 
-		PVE::QemuServer::vm_mon_cmd($vmid, "savevm-start", statefile => $path);
+		mon_cmd($vmid, "savevm-start", statefile => $path);
 		for(;;) {
-		    my $stat = PVE::QemuServer::vm_mon_cmd_nocheck($vmid, "query-savevm");
+		    my $stat = mon_cmd($vmid, "query-savevm");
 		    if (!$stat->{status}) {
 			die "savevm not active\n";
 		    } elsif ($stat->{status} eq 'active') {
@@ -232,18 +233,18 @@ sub __snapshot_create_vol_snapshots_hook {
 		    }
 		}
 	    } else {
-		PVE::QemuServer::vm_mon_cmd($vmid, "savevm-start");
+		mon_cmd($vmid, "savevm-start");
 	    }
 	} elsif ($hook eq "after") {
 	    eval {
-		PVE::QemuServer::vm_mon_cmd($vmid, "savevm-end");
+		mon_cmd($vmid, "savevm-end");
 		PVE::Storage::deactivate_volumes($storecfg, [$snap->{vmstate}]) if $snap->{vmstate};
 	    };
 	    warn $@ if $@;
 	} elsif ($hook eq "after-freeze") {
 	    # savevm-end is async, we need to wait
 	    for (;;) {
-		my $stat = PVE::QemuServer::vm_mon_cmd_nocheck($vmid, "query-savevm");
+		my $stat = mon_cmd($vmid, "query-savevm");
 		if (!$stat->{bytes}) {
 		    last;
 		} else {

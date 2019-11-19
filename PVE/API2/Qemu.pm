@@ -20,6 +20,7 @@ use PVE::ReplicationConfig;
 use PVE::GuestHelpers;
 use PVE::QemuConfig;
 use PVE::QemuServer;
+use PVE::QemuServer::Monitor qw(mon_cmd);
 use PVE::QemuMigrate;
 use PVE::RPCEnvironment;
 use PVE::AccessControl;
@@ -1829,8 +1830,8 @@ __PACKAGE__->register_method({
 	my ($ticket, undef, $remote_viewer_config) =
 	    PVE::AccessControl::remote_viewer_config($authuser, $vmid, $node, $proxy, $title, $port);
 
-	PVE::QemuServer::vm_mon_cmd($vmid, "set_password", protocol => 'spice', password => $ticket);
-	PVE::QemuServer::vm_mon_cmd($vmid, "expire_password", protocol => 'spice', time => "+30");
+	mon_cmd($vmid, "set_password", protocol => 'spice', password => $ticket);
+	mon_cmd($vmid, "expire_password", protocol => 'spice', time => "+30");
 
 	return $remote_viewer_config;
     }});
@@ -2255,7 +2256,8 @@ __PACKAGE__->register_method({
 	# checking the qmp status here to get feedback to the gui/cli/api
 	# and the status query should not take too long
 	my $qmpstatus = eval {
-	    PVE::QemuServer::vm_qmp_command($vmid, { execute => "query-status" }, 0);
+	    PVE::QemuConfig::assert_config_exists_on_node($vmid);
+	    mon_cmd($vmid, "query-status");
 	};
 	my $err = $@ if $@;
 
@@ -2336,7 +2338,8 @@ __PACKAGE__->register_method({
 	my $vmid = extract_param($param, 'vmid');
 
 	my $qmpstatus = eval {
-	    PVE::QemuServer::vm_qmp_command($vmid, { execute => "query-status" }, 0);
+	    PVE::QemuConfig::assert_config_exists_on_node($vmid);
+	    mon_cmd($vmid, "query-status");
 	};
 	my $err = $@ if $@;
 
@@ -3088,7 +3091,7 @@ __PACKAGE__->register_method({
 		    PVE::QemuConfig->write_config($vmid, $conf);
 
 		    if ($running && PVE::QemuServer::parse_guest_agent($conf)->{fstrim_cloned_disks} && PVE::QemuServer::qga_check_running($vmid)) {
-			eval { PVE::QemuServer::vm_mon_cmd($vmid, "guest-fstrim"); };
+			eval { mon_cmd($vmid, "guest-fstrim"); };
 		    }
 
 		    eval {
@@ -3444,7 +3447,7 @@ __PACKAGE__->register_method({
 
 	my $res = '';
 	eval {
-	    $res = PVE::QemuServer::vm_human_monitor_command($vmid, $param->{command});
+	    $res = PVE::QemuServer::Monitor::hmp_cmd($vmid, $param->{command});
 	};
 	$res = "ERROR: $@" if $@;
 

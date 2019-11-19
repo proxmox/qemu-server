@@ -7,6 +7,7 @@ use PVE::RESTHandler;
 use PVE::JSONSchema qw(get_standard_option);
 use PVE::QemuServer;
 use PVE::QemuServer::Agent qw(agent_available agent_cmd check_agent_error);
+use PVE::QemuServer::Monitor qw(mon_cmd);
 use MIME::Base64 qw(encode_base64 decode_base64);
 use JSON;
 
@@ -190,7 +191,7 @@ sub register_command {
 	    agent_available($vmid, $conf);
 
 	    my $cmd = $param->{command} // $command;
-	    my $res = PVE::QemuServer::vm_mon_cmd($vmid, "guest-$cmd");
+	    my $res = mon_cmd($vmid, "guest-$cmd");
 
 	    return { result => $res };
 	}});
@@ -415,7 +416,7 @@ __PACKAGE__->register_method({
 	my $content = "";
 
 	while ($bytes_left > 0 && !$eof) {
-	    my $read = PVE::QemuServer::vm_mon_cmd($vmid, "guest-file-read", handle => $qgafh, count => int($read_size));
+	    my $read = mon_cmd($vmid, "guest-file-read", handle => $qgafh, count => int($read_size));
 	    check_agent_error($read, "can't read from file");
 
 	    $content .= decode_base64($read->{'buf-b64'});
@@ -423,7 +424,7 @@ __PACKAGE__->register_method({
 	    $eof = $read->{eof} // 0;
 	}
 
-	my $res = PVE::QemuServer::vm_mon_cmd($vmid, "guest-file-close", handle => $qgafh);
+	my $res = mon_cmd($vmid, "guest-file-close", handle => $qgafh);
 	check_agent_error($res, "can't close file", 1);
 
 	my $result = {

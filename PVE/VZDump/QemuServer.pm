@@ -12,12 +12,14 @@ use PVE::Cluster qw(cfs_read_file);
 use PVE::INotify;
 use PVE::IPCC;
 use PVE::JSONSchema;
+use PVE::QMPClient;
 use PVE::Storage::Plugin;
 use PVE::Storage;
 use PVE::Tools;
 use PVE::VZDump;
 
 use PVE::QemuServer;
+use PVE::QemuServer::Monitor qw(mon_cmd);
 
 use base qw (PVE::VZDump::Plugin);
 
@@ -417,7 +419,7 @@ sub archive {
 	}
 
 	if ($agent_running){
-	    eval { PVE::QemuServer::vm_mon_cmd($vmid, "guest-fsfreeze-freeze"); };
+	    eval { mon_cmd($vmid, "guest-fsfreeze-freeze"); };
 	    if (my $err = $@) {
 		$self->logerr($err);
 	    }
@@ -427,7 +429,7 @@ sub archive {
 	my $qmperr = $@;
 
 	if ($agent_running){
-	    eval { PVE::QemuServer::vm_mon_cmd($vmid, "guest-fsfreeze-thaw"); };
+	    eval { mon_cmd($vmid, "guest-fsfreeze-thaw"); };
 	    if (my $err = $@) {
 		$self->logerr($err);
 	    }
@@ -452,7 +454,7 @@ sub archive {
 	    } else {
 		$self->loginfo("resuming VM again");
 	    }
-	    PVE::QemuServer::vm_mon_cmd($vmid, 'cont');
+	    mon_cmd($vmid, 'cont');
 	}
 
 	my $status;
@@ -465,7 +467,7 @@ sub archive {
 	my $transferred;
 
 	while(1) {
-	    $status = PVE::QemuServer::vm_mon_cmd($vmid, 'query-backup');
+	    $status = mon_cmd($vmid, 'query-backup');
 	    my $total = $status->{total} || 0;
 	    $transferred = $status->{transferred} || 0;
 	    my $per = $total ? int(($transferred * 100)/$total) : 0;
@@ -524,7 +526,7 @@ sub archive {
     if ($err) {
 	$self->logerr($err);
 	$self->loginfo("aborting backup job");
-	eval { PVE::QemuServer::vm_mon_cmd($vmid, 'backup-cancel'); };
+	eval { mon_cmd($vmid, 'backup-cancel'); };
 	if (my $err1 = $@) {
 	    $self->logerr($err1);
 	}
@@ -533,7 +535,7 @@ sub archive {
     if ($stop_after_backup) {
 	# stop if not running
 	eval {
-	    my $resp = PVE::QemuServer::vm_mon_cmd($vmid, 'query-status');
+	    my $resp = mon_cmd($vmid, 'query-status');
 	    my $status = $resp && $resp->{status} ?  $resp->{status} : 'unknown';
 	    if ($status eq 'prelaunch') {
 		$self->loginfo("stopping kvm after backup task");
