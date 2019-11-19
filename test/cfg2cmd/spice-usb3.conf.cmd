@@ -21,7 +21,7 @@
   -device 'nec-usb-xhci,id=xhci,bus=pci.1,addr=0x1b' \
   -chardev 'spicevmc,id=usbredirchardev1,name=usbredir' \
   -device 'usb-redir,chardev=usbredirchardev1,id=usbredirdev1,bus=xhci.0' \
-  -device 'qxl-vga,id=vga,bus=pci.0,addr=0x2' \
+  -device 'qxl-vga,id=vga,max_outputs=4,bus=pci.0,addr=0x2' \
   -device 'virtio-serial,id=spice,bus=pci.0,addr=0x9' \
   -chardev 'spicevmc,id=vdagent,name=vdagent' \
   -device 'virtserialport,chardev=vdagent,name=com.redhat.spice.0' \

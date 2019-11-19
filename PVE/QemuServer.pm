@@ -2184,9 +2184,17 @@ sub print_vga_device {
 	$type = 'virtio-gpu';
     }
     my $vgamem_mb = $vga->{memory};
+
+    my $max_outputs = '';
     if ($qxlnum) {
 	$type = $id ? 'qxl' : 'qxl-vga';
+
+	if ($conf->{ostype} =~ m/^l(?=\d)/) {
+	    # set max outputs so linux can have up to 4 qxl displays with one device
+	    $max_outputs = ",max_outputs=4";
+	}
     }
+
     die "no devicetype for $vga->{type}\n" if !$type;
 
     my $memory = "";
@@ -2218,7 +2226,7 @@ sub print_vga_device {
 	$pciaddr = print_pci_addr($vgaid, $bridges, $arch, $machine);
     }
 
-    return "$type,id=${vgaid}${memory}${pciaddr}";
+    return "$type,id=${vgaid}${memory}${max_outputs}${pciaddr}";
 }
 
 sub drive_is_cloudinit {
