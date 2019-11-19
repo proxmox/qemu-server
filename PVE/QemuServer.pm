@@ -41,9 +41,9 @@ use PVE::Tools qw(run_command lock_file lock_file_full file_read_firstline dir_g
 
 use PVE::QMPClient;
 use PVE::QemuConfig;
-use PVE::QemuServer::Helpers;
+use PVE::QemuServer::Helpers qw(min_version);
 use PVE::QemuServer::Cloudinit;
-use PVE::QemuServer::Machine qw(qemu_machine_feature_enabled);
+use PVE::QemuServer::Machine;
 use PVE::QemuServer::Memory;
 use PVE::QemuServer::Monitor qw(mon_cmd);
 use PVE::QemuServer::PCI qw(print_pci_addr print_pcie_addr print_pcie_root_port);
@@ -1872,8 +1872,9 @@ sub print_drivedevice_full {
 	    }
 
 	    # for compatibility only, we prefer scsi-hd (#2408, #2355, #2380)
+	    my $version = PVE::QemuServer::Machine::extract_version($machine_type) // kvm_user_version();
 	    if ($path =~ m/^iscsi\:\/\// &&
-	       !qemu_machine_feature_enabled($machine_type, undef, 4, 1)) {
+	       !min_version($version, 4, 1)) {
 		$devicetype = 'generic';
 	    }
 	}
@@ -2141,7 +2142,7 @@ my $vga_map = {
 };
 
 sub print_vga_device {
-    my ($conf, $vga, $arch, $kvmver, $machine, $id, $qxlnum, $bridges) = @_;
+    my ($conf, $vga, $arch, $machine_version, $machine, $id, $qxlnum, $bridges) = @_;
 
     my $type = $vga_map->{$vga->{type}};
     if ($arch eq 'aarch64' && defined($type) && $type eq 'virtio-vga') {
@@ -2155,7 +2156,7 @@ sub print_vga_device {
 
 	if (!$conf->{ostype} || $conf->{ostype} =~ m/^(?:l\d\d)|(?:other)$/) {
 	    # set max outputs so linux can have up to 4 qxl displays with one device
-	    if (qemu_machine_feature_enabled($machine, $kvmver, 4, 1)) {
+	    if (min_version($machine_version, 4, 1)) {
 		$max_outputs = ",max_outputs=4";
 	    }
 	}
@@ -3376,7 +3377,7 @@ sub get_command_for_arch($) {
 }
 
 sub get_cpu_options {
-    my ($conf, $arch, $kvm, $machine_type, $kvm_off, $kvmver, $winversion, $gpu_passthrough) = @_;
+    my ($conf, $arch, $kvm, $kvm_off, $machine_version, $winversion, $gpu_passthrough) = @_;
 
     my $cpuFlags = [];
     my $ostype = $conf->{ostype};
@@ -3406,13 +3407,13 @@ sub get_cpu_options {
 
     push @$cpuFlags, '-rdtscp' if $cpu =~ m/^Opteron/;
 
-    if (qemu_machine_feature_enabled ($machine_type, $kvmver, 2, 3) && $arch eq 'x86_64') {
+    if (min_version($machine_version, 2, 3) && $arch eq 'x86_64') {
 
 	push @$cpuFlags , '+kvm_pv_unhalt' if $kvm;
 	push @$cpuFlags , '+kvm_pv_eoi' if $kvm;
     }
 
-    add_hyperv_enlightenments($cpuFlags, $winversion, $machine_type, $kvmver, $conf->{bios}, $gpu_passthrough, $hv_vendor_id) if $kvm;
+    add_hyperv_enlightenments($cpuFlags, $winversion, $machine_version, $conf->{bios}, $gpu_passthrough, $hv_vendor_id) if $kvm;
 
     push @$cpuFlags, 'enforce' if $cpu ne 'host' && $kvm && $arch eq 'x86_64';
 
@@ -3448,6 +3449,7 @@ sub config_to_command {
     my ($arch, $machine_type) = get_basic_machine_info($conf, $forcemachine);
     my $kvm_binary = get_command_for_arch($arch);
     my $kvmver = kvm_user_version($kvm_binary);
+    my $machine_version = PVE::QemuServer::Machine::extract_version($machine_type) // $kvmver;
     $kvm //= 1 if is_native($arch);
 
     if ($kvm) {
@@ -3485,7 +3487,7 @@ sub config_to_command {
     push @$cmd, '-chardev', "socket,id=qmp,path=$qmpsocket,server,nowait";
     push @$cmd, '-mon', "chardev=qmp,mode=control";
 
-    if (qemu_machine_feature_enabled($machine_type, $kvmver, 2, 12)) {
+    if (min_version($machine_version, 2, 12)) {
 	push @$cmd, '-chardev', "socket,id=qmp-event,path=/var/run/qmeventd.sock,reconnect=5";
 	push @$cmd, '-mon', "chardev=qmp-event,mode=control";
     }
@@ -3556,7 +3558,7 @@ sub config_to_command {
     # load q35 config
     if ($q35) {
 	# we use different pcie-port hardware for qemu >= 4.0 for passthrough
-	if (qemu_machine_feature_enabled($machine_type, $kvmver, 4, 0)) {
+	if (min_version($machine_version, 4, 0)) {
 	    push @$devices, '-readconfig', '/usr/share/qemu-server/pve-q35-4.0.cfg';
 	} else {
 	    push @$devices, '-readconfig', '/usr/share/qemu-server/pve-q35.cfg';
@@ -3574,7 +3576,7 @@ sub config_to_command {
     if (!$vga->{type}) {
 	if ($arch eq 'aarch64') {
 	    $vga->{type} = 'virtio';
-	} elsif (qemu_machine_feature_enabled($machine_type, $kvmver, 2, 9)) {
+	} elsif (min_version($machine_version, 2, 9)) {
 	    $vga->{type} = (!$winversion || $winversion >= 6) ? 'std' : 'cirrus';
 	} else {
 	    $vga->{type} = ($winversion >= 6) ? 'std' : 'cirrus';
@@ -3671,7 +3673,7 @@ sub config_to_command {
 
     # usb devices
     my $usb_dev_features = {};
-    $usb_dev_features->{spice_usb3} = 1 if qemu_machine_feature_enabled($machine_type, $kvmver, 4, 0);
+    $usb_dev_features->{spice_usb3} = 1 if min_version($machine_version, 4, 0);
 
     my @usbdevices = PVE::QemuServer::USB::get_usb_devices($conf, $usbdesc->{format}, $MAX_USB_DEVICES, $usb_dev_features);
     push @$devices, @usbdevices if @usbdevices;
@@ -3740,7 +3742,7 @@ sub config_to_command {
     die "MAX $allowed_vcpus vcpus allowed per VM on this node\n"
 	if ($allowed_vcpus < $maxcpus);
 
-    if($hotplug_features->{cpu} && qemu_machine_feature_enabled ($machine_type, $kvmver, 2, 7)) {
+    if($hotplug_features->{cpu} && min_version($machine_version, 2, 7)) {
 
 	push @$cmd, '-smp', "1,sockets=$sockets,cores=$cores,maxcpus=$maxcpus";
         for (my $i = 2; $i <= $vcpus; $i++)  {
@@ -3770,7 +3772,7 @@ sub config_to_command {
     push @$cmd, '-no-reboot' if  defined($conf->{reboot}) && $conf->{reboot} == 0;
 
     if ($vga->{type} && $vga->{type} !~ m/^serial\d+$/ && $vga->{type} ne 'none'){
-	push @$devices, '-device', print_vga_device($conf, $vga, $arch, $kvmver, $machine_type, undef, $qxlnum, $bridges);
+	push @$devices, '-device', print_vga_device($conf, $vga, $arch, $machine_version, $machine_type, undef, $qxlnum, $bridges);
 	my $socket = PVE::QemuServer::Helpers::vnc_socket($vmid);
 	push @$cmd,  '-vnc', "unix:$socket,password";
     } else {
@@ -3813,7 +3815,7 @@ sub config_to_command {
 	push @$rtcFlags, 'base=localtime';
     }
 
-    push @$cmd, get_cpu_options($conf, $arch, $kvm, $machine_type, $kvm_off, $kvmver, $winversion, $gpu_passthrough);
+    push @$cmd, get_cpu_options($conf, $arch, $kvm, $kvm_off, $machine_version, $winversion, $gpu_passthrough);
 
     PVE::QemuServer::Memory::config($conf, $vmid, $sockets, $cores, $defaults, $hotplug_features, $cmd);
 
@@ -3842,7 +3844,7 @@ sub config_to_command {
 	if ($qxlnum > 1) {
 	    if ($winversion){
 		for(my $i = 1; $i < $qxlnum; $i++){
-		    push @$devices, '-device', print_vga_device($conf, $vga, $arch, $kvmver, $machine_type, $i, $qxlnum, $bridges);
+		    push @$devices, '-device', print_vga_device($conf, $vga, $arch, $machine_version, $machine_type, $i, $qxlnum, $bridges);
 		}
 	    } else {
 		# assume other OS works like Linux
@@ -4007,7 +4009,7 @@ sub config_to_command {
 
     if (!$q35) {
 	# add pci bridges
-        if (qemu_machine_feature_enabled ($machine_type, $kvmver, 2, 3)) {
+        if (min_version($machine_version, 2, 3)) {
 	   $bridges->{1} = 1;
 	   $bridges->{2} = 1;
 	}
@@ -4511,7 +4513,7 @@ sub qemu_cpu_hotplug {
 
     if ($vcpus < $currentvcpus) {
 
-	if (qemu_machine_feature_enabled ($machine_type, undef, 2, 7)) {
+	if (PVE::QemuServer::Machine::machine_version($machine_type, 2, 7)) {
 
 	    for (my $i = $currentvcpus; $i > $vcpus; $i--) {
 		qemu_devicedel($vmid, "cpu$i");
@@ -4539,7 +4541,7 @@ sub qemu_cpu_hotplug {
     die "vcpus in running vm does not match its configuration\n"
 	if scalar(@{$currentrunningvcpus}) != $currentvcpus;
 
-    if (qemu_machine_feature_enabled ($machine_type, undef, 2, 7)) {
+    if (PVE::QemuServer::Machine::machine_version($machine_type, 2, 7)) {
 
 	for (my $i = $currentvcpus+1; $i <= $vcpus; $i++) {
 	    my $cpustr = print_cpu_device($conf, $i);
@@ -6982,7 +6984,7 @@ sub clone_disk {
 	} else {
 
 	    my $kvmver = get_running_qemu_version ($vmid);
-	    if (!qemu_machine_feature_enabled (undef, $kvmver, 2, 7)) {
+	    if (!min_version($kvmver, 2, 7)) {
 		die "drive-mirror with iothread requires qemu version 2.7 or higher\n"
 		    if $drive->{iothread};
 	    }
@@ -7019,12 +7021,12 @@ sub qemu_use_old_bios_files {
         $machine_type = $1;
         $use_old_bios_files = 1;
     } else {
-	my $kvmver = kvm_user_version();
+	my $version = PVE::QemuServer::Machine::extract_version($machine_type) // kvm_user_version();
         # Note: kvm version < 2.4 use non-efi pxe files, and have problems when we
         # load new efi bios files on migration. So this hack is required to allow
         # live migration from qemu-2.2 to qemu-2.4, which is sometimes used when
         # updrading from proxmox-ve-3.X to proxmox-ve 4.0
-	$use_old_bios_files = !qemu_machine_feature_enabled ($machine_type, $kvmver, 2, 4);
+	$use_old_bios_files = !min_version($version, 2, 4);
     }
 
     return ($use_old_bios_files, $machine_type);
@@ -7079,7 +7081,7 @@ sub scsihw_infos {
 }
 
 sub add_hyperv_enlightenments {
-    my ($cpuFlags, $winversion, $machine_type, $kvmver, $bios, $gpu_passthrough, $hv_vendor_id) = @_;
+    my ($cpuFlags, $winversion, $machine_version, $bios, $gpu_passthrough, $hv_vendor_id) = @_;
 
     return if $winversion < 6;
     return if $bios && $bios eq 'ovmf' && $winversion < 8;
@@ -7089,7 +7091,7 @@ sub add_hyperv_enlightenments {
 	push @$cpuFlags , "hv_vendor_id=$hv_vendor_id";
     }
 
-    if (qemu_machine_feature_enabled ($machine_type, $kvmver, 2, 3)) {
+    if (min_version($machine_version, 2, 3)) {
 	push @$cpuFlags , 'hv_spinlocks=0x1fff';
 	push @$cpuFlags , 'hv_vapic';
 	push @$cpuFlags , 'hv_time';
@@ -7097,7 +7099,7 @@ sub add_hyperv_enlightenments {
 	push @$cpuFlags , 'hv_spinlocks=0xffff';
     }
 
-    if (qemu_machine_feature_enabled ($machine_type, $kvmver, 2, 6)) {
+    if (min_version($machine_version, 2, 6)) {
 	push @$cpuFlags , 'hv_reset';
 	push @$cpuFlags , 'hv_vpindex';
 	push @$cpuFlags , 'hv_runtime';
@@ -7106,12 +7108,12 @@ sub add_hyperv_enlightenments {
     if ($winversion >= 7) {
 	push @$cpuFlags , 'hv_relaxed';
 
-	if (qemu_machine_feature_enabled ($machine_type, $kvmver, 2, 12)) {
+	if (min_version($machine_version, 2, 12)) {
 	    push @$cpuFlags , 'hv_synic';
 	    push @$cpuFlags , 'hv_stimer';
 	}
 
-	if (qemu_machine_feature_enabled ($machine_type, $kvmver, 3, 1)) {
+	if (min_version($machine_version, 3, 1)) {
 	    push @$cpuFlags , 'hv_ipi';
 	}
     }

@@ -1,0 +1,30 @@
+/usr/bin/kvm \
+  -id 8006 \
+  -name pinned \
+  -chardev 'socket,id=qmp,path=/var/run/qemu-server/8006.qmp,server,nowait' \
+  -mon 'chardev=qmp,mode=control' \
+  -chardev 'socket,id=qmp-event,path=/var/run/qmeventd.sock,reconnect=5' \
+  -mon 'chardev=qmp-event,mode=control' \
+  -pidfile /var/run/qemu-server/8006.pid \
+  -daemonize \
+  -smbios 'type=1,uuid=c7fdd046-fefc-11e9-832e-770e1d5636a0' \
+  -smp '3,sockets=1,cores=3,maxcpus=3' \
+  -nodefaults \
+  -boot 'menu=on,strict=on,reboot-timeout=1000,splash=/usr/share/qemu-server/bootsplash.jpg' \
+  -vnc unix:/var/run/qemu-server/8006.vnc,password \
+  -cpu kvm64,+lahf_lm,+sep,+kvm_pv_unhalt,+kvm_pv_eoi,enforce \
+  -m 1024 \
+  -device 'vmgenid,guid=bdd46b98-fefc-11e9-97b4-d72c378e0f96' \
+  -readconfig /usr/share/qemu-server/pve-q35.cfg \
+  -device 'usb-tablet,id=tablet,bus=ehci.0,port=1' \
+  -device 'VGA,id=vga,bus=pcie.0,addr=0x1' \
+  -device 'virtio-balloon-pci,id=balloon0,bus=pci.0,addr=0x3' \
+  -iscsi 'initiator-name=iqn.1993-08.org.debian:01:aabbccddeeff' \
+  -drive 'if=none,id=drive-ide2,media=cdrom,aio=threads' \
+  -device 'ide-cd,bus=ide.1,unit=0,drive=drive-ide2,id=ide2,bootindex=200' \
+  -device 'virtio-scsi-pci,id=scsihw0,bus=pci.0,addr=0x5' \
+  -drive 'file=/var/lib/vz/images/8006/vm-8006-disk-0.raw,if=none,id=drive-scsi0,discard=on,format=raw,cache=none,aio=native,detect-zeroes=unmap' \
+  -device 'scsi-hd,bus=scsihw0.0,channel=0,scsi-id=0,lun=0,drive=drive-scsi0,id=scsi0,bootindex=100' \
+  -netdev 'type=tap,id=net0,ifname=tap8006i0,script=/var/lib/qemu-server/pve-bridge,downscript=/var/lib/qemu-server/pve-bridgedown,vhost=on' \
+  -device 'virtio-net-pci,mac=A2:C0:43:77:08:A1,netdev=net0,bus=pci.0,addr=0x12,id=net0,bootindex=300' \
+  -machine 'type=pc-q35-3.1'

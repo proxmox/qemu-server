@@ -8,6 +8,11 @@ use File::stat;
 use PVE::INotify;
 use PVE::ProcFSTools;
 
+use base 'Exporter';
+our @EXPORT_OK = qw(
+min_version
+);
+
 my $nodename = PVE::INotify::nodename();
 
 # Paths and directories
@@ -95,6 +100,39 @@ sub vm_running_locally {
     }
 
     return undef;
+}
+
+sub min_version {
+    my ($verstr, $version_major, $version_minor) = @_;
+
+    if ($verstr =~ m/^(\d+)\.(\d+)/) {
+	return 1 if version_cmp($1, $version_major, $2, $version_minor) >= 0;
+	return 0;
+    }
+
+    die "internal error: cannot check version of invalid string '$verstr'";
+}
+
+# gets in pairs the versions you want to compares, i.e.:
+# ($a-major, $b-major, $a-minor, $b-minor, $a-extra, $b-extra, ...)
+# returns 0 if same, -1 if $a is older than $b, +1 if $a is newer than $b
+sub version_cmp {
+    my @versions = @_;
+
+    my $size = scalar(@versions);
+
+    return 0 if $size == 0;
+    die "cannot compare odd count of versions" if $size & 1;
+
+    for (my $i = 0; $i < $size; $i += 2) {
+	my ($a, $b) = splice(@versions, 0, 2);
+	$a //= 0;
+	$b //= 0;
+
+	return 1 if $a > $b;
+	return -1 if $a < $b;
+    }
+    return 0;
 }
 
 1;
