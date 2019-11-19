@@ -10,7 +10,7 @@ use Scalar::Util qw(weaken);
 use Time::HiRes qw(usleep gettimeofday tv_interval);
 
 use PVE::IPCC;
-use PVE::QemuServer;
+use PVE::QemuServer::Helpers;
 
 # Qemu Monitor Protocol (QMP) client.
 #
@@ -58,7 +58,7 @@ my $push_cmd_to_queue = sub {
 
     my $qga = ($execute =~ /^guest\-+/) ? 1 : 0;
 
-    my $sname = PVE::QemuServer::qmp_socket($vmid, $qga);
+    my $sname = PVE::QemuServer::Helpers::qmp_socket($vmid, $qga);
 
     $self->{queue_info}->{$sname} = { qga => $qga, vmid => $vmid, sname => $sname, cmds => [] }
         if !$self->{queue_info}->{$sname};
@@ -186,7 +186,7 @@ my $open_connection = sub {
     my $vmid = $queue_info->{vmid};
     my $qga = $queue_info->{qga};
 
-    my $sname = PVE::QemuServer::qmp_socket($vmid, $qga);
+    my $sname = PVE::QemuServer::Helpers::qmp_socket($vmid, $qga);
 
     $timeout = 1 if !$timeout;
 

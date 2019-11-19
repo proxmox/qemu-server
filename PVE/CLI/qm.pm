@@ -27,6 +27,7 @@ use PVE::Tools qw(extract_param);
 
 use PVE::API2::Qemu::Agent;
 use PVE::API2::Qemu;
+use PVE::QemuServer::Helpers;
 use PVE::QemuServer::Agent qw(agent_available);
 use PVE::QemuServer::ImportDisk;
 use PVE::QemuServer::OVF;
@@ -209,7 +210,7 @@ __PACKAGE__->register_method ({
 	my ($param) = @_;
 
 	my $vmid = $param->{vmid};
-	my $vnc_socket = PVE::QemuServer::vnc_socket($vmid);
+	my $vnc_socket = PVE::QemuServer::Helpers::vnc_socket($vmid);
 
 	if (my $ticket = $ENV{LC_PVE_TICKET}) {  # NOTE: ssh on debian only pass LC_* variables
 	    PVE::QemuServer::vm_mon_cmd($vmid, "change", device => 'vnc', target => "unix:$vnc_socket,password");

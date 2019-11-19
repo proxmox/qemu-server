@@ -5,6 +5,7 @@ use warnings;
 
 use PVE::AbstractConfig;
 use PVE::INotify;
+use PVE::QemuServer::Helpers;
 use PVE::QemuServer;
 use PVE::Storage;
 use PVE::Tools;
@@ -14,8 +15,7 @@ use base qw(PVE::AbstractConfig);
 my $nodename = PVE::INotify::nodename();
 
 mkdir "/etc/pve/nodes/$nodename";
-my $confdir = "/etc/pve/nodes/$nodename/qemu-server";
-mkdir $confdir;
+mkdir "/etc/pve/nodes/$nodename/qemu-server";
 
 my $lock_dir = "/var/lock/qemu-server";
 mkdir $lock_dir;

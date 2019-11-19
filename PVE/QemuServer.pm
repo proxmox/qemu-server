@@ -42,6 +42,7 @@ use PVE::Tools qw(run_command lock_file lock_file_full file_read_firstline dir_g
 
 use PVE::QMPClient;
 use PVE::QemuConfig;
+use PVE::QemuServer::Helpers;
 use PVE::QemuServer::Cloudinit;
 use PVE::QemuServer::Memory;
 use PVE::QemuServer::PCI qw(print_pci_addr print_pcie_addr print_pcie_root_port);
@@ -109,16 +110,6 @@ sub cgroups_write {
 }
 
 my $nodename = PVE::INotify::nodename();
-
-mkdir "/etc/pve/nodes/$nodename";
-my $confdir = "/etc/pve/nodes/$nodename/qemu-server";
-mkdir $confdir;
-
-my $var_run_tmpdir = "/var/run/qemu-server";
-mkdir $var_run_tmpdir;
-
-my $lock_dir = "/var/lock/qemu-server";
-mkdir $lock_dir;
 
 my $cpu_vendor_list = {
     # Intel CPUs
@@ -2978,7 +2969,7 @@ sub check_running {
     die "unable to find configuration file for VM $vmid - no such machine\n"
 	if !$nocheck && ! -f $filename;
 
-    my $pidfile = pidfile_name($vmid);
+    my $pidfile = PVE::QemuServer::Helpers::pidfile_name($vmid);
 
     if (my $fd = IO::File->new("<$pidfile")) {
 	my $st = stat($fd);
@@ -3007,7 +2998,7 @@ sub vzlist {
 
     my $vzlist = config_list();
 
-    my $fd = IO::Dir->new($var_run_tmpdir) || return $vzlist;
+    my $fd = IO::Dir->new($PVE::QemuServer::Helpers::var_run_tmpdir) || return $vzlist;
 
     while (defined(my $de = $fd->read)) {
 	next if $de !~ m/^(\d+)\.pid$/;
@@ -3546,7 +3537,7 @@ sub config_to_command {
 
     my $use_virtio = 0;
 
-    my $qmpsocket = qmp_socket($vmid);
+    my $qmpsocket = PVE::QemuServer::Helpers::qmp_socket($vmid);
     push @$cmd, '-chardev', "socket,id=qmp,path=$qmpsocket,server,nowait";
     push @$cmd, '-mon', "chardev=qmp,mode=control";
 
@@ -3555,7 +3546,7 @@ sub config_to_command {
 	push @$cmd, '-mon', "chardev=qmp-event,mode=control";
     }
 
-    push @$cmd, '-pidfile' , pidfile_name($vmid);
+    push @$cmd, '-pidfile' , PVE::QemuServer::Helpers::pidfile_name($vmid);
 
     push @$cmd, '-daemonize';
 
@@ -3836,7 +3827,7 @@ sub config_to_command {
 
     if ($vga->{type} && $vga->{type} !~ m/^serial\d+$/ && $vga->{type} ne 'none'){
 	push @$devices, '-device', print_vga_device($conf, $vga, $arch, $kvmver, $machine_type, undef, $qxlnum, $bridges);
-	my $socket = vnc_socket($vmid);
+	my $socket = PVE::QemuServer::Helpers::vnc_socket($vmid);
 	push @$cmd,  '-vnc', "unix:$socket,password";
     } else {
 	push @$cmd, '-vga', 'none' if $vga->{type} eq 'none';
@@ -3889,7 +3880,7 @@ sub config_to_command {
     my $guest_agent = parse_guest_agent($conf);
 
     if ($guest_agent->{enabled}) {
-	my $qgasocket = qmp_socket($vmid, 1);
+	my $qgasocket = PVE::QemuServer::Helpers::qmp_socket($vmid, 1);
 	push @$devices, '-chardev', "socket,path=$qgasocket,server,nowait,id=qga0";
 
 	if (!$guest_agent->{type} || $guest_agent->{type} eq 'virtio') {
@@ -4108,28 +4099,12 @@ sub config_to_command {
     return wantarray ? ($cmd, $vollist, $spice_port) : $cmd;
 }
 
-sub vnc_socket {
-    my ($vmid) = @_;
-    return "${var_run_tmpdir}/$vmid.vnc";
-}
-
 sub spice_port {
     my ($vmid) = @_;
 
     my $res = vm_mon_cmd($vmid, 'query-spice');
 
     return $res->{'tls-port'} || $res->{'port'} || die "no spice port\n";
-}
-
-sub qmp_socket {
-    my ($vmid, $qga) = @_;
-    my $sockettype = $qga ? 'qga' : 'qmp';
-    return "${var_run_tmpdir}/$vmid.$sockettype";
-}
-
-sub pidfile_name {
-    my ($vmid) = @_;
-    return "${var_run_tmpdir}/$vmid.pid";
 }
 
 sub vm_devices_list {
@@ -5594,7 +5569,7 @@ sub vm_qmp_command {
 
     eval {
 	die "VM $vmid not running\n" if !check_running($vmid, $nocheck);
-	my $sname = qmp_socket($vmid);
+	my $sname = PVE::QemuServer::Helpers::qmp_socket($vmid);
 	if (-e $sname) { # test if VM is reasonambe new and supports qmp/qga
 	    my $qmpclient = PVE::QMPClient->new();
 
