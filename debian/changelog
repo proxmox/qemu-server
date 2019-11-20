@@ -1,3 +1,26 @@
+qemu-server (6.0-15) pve; urgency=medium
+
+  * api/migration: fix autocomplete for targetstorage
+
+  * add 'type' to guest agent format, allowing one to choose between VirtIO
+    (default) and ISA
+
+  * clone: pre-allocate cloud-init disk for destination
+
+  * SPICE/QXL: tell Linux VMs that they can add up to 4 display when running
+    with qemu 4.1 or newer
+
+  * add support to tell showcmd helper to assume a specific forced machine
+    version when assembling a command
+
+  * refactor QemuServer to avoid cyclic module dependencies
+
+  * fix #2436: pci: do not hardcode pci domain to 0000
+
+  * add 'tags' config option for adding meta information to a VM
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 20 Nov 2019 19:41:01 +0100
+
 qemu-server (6.0-14) pve; urgency=medium
 
   * use PVE::DataCenterConfig, use PVE::SSHInfo, use PVE::RRD for RRD data
