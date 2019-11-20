@@ -300,7 +300,7 @@ sub __snapshot_save_vmstate {
 
 sub assert_config_exists_on_node {
     my ($vmid, $node) = @_;
-    return -f cfs_config_path(undef, $vmid, $node);
+    return -f cfs_config_path("PVE::QemuConfig", $vmid, $node);
 }
 # END mocked PVE::QemuConfig methods
 
