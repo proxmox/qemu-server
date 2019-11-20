@@ -3477,8 +3477,7 @@ sub get_cpu_options {
 
     push @$cpuFlags , '+lahf_lm' if $cpu eq 'kvm64' && $arch eq 'x86_64';
 
-    push @$cpuFlags , '-x2apic'
-	if $conf->{ostype} && $conf->{ostype} eq 'solaris';
+    push @$cpuFlags , '-x2apic' if $ostype && $ostype eq 'solaris';
 
     push @$cpuFlags, '+sep' if $cpu eq 'kvm64' || $cpu eq 'kvm32';
 
