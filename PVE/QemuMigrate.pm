@@ -436,20 +436,17 @@ sub sync_disks {
 	    }
 	}
 
-	my $rep_volumes;
-
-	$self->log('info', "copying disk images");
-
 	my $rep_cfg = PVE::ReplicationConfig->new();
-
 	if (my $jobcfg = $rep_cfg->find_local_replication_job($vmid, $self->{node})) {
 	    die "can't live migrate VM with replicated volumes\n" if $self->{running};
+	    $self->log('info', "replicating disk images");
 	    my $start_time = time();
-	    my $logfunc = sub { my ($msg) = @_;  $self->log('info', $msg); };
-	    $rep_volumes = PVE::Replication::run_replication(
+	    my $logfunc = sub { $self->log('info', shift) };
+	    $self->{replicated_volumes} = PVE::Replication::run_replication(
 	       'PVE::QemuConfig', $jobcfg, $start_time, $start_time, $logfunc);
-	    $self->{replicated_volumes} = $rep_volumes;
 	}
+
+	$self->log('info', "copying local disk images") if scalar(%$local_volumes);
 
 	foreach my $volid (keys %$local_volumes) {
 	    my ($sid, $volname) = PVE::Storage::parse_volume_id($volid);
@@ -463,7 +460,7 @@ sub sync_disks {
 		push @{$self->{volumes}}, $volid;
 		next;
 	    } else {
-		next if $rep_volumes->{$volid};
+		next if $self->{replicated_volumes}->{$volid};
 		push @{$self->{volumes}}, $volid;
 		my $opts = $self->{opts};
 		my $insecure = $opts->{migration_type} eq 'insecure';
