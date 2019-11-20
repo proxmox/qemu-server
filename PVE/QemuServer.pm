@@ -5626,10 +5626,14 @@ sub vm_commandline {
     my ($storecfg, $vmid, $snapname) = @_;
 
     my $conf = PVE::QemuConfig->load_config($vmid);
+    my $forcemachine;
 
     if ($snapname) {
 	my $snapshot = $conf->{snapshots}->{$snapname};
 	die "snapshot '$snapname' does not exist\n" if !defined($snapshot);
+
+	# check for a 'runningmachine' in snapshot
+	$forcemachine = $snapshot->{runningmachine} if $snapshot->{runningmachine};
 
 	$snapshot->{digest} = $conf->{digest}; # keep file digest for API
 
@@ -5638,7 +5642,7 @@ sub vm_commandline {
 
     my $defaults = load_defaults();
 
-    my $cmd = config_to_command($storecfg, $vmid, $conf, $defaults);
+    my $cmd = config_to_command($storecfg, $vmid, $conf, $defaults, $forcemachine);
 
     return PVE::Tools::cmd2string($cmd);
 }
