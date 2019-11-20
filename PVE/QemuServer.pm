@@ -2189,7 +2189,7 @@ sub print_vga_device {
     if ($qxlnum) {
 	$type = $id ? 'qxl' : 'qxl-vga';
 
-	if ($conf->{ostype} =~ m/^l(?=\d)/) {
+	if (!$conf->{ostype} || $conf->{ostype} =~ m/^(?:l\d\d)|(?:other)$/) {
 	    # set max outputs so linux can have up to 4 qxl displays with one device
 	    $max_outputs = ",max_outputs=4";
 	}
