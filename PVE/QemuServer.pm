@@ -2177,7 +2177,7 @@ my $vga_map = {
 };
 
 sub print_vga_device {
-    my ($conf, $vga, $arch, $machine, $id, $qxlnum, $bridges) = @_;
+    my ($conf, $vga, $arch, $kvmver, $machine, $id, $qxlnum, $bridges) = @_;
 
     my $type = $vga_map->{$vga->{type}};
     if ($arch eq 'aarch64' && defined($type) && $type eq 'virtio-vga') {
@@ -2191,7 +2191,9 @@ sub print_vga_device {
 
 	if (!$conf->{ostype} || $conf->{ostype} =~ m/^(?:l\d\d)|(?:other)$/) {
 	    # set max outputs so linux can have up to 4 qxl displays with one device
-	    $max_outputs = ",max_outputs=4";
+	    if (qemu_machine_feature_enabled($machine, $kvmver, 4, 1)) {
+		$max_outputs = ",max_outputs=4";
+	    }
 	}
     }
 
@@ -3855,7 +3857,7 @@ sub config_to_command {
     push @$cmd, '-no-reboot' if  defined($conf->{reboot}) && $conf->{reboot} == 0;
 
     if ($vga->{type} && $vga->{type} !~ m/^serial\d+$/ && $vga->{type} ne 'none'){
-	push @$devices, '-device', print_vga_device($conf, $vga, $arch, $machine_type, undef, $qxlnum, $bridges);
+	push @$devices, '-device', print_vga_device($conf, $vga, $arch, $kvmver, $machine_type, undef, $qxlnum, $bridges);
 	my $socket = vnc_socket($vmid);
 	push @$cmd,  '-vnc', "unix:$socket,password";
     } else {
@@ -3927,7 +3929,7 @@ sub config_to_command {
 	if ($qxlnum > 1) {
 	    if ($winversion){
 		for(my $i = 1; $i < $qxlnum; $i++){
-		    push @$devices, '-device', print_vga_device($conf, $vga, $arch, $machine_type, $i, $qxlnum, $bridges);
+		    push @$devices, '-device', print_vga_device($conf, $vga, $arch, $kvmver, $machine_type, $i, $qxlnum, $bridges);
 		}
 	    } else {
 		# assume other OS works like Linux
