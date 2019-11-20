@@ -61,8 +61,6 @@ my $OVMF = {
     ],
 };
 
-my $qemu_snap_storage = { rbd => 1 };
-
 my $cpuinfo = PVE::ProcFSTools::read_cpuinfo();
 
 my $QEMU_FORMAT_RE = qr/raw|cow|qcow|qcow2|qed|vmdk|cloop/;
@@ -6610,6 +6608,9 @@ sub foreach_storage_used_by_vm {
     }
 }
 
+my $qemu_snap_storage = {
+    rbd => 1,
+};
 sub do_snapshots_with_qemu {
     my ($storecfg, $volid) = @_;
 
