@@ -1562,29 +1562,7 @@ sub option_exists {
     return defined($confdesc->{$key});
 }
 
-sub nic_models {
-    return $nic_model_list;
-}
-
-sub os_list_description {
-
-    return {
-	other => 'Other',
-	wxp => 'Windows XP',
-	w2k => 'Windows 2000',
-	w2k3 =>, 'Windows 2003',
-	w2k8 => 'Windows 2008',
-	wvista => 'Windows Vista',
-	win7 => 'Windows 7',
-	win8 => 'Windows 8/2012',
-	win10 => 'Windows 10/2016',
-	l24 => 'Linux 2.4',
-	l26 => 'Linux 2.6',
-    };
-}
-
 my $cdrom_path;
-
 sub get_cdrom_path {
 
     return  $cdrom_path if $cdrom_path;
