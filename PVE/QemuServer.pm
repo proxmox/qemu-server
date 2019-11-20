@@ -3892,7 +3892,7 @@ sub config_to_command {
 	my $qgasocket = qmp_socket($vmid, 1);
 	push @$devices, '-chardev', "socket,path=$qgasocket,server,nowait,id=qga0";
 
-	if ($guest_agent->{type} eq 'virtio') {
+	if (!$guest_agent->{type} || $guest_agent->{type} eq 'virtio') {
 	    my $pciaddr = print_pci_addr("qga0", $bridges, $arch, $machine_type);
 	    push @$devices, '-device', "virtio-serial,id=qga0$pciaddr";
 	    push @$devices, '-device', 'virtserialport,chardev=qga0,name=org.qemu.guest_agent.0';
