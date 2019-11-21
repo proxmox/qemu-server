@@ -70,7 +70,7 @@ my $check_storage_access = sub {
 	my $volid = $drive->{file};
 	my ($storeid, $volname) = PVE::Storage::parse_volume_id($volid, 1);
 
-	if (!$volid || ($volid eq 'none' || $volid eq 'cloudinit' || $volname eq 'cloudinit')) {
+	if (!$volid || ($volid eq 'none' || $volid eq 'cloudinit' || (defined($volname) && $volname eq 'cloudinit'))) {
 	    # nothing to check
 	} elsif ($isCDROM && ($volid eq 'cdrom')) {
 	    $rpcenv->check($authuser, "/", ['Sys.Console']);
@@ -148,7 +148,7 @@ my $create_disks = sub {
 	if (!$volid || $volid eq 'none' || $volid eq 'cdrom') {
 	    delete $disk->{size};
 	    $res->{$ds} = PVE::QemuServer::print_drive($vmid, $disk);
-	} elsif ($volname eq 'cloudinit') {
+	} elsif (defined($volname) && $volname eq 'cloudinit') {
 	    $storeid = $storeid // $default_storage;
 	    die "no storage ID specified (and no default storage)\n" if !$storeid;
 	    my $scfg = PVE::Storage::storage_config($storecfg, $storeid);
