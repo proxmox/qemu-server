@@ -37,7 +37,7 @@ use PVE::RPCEnvironment;
 use PVE::Storage;
 use PVE::SysFSTools;
 use PVE::Systemd;
-use PVE::Tools qw(run_command lock_file lock_file_full file_read_firstline dir_glob_foreach get_host_arch $IPV6RE);
+use PVE::Tools qw(run_command lock_file lock_file_full file_read_firstline file_get_contents dir_glob_foreach get_host_arch $IPV6RE);
 
 use PVE::QMPClient;
 use PVE::QemuConfig;
@@ -3395,6 +3395,122 @@ sub get_command_for_arch($) {
     my $cmd = $Arch2Qemu->{$arch}
 	or die "don't know how to emulate architecture '$arch'\n";
     return $cmd;
+}
+
+# To use query_supported_cpu_flags and query_understood_cpu_flags to get flags
+# to use in a QEMU command line (-cpu element), first array_intersect the result
+# of query_supported_ with query_understood_. This is necessary because:
+#
+# a) query_understood_ returns flags the host cannot use and
+# b) query_supported_ (rather the QMP call) doesn't actually return CPU
+#    flags, but CPU settings - with most of them being flags. Those settings
+#    (and some flags, curiously) cannot be specified as a "-cpu" argument.
+#
+# query_supported_ needs to start up to 2 temporary VMs and is therefore rather
+# expensive. If you need the value returned from this, you can get it much
+# cheaper from pmxcfs using PVE::Cluster::get_node_kv('cpuflags-$accel') with
+# $accel being 'kvm' or 'tcg'.
+#
+# pvestatd calls this function on startup and whenever the QEMU/KVM version
+# changes, automatically populating pmxcfs.
+#
+# Returns: { kvm => [ flagX, flagY, ... ], tcg => [ flag1, flag2, ... ] }
+# since kvm and tcg machines support different flags
+#
+sub query_supported_cpu_flags {
+    my $flags = {};
+
+    my ($arch, $default_machine) = get_basic_machine_info();
+
+    # FIXME: Once this is merged, the code below should work for ARM as well:
+    # https://lists.nongnu.org/archive/html/qemu-devel/2019-06/msg04947.html
+    die "QEMU/KVM cannot detect CPU flags on ARM (aarch64)\n" if
+	$arch eq "aarch64";
+
+    my $kvm_supported = defined(kvm_version());
+    my $qemu_cmd = get_command_for_arch($arch);
+    my $fakevmid = -1;
+    my $pidfile = PVE::QemuServer::Helpers::pidfile_name($fakevmid);
+
+    # Start a temporary (frozen) VM with vmid -1 to allow sending a QMP command
+    my $query_supported_run_qemu = sub {
+	my ($kvm) = @_;
+
+	my $flags = {};
+	my $cmd = [
+	    $qemu_cmd,
+	    '-machine', $default_machine,
+	    '-display', 'none',
+	    '-chardev', "socket,id=qmp,path=/var/run/qemu-server/$fakevmid.qmp,server,nowait",
+	    '-mon', 'chardev=qmp,mode=control',
+	    '-pidfile', $pidfile,
+	    '-S', '-daemonize'
+	];
+
+	if (!$kvm) {
+	    push @$cmd, '-accel', 'tcg';
+	}
+
+	my $rc = run_command($cmd, noerr => 1, quiet => 0);
+	die "QEMU flag querying VM exited with code " . $rc if $rc;
+
+	eval {
+	    my $cmd_result = mon_cmd(
+		$fakevmid,
+		'query-cpu-model-expansion',
+		type => 'full',
+		model => { name => 'host' }
+	    );
+
+	    my $props = $cmd_result->{model}->{props};
+	    foreach my $prop (keys %$props) {
+		next if $props->{$prop} ne '1';
+		# QEMU returns some flags multiple times, with '_', '.' or '-'
+		# (e.g. lahf_lm and lahf-lm; sse4.2, sse4-2 and sse4_2; ...).
+		# We only keep those with underscores, to match /proc/cpuinfo
+		$prop =~ s/\.|-/_/g;
+		$flags->{$prop} = 1;
+	    }
+	};
+	my $err = $@;
+
+	# force stop with 10 sec timeout and 'nocheck'
+	# always stop, even if QMP failed
+	vm_stop(undef, $fakevmid, 1, 1, 10, 0, 1);
+
+	die $err if $err;
+
+	return [ sort keys %$flags ];
+    };
+
+    # We need to query QEMU twice, since KVM and TCG have different supported flags
+    PVE::QemuConfig->lock_config($fakevmid, sub {
+	$flags->{tcg} = eval { $query_supported_run_qemu->(0) };
+	warn "warning: failed querying supported tcg flags: $@\n" if $@;
+
+	if ($kvm_supported) {
+	    $flags->{kvm} = eval { $query_supported_run_qemu->(1) };
+	    warn "warning: failed querying supported kvm flags: $@\n" if $@;
+	}
+    });
+
+    return $flags;
+}
+
+# Understood CPU flags are written to a file at 'pve-qemu' compile time
+my $understood_cpu_flag_dir = "/usr/share/kvm";
+sub query_understood_cpu_flags {
+    my $arch = get_host_arch();
+    my $filepath = "$understood_cpu_flag_dir/recognized-CPUID-flags-$arch";
+
+    die "Cannot query understood QEMU CPU flags for architecture: $arch (file not found)\n"
+	if ! -e $filepath;
+
+    my $raw = file_get_contents($filepath);
+    $raw =~ s/^\s+|\s+$//g;
+    my @flags = split(/\s+/, $raw);
+
+    return \@flags;
 }
 
 sub get_cpu_options {
