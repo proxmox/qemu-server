@@ -54,7 +54,7 @@ sub runs_at_least_qemu_version {
     die "could not query currently running version for VM $vmid\n" if !defined($v);
     $v = $v->{qemu};
 
-    return version_cmp($v->{major}, $major, $v->{minor}, $minor, $v->{micro}, $extra) >= 0;
+    return PVE::QemuServer::Helpers::version_cmp($v->{major}, $major, $v->{minor}, $minor, $v->{micro}, $extra) >= 0;
 }
 
 sub qemu_machine_pxe {
