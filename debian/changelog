@@ -1,3 +1,9 @@
+qemu-server (6.0-16) pve; urgency=medium
+
+  * fix #2473: use of unitialized value
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 22 Nov 2019 14:18:58 +0100
+
 qemu-server (6.0-15) pve; urgency=medium
 
   * api/migration: fix autocomplete for targetstorage
