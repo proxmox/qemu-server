@@ -1,3 +1,10 @@
+qemu-server (6.0-17) pve; urgency=medium
+
+  * PCI(e) pass-through: ensure we fallback to the previous default "0000"
+    domain again.
+
+ -- Proxmox Support Team <support@proxmox.com>  Sat, 23 Nov 2019 09:52:09 +0100
+
 qemu-server (6.0-16) pve; urgency=medium
 
   * fix #2473: use of unitialized value
