@@ -5351,6 +5351,7 @@ sub vm_start {
 	  my $pcidevices = $d->{pciid};
 	  foreach my $pcidevice (@$pcidevices) {
 		my $pciid = $pcidevice->{id};
+		$pciid = "0000:$pciid" if $pciid !~ m/^[0-9a-f]{4}:/;
 
 		my $info = PVE::SysFSTools::pci_device_info("$pciid");
 		die "IOMMU not present\n" if !PVE::SysFSTools::check_iommu_support();
