@@ -1968,7 +1968,7 @@ __PACKAGE__->register_method({
 		description => "CIDR of the (sub) network that is used for migration.",
 		optional => 1,
 	    },
-	    machine => get_standard_option('pve-qm-machine'),
+	    machine => get_standard_option('pve-qemu-machine'),
 	    targetstorage => {
 		description => "Target storage for the migration. (Can be '1' to use the same storage id as on the source node.)",
 		type => 'string',
