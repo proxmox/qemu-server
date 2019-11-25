@@ -3715,6 +3715,9 @@ __PACKAGE__->register_method({
 	die "unable to use snapshot name 'current' (reserved name)\n"
 	    if $snapname eq 'current';
 
+	die "unable to use snapshot name 'pending' (reserved name)\n"
+	    if lc($snapname) eq 'pending';
+
 	my $realcmd = sub {
 	    PVE::Cluster::log_msg('info', $authuser, "snapshot VM $vmid: $snapname");
 	    PVE::QemuConfig->snapshot_create($vmid, $snapname, $param->{vmstate},
