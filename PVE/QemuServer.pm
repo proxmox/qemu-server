@@ -3350,17 +3350,27 @@ sub is_native($) {
     return get_host_arch() eq $arch;
 }
 
+sub get_vm_arch {
+    my ($conf) = @_;
+    return $conf->{arch} // get_host_arch();
+}
+
 my $default_machines = {
     x86_64 => 'pc',
     aarch64 => 'virt',
 };
 
-sub get_basic_machine_info {
-    my ($conf, $forcemachine) = @_;
+sub get_vm_machine {
+    my ($conf, $forcemachine, $arch) = @_;
 
-    my $arch = $conf->{arch} // get_host_arch();
-    my $machine = $forcemachine || $conf->{machine} || $default_machines->{$arch};
-    return ($arch, $machine);
+    my $machine = $forcemachine || $conf->{machine};
+
+    if (!$machine) {
+	$arch //= 'x86_64';
+	$machine ||= $default_machines->{$arch};
+    }
+
+    return $machine;
 }
 
 sub get_ovmf_files($) {
@@ -3455,9 +3465,11 @@ sub config_to_command {
     my $winversion = windows_version($ostype);
     my $kvm = $conf->{kvm};
 
-    my ($arch, $machine_type) = get_basic_machine_info($conf, $forcemachine);
+    my $arch = get_vm_arch($conf);
     my $kvm_binary = get_command_for_arch($arch);
     my $kvmver = kvm_user_version($kvm_binary);
+
+    my $machine_type = get_vm_machine($conf, $forcemachine, $arch);
     my $machine_version = PVE::QemuServer::Machine::extract_version($machine_type) // $kvmver;
     $kvm //= 1 if is_native($arch);
 
@@ -4735,7 +4747,8 @@ sub vmconfig_hotplug_pending {
     my ($vmid, $conf, $storecfg, $selection, $errors) = @_;
 
     my $defaults = load_defaults();
-    my ($arch, $machine_type) = get_basic_machine_info($conf, undef);
+    my $arch = get_vm_arch($conf);
+    my $machine_type = get_vm_machine($conf, undef, $arch);
 
     # commit values which do not have any impact on running VM first
     # Note: those option cannot raise errors, we we do not care about
