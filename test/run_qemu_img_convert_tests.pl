@@ -170,7 +170,7 @@ my $tests = [
 	name => "efidisk",
 	parameters => [ "/usr/share/kvm/OVMF_VARS-pure-efi.fd", "local:$vmid/vm-$vmid-disk-0.raw", 1024*10, undef, 0 ],
 	expected => [
-	    "/usr/bin/qemu-img", "convert", "-p", "-n", "-f", "raw", "-O", "raw",
+	    "/usr/bin/qemu-img", "convert", "-p", "-n", "-O", "raw",
 	    "/usr/share/kvm/OVMF_VARS-pure-efi.fd",
 	    "/var/lib/vz/images/$vmid/vm-$vmid-disk-0.raw",
 	]
@@ -179,7 +179,7 @@ my $tests = [
 	name => "efi2zos",
 	parameters => [ "/usr/share/kvm/OVMF_VARS-pure-efi.fd", "zfs-over-iscsi:vm-$vmid-disk-0", 1024*10, undef, 0 ],
 	expected => [
-	    "/usr/bin/qemu-img", "convert", "-p", "-n", "-f", "raw", "--target-image-opts",
+	    "/usr/bin/qemu-img", "convert", "-p", "-n", "--target-image-opts",
 	    "/usr/share/kvm/OVMF_VARS-pure-efi.fd",
 	    "file.driver=iscsi,file.transport=tcp,file.initiator-name=foobar,file.portal=127.0.0.1,file.target=iqn.2019-10.org.test:foobar,file.lun=1,driver=raw",
 	]
