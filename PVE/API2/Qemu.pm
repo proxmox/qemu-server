@@ -593,7 +593,7 @@ __PACKAGE__->register_method({
 
 		my $conf = $param;
 
-		my ($arch, undef) = PVE::QemuServer::get_basic_machine_info($conf);
+		my $arch = PVE::QemuServer::get_vm_arch($conf);
 
 		eval {
 
@@ -1174,7 +1174,7 @@ my $update_vm_api  = sub {
 		$conf = PVE::QemuConfig->load_config($vmid); # update/reload
 		next if defined($conf->{pending}->{$opt}) && ($param->{$opt} eq $conf->{pending}->{$opt}); # skip if nothing changed
 
-		my ($arch, undef) = PVE::QemuServer::get_basic_machine_info($conf);
+		my $arch = PVE::QemuServer::get_vm_arch($conf);
 
 		if (PVE::QemuServer::is_valid_drivename($opt)) {
 		    my $drive = PVE::QemuServer::parse_drive($opt, $param->{$opt});
