@@ -103,10 +103,10 @@ sub vm_running_locally {
 }
 
 sub min_version {
-    my ($verstr, $version_major, $version_minor) = @_;
+    my ($verstr, $major, $minor, $pve) = @_;
 
-    if ($verstr =~ m/^(\d+)\.(\d+)/) {
-	return 1 if version_cmp($1, $version_major, $2, $version_minor) >= 0;
+    if ($verstr =~ m/^(\d+)\.(\d+)(?:\.(\d+))?(?:\+pve(\d+))?/) {
+	return 1 if version_cmp($1, $major, $2, $minor, $4, $pve) >= 0;
 	return 0;
     }
 

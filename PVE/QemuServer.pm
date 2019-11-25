@@ -93,7 +93,7 @@ PVE::JSONSchema::register_standard_option('pve-qm-image-format', {
 PVE::JSONSchema::register_standard_option('pve-qemu-machine', {
 	description => "Specifies the Qemu machine type.",
 	type => 'string',
-	pattern => '(pc|pc(-i440fx)?-\d+(\.\d+)+(\.pxe)?|q35|pc-q35-\d+(\.\d+)+(\.pxe)?|virt(?:-\d+(\.\d+)+)?)',
+	pattern => '(pc|pc(-i440fx)?-\d+(\.\d+)+(\+pve\d+)?(\.pxe)?|q35|pc-q35-\d+(\.\d+)+(\+pve\d+)?(\.pxe)?|virt(?:-\d+(\.\d+)+)?(\+pve\d+)?)',
 	maxLength => 40,
 	optional => 1,
 });
@@ -1875,7 +1875,7 @@ sub print_drivedevice_full {
 	    }
 
 	    # for compatibility only, we prefer scsi-hd (#2408, #2355, #2380)
-	    my $version = PVE::QemuServer::Machine::extract_version($machine_type) // kvm_user_version();
+	    my $version = PVE::QemuServer::Machine::extract_version($machine_type, kvm_user_version());
 	    if ($path =~ m/^iscsi\:\/\// &&
 	       !min_version($version, 4, 1)) {
 		$devicetype = 'generic';
@@ -3361,13 +3361,14 @@ my $default_machines = {
 };
 
 sub get_vm_machine {
-    my ($conf, $forcemachine, $arch) = @_;
+    my ($conf, $forcemachine, $arch, $add_pve_version) = @_;
 
     my $machine = $forcemachine || $conf->{machine};
 
-    if (!$machine) {
+    if (!$machine || $machine =~ m/^(?:pc|q35|virt)$/) {
 	$arch //= 'x86_64';
 	$machine ||= $default_machines->{$arch};
+	$machine .= "+pve$PVE::QemuServer::Machine::PVE_MACHINE_VERSION" if $add_pve_version;
     }
 
     return $machine;
@@ -3469,8 +3470,10 @@ sub config_to_command {
     my $kvm_binary = get_command_for_arch($arch);
     my $kvmver = kvm_user_version($kvm_binary);
 
-    my $machine_type = get_vm_machine($conf, $forcemachine, $arch);
-    my $machine_version = PVE::QemuServer::Machine::extract_version($machine_type) // $kvmver;
+    my $add_pve_version = min_version($kvmver, 4, 1);
+
+    my $machine_type = get_vm_machine($conf, $forcemachine, $arch, $add_pve_version);
+    my $machine_version = PVE::QemuServer::Machine::extract_version($machine_type, $kvmver);
     $kvm //= 1 if is_native($arch);
 
     if ($kvm) {
@@ -7049,7 +7052,7 @@ sub qemu_use_old_bios_files {
         $machine_type = $1;
         $use_old_bios_files = 1;
     } else {
-	my $version = PVE::QemuServer::Machine::extract_version($machine_type) // kvm_user_version();
+	my $version = PVE::QemuServer::Machine::extract_version($machine_type, kvm_user_version());
         # Note: kvm version < 2.4 use non-efi pxe files, and have problems when we
         # load new efi bios files on migration. So this hack is required to allow
         # live migration from qemu-2.2 to qemu-2.4, which is sometimes used when
