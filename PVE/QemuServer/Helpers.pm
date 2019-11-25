@@ -122,7 +122,11 @@ sub version_cmp {
     my $size = scalar(@versions);
 
     return 0 if $size == 0;
-    die "cannot compare odd count of versions" if $size & 1;
+
+    if ($size & 1) {
+	my (undef, $fn, $line) = caller(0);
+	die "cannot compare odd count of versions, called from $fn:$line\n";
+    }
 
     for (my $i = 0; $i < $size; $i += 2) {
 	my ($a, $b) = splice(@versions, 0, 2);
