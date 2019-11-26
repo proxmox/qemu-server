@@ -1,3 +1,14 @@
+qemu-server (6.1-1) pve; urgency=medium
+
+  * fix #2367: do not allow snapshot with name PENDING
+
+  * fix #2469: fix qemu-img convert src_format detection
+
+  * implement PVE Version addition for QEMU machine allowing to introduce new
+    features while keeping migration compatibility more easily
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 26 Nov 2019 13:06:21 +0100
+
 qemu-server (6.0-17) pve; urgency=medium
 
   * PCI(e) pass-through: ensure we fallback to the previous default "0000"
