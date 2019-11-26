@@ -20,6 +20,7 @@ Build-Depends: debhelper (>= 11~),
                pve-edk2-firmware,
                pve-firewall,
                pve-qemu-kvm,
+               python3-minimal,
 Standards-Version: 4.3.0
 Homepage: http://www.proxmox.com
 
