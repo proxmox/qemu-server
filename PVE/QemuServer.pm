@@ -4902,6 +4902,7 @@ sub vmconfig_hotplug_pending {
 		vmconfig_update_net($storecfg, $conf, $hotplug_features->{network},
 				    $vmid, $opt, $value, $arch, $machine_type);
 	    } elsif (is_valid_drivename($opt)) {
+		die "skip\n" if $opt eq 'efidisk0';
 		# some changes can be done without hotplug
 		my $drive = parse_drive($opt, $value);
 		if (drive_is_cloudinit($drive)) {
