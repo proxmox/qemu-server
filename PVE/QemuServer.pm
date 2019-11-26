@@ -6718,7 +6718,7 @@ sub qemu_img_convert {
     my $cachemode;
     my $src_path;
     my $src_is_iscsi = 0;
-    my $src_format;
+    my $src_format = 'raw';
 
     if ($src_storeid) {
 	PVE::Storage::activate_volumes($storecfg, [$src_volid], $snapname);
@@ -6743,15 +6743,14 @@ sub qemu_img_convert {
 
     my $cmd = [];
     push @$cmd, '/usr/bin/qemu-img', 'convert', '-p', '-n';
-    push @$cmd, '-l', "snapshot.name=$snapname"
-	if $snapname && $src_format && $src_format eq "qcow2";
+    push @$cmd, '-l', "snapshot.name=$snapname" if($snapname && $src_format eq "qcow2");
     push @$cmd, '-t', 'none' if $dst_scfg->{type} eq 'zfspool';
     push @$cmd, '-T', $cachemode if defined($cachemode);
 
     if ($src_is_iscsi) {
 	push @$cmd, '--image-opts';
 	$src_path = convert_iscsi_path($src_path);
-    } elsif ($src_format) {
+    } else {
 	push @$cmd, '-f', $src_format;
     }
 
