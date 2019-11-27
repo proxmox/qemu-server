@@ -417,9 +417,12 @@ sub archive {
 
 	if ($self->{vmlist}->{$vmid}->{agent} && $vm_is_running) {
 	    $agent_running = PVE::QemuServer::qga_check_running($vmid);
+	    $self->loginfo("skipping guest-agent 'fs-freeze', agent configured but not running?")
+		if !$agent_running;
 	}
 
 	if ($agent_running){
+	    $self->loginfo("issuing guest-agent 'fs-freeze' command");
 	    eval { mon_cmd($vmid, "guest-fsfreeze-freeze"); };
 	    if (my $err = $@) {
 		$self->logerr($err);
@@ -430,6 +433,7 @@ sub archive {
 	my $qmperr = $@;
 
 	if ($agent_running){
+	    $self->loginfo("issuing guest-agent 'fs-thaw' command");
 	    eval { mon_cmd($vmid, "guest-fsfreeze-thaw"); };
 	    if (my $err = $@) {
 		$self->logerr($err);
