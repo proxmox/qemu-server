@@ -4058,6 +4058,7 @@ sub config_to_command {
 	my $statepath = PVE::Storage::path($storecfg, $vmstate);
 	push @$vollist, $vmstate;
 	push @$cmd, '-loadstate', $statepath;
+	print "activating and using '$vmstate' as vmstate\n";
     }
 
     # add custom args
