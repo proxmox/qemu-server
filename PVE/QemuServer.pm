@@ -5506,11 +5506,13 @@ sub vm_start {
 		    property => "guest-stats-polling-interval",
 		    value => 2) if (!defined($conf->{balloon}) || $conf->{balloon});
 
-	if ($is_suspended && (my $vmstate = $conf->{vmstate})) {
+	if ($is_suspended) {
 	    print "Resumed VM, removing state\n";
+	    if (my $vmstate = $conf->{vmstate}) {
+		PVE::Storage::deactivate_volumes($storecfg, [$vmstate]);
+		PVE::Storage::vdisk_free($storecfg, $vmstate);
+	    }
 	    delete $conf->@{qw(lock vmstate runningmachine)};
-	    PVE::Storage::deactivate_volumes($storecfg, [$vmstate]);
-	    PVE::Storage::vdisk_free($storecfg, $vmstate);
 	    PVE::QemuConfig->write_config($vmid, $conf);
 	}
 
