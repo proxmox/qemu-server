@@ -315,6 +315,7 @@ my $check_vm_modify_config_perm = sub {
 	# some checks (e.g., disk, serial port, usb) need to be done somewhere
 	# else, as there the permission can be value dependend
 	next if PVE::QemuServer::is_valid_drivename($opt);
+	next if $opt eq 'vmstate';
 	next if $opt eq 'cdrom';
 	next if $opt =~ m/^(?:unused|serial|usb)\d+$/;
 
@@ -1137,6 +1138,14 @@ my $update_vm_api  = sub {
 		    PVE::QemuConfig->check_protection($conf, "can't remove unused disk '$drive->{file}'");
 		    $rpcenv->check_vm_perm($authuser, $vmid, undef, ['VM.Config.Disk']);
 		    if (PVE::QemuServer::try_deallocate_drive($storecfg, $vmid, $conf, $opt, $drive, $rpcenv, $authuser)) {
+			delete $conf->{$opt};
+			PVE::QemuConfig->write_config($vmid, $conf);
+		    }
+		} elsif ($opt eq 'vmstate') {
+		    PVE::QemuConfig->check_protection($conf, "can't remove vmstate '$val'");
+		    # the user needs Disk and PowerMgmt privileges to remove the vmstate
+		    $rpcenv->check_vm_perm($authuser, $vmid, undef, ['VM.Config.Disk', 'VM.PowerMgmt' ]);
+		    if (PVE::QemuServer::try_deallocate_drive($storecfg, $vmid, $conf, $opt, { file => $val }, $rpcenv, $authuser, 1)) {
 			delete $conf->{$opt};
 			PVE::QemuConfig->write_config($vmid, $conf);
 		    }
