@@ -947,7 +947,7 @@ sub phase3_cleanup {
 	if (my $err = $@) {
 	    eval { PVE::QemuServer::qemu_blockjobs_cancel($vmid, $self->{storage_migration_jobs}) };
 	    eval { PVE::QemuMigrate::cleanup_remotedisks($self) };
-	    die "Failed to complete storage migration\n";
+	    die "Failed to complete storage migration: $err\n";
 	} else {
 	    foreach my $target_drive (keys %{$self->{target_drive}}) {
 		my $drive = PVE::QemuServer::parse_drive($target_drive, $self->{target_drive}->{$target_drive}->{volid});
