@@ -1,3 +1,13 @@
+qemu-server (6.1-2) pve; urgency=medium
+
+  * api: allow one to remove (hibernation) vmstate
+
+  * vzdump: log QGA FS freeze/thaw tries in task log
+
+  * skip efidisk0 in hotplug
+
+ -- Proxmox Support Team <support@proxmox.com>  Sat, 30 Nov 2019 18:38:36 +0100
+
 qemu-server (6.1-1) pve; urgency=medium
 
   * fix #2367: do not allow snapshot with name PENDING
