@@ -1091,6 +1091,15 @@ my $update_vm_api  = sub {
 	die "checksum missmatch (file change by other user?)\n"
 	    if $digest && $digest ne $conf->{digest};
 
+	# FIXME: 'suspended' lock should probabyl be a state or "weak" lock?!
+	if (scalar(@delete) && grep { $_ eq 'vmstate'} @delete) {
+	    if (defined($conf->{lock}) && $conf->{lock} eq 'suspended') {
+		delete $conf->{lock}; # for check lock check, not written out
+		push @delete, 'lock'; # this is the real deal to write it out
+	    }
+	    push @delete, 'runningmachine' if $conf->{runningmachine};
+	}
+
 	PVE::QemuConfig->check_lock($conf) if !$skiplock;
 
 	foreach my $opt (keys %$revert) {
