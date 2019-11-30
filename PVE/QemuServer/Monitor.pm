@@ -45,7 +45,8 @@ sub mon_cmd {
     my ($vmid, $execute, %params) = @_;
 
     my $cmd = { execute => $execute, arguments => \%params };
-    qmp_cmd($vmid, $cmd);
+
+    return qmp_cmd($vmid, $cmd);
 }
 
 sub hmp_cmd {
