@@ -237,7 +237,7 @@ sub do_test($) {
 	my $cmd_expected = [ split /\s*\\?\n\s*/, $cmdline_expected ];
 	my $cmd = [ split /\s*\\?\n\s*/, $cmdline ];
 
-	# comment out for easier debugging
+	# uncomment for easier debugging
 	#file_set_contents("$cmd_fn.tmp", $cmdline);
 
 	my $exp = join("\n", @$cmd_expected);
