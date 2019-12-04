@@ -11,6 +11,8 @@ use Test::MockModule;
 use PVE::Tools qw(file_get_contents file_set_contents run_command);
 use PVE::QemuConfig;
 use PVE::QemuServer;
+use PVE::QemuServer::Monitor;
+use PVE::QemuServer::Machine;
 
 my $base_env = {
     storage_config => {
@@ -115,14 +117,18 @@ sub parse_test($) {
     }
 }
 
+sub get_test_qemu_version {
+    $current_test->{qemu_version} // $base_env->{real_qemu_version} // '2.12';
+}
+
 my $qemu_server_module;
 $qemu_server_module = Test::MockModule->new('PVE::QemuServer');
 $qemu_server_module->mock(
     kvm_user_version => sub {
-	return $current_test->{qemu_version} // $base_env->{real_qemu_version} // '2.12';
+	return get_test_qemu_version();
     },
     kvm_version => sub {
-	return $current_test->{qemu_version} // $base_env->{real_qemu_version} // '2.12';
+	return get_test_qemu_version();
     },
     kernel_has_vhost_net => sub {
 	return 1; # TODO: make this per-test configurable?
@@ -177,6 +183,32 @@ $pve_common_sysfstools->mock(
     },
 );
 
+my $qemu_monitor_module;
+$qemu_monitor_module = Test::MockModule->new('PVE::QemuServer::Monitor');
+$qemu_monitor_module->mock(
+    mon_cmd => sub {
+	my ($vmid, $cmd) = @_;
+
+	die "invalid vmid: $vmid (expected: $base_env->{vmid})"
+	    if $vmid != $base_env->{vmid};
+
+	if ($cmd eq 'query-version') {
+	    my $ver = get_test_qemu_version();
+	    $ver =~ m/(\d+)\.(\d+)(?:\.(\d+))?/;
+	    return {
+		qemu => {
+		    major => $1,
+		    minor => $2,
+		    micro => $3
+		}
+	    }
+	}
+
+	die "unexpected QMP command: '$cmd'";
+    },
+);
+$qemu_monitor_module->mock('qmp_cmd', \&qmp_cmd);
+
 sub diff($$) {
     my ($a, $b) = @_;
     return if $a eq $b;
@@ -225,6 +257,11 @@ sub do_test($) {
     my ($vmid, $storecfg) = $base_env->@{qw(vmid storage_config)};
 
     my $cmdline = PVE::QemuServer::vm_commandline($storecfg, $vmid);
+
+    # check if QEMU version set correctly and test version_cmp
+    (my $qemu_major = get_test_qemu_version()) =~ s/\..*$//;
+    die "runs_at_least_qemu_version returned false, maybe error in version_cmp?"
+	if !PVE::QemuServer::Machine::runs_at_least_qemu_version($vmid, $qemu_major);
 
     $cmdline =~ s/ -/ \\\n  -/g; # same as qm showcmd --pretty
     $cmdline .= "\n";
