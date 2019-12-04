@@ -426,8 +426,7 @@ sub sync_disks {
 	    my ($sid, $volname) = PVE::Storage::parse_volume_id($volid);
 	    my $scfg =  PVE::Storage::storage_config($self->{storecfg}, $sid);
 
-	    my $migratable = ($scfg->{type} eq 'dir') || ($scfg->{type} eq 'zfspool') ||
-		($scfg->{type} eq 'lvmthin') || ($scfg->{type} eq 'lvm');
+	    my $migratable = $scfg->{type} =~ /^(?:dir|zfspool|lvmthin|lvm)$/;
 
 	    die "can't migrate '$volid' - storage type '$scfg->{type}' not supported\n"
 		if !$migratable;
