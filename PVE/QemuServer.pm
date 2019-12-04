@@ -7078,8 +7078,9 @@ sub create_efidisk($$$$$) {
     PVE::Storage::activate_volumes($storecfg, [$volid]);
 
     qemu_img_convert($ovmf_vars, $volid, $vars_size_b, undef, 0);
+    my ($size) = PVE::Storage::volume_size_info($storecfg, $volid, 3);
 
-    return ($volid, $vars_size);
+    return ($volid, $size/1024);
 }
 
 sub vm_iothreads_list {
