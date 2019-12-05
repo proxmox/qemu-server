@@ -1751,7 +1751,7 @@ sub parse_drive {
 }
 
 sub print_drive {
-    my ($vmid, $drive) = @_;
+    my ($drive) = @_;
     my $data = { %$drive };
     delete $data->{$_} for qw(index interface);
     return PVE::JSONSchema::print_property_string($data, $alldrive_fmt);
@@ -2663,7 +2663,7 @@ sub parse_vm_config {
 		    my $v = parse_drive($key, $value);
 		    if (my $volid = filename_to_volume_id($vmid, $v->{file}, $v->{media})) {
 			$v->{file} = $volid;
-			$value = print_drive($vmid, $v);
+			$value = print_drive($v);
 		    } else {
 			warn "vm $vmid - unable to parse value of '$key'\n";
 			next;
@@ -5263,7 +5263,7 @@ sub vm_start {
 		my $newdrive = $drive;
 		$newdrive->{format} = $format;
 		$newdrive->{file} = $newvolid;
-		my $drivestr = PVE::QemuServer::print_drive($vmid, $newdrive);
+		my $drivestr = print_drive($newdrive);
 		$local_volumes->{$opt} = $drivestr;
 		#pass drive to conf for command line
 		$conf->{$opt} = $drivestr;
@@ -5971,7 +5971,7 @@ sub restore_update_config_line {
 	} elsif ($map->{$virtdev}) {
 	    delete $di->{format}; # format can change on restore
 	    $di->{file} = $map->{$virtdev};
-	    $value = print_drive($vmid, $di);
+	    $value = print_drive($di);
 	    print $outfd "$virtdev: $value\n";
 	} else {
 	    print $outfd $line;
@@ -6085,7 +6085,7 @@ sub update_disksize {
 	    next if !$volid_hash->{$volid};
 
 	    $drive->{size} = $volid_hash->{$volid}->{size};
-	    my $new = print_drive($vmid, $drive);
+	    my $new = print_drive($drive);
 	    if ($new ne $conf->{$opt}) {
 		$changes = 1;
 		$conf->{$opt} = $new;
@@ -6683,7 +6683,7 @@ sub template_create {
 
 	my $voliddst = PVE::Storage::vdisk_create_base($storecfg, $volid);
 	$drive->{file} = $voliddst;
-	$conf->{$ds} = print_drive($vmid, $drive);
+	$conf->{$ds} = print_drive($drive);
 	PVE::QemuConfig->write_config($vmid, $conf);
     });
 }

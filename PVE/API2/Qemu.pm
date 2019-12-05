@@ -147,7 +147,7 @@ my $create_disks = sub {
 
 	if (!$volid || $volid eq 'none' || $volid eq 'cdrom') {
 	    delete $disk->{size};
-	    $res->{$ds} = PVE::QemuServer::print_drive($vmid, $disk);
+	    $res->{$ds} = PVE::QemuServer::print_drive($disk);
 	} elsif (defined($volname) && $volname eq 'cloudinit') {
 	    $storeid = $storeid // $default_storage;
 	    die "no storage ID specified (and no default storage)\n" if !$storeid;
@@ -169,7 +169,7 @@ my $create_disks = sub {
 	    $disk->{media} = 'cdrom';
 	    push @$vollist, $volid;
 	    delete $disk->{format}; # no longer needed
-	    $res->{$ds} = PVE::QemuServer::print_drive($vmid, $disk);
+	    $res->{$ds} = PVE::QemuServer::print_drive($disk);
 	} elsif ($volid =~ $NEW_DISK_RE) {
 	    my ($storeid, $size) = ($2 || $default_storage, $3);
 	    die "no storage ID specified (and no default storage)\n" if !$storeid;
@@ -188,7 +188,7 @@ my $create_disks = sub {
 	    $disk->{file} = $volid;
 	    $disk->{size} = PVE::Tools::convert_size($size, 'kb' => 'b');
 	    delete $disk->{format}; # no longer needed
-	    $res->{$ds} = PVE::QemuServer::print_drive($vmid, $disk);
+	    $res->{$ds} = PVE::QemuServer::print_drive($disk);
 	} else {
 
 	    PVE::Storage::check_volume_access($rpcenv, $authuser, $storecfg, $vmid, $volid);
@@ -211,7 +211,7 @@ my $create_disks = sub {
 		$disk->{size} = $size;
 	    }
 
-	    $res->{$ds} = PVE::QemuServer::print_drive($vmid, $disk);
+	    $res->{$ds} = PVE::QemuServer::print_drive($disk);
 	}
     };
 
@@ -525,7 +525,7 @@ __PACKAGE__->register_method({
 		    raise_param_exc({ $opt => "unable to parse drive options" }) if !$drive;
 
 		    PVE::QemuServer::cleanup_drive_path($opt, $storecfg, $drive);
-		    $param->{$opt} = PVE::QemuServer::print_drive($vmid, $drive);
+		    $param->{$opt} = PVE::QemuServer::print_drive($drive);
 		}
 	    }
 
@@ -1063,7 +1063,7 @@ my $update_vm_api  = sub {
 	    raise_param_exc({ $opt => "unable to parse drive options" }) if !$drive;
 	    PVE::QemuServer::cleanup_drive_path($opt, $storecfg, $drive);
 	    $check_replication->($drive);
-	    $param->{$opt} = PVE::QemuServer::print_drive($vmid, $drive);
+	    $param->{$opt} = PVE::QemuServer::print_drive($drive);
 	} elsif ($opt =~ m/^net(\d+)$/) {
 	    # add macaddr
 	    my $net = PVE::QemuServer::parse_net($param->{$opt});
@@ -2905,7 +2905,7 @@ __PACKAGE__->register_method({
 								   $newid, $storage, $format, $fullclone->{$opt}, $newvollist,
 								   $jobs, $skipcomplete, $oldconf->{agent}, $clonelimit);
 
-			$newconf->{$opt} = PVE::QemuServer::print_drive($vmid, $newdrive);
+			$newconf->{$opt} = PVE::QemuServer::print_drive($newdrive);
 
 			PVE::QemuConfig->write_config($newid, $newconf);
 			$i++;
@@ -3099,7 +3099,7 @@ __PACKAGE__->register_method({
 		    my $newdrive = PVE::QemuServer::clone_disk($storecfg, $vmid, $running, $disk, $drive, undef,
 							       $vmid, $storeid, $format, 1, $newvollist, undef, undef, undef, $movelimit);
 
-		    $conf->{$disk} = PVE::QemuServer::print_drive($vmid, $newdrive);
+		    $conf->{$disk} = PVE::QemuServer::print_drive($newdrive);
 
 		    PVE::QemuConfig->add_unused_volume($conf, $old_volid) if !$param->{delete};
 
@@ -3589,7 +3589,7 @@ __PACKAGE__->register_method({
 	    PVE::QemuServer::qemu_block_resize($vmid, "drive-$disk", $storecfg, $volid, $newsize);
 
 	    $drive->{size} = $newsize;
-	    $conf->{$disk} = PVE::QemuServer::print_drive($vmid, $drive);
+	    $conf->{$disk} = PVE::QemuServer::print_drive($drive);
 
 	    PVE::QemuConfig->write_config($vmid, $conf);
 	};

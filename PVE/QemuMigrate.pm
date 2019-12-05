@@ -950,7 +950,7 @@ sub phase3_cleanup {
 	} else {
 	    foreach my $target_drive (keys %{$self->{target_drive}}) {
 		my $drive = PVE::QemuServer::parse_drive($target_drive, $self->{target_drive}->{$target_drive}->{volid});
-		$conf->{$target_drive} = PVE::QemuServer::print_drive($vmid, $drive);
+		$conf->{$target_drive} = PVE::QemuServer::print_drive($drive);
 		PVE::QemuConfig->write_config($vmid, $conf);
 	    }
 	}
