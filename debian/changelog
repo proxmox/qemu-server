@@ -1,3 +1,21 @@
+qemu-server (5.0-55) unstable; urgency=medium
+
+  * Fix #2171: volid based statefiles were not activated on VM start
+
+  * fix #2263: die on live migration with local cloudinit disk
+
+  * fix #2275: die on invalid sendkey
+
+  * fix #2244: Allow timeout for guest-agent shutdown
+
+  * fix SPICE remote viewer live migration
+
+  * fix #2382: delete cloudinit disk before restoring
+
+  * Fix: rtcflags: ignore startdate 'now'
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 05 Dec 2019 09:36:16 +0100
+
 qemu-server (5.0-54) unstable; urgency=medium
 
   * wait for VM scopes to be gone through dbus based helper on VM start
