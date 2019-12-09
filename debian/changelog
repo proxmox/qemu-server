@@ -1,3 +1,15 @@
+qemu-server (6.1-3) pve; urgency=medium
+
+  * create efidisk: poll the real size after volume creation, as some storages
+    need to create bigger volumes as requested, to cope with their internal
+    alignment requirements.
+
+  * fix #2469: fix qemu-img convert src_format detection, wrongly reverted.
+
+  * fix #2510: hostpci: always check if specified device exists
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 09 Dec 2019 11:44:14 +0100
+
 qemu-server (6.1-2) pve; urgency=medium
 
   * api: allow one to remove (hibernation) vmstate
