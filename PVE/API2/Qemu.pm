@@ -2387,6 +2387,9 @@ __PACKAGE__->register_method({
     proxyto => 'node',
     description => "Suspend virtual machine.",
     permissions => {
+	description => "You need 'VM.PowerMgmt' on /vms/{vmid}, and if you have set 'todisk',".
+	    " you need also 'VM.Config.Disk' on /vms/{vmid} and 'Datastore.AllocateSpace'".
+	    " on the storage for the vmstate.",
 	check => ['perm', '/vms/{vmid}', [ 'VM.PowerMgmt' ]],
     },
     parameters => {
@@ -2434,6 +2437,20 @@ __PACKAGE__->register_method({
 
 	die "Cannot suspend HA managed VM to disk\n"
 	    if $todisk && PVE::HA::Config::vm_is_ha_managed($vmid);
+
+	# early check for storage permission, for better user feedback
+	if ($todisk) {
+	    $rpcenv->check_vm_perm($authuser, $vmid, undef, ['VM.Config.Disk']);
+
+	    if (!$statestorage) {
+		# get statestorage from config if none is given
+		my $conf = PVE::QemuConfig->load_config($vmid);
+		my $storecfg = PVE::Storage::config();
+		$statestorage = PVE::QemuServer::find_vmstate_storage($conf, $storecfg);
+	    }
+
+	    $rpcenv->check($authuser, "/storage/$statestorage", ['Datastore.AllocateSpace']);
+	}
 
 	my $realcmd = sub {
 	    my $upid = shift;

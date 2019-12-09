@@ -5742,6 +5742,7 @@ sub vm_reboot {
    });
 }
 
+# note: if using the statestorage parameter, the caller has to check privileges
 sub vm_suspend {
     my ($vmid, $skiplock, $includestate, $statestorage) = @_;
 
@@ -5765,6 +5766,17 @@ sub vm_suspend {
 	    $conf->{lock} = 'suspending';
 	    my $date = strftime("%Y-%m-%d", localtime(time()));
 	    $storecfg = PVE::Storage::config();
+	    if (!$statestorage) {
+		$statestorage = find_vmstate_storage($conf, $storecfg);
+		# check permissions for the storage
+		my $rpcenv = PVE::RPCEnvironment::get();
+		if ($rpcenv->{type} ne 'cli') {
+		    my $authuser = $rpcenv->get_user();
+		    $rpcenv->check($authuser, "/storage/$statestorage", ['Datastore.AllocateSpace']);
+		}
+	    }
+
+
 	    $vmstate = PVE::QemuConfig->__snapshot_save_vmstate($vmid, $conf, "suspend-$date", $storecfg, $statestorage, 1);
 	    $path = PVE::Storage::path($storecfg, $vmstate);
 	    PVE::QemuConfig->write_config($vmid, $conf);
