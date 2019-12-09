@@ -59,6 +59,20 @@ my $base_env = {
     real_qemu_version => PVE::QemuServer::kvm_user_version(), # not yet mocked
 };
 
+my $pci_devs = [
+    "0000:00:43.1",
+    "0000:00:f4.0",
+    "0000:00:ff.1",
+    "0000:0f:f2.0",
+    "0000:d0:13.0",
+    "0000:d0:15.1",
+    "0000:d0:17.0",
+    "0000:f0:42.0",
+    "0000:f0:43.0",
+    "0000:f0:43.1",
+    "1234:f0:43.1",
+];
+
 my $current_test; # = {
 #   description => 'Test description', # if available
 #   qemu_version => '2.12',
@@ -143,6 +157,23 @@ $pve_common_tools->mock(
 	my ($family, $address) = @_;
 
 	return '61000';
+    },
+);
+
+my $pve_common_sysfstools;
+$pve_common_sysfstools = Test::MockModule->new('PVE::SysFSTools');
+$pve_common_sysfstools->mock(
+    lspci => sub {
+	my ($filter, $verbose) = @_;
+
+	return [
+	    map { { id => $_ } }
+	    grep {
+		!defined($filter)
+		|| (!ref($filter) && $_ =~ m/^(0000:)?\Q$filter\E/)
+		|| (ref($filter) eq 'CODE' && $filter->({ id => $_ }))
+	    } sort @$pci_devs
+	];
     },
 );
 
