@@ -447,6 +447,18 @@ sub sync_disks {
 	       'PVE::QemuConfig', $jobcfg, $start_time, $start_time, $logfunc);
 	}
 
+	# sizes in config have to be accurate for remote node to correctly
+	# allocate disks, rescan to be sure
+	my $volid_hash = PVE::QemuServer::scan_volids($self->{storecfg}, $vmid);
+	PVE::QemuServer::foreach_drive($conf, sub {
+	    my ($key, $drive) = @_;
+	    my ($updated, $old_size, $new_size) = PVE::QemuServer::update_disksize($drive, $volid_hash);
+	    if (defined($updated)) {
+		$conf->{$key} = PVE::QemuServer::print_drive($updated);
+		$self->log('info', "size of disk '$updated->{file}' ($key) updated from $old_size to $new_size\n");
+	    }
+	});
+
 	$self->log('info', "copying local disk images") if scalar(%$local_volumes);
 
 	foreach my $volid (keys %$local_volumes) {
@@ -510,6 +522,9 @@ sub phase1 {
 
     sync_disks($self, $vmid);
 
+    # sync_disks fixes disk sizes to match their actual size, write changes so
+    # target allocates correct volumes
+    PVE::QemuConfig->write_config($vmid, $conf);
 };
 
 sub phase1_cleanup {

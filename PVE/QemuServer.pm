@@ -6075,6 +6075,27 @@ sub is_volume_in_use {
 }
 
 sub update_disksize {
+    my ($drive, $volid_hash) = @_;
+
+    my $volid = $drive->{file};
+    return undef if !defined($volid);
+
+    my $oldsize = $drive->{size};
+    my $newsize = $volid_hash->{$volid}->{size};
+
+    if (defined($newsize) && defined($oldsize) && $newsize != $oldsize) {
+	$drive->{size} = $newsize;
+
+	my $old_fmt = PVE::JSONSchema::format_size($oldsize);
+	my $new_fmt = PVE::JSONSchema::format_size($newsize);
+
+	return wantarray ? ($drive, $old_fmt, $new_fmt) : $drive;
+    }
+
+    return undef;
+}
+
+sub update_disk_config {
     my ($vmid, $conf, $volid_hash) = @_;
 
     my $changes;
@@ -6096,6 +6117,7 @@ sub update_disksize {
 	    my $volid = $drive->{file};
 	    next if !$volid;
 
+	    # mark volid as "in-use" for next step
 	    $referenced->{$volid} = 1;
 	    if ($volid_hash->{$volid} &&
 		(my $path = $volid_hash->{$volid}->{path})) {
@@ -6105,12 +6127,11 @@ sub update_disksize {
 	    next if drive_is_cdrom($drive);
 	    next if !$volid_hash->{$volid};
 
-	    $drive->{size} = $volid_hash->{$volid}->{size};
-	    my $new = print_drive($drive);
-	    if ($new ne $conf->{$opt}) {
+	    my ($updated, $old_size, $new_size) = update_disksize($drive, $volid_hash);
+	    if (defined($updated)) {
 		$changes = 1;
-		$conf->{$opt} = $new;
-		print "$prefix update disk '$opt' information.\n";
+		$conf->{$opt} = print_drive($updated);
+		print "$prefix size of disk '$volid' ($opt) updated from $old_size to $new_size\n";
 	    }
 	}
     }
@@ -6121,7 +6142,7 @@ sub update_disksize {
 	my $volid = $conf->{$opt};
 	my $path = $volid_hash->{$volid}->{path} if $volid_hash->{$volid};
 	if ($referenced->{$volid} || ($path && $referencedpath->{$path})) {
-	    print "$prefix remove entry '$opt', its volume '$volid' is in use.\n";
+	    print "$prefix remove entry '$opt', its volume '$volid' is in use\n";
 	    $changes = 1;
 	    delete $conf->{$opt};
 	}
@@ -6138,7 +6159,7 @@ sub update_disksize {
 	next if $referencedpath->{$path};
 	$changes = 1;
 	my $key = PVE::QemuConfig->add_unused_volume($conf, $volid);
-	print "$prefix add unreferenced volume '$volid' as '$key' to config.\n";
+	print "$prefix add unreferenced volume '$volid' as '$key' to config\n";
 	$referencedpath->{$path} = 1; # avoid to add more than once (aliases)
     }
 
@@ -6172,7 +6193,7 @@ sub rescan {
 	    $vm_volids->{$volid} = $info if $info->{vmid} && $info->{vmid} == $vmid;
 	}
 
-	my $changes = update_disksize($vmid, $conf, $vm_volids);
+	my $changes = update_disk_config($vmid, $conf, $vm_volids);
 
 	PVE::QemuConfig->write_config($vmid, $conf) if $changes && !$dryrun;
     };
