@@ -7210,6 +7210,30 @@ sub resolve_first_disk {
     return $firstdisk;
 }
 
+# NOTE: if this logic changes, please update docs & possibly gui logic
+sub find_vmstate_storage {
+    my ($conf, $storecfg) = @_;
+
+    # first, return storage from conf if set
+    return $conf->{vmstatestorage} if $conf->{vmstatestorage};
+
+    my ($target, $shared, $local);
+
+    foreach_storage_used_by_vm($conf, sub {
+	my ($sid) = @_;
+	my $scfg = PVE::Storage::storage_config($storecfg, $sid);
+	my $dst = $scfg->{shared} ? \$shared : \$local;
+	$$dst = $sid if !$$dst || $scfg->{path}; # prefer file based storage
+    });
+
+    # second, use shared storage where VM has at least one disk
+    # third, use local storage where VM has at least one disk
+    # fall back to local storage
+    $target = $shared // $local // 'local';
+
+    return $target;
+}
+
 sub generate_uuid {
     my ($uuid, $uuid_str);
     UUID::generate($uuid);

@@ -133,23 +133,11 @@ sub get_replicatable_volumes {
 sub __snapshot_save_vmstate {
     my ($class, $vmid, $conf, $snapname, $storecfg, $statestorage, $suspend) = @_;
 
-    # first, use explicitly configured storage
-    # either directly via API, or via conf
-    my $target = $statestorage // $conf->{vmstatestorage};
+    # use given storage or search for one from the config
+    my $target = $statestorage;
 
     if (!$target) {
-	my ($shared, $local);
-	PVE::QemuServer::foreach_storage_used_by_vm($conf, sub {
-	    my ($sid) = @_;
-	    my $scfg = PVE::Storage::storage_config($storecfg, $sid);
-	    my $dst = $scfg->{shared} ? \$shared : \$local;
-	    $$dst = $sid if !$$dst || $scfg->{path}; # prefer file based storage
-	});
-
-	# second, use shared storage where VM has at least one disk
-	# third, use local storage where VM has at least one disk
-	# fall back to local storage
-	$target = $shared // $local // 'local';
+	$target = PVE::QemuServer::find_vmstate_storage($conf, $storecfg);
     }
 
     my $defaults = PVE::QemuServer::load_defaults();
