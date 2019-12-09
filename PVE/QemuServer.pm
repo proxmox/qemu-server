@@ -3472,6 +3472,10 @@ sub config_to_command {
     my $machine_version = PVE::QemuServer::Machine::extract_version($machine_type, $kvmver);
     $kvm //= 1 if is_native($arch);
 
+    $machine_version =~ m/(\d+)\.(\d+)/;
+    die "QEMU version $kvmver is too old to run machine type $machine_type\n"
+	if !PVE::QemuServer::min_version($kvmver, $1, $2);
+
     if ($kvm) {
 	die "KVM virtualisation configured, but not available. Either disable in VM configuration or enable in BIOS.\n"
 	    if !defined kvm_version();
