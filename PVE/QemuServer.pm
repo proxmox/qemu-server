@@ -5411,6 +5411,18 @@ sub vm_start {
 	    noerr => 1,
 	);
 
+	# when migrating, prefix QEMU output so other side can pick up any
+	# errors that might occur and show the user
+	if ($migratedfrom) {
+	    $run_params{quiet} = 1;
+	    $run_params{logfunc} = sub {
+		my $msg = shift;
+		return if !$msg;
+		chomp $msg;
+		print "QEMU: $msg\n";
+	    };
+	}
+
 	my %properties = (
 	    Slice => 'qemu.slice',
 	    KillMode => 'none',

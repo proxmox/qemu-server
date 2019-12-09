@@ -625,10 +625,12 @@ sub phase2 {
 	    $self->{target_drive}->{$targetdrive}->{volid} = $volid;
 	    $self->{target_drive}->{$targetdrive}->{nbd_uri} = $nbd_uri;
 
+	} elsif ($line =~ m/^QEMU: (.*)$/) {
+	    $self->log('info', "[$self->{node}] $1\n");
 	}
     }, errfunc => sub {
 	my $line = shift;
-	$self->log('info', $line);
+	$self->log('info', "[$self->{node}] $line");
     }, noerr => 1);
 
     die "remote command failed with exit code $exitcode\n" if $exitcode;
