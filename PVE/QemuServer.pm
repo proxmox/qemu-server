@@ -5405,7 +5405,11 @@ sub vm_start {
 	                                          : $defaults->{cpuunits};
 
 	my $start_timeout = ($conf->{hugepages} || $is_suspended) ? 300 : 30;
-	my %run_params = (timeout => $statefile ? undef : $start_timeout, umask => 0077);
+	my %run_params = (
+	    timeout => $statefile ? undef : $start_timeout,
+	    umask => 0077,
+	    noerr => 1,
+	);
 
 	my %properties = (
 	    Slice => 'qemu.slice',
@@ -5421,7 +5425,9 @@ sub vm_start {
 	my $run_qemu = sub {
 	    PVE::Tools::run_fork sub {
 		PVE::Systemd::enter_systemd_scope($vmid, "Proxmox VE VM $vmid", %properties);
-		run_command($cmd, %run_params);
+
+		my $exitcode = run_command($cmd, %run_params);
+		die "QEMU exited with code $exitcode\n" if $exitcode;
 	    };
 	};
 

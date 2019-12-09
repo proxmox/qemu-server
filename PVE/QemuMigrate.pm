@@ -595,7 +595,7 @@ sub phase2 {
 
     # Note: We try to keep $spice_ticket secret (do not pass via command line parameter)
     # instead we pipe it through STDIN
-    PVE::Tools::run_command($cmd, input => $spice_ticket, outfunc => sub {
+    my $exitcode = PVE::Tools::run_command($cmd, input => $spice_ticket, outfunc => sub {
 	my $line = shift;
 
 	if ($line =~ m/^migration listens on tcp:(localhost|[\d\.]+|\[[\d\.:a-fA-F]+\]):(\d+)$/) {
@@ -629,7 +629,9 @@ sub phase2 {
     }, errfunc => sub {
 	my $line = shift;
 	$self->log('info', $line);
-    });
+    }, noerr => 1);
+
+    die "remote command failed with exit code $exitcode\n" if $exitcode;
 
     die "unable to detect remote migration address\n" if !$raddr;
 
