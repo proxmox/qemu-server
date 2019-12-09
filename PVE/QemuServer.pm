@@ -2246,13 +2246,11 @@ sub parse_hostpci {
     my @idlist = split(/;/, $res->{host});
     delete $res->{host};
     foreach my $id (@idlist) {
-	if ($id =~ m/\./) { # full id 00:00.1
-	    push @{$res->{pciid}}, {
-		id => $id,
-	    };
-	} else { # partial id 00:00
-	    $res->{pciid} = PVE::SysFSTools::lspci($id);
+	my $devs = PVE::SysFSTools::lspci($id);
+	if (!scalar(@$devs)) {
+	    die "no pci device found for '$id'\n";
 	}
+	push @{$res->{pciid}}, @$devs;
     }
     return $res;
 }
@@ -5369,7 +5367,6 @@ sub vm_start {
 	  my $pcidevices = $d->{pciid};
 	  foreach my $pcidevice (@$pcidevices) {
 		my $pciid = $pcidevice->{id};
-		$pciid = "0000:$pciid" if $pciid !~ m/^[0-9a-f]{4}:/;
 
 		my $info = PVE::SysFSTools::pci_device_info("$pciid");
 		die "IOMMU not present\n" if !PVE::SysFSTools::check_iommu_support();

@@ -26,7 +26,7 @@
   -device 'vmgenid,guid=54d1c06c-8f5b-440f-b5b2-6eab1380e13d' \
   -device 'piix3-usb-uhci,id=uhci,bus=pci.0,addr=0x1.0x2' \
   -device 'usb-tablet,id=tablet,bus=uhci.0,port=1' \
-  -device 'vfio-pci,host=0f:f2.0,id=hostpci0,bus=pci.0,addr=0x10' \
+  -device 'vfio-pci,host=0000:0f:f2.0,id=hostpci0,bus=pci.0,addr=0x10' \
   -device 'VGA,id=vga,bus=pci.0,addr=0x2' \
   -device 'virtio-balloon-pci,id=balloon0,bus=pci.0,addr=0x3' \
   -iscsi 'initiator-name=iqn.1993-08.org.debian:01:aabbccddeeff' \
