@@ -2247,9 +2247,7 @@ sub parse_hostpci {
     delete $res->{host};
     foreach my $id (@idlist) {
 	my $devs = PVE::SysFSTools::lspci($id);
-	if (!scalar(@$devs)) {
-	    die "no pci device found for '$id'\n";
-	}
+	die "no PCI device found for '$id'\n" if !scalar(@$devs);
 	push @{$res->{pciid}}, @$devs;
     }
     return $res;
