@@ -117,6 +117,8 @@ sub parse_test($) {
 	    $current_test->{qemu_version} = "$1";
 	} elsif ($line =~ /^HOST_ARCH:\s*(.*)\s*$/) {
 	    $current_test->{host_arch} = "$1";
+	} elsif ($line =~ /^EXPECT_ERROR:\s*(.*)\s*$/) {
+	    $current_test->{expect_error} = "$1";
 	}
     }
 }
@@ -280,7 +282,28 @@ sub do_test($) {
 
     my ($vmid, $storecfg) = $base_env->@{qw(vmid storage_config)};
 
-    my $cmdline = PVE::QemuServer::vm_commandline($storecfg, $vmid);
+    my $cmdline = eval { PVE::QemuServer::vm_commandline($storecfg, $vmid) };
+    my $err = $@;
+
+    if (my $err_expect = $current_test->{expect_error}) {
+	if (!$err) {
+	    fail("$testname");
+	    note("did NOT get any error, but expected error: $err_expect");
+	    return;
+	}
+	chomp $err;
+	if ($err !~ /^\s*$err_expect\s*$/) {
+	    fail("$testname");
+	    note("error does not match expected error: '$err' !~ '$err_expect'");
+	} else {
+	    pass("$testname");
+	}
+	return;
+    } elsif ($err) {
+	fail("$testname");
+	note("got unexpected error: $err");
+	return;
+    }
 
     # check if QEMU version set correctly and test version_cmp
     (my $qemu_major = get_test_qemu_version()) =~ s/\..*$//;
