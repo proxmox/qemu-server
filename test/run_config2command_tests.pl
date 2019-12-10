@@ -7,8 +7,12 @@ use lib qw(..);
 
 use Test::More;
 use Test::MockModule;
+use Socket qw(AF_INET AF_INET6);
 
 use PVE::Tools qw(file_get_contents file_set_contents run_command);
+use PVE::INotify;
+use PVE::SysFSTools;
+
 use PVE::QemuConfig;
 use PVE::QemuServer;
 use PVE::QemuServer::Monitor;
@@ -163,6 +167,26 @@ $pve_common_tools->mock(
 	my ($family, $address) = @_;
 
 	return '61000';
+    },
+    getaddrinfo_all => sub {
+	my ($hostname, @opts) = @_;
+	die "need stable hostname" if $hostname ne 'localhost';
+	return (
+	    {
+		addr => Socket::pack_sockaddr_in(0, Socket::INADDR_LOOPBACK),
+		family => AF_INET, # IPv4
+		protocol => 6,
+		socktype => 1,
+	    },
+	);
+    },
+);
+
+my $pve_common_inotify;
+$pve_common_inotify = Test::MockModule->new('PVE::INotify');
+$pve_common_inotify->mock(
+    nodename => sub {
+	return 'localhost';
     },
 );
 

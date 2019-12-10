@@ -108,7 +108,11 @@ sub cgroups_write {
 
 }
 
-my $nodename = PVE::INotify::nodename();
+my $nodename_cache;
+sub nodename {
+    $nodename_cache //= PVE::INotify::nodename();
+    return $nodename_cache;
+}
 
 my $cpu_vendor_list = {
     # Intel CPUs
@@ -2805,6 +2809,7 @@ sub config_list {
     my $res = {};
     return $res if !$vmlist || !$vmlist->{ids};
     my $ids = $vmlist->{ids};
+    my $nodename = nodename();
 
     foreach my $vmid (keys %$ids) {
 	my $d = $ids->{$vmid};
@@ -2863,7 +2868,7 @@ sub shared_nodes {
 
     my $nodelist = PVE::Cluster::get_nodelist();
     my $nodehash = { map { $_ => 1 } @$nodelist };
-    my $nodename = PVE::INotify::nodename();
+    my $nodename = nodename();
 
     foreach_drive($conf, sub {
 	my ($ds, $drive) = @_;
@@ -3461,6 +3466,7 @@ sub config_to_command {
     my $ostype = $conf->{ostype};
     my $winversion = windows_version($ostype);
     my $kvm = $conf->{kvm};
+    my $nodename = nodename();
 
     my $arch = get_vm_arch($conf);
     my $kvm_binary = get_command_for_arch($arch);
@@ -3884,7 +3890,6 @@ sub config_to_command {
 
 	my $pciaddr = print_pci_addr("spice", $bridges, $arch, $machine_type);
 
-	my $nodename = PVE::INotify::nodename();
 	my $pfamily = PVE::Tools::get_host_address_family($nodename);
 	my @nodeaddrs = PVE::Tools::getaddrinfo_all('localhost', family => $pfamily);
 	die "failed to get an ip address of type $pfamily for 'localhost'\n" if !@nodeaddrs;
@@ -5318,7 +5323,7 @@ sub vm_start {
 	    if ($statefile eq 'tcp') {
 		my $localip = "localhost";
 		my $datacenterconf = PVE::Cluster::cfs_read_file('datacenter.cfg');
-		my $nodename = PVE::INotify::nodename();
+		my $nodename = nodename();
 
 		if (!defined($migration_type)) {
 		    if (defined($datacenterconf->{migration}->{type})) {
@@ -5458,7 +5463,7 @@ sub vm_start {
 
 	#start nbd server for storage migration
 	if ($targetstorage) {
-	    my $nodename = PVE::INotify::nodename();
+	    my $nodename = nodename();
 	    my $localip = $get_migration_ip->($migration_network, $nodename);
 	    my $pfamily = PVE::Tools::get_host_address_family($nodename);
 	    my $storage_migrate_port = PVE::Tools::next_migrate_port($pfamily);
