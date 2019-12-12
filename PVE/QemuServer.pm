@@ -5415,12 +5415,7 @@ sub vm_start {
 	# errors that might occur and show the user
 	if ($migratedfrom) {
 	    $run_params{quiet} = 1;
-	    $run_params{logfunc} = sub {
-		my $msg = shift;
-		return if !$msg;
-		chomp $msg;
-		print "QEMU: $msg\n";
-	    };
+	    $run_params{logfunc} = sub { print "QEMU: $_[0]\n" };
 	}
 
 	my %properties = (
