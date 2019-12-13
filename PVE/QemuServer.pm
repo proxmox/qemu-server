@@ -4779,7 +4779,6 @@ sub vmconfig_hotplug_pending {
 
     if ($changes) {
 	PVE::QemuConfig->write_config($vmid, $conf);
-	$conf = PVE::QemuConfig->load_config($vmid); # update/reload
     }
 
     my $hotplug_features = parse_hotplug_features(defined($conf->{hotplug}) ? $conf->{hotplug} : '1');
@@ -4839,11 +4838,8 @@ sub vmconfig_hotplug_pending {
 	if (my $err = $@) {
 	    &$add_error($opt, $err) if $err ne "skip\n";
 	} else {
-	    # save new config if hotplug was successful
 	    delete $conf->{$opt};
 	    PVE::QemuConfig->remove_from_pending_delete($conf, $opt);
-	    PVE::QemuConfig->write_config($vmid, $conf);
-	    $conf = PVE::QemuConfig->load_config($vmid); # update/reload
 	}
     }
 
@@ -4931,13 +4927,12 @@ sub vmconfig_hotplug_pending {
 	if (my $err = $@) {
 	    &$add_error($opt, $err) if $err ne "skip\n";
 	} else {
-	    # save new config if hotplug was successful
 	    $conf->{$opt} = $value;
 	    delete $conf->{pending}->{$opt};
-	    PVE::QemuConfig->write_config($vmid, $conf);
-	    $conf = PVE::QemuConfig->load_config($vmid); # update/reload
 	}
     }
+
+    PVE::QemuConfig->write_config($vmid, $conf);
 }
 
 sub try_deallocate_drive {
