@@ -49,7 +49,7 @@ my $expect;
 my $test_name = "test non existent storage";
 
 eval {  $volumes = PVE::QemuConfig->get_replicatable_volumes($storecfg, $vmid, $conf, 0, 0); };
-is($@, "storage 'non-existent-store' does not exists\n", $test_name);
+is($@, "storage 'non-existent-store' does not exist\n", $test_name);
 
 
 $test_name = "test with disk from other VM (not owner)";

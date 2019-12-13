@@ -6306,7 +6306,7 @@ sub restore_vma_archive {
     my $conffile = PVE::QemuConfig->config_file($vmid);
     my $tmpfn = "$conffile.$$.tmp";
 
-    # Note: $oldconf is undef if VM does not exists
+    # Note: $oldconf is undef if VM does not exist
     my $cfs_path = PVE::QemuConfig->cfs_config_path($vmid);
     my $oldconf = PVE::Cluster::cfs_read_file($cfs_path);
 

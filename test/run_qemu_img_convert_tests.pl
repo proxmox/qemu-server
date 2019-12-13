@@ -150,7 +150,7 @@ my $tests = [
     {
 	name => "notexistingstorage",
 	parameters => [ "local-lvm:vm-$vmid-disk-0", "not-existing:$vmid/vm-$vmid-disk-0.raw", 1024*10, undef, 1 ],
-	expected => "storage 'not-existing' does not exists\n",
+	expected => "storage 'not-existing' does not exist\n",
     },
     {
 	name => "vmdkfile",

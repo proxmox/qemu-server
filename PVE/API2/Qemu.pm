@@ -206,7 +206,7 @@ my $create_disks = sub {
 
 		my $size = PVE::Storage::volume_size_info($storecfg, $volid);
 
-		die "volume $volid does not exists\n" if !$size;
+		die "volume $volid does not exist\n" if !$size;
 
 		$disk->{size} = $size;
 	    }
