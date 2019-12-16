@@ -574,17 +574,18 @@ __PACKAGE__->register_method({
 		}
 
 		PVE::AccessControl::add_vm_to_pool($vmid, $pool) if $pool;
-
-		if ($start_after_create) {
-		    eval { PVE::API2::Qemu->vm_start({ vmid => $vmid, node => $node }) };
-		    warn $@ if $@;
-		}
 	    };
 
 	    # ensure no old replication state are exists
 	    PVE::ReplicationState::delete_guest_states($vmid);
 
-	    return PVE::QemuConfig->lock_config_full($vmid, 1, $realcmd);
+	    PVE::QemuConfig->lock_config_full($vmid, 1, $realcmd);
+
+	    if ($start_after_create) {
+		print "Execute autostart\n";
+		eval { PVE::API2::Qemu->vm_start({ vmid => $vmid, node => $node }) };
+		warn $@ if $@;
+	    }
 	};
 
 	my $createfn = sub {
