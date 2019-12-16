@@ -1,3 +1,20 @@
+qemu-server (6.1-4) pve; urgency=medium
+
+  * check if QEMU version is recent enough for requested machine type
+
+  * suspend to disk: check and enforce more strict permissions
+
+  * update disk size before local disk migration
+
+  * hide very long commandline on vm_start/migrate failure
+
+  * fix #2493: show QEMU errors in migration log
+
+  * api/restore: do not trigger autostart-after-restored task from locked
+    context
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 16 Dec 2019 16:03:25 +0100
+
 qemu-server (6.1-3) pve; urgency=medium
 
   * create efidisk: poll the real size after volume creation, as some storages
