@@ -4977,23 +4977,39 @@ sub vmconfig_delete_or_detach_drive {
 
 
 sub vmconfig_apply_pending {
-    my ($vmid, $conf, $storecfg) = @_;
+    my ($vmid, $conf, $storecfg, $errors) = @_;
+
+    my $add_apply_error = sub {
+	my ($opt, $msg) = @_;
+	my $err_msg = "unable to apply pending change $opt : $msg";
+	$errors->{$opt} = $err_msg;
+	warn $err_msg;
+    };
 
     # cold plug
 
     my $pending_delete_hash = PVE::QemuConfig->parse_pending_delete($conf->{pending}->{delete});
     foreach my $opt (sort keys %$pending_delete_hash) {
-	die "internal error" if $opt =~ m/^unused/;
 	my $force = $pending_delete_hash->{$opt}->{force};
-	$conf = PVE::QemuConfig->load_config($vmid); # update/reload
-	if (!defined($conf->{$opt})) {
-	    PVE::QemuConfig->remove_from_pending_delete($conf, $opt);
-	    PVE::QemuConfig->write_config($vmid, $conf);
-	} elsif (is_valid_drivename($opt)) {
-	    vmconfig_delete_or_detach_drive($vmid, $storecfg, $conf, $opt, $force);
-	    PVE::QemuConfig->remove_from_pending_delete($conf, $opt);
-	    delete $conf->{$opt};
-	    PVE::QemuConfig->write_config($vmid, $conf);
+	eval {
+	    die "internal error" if $opt =~ m/^unused/;
+	    $conf = PVE::QemuConfig->load_config($vmid); # update/reload
+	    if (!defined($conf->{$opt})) {
+		PVE::QemuConfig->remove_from_pending_delete($conf, $opt);
+		PVE::QemuConfig->write_config($vmid, $conf);
+	    } elsif (is_valid_drivename($opt)) {
+		vmconfig_delete_or_detach_drive($vmid, $storecfg, $conf, $opt, $force);
+		PVE::QemuConfig->remove_from_pending_delete($conf, $opt);
+		delete $conf->{$opt};
+		PVE::QemuConfig->write_config($vmid, $conf);
+	    } else {
+		PVE::QemuConfig->remove_from_pending_delete($conf, $opt);
+		delete $conf->{$opt};
+		PVE::QemuConfig->write_config($vmid, $conf);
+	    }
+	};
+	if (my $err = $@) {
+	    $add_apply_error->($opt, $err);
 	} else {
 	    PVE::QemuConfig->remove_from_pending_delete($conf, $opt);
 	    delete $conf->{$opt};
@@ -5006,17 +5022,24 @@ sub vmconfig_apply_pending {
     foreach my $opt (keys %{$conf->{pending}}) { # add/change
 	$conf = PVE::QemuConfig->load_config($vmid); # update/reload
 
-	if (defined($conf->{$opt}) && ($conf->{$opt} eq $conf->{pending}->{$opt})) {
-	    # skip if nothing changed
-	} elsif (is_valid_drivename($opt)) {
-	    vmconfig_register_unused_drive($storecfg, $vmid, $conf, parse_drive($opt, $conf->{$opt}))
-		if defined($conf->{$opt});
-	    $conf->{$opt} = $conf->{pending}->{$opt};
+	eval {
+	    if (defined($conf->{$opt}) && ($conf->{$opt} eq $conf->{pending}->{$opt})) {
+		# skip if nothing changed
+	    } elsif (is_valid_drivename($opt)) {
+		vmconfig_register_unused_drive($storecfg, $vmid, $conf, parse_drive($opt, $conf->{$opt}))
+		    if defined($conf->{$opt});
+		$conf->{$opt} = $conf->{pending}->{$opt};
+	    } else {
+		$conf->{$opt} = $conf->{pending}->{$opt};
+	    }
+	};
+	if (my $err = $@) {
+	    $add_apply_error->($opt, $err);
 	} else {
-	    $conf->{$opt} = $conf->{pending}->{$opt};
+	    $conf->{$opt} = delete $conf->{pending}->{$opt};
+	    PVE::QemuConfig->cleanup_pending($conf);
 	}
 
-	delete $conf->{pending}->{$opt};
 	PVE::QemuConfig->write_config($vmid, $conf);
     }
 }

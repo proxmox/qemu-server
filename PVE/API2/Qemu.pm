@@ -1242,13 +1242,13 @@ my $update_vm_api  = sub {
 
 	    $conf = PVE::QemuConfig->load_config($vmid); # update/reload
 
+	    my $errors = {};
 	    if ($running) {
-		my $errors = {};
 		PVE::QemuServer::vmconfig_hotplug_pending($vmid, $conf, $storecfg, $modified, $errors);
-		raise_param_exc($errors) if scalar(keys %$errors);
 	    } else {
-		PVE::QemuServer::vmconfig_apply_pending($vmid, $conf, $storecfg, $running);
+		PVE::QemuServer::vmconfig_apply_pending($vmid, $conf, $storecfg, $running, $errors);
 	    }
+	    raise_param_exc($errors) if scalar(keys %$errors);
 
 	    return;
 	};
