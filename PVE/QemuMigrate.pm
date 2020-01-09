@@ -282,8 +282,6 @@ sub sync_disks {
 	my $other_errors = [];
 	my $abort = 0;
 
-	my $sharedvm = 1;
-
 	my $log_error = sub {
 	    my ($msg, $volid) = @_;
 
@@ -310,7 +308,6 @@ sub sync_disks {
 
 	    # check if storage is available on target node
 	    PVE::Storage::storage_check_node($self->{storecfg}, $targetsid, $self->{node});
-	    $sharedvm = 0; # there is a non-shared disk
 
 	    PVE::Storage::foreach_volid($dl, sub {
 		my ($volid, $sid, $volname) = @_;
@@ -351,8 +348,6 @@ sub sync_disks {
 	    PVE::Storage::storage_check_node($self->{storecfg}, $targetsid, $self->{node});
 
 	    return if $scfg->{shared};
-
-	    $sharedvm = 0;
 
 	    $local_volumes->{$volid}->{ref} = $attr->{referenced_in_config} ? 'config' : 'snapshot';
 
