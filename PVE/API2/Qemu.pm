@@ -3586,7 +3586,8 @@ __PACKAGE__->register_method({
 
 	    PVE::QemuServer::qemu_block_resize($vmid, "drive-$disk", $storecfg, $volid, $newsize);
 
-	    $drive->{size} = $newsize;
+	    my $effective_size = eval { PVE::Storage::volume_size_info($storecfg, $volid, 3); };
+	    $drive->{size} = $effective_size // $newsize;
 	    $conf->{$disk} = PVE::QemuServer::print_drive($drive);
 
 	    PVE::QemuConfig->write_config($vmid, $conf);
