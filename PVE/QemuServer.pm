@@ -41,7 +41,7 @@ use PVE::Tools qw(run_command lock_file lock_file_full file_read_firstline file_
 
 use PVE::QMPClient;
 use PVE::QemuConfig;
-use PVE::QemuServer::Helpers qw(min_version);
+use PVE::QemuServer::Helpers qw(min_version config_aware_timeout);
 use PVE::QemuServer::Cloudinit;
 use PVE::QemuServer::Machine;
 use PVE::QemuServer::Memory;
@@ -5541,7 +5541,7 @@ sub vm_start {
 	my $cpuunits = defined($conf->{cpuunits}) ? $conf->{cpuunits}
 	                                          : $defaults->{cpuunits};
 
-	my $start_timeout = ($conf->{hugepages} || $is_suspended) ? 300 : 30;
+	my $start_timeout = config_aware_timeout($conf, $is_suspended);
 	my %run_params = (
 	    timeout => $statefile ? undef : $start_timeout,
 	    umask => 0077,

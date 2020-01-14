@@ -11,6 +11,7 @@ use PVE::ProcFSTools;
 use base 'Exporter';
 our @EXPORT_OK = qw(
 min_version
+config_aware_timeout
 );
 
 my $nodename = PVE::INotify::nodename();
@@ -137,6 +138,27 @@ sub version_cmp {
 	return -1 if $a < $b;
     }
     return 0;
+}
+
+sub config_aware_timeout {
+    my ($config, $is_suspended) = @_;
+    my $memory = $config->{memory};
+    my $timeout = 30;
+
+    # Based on user reported startup time for vm with 512GiB @ 4-5 minutes
+    if (defined($memory) && $memory > 30720) {
+	$timeout = int($memory/1024);
+    }
+
+    if ($is_suspended && $timeout < 300) {
+	$timeout = 300;
+    }
+
+    if ($config->{hugepages} && $timeout < 150) {
+	$timeout = 150;
+    }
+
+    return $timeout;
 }
 
 1;
