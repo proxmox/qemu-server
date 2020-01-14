@@ -1989,7 +1989,13 @@ __PACKAGE__->register_method({
 		description => "Target storage for the migration. (Can be '1' to use the same storage id as on the source node.)",
 		type => 'string',
 		optional => 1
-	    }
+	    },
+	    timeout => {
+		description => "Wait maximal timeout seconds.",
+		type => 'integer',
+		minimum => 0,
+		optional => 1,
+	    },
 	},
     },
     returns => {
@@ -2003,6 +2009,7 @@ __PACKAGE__->register_method({
 
 	my $node = extract_param($param, 'node');
 	my $vmid = extract_param($param, 'vmid');
+	my $timeout = extract_param($param, 'timeout');
 
 	my $machine = extract_param($param, 'machine');
 
@@ -2056,8 +2063,8 @@ __PACKAGE__->register_method({
 
 		syslog('info', "start VM $vmid: $upid\n");
 
-		PVE::QemuServer::vm_start($storecfg, $vmid, $stateuri, $skiplock, $migratedfrom, undef,
-					  $machine, $spice_ticket, $migration_network, $migration_type, $targetstorage);
+		PVE::QemuServer::vm_start($storecfg, $vmid, $stateuri, $skiplock, $migratedfrom, undef, $machine,
+					  $spice_ticket, $migration_network, $migration_type, $targetstorage, $timeout);
 		return;
 	    };
 

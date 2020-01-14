@@ -5338,7 +5338,7 @@ sub vmconfig_update_disk {
 
 sub vm_start {
     my ($storecfg, $vmid, $statefile, $skiplock, $migratedfrom, $paused,
-	$forcemachine, $spice_ticket, $migration_network, $migration_type, $targetstorage) = @_;
+	$forcemachine, $spice_ticket, $migration_network, $migration_type, $targetstorage, $timeout) = @_;
 
     PVE::QemuConfig->lock_config($vmid, sub {
 	my $conf = PVE::QemuConfig->load_config($vmid, $migratedfrom);
@@ -5541,7 +5541,7 @@ sub vm_start {
 	my $cpuunits = defined($conf->{cpuunits}) ? $conf->{cpuunits}
 	                                          : $defaults->{cpuunits};
 
-	my $start_timeout = config_aware_timeout($conf, $is_suspended);
+	my $start_timeout = $timeout // config_aware_timeout($conf, $is_suspended);
 	my %run_params = (
 	    timeout => $statefile ? undef : $start_timeout,
 	    umask => 0077,
