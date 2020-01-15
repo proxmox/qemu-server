@@ -2940,6 +2940,9 @@ __PACKAGE__->register_method({
 			eval { PVE::Storage::vdisk_free($storecfg, $volid); };
 			warn $@ if $@;
 		    }
+
+		    PVE::Firewall::remove_vmfw_conf($newid);
+
 		    die "clone failed: $err";
 		}
 
