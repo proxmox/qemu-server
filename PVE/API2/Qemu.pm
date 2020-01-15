@@ -1994,6 +1994,7 @@ __PACKAGE__->register_method({
 		description => "Wait maximal timeout seconds.",
 		type => 'integer',
 		minimum => 0,
+		default => 'max(30, vm memory in GiB)',
 		optional => 1,
 	    },
 	},
