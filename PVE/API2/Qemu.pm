@@ -593,15 +593,11 @@ __PACKAGE__->register_method({
 	    PVE::ReplicationState::delete_guest_states($vmid);
 
 	    my $realcmd = sub {
-
-		my $vollist = [];
-
 		my $conf = $param;
-
 		my $arch = PVE::QemuServer::get_vm_arch($conf);
 
+		my $vollist = [];
 		eval {
-
 		    $vollist = &$create_disks($rpcenv, $authuser, $conf, $arch, $storecfg, $vmid, $pool, $param, $storage);
 
 		    if (!$conf->{bootdisk}) {
@@ -2730,34 +2726,26 @@ __PACKAGE__->register_method({
 	my ($param) = @_;
 
 	my $rpcenv = PVE::RPCEnvironment::get();
-
-        my $authuser = $rpcenv->get_user();
+	my $authuser = $rpcenv->get_user();
 
 	my $node = extract_param($param, 'node');
-
 	my $vmid = extract_param($param, 'vmid');
-
 	my $newid = extract_param($param, 'newid');
-
 	my $pool = extract_param($param, 'pool');
-
-	if (defined($pool)) {
-	    $rpcenv->check_pool_exist($pool);
-	}
+	$rpcenv->check_pool_exist($pool) if defined($pool);
 
         my $snapname = extract_param($param, 'snapname');
-
 	my $storage = extract_param($param, 'storage');
-
 	my $format = extract_param($param, 'format');
-
 	my $target = extract_param($param, 'target');
 
         my $localnode = PVE::INotify::nodename();
 
-        undef $target if $target && ($target eq $localnode || $target eq 'localhost');
-
-	PVE::Cluster::check_node_exists($target) if $target;
+        if ($target && ($target eq $localnode || $target eq 'localhost')) {
+	    undef $target;
+	} else {
+	    PVE::Cluster::check_node_exists($target);
+	}
 
 	my $storecfg = PVE::Storage::config();
 
@@ -2773,7 +2761,7 @@ __PACKAGE__->register_method({
 	    }
 	}
 
-        PVE::Cluster::check_cfs_quorum();
+	PVE::Cluster::check_cfs_quorum();
 
 	my $running = PVE::QemuServer::check_running($vmid) || 0;
 
@@ -2781,25 +2769,18 @@ __PACKAGE__->register_method({
 	my $shared_lock = $running ? 0 : 1;
 
 	my $clonefn = sub {
-
-	    # do all tests after lock
-	    # we also try to do all tests before we fork the worker
+	    # do all tests after lock but before forking worker - if possible
 
 	    my $conf = PVE::QemuConfig->load_config($vmid);
-
 	    PVE::QemuConfig->check_lock($conf);
 
 	    my $verify_running = PVE::QemuServer::check_running($vmid) || 0;
-
 	    die "unexpected state change\n" if $verify_running != $running;
 
 	    die "snapshot '$snapname' does not exist\n"
 		if $snapname && !defined( $conf->{snapshots}->{$snapname});
 
-	    my $full = extract_param($param, 'full');
-	    if (!defined($full)) {
-		$full = !PVE::QemuConfig->is_template($conf);
-	    }
+	    my $full = extract_param($param, 'full') // !PVE::QemuConfig->is_template($conf);
 
 	    die "parameter 'storage' not allowed for linked clones\n"
 		if defined($storage) && !$full;
@@ -2811,10 +2792,10 @@ __PACKAGE__->register_method({
 
 	    my $sharedvm = &$check_storage_access_clone($rpcenv, $authuser, $storecfg, $oldconf, $storage);
 
-	    die "can't clone VM to node '$target' (VM uses local storage)\n" if $target && !$sharedvm;
+	    die "can't clone VM to node '$target' (VM uses local storage)\n"
+		if $target && !$sharedvm;
 
 	    my $conffile = PVE::QemuConfig->config_file($newid);
-
 	    die "unable to create VM $newid: config file already exists\n"
 		if -f $conffile;
 
@@ -2867,8 +2848,7 @@ __PACKAGE__->register_method({
 	    my $smbios1 = PVE::QemuServer::parse_smbios1($newconf->{smbios1} || '');
 	    $smbios1->{uuid} = PVE::QemuServer::generate_uuid();
 	    $newconf->{smbios1} = PVE::QemuServer::print_smbios1($smbios1);
-
-	    # auto generate a new vmgenid if the option was set
+	    # auto generate a new vmgenid only if the option was set for template
 	    if ($newconf->{vmgenid}) {
 		$newconf->{vmgenid} = PVE::QemuServer::generate_uuid();
 	    }
@@ -2878,11 +2858,7 @@ __PACKAGE__->register_method({
 	    if ($param->{name}) {
 		$newconf->{name} = $param->{name};
 	    } else {
-		if ($oldconf->{name}) {
-		    $newconf->{name} = "Copy-of-$oldconf->{name}";
-		} else {
-		    $newconf->{name} = "Copy-of-VM-$vmid";
-		}
+		$newconf->{name} = "Copy-of-VM-" . ($oldconf->{name} // $vmid);
 	    }
 
 	    if ($param->{description}) {
@@ -2890,6 +2866,7 @@ __PACKAGE__->register_method({
 	    }
 
 	    # create empty/temp config - this fails if VM already exists on other node
+	    # FIXME use PVE::QemuConfig->create_and_lock_config and adapt code
 	    PVE::Tools::file_set_contents($conffile, "# qmclone temporary file\nlock: clone\n");
 
 	    my $realcmd = sub {
@@ -2957,7 +2934,6 @@ __PACKAGE__->register_method({
 		    unlink $conffile;
 
 		    eval { PVE::QemuServer::qemu_blockjobs_cancel($vmid, $jobs) };
-
 		    sleep 1; # some storage like rbd need to wait before release volume - really?
 
 		    foreach my $volid (@$newvollist) {
@@ -3045,47 +3021,39 @@ __PACKAGE__->register_method({
 	my ($param) = @_;
 
 	my $rpcenv = PVE::RPCEnvironment::get();
-
 	my $authuser = $rpcenv->get_user();
 
 	my $node = extract_param($param, 'node');
-
 	my $vmid = extract_param($param, 'vmid');
-
 	my $digest = extract_param($param, 'digest');
-
 	my $disk = extract_param($param, 'disk');
-
 	my $storeid = extract_param($param, 'storage');
-
 	my $format = extract_param($param, 'format');
 
 	my $storecfg = PVE::Storage::config();
 
 	my $updatefn =  sub {
-
 	    my $conf = PVE::QemuConfig->load_config($vmid);
-
 	    PVE::QemuConfig->check_lock($conf);
 
-	    die "checksum missmatch (file change by other user?)\n"
+	    die "VM config checksum missmatch (file change by other user?)\n"
 		if $digest && $digest ne $conf->{digest};
 
 	    die "disk '$disk' does not exist\n" if !$conf->{$disk};
 
 	    my $drive = PVE::QemuServer::parse_drive($disk, $conf->{$disk});
 
-	    my $old_volid = $drive->{file} || die "disk '$disk' has no associated volume\n";
-
+	    die "disk '$disk' has no associated volume\n" if !$drive->{file};
 	    die "you can't move a cdrom\n" if PVE::QemuServer::drive_is_cdrom($drive, 1);
 
+	    my $old_volid = $drive->{file};
 	    my $oldfmt;
 	    my ($oldstoreid, $oldvolname) = PVE::Storage::parse_volume_id($old_volid);
 	    if ($oldvolname =~ m/\.(raw|qcow2|vmdk)$/){
 		$oldfmt = $1;
 	    }
 
-	    die "you can't move on the same storage with same format\n" if $oldstoreid eq $storeid &&
+	    die "you can't move to the same storage with same format\n" if $oldstoreid eq $storeid &&
                 (!$format || !$oldfmt || $oldfmt eq $format);
 
 	    # this only checks snapshots because $disk is passed!
@@ -3100,7 +3068,6 @@ __PACKAGE__->register_method({
 	    PVE::Storage::activate_volumes($storecfg, [ $drive->{file} ]);
 
 	    my $realcmd = sub {
-
 		my $newvollist = [];
 
 		eval {
@@ -3128,8 +3095,9 @@ __PACKAGE__->register_method({
 
 		    PVE::QemuConfig->write_config($vmid, $conf);
 
-		    if ($running && PVE::QemuServer::parse_guest_agent($conf)->{fstrim_cloned_disks} && PVE::QemuServer::qga_check_running($vmid)) {
-			eval { mon_cmd($vmid, "guest-fstrim"); };
+		    my $do_trim = PVE::QemuServer::parse_guest_agent($conf)->{fstrim_cloned_disks};
+		    if ($running && $do_trim && PVE::QemuServer::qga_check_running($vmid)) {
+			eval { mon_cmd($vmid, "guest-fstrim") };
 		    }
 
 		    eval {
@@ -3140,11 +3108,10 @@ __PACKAGE__->register_method({
 		    warn $@ if $@;
 		};
 		if (my $err = $@) {
-
-                   foreach my $volid (@$newvollist) {
-                        eval { PVE::Storage::vdisk_free($storecfg, $volid); };
-                        warn $@ if $@;
-                    }
+		    foreach my $volid (@$newvollist) {
+			eval { PVE::Storage::vdisk_free($storecfg, $volid) };
+			warn $@ if $@;
+		    }
 		    die "storage migration failed: $err";
                 }
 
