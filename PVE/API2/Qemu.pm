@@ -2931,8 +2931,6 @@ __PACKAGE__->register_method({
 		    PVE::AccessControl::add_vm_to_pool($newid, $pool) if $pool;
 		};
 		if (my $err = $@) {
-		    unlink $conffile;
-
 		    eval { PVE::QemuServer::qemu_blockjobs_cancel($vmid, $jobs) };
 		    sleep 1; # some storage like rbd need to wait before release volume - really?
 
@@ -2942,6 +2940,8 @@ __PACKAGE__->register_method({
 		    }
 
 		    PVE::Firewall::remove_vmfw_conf($newid);
+
+		    unlink $conffile; # avoid races -> last thing before die
 
 		    die "clone failed: $err";
 		}
