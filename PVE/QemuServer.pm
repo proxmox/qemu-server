@@ -5111,20 +5111,10 @@ sub vmconfig_apply_pending {
     foreach my $opt (sort keys %$pending_delete_hash) {
 	my $force = $pending_delete_hash->{$opt}->{force};
 	eval {
-	    die "internal error" if $opt =~ m/^unused/;
-	    $conf = PVE::QemuConfig->load_config($vmid); # update/reload
-	    if (!defined($conf->{$opt})) {
-		PVE::QemuConfig->remove_from_pending_delete($conf, $opt);
-		PVE::QemuConfig->write_config($vmid, $conf);
-	    } elsif (is_valid_drivename($opt)) {
+	    if ($opt =~ m/^unused/) {
+		die "internal error";
+	    } elsif (defined($conf->{$opt}) && is_valid_drivename($opt)) {
 		vmconfig_delete_or_detach_drive($vmid, $storecfg, $conf, $opt, $force);
-		PVE::QemuConfig->remove_from_pending_delete($conf, $opt);
-		delete $conf->{$opt};
-		PVE::QemuConfig->write_config($vmid, $conf);
-	    } else {
-		PVE::QemuConfig->remove_from_pending_delete($conf, $opt);
-		delete $conf->{$opt};
-		PVE::QemuConfig->write_config($vmid, $conf);
 	    }
 	};
 	if (my $err = $@) {
@@ -5132,35 +5122,27 @@ sub vmconfig_apply_pending {
 	} else {
 	    PVE::QemuConfig->remove_from_pending_delete($conf, $opt);
 	    delete $conf->{$opt};
-	    PVE::QemuConfig->write_config($vmid, $conf);
 	}
     }
 
-    $conf = PVE::QemuConfig->load_config($vmid); # update/reload
+    PVE::QemuConfig->cleanup_pending($conf);
 
     foreach my $opt (keys %{$conf->{pending}}) { # add/change
-	$conf = PVE::QemuConfig->load_config($vmid); # update/reload
-
+	next if $opt eq 'delete'; # just to be sure
 	eval {
-	    if (defined($conf->{$opt}) && ($conf->{$opt} eq $conf->{pending}->{$opt})) {
-		# skip if nothing changed
-	    } elsif (is_valid_drivename($opt)) {
+	    if (defined($conf->{$opt}) && is_valid_drivename($opt)) {
 		vmconfig_register_unused_drive($storecfg, $vmid, $conf, parse_drive($opt, $conf->{$opt}))
-		    if defined($conf->{$opt});
-		$conf->{$opt} = $conf->{pending}->{$opt};
-	    } else {
-		$conf->{$opt} = $conf->{pending}->{$opt};
 	    }
 	};
 	if (my $err = $@) {
 	    $add_apply_error->($opt, $err);
 	} else {
 	    $conf->{$opt} = delete $conf->{pending}->{$opt};
-	    PVE::QemuConfig->cleanup_pending($conf);
 	}
-
-	PVE::QemuConfig->write_config($vmid, $conf);
     }
+
+    # write all changes at once to avoid unnecessary i/o
+    PVE::QemuConfig->write_config($vmid, $conf);
 }
 
 my $safe_num_ne = sub {
