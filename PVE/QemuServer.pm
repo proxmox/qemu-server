@@ -3418,9 +3418,12 @@ sub get_command_for_arch($) {
 # since kvm and tcg machines support different flags
 #
 sub query_supported_cpu_flags {
-    my $flags = {};
+    my ($arch) = @_;
 
-    my ($arch, $default_machine) = get_basic_machine_info();
+    $arch //= get_host_arch();
+    my $default_machine = $default_machines->{$arch};
+
+    my $flags = {};
 
     # FIXME: Once this is merged, the code below should work for ARM as well:
     # https://lists.nongnu.org/archive/html/qemu-devel/2019-06/msg04947.html
