@@ -8,6 +8,7 @@ SOURCES=PCI.pm		\
 	Helpers.pm	\
 	Monitor.pm	\
 	Machine.pm	\
+	CPUConfig.pm	\
 
 .PHONY: install
 install: ${SOURCES}
