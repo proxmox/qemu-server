@@ -5376,13 +5376,16 @@ sub vm_start {
 		my ($volid, $storeid, $volname) = @{$local_volumes->{$opt}};
 		my $drive = parse_drive($opt, $conf->{$opt});
 
-		#if remote storage is specified, use default format
+		# If a remote storage is specified and the format of the original
+		# volume is not available there, fall back to the default format.
+		# Otherwise use the same format as the original.
 		if ($targetstorage && $targetstorage ne "1") {
 		    $storeid = $targetstorage;
 		    my ($defFormat, $validFormats) = PVE::Storage::storage_default_format($storecfg, $storeid);
-		    $format = $defFormat;
+		    my $scfg = PVE::Storage::storage_config($storecfg, $storeid);
+		    my $fileFormat = qemu_img_format($scfg, $volname);
+		    $format = (grep {$fileFormat eq $_} @{$validFormats}) ? $fileFormat : $defFormat;
 		} else {
-		    #else we use same format than original
 		    my $scfg = PVE::Storage::storage_config($storecfg, $storeid);
 		    $format = qemu_img_format($scfg, $volid);
 		}
