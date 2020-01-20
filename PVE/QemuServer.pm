@@ -5387,7 +5387,7 @@ sub vm_start {
 		    $format = (grep {$fileFormat eq $_} @{$validFormats}) ? $fileFormat : $defFormat;
 		} else {
 		    my $scfg = PVE::Storage::storage_config($storecfg, $storeid);
-		    $format = qemu_img_format($scfg, $volid);
+		    $format = qemu_img_format($scfg, $volname);
 		}
 
 		my $newvolid = PVE::Storage::vdisk_alloc($storecfg, $storeid, $vmid, $format, undef, ($drive->{size}/1024));
