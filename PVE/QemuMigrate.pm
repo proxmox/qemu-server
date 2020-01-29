@@ -491,7 +491,7 @@ sub cleanup_remotedisks {
 
     foreach my $target_drive (keys %{$self->{target_drive}}) {
 
-	my $drive = PVE::QemuServer::parse_drive($target_drive, $self->{target_drive}->{$target_drive}->{volid});
+	my $drive = PVE::QemuServer::parse_drive($target_drive, $self->{target_drive}->{$target_drive}->{drivestr});
 	my ($storeid, $volname) = PVE::Storage::parse_volume_id($drive->{file});
 
 	my $cmd = [@{$self->{rem_ssh}}, 'pvesm', 'free', "$storeid:$volname"];
@@ -612,12 +612,12 @@ sub phase2 {
 	    $spice_port = int($1);
 	}
 	elsif ($line =~ m/^storage migration listens on nbd:(localhost|[\d\.]+|\[[\d\.:a-fA-F]+\]):(\d+):exportname=(\S+) volume:(\S+)$/) {
-	    my $volid = $4;
+	    my $drivestr = $4;
 	    my $nbd_uri = "nbd:$1:$2:exportname=$3";
 	    my $targetdrive = $3;
 	    $targetdrive =~ s/drive-//g;
 
-	    $self->{target_drive}->{$targetdrive}->{volid} = $volid;
+	    $self->{target_drive}->{$targetdrive}->{drivestr} = $drivestr;
 	    $self->{target_drive}->{$targetdrive}->{nbd_uri} = $nbd_uri;
 
 	} elsif ($line =~ m/^QEMU: (.*)$/) {
@@ -687,7 +687,7 @@ sub phase2 {
 	    my $target = $self->{target_drive}->{$drive};
 	    my $nbd_uri = $target->{nbd_uri};
 	    my $source_sid = PVE::Storage::Plugin::parse_volume_id($conf->{$drive});
-	    my $target_sid = PVE::Storage::Plugin::parse_volume_id($target->{volid});
+	    my $target_sid = PVE::Storage::Plugin::parse_volume_id($target->{drivestr});
 	    my $bwlimit = PVE::Storage::get_bandwidth_limit('migrate', [$source_sid, $target_sid], $opt_bwlimit);
 
 	    $self->log('info', "$drive: start migration to $nbd_uri");
@@ -963,7 +963,7 @@ sub phase3_cleanup {
 	    die "Failed to complete storage migration: $err\n";
 	} else {
 	    foreach my $target_drive (keys %{$self->{target_drive}}) {
-		my $drive = PVE::QemuServer::parse_drive($target_drive, $self->{target_drive}->{$target_drive}->{volid});
+		my $drive = PVE::QemuServer::parse_drive($target_drive, $self->{target_drive}->{$target_drive}->{drivestr});
 		$conf->{$target_drive} = PVE::QemuServer::print_drive($drive);
 		PVE::QemuConfig->write_config($vmid, $conf);
 	    }

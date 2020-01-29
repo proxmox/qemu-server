@@ -5444,10 +5444,10 @@ sub vm_start {
 	    $localip = "[$localip]" if Net::IP::ip_is_ipv6($localip);
 
 	    foreach my $opt (sort keys %$local_volumes) {
-		my $volid = $local_volumes->{$opt};
+		my $drivestr = $local_volumes->{$opt};
 		mon_cmd($vmid, "nbd-server-add", device => "drive-$opt", writable => JSON::true );
 		my $migrate_storage_uri = "nbd:${localip}:${storage_migrate_port}:exportname=drive-$opt";
-		print "storage migration listens on $migrate_storage_uri volume:$volid\n";
+		print "storage migration listens on $migrate_storage_uri volume:$drivestr\n";
 	    }
 	}
 
