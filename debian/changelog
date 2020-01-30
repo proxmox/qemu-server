@@ -1,3 +1,22 @@
+qemu-server (6.1-5) pve; urgency=medium
+
+  * Add QEMU CPU flag querying helpers
+
+  * hotplug_pending: remove redundant write/load config calls
+
+  * api: vm clone: unlink zombie target VM and firewall config at end of error
+    cleanup
+
+  * add timeout parameter to vm start API/CLI endpoint
+
+  * fix #2070: vm_start: for a migrating VM, use current format of disk if
+    possible
+
+  * hotplug_pending: make 'ssd' option non-hotpluggable, it cannot be changed
+    live on a plugged disk.
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 30 Jan 2020 10:27:33 +0100
+
 qemu-server (6.1-4) pve; urgency=medium
 
   * check if QEMU version is recent enough for requested machine type
