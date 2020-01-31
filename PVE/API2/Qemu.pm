@@ -3841,7 +3841,7 @@ __PACKAGE__->register_method({
     proxyto => 'node',
     description => "Get snapshot configuration",
     permissions => {
-	check => ['perm', '/vms/{vmid}', [ 'VM.Snapshot', 'VM.Snapshot.Rollback' ], any => 1],
+	check => ['perm', '/vms/{vmid}', [ 'VM.Snapshot', 'VM.Snapshot.Rollback', 'VM.Audit' ], any => 1],
     },
     parameters => {
 	additionalProperties => 0,
