@@ -697,7 +697,7 @@ while (my ($k, $v) = each %$confdesc) {
 }
 
 my $MAX_IDE_DISKS = 4;
-my $MAX_SCSI_DISKS = 14;
+my $MAX_SCSI_DISKS = 31;
 my $MAX_VIRTIO_DISKS = 16;
 my $MAX_SATA_DISKS = 6;
 my $MAX_USB_DEVICES = 5;
@@ -3979,6 +3979,9 @@ sub config_to_command {
 	push @$devices, '-object', "memory-backend-file,id=ivshmem,share=on,mem-path=$path,size=$ivshmem->{size}M";
     }
 
+    # pci.4 is nested in pci.1
+    $bridges->{1} = 1 if $bridges->{4};
+
     if (!$q35) {
 	# add pci bridges
         if (min_version($machine_version, 2, 3)) {
@@ -3988,9 +3991,17 @@ sub config_to_command {
 
 	$bridges->{3} = 1 if $scsihw =~ m/^virtio-scsi-single/;
 
-	for my $k (sort {$b cmp $a} keys %$bridges) {
-	    $pciaddr = print_pci_addr("pci.$k", undef, $arch, $machine_type);
-	    unshift @$devices, '-device', "pci-bridge,id=pci.$k,chassis_nr=$k$pciaddr" if $k > 0;
+    }
+
+    for my $k (sort {$b cmp $a} keys %$bridges) {
+	next if $q35 && $k < 4; # q35.cfg already includes bridges up to 3
+	$pciaddr = print_pci_addr("pci.$k", undef, $arch, $machine_type);
+	my $devstr = "pci-bridge,id=pci.$k,chassis_nr=$k$pciaddr";
+	if ($q35) {
+	    # add after -readconfig pve-q35.cfg
+	    splice @$devices, 2, 0, '-device', $devstr;
+	} else {
+	    unshift @$devices, '-device', $devstr if $k > 0;
 	}
     }
 

@@ -71,6 +71,7 @@ sub get_pci_addr_map {
 	'net30' => { bus => 1, addr => 25 },
 	'net31' => { bus => 1, addr => 26 },
 	'xhci' => { bus => 1, addr => 27 },
+	'pci.4' => { bus => 1, addr => 28 },
 	'virtio6' => { bus => 2, addr => 1 },
 	'virtio7' => { bus => 2, addr => 2 },
 	'virtio8' => { bus => 2, addr => 3 },
@@ -126,6 +127,9 @@ sub get_pci_addr_map {
 	'virtioscsi28' => { bus => 3, addr => 29 },
 	'virtioscsi29' => { bus => 3, addr => 30 },
 	'virtioscsi30' => { bus => 3, addr => 31 },
+	'scsihw2' => { bus => 4, addr => 1 },
+	'scsihw3' => { bus => 4, addr => 2 },
+	'scsihw4' => { bus => 4, addr => 3 },
     } if !defined($pci_addr_map);
     return $pci_addr_map;
 }
