@@ -3492,10 +3492,6 @@ sub config_to_command {
 	}
     }
 
-    if ($conf->{vmgenid}) {
-	push @$devices, '-device', 'vmgenid,guid='.$conf->{vmgenid};
-    }
-
     my ($ovmf_code, $ovmf_vars) = get_ovmf_files($arch);
     if ($conf->{bios} && $conf->{bios} eq 'ovmf') {
 	die "uefi base image not found\n" if ! -f $ovmf_code;
@@ -3536,6 +3532,10 @@ sub config_to_command {
 	} else {
 	    push @$devices, '-readconfig', '/usr/share/qemu-server/pve-q35.cfg';
 	}
+    }
+
+    if ($conf->{vmgenid}) {
+	push @$devices, '-device', 'vmgenid,guid='.$conf->{vmgenid};
     }
 
     # add usb controllers

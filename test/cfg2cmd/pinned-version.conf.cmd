@@ -14,8 +14,8 @@
   -vnc unix:/var/run/qemu-server/8006.vnc,password \
   -cpu kvm64,+lahf_lm,+sep,+kvm_pv_unhalt,+kvm_pv_eoi,enforce \
   -m 1024 \
-  -device 'vmgenid,guid=bdd46b98-fefc-11e9-97b4-d72c378e0f96' \
   -readconfig /usr/share/qemu-server/pve-q35.cfg \
+  -device 'vmgenid,guid=bdd46b98-fefc-11e9-97b4-d72c378e0f96' \
   -device 'usb-tablet,id=tablet,bus=ehci.0,port=1' \
   -device 'VGA,id=vga,bus=pcie.0,addr=0x1' \
   -device 'virtio-balloon-pci,id=balloon0,bus=pci.0,addr=0x3' \
