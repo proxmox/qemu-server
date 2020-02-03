@@ -2749,11 +2749,11 @@ __PACKAGE__->register_method({
 
         my $localnode = PVE::INotify::nodename();
 
-        if ($target && ($target eq $localnode || $target eq 'localhost')) {
+	if ($target eq $localnode || $target eq 'localhost') {
 	    undef $target;
-	} else {
-	    PVE::Cluster::check_node_exists($target);
 	}
+
+	PVE::Cluster::check_node_exists($target) if $target;
 
 	my $storecfg = PVE::Storage::config();
 
