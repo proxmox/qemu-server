@@ -823,7 +823,8 @@ __PACKAGE__->register_method({
     path => '{vmid}/config',
     method => 'GET',
     proxyto => 'node',
-    description => "Get current virtual machine configuration. This does not include pending configuration changes (see 'pending' API).",
+    description => "Get the virtual machine configuration with pending configuration " .
+	"changes applied. Set the 'current' parameter to get the current configuration instead.",
     permissions => {
 	check => ['perm', '/vms/{vmid}', [ 'VM.Audit' ]],
     },
@@ -849,7 +850,7 @@ __PACKAGE__->register_method({
 	},
     },
     returns => {
-	description => "The current VM configuration.",
+	description => "The VM configuration.",
 	type => "object",
 	properties => PVE::QemuServer::json_config_properties({
 	    digest => {
@@ -881,7 +882,7 @@ __PACKAGE__->register_method({
     path => '{vmid}/pending',
     method => 'GET',
     proxyto => 'node',
-    description => "Get virtual machine configuration, including pending changes.",
+    description => "Get the virtual machine configuration with both current and pending values.",
     permissions => {
 	check => ['perm', '/vms/{vmid}', [ 'VM.Audit' ]],
     },
