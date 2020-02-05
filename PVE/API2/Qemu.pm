@@ -2749,7 +2749,7 @@ __PACKAGE__->register_method({
 
         my $localnode = PVE::INotify::nodename();
 
-	if ($target eq $localnode || $target eq 'localhost') {
+	if ($target && ($target eq $localnode || $target eq 'localhost')) {
 	    undef $target;
 	}
 
