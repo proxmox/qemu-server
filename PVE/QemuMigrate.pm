@@ -686,10 +686,13 @@ sub phase2 {
 	foreach my $drive (keys %{$self->{target_drive}}){
 	    my $target = $self->{target_drive}->{$drive};
 	    my $nbd_uri = $target->{nbd_uri};
-	    my $target_drive = PVE::QemuServer::parse_drive($drive, $target->{drivestr});
+
 	    my $source_drive = PVE::QemuServer::parse_drive($drive, $conf->{$drive});
+	    my $target_drive = PVE::QemuServer::parse_drive($drive, $target->{drivestr});
+
 	    my $source_sid = PVE::Storage::Plugin::parse_volume_id($source_drive->{file});
 	    my $target_sid = PVE::Storage::Plugin::parse_volume_id($target_drive->{file});
+
 	    my $bwlimit = PVE::Storage::get_bandwidth_limit('migrate', [$source_sid, $target_sid], $opt_bwlimit);
 
 	    $self->log('info', "$drive: start migration to $nbd_uri");
