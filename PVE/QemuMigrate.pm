@@ -706,6 +706,14 @@ sub phase2 {
     # load_defaults
     my $defaults = PVE::QemuServer::load_defaults();
 
+    $self->log('info', "set migration_caps");
+    eval {
+	PVE::QemuServer::set_migration_caps($vmid);
+    };
+    warn $@ if $@;
+
+    my $qemu_migrate_params = {};
+
     # migrate speed can be set via bwlimit (datacenter.cfg and API) and via the
     # migrate_speed parameter in qm.conf - take the lower of the two.
     my $bwlimit = PVE::Storage::get_bandwidth_limit('migrate', undef, $opt_bwlimit) // 0;
@@ -721,38 +729,31 @@ sub phase2 {
 
     # qmp takes migrate_speed in B/s.
     $migrate_speed *= 1024;
-    $self->log('info', "migrate_set_speed: $migrate_speed");
-    eval {
-	mon_cmd($vmid, "migrate_set_speed", value => int($migrate_speed));
-    };
-    $self->log('info', "migrate_set_speed error: $@") if $@;
+    $self->log('info', "migration speed limit: $migrate_speed B/s");
+    $qemu_migrate_params->{'max-bandwidth'} = int($migrate_speed);
 
     my $migrate_downtime = $defaults->{migrate_downtime};
     $migrate_downtime = $conf->{migrate_downtime} if defined($conf->{migrate_downtime});
     if (defined($migrate_downtime)) {
-	$self->log('info', "migrate_set_downtime: $migrate_downtime");
-	eval {
-	    mon_cmd($vmid, "migrate_set_downtime", value => int($migrate_downtime*100)/100);
-	};
-	$self->log('info', "migrate_set_downtime error: $@") if $@;
+	# migrate-set-parameters expects limit in ms
+	$migrate_downtime *= 1000;
+	$self->log('info', "migration downtime limit: $migrate_downtime ms");
+	$qemu_migrate_params->{'downtime-limit'} = int($migrate_downtime);
     }
-
-    $self->log('info', "set migration_caps");
-    eval {
-	PVE::QemuServer::set_migration_caps($vmid);
-    };
-    warn $@ if $@;
 
     # set cachesize to 10% of the total memory
     my $memory =  $conf->{memory} || $defaults->{memory};
     my $cachesize = int($memory * 1048576 / 10);
     $cachesize = round_powerof2($cachesize);
 
-    $self->log('info', "set cachesize: $cachesize");
+    $self->log('info', "migration cachesize: $cachesize B");
+    $qemu_migrate_params->{'xbzrle-cache-size'} = int($cachesize);
+
+    $self->log('info', "set migration parameters");
     eval {
-	mon_cmd($vmid, "migrate-set-cache-size", value => int($cachesize));
+	mon_cmd($vmid, "migrate-set-parameters", %{$qemu_migrate_params});
     };
-    $self->log('info', "migrate-set-cache-size error: $@") if $@;
+    $self->log('info', "migrate-set-parameters error: $@") if $@;
 
     if (PVE::QemuServer::vga_conf_has_spice($conf->{vga})) {
 	my $rpcenv = PVE::RPCEnvironment::get();
