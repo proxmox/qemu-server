@@ -5131,14 +5131,20 @@ sub vmconfig_update_disk {
 	    } else { # cdrom
 
 		if ($drive->{file} eq 'none') {
-		    mon_cmd($vmid, "eject",force => JSON::true,device => "drive-$opt");
+		    mon_cmd($vmid, "eject", force => JSON::true, device => "drive-$opt");
 		    if (drive_is_cloudinit($old_drive)) {
 			vmconfig_register_unused_drive($storecfg, $vmid, $conf, $old_drive);
 		    }
 		} else {
 		    my $path = get_iso_path($storecfg, $vmid, $drive->{file});
-		    mon_cmd($vmid, "eject", force => JSON::true,device => "drive-$opt"); # force eject if locked
-		    mon_cmd($vmid, "change", device => "drive-$opt",target => "$path") if $path;
+
+		    # force eject if locked
+		    mon_cmd($vmid, "eject", force => JSON::true, device => "drive-$opt");
+
+		    if ($path) {
+			mon_cmd($vmid, "blockdev-change-medium",
+			    device => "drive-$opt", filename => "$path");
+		    }
 		}
 
 		return 1;
