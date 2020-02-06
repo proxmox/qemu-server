@@ -4504,7 +4504,7 @@ sub qemu_cpu_hotplug {
 		my $retry = 0;
 		my $currentrunningvcpus = undef;
 		while (1) {
-		    $currentrunningvcpus = mon_cmd($vmid, "query-cpus");
+		    $currentrunningvcpus = mon_cmd($vmid, "query-cpus-fast");
 		    last if scalar(@{$currentrunningvcpus}) == $i-1;
 		    raise_param_exc({ vcpus => "error unplugging cpu$i" }) if $retry > 5;
 		    $retry++;
@@ -4521,7 +4521,7 @@ sub qemu_cpu_hotplug {
 	return;
     }
 
-    my $currentrunningvcpus = mon_cmd($vmid, "query-cpus");
+    my $currentrunningvcpus = mon_cmd($vmid, "query-cpus-fast");
     die "vcpus in running vm does not match its configuration\n"
 	if scalar(@{$currentrunningvcpus}) != $currentvcpus;
 
@@ -4534,7 +4534,7 @@ sub qemu_cpu_hotplug {
 	    my $retry = 0;
 	    my $currentrunningvcpus = undef;
 	    while (1) {
-		$currentrunningvcpus = mon_cmd($vmid, "query-cpus");
+		$currentrunningvcpus = mon_cmd($vmid, "query-cpus-fast");
 		last if scalar(@{$currentrunningvcpus}) == $i;
 		raise_param_exc({ vcpus => "error hotplugging cpu$i" }) if $retry > 10;
 		sleep 1;
