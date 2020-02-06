@@ -4865,7 +4865,7 @@ sub vmconfig_hotplug_pending {
 		    &$apply_pending_cloudinit($opt, $value);
 		}
 		vmconfig_update_disk($storecfg, $conf, $hotplug_features->{disk},
-				     $vmid, $opt, $value, 1, $arch, $machine_type);
+				     $vmid, $opt, $value, $arch, $machine_type);
 	    } elsif ($opt =~ m/^memory$/) { #dimms
 		die "skip\n" if !$hotplug_features->{memory};
 		$value = PVE::QemuServer::Memory::qemu_memory_hotplug($vmid, $conf, $defaults, $opt, $value);
@@ -5049,9 +5049,7 @@ sub vmconfig_update_net {
 }
 
 sub vmconfig_update_disk {
-    my ($storecfg, $conf, $hotplug, $vmid, $opt, $value, $force, $arch, $machine_type) = @_;
-
-    # fixme: do we need force?
+    my ($storecfg, $conf, $hotplug, $vmid, $opt, $value, $arch, $machine_type) = @_;
 
     my $drive = parse_drive($opt, $value);
 
