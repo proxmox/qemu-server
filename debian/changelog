@@ -1,3 +1,17 @@
+qemu-server (6.1-6) pve; urgency=medium
+
+  * allow reading snapshot config for users with VM.Audit on a guest
+
+  * fix #2566: increase scsi limit to 31
+
+  * fix #2578: check if $target is provided in clone
+
+  * update QMP commands to reflect (future) depreacations and changes in QEMU
+
+  * resize volume: always request new size from storage after resizing
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 10 Feb 2020 06:40:43 +0100
+
 qemu-server (6.1-5) pve; urgency=medium
 
   * Add QEMU CPU flag querying helpers
