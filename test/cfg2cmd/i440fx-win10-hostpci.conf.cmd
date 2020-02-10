@@ -33,5 +33,5 @@
   -netdev 'type=tap,id=net0,ifname=tap8006i0,script=/var/lib/qemu-server/pve-bridge,downscript=/var/lib/qemu-server/pve-bridgedown,vhost=on' \
   -device 'virtio-net-pci,mac=2E:01:68:F9:9C:87,netdev=net0,bus=pci.0,addr=0x12,id=net0,bootindex=300' \
   -rtc 'driftfix=slew,base=localtime' \
-  -machine 'type=pc+pve1' \
+  -machine 'type=pc+pve0' \
   -global 'kvm-pit.lost_tick_policy=discard'

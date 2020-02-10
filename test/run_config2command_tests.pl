@@ -292,7 +292,7 @@ sub do_test($) {
 	    return;
 	}
 	chomp $err;
-	if ($err !~ /^\s*$err_expect\s*$/) {
+	if ($err ne $err_expect) {
 	    fail("$testname");
 	    note("error does not match expected error: '$err' !~ '$err_expect'");
 	} else {

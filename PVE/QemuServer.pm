@@ -3241,14 +3241,24 @@ my $default_machines = {
 };
 
 sub get_vm_machine {
-    my ($conf, $forcemachine, $arch, $add_pve_version) = @_;
+    my ($conf, $forcemachine, $arch, $add_pve_version, $kvmversion) = @_;
 
     my $machine = $forcemachine || $conf->{machine};
 
     if (!$machine || $machine =~ m/^(?:pc|q35|virt)$/) {
 	$arch //= 'x86_64';
 	$machine ||= $default_machines->{$arch};
-	$machine .= "+pve$PVE::QemuServer::Machine::PVE_MACHINE_VERSION" if $add_pve_version;
+	if ($add_pve_version) {
+	    $kvmversion //= kvm_user_version();
+	    my $pvever = PVE::QemuServer::Machine::get_pve_version($kvmversion);
+	    $machine .= "+pve$pvever";
+	}
+    }
+
+    if ($add_pve_version && $machine !~ m/\+pve\d+$/) {
+	# for version-pinned machines that do not include a pve-version (e.g.
+	# pc-q35-4.1), we assume 0 to keep them stable in case we bump
+	$machine .= '+pve0';
     }
 
     return $machine;
@@ -3422,8 +3432,26 @@ sub config_to_command {
     $kvm //= 1 if is_native($arch);
 
     $machine_version =~ m/(\d+)\.(\d+)/;
+    my ($machine_major, $machine_minor) = ($1, $2);
     die "Installed QEMU version '$kvmver' is too old to run machine type '$machine_type', please upgrade node '$nodename'\n"
-	if !PVE::QemuServer::min_version($kvmver, $1, $2);
+	if !PVE::QemuServer::min_version($kvmver, $machine_major, $machine_minor);
+
+    if (!PVE::QemuServer::Machine::can_run_pve_machine_version($machine_version, $kvmver)) {
+	my $max_pve_version = PVE::QemuServer::Machine::get_pve_version($machine_version);
+	die "Installed qemu-server (max feature level for $machine_major.$machine_minor is pve$max_pve_version)"
+	  . " is too old to run machine type '$machine_type', please upgrade node '$nodename'\n";
+    }
+
+    # if a specific +pve version is required for a feature, use $version_guard
+    # instead of min_version to allow machines to be run with the minimum
+    # required version
+    my $required_pve_version = 0;
+    my $version_guard = sub {
+	my ($major, $minor, $pve) = @_;
+	return 0 if !min_version($machine_version, $major, $minor, $pve);
+	$required_pve_version = $pve if $pve && $pve > $required_pve_version;
+	return 1;
+    };
 
     if ($kvm) {
 	die "KVM virtualisation configured, but not available. Either disable in VM configuration or enable in BIOS.\n"
@@ -3774,14 +3802,6 @@ sub config_to_command {
 
     push @$rtcFlags, 'driftfix=slew' if $tdf;
 
-    if (!$kvm) {
-	push @$machineFlags, 'accel=tcg';
-    }
-
-    if ($machine_type) {
-	push @$machineFlags, "type=${machine_type}";
-    }
-
     if (($conf->{startdate}) && ($conf->{startdate} ne 'now')) {
 	push @$rtcFlags, "base=$conf->{startdate}";
     } elsif ($useLocaltime) {
@@ -4004,6 +4024,17 @@ sub config_to_command {
 	    unshift @$devices, '-device', $devstr if $k > 0;
 	}
     }
+
+    if (!$kvm) {
+	push @$machineFlags, 'accel=tcg';
+    }
+
+    my $machine_type_min = $machine_type;
+    if ($add_pve_version) {
+	$machine_type_min =~ s/\+pve\d+$//;
+	$machine_type_min .= "+pve$required_pve_version";
+    }
+    push @$machineFlags, "type=${machine_type_min}";
 
     push @$cmd, @$devices;
     push @$cmd, '-rtc', join(',', @$rtcFlags)

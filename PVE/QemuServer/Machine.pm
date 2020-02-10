@@ -8,7 +8,9 @@ use PVE::QemuServer::Monitor;
 
 # Bump this for VM HW layout changes during a release (where the QEMU machine
 # version stays the same)
-our $PVE_MACHINE_VERSION = 1;
+our $PVE_MACHINE_VERSION = {
+    '4.1' => 1,
+};
 
 sub machine_type_is_q35 {
     my ($conf) = @_;
@@ -47,7 +49,8 @@ sub extract_version {
 	return $versionstr;
     } elsif (defined($kvmversion)) {
 	if ($kvmversion =~ m/^(\d+)\.(\d+)/) {
-	    return "$1.$2+pve$PVE_MACHINE_VERSION";
+	    my $pvever = get_pve_version($kvmversion);
+	    return "$1.$2+pve$pvever";
 	}
     }
 
@@ -59,6 +62,37 @@ sub machine_version {
 
     return PVE::QemuServer::Helpers::min_version(
 	extract_version($machine_type), $major, $minor, $pve);
+}
+
+sub get_pve_version {
+    my ($verstr) = @_;
+
+    if ($verstr =~ m/^(\d+\.\d+)/) {
+	return $PVE_MACHINE_VERSION->{$1} // 0;
+    }
+
+    die "internal error: cannot get pve version for invalid string '$verstr'";
+}
+
+sub can_run_pve_machine_version {
+    my ($machine_version, $kvmversion) = @_;
+
+    $machine_version =~ m/^(\d+)\.(\d+)(?:\+pve(\d+))$/;
+    my $major = $1;
+    my $minor = $2;
+    my $pvever = $3;
+
+    $kvmversion =~ m/(\d+)\.(\d+)/;
+    return 0 if PVE::QemuServer::Helpers::version_cmp($1, $major, $2, $minor) < 0;
+
+    # if $pvever is missing or 0, we definitely support it as long as we didn't
+    # fail the QEMU version check above
+    return 1 if !$pvever;
+
+    my $max_supported = get_pve_version("$major.$minor");
+    return 1 if $max_supported >= $pvever;
+
+    return 0;
 }
 
 # dies if a) VM not running or not exisiting b) Version query failed
