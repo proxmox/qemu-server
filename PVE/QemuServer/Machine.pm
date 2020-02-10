@@ -9,7 +9,7 @@ use PVE::QemuServer::Monitor;
 # Bump this for VM HW layout changes during a release (where the QEMU machine
 # version stays the same)
 our $PVE_MACHINE_VERSION = {
-    '4.1' => 1,
+    '4.1' => 2,
 };
 
 sub machine_type_is_q35 {

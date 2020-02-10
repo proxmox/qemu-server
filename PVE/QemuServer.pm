@@ -3931,6 +3931,9 @@ sub config_to_command {
 
 	    my ($maxdev, $controller, $controller_prefix) = scsihw_infos($conf, $drive);
 
+	    die "scsi$drive->{index}: machine version 4.1~pve2 or higher is required to use more than 14 SCSI disks\n"
+		if $drive->{index} > 13 && !&$version_guard(4, 1, 2);
+
 	    $pciaddr = print_pci_addr("$controller_prefix$controller", $bridges, $arch, $machine_type);
 	    my $scsihw_type = $scsihw =~ m/^virtio-scsi-single/ ? "virtio-scsi-pci" : $scsihw;
 
