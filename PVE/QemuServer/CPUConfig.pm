@@ -4,14 +4,30 @@ use strict;
 use warnings;
 
 use PVE::JSONSchema;
+use PVE::Cluster qw(cfs_register_file cfs_read_file);
 use PVE::QemuServer::Helpers qw(min_version);
 
-use base qw(Exporter);
+use base qw(PVE::SectionConfig Exporter);
 
 our @EXPORT_OK = qw(
 print_cpu_device
 get_cpu_options
 );
+
+# under certain race-conditions, this module might be loaded before pve-cluster
+# has started completely, so ensure we don't prevent the FUSE mount with our dir
+if (PVE::Cluster::check_cfs_is_mounted()) {
+    mkdir "/etc/pve/virtual-guest";
+}
+
+my $default_filename = "virtual-guest/cpu-models.conf";
+cfs_register_file($default_filename,
+		  sub { PVE::QemuServer::CPUConfig->parse_config(@_); },
+		  sub { PVE::QemuServer::CPUConfig->write_config(@_); });
+
+sub load_custom_model_conf {
+    return cfs_read_file($default_filename);
+}
 
 my $cpu_vendor_list = {
     # Intel CPUs
@@ -91,11 +107,20 @@ my $cpu_flag = qr/[+-](@{[join('|', @supported_cpu_flags)]})/;
 
 our $cpu_fmt = {
     cputype => {
-	description => "Emulated CPU type.",
+	description => "Emulated CPU type. Can be default or custom name (custom model names must be prefixed with 'custom-').",
 	type => 'string',
-	enum => [ sort { "\L$a" cmp "\L$b" } keys %$cpu_vendor_list ],
+	format_description => 'string',
 	default => 'kvm64',
 	default_key => 1,
+	optional => 1,
+    },
+    'reported-model' => {
+	description => "CPU model and vendor to report to the guest. Must be a QEMU/KVM supported model."
+		     . " Only valid for custom CPU model definitions, default models will always report themselves to the guest OS.",
+	type => 'string',
+	enum => [ sort { lc("$a") cmp lc("$b") } keys %$cpu_vendor_list ],
+	default => 'kvm64',
+	optional => 1,
     },
     hidden => {
 	description => "Do not identify as a KVM virtual machine.",
@@ -121,6 +146,88 @@ our $cpu_fmt = {
     },
 };
 
+# Section config settings
+my $defaultData = {
+    # shallow copy, since SectionConfig modifies propertyList internally
+    propertyList => { %$cpu_fmt },
+};
+
+sub private {
+    return $defaultData;
+}
+
+sub options {
+    return { %$cpu_fmt };
+}
+
+sub type {
+    return 'cpu-model';
+}
+
+sub parse_section_header {
+    my ($class, $line) = @_;
+
+    my ($type, $sectionId, $errmsg, $config) =
+	$class->SUPER::parse_section_header($line);
+
+    return undef if !$type;
+    return ($type, $sectionId, $errmsg, {
+	# name is given by section header, and we can always prepend 'custom-'
+	# since we're reading the custom CPU file
+	cputype => "custom-$sectionId",
+    });
+}
+
+sub write_config {
+    my ($class, $filename, $cfg) = @_;
+
+    mkdir "/etc/pve/virtual-guest";
+
+    for my $model (keys %{$cfg->{ids}}) {
+	my $model_conf = $cfg->{ids}->{$model};
+
+	die "internal error: tried saving built-in CPU model (or missing prefix): $model_conf->{cputype}\n"
+	    if !is_custom_model($model_conf->{cputype});
+
+	die "internal error: tried saving custom cpumodel with cputype (ignoring prefix: $model_conf->{cputype}) not equal to \$cfg->ids entry ($model)\n"
+	    if "custom-$model" ne $model_conf->{cputype};
+
+	# saved in section header
+	delete $model_conf->{cputype};
+    }
+
+    $class->SUPER::write_config($filename, $cfg);
+}
+
+sub is_custom_model {
+    my ($cputype) = @_;
+    return $cputype =~ m/^custom-/;
+}
+
+# Use this to get a single model in the format described by $cpu_fmt.
+# Allows names with and without custom- prefix.
+sub get_custom_model {
+    my ($name, $noerr) = @_;
+
+    $name =~ s/^custom-//;
+    my $conf = load_custom_model_conf();
+
+    my $entry = $conf->{ids}->{$name};
+    if (!defined($entry)) {
+	die "Custom cputype '$name' not found\n" if !$noerr;
+	return undef;
+    }
+
+    my $model = {};
+    for my $property (keys %$cpu_fmt) {
+	if (my $value = $entry->{$property}) {
+	    $model->{$property} = $value;
+	}
+    }
+
+    return $model;
+}
+
 # Print a QEMU device node for a given VM configuration for hotplugging CPUs
 sub print_cpu_device {
     my ($conf, $id) = @_;
@@ -131,6 +238,13 @@ sub print_cpu_device {
 	my $cpuconf = PVE::JSONSchema::parse_property_string($cpu_fmt, $cputype)
 	    or die "Cannot parse cpu description: $cputype\n";
 	$cpu = $cpuconf->{cputype};
+
+	if (is_custom_model($cpu)) {
+	    my $custom_cpu = get_custom_model($cpu);
+
+	    $cpu = $custom_cpu->{'reported-model'} //
+		$cpu_fmt->{'reported-model'}->{default};
+	}
     }
 
     my $cores = $conf->{cores} || 1;
@@ -235,5 +349,8 @@ sub add_hyperv_enlightenments {
 	}
     }
 }
+
+__PACKAGE__->register();
+__PACKAGE__->init();
 
 1;
