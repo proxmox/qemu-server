@@ -3415,7 +3415,6 @@ sub config_to_command {
     my $devices = [];
     my $pciaddr = '';
     my $bridges = {};
-    my $vernum = 0; # unknown
     my $ostype = $conf->{ostype};
     my $winversion = windows_version($ostype);
     my $kvm = $conf->{kvm};
@@ -3424,6 +3423,11 @@ sub config_to_command {
     my $arch = get_vm_arch($conf);
     my $kvm_binary = get_command_for_arch($arch);
     my $kvmver = kvm_user_version($kvm_binary);
+
+    if (!$kvmver || $kvmver !~ m/^(\d+)\.(\d+)/ || $1 < 3) {
+	$kvmver //= "undefined";
+	die "Detected old QEMU binary ('$kvmver', at least 3.0 is required)\n";
+    }
 
     my $add_pve_version = min_version($kvmver, 4, 1);
 
@@ -3457,14 +3461,6 @@ sub config_to_command {
 	die "KVM virtualisation configured, but not available. Either disable in VM configuration or enable in BIOS.\n"
 	    if !defined kvm_version();
     }
-
-    if ($kvmver =~ m/^(\d+)\.(\d+)$/) {
-	$vernum = $1*1000000+$2*1000;
-    } elsif ($kvmver =~ m/^(\d+)\.(\d+)\.(\d+)$/) {
-	$vernum = $1*1000000+$2*1000+$3;
-    }
-
-    die "detected old qemu-kvm binary ($kvmver)\n" if $vernum < 15000;
 
     my $q35 = PVE::QemuServer::Machine::machine_type_is_q35($conf);
     my $hotplug_features = parse_hotplug_features(defined($conf->{hotplug}) ? $conf->{hotplug} : '1');
