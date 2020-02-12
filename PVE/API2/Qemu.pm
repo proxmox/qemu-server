@@ -2959,7 +2959,7 @@ __PACKAGE__->register_method({
 
 			my $newdrive = PVE::QemuServer::clone_disk($storecfg, $vmid, $running, $opt, $drive, $snapname,
 								   $newid, $storage, $format, $fullclone->{$opt}, $newvollist,
-								   $jobs, $completion, $oldconf->{agent}, $clonelimit);
+								   $jobs, $completion, $oldconf->{agent}, $clonelimit, $oldconf);
 
 			$newconf->{$opt} = PVE::QemuServer::print_drive($newdrive);
 
@@ -3146,7 +3146,7 @@ __PACKAGE__->register_method({
 		    my $movelimit = PVE::Storage::get_bandwidth_limit('move', [$oldstoreid, $storeid], $bwlimit);
 
 		    my $newdrive = PVE::QemuServer::clone_disk($storecfg, $vmid, $running, $disk, $drive, undef,
-							       $vmid, $storeid, $format, 1, $newvollist, undef, undef, undef, $movelimit);
+							       $vmid, $storeid, $format, 1, $newvollist, undef, undef, undef, $movelimit, $conf);
 
 		    $conf->{$disk} = PVE::QemuServer::print_drive($newdrive);
 

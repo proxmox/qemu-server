@@ -508,6 +508,12 @@ sub sync_disks {
 	    }
 	});
 
+	# we want to set the efidisk size in the config to the size of the
+	# real OVMF_VARS.fd image, else we can create a too big image, which does not work
+	if (defined($conf->{efidisk0})) {
+	    PVE::QemuServer::update_efidisk_size($conf);
+	}
+
 	$self->log('info', "copying local disk images") if scalar(%$local_volumes);
 
 	foreach my $volid (keys %$local_volumes) {

@@ -3051,8 +3051,14 @@ sub config_to_command {
 	    $format = 'raw';
 	}
 
+	my $size_str = "";
+
+	if ($format eq 'raw' && $version_guard->(4, 1, 2)) {
+	    $size_str = ",size=" . (-s $ovmf_vars);
+	}
+
 	push @$cmd, '-drive', "if=pflash,unit=0,format=raw,readonly,file=$ovmf_code";
-	push @$cmd, '-drive', "if=pflash,unit=1,format=$format,id=drive-efidisk0,file=$path";
+	push @$cmd, '-drive', "if=pflash,unit=1,format=$format,id=drive-efidisk0$size_str,file=$path";
     }
 
     # load q35 config
@@ -6732,7 +6738,7 @@ sub qemu_blockjobs_cancel {
 
 sub clone_disk {
     my ($storecfg, $vmid, $running, $drivename, $drive, $snapname,
-	$newvmid, $storage, $format, $full, $newvollist, $jobs, $completion, $qga, $bwlimit) = @_;
+	$newvmid, $storage, $format, $full, $newvollist, $jobs, $completion, $qga, $bwlimit, $conf) = @_;
 
     my $newvolid;
 
@@ -6755,6 +6761,8 @@ sub clone_disk {
 	    $name .= ".$dst_format" if $dst_format ne 'raw';
 	    $snapname = undef;
 	    $size = PVE::QemuServer::Cloudinit::CLOUDINIT_DISK_SIZE;
+	} elsif ($drivename eq 'efidisk0') {
+	    $size = get_efivars_size($conf);
 	}
 	$newvolid = PVE::Storage::vdisk_alloc($storecfg, $storeid, $newvmid, $dst_format, $name, ($size/1024));
 	push @$newvollist, $newvolid;
@@ -6768,7 +6776,16 @@ sub clone_disk {
 	my $sparseinit = PVE::Storage::volume_has_feature($storecfg, 'sparseinit', $newvolid);
 	if (!$running || $snapname) {
 	    # TODO: handle bwlimits
-	    qemu_img_convert($drive->{file}, $newvolid, $size, $snapname, $sparseinit);
+	    if ($drivename eq 'efidisk0') {
+		# the relevant data on the efidisk may be smaller than the source
+		# e.g. on RBD/ZFS, so we use dd to copy only the amount
+		# that is given by the OVMF_VARS.fd
+		my $src_path = PVE::Storage::path($storecfg, $drive->{file});
+		my $dst_path = PVE::Storage::path($storecfg, $newvolid);
+		run_command(['qemu-img', 'dd', '-n', '-O', $dst_format, "bs=1", "count=$size", "if=$src_path", "of=$dst_path"]);
+	    } else {
+		qemu_img_convert($drive->{file}, $newvolid, $size, $snapname, $sparseinit);
+	    }
 	} else {
 
 	    my $kvmver = get_running_qemu_version ($vmid);
@@ -6818,6 +6835,26 @@ sub qemu_use_old_bios_files {
     }
 
     return ($use_old_bios_files, $machine_type);
+}
+
+sub get_efivars_size {
+    my ($conf) = @_;
+    my $arch = get_vm_arch($conf);
+    my (undef, $ovmf_vars) = get_ovmf_files($arch);
+    die "uefi vars image '$ovmf_vars' not found\n" if ! -f $ovmf_vars;
+    return -s $ovmf_vars;
+}
+
+sub update_efidisk_size {
+    my ($conf) = @_;
+
+    return if !defined($conf->{efidisk0});
+
+    my $disk = PVE::QemuServer::parse_drive('efidisk0', $conf->{efidisk0});
+    $disk->{size} = get_efivars_size($conf);
+    $conf->{efidisk0} = print_drive($disk);
+
+    return;
 }
 
 sub create_efidisk($$$$$) {
