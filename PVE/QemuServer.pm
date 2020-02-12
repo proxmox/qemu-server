@@ -545,7 +545,7 @@ EODESCR
 	optional => 1,
 	description => "Emulated CPU type.",
 	type => 'string',
-	format => $PVE::QemuServer::CPUConfig::cpu_fmt,
+	format => 'pve-vm-cpu-conf',
     },
     parent => get_standard_option('pve-snapshot-name', {
 	optional => 1,

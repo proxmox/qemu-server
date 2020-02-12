@@ -103,9 +103,10 @@ my @supported_cpu_flags = (
     'hv-evmcs',
     'aes'
 );
-my $cpu_flag = qr/[+-](@{[join('|', @supported_cpu_flags)]})/;
+my $cpu_flag_supported_re = qr/([+-])(@{[join('|', @supported_cpu_flags)]})/;
+my $cpu_flag_any_re = qr/([+-])([a-zA-Z0-9\-_\.]+)/;
 
-our $cpu_fmt = {
+my $cpu_fmt = {
     cputype => {
 	description => "Emulated CPU type. Can be default or custom name (custom model names must be prefixed with 'custom-').",
 	type => 'string',
@@ -138,13 +139,75 @@ our $cpu_fmt = {
     flags => {
 	description => "List of additional CPU flags separated by ';'."
 		     . " Use '+FLAG' to enable, '-FLAG' to disable a flag."
-		     . " Currently supported flags: @{[join(', ', @supported_cpu_flags)]}.",
+		     . " Custom CPU models can specify any flag supported by"
+		     . " QEMU/KVM, VM-specific flags must be from the following"
+		     . " set for security reasons: @{[join(', ', @supported_cpu_flags)]}.",
 	format_description => '+FLAG[;-FLAG...]',
 	type => 'string',
-	pattern => qr/$cpu_flag(;$cpu_flag)*/,
+	pattern => qr/$cpu_flag_any_re(;$cpu_flag_any_re)*/,
 	optional => 1,
     },
 };
+
+# $cpu_fmt describes both the CPU config passed as part of a VM config, as well
+# as the definition of a custom CPU model. There are some slight differences
+# though, which we catch in the custom verification function below.
+PVE::JSONSchema::register_format('pve-cpu-conf', \&parse_cpu_conf_basic);
+sub parse_cpu_conf_basic {
+    my ($cpu_str, $noerr) = @_;
+
+    my $cpu = eval { PVE::JSONSchema::parse_property_string($cpu_fmt, $cpu_str) };
+    if ($@) {
+        die $@ if !$noerr;
+        return undef;
+    }
+
+    # required, but can't be forced in schema since it's encoded in section
+    # header for custom models
+    if (!$cpu->{cputype}) {
+	die "CPU is missing cputype\n" if !$noerr;
+	return undef;
+    }
+
+    return $cpu;
+}
+
+PVE::JSONSchema::register_format('pve-vm-cpu-conf', \&parse_vm_cpu_conf);
+sub parse_vm_cpu_conf {
+    my ($cpu_str, $noerr) = @_;
+
+    my $cpu = parse_cpu_conf_basic($cpu_str, $noerr);
+    return undef if !$cpu;
+
+    my $cputype = $cpu->{cputype};
+
+    # a VM-specific config is only valid if the cputype exists
+    if (is_custom_model($cputype)) {
+	eval { get_custom_model($cputype); };
+	if ($@) {
+	    die $@ if !$noerr;
+	    return undef;
+	}
+    } else {
+	if (!defined($cpu_vendor_list->{$cputype})) {
+	    die "Built-in cputype '$cputype' is not defined (missing 'custom-' prefix?)\n" if !$noerr;
+	    return undef;
+	}
+    }
+
+    # in a VM-specific config, certain properties are limited/forbidden
+
+    if ($cpu->{flags} && $cpu->{flags} !~ m/$cpu_flag_supported_re(;$cpu_flag_supported_re)*/) {
+	die "VM-specific CPU flags must be a subset of: @{[join(', ', @supported_cpu_flags)]}\n"
+	    if !$noerr;
+	return undef;
+    }
+
+    die "Property 'reported-model' not allowed in VM-specific CPU config.\n"
+	if defined($cpu->{'reported-model'});
+
+    return $cpu;
+}
 
 # Section config settings
 my $defaultData = {
@@ -235,7 +298,7 @@ sub print_cpu_device {
     my $kvm = $conf->{kvm} // 1;
     my $cpu = $kvm ? "kvm64" : "qemu64";
     if (my $cputype = $conf->{cpu}) {
-	my $cpuconf = PVE::JSONSchema::parse_property_string($cpu_fmt, $cputype)
+	my $cpuconf = parse_cpu_conf_basic($cputype)
 	    or die "Cannot parse cpu description: $cputype\n";
 	$cpu = $cpuconf->{cputype};
 
