@@ -84,6 +84,9 @@ sub prepare {
 		die "disk '$ds' '$volid' (iothread=on) can't use backup feature with running QEMU " .
 		    "version < 4.0.1! Either set backup=no for this drive or upgrade QEMU and restart VM\n";
 	    }
+	} elsif ($ds =~ m/^efidisk/ && (!defined($conf->{bios}) || $conf->{bios} ne 'ovmf')) {
+	    $self->loginfo("excluding '$ds' (efidisks can only be backed up when BIOS is set to 'ovmf')");
+	    return;
 	} else {
 	    my $log = "include disk '$ds' '$volid'";
 	   if (defined $drive->{size}) {
