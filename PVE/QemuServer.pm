@@ -29,7 +29,7 @@ use UUID;
 use PVE::Cluster qw(cfs_register_file cfs_read_file cfs_write_file cfs_lock_file);
 use PVE::DataCenterConfig;
 use PVE::Exception qw(raise raise_param_exc);
-use PVE::GuestHelpers;
+use PVE::GuestHelpers qw(safe_string_ne safe_num_ne safe_boolean_ne typesafe_ne);
 use PVE::INotify;
 use PVE::JSONSchema qw(get_standard_option);
 use PVE::ProcFSTools;
@@ -4536,26 +4536,6 @@ sub vmconfig_apply_pending {
     PVE::QemuConfig->write_config($vmid, $conf);
 }
 
-my $safe_num_ne = sub {
-    my ($a, $b) = @_;
-
-    return 0 if !defined($a) && !defined($b);
-    return 1 if !defined($a);
-    return 1 if !defined($b);
-
-    return $a != $b;
-};
-
-my $safe_string_ne = sub {
-    my ($a, $b) = @_;
-
-    return 0 if !defined($a) && !defined($b);
-    return 1 if !defined($a);
-    return 1 if !defined($b);
-
-    return $a ne $b;
-};
-
 sub vmconfig_update_net {
     my ($storecfg, $conf, $hotplug, $vmid, $opt, $value, $arch, $machine_type) = @_;
 
@@ -4564,9 +4544,9 @@ sub vmconfig_update_net {
     if ($conf->{$opt}) {
 	my $oldnet = parse_net($conf->{$opt});
 
-	if (&$safe_string_ne($oldnet->{model}, $newnet->{model}) ||
-	    &$safe_string_ne($oldnet->{macaddr}, $newnet->{macaddr}) ||
-	    &$safe_num_ne($oldnet->{queues}, $newnet->{queues}) ||
+	if (safe_string_ne($oldnet->{model}, $newnet->{model}) ||
+	    safe_string_ne($oldnet->{macaddr}, $newnet->{macaddr}) ||
+	    safe_num_ne($oldnet->{queues}, $newnet->{queues}) ||
 	    !($newnet->{bridge} && $oldnet->{bridge})) { # bridge/nat mode change
 
             # for non online change, we try to hot-unplug
@@ -4577,19 +4557,19 @@ sub vmconfig_update_net {
 	    die "internal error" if $opt !~ m/net(\d+)/;
 	    my $iface = "tap${vmid}i$1";
 
-	    if (&$safe_string_ne($oldnet->{bridge}, $newnet->{bridge}) ||
-		&$safe_num_ne($oldnet->{tag}, $newnet->{tag}) ||
-		&$safe_string_ne($oldnet->{trunks}, $newnet->{trunks}) ||
-		&$safe_num_ne($oldnet->{firewall}, $newnet->{firewall})) {
+	    if (safe_string_ne($oldnet->{bridge}, $newnet->{bridge}) ||
+		safe_num_ne($oldnet->{tag}, $newnet->{tag}) ||
+		safe_string_ne($oldnet->{trunks}, $newnet->{trunks}) ||
+		safe_num_ne($oldnet->{firewall}, $newnet->{firewall})) {
 		PVE::Network::tap_unplug($iface);
 		PVE::Network::tap_plug($iface, $newnet->{bridge}, $newnet->{tag}, $newnet->{firewall}, $newnet->{trunks}, $newnet->{rate});
-	    } elsif (&$safe_num_ne($oldnet->{rate}, $newnet->{rate})) {
+	    } elsif (safe_num_ne($oldnet->{rate}, $newnet->{rate})) {
 		# Rate can be applied on its own but any change above needs to
 		# include the rate in tap_plug since OVS resets everything.
 		PVE::Network::tap_rate_limit($iface, $newnet->{rate});
 	    }
 
-	    if (&$safe_string_ne($oldnet->{link_down}, $newnet->{link_down})) {
+	    if (safe_string_ne($oldnet->{link_down}, $newnet->{link_down})) {
 		qemu_set_link_status($vmid, $opt, !$newnet->{link_down});
 	    }
 
@@ -4631,33 +4611,33 @@ sub vmconfig_update_disk {
 		    # update existing disk
 
 		    # skip non hotpluggable value
-		    if (&$safe_string_ne($drive->{discard}, $old_drive->{discard}) ||
-			&$safe_string_ne($drive->{iothread}, $old_drive->{iothread}) ||
-			&$safe_string_ne($drive->{queues}, $old_drive->{queues}) ||
-			&$safe_string_ne($drive->{cache}, $old_drive->{cache}) ||
-			&$safe_string_ne($drive->{ssd}, $old_drive->{ssd})) {
+		    if (safe_string_ne($drive->{discard}, $old_drive->{discard}) ||
+			safe_string_ne($drive->{iothread}, $old_drive->{iothread}) ||
+			safe_string_ne($drive->{queues}, $old_drive->{queues}) ||
+			safe_string_ne($drive->{cache}, $old_drive->{cache}) ||
+			safe_string_ne($drive->{ssd}, $old_drive->{ssd})) {
 			die "skip\n";
 		    }
 
 		    # apply throttle
-		    if (&$safe_num_ne($drive->{mbps}, $old_drive->{mbps}) ||
-			&$safe_num_ne($drive->{mbps_rd}, $old_drive->{mbps_rd}) ||
-			&$safe_num_ne($drive->{mbps_wr}, $old_drive->{mbps_wr}) ||
-			&$safe_num_ne($drive->{iops}, $old_drive->{iops}) ||
-			&$safe_num_ne($drive->{iops_rd}, $old_drive->{iops_rd}) ||
-			&$safe_num_ne($drive->{iops_wr}, $old_drive->{iops_wr}) ||
-			&$safe_num_ne($drive->{mbps_max}, $old_drive->{mbps_max}) ||
-			&$safe_num_ne($drive->{mbps_rd_max}, $old_drive->{mbps_rd_max}) ||
-			&$safe_num_ne($drive->{mbps_wr_max}, $old_drive->{mbps_wr_max}) ||
-			&$safe_num_ne($drive->{iops_max}, $old_drive->{iops_max}) ||
-			&$safe_num_ne($drive->{iops_rd_max}, $old_drive->{iops_rd_max}) ||
-			&$safe_num_ne($drive->{iops_wr_max}, $old_drive->{iops_wr_max}) ||
-			&$safe_num_ne($drive->{bps_max_length}, $old_drive->{bps_max_length}) ||
-			&$safe_num_ne($drive->{bps_rd_max_length}, $old_drive->{bps_rd_max_length}) ||
-			&$safe_num_ne($drive->{bps_wr_max_length}, $old_drive->{bps_wr_max_length}) ||
-			&$safe_num_ne($drive->{iops_max_length}, $old_drive->{iops_max_length}) ||
-			&$safe_num_ne($drive->{iops_rd_max_length}, $old_drive->{iops_rd_max_length}) ||
-			&$safe_num_ne($drive->{iops_wr_max_length}, $old_drive->{iops_wr_max_length})) {
+		    if (safe_num_ne($drive->{mbps}, $old_drive->{mbps}) ||
+			safe_num_ne($drive->{mbps_rd}, $old_drive->{mbps_rd}) ||
+			safe_num_ne($drive->{mbps_wr}, $old_drive->{mbps_wr}) ||
+			safe_num_ne($drive->{iops}, $old_drive->{iops}) ||
+			safe_num_ne($drive->{iops_rd}, $old_drive->{iops_rd}) ||
+			safe_num_ne($drive->{iops_wr}, $old_drive->{iops_wr}) ||
+			safe_num_ne($drive->{mbps_max}, $old_drive->{mbps_max}) ||
+			safe_num_ne($drive->{mbps_rd_max}, $old_drive->{mbps_rd_max}) ||
+			safe_num_ne($drive->{mbps_wr_max}, $old_drive->{mbps_wr_max}) ||
+			safe_num_ne($drive->{iops_max}, $old_drive->{iops_max}) ||
+			safe_num_ne($drive->{iops_rd_max}, $old_drive->{iops_rd_max}) ||
+			safe_num_ne($drive->{iops_wr_max}, $old_drive->{iops_wr_max}) ||
+			safe_num_ne($drive->{bps_max_length}, $old_drive->{bps_max_length}) ||
+			safe_num_ne($drive->{bps_rd_max_length}, $old_drive->{bps_rd_max_length}) ||
+			safe_num_ne($drive->{bps_wr_max_length}, $old_drive->{bps_wr_max_length}) ||
+			safe_num_ne($drive->{iops_max_length}, $old_drive->{iops_max_length}) ||
+			safe_num_ne($drive->{iops_rd_max_length}, $old_drive->{iops_rd_max_length}) ||
+			safe_num_ne($drive->{iops_wr_max_length}, $old_drive->{iops_wr_max_length})) {
 
 			qemu_block_set_io_throttle($vmid,"drive-$opt",
 						   ($drive->{mbps} || 0)*1024*1024,
