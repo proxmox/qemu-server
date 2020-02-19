@@ -4656,6 +4656,9 @@ sub qemu_block_resize {
 
     return if !$running;
 
+    my $padding = (1024 - $size % 1024) % 1024;
+    $size = $size + $padding;
+
     mon_cmd($vmid, "block_resize", device => $deviceid, size => int($size));
 
 }
