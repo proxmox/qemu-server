@@ -72,6 +72,7 @@ sub get_pci_addr_map {
 	'net31' => { bus => 1, addr => 26 },
 	'xhci' => { bus => 1, addr => 27 },
 	'pci.4' => { bus => 1, addr => 28 },
+	'rng0' => { bus => 1, addr => 29 },
 	'virtio6' => { bus => 2, addr => 1 },
 	'virtio7' => { bus => 2, addr => 2 },
 	'virtio8' => { bus => 2, addr => 3 },

@@ -219,6 +219,43 @@ my $spice_enhancements_fmt = {
     },
 };
 
+my $rng_fmt = {
+    source => {
+	type => 'string',
+	enum => ['/dev/urandom', '/dev/random', '/dev/hwrng'],
+	default_key => 1,
+	description => "The file on the host to gather entropy from. In most"
+		     . " cases /dev/urandom should be preferred over /dev/random"
+		     . " to avoid entropy-starvation issues on the host. Using"
+		     . " urandom does *not* decrease security in any meaningful"
+		     . " way, as it's still seeded from real entropy, and the"
+		     . " bytes provided will most likely be mixed with real"
+		     . " entropy on the guest as well. /dev/hwrng can be used"
+		     . " to pass through a hardware RNG from the host.",
+    },
+    max_bytes => {
+	type => 'integer',
+	description => "Maximum bytes of entropy injected into the guest every"
+		     . " 'period' milliseconds. Prefer a lower value when using"
+		     . " /dev/random as source. Use 0 to disable limiting"
+		     . " (potentially dangerous!).",
+	optional => 1,
+
+	# default is 1 KiB/s, provides enough entropy to the guest to avoid
+	# boot-starvation issues (e.g. systemd etc...) while allowing no chance
+	# of overwhelming the host, provided we're reading from /dev/urandom
+	default => 1024,
+    },
+    period => {
+	type => 'integer',
+	description => "Every 'period' milliseconds the entropy-injection quota"
+		     . " is reset, allowing the guest to retrieve another"
+		     . " 'max_bytes' of entropy.",
+	optional => 1,
+	default => 1000,
+    },
+};
+
 my $confdesc = {
     onboot => {
 	optional => 1,
@@ -605,6 +642,12 @@ EODESCR
     tags => {
 	type => 'string', format => 'pve-tag-list',
 	description => 'Tags of the VM. This is only meta information.',
+	optional => 1,
+    },
+    rng0 => {
+	type => 'string',
+	format => $rng_fmt,
+	description => "Configure a VirtIO-based Random Number Generator.",
 	optional => 1,
     },
 };
@@ -2347,6 +2390,16 @@ sub parse_vga {
     return $res;
 }
 
+sub parse_rng {
+    my ($value) = @_;
+
+    return undef if !$value;
+
+    my $res = eval { PVE::JSONSchema::parse_property_string($rng_fmt, $value) };
+    warn $@ if $@;
+    return $res;
+}
+
 PVE::JSONSchema::register_format('pve-qm-usb-device', \&verify_usb_device);
 sub verify_usb_device {
     my ($value, $noerr) = @_;
@@ -3824,6 +3877,26 @@ sub config_to_command {
 	} elsif ($guest_agent->{type} eq 'isa') {
 	    push @$devices, '-device', "isa-serial,chardev=qga0";
 	}
+    }
+
+    my $rng = parse_rng($conf->{rng0}) if $conf->{rng0};
+    if ($rng && &$version_guard(4, 1, 2)) {
+	my $max_bytes = $rng->{max_bytes} // $rng_fmt->{max_bytes}->{default};
+	my $period = $rng->{period} // $rng_fmt->{period}->{default};
+
+	my $limiter_str = "";
+	if ($max_bytes) {
+	    $limiter_str = ",max-bytes=$max_bytes,period=$period";
+	}
+
+	# mostly relevant for /dev/hwrng, but doesn't hurt to check others too
+	die "cannot create VirtIO RNG device: source file '$rng->{source}' doesn't exist\n"
+	    if ! -e $rng->{source};
+
+	my $rng_addr = print_pci_addr("rng0", $bridges, $arch, $machine_type);
+
+	push @$devices, '-object', "rng-random,filename=$rng->{source},id=rng0";
+	push @$devices, '-device', "virtio-rng-pci,rng=rng0$limiter_str$rng_addr";
     }
 
     my $spice_port;
