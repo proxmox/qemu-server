@@ -1655,9 +1655,8 @@ sub parse_drive {
 
 sub print_drive {
     my ($drive) = @_;
-    my $data = { %$drive };
-    delete $data->{$_} for qw(index interface);
-    return PVE::JSONSchema::print_property_string($data, $alldrive_fmt);
+    my $skip = [ 'index', 'interface' ];
+    return PVE::JSONSchema::print_property_string($drive, $alldrive_fmt, $skip);
 }
 
 sub scsi_inquiry {
