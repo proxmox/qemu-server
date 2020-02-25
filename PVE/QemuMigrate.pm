@@ -474,7 +474,7 @@ sub sync_disks {
 		my $insecure = $opts->{migration_type} eq 'insecure';
 		my $with_snapshots = $local_volumes->{$volid}->{snapshots};
 		# use 'migrate' limit for transfer to other node
-		my $bwlimit = PVE::Storage::get_bandwidth_limit('migrate', [$targetsid, $sid], $opts->{bwlimit});
+		my $bwlimit = PVE::Storage::get_bandwidth_limit('migration', [$targetsid, $sid], $opts->{bwlimit});
 		# JSONSchema and get_bandwidth_limit use kbps - storage_migrate bps
 		$bwlimit = $bwlimit * 1024 if defined($bwlimit);
 
@@ -693,7 +693,7 @@ sub phase2 {
 	    my $source_sid = PVE::Storage::Plugin::parse_volume_id($source_drive->{file});
 	    my $target_sid = PVE::Storage::Plugin::parse_volume_id($target_drive->{file});
 
-	    my $bwlimit = PVE::Storage::get_bandwidth_limit('migrate', [$source_sid, $target_sid], $opt_bwlimit);
+	    my $bwlimit = PVE::Storage::get_bandwidth_limit('migration', [$source_sid, $target_sid], $opt_bwlimit);
 
 	    $self->log('info', "$drive: start migration to $nbd_uri");
 	    PVE::QemuServer::qemu_drive_mirror($vmid, $drive, $nbd_uri, $vmid, undef, $self->{storage_migration_jobs}, 1, undef, $bwlimit);
@@ -716,7 +716,7 @@ sub phase2 {
 
     # migrate speed can be set via bwlimit (datacenter.cfg and API) and via the
     # migrate_speed parameter in qm.conf - take the lower of the two.
-    my $bwlimit = PVE::Storage::get_bandwidth_limit('migrate', undef, $opt_bwlimit) // 0;
+    my $bwlimit = PVE::Storage::get_bandwidth_limit('migration', undef, $opt_bwlimit) // 0;
     my $migrate_speed = $conf->{migrate_speed} // $bwlimit;
     # migrate_speed is in MB/s, bwlimit in KB/s
     $migrate_speed *= 1024;
