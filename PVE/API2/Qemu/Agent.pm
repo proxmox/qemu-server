@@ -276,7 +276,13 @@ __PACKAGE__->register_method({
 		type => 'string',
 		format => 'string-alist',
 		description => 'The command as a list of program + arguments',
-	    }
+		optional => 1,
+	    },
+	    'input-data' => {
+		type => 'string',
+		description => "Data to pass as 'input-data' to the guest. Usually treated as STDIN to 'command'.",
+		optional => 1,
+	    },
 	},
     },
     returns => {
@@ -292,9 +298,12 @@ __PACKAGE__->register_method({
 	my ($param) = @_;
 
 	my $vmid = $param->{vmid};
-	my $cmd = [PVE::Tools::split_list($param->{command})];
+	my $cmd = undef;
+	if ($param->{command}) {
+	    $cmd = [PVE::Tools::split_list($param->{command})];
+	}
 
-	my $res = PVE::QemuServer::Agent::qemu_exec($vmid, $cmd);
+	my $res = PVE::QemuServer::Agent::qemu_exec($vmid, $param->{'input-data'}, $cmd);
 	return $res;
     }});
 

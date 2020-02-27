@@ -5,7 +5,7 @@ use warnings;
 
 use PVE::QemuServer;
 use PVE::QemuServer::Monitor;
-use MIME::Base64 qw(decode_base64);
+use MIME::Base64 qw(decode_base64 encode_base64);
 use JSON;
 use base 'Exporter';
 
@@ -67,18 +67,31 @@ sub agent_cmd {
 }
 
 sub qemu_exec {
-    my ($vmid, $cmd) = @_;
-
-
-    my $path = shift @$cmd;
-    my $arguments = $cmd;
+    my ($vmid, $input_data, $cmd) = @_;
 
     my $args = {
-	path => $path,
-	arg => $arguments,
 	'capture-output' => JSON::true,
     };
-    my $res = agent_cmd($vmid, "exec", $args, "can't execute command '$path $arguments'");
+
+    if ($cmd) {
+	$args->{path} = shift @$cmd;
+	$args->{arg} = $cmd;
+    }
+
+    $args->{'input-data'} = encode_base64($input_data, '') if defined($input_data);
+
+    die "command or input-data (or both) required\n"
+	if !defined($args->{'input-data'}) && !defined($args->{path});
+
+    my $errmsg = "can't execute command";
+    if ($cmd) {
+	$errmsg .= " ($args->{path} $args->{arg})";
+    }
+    if (defined($input_data)) {
+	$errmsg .= " (input-data given)";
+    }
+
+    my $res = agent_cmd($vmid, "exec", $args, $errmsg);
 
     return $res;
 }

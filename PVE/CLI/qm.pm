@@ -700,6 +700,12 @@ __PACKAGE__->register_method({
 		optional => 1,
 		default => 30,
 	    },
+	    'pass-stdin' => {
+		type => 'boolean',
+		description => "When set, read STDIN until EOF and forward to guest agent via 'input-data' (usually treated as STDIN to process launched by guest agent).",
+		optional => 1,
+		default => 0,
+	    },
 	    'extra-args' => get_standard_option('extra-args'),
 	},
     },
@@ -711,14 +717,28 @@ __PACKAGE__->register_method({
 
 	my $vmid = $param->{vmid};
 	my $sync = $param->{synchronous} // 1;
-	if (!$param->{'extra-args'} || !@{$param->{'extra-args'}}) {
-	    raise_param_exc( { 'extra-args' => "No command given" });
-	}
+	my $pass_stdin = $param->{'pass-stdin'};
 	if (defined($param->{timeout}) && !$sync) {
 	    raise_param_exc({ synchronous => "needs to be set for 'timeout'"});
 	}
 
-	my $res = PVE::QemuServer::Agent::qemu_exec($vmid, $param->{'extra-args'});
+	my $input_data = undef;
+	if ($pass_stdin) {
+	    $input_data = '';
+	    while (my $line = <STDIN>) {
+		$input_data .= $line;
+		if (length($input_data) > 1024*1024) {
+		    # not sure how QEMU handles large amounts of data being
+		    # passed into the QMP socket, so limit to be safe
+		    die "'input-data' (STDIN) is limited to 1 MiB, aborting\n";
+		}
+	    }
+	}
+
+	my $args = $param->{'extra-args'};
+	$args = undef if !$args || !@$args;
+
+	my $res = PVE::QemuServer::Agent::qemu_exec($vmid, $input_data, $args);
 
 	if ($sync) {
 	    my $pid = $res->{pid};
