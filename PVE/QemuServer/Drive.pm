@@ -547,7 +547,7 @@ sub foreach_volid {
     }
 }
 
-sub disksize {
+sub bootdisk_size {
     my ($storecfg, $conf) = @_;
 
     my $bootdisk = $conf->{bootdisk};

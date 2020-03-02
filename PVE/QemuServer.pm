@@ -1449,7 +1449,7 @@ sub get_initiator_name {
     return $initiator;
 }
 
-sub print_drive_full {
+sub print_drive_commandline_full {
     my ($storecfg, $vmid, $drive) = @_;
 
     my $path;
@@ -2509,7 +2509,7 @@ sub vmstatus {
 	# fixme: better status?
 	$d->{status} = $list->{$vmid}->{pid} ? 'running' : 'stopped';
 
-	my $size = PVE::QemuServer::Drive::disksize($storecfg, $conf);
+	my $size = PVE::QemuServer::Drive::bootdisk_size($storecfg, $conf);
 	if (defined($size)) {
 	    $d->{disk} = 0; # no info available
 	    $d->{maxdisk} = $size;
@@ -3480,7 +3480,7 @@ sub config_to_command {
            $ahcicontroller->{$controller}=1;
         }
 
-	my $drive_cmd = print_drive_full($storecfg, $vmid, $drive);
+	my $drive_cmd = print_drive_commandline_full($storecfg, $vmid, $drive);
 	push @$devices, '-drive',$drive_cmd;
 	push @$devices, '-device', print_drivedevice_full($storecfg, $conf, $vmid, $drive, $bridges, $arch, $machine_type);
     });
@@ -3862,7 +3862,7 @@ sub qemu_objectdel {
 sub qemu_driveadd {
     my ($storecfg, $vmid, $device) = @_;
 
-    my $drive = print_drive_full($storecfg, $vmid, $device);
+    my $drive = print_drive_commandline_full($storecfg, $vmid, $device);
     $drive =~ s/\\/\\\\/g;
     my $ret = PVE::QemuServer::Monitor::hmp_cmd($vmid, "drive_add auto \"$drive\"");
 
