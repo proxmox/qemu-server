@@ -28,6 +28,7 @@ use PVE::Tools qw(extract_param);
 use PVE::API2::Qemu::Agent;
 use PVE::API2::Qemu;
 use PVE::QemuConfig;
+use PVE::QemuServer::Drive;
 use PVE::QemuServer::Helpers;
 use PVE::QemuServer::Agent qw(agent_available);
 use PVE::QemuServer::ImportDisk;
@@ -654,7 +655,7 @@ __PACKAGE__->register_method ({
 
 	    # reload after disks entries have been created
 	    $conf = PVE::QemuConfig->load_config($vmid);
-	    my $firstdisk = PVE::QemuServer::resolve_first_disk($conf);
+	    my $firstdisk = PVE::QemuServer::Drive::resolve_first_disk($conf);
 	    $conf->{bootdisk} = $firstdisk if $firstdisk;
 	    PVE::QemuConfig->write_config($vmid, $conf);
 	};

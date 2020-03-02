@@ -20,6 +20,7 @@ use PVE::ReplicationConfig;
 use PVE::GuestHelpers;
 use PVE::QemuConfig;
 use PVE::QemuServer;
+use PVE::QemuServer::Drive;
 use PVE::QemuServer::Monitor qw(mon_cmd);
 use PVE::QemuMigrate;
 use PVE::RPCEnvironment;
@@ -601,7 +602,7 @@ __PACKAGE__->register_method({
 		    $vollist = &$create_disks($rpcenv, $authuser, $conf, $arch, $storecfg, $vmid, $pool, $param, $storage);
 
 		    if (!$conf->{bootdisk}) {
-			my $firstdisk = PVE::QemuServer::resolve_first_disk($conf);
+			my $firstdisk = PVE::QemuServer::Drive::resolve_first_disk($conf);
 			$conf->{bootdisk} = $firstdisk if $firstdisk;
 		    }
 
@@ -2992,7 +2993,7 @@ __PACKAGE__->register_method({
 	    disk => {
 	        type => 'string',
 		description => "The disk you want to move.",
-		enum => [ PVE::QemuServer::valid_drive_names() ],
+		enum => [PVE::QemuServer::Drive::valid_drive_names()],
 	    },
             storage => get_standard_option('pve-storage-id', {
 		description => "Target storage.",
@@ -3069,7 +3070,7 @@ __PACKAGE__->register_method({
                 (!$format || !$oldfmt || $oldfmt eq $format);
 
 	    # this only checks snapshots because $disk is passed!
-	    my $snapshotted = PVE::QemuServer::is_volume_in_use($storecfg, $conf, $disk, $old_volid);
+	    my $snapshotted = PVE::QemuServer::Drive::is_volume_in_use($storecfg, $conf, $disk, $old_volid);
 	    die "you can't move a disk with snapshots and delete the source\n"
 		if $snapshotted && $param->{delete};
 
@@ -3490,7 +3491,7 @@ __PACKAGE__->register_method({
 	    disk => {
 		type => 'string',
 		description => "The disk you want to resize.",
-		enum => [PVE::QemuServer::valid_drive_names()],
+		enum => [PVE::QemuServer::Drive::valid_drive_names()],
 	    },
 	    size => {
 		type => 'string',
@@ -3990,7 +3991,7 @@ __PACKAGE__->register_method({
 		optional => 1,
 		type => 'string',
 		description => "If you want to convert only 1 disk to base image.",
-		enum => [PVE::QemuServer::valid_drive_names()],
+		enum => [PVE::QemuServer::Drive::valid_drive_names()],
 	    },
 
 	},

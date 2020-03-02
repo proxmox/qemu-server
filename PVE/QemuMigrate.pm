@@ -11,6 +11,7 @@ use PVE::Tools;
 use PVE::Cluster;
 use PVE::Storage;
 use PVE::QemuServer;
+use PVE::QemuServer::Drive;
 use PVE::QemuServer::Machine;
 use PVE::QemuServer::Monitor qw(mon_cmd);
 use Time::HiRes qw( usleep );
@@ -447,7 +448,7 @@ sub sync_disks {
 	my $volid_hash = PVE::QemuServer::scan_volids($self->{storecfg}, $vmid);
 	PVE::QemuServer::foreach_drive($conf, sub {
 	    my ($key, $drive) = @_;
-	    my ($updated, $old_size, $new_size) = PVE::QemuServer::update_disksize($drive, $volid_hash);
+	    my ($updated, $old_size, $new_size) = PVE::QemuServer::Drive::update_disksize($drive, $volid_hash);
 	    if (defined($updated)) {
 		$conf->{$key} = PVE::QemuServer::print_drive($updated);
 		$self->log('info', "size of disk '$updated->{file}' ($key) updated from $old_size to $new_size\n");
