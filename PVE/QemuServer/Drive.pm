@@ -573,10 +573,12 @@ sub update_disksize {
     my $volid = $drive->{file};
     return undef if !defined($volid);
 
-    my $oldsize = $drive->{size};
+    my $oldsize = $drive->{size} // 0;
+
+    return undef if !defined($volid_hash->{$volid}) || !defined($volid_hash->{$volid}->{size});
     my $newsize = $volid_hash->{$volid}->{size};
 
-    if (defined($newsize) && defined($oldsize) && $newsize != $oldsize) {
+    if ($newsize != $oldsize) {
 	$drive->{size} = $newsize;
 
 	my $old_fmt = PVE::JSONSchema::format_size($oldsize);
