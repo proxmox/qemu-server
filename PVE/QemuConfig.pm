@@ -5,6 +5,7 @@ use warnings;
 
 use PVE::AbstractConfig;
 use PVE::INotify;
+use PVE::QemuServer::Drive;
 use PVE::QemuServer::Helpers;
 use PVE::QemuServer::Monitor qw(mon_cmd);
 use PVE::QemuServer;
@@ -21,8 +22,6 @@ mkdir "/etc/pve/nodes/$nodename/qemu-server";
 
 my $lock_dir = "/var/lock/qemu-server";
 mkdir $lock_dir;
-
-my $MAX_UNUSED_DISKS = 256;
 
 sub assert_config_exists_on_node {
     my ($vmid, $node) = @_;
@@ -46,7 +45,7 @@ sub guest_type {
 sub __config_max_unused_disks {
     my ($class) = @_;
 
-    return $MAX_UNUSED_DISKS;
+    return $PVE::QemuServer::Drive::MAX_UNUSED_DISKS;
 }
 
 sub config_file_lock {
