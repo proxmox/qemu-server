@@ -948,7 +948,7 @@ sub verify_volume_id_or_qm_path {
     return $volid;
 }
 
-my $drivename_hash;
+my $drivedesc_hash;
 
 my %drivedesc_base = (
     volume => { alias => 'file' },
@@ -1399,26 +1399,26 @@ for (my $i = 0; $i < $MAX_HOSTPCI_DEVICES; $i++)  {
 }
 
 for (my $i = 0; $i < $MAX_IDE_DISKS; $i++)  {
-    $drivename_hash->{"ide$i"} = 1;
+    $drivedesc_hash->{"ide$i"} = $idedesc;
     $confdesc->{"ide$i"} = $idedesc;
 }
 
 for (my $i = 0; $i < $MAX_SATA_DISKS; $i++)  {
-    $drivename_hash->{"sata$i"} = 1;
+    $drivedesc_hash->{"sata$i"} = $satadesc;
     $confdesc->{"sata$i"} = $satadesc;
 }
 
 for (my $i = 0; $i < $MAX_SCSI_DISKS; $i++)  {
-    $drivename_hash->{"scsi$i"} = 1;
+    $drivedesc_hash->{"scsi$i"} = $scsidesc;
     $confdesc->{"scsi$i"} = $scsidesc ;
 }
 
 for (my $i = 0; $i < $MAX_VIRTIO_DISKS; $i++)  {
-    $drivename_hash->{"virtio$i"} = 1;
+    $drivedesc_hash->{"virtio$i"} = $virtiodesc;
     $confdesc->{"virtio$i"} = $virtiodesc;
 }
 
-$drivename_hash->{efidisk0} = 1;
+$drivedesc_hash->{efidisk0} = $efidisk_desc;
 $confdesc->{efidisk0} = $efidisk_desc;
 
 for (my $i = 0; $i < $MAX_USB_DEVICES; $i++)  {
@@ -1495,7 +1495,7 @@ sub valid_drive_names {
 sub is_valid_drivename {
     my $dev = shift;
 
-    return defined($drivename_hash->{$dev});
+    return defined($drivedesc_hash->{$dev});
 }
 
 sub option_exists {
@@ -1633,7 +1633,7 @@ sub parse_drive {
     }
 
     my $desc = $key =~ /^unused\d+$/ ? $alldrive_fmt
-                                     : $confdesc->{$key}->{format};
+                                     : $drivedesc_hash->{$key}->{format};
     if (!$desc) {
 	warn "invalid drive key: $key\n";
 	return undef;
