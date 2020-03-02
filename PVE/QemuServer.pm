@@ -3575,7 +3575,7 @@ sub config_to_command {
 	my $path;
 	my $format;
 	if (my $efidisk = $conf->{efidisk0}) {
-	    my $d = PVE::JSONSchema::parse_property_string($efidisk_fmt, $efidisk);
+	    my $d = parse_drive('efidisk0', $efidisk);
 	    my ($storeid, $volname) = PVE::Storage::parse_volume_id($d->{file}, 1);
 	    $format = $d->{format};
 	    if ($storeid) {
