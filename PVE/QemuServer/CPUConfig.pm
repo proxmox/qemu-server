@@ -41,12 +41,17 @@ my $cpu_vendor_list = {
     'Broadwell-noTSX-IBRS' => 'GenuineIntel',
     'Skylake-Client' => 'GenuineIntel',
     'Skylake-Client-IBRS' => 'GenuineIntel',
+    'Skylake-Client-noTSX-IBRS' => 'GenuineIntel',
     'Skylake-Server' => 'GenuineIntel',
     'Skylake-Server-IBRS' => 'GenuineIntel',
+    'Skylake-Server-noTSX-IBRS' => 'GenuineIntel',
     'Cascadelake-Server' => 'GenuineIntel',
+    'Cascadelake-Server-noTSX' => 'GenuineIntel',
     KnightsMill => 'GenuineIntel',
     'Icelake-Client' => 'GenuineIntel',
-    'Icelake-Server' => 'GenuineIntel'  
+    'Icelake-Client-noTSX' => 'GenuineIntel',
+    'Icelake-Server' => 'GenuineIntel',
+    'Icelake-Server-noTSX' => 'GenuineIntel'
 
     # AMD CPUs
     athlon => 'AuthenticAMD',
