@@ -280,6 +280,7 @@ __PACKAGE__->register_method({
 	    },
 	    'input-data' => {
 		type => 'string',
+		maxLength => 64 * 1024,
 		description => "Data to pass as 'input-data' to the guest. Usually treated as STDIN to 'command'.",
 		optional => 1,
 	    },

@@ -702,7 +702,7 @@ __PACKAGE__->register_method({
 	    },
 	    'pass-stdin' => {
 		type => 'boolean',
-		description => "When set, read STDIN until EOF and forward to guest agent via 'input-data' (usually treated as STDIN to process launched by guest agent).",
+		description => "When set, read STDIN until EOF and forward to guest agent via 'input-data' (usually treated as STDIN to process launched by guest agent). Allows maximal 1 MiB.",
 		optional => 1,
 		default => 0,
 	    },
