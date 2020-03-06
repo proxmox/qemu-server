@@ -51,7 +51,7 @@ my $cpu_vendor_list = {
     'Icelake-Client' => 'GenuineIntel',
     'Icelake-Client-noTSX' => 'GenuineIntel',
     'Icelake-Server' => 'GenuineIntel',
-    'Icelake-Server-noTSX' => 'GenuineIntel'
+    'Icelake-Server-noTSX' => 'GenuineIntel',
 
     # AMD CPUs
     athlon => 'AuthenticAMD',
