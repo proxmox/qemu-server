@@ -572,10 +572,9 @@ sub update_disksize {
 
     my $volid = $drive->{file};
     return undef if !defined($volid);
+    return undef if !defined($volid_hash->{$volid}) || !defined($volid_hash->{$volid}->{size});
 
     my $oldsize = $drive->{size} // 0;
-
-    return undef if !defined($volid_hash->{$volid}) || !defined($volid_hash->{$volid}->{size});
     my $newsize = $volid_hash->{$volid}->{size};
 
     if ($newsize != $oldsize) {
