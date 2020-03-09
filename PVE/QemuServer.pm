@@ -51,6 +51,12 @@ use PVE::QemuServer::Monitor qw(mon_cmd);
 use PVE::QemuServer::PCI qw(print_pci_addr print_pcie_addr print_pcie_root_port);
 use PVE::QemuServer::USB qw(parse_usb_device);
 
+my $have_sdn;
+eval {
+    require PVE::Network::SDN::Zones;
+    $have_sdn = 1;
+};
+
 my $EDK2_FW_BASE = '/usr/share/pve-edk2-firmware/';
 my $OVMF = {
     x86_64 => [
@@ -4562,7 +4568,12 @@ sub vmconfig_update_net {
 		safe_string_ne($oldnet->{trunks}, $newnet->{trunks}) ||
 		safe_num_ne($oldnet->{firewall}, $newnet->{firewall})) {
 		PVE::Network::tap_unplug($iface);
-		PVE::Network::tap_plug($iface, $newnet->{bridge}, $newnet->{tag}, $newnet->{firewall}, $newnet->{trunks}, $newnet->{rate});
+
+		if ($have_sdn) {
+		    PVE::Network::SDN::Zones::tap_plug($iface, $newnet->{bridge}, $newnet->{tag}, $newnet->{firewall}, $newnet->{trunks}, $newnet->{rate});
+		} else {
+		    PVE::Network::tap_plug($iface, $newnet->{bridge}, $newnet->{tag}, $newnet->{firewall}, $newnet->{trunks}, $newnet->{rate});
+		}
 	    } elsif (safe_num_ne($oldnet->{rate}, $newnet->{rate})) {
 		# Rate can be applied on its own but any change above needs to
 		# include the rate in tap_plug since OVS resets everything.

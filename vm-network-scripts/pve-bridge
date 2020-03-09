@@ -2,9 +2,16 @@
 
 use strict;
 use warnings;
+
 use PVE::QemuServer;
 use PVE::Tools qw(run_command);
 use PVE::Network;
+
+my $have_sdn;
+eval {
+    require PVE::Network::SDN::Zones;
+    $have_sdn = 1;
+};
 
 my $iface = shift;
 
@@ -36,8 +43,12 @@ die "unable to get network config '$netid'\n"
 my $net = PVE::QemuServer::parse_net($netconf);
 die "unable to parse network config '$netid'\n" if !$net;
 
-PVE::Network::tap_create($iface, $net->{bridge});
-
-PVE::Network::tap_plug($iface, $net->{bridge}, $net->{tag}, $net->{firewall}, $net->{trunks}, $net->{rate});
+if ($have_sdn) {
+    PVE::Network::SDN::Zones::tap_create($iface, $net->{bridge});
+    PVE::Network::SDN::Zones::tap_plug($iface, $net->{bridge}, $net->{tag}, $net->{firewall}, $net->{trunks}, $net->{rate});
+} else {
+    PVE::Network::tap_create($iface, $net->{bridge});
+    PVE::Network::tap_plug($iface, $net->{bridge}, $net->{tag}, $net->{firewall}, $net->{trunks}, $net->{rate});
+}
 
 exit 0;
