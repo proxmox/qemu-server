@@ -263,8 +263,8 @@ my $check_queue = sub {
 	    if ($qga) {
 
 		$qmpcmd = to_json({ execute => 'guest-sync-delimited',
-				    arguments => { id => int($cmd->{id})}}) .
-		    to_json({ execute => $cmd->{execute}, arguments => $cmd->{arguments}});
+				    arguments => { id => int($cmd->{id})}}) . "\n" .
+		    to_json({ execute => $cmd->{execute}, arguments => $cmd->{arguments}}) . "\n";
 
 	    } else {
 
