@@ -311,9 +311,14 @@ sub sync_disks {
 	    PVE::Storage::storage_check_node($self->{storecfg}, $targetsid, $self->{node});
 
 	    PVE::Storage::foreach_volid($dl, sub {
-		my ($volid, $sid, $volname) = @_;
+		my ($volid, $sid, $volinfo) = @_;
 
 		$local_volumes->{$volid}->{ref} = 'storage';
+
+		# If with_snapshots is not set for storage migrate, it tries to use
+		# a raw+size stream, but on-the-fly conversion from qcow2 to raw+size
+		# back to qcow2 is currently not possible.
+		$local_volumes->{$volid}->{snapshots} = ($volinfo->{format} =~ /^(?:qcow2|vmdk)$/);
 	    });
 	}
 
@@ -366,8 +371,9 @@ sub sync_disks {
 		if !$owner || ($owner != $self->{vmid});
 
 	    my $format = PVE::QemuServer::qemu_img_format($scfg, $volname);
-	    $local_volumes->{$volid}->{snapshots} = defined($snaprefs) || ($format =~ /^(?:qcow2|vmdk)$/);
 	    if (defined($snaprefs)) {
+		$local_volumes->{$volid}->{snapshots} = 1;
+
 		# we cannot migrate shapshots on local storage
 		# exceptions: 'zfspool' or 'qcow2' files (on directory storage)
 
