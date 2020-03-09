@@ -1,3 +1,28 @@
+qemu-server (6.1-7) pve; urgency=medium
+
+  * vzdump: always exclude efidisks from backups of machines currently not set
+    to use OVMF (UEFI)
+
+  * Simplify QEMU version check and require at least 3.0+
+
+  * Align size to 1 KiB bytes before doing 'qmp block_resize'
+
+  * fix #2611: use correct operation when calculating the migration bandwidth
+    limit
+
+  * fix #2612: allow input-data in guest exec and make command optional
+
+  * cpu models: add icelake-server and icelake-client
+
+  * already add models from future QEMU 4.2 release
+
+  * fix #2264: allow one to add a virtio-rng device for improved entropy
+    bandwidth in a VM
+
+  * update_disksize: also update disk size if there was no old size at all
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 09 Mar 2020 19:12:16 +0100
+
 qemu-server (6.1-6) pve; urgency=medium
 
   * allow reading snapshot config for users with VM.Audit on a guest
