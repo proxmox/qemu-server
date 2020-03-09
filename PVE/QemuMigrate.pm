@@ -319,6 +319,7 @@ sub sync_disks {
 		# a raw+size stream, but on-the-fly conversion from qcow2 to raw+size
 		# back to qcow2 is currently not possible.
 		$local_volumes->{$volid}->{snapshots} = ($volinfo->{format} =~ /^(?:qcow2|vmdk)$/);
+		$local_volumes->{$volid}->{format} = $volinfo->{format};
 	    });
 	}
 
@@ -370,7 +371,6 @@ sub sync_disks {
 	    die "owned by other VM (owner = VM $owner)\n"
 		if !$owner || ($owner != $self->{vmid});
 
-	    my $format = PVE::QemuServer::qemu_img_format($scfg, $volname);
 	    if (defined($snaprefs)) {
 		$local_volumes->{$volid}->{snapshots} = 1;
 
@@ -378,7 +378,7 @@ sub sync_disks {
 		# exceptions: 'zfspool' or 'qcow2' files (on directory storage)
 
 		die "online storage migration not possible if snapshot exists\n" if $self->{running};
-		if (!($scfg->{type} eq 'zfspool' || $format eq 'qcow2')) {
+		if (!($scfg->{type} eq 'zfspool' || $local_volumes->{$volid}->{format} eq 'qcow2')) {
 		    die "non-migratable snapshot exists\n";
 		}
 	    }
