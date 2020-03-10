@@ -45,10 +45,12 @@ sub commit_cloudinit_disk {
     my $plugin = PVE::Storage::Plugin->lookup($scfg->{type});
     $plugin->activate_volume($storeid, $scfg, $volname);
 
+    print "generating cloud-init ISO\n";
     eval {
-	run_command([['genisoimage', '-iso-level', '3', '-R', '-V', $label, $path],
-		     ['qemu-img', 'dd', '-n', '-f', 'raw', '-O', $format,
-		      'isize=0', "osize=$size", "of=$iso_path"]]);
+	run_command([
+	    ['genisoimage', '-quiet', '-iso-level', '3', '-R', '-V', $label, $path],
+	    ['qemu-img', 'dd', '-n', '-f', 'raw', '-O', $format, 'isize=0', "osize=$size", "of=$iso_path"]
+	]);
     };
     my $err = $@;
     rmtree($path);
