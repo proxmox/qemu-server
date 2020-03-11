@@ -14,6 +14,7 @@ use PVE::IPCC;
 use PVE::JSONSchema;
 use PVE::QMPClient;
 use PVE::Storage::Plugin;
+use PVE::Storage::PBSPlugin;
 use PVE::Storage;
 use PVE::Tools;
 use PVE::VZDump;
@@ -251,12 +252,279 @@ sub assemble {
 sub archive {
     my ($self, $task, $vmid, $filename, $comp) = @_;
 
+    my $opts = $self->{vzdump}->{opts};
+
+    my $scfg = $opts->{scfg};
+
+    if ($scfg->{type} eq 'pbs') {
+	$self->archive_pbs($task, $vmid);
+    } else {
+	$self->archive_vma($task, $vmid, $filename, $comp);
+    }
+}
+
+my $query_backup_status_loop = sub {
+    my ($self, $vmid, $job_uuid) = @_;
+
+    my $status;
+    my $starttime = time ();
+    my $last_per = -1;
+    my $last_total = 0;
+    my $last_zero = 0;
+    my $last_transferred = 0;
+    my $last_time = time();
+    my $transferred;
+
+    while(1) {
+	$status = mon_cmd($vmid, 'query-backup');
+	my $total = $status->{total} || 0;
+	$transferred = $status->{transferred} || 0;
+	my $per = $total ? int(($transferred * 100)/$total) : 0;
+	my $zero = $status->{'zero-bytes'} || 0;
+	my $zero_per = $total ? int(($zero * 100)/$total) : 0;
+
+	die "got unexpected uuid\n" if !$status->{uuid} || ($status->{uuid} ne $job_uuid);
+
+	my $ctime = time();
+	my $duration = $ctime - $starttime;
+
+	my $rbytes = $transferred - $last_transferred;
+	my $wbytes = $rbytes - ($zero - $last_zero);
+
+	my $timediff = ($ctime - $last_time) || 1; # fixme
+	my $mbps_read = ($rbytes > 0) ?
+	    int(($rbytes/$timediff)/(1000*1000)) : 0;
+	my $mbps_write = ($wbytes > 0) ?
+	    int(($wbytes/$timediff)/(1000*1000)) : 0;
+
+	my $statusline = "status: $per% ($transferred/$total), " .
+	    "sparse ${zero_per}% ($zero), duration $duration, " .
+	    "read/write $mbps_read/$mbps_write MB/s";
+	my $res = $status->{status} || 'unknown';
+	if ($res ne 'active') {
+	    $self->loginfo($statusline);
+	    die(($status->{errmsg} || "unknown error") . "\n")
+		if $res eq 'error';
+	    die "got unexpected status '$res'\n"
+		if $res ne 'done';
+	    die "got wrong number of transfered bytes ($total != $transferred)\n"
+		if ($res eq 'done') && ($total != $transferred);
+
+	    last;
+	}
+	if ($per != $last_per && ($timediff > 2)) {
+	    $self->loginfo($statusline);
+	    $last_per = $per;
+	    $last_total = $total if $total;
+	    $last_zero = $zero if $zero;
+	    $last_transferred = $transferred if $transferred;
+	    $last_time = $ctime;
+	}
+	sleep(1);
+    }
+
+    my $duration = time() - $starttime;
+    if ($transferred && $duration) {
+	my $mb = int($transferred/(1000*1000));
+	my $mbps = int(($transferred/$duration)/(1000*1000));
+	$self->loginfo("transferred $mb MB in $duration seconds ($mbps MB/s)");
+    }
+};
+
+sub archive_pbs {
+    my ($self, $task, $vmid) = @_;
+
     my $conffile = "$task->{tmpdir}/qemu-server.conf";
     my $firewall = "$task->{tmpdir}/qemu-server.fw";
 
     my $opts = $self->{vzdump}->{opts};
 
-    my $starttime = time ();
+    my $scfg = $opts->{scfg};
+
+    my $starttime = time();
+
+    my $diskcount = scalar(@{$task->{disks}});
+
+    my $server = $scfg->{server};
+    my $datastore = $scfg->{datastore};
+    my $username = $scfg->{username} // 'root@pam';
+    my $fingerprint = $scfg->{fingerprint};
+
+    my $repo = "$username\@$server:$datastore";
+    my $password = PVE::Storage::PBSPlugin::pbs_get_password($scfg, $opts->{storage});
+
+    if (PVE::QemuConfig->is_template($self->{vmlist}->{$vmid}) || !$diskcount) {
+	my @pathlist;
+	foreach my $di (@{$task->{disks}}) {
+	    if ($di->{type} eq 'block' || $di->{type} eq 'file') {
+		push @pathlist, "$di->{qmdevice}.img:$di->{path}";
+	    } else {
+		die "implement me";
+	    }
+	}
+
+	if (!$diskcount) {
+	    $self->loginfo("backup contains no disks");
+	}
+
+	local $ENV{PBS_PASSWORD} = $password;
+	my $cmd = [
+	    '/usr/bin/proxmox-backup-client',
+	    'backup',
+	    '--repository', $repo,
+	    '--backup-type', 'vm',
+	    '--backup-id', "$vmid",
+	    '--backup-time', $task->{backup_time},
+	    ];
+
+	push @$cmd, '--fingerprint', $fingerprint if defined($fingerprint);
+
+	push @$cmd, "qemu-server.conf:$conffile";
+	push @$cmd, "fw.conf:$firewall" if -e $firewall;
+	push @$cmd, @pathlist if scalar(@pathlist);
+
+	$self->loginfo("starting template backup");
+	$self->loginfo(join(' ', @$cmd));
+
+	$self->cmd($cmd);
+
+	return;
+    }
+
+    my $devlist = '';
+    foreach my $di (@{$task->{disks}}) {
+	if ($di->{type} eq 'block' || $di->{type} eq 'file') {
+	    $devlist .= $devlist ? ",$di->{qmdevice}" : $di->{qmdevice};
+	} else {
+	    die "implement me";
+	}
+    }
+
+    my $stop_after_backup;
+    my $resume_on_backup;
+
+    my $skiplock = 1;
+    my $vm_is_running = PVE::QemuServer::check_running($vmid);
+    if (!$vm_is_running) {
+	eval {
+	    $self->loginfo("starting kvm to execute backup task");
+	    PVE::QemuServer::vm_start($self->{storecfg}, $vmid, undef,
+				      $skiplock, undef, 1);
+	    if ($self->{vm_was_running}) {
+		$resume_on_backup = 1;
+	    } else {
+		$stop_after_backup = 1;
+	    }
+	};
+	if (my $err = $@) {
+	    die $err;
+	}
+    }
+
+    my $interrupt_msg = "interrupted by signal\n";
+    eval {
+	$SIG{INT} = $SIG{TERM} = $SIG{QUIT} = $SIG{HUP} = $SIG{PIPE} = sub {
+	    die $interrupt_msg;
+	};
+
+	my $agent_running = 0;
+
+	if ($self->{vmlist}->{$vmid}->{agent} && $vm_is_running) {
+	    $agent_running = PVE::QemuServer::qga_check_running($vmid);
+	}
+
+	if ($agent_running){
+	    eval { mon_cmd($vmid, "guest-fsfreeze-freeze"); };
+	    if (my $err = $@) {
+		$self->logerr($err);
+	    }
+	}
+
+	my $uuid;
+
+	eval {
+
+	    my $params = {
+		format => "pbs",
+		'backup-file' => $repo,
+		'backup-id' => "$vmid",
+		'backup-time' => $task->{backup_time},
+		password => $password,
+		devlist => $devlist,
+		'config-file' => $conffile,
+	    };
+	    $params->{fingerprint} = $fingerprint if defined($fingerprint);
+	    $params->{'firewall-file'} = $firewall if -e $firewall;
+	    my $res = mon_cmd($vmid, "backup", %$params);
+	    $uuid = $res->{UUID};
+	};
+
+	my $qmperr = $@;
+
+	if ($agent_running){
+	    eval { mon_cmd($vmid, "guest-fsfreeze-thaw"); };
+	    if (my $err = $@) {
+		$self->logerr($err);
+	    }
+	}
+
+	die $qmperr if $qmperr;
+
+	die "got no uuid for backup task\n" if !$uuid;
+
+	$self->loginfo("started backup task '$uuid'");
+
+	if ($resume_on_backup) {
+	    if (my $stoptime = $task->{vmstoptime}) {
+		my $delay = time() - $task->{vmstoptime};
+		$task->{vmstoptime} = undef; # avoid printing 'online after ..' twice
+		$self->loginfo("resuming VM again after $delay seconds");
+	    } else {
+		$self->loginfo("resuming VM again");
+	    }
+	    mon_cmd($vmid, 'cont');
+	}
+
+	$query_backup_status_loop->($self, $vmid, $uuid);
+    };
+    my $err = $@;
+
+    if ($err) {
+	$self->logerr($err);
+	$self->loginfo("aborting backup job");
+	eval { mon_cmd($vmid, 'backup-cancel'); };
+	if (my $err1 = $@) {
+	    $self->logerr($err1);
+	}
+    }
+
+    if ($stop_after_backup) {
+	# stop if not running
+	eval {
+	    my $resp = mon_cmd($vmid, 'query-status');
+	    my $status = $resp && $resp->{status} ?  $resp->{status} : 'unknown';
+	    if ($status eq 'prelaunch') {
+		$self->loginfo("stopping kvm after backup task");
+		PVE::QemuServer::vm_stop($self->{storecfg}, $vmid, $skiplock);
+	    } else {
+		$self->loginfo("kvm status changed after backup ('$status')" .
+			       " - keep VM running");
+	    }
+	}
+    }
+
+    die $err if $err;
+}
+
+sub archive_vma {
+    my ($self, $task, $vmid, $filename, $comp) = @_;
+
+    my $conffile = "$task->{tmpdir}/qemu-server.conf";
+    my $firewall = "$task->{tmpdir}/qemu-server.fw";
+
+    my $opts = $self->{vzdump}->{opts};
+
+    my $starttime = time();
 
     my $speed = 0;
     if ($opts->{bwlimit}) {
@@ -432,7 +700,7 @@ sub archive {
 	    }
 	}
 
-	eval { $qmpclient->queue_execute() };
+	eval { $qmpclient->queue_execute(30) };
 	my $qmperr = $@;
 
 	if ($agent_running){
@@ -465,69 +733,7 @@ sub archive {
 	    mon_cmd($vmid, 'cont');
 	}
 
-	my $status;
-	my $starttime = time ();
-	my $last_per = -1;
-	my $last_total = 0;
-	my $last_zero = 0;
-	my $last_transferred = 0;
-	my $last_time = time();
-	my $transferred;
-
-	while(1) {
-	    $status = mon_cmd($vmid, 'query-backup');
-	    my $total = $status->{total} || 0;
-	    $transferred = $status->{transferred} || 0;
-	    my $per = $total ? int(($transferred * 100)/$total) : 0;
-	    my $zero = $status->{'zero-bytes'} || 0;
-	    my $zero_per = $total ? int(($zero * 100)/$total) : 0;
-
-	    die "got unexpected uuid\n" if !$status->{uuid} || ($status->{uuid} ne $uuid);
-
-	    my $ctime = time();
-	    my $duration = $ctime - $starttime;
-
-	    my $rbytes = $transferred - $last_transferred;
-	    my $wbytes = $rbytes - ($zero - $last_zero);
-
-	    my $timediff = ($ctime - $last_time) || 1; # fixme
-	    my $mbps_read = ($rbytes > 0) ?
-		int(($rbytes/$timediff)/(1000*1000)) : 0;
-	    my $mbps_write = ($wbytes > 0) ?
-		int(($wbytes/$timediff)/(1000*1000)) : 0;
-
-	    my $statusline = "status: $per% ($transferred/$total), " .
-		"sparse ${zero_per}% ($zero), duration $duration, " .
-		"read/write $mbps_read/$mbps_write MB/s";
-	    my $res = $status->{status} || 'unknown';
-	    if ($res ne 'active') {
-		$self->loginfo($statusline);
-		die(($status->{errmsg} || "unknown error") . "\n")
-		    if $res eq 'error';
-		die "got unexpected status '$res'\n"
-		    if $res ne 'done';
-		die "got wrong number of transfered bytes ($total != $transferred)\n"
-		    if ($res eq 'done') && ($total != $transferred);
-
-		last;
-	    }
-	    if ($per != $last_per && ($timediff > 2)) {
-		$self->loginfo($statusline);
-		$last_per = $per;
-		$last_total = $total if $total;
-		$last_zero = $zero if $zero;
-		$last_transferred = $transferred if $transferred;
-		$last_time = $ctime;
-	    }
-	    sleep(1);
-	}
-
-	my $duration = time() - $starttime;
-	if ($transferred && $duration) {
-	    my $mb = int($transferred/(1000*1000));
-	    my $mbps = int(($transferred/$duration)/(1000*1000));
-	    $self->loginfo("transferred $mb MB in $duration seconds ($mbps MB/s)");
-	}
+	$query_backup_status_loop->($self, $vmid, $uuid);
     };
     my $err = $@;
 
