@@ -421,6 +421,8 @@ sub archive_pbs {
 	}
     }
 
+    my $backup_job_uuid;
+
     my $interrupt_msg = "interrupted by signal\n";
     eval {
 	$SIG{INT} = $SIG{TERM} = $SIG{QUIT} = $SIG{HUP} = $SIG{PIPE} = sub {
@@ -440,8 +442,6 @@ sub archive_pbs {
 	    }
 	}
 
-	my $uuid;
-
 	eval {
 
 	    my $params = {
@@ -456,7 +456,7 @@ sub archive_pbs {
 	    $params->{fingerprint} = $fingerprint if defined($fingerprint);
 	    $params->{'firewall-file'} = $firewall if -e $firewall;
 	    my $res = mon_cmd($vmid, "backup", %$params);
-	    $uuid = $res->{UUID};
+	    $backup_job_uuid = $res->{UUID};
 	};
 
 	my $qmperr = $@;
@@ -470,9 +470,9 @@ sub archive_pbs {
 
 	die $qmperr if $qmperr;
 
-	die "got no uuid for backup task\n" if !$uuid;
+	die "got no uuid for backup task\n" if !defined($backup_job_uuid);
 
-	$self->loginfo("started backup task '$uuid'");
+	$self->loginfo("started backup task '$backup_job_uuid'");
 
 	if ($resume_on_backup) {
 	    if (my $stoptime = $task->{vmstoptime}) {
@@ -485,16 +485,18 @@ sub archive_pbs {
 	    mon_cmd($vmid, 'cont');
 	}
 
-	$query_backup_status_loop->($self, $vmid, $uuid);
+	$query_backup_status_loop->($self, $vmid, $backup_job_uuid);
     };
     my $err = $@;
 
     if ($err) {
 	$self->logerr($err);
-	$self->loginfo("aborting backup job");
-	eval { mon_cmd($vmid, 'backup-cancel'); };
-	if (my $err1 = $@) {
-	    $self->logerr($err1);
+	if (defined($backup_job_uuid)) {
+	    $self->loginfo("aborting backup job");
+	    eval { mon_cmd($vmid, 'backup-cancel'); };
+	    if (my $err1 = $@) {
+		$self->logerr($err1);
+	    }
 	}
     }
 
