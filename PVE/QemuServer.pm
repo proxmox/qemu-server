@@ -5958,31 +5958,23 @@ sub restore_proxmox_backup_archive {
 	    my $volid = $d->{volid};
 
 	    my $path = PVE::Storage::path($storecfg, $volid);
-	    if (PVE::Storage::volume_has_feature($storecfg, 'sparseinit', $volid)) {
-		#$path = "zeroinit:$path"; # fixme
-	    }
 
 	    my $pbs_restore_cmd = [
-		'/usr/bin/proxmox-backup-client',
-		'restore',
+		'/usr/bin/pbs-restore',
 		'--repository', $repo,
 		$pbs_backup_name,
-		"$d->{devname}.img",
-		'-',
+		"$d->{devname}.img.fidx",
+		$path,
 		'--verbose',
 		];
 
-	    my $import_cmd = [
-		'/usr/bin/qemu-img',
-		'dd', '-n', '-f', 'raw', '-O', $d->{format}, 'bs=64K',
-		'isize=0',
-		"osize=$d->{size}",
-		"of=$path",
-		];
+	    if (PVE::Storage::volume_has_feature($storecfg, 'sparseinit', $volid)) {
+		push @$pbs_restore_cmd, '--skip-zero';
+	    }
 
-	    my $dbg_cmdstring = PVE::Tools::cmd2string($pbs_restore_cmd) . '|' . PVE::Tools::cmd2string($import_cmd);
+	    my $dbg_cmdstring = PVE::Tools::cmd2string($pbs_restore_cmd);
 	    print "restore proxmox backup image: $dbg_cmdstring\n";
-	    run_command([$pbs_restore_cmd, $import_cmd]);
+	    run_command($pbs_restore_cmd);
 	}
 
 	$fh->seek(0, 0) || die "seek failed - $!\n";
