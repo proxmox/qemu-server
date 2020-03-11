@@ -401,6 +401,26 @@ __PACKAGE__->register_method({
 	return $res;
     }});
 
+my $parse_restore_archive = sub {
+    my ($storecfg, $archive) = @_;
+
+    my ($archive_storeid, $archive_volname) = PVE::Storage::parse_volume_id($archive);
+
+    if (defined($archive_storeid)) {
+	my $scfg =  PVE::Storage::storage_config($storecfg, $archive_storeid);
+	if ($scfg->{type} eq 'pbs') {
+	    return {
+		type => 'pbs',
+		volid => $archive,
+	    };
+	}
+    }
+    my $path = PVE::Storage::abs_filesystem_path($storecfg, $archive);
+    return {
+	type => 'file',
+	path => $path,
+    };
+};
 
 
 __PACKAGE__->register_method({
@@ -423,7 +443,7 @@ __PACKAGE__->register_method({
 		node => get_standard_option('pve-node'),
 		vmid => get_standard_option('pve-vmid', { completion => \&PVE::Cluster::complete_next_vmid }),
 		archive => {
-		    description => "The backup file.",
+		    description => "The backup archive. Either the file system path to a .tar or .vma file (use '-' to pipe data from stdin) or a proxmox storage backup volume identifier.",
 		    type => 'string',
 		    optional => 1,
 		    maxLength => 255,
@@ -541,9 +561,11 @@ __PACKAGE__->register_method({
 	    if ($archive eq '-') {
 		die "pipe requires cli environment\n"
 		    if $rpcenv->{type} ne 'cli';
+		$archive = { type => 'pipe' };
 	    } else {
 		PVE::Storage::check_volume_access($rpcenv, $authuser, $storecfg, $vmid, $archive);
-		$archive = PVE::Storage::abs_filesystem_path($storecfg, $archive);
+
+		$archive = $parse_restore_archive->($storecfg, $archive);
 	    }
 	}
 
@@ -560,12 +582,19 @@ __PACKAGE__->register_method({
 	    die "$emsg vm is running\n" if PVE::QemuServer::check_running($vmid);
 
 	    my $realcmd = sub {
-		PVE::QemuServer::restore_archive($archive, $vmid, $authuser, {
+		my $restore_options = {
 		    storage => $storage,
 		    pool => $pool,
 		    unique => $unique,
 		    bwlimit => $bwlimit,
-		});
+		};
+		if ($archive->{type} eq 'file' || $archive->{type} eq 'pipe') {
+		    PVE::QemuServer::restore_file_archive($archive->{path} // '-', $vmid, $authuser, $restore_options);
+		} elsif ($archive->{type} eq 'pbs') {
+		    PVE::QemuServer::restore_proxmox_backup_archive($archive->{volid}, $vmid, $authuser, $restore_options);
+		} else {
+		    die "unknown backup archive type\n";
+		}
 		my $restored_conf = PVE::QemuConfig->load_config($vmid);
 		# Convert restored VM to template if backup was VM template
 		if (PVE::QemuConfig->is_template($restored_conf)) {

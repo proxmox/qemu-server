@@ -5439,7 +5439,7 @@ sub tar_restore_cleanup {
     }
 }
 
-sub restore_archive {
+sub restore_file_archive {
     my ($archive, $vmid, $user, $opts) = @_;
 
     my $format = $opts->{format};
@@ -5471,6 +5471,300 @@ sub restore_archive {
     } else {
 	return restore_vma_archive($archive, $vmid, $user, $opts, $comp);
     }
+}
+
+# hepler to remove disks that will not be used after restore
+my $restore_cleanup_oldconf = sub {
+    my ($storecfg, $vmid, $oldconf, $virtdev_hash) = @_;
+
+    foreach_drive($oldconf, sub {
+	my ($ds, $drive) = @_;
+
+	return if drive_is_cdrom($drive, 1);
+
+	my $volid = $drive->{file};
+	return if !$volid || $volid =~ m|^/|;
+
+	my ($path, $owner) = PVE::Storage::path($storecfg, $volid);
+	return if !$path || !$owner || ($owner != $vmid);
+
+	# Note: only delete disk we want to restore
+	# other volumes will become unused
+	if ($virtdev_hash->{$ds}) {
+	    eval { PVE::Storage::vdisk_free($storecfg, $volid); };
+	    if (my $err = $@) {
+		warn $err;
+	    }
+	}
+    });
+
+    # delete vmstate files, after the restore we have no snapshots anymore
+    foreach my $snapname (keys %{$oldconf->{snapshots}}) {
+	my $snap = $oldconf->{snapshots}->{$snapname};
+	if ($snap->{vmstate}) {
+	    eval { PVE::Storage::vdisk_free($storecfg, $snap->{vmstate}); };
+	    if (my $err = $@) {
+		warn $err;
+	    }
+	}
+    }
+};
+
+sub restore_proxmox_backup_archive {
+    my ($archive, $vmid, $user, $options) = @_;
+
+    my $storecfg = PVE::Storage::config();
+
+    my ($storeid, $volname) = PVE::Storage::parse_volume_id($archive);
+    my $scfg = PVE::Storage::storage_config($storecfg, $storeid);
+
+    my $server = $scfg->{server};
+    my $datastore = $scfg->{datastore};
+    my $username = $scfg->{username} // 'root@pam';
+
+    my $repo = "$username\@$server:$datastore";
+    my $password = PVE::Storage::PBSPlugin::pbs_get_password($scfg, $storeid);
+    local $ENV{PBS_PASSWORD} = $password;
+
+    my ($vtype, $pbs_backup_name, undef, undef, undef, undef, $format) =
+	PVE::Storage::parse_volname($storecfg, $archive);
+
+    die "got unexpected vtype '$vtype'\n" if $vtype ne 'backup';
+
+    die "got unexpected backup format '$format'\n" if $format ne 'pbs-vm';
+
+    my $tmpdir = "/var/tmp/vzdumptmp$$";
+    rmtree $tmpdir;
+    mkpath $tmpdir;
+
+    my $conffile = PVE::QemuConfig->config_file($vmid);
+    my $tmpfn = "$conffile.$$.tmp";
+     # disable interrupts (always do cleanups)
+    local $SIG{INT} =
+	local $SIG{TERM} =
+	local $SIG{QUIT} =
+	local $SIG{HUP} = sub { print STDERR "got interrupt - ignored\n"; };
+
+    # Note: $oldconf is undef if VM does not exists
+    my $cfs_path = PVE::QemuConfig->cfs_config_path($vmid);
+    my $oldconf = PVE::Cluster::cfs_read_file($cfs_path);
+
+    my $rpcenv = PVE::RPCEnvironment::get();
+    my $devinfo = {};
+
+    eval {
+	# enable interrupts
+	local $SIG{INT} =
+	    local $SIG{TERM} =
+	    local $SIG{QUIT} =
+	    local $SIG{HUP} =
+	    local $SIG{PIPE} = sub { die "interrupted by signal\n"; };
+
+	my $cfgfn = "$tmpdir/qemu-server.conf";
+	my $firewall_config_fn = "$tmpdir/fw.conf";
+	my $index_fn = "$tmpdir/index.json";
+
+	my $cmd = "restore";
+
+	my $param = [$pbs_backup_name, "index.json", $index_fn];
+	PVE::Storage::PBSPlugin::run_raw_client_cmd($scfg, $storeid, $cmd, $param);
+	my $index = PVE::Tools::file_get_contents($index_fn);
+	$index = decode_json($index);
+
+	# print Dumper($index);
+	foreach my $info (@{$index->{files}}) {
+	    if ($info->{filename} =~ m/^(drive-\S+).img.fidx$/) {
+		my $devname = $1;
+		if ($info->{size} =~ m/^(\d+)$/) { # untaint size
+		    $devinfo->{$devname}->{size} = $1;
+		} else {
+		    die "unable to parse file size in 'index.json' - got '$info->{size}'\n";
+		}
+	    }
+	}
+
+	my $is_qemu_server_backup = scalar(grep { $_->{filename} eq 'qemu-server.conf.blob' } @{$index->{files}});
+	if (!$is_qemu_server_backup) {
+	    die "backup does not look like a qemu-server backup (missing 'qemu-server.conf' file)\n";
+	}
+	my $has_firewall_config = scalar(grep { $_->{filename} eq 'fw.conf.blob' } @{$index->{files}});
+
+	$param = [$pbs_backup_name, "qemu-server.conf", $cfgfn];
+	PVE::Storage::PBSPlugin::run_raw_client_cmd($scfg, $storeid, $cmd, $param);
+
+	if ($has_firewall_config) {
+	    $param = [$pbs_backup_name, "fw.conf", $firewall_config_fn];
+	    PVE::Storage::PBSPlugin::run_raw_client_cmd($scfg, $storeid, $cmd, $param);
+
+	    my $pve_firewall_dir = '/etc/pve/firewall';
+	    mkdir $pve_firewall_dir; # make sure the dir exists
+	    PVE::Tools::file_copy($firewall_config_fn, "${pve_firewall_dir}/$vmid.fw");
+	}
+
+	my $fh = IO::File->new($cfgfn, "r") ||
+	    "unable to read qemu-server.conf - $!\n";
+
+	my $virtdev_hash = {};
+
+	while (defined(my $line = <$fh>)) {
+	    if ($line =~ m/^\#qmdump\#map:(\S+):(\S+):(\S*):(\S*):$/) {
+		my ($virtdev, $devname, $storeid, $format) = ($1, $2, $3, $4);
+		die "archive does not contain data for drive '$virtdev'\n"
+		    if !$devinfo->{$devname};
+
+		if (defined($options->{storage})) {
+		    $storeid = $options->{storage} || 'local';
+		} elsif (!$storeid) {
+		    $storeid = 'local';
+		}
+		$format = 'raw' if !$format;
+		$devinfo->{$devname}->{devname} = $devname;
+		$devinfo->{$devname}->{virtdev} = $virtdev;
+		$devinfo->{$devname}->{format} = $format;
+		$devinfo->{$devname}->{storeid} = $storeid;
+
+		# check permission on storage
+		my $pool = $options->{pool}; # todo: do we need that?
+		if ($user ne 'root@pam') {
+		    $rpcenv->check($user, "/storage/$storeid", ['Datastore.AllocateSpace']);
+		}
+
+		$virtdev_hash->{$virtdev} = $devinfo->{$devname};
+	    } elsif ($line =~ m/^((?:ide|sata|scsi)\d+):\s*(.*)\s*$/) {
+		# fixme: cloudinit
+		my $virtdev = $1;
+		my $drive = parse_drive($virtdev, $2);
+		if (drive_is_cloudinit($drive)) {
+		    my ($storeid, $volname) = PVE::Storage::parse_volume_id($drive->{file});
+		    my $scfg = PVE::Storage::storage_config($storecfg, $storeid);
+		    my $format = qemu_img_format($scfg, $volname); # has 'raw' fallback
+
+		    $virtdev_hash->{$virtdev} = {
+			format => $format,
+			storeid => $options->{storage} // $storeid,
+			size => PVE::QemuServer::Cloudinit::CLOUDINIT_DISK_SIZE,
+			is_cloudinit => 1,
+		    };
+		}
+	    }
+	}
+
+	# fixme: rate limit?
+
+	# create empty/temp config
+	PVE::Tools::file_set_contents($conffile, "memory: 128\nlock: create");
+
+	$restore_cleanup_oldconf->($storecfg, $vmid, $oldconf, $virtdev_hash) if $oldconf;
+
+	my $map = {};
+	foreach my $virtdev (sort keys %$virtdev_hash) {
+	    my $d = $virtdev_hash->{$virtdev};
+	    my $alloc_size = int(($d->{size} + 1024 - 1)/1024);
+	    my $storeid = $d->{storeid};
+	    my $scfg = PVE::Storage::storage_config($storecfg, $storeid);
+
+	    # test if requested format is supported
+	    my ($defFormat, $validFormats) = PVE::Storage::storage_default_format($storecfg, $storeid);
+	    my $supported = grep { $_ eq $d->{format} } @$validFormats;
+	    $d->{format} = $defFormat if !$supported;
+
+	    my $name;
+	    if ($d->{is_cloudinit}) {
+		$name = "vm-$vmid-cloudinit";
+		$name .= ".$d->{format}" if $d->{format} ne 'raw';
+	    }
+
+	    my $volid = PVE::Storage::vdisk_alloc($storecfg, $storeid, $vmid, $d->{format}, $name, $alloc_size);
+
+	    print STDERR "new volume ID is '$volid'\n";
+	    $d->{volid} = $volid;
+
+	    next if $d->{is_cloudinit}; # no need to restore cloudinit
+
+	    PVE::Storage::activate_volumes($storecfg, [$volid]);
+
+	    my $path = PVE::Storage::path($storecfg, $volid);
+	    if (PVE::Storage::volume_has_feature($storecfg, 'sparseinit', $volid)) {
+		#$path = "zeroinit:$path"; # fixme
+	    }
+
+	    my $pbs_restore_cmd = [
+		'/usr/bin/proxmox-backup-client',
+		'restore',
+		'--repository', $repo,
+		$pbs_backup_name,
+		"$d->{devname}.img",
+		'-',
+		'--verbose',
+		];
+
+	    my $import_cmd = [
+		'/usr/bin/qemu-img',
+		'dd', '-n', '-f', 'raw', '-O', $d->{format}, 'bs=64K',
+		'isize=0',
+		"osize=$d->{size}",
+		"of=$path",
+		];
+
+	    my $dbg_cmdstring = PVE::Tools::cmd2string($pbs_restore_cmd) . '|' . PVE::Tools::cmd2string($import_cmd);
+	    print "restore proxmox backup image: $dbg_cmdstring\n";
+	    run_command([$pbs_restore_cmd, $import_cmd]);
+
+	    $map->{$virtdev} = $volid;
+	}
+
+	$fh->seek(0, 0) || die "seek failed - $!\n";
+
+	my $outfd = new IO::File ($tmpfn, "w") ||
+	    die "unable to write config for VM $vmid\n";
+
+	my $cookie = { netcount => 0 };
+	while (defined(my $line = <$fh>)) {
+	    restore_update_config_line($outfd, $cookie, $vmid, $map, $line, $options->{unique});
+	}
+
+	$fh->close();
+	$outfd->close();
+    };
+    my $err = $@;
+
+    my $vollist = [];
+    foreach my $devname (keys %$devinfo) {
+	my $volid = $devinfo->{$devname}->{volid};
+	push @$vollist, $volid if $volid;
+    }
+
+    PVE::Storage::deactivate_volumes($storecfg, $vollist);
+
+    if ($err) {
+	unlink $tmpfn;
+	rmtree $tmpdir;
+
+	foreach my $devname (keys %$devinfo) {
+	    my $volid = $devinfo->{$devname}->{volid};
+	    next if !$volid;
+	    eval {
+		if ($volid =~ m|^/|) {
+		    unlink $volid || die 'unlink failed\n';
+		} else {
+		    PVE::Storage::vdisk_free($storecfg, $volid);
+		}
+		print STDERR "temporary volume '$volid' sucessfuly removed\n";
+	    };
+	    print STDERR "unable to cleanup '$volid' - $@" if $@;
+	}
+	die $err;
+    }
+
+    rmtree $tmpdir;
+
+    rename($tmpfn, $conffile) ||
+	die "unable to commit configuration file '$conffile'\n";
+
+    PVE::Cluster::cfs_update(); # make sure we read new file
+
+    eval { rescan($vmid, 1); };
+    warn $@ if $@;
 }
 
 sub restore_update_config_line {
@@ -5836,37 +6130,7 @@ sub restore_vma_archive {
 	# create empty/temp config
 	if ($oldconf) {
 	    PVE::Tools::file_set_contents($conffile, "memory: 128\n");
-	    foreach_drive($oldconf, sub {
-		my ($ds, $drive) = @_;
-
-		return if drive_is_cdrom($drive, 1);
-
-		my $volid = $drive->{file};
-		return if !$volid || $volid =~ m|^/|;
-
-		my ($path, $owner) = PVE::Storage::path($cfg, $volid);
-		return if !$path || !$owner || ($owner != $vmid);
-
-		# Note: only delete disk we want to restore
-		# other volumes will become unused
-		if ($virtdev_hash->{$ds}) {
-		    eval { PVE::Storage::vdisk_free($cfg, $volid); };
-		    if (my $err = $@) {
-			warn $err;
-		    }
-		}
-	    });
-
-	    # delete vmstate files, after the restore we have no snapshots anymore
-	    foreach my $snapname (keys %{$oldconf->{snapshots}}) {
-		my $snap = $oldconf->{snapshots}->{$snapname};
-		if ($snap->{vmstate}) {
-		    eval { PVE::Storage::vdisk_free($cfg, $snap->{vmstate}); };
-		    if (my $err = $@) {
-			warn $err;
-		    }
-		}
-	    }
+	    $restore_cleanup_oldconf->($cfg, $vmid, $oldconf, $virtdev_hash);
 	}
 
 	my $map = {};
