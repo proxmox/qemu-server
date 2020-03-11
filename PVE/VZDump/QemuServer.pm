@@ -604,6 +604,8 @@ sub archive_vma {
     }
 
     my $cpid;
+    my $backup_job_uuid;
+
     my $interrupt_msg = "interrupted by signal\n";
     eval {
 	$SIG{INT} = $SIG{TERM} = $SIG{QUIT} = $SIG{HUP} = $SIG{PIPE} = sub {
@@ -612,11 +614,9 @@ sub archive_vma {
 
 	my $qmpclient = PVE::QMPClient->new();
 
-	my $uuid;
-
 	my $backup_cb = sub {
 	    my ($vmid, $resp) = @_;
-	    $uuid = $resp->{return}->{UUID};
+	    $backup_job_uuid = $resp->{return}->{UUID};
 	};
 
 	my $outfh;
@@ -718,9 +718,9 @@ sub archive_vma {
 		die "close output file handle failed\n";
 	}
 
-	die "got no uuid for backup task\n" if !$uuid;
+	die "got no uuid for backup task\n" if !defined($backup_job_uuid);
 
-	$self->loginfo("started backup task '$uuid'");
+	$self->loginfo("started backup task '$backup_job_uuid'");
 
 	if ($resume_on_backup) {
 	    if (my $stoptime = $task->{vmstoptime}) {
@@ -733,16 +733,18 @@ sub archive_vma {
 	    mon_cmd($vmid, 'cont');
 	}
 
-	$query_backup_status_loop->($self, $vmid, $uuid);
+	$query_backup_status_loop->($self, $vmid, $backup_job_uuid);
     };
     my $err = $@;
 
     if ($err) {
 	$self->logerr($err);
-	$self->loginfo("aborting backup job");
-	eval { mon_cmd($vmid, 'backup-cancel'); };
-	if (my $err1 = $@) {
-	    $self->logerr($err1);
+	if (defined($backup_job_uuid)) {
+	    $self->loginfo("aborting backup job");
+	    eval { mon_cmd($vmid, 'backup-cancel'); };
+	    if (my $err1 = $@) {
+		$self->logerr($err1);
+	    }
 	}
     }
 
