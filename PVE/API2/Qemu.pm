@@ -1471,10 +1471,12 @@ __PACKAGE__->register_method({
 	my $conf = PVE::QemuConfig->load_config($vmid);
 	my $storecfg = PVE::Storage::config();
 	PVE::QemuConfig->check_protection($conf, "can't remove VM $vmid");
-	die "unable to remove VM $vmid - used in HA resources\n"
-	    if PVE::HA::Config::vm_is_ha_managed($vmid);
+
+	my $ha_managed = PVE::HA::Config::service_is_configured("vm:$vmid");
 
 	if (!$param->{purge}) {
+	    die "unable to remove VM $vmid - used in HA resources and purge parameter not set.\n"
+		if $ha_managed;
 	    # don't allow destroy if with replication jobs but no purge param
 	    my $repl_conf = PVE::ReplicationConfig->new();
 	    $repl_conf->check_for_existing_jobs($vmid);
@@ -1497,8 +1499,14 @@ __PACKAGE__->register_method({
 		PVE::AccessControl::remove_vm_access($vmid);
 		PVE::Firewall::remove_vmfw_conf($vmid);
 		if ($param->{purge}) {
+		    print "purging VM $vmid from related configurations..\n";
 		    PVE::ReplicationConfig::remove_vmid_jobs($vmid);
 		    PVE::VZDump::Plugin::remove_vmid_from_backup_jobs($vmid);
+
+		    if ($ha_managed) {
+			PVE::HA::Config::delete_service_from_config("vm:$vmid");
+			print "NOTE: removed VM $vmid from HA resource configuration.\n";
+		    }
 		}
 
 		# only now remove the zombie config, else we can have reuse race
