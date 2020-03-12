@@ -355,9 +355,20 @@ for (my $i = 0; $i < $MAX_VIRTIO_DISKS; $i++)  {
 
 $drivedesc_hash->{efidisk0} = $efidisk_desc;
 
+my $unused_fmt = {
+    volume => { alias => 'file' },
+    file => {
+	type => 'string',
+	format => 'pve-volume-id',
+	default_key => 1,
+	format_description => 'volume',
+	description => "The drive's backing volume.",
+    },
+};
+
 our $unuseddesc = {
     optional => 1,
-    type => 'string', format => 'pve-volume-id',
+    type => 'string', format => $unused_fmt,
     description => "Reference to unused volumes. This is used internally, and should not be modified manually.",
 };
 
@@ -418,7 +429,7 @@ sub parse_drive {
 	return undef;
     }
 
-    my $desc = $key =~ /^unused\d+$/ ? $alldrive_fmt
+    my $desc = $key =~ /^unused\d+$/ ? $unuseddesc->{format}
                                      : $drivedesc_hash->{$key}->{format};
     if (!$desc) {
 	warn "invalid drive key: $key\n";
