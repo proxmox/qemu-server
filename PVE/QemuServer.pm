@@ -3256,11 +3256,11 @@ sub config_to_command {
 
 	my $id = $audio->{dev_id};
 	if ($audio->{dev} eq 'AC97') {
-	    push @$devices, '-device', "AC97,id=${id}${audiopciaddr}";
+	    push @$devices, '-device', "AC97,id=${id}${audiopciaddr},audiodev=$audio->{backend_id}";
 	} elsif ($audio->{dev} =~ /intel\-hda$/) {
 	    push @$devices, '-device', "$audio->{dev},id=${id}${audiopciaddr}";
-	    push @$devices, '-device', "hda-micro,id=${id}-codec0,bus=${id}.0,cad=0";
-	    push @$devices, '-device', "hda-duplex,id=${id}-codec1,bus=${id}.0,cad=1";
+	    push @$devices, '-device', "hda-micro,id=${id}-codec0,bus=${id}.0,cad=0,audiodev=$audio->{backend_id}";
+	    push @$devices, '-device', "hda-duplex,id=${id}-codec1,bus=${id}.0,cad=1,audiodev=$audio->{backend_id}";
 	} else {
 	    die "unkown audio device '$audio->{dev}', implement me!";
 	}
