@@ -6529,7 +6529,7 @@ sub qemu_img_format {
 }
 
 sub qemu_drive_mirror {
-    my ($vmid, $drive, $dst_volid, $vmiddst, $is_zero_initialized, $jobs, $completion, $qga, $bwlimit) = @_;
+    my ($vmid, $drive, $dst_volid, $vmiddst, $is_zero_initialized, $jobs, $completion, $qga, $bwlimit, $src_bitmap) = @_;
 
     $jobs = {} if !$jobs;
 
@@ -6555,6 +6555,12 @@ sub qemu_drive_mirror {
 
     my $opts = { timeout => 10, device => "drive-$drive", mode => "existing", sync => "full", target => $qemu_target };
     $opts->{format} = $format if $format;
+
+    if (defined($src_bitmap)) {
+	$opts->{sync} = 'incremental';
+	$opts->{bitmap} = $src_bitmap;
+	print "drive mirror re-using dirty bitmap '$src_bitmap'\n";
+    }
 
     if (defined($bwlimit)) {
 	$opts->{speed} = $bwlimit * 1024;
