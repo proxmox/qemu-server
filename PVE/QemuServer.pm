@@ -4755,11 +4755,18 @@ sub vm_start {
 		$local_volumes->{$ds} = [$volid, $storeid, $volname];
 	    });
 
+	    my $replicatable_volumes = PVE::QemuConfig->get_replicatable_volumes($storecfg, $vmid, $conf);
+
 	    my $format = undef;
 
 	    foreach my $opt (sort keys %$local_volumes) {
 
 		my ($volid, $storeid, $volname) = @{$local_volumes->{$opt}};
+		if ($replicatable_volumes->{$volid}) {
+		    # re-use existing, replicated volume with bitmap on source side
+		    $local_volumes->{$opt} = $conf->{${opt}};
+		    next;
+		}
 		my $drive = parse_drive($opt, $conf->{$opt});
 
 		# If a remote storage is specified and the format of the original

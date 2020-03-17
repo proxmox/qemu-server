@@ -447,8 +447,30 @@ sub sync_disks {
 
 	my $rep_cfg = PVE::ReplicationConfig->new();
 	if (my $jobcfg = $rep_cfg->find_local_replication_job($vmid, $self->{node})) {
-	    die "can't live migrate VM with replicated volumes\n" if $self->{running};
+	    if ($self->{running}) {
+		my $live_replicatable_volumes = {};
+		PVE::QemuServer::foreach_drive($conf, sub {
+		    my ($ds, $drive) = @_;
+
+		    my $volid = $drive->{file};
+		    $live_replicatable_volumes->{$ds} = $volid
+			if defined($replicatable_volumes->{$volid});
+		});
+		foreach my $drive (keys %$live_replicatable_volumes) {
+		    my $volid = $live_replicatable_volumes->{$drive};
+
+		    my $bitmap = "repl_$drive";
+
+		    # start tracking before replication to get full delta + a few duplicates
+		    $self->log('info', "$drive: start tracking writes using block-dirty-bitmap '$bitmap'");
+		    mon_cmd($vmid, 'block-dirty-bitmap-add', node => "drive-$drive", name => $bitmap);
+
+		    # other info comes from target node in phase 2
+		    $self->{target_drive}->{$drive}->{bitmap} = $bitmap;
+		}
+	    }
 	    $self->log('info', "replicating disk images");
+
 	    my $start_time = time();
 	    my $logfunc = sub { $self->log('info', shift) };
 	    $self->{replicated_volumes} = PVE::Replication::run_replication(
@@ -503,6 +525,8 @@ sub cleanup_remotedisks {
     my ($self) = @_;
 
     foreach my $target_drive (keys %{$self->{target_drive}}) {
+	# don't clean up replicated disks!
+	next if defined($self->{target_drive}->{$target_drive}->{bitmap});
 
 	my $drive = PVE::QemuServer::parse_drive($target_drive, $self->{target_drive}->{$target_drive}->{drivestr});
 	my ($storeid, $volname) = PVE::Storage::parse_volume_id($drive->{file});
@@ -514,6 +538,16 @@ sub cleanup_remotedisks {
 	    $self->log('err', $err);
 	    $self->{errors} = 1;
 	}
+    }
+}
+
+sub cleanup_bitmaps {
+    my ($self) = @_;
+    foreach my $drive (%{$self->{target_drive}}) {
+	my $bitmap = $self->{target_drive}->{$drive}->{bitmap};
+	next if !$bitmap;
+	$self->log('info', "$drive: removing block-dirty-bitmap '$bitmap'");
+	mon_cmd($self->{vmid}, 'block-dirty-bitmap-remove', node => "drive-$drive", name => $bitmap);
     }
 }
 
@@ -553,6 +587,12 @@ sub phase1_cleanup {
 	    # fixme: try to remove ?
 	}
     }
+
+    eval { $self->cleanup_bitmaps() };
+    if (my $err =$@) {
+	$self->log('err', $err);
+    }
+
 }
 
 sub phase2 {
@@ -737,9 +777,10 @@ sub phase2 {
 	    my $target_sid = PVE::Storage::Plugin::parse_volume_id($target_drive->{file});
 
 	    my $bwlimit = PVE::Storage::get_bandwidth_limit('migration', [$source_sid, $target_sid], $opt_bwlimit);
+	    my $bitmap = $target->{bitmap};
 
 	    $self->log('info', "$drive: start migration to $nbd_uri");
-	    PVE::QemuServer::qemu_drive_mirror($vmid, $drive, $nbd_uri, $vmid, undef, $self->{storage_migration_jobs}, 'skip', undef, $bwlimit);
+	    PVE::QemuServer::qemu_drive_mirror($vmid, $drive, $nbd_uri, $vmid, undef, $self->{storage_migration_jobs}, 'skip', undef, $bwlimit, $bitmap);
 	}
     }
 
@@ -957,6 +998,10 @@ sub phase2_cleanup {
 	if (my $err = $@) {
 	    $self->log('err', $err);
 	}
+	eval { $self->cleanup_bitmaps() };
+	if (my $err =$@) {
+	    $self->log('err', $err);
+	}
     }
 
     my $nodename = PVE::INotify::nodename();
@@ -1118,6 +1163,9 @@ sub phase3_cleanup {
 	my $volids = $self->{online_local_volumes};
 
 	foreach my $volid (@$volids) {
+	    # keep replicated volumes!
+	    next if $self->{replicated_volumes}->{$volid};
+
 	    eval { PVE::Storage::vdisk_free($self->{storecfg}, $volid); };
 	    if (my $err = $@) {
 		$self->log('err', "removing local copy of '$volid' failed - $err");
