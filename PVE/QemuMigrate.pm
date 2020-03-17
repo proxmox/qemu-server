@@ -326,6 +326,8 @@ sub sync_disks {
 	    });
 	}
 
+	my $replicatable_volumes = PVE::QemuConfig->get_replicatable_volumes($self->{storecfg}, $self->{vmid}, $conf);
+
 	my $test_volid = sub {
 	    my ($volid, $attr) = @_;
 
@@ -399,19 +401,20 @@ sub sync_disks {
         });
 
 	foreach my $vol (sort keys %$local_volumes) {
+	    my $type = $replicatable_volumes->{$vol} ? 'local, replicated' : 'local';
 	    my $ref = $local_volumes->{$vol}->{ref};
 	    if ($ref eq 'storage') {
-		$self->log('info', "found local disk '$vol' (via storage)\n");
+		$self->log('info', "found $type disk '$vol' (via storage)\n");
 	    } elsif ($ref eq 'config') {
 		&$log_error("can't live migrate attached local disks without with-local-disks option\n", $vol)
 		    if $self->{running} && !$self->{opts}->{"with-local-disks"};
-		$self->log('info', "found local disk '$vol' (in current VM config)\n");
+		$self->log('info', "found $type disk '$vol' (in current VM config)\n");
 	    } elsif ($ref eq 'snapshot') {
-		$self->log('info', "found local disk '$vol' (referenced by snapshot(s))\n");
+		$self->log('info', "found $type disk '$vol' (referenced by snapshot(s))\n");
 	    } elsif ($ref eq 'generated') {
 		$self->log('info', "found generated disk '$vol' (in current VM config)\n");
 	    } else {
-		$self->log('info', "found local disk '$vol'\n");
+		$self->log('info', "found $type disk '$vol'\n");
 	    }
 	}
 
