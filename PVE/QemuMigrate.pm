@@ -703,7 +703,7 @@ sub phase2 {
 	    my $bwlimit = PVE::Storage::get_bandwidth_limit('migration', [$source_sid, $target_sid], $opt_bwlimit);
 
 	    $self->log('info', "$drive: start migration to $nbd_uri");
-	    PVE::QemuServer::qemu_drive_mirror($vmid, $drive, $nbd_uri, $vmid, undef, $self->{storage_migration_jobs}, 1, undef, $bwlimit);
+	    PVE::QemuServer::qemu_drive_mirror($vmid, $drive, $nbd_uri, $vmid, undef, $self->{storage_migration_jobs}, 'skip', undef, $bwlimit);
 	}
     }
 
@@ -968,7 +968,7 @@ sub phase3_cleanup {
 
     if ($self->{storage_migration}) {
 	# finish block-job
-	eval { PVE::QemuServer::qemu_drive_mirror_monitor($vmid, undef, $self->{storage_migration_jobs}); };
+	eval { PVE::QemuServer::qemu_drive_mirror_monitor($vmid, undef, $self->{storage_migration_jobs}, 'wait_noswap'); };
 
 	if (my $err = $@) {
 	    eval { PVE::QemuServer::qemu_blockjobs_cancel($vmid, $self->{storage_migration_jobs}) };

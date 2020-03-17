@@ -6521,7 +6521,7 @@ sub qemu_img_format {
 }
 
 sub qemu_drive_mirror {
-    my ($vmid, $drive, $dst_volid, $vmiddst, $is_zero_initialized, $jobs, $skipcomplete, $qga, $bwlimit) = @_;
+    my ($vmid, $drive, $dst_volid, $vmiddst, $is_zero_initialized, $jobs, $completion, $qga, $bwlimit) = @_;
 
     $jobs = {} if !$jobs;
 
@@ -6563,11 +6563,13 @@ sub qemu_drive_mirror {
 	die "mirroring error: $err\n";
     }
 
-    qemu_drive_mirror_monitor ($vmid, $vmiddst, $jobs, $skipcomplete, $qga);
+    qemu_drive_mirror_monitor ($vmid, $vmiddst, $jobs, $completion, $qga);
 }
 
 sub qemu_drive_mirror_monitor {
-    my ($vmid, $vmiddst, $jobs, $skipcomplete, $qga) = @_;
+    my ($vmid, $vmiddst, $jobs, $completion, $qga) = @_;
+
+    $completion //= 'wait'; # same semantic as with 'skipcomplete' before
 
     eval {
 	my $err_complete = 0;
@@ -6612,7 +6614,7 @@ sub qemu_drive_mirror_monitor {
 
 	    if ($readycounter == scalar(keys %$jobs)) {
 		print "all mirroring jobs are ready \n";
-		last if $skipcomplete; #do the complete later
+		last if $completion eq 'skip'; #do the complete later
 
 		if ($vmiddst && $vmiddst != $vmid) {
 		    my $agent_running = $qga && qga_check_running($vmid);
@@ -6642,7 +6644,15 @@ sub qemu_drive_mirror_monitor {
 			# try to switch the disk if source and destination are on the same guest
 			print "$job: Completing block job...\n";
 
-			eval { mon_cmd($vmid, "block-job-complete", device => $job) };
+			my $op;
+			if ($completion eq 'wait') {
+			    $op = 'block-job-complete';
+			} elsif ($completion eq 'wait_noswap') {
+			    $op = 'block-job-cancel';
+			} else {
+			    die "invalid completion value: $completion\n";
+			}
+			eval { mon_cmd($vmid, $op, device => $job) };
 			if ($@ =~ m/cannot be completed/) {
 			    print "$job: Block job cannot be completed, try again.\n";
 			    $err_complete++;
