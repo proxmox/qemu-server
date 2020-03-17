@@ -142,7 +142,10 @@ sub write_tunnel {
 sub fork_tunnel {
     my ($self, $tunnel_addr) = @_;
 
-    my @localtunnelinfo = defined($tunnel_addr) ? ('-L' , $tunnel_addr ) : ();
+    my @localtunnelinfo = ();
+    foreach my $addr (@$tunnel_addr) {
+	push @localtunnelinfo, '-L', $addr;
+    }
 
     my $cmd = [@{$self->{rem_ssh}}, '-o ExitOnForwardFailure=yes', @localtunnelinfo, '/usr/sbin/qm', 'mtunnel' ];
 
@@ -184,7 +187,7 @@ sub finish_tunnel {
 
     if ($tunnel->{sock_addr}) {
 	# ssh does not clean up on local host
-	my $cmd = ['rm', '-f', $tunnel->{sock_addr}]; #
+	my $cmd = ['rm', '-f', @{$tunnel->{sock_addr}}]; #
 	PVE::Tools::run_command($cmd);
 
 	# .. and just to be sure check on remote side
@@ -594,10 +597,16 @@ sub phase2 {
     }
 
     my $spice_port;
+    my $tunnel_addr = [];
+    my $sock_addr = [];
+    # version > 0 for unix socket support
+    my $nbd_protocol_version = 1;
+    my $input = "nbd_protocol_version: $nbd_protocol_version\n";
+    $input .= "spice_ticket: $spice_ticket\n" if $spice_ticket;
 
     # Note: We try to keep $spice_ticket secret (do not pass via command line parameter)
     # instead we pipe it through STDIN
-    my $exitcode = PVE::Tools::run_command($cmd, input => $spice_ticket, outfunc => sub {
+    my $exitcode = PVE::Tools::run_command($cmd, input => $input, outfunc => sub {
 	my $line = shift;
 
 	if ($line =~ m/^migration listens on tcp:(localhost|[\d\.]+|\[[\d\.:a-fA-F]+\]):(\d+)$/) {
@@ -626,7 +635,18 @@ sub phase2 {
 
 	    $self->{target_drive}->{$targetdrive}->{drivestr} = $drivestr;
 	    $self->{target_drive}->{$targetdrive}->{nbd_uri} = $nbd_uri;
+	} elsif ($line =~ m!^storage migration listens on nbd:unix:(/run/qemu-server/(\d+)_nbd\.migrate):exportname=(\S+) volume:(\S+)$!) {
+	    my $drivestr = $4;
+	    die "Destination UNIX socket's VMID does not match source VMID" if $vmid ne $2;
+	    my $nbd_unix_addr = $1;
+	    my $nbd_uri = "nbd:unix:$nbd_unix_addr:exportname=$3";
+	    my $targetdrive = $3;
+	    $targetdrive =~ s/drive-//g;
 
+	    $self->{target_drive}->{$targetdrive}->{drivestr} = $drivestr;
+	    $self->{target_drive}->{$targetdrive}->{nbd_uri} = $nbd_uri;
+	    push @$tunnel_addr, "$nbd_unix_addr:$nbd_unix_addr";
+	    push @$sock_addr, $nbd_unix_addr;
 	} elsif ($line =~ m/^QEMU: (.*)$/) {
 	    $self->log('info', "[$self->{node}] $1\n");
 	}
@@ -645,19 +665,30 @@ sub phase2 {
 
 	if ($ruri =~ /^unix:/) {
 	    unlink $raddr;
-	    $self->{tunnel} = $self->fork_tunnel("$raddr:$raddr");
-	    $self->{tunnel}->{sock_addr} = $raddr;
+	    push @$tunnel_addr, "$raddr:$raddr";
+	    $self->{tunnel} = $self->fork_tunnel($tunnel_addr);
+	    push @$sock_addr, $raddr;
 
 	    my $unix_socket_try = 0; # wait for the socket to become ready
-	    while (! -S $raddr) {
+	    while ($unix_socket_try <= 100) {
 		$unix_socket_try++;
-		if ($unix_socket_try > 100) {
-		    $self->{errors} = 1;
-		    $self->finish_tunnel($self->{tunnel});
-		    die "Timeout, migration socket $ruri did not get ready";
+		my $available = 0;
+		foreach my $sock (@$sock_addr) {
+		    if (-S $sock) {
+			$available++;
+		    }
+		}
+
+		if ($available == @$sock_addr) {
+		    last;
 		}
 
 		usleep(50000);
+	    }
+	    if ($unix_socket_try > 100) {
+		$self->{errors} = 1;
+		$self->finish_tunnel($self->{tunnel});
+		die "Timeout, migration socket $ruri did not get ready";
 	    }
 
 	} elsif ($ruri =~ /^tcp:/) {
@@ -678,6 +709,7 @@ sub phase2 {
 	#fork tunnel for insecure migration, to send faster commands like resume
 	$self->{tunnel} = $self->fork_tunnel();
     }
+    $self->{tunnel}->{sock_addr} = $sock_addr if (@$sock_addr);
 
     my $start = time();
 
