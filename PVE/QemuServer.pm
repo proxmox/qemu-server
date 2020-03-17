@@ -4707,7 +4707,8 @@ sub vmconfig_update_disk {
 
 sub vm_start {
     my ($storecfg, $vmid, $statefile, $skiplock, $migratedfrom, $paused,
-	$forcemachine, $spice_ticket, $migration_network, $migration_type, $targetstorage, $timeout) = @_;
+	$forcemachine, $spice_ticket, $migration_network, $migration_type,
+	$targetstorage, $timeout, $nbd_protocol_version) = @_;
 
     PVE::QemuConfig->lock_config($vmid, sub {
 	my $conf = PVE::QemuConfig->load_config($vmid, $migratedfrom);
@@ -4985,20 +4986,33 @@ sub vm_start {
 
 	#start nbd server for storage migration
 	if ($targetstorage) {
-	    my $nodename = nodename();
-	    my $localip = $get_migration_ip->($migration_network, $nodename);
-	    my $pfamily = PVE::Tools::get_host_address_family($nodename);
-	    my $storage_migrate_port = PVE::Tools::next_migrate_port($pfamily);
+	    $nbd_protocol_version //= 0;
 
-	    mon_cmd($vmid, "nbd-server-start", addr => { type => 'inet', data => { host => "${localip}", port => "${storage_migrate_port}" } } );
+	    my $migrate_storage_uri;
+	    # nbd_protocol_version > 0 for unix socket support
+	    if ($nbd_protocol_version > 0 && $migration_type eq 'secure') {
+		my $socket_path = "/run/qemu-server/$vmid\_nbd.migrate";
+		mon_cmd($vmid, "nbd-server-start", addr => { type => 'unix', data => { path => $socket_path } } );
+		$migrate_storage_uri = "nbd:unix:$socket_path";
+	    } else {
+		my $nodename = nodename();
+		my $localip = $get_migration_ip->($migration_network, $nodename);
+		my $pfamily = PVE::Tools::get_host_address_family($nodename);
+		my $storage_migrate_port = PVE::Tools::next_migrate_port($pfamily);
 
-	    $localip = "[$localip]" if Net::IP::ip_is_ipv6($localip);
+		mon_cmd($vmid, "nbd-server-start", addr => { type => 'inet', data => { host => "${localip}", port => "${storage_migrate_port}" } } );
+		$localip = "[$localip]" if Net::IP::ip_is_ipv6($localip);
+		$migrate_storage_uri = "nbd:${localip}:${storage_migrate_port}";
+	    }
 
 	    foreach my $opt (sort keys %$local_volumes) {
 		my $drivestr = $local_volumes->{$opt};
 		mon_cmd($vmid, "nbd-server-add", device => "drive-$opt", writable => JSON::true );
-		my $migrate_storage_uri = "nbd:${localip}:${storage_migrate_port}:exportname=drive-$opt";
-		print "storage migration listens on $migrate_storage_uri volume:$drivestr\n";
+		if ($nbd_protocol_version > 0 && $migration_type eq 'secure') {
+		    print "storage migration listens on $migrate_storage_uri:exportname=drive-$opt volume:$drivestr\n";
+		} else {
+		    print "storage migration listens on $migrate_storage_uri:exportname=drive-$opt volume:$drivestr\n";
+		}
 	    }
 	}
 
