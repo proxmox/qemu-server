@@ -337,6 +337,23 @@ my $efidisk_desc = {
 
 PVE::JSONSchema::register_standard_option("pve-qm-efidisk", $efidisk_desc);
 
+my $unused_fmt = {
+    volume => { alias => 'file' },
+    file => {
+	type => 'string',
+	format => 'pve-volume-id',
+	default_key => 1,
+	format_description => 'volume',
+	description => "The drive's backing volume.",
+    },
+};
+
+my $unuseddesc = {
+    optional => 1,
+    type => 'string', format => $unused_fmt,
+    description => "Reference to unused volumes. This is used internally, and should not be modified manually.",
+};
+
 for (my $i = 0; $i < $MAX_IDE_DISKS; $i++)  {
     $drivedesc_hash->{"ide$i"} = $idedesc;
 }
@@ -355,22 +372,9 @@ for (my $i = 0; $i < $MAX_VIRTIO_DISKS; $i++)  {
 
 $drivedesc_hash->{efidisk0} = $efidisk_desc;
 
-my $unused_fmt = {
-    volume => { alias => 'file' },
-    file => {
-	type => 'string',
-	format => 'pve-volume-id',
-	default_key => 1,
-	format_description => 'volume',
-	description => "The drive's backing volume.",
-    },
-};
-
-our $unuseddesc = {
-    optional => 1,
-    type => 'string', format => $unused_fmt,
-    description => "Reference to unused volumes. This is used internally, and should not be modified manually.",
-};
+for (my $i = 0; $i < $MAX_UNUSED_DISKS; $i++) {
+    $drivedesc_hash->{"unused$i"} = $unuseddesc;
+}
 
 sub valid_drive_names {
     # order is important - used to autoselect boot disk
@@ -384,7 +388,7 @@ sub valid_drive_names {
 sub is_valid_drivename {
     my $dev = shift;
 
-    return defined($drivedesc_hash->{$dev});
+    return defined($drivedesc_hash->{$dev}) && $dev !~ /^unused\d+$/;
 }
 
 PVE::JSONSchema::register_format('pve-qm-bootdisk', \&verify_bootdisk);
@@ -429,12 +433,12 @@ sub parse_drive {
 	return undef;
     }
 
-    my $desc = $key =~ /^unused\d+$/ ? $unuseddesc->{format}
-                                     : $drivedesc_hash->{$key}->{format};
-    if (!$desc) {
+    if (!defined($drivedesc_hash->{$key})) {
 	warn "invalid drive key: $key\n";
 	return undef;
     }
+
+    my $desc = $drivedesc_hash->{$key}->{format};
     my $res = eval { PVE::JSONSchema::parse_property_string($desc, $data) };
     return undef if !$res;
     $res->{interface} = $interface;

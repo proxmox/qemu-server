@@ -1091,10 +1091,6 @@ for my $key (keys %{$PVE::QemuServer::Drive::drivedesc_hash}) {
     $confdesc->{$key} = $PVE::QemuServer::Drive::drivedesc_hash->{$key};
 }
 
-for (my $i = 0; $i < $PVE::QemuServer::Drive::MAX_UNUSED_DISKS; $i++) {
-    $confdesc->{"unused$i"} = $PVE::QemuServer::Drive::unuseddesc;
-}
-
 for (my $i = 0; $i < $MAX_USB_DEVICES; $i++)  {
     $confdesc->{"usb$i"} = $usbdesc;
 }
