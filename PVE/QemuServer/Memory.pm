@@ -321,11 +321,8 @@ sub config {
 	    push @$cmd, "-object" , $mem_object;
 	    push @$cmd, "-device", "pc-dimm,id=$name,memdev=mem-$name,node=$numanode";
 
-	    #if dimm_memory is not aligned to dimm map
-	    if($current_size > $memory) {
-	         $conf->{memory} = $current_size;
-	         PVE::QemuConfig->write_config($vmid, $conf);
-	    }
+	    die "memory size ($memory) must be aligned to $dimm_size for hotplugging\n"
+		if $current_size > $memory;
 	});
     }
 }
