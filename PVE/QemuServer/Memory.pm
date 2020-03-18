@@ -225,6 +225,12 @@ sub config {
     if ($hotplug_features->{memory}) {
 	die "NUMA needs to be enabled for memory hotplug\n" if !$conf->{numa};
 	die "Total memory is bigger than ${MAX_MEM}MB\n" if $memory > $MAX_MEM;
+
+	for (my $i = 0; $i < $MAX_NUMA; $i++) {
+	    die "cannot enable memory hotplugging with custom NUMA topology\n"
+		if $conf->{"numa$i"};
+	}
+
 	my $sockets = 1;
 	$sockets = $conf->{sockets} if $conf->{sockets};
 
