@@ -5008,11 +5008,7 @@ sub vm_start {
 	    foreach my $opt (sort keys %$local_volumes) {
 		my $drivestr = $local_volumes->{$opt};
 		mon_cmd($vmid, "nbd-server-add", device => "drive-$opt", writable => JSON::true );
-		if ($nbd_protocol_version > 0 && $migration_type eq 'secure') {
-		    print "storage migration listens on $migrate_storage_uri:exportname=drive-$opt volume:$drivestr\n";
-		} else {
-		    print "storage migration listens on $migrate_storage_uri:exportname=drive-$opt volume:$drivestr\n";
-		}
+		print "storage migration listens on $migrate_storage_uri:exportname=drive-$opt volume:$drivestr\n";
 	    }
 	}
 
