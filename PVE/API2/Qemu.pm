@@ -2947,7 +2947,7 @@ __PACKAGE__->register_method({
 		    foreach my $opt (keys %$drives) {
 			my $drive = $drives->{$opt};
 			my $skipcomplete = ($total_jobs != $i); # finish after last drive
-			my $completion = $skipcomplete ? 'skip' : 'wait';
+			my $completion = $skipcomplete ? 'skip' : 'complete';
 
 			my $src_sid = PVE::Storage::parse_volume_id($drive->{file});
 			my $storage_list = [ $src_sid ];

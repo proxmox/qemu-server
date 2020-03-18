@@ -6580,10 +6580,14 @@ sub qemu_drive_mirror {
     qemu_drive_mirror_monitor ($vmid, $vmiddst, $jobs, $completion, $qga);
 }
 
+# $completion can be either
+# 'complete': wait until all jobs are ready, block-job-complete them (default)
+# 'cancel': wait until all jobs are ready, block-job-cancel them
+# 'skip': wait until all jobs are ready, return with block jobs in ready state
 sub qemu_drive_mirror_monitor {
     my ($vmid, $vmiddst, $jobs, $completion, $qga) = @_;
 
-    $completion //= 'wait'; # same semantic as with 'skipcomplete' before
+    $completion //= 'complete';
 
     eval {
 	my $err_complete = 0;
@@ -6659,9 +6663,9 @@ sub qemu_drive_mirror_monitor {
 			print "$job: Completing block job...\n";
 
 			my $op;
-			if ($completion eq 'wait') {
+			if ($completion eq 'complete') {
 			    $op = 'block-job-complete';
-			} elsif ($completion eq 'wait_noswap') {
+			} elsif ($completion eq 'cancel') {
 			    $op = 'block-job-cancel';
 			} else {
 			    die "invalid completion value: $completion\n";
@@ -6722,7 +6726,7 @@ sub qemu_blockjobs_cancel {
 
 sub clone_disk {
     my ($storecfg, $vmid, $running, $drivename, $drive, $snapname,
-	$newvmid, $storage, $format, $full, $newvollist, $jobs, $skipcomplete, $qga, $bwlimit) = @_;
+	$newvmid, $storage, $format, $full, $newvollist, $jobs, $completion, $qga, $bwlimit) = @_;
 
     my $newvolid;
 
@@ -6767,7 +6771,7 @@ sub clone_disk {
 		    if $drive->{iothread};
 	    }
 
-	    qemu_drive_mirror($vmid, $drivename, $newvolid, $newvmid, $sparseinit, $jobs, $skipcomplete, $qga, $bwlimit);
+	    qemu_drive_mirror($vmid, $drivename, $newvolid, $newvmid, $sparseinit, $jobs, $completion, $qga, $bwlimit);
 	}
     }
 

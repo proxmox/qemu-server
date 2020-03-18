@@ -999,8 +999,8 @@ sub phase3_cleanup {
     my $tunnel = $self->{tunnel};
 
     if ($self->{storage_migration}) {
-	# finish block-job
-	eval { PVE::QemuServer::qemu_drive_mirror_monitor($vmid, undef, $self->{storage_migration_jobs}, 'wait_noswap'); };
+	# finish block-job with block-job-cancel, to disconnect source VM from NBD
+	eval { PVE::QemuServer::qemu_drive_mirror_monitor($vmid, undef, $self->{storage_migration_jobs}, 'cancel'); };
 
 	if (my $err = $@) {
 	    eval { PVE::QemuServer::qemu_blockjobs_cancel($vmid, $self->{storage_migration_jobs}) };
