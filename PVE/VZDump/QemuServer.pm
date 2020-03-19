@@ -412,18 +412,7 @@ sub archive_pbs {
 	    die $interrupt_msg;
 	};
 
-	my $agent_running = 0;
-
-	if ($self->{vmlist}->{$vmid}->{agent} && $vm_is_running) {
-	    $agent_running = PVE::QemuServer::qga_check_running($vmid);
-	}
-
-	if ($agent_running){
-	    eval { mon_cmd($vmid, "guest-fsfreeze-freeze"); };
-	    if (my $err = $@) {
-		$self->logerr($err);
-	    }
-	}
+	my $fs_frozen = $self->qga_fs_freeze($vmid);
 
 	eval {
 
@@ -444,15 +433,11 @@ sub archive_pbs {
 
 	my $qmperr = $@;
 
-	if ($agent_running){
-	    eval { mon_cmd($vmid, "guest-fsfreeze-thaw"); };
-	    if (my $err = $@) {
-		$self->logerr($err);
-	    }
+	if ($fs_frozen) {
+	    $self->qga_fs_thaw($vmid);
 	}
 
 	die $qmperr if $qmperr;
-
 	die "got no uuid for backup task\n" if !defined($backup_job_uuid);
 
 	$self->loginfo("started backup task '$backup_job_uuid'");
@@ -667,31 +652,13 @@ sub archive_vma {
 	$qmpclient->queue_cmd($vmid, $add_fd_cb, 'getfd',
 			      fd => $outfileno, fdname => "backup");
 
-	my $agent_running = 0;
-
-	if ($self->{vmlist}->{$vmid}->{agent} && $vm_is_running) {
-	    $agent_running = PVE::QemuServer::qga_check_running($vmid);
-	    $self->loginfo("skipping guest-agent 'fs-freeze', agent configured but not running?")
-		if !$agent_running;
-	}
-
-	if ($agent_running){
-	    $self->loginfo("issuing guest-agent 'fs-freeze' command");
-	    eval { mon_cmd($vmid, "guest-fsfreeze-freeze"); };
-	    if (my $err = $@) {
-		$self->logerr($err);
-	    }
-	}
+	my $fs_frozen = $self->qga_fs_freeze($vmid);
 
 	eval { $qmpclient->queue_execute(30) };
 	my $qmperr = $@;
 
-	if ($agent_running){
-	    $self->loginfo("issuing guest-agent 'fs-thaw' command");
-	    eval { mon_cmd($vmid, "guest-fsfreeze-thaw"); };
-	    if (my $err = $@) {
-		$self->logerr($err);
-	    }
+	if ($fs_frozen) {
+	    $self->qga_fs_thaw($vmid);
 	}
 	die $qmperr if $qmperr;
 	die $qmpclient->{errors}->{$vmid} if $qmpclient->{errors}->{$vmid};
@@ -778,6 +745,31 @@ sub _get_task_devlist {
 	}
     }
     return $devlist;
+}
+
+sub qga_fs_freeze {
+    my ($self, $vmid) = @_;
+    return if !$self->{vmlist}->{$vmid}->{agent} || !$self->{vm_was_running};
+
+    if (!PVE::QemuServer::qga_check_running($vmid, 1)) {
+	$self->loginfo("skipping guest-agent 'fs-freeze', agent configured but not running?");
+	return;
+    }
+
+    $self->loginfo("issuing guest-agent 'fs-freeze' command");
+    eval { mon_cmd($vmid, "guest-fsfreeze-freeze") };
+    $self->logerr($@) if $@;
+
+    return 1; # even on mon command error, ensure we always thaw again
+}
+
+# only call if fs_freeze return 1
+sub qga_fs_thaw {
+    my ($self, $vmid) = @_;
+
+    $self->loginfo("issuing guest-agent 'fs-thaw' command");
+    eval { mon_cmd($vmid, "guest-fsfreeze-thaw") };
+    $self->logerr($@) if $@;
 }
 
 sub snapshot {
