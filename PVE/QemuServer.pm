@@ -2962,6 +2962,8 @@ sub config_to_command {
     my $version_guard = sub {
 	my ($major, $minor, $pve) = @_;
 	return 0 if !min_version($machine_version, $major, $minor, $pve);
+	my $max_pve = PVE::QemuServer::Machine::get_pve_version("$major.$minor");
+	return 1 if min_version($machine_version, $major, $minor, $max_pve+1);
 	$required_pve_version = $pve if $pve && $pve > $required_pve_version;
 	return 1;
     };
