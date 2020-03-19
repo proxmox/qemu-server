@@ -108,28 +108,25 @@ sub prepare {
 	my $drive = $drivehash->{$ds};
 
 	my $volid = $drive->{file};
-
-	my $path;
-
 	my ($storeid, $volname) = PVE::Storage::parse_volume_id($volid, 1);
+
+	my $path = $volid;
 	if ($storeid) {
 	    $path = PVE::Storage::path($self->{storecfg}, $volid);
-	} else {
-	    $path = $volid;
 	}
-
 	next if !$path;
 
-	my $format = undef;
-	my $size = undef;
-
-	eval{
-	    ($size, $format) = PVE::Storage::volume_size_info($self->{storecfg}, $volid, 5);
-	};
+	my ($size, $format) = eval { PVE::Storage::volume_size_info($self->{storecfg}, $volid, 5) };
 	die "no such volume '$volid'\n" if $@;
 
-	my $diskinfo = { path => $path , volid => $volid, storeid => $storeid,
-			 format => $format, virtdev => $ds, qmdevice => "drive-$ds" };
+	my $diskinfo = {
+	    path => $path,
+	    volid => $volid,
+	    storeid => $storeid,
+	    format => $format,
+	    virtdev => $ds,
+	    qmdevice => "drive-$ds",
+	};
 
 	if (-b $path) {
 	    $diskinfo->{type} = 'block';
