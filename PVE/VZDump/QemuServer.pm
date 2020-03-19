@@ -501,6 +501,47 @@ sub archive_pbs {
     die $err if $err;
 }
 
+my $fork_compressor_pipe = sub {
+    my ($self, $comp, $outfileno) = @_;
+
+    my @pipefd = POSIX::pipe();
+    my $cpid = fork();
+    die "unable to fork worker - $!" if !defined($cpid) || $cpid < 0;
+    if ($cpid == 0) {
+	eval {
+	    POSIX::close($pipefd[1]);
+	    # redirect STDIN
+	    my $fd = fileno(STDIN);
+	    close STDIN;
+	    POSIX::close(0) if $fd != 0;
+	    die "unable to redirect STDIN - $!"
+		if !open(STDIN, "<&", $pipefd[0]);
+
+	    # redirect STDOUT
+	    $fd = fileno(STDOUT);
+	    close STDOUT;
+	    POSIX::close (1) if $fd != 1;
+
+	    die "unable to redirect STDOUT - $!"
+		if !open(STDOUT, ">&", $outfileno);
+
+	    exec($comp);
+	    die "fork compressor '$comp' failed\n";
+	};
+	if (my $err = $@) {
+	    $self->logerr($err);
+	    POSIX::_exit(1);
+	}
+	POSIX::_exit(0);
+	kill(-9, $$);
+    } else {
+	POSIX::close($pipefd[0]);
+	$outfileno = $pipefd[1];
+    }
+
+    return ($cpid, $outfileno);
+};
+
 sub archive_vma {
     my ($self, $task, $vmid, $filename, $comp) = @_;
 
@@ -603,45 +644,10 @@ sub archive_vma {
 	    $outfh = IO::File->new($filename, "w") ||
 		die "unable to open file '$filename' - $!\n";
 	}
+	my $outfileno = fileno($outfh);
 
-	my $outfileno;
 	if ($comp) {
-	    my @pipefd = POSIX::pipe();
-	    $cpid = fork();
-	    die "unable to fork worker - $!" if !defined($cpid);
-	    if ($cpid == 0) {
-		eval {
-		    POSIX::close($pipefd[1]);
-		    # redirect STDIN
-		    my $fd = fileno(STDIN);
-		    close STDIN;
-		    POSIX::close(0) if $fd != 0;
-		    die "unable to redirect STDIN - $!"
-			if !open(STDIN, "<&", $pipefd[0]);
-
-		    # redirect STDOUT
-		    $fd = fileno(STDOUT);
-		    close STDOUT;
-		    POSIX::close (1) if $fd != 1;
-
-		    die "unable to redirect STDOUT - $!"
-			if !open(STDOUT, ">&", fileno($outfh));
-
-		    exec($comp);
-		    die "fork compressor '$comp' failed\n";
-		};
-		if (my $err = $@) {
-		    $self->logerr($err);
-		    POSIX::_exit(1);
-		}
-		POSIX::_exit(0);
-		kill(-9, $$);
-	    } else {
-		POSIX::close($pipefd[0]);
-		$outfileno = $pipefd[1];
-	    }
-	} else {
-	    $outfileno = fileno($outfh);
+	    ($cpid, $outfileno) = $fork_compressor_pipe->($self, $comp, $outfileno);
 	}
 
  	my $add_fd_cb = sub {
