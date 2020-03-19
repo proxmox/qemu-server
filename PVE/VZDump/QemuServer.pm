@@ -38,14 +38,12 @@ sub new {
     return $self;
 };
 
-
 sub type {
     return 'qemu';
 }
 
 sub vmlist {
     my ($self) = @_;
-
     return [ keys %{$self->{vmlist}} ];
 }
 
@@ -211,10 +209,8 @@ sub assemble {
 	    } else {
 		$found_snapshot = 1;
 	    }
+	    next; # skip all snapshots and pending changes config data
 	}
-
-	next if $found_snapshot; # skip all snapshots data
-	next if $found_pending; # skip all pending changes
 
 	if ($line =~ m/^unused\d+:\s*(\S+)\s*/) {
 	    $self->loginfo("skip unused drive '$1' (not included into backup)");
@@ -238,7 +234,6 @@ sub assemble {
     if ($found_snapshot) {
 	$self->loginfo("snapshots found (not included into backup)");
     }
-
     if ($found_pending) {
 	$self->loginfo("pending configuration changes found (not included into backup)");
     }
@@ -250,7 +245,6 @@ sub archive {
     my ($self, $task, $vmid, $filename, $comp) = @_;
 
     my $opts = $self->{vzdump}->{opts};
-
     my $scfg = $opts->{scfg};
 
     if ($scfg->{type} eq 'pbs') {
