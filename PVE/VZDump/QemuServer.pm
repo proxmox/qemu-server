@@ -147,13 +147,13 @@ sub vm_status {
 sub lock_vm {
     my ($self, $vmid) = @_;
 
-    $self->cmd ("qm set $vmid --lock backup");
+    PVE::QemuConfig->set_lock($vmid, 'backup');
 }
 
 sub unlock_vm {
     my ($self, $vmid) = @_;
 
-    $self->cmd ("qm unlock $vmid");
+    PVE::QemuConfig->remove_lock($vmid, 'backup');
 }
 
 sub stop_vm {
