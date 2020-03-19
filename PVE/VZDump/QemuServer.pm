@@ -327,12 +327,9 @@ sub archive_pbs {
     my $firewall = "$task->{tmpdir}/qemu-server.fw";
 
     my $opts = $self->{vzdump}->{opts};
-
     my $scfg = $opts->{scfg};
 
     my $starttime = time();
-
-    my $diskcount = scalar(@{$task->{disks}});
 
     my $server = $scfg->{server};
     my $datastore = $scfg->{datastore};
@@ -342,13 +339,14 @@ sub archive_pbs {
     my $repo = "$username\@$server:$datastore";
     my $password = PVE::Storage::PBSPlugin::pbs_get_password($scfg, $opts->{storage});
 
+    my $diskcount = scalar(@{$task->{disks}});
     if (PVE::QemuConfig->is_template($self->{vmlist}->{$vmid}) || !$diskcount) {
 	my @pathlist;
 	foreach my $di (@{$task->{disks}}) {
 	    if ($di->{type} eq 'block' || $di->{type} eq 'file') {
 		push @pathlist, "$di->{qmdevice}.img:$di->{path}";
 	    } else {
-		die "implement me";
+		die "implement me (type $di->{type})";
 	    }
 	}
 
@@ -364,8 +362,7 @@ sub archive_pbs {
 	    '--backup-type', 'vm',
 	    '--backup-id', "$vmid",
 	    '--backup-time', $task->{backup_time},
-	    ];
-
+	];
 	push @$cmd, '--fingerprint', $fingerprint if defined($fingerprint);
 
 	push @$cmd, "qemu-server.conf:$conffile";
@@ -387,33 +384,28 @@ sub archive_pbs {
     $self->enforce_vm_running_for_backup($vmid);
 
     my $backup_job_uuid;
-
-    my $interrupt_msg = "interrupted by signal\n";
     eval {
 	$SIG{INT} = $SIG{TERM} = $SIG{QUIT} = $SIG{HUP} = $SIG{PIPE} = sub {
-	    die $interrupt_msg;
+	    die "interrupted by signal\n";
 	};
 
 	my $fs_frozen = $self->qga_fs_freeze($vmid);
 
-	eval {
-
-	    my $params = {
-		format => "pbs",
-		'backup-file' => $repo,
-		'backup-id' => "$vmid",
-		'backup-time' => $task->{backup_time},
-		password => $password,
-		devlist => $devlist,
-		'config-file' => $conffile,
-	    };
-	    $params->{fingerprint} = $fingerprint if defined($fingerprint);
-	    $params->{'firewall-file'} = $firewall if -e $firewall;
-	    my $res = mon_cmd($vmid, "backup", %$params);
-	    $backup_job_uuid = $res->{UUID};
+	my $params = {
+	    format => "pbs",
+	    'backup-file' => $repo,
+	    'backup-id' => "$vmid",
+	    'backup-time' => $task->{backup_time},
+	    password => $password,
+	    devlist => $devlist,
+	    'config-file' => $conffile,
 	};
+	$params->{fingerprint} = $fingerprint if defined($fingerprint);
+	$params->{'firewall-file'} = $firewall if -e $firewall;
 
+	my $res = eval { mon_cmd($vmid, "backup", %$params) };
 	my $qmperr = $@;
+	$backup_job_uuid = $res->{UUID} if $res;
 
 	if ($fs_frozen) {
 	    $self->qga_fs_thaw($vmid);
@@ -495,7 +487,6 @@ sub archive_vma {
     }
 
     my $diskcount = scalar(@{$task->{disks}});
-
     if (PVE::QemuConfig->is_template($self->{vmlist}->{$vmid}) || !$diskcount) {
 	my @pathlist;
 	foreach my $di (@{$task->{disks}}) {
@@ -542,10 +533,9 @@ sub archive_vma {
     my $cpid;
     my $backup_job_uuid;
 
-    my $interrupt_msg = "interrupted by signal\n";
     eval {
 	$SIG{INT} = $SIG{TERM} = $SIG{QUIT} = $SIG{HUP} = $SIG{PIPE} = sub {
-	    die $interrupt_msg;
+	    die "interrupted by signal\n";
 	};
 
 	my $qmpclient = PVE::QMPClient->new();
@@ -577,13 +567,12 @@ sub archive_vma {
 		'config-file' => $conffile,
 		devlist => $devlist
 	    };
-
 	    $params->{'firewall-file'} = $firewall if -e $firewall;
+
 	    $qmpclient->queue_cmd($vmid, $backup_cb, 'backup', %$params);
 	};
 
-	$qmpclient->queue_cmd($vmid, $add_fd_cb, 'getfd',
-			      fd => $outfileno, fdname => "backup");
+	$qmpclient->queue_cmd($vmid, $add_fd_cb, 'getfd', fd => $outfileno, fdname => "backup");
 
 	my $fs_frozen = $self->qga_fs_freeze($vmid);
 
@@ -593,6 +582,7 @@ sub archive_vma {
 	if ($fs_frozen) {
 	    $self->qga_fs_thaw($vmid);
 	}
+
 	die $qmperr if $qmperr;
 	die $qmpclient->{errors}->{$vmid} if $qmpclient->{errors}->{$vmid};
 
