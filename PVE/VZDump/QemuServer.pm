@@ -538,13 +538,6 @@ sub archive_vma {
 	    die "interrupted by signal\n";
 	};
 
-	my $qmpclient = PVE::QMPClient->new();
-
-	my $backup_cb = sub {
-	    my ($vmid, $resp) = @_;
-	    $backup_job_uuid = $resp->{return}->{UUID};
-	};
-
 	my $outfh;
 	if ($opts->{stdout}) {
 	    $outfh = $opts->{stdout};
@@ -558,7 +551,12 @@ sub archive_vma {
 	    ($cpid, $outfileno) = $fork_compressor_pipe->($self, $comp, $outfileno);
 	}
 
- 	my $add_fd_cb = sub {
+	my $qmpclient = PVE::QMPClient->new();
+	my $backup_cb = sub {
+	    my ($vmid, $resp) = @_;
+	    $backup_job_uuid = $resp->{return}->{UUID};
+	};
+	my $add_fd_cb = sub {
 	    my ($vmid, $resp) = @_;
 
 	    my $params = {
