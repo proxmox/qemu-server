@@ -383,26 +383,8 @@ sub archive_pbs {
     # get list early so we die on unkown drive types before doing anything
     my $devlist = _get_task_devlist($task);
 
-    my $stop_after_backup;
-    my $resume_on_backup;
-
-    my $skiplock = 1;
-    my $vm_is_running = PVE::QemuServer::check_running($vmid);
-    if (!$vm_is_running) {
-	eval {
-	    $self->loginfo("starting kvm to execute backup task");
-	    PVE::QemuServer::vm_start($self->{storecfg}, $vmid, undef,
-				      $skiplock, undef, 1);
-	    if ($self->{vm_was_running}) {
-		$resume_on_backup = 1;
-	    } else {
-		$stop_after_backup = 1;
-	    }
-	};
-	if (my $err = $@) {
-	    die $err;
-	}
-    }
+    my ($stop_after_backup, $resume_on_backup) = $self->handle_vm_powerstate($vmid);
+    $self->enforce_vm_running_for_backup($vmid);
 
     my $backup_job_uuid;
 
@@ -442,46 +424,16 @@ sub archive_pbs {
 
 	$self->loginfo("started backup task '$backup_job_uuid'");
 
-	if ($resume_on_backup) {
-	    if (my $stoptime = $task->{vmstoptime}) {
-		my $delay = time() - $task->{vmstoptime};
-		$task->{vmstoptime} = undef; # avoid printing 'online after ..' twice
-		$self->loginfo("resuming VM again after $delay seconds");
-	    } else {
-		$self->loginfo("resuming VM again");
-	    }
-	    mon_cmd($vmid, 'cont');
-	}
+	$self->resume_vm_after_job_start($task, $vmid);
 
 	$query_backup_status_loop->($self, $vmid, $backup_job_uuid);
     };
     my $err = $@;
-
     if ($err) {
 	$self->logerr($err);
-	if (defined($backup_job_uuid)) {
-	    $self->loginfo("aborting backup job");
-	    eval { mon_cmd($vmid, 'backup-cancel'); };
-	    if (my $err1 = $@) {
-		$self->logerr($err1);
-	    }
-	}
+	$self->mon_backup_cancel($vmid) if defined($backup_job_uuid);
     }
-
-    if ($stop_after_backup) {
-	# stop if not running
-	eval {
-	    my $resp = mon_cmd($vmid, 'query-status');
-	    my $status = $resp && $resp->{status} ?  $resp->{status} : 'unknown';
-	    if ($status eq 'prelaunch') {
-		$self->loginfo("stopping kvm after backup task");
-		PVE::QemuServer::vm_stop($self->{storecfg}, $vmid, $skiplock);
-	    } else {
-		$self->loginfo("kvm status changed after backup ('$status')" .
-			       " - keep VM running");
-	    }
-	}
-    }
+    $self->restore_vm_power_state($vmid);
 
     die $err if $err;
 }
@@ -585,26 +537,7 @@ sub archive_vma {
 
     my $devlist = _get_task_devlist($task);
 
-    my $stop_after_backup;
-    my $resume_on_backup;
-
-    my $skiplock = 1;
-    my $vm_is_running = PVE::QemuServer::check_running($vmid);
-    if (!$vm_is_running) {
-	eval {
-	    $self->loginfo("starting kvm to execute backup task");
-	    PVE::QemuServer::vm_start($self->{storecfg}, $vmid, undef,
-				      $skiplock, undef, 1);
-	    if ($self->{vm_was_running}) {
-		$resume_on_backup = 1;
-	    } else {
-		$stop_after_backup = 1;
-	    }
-	};
-	if (my $err = $@) {
-	    die $err;
-	}
-    }
+    $self->enforce_vm_running_for_backup($vmid);
 
     my $cpid;
     my $backup_job_uuid;
@@ -672,46 +605,17 @@ sub archive_vma {
 
 	$self->loginfo("started backup task '$backup_job_uuid'");
 
-	if ($resume_on_backup) {
-	    if (my $stoptime = $task->{vmstoptime}) {
-		my $delay = time() - $task->{vmstoptime};
-		$task->{vmstoptime} = undef; # avoid printing 'online after ..' twice
-		$self->loginfo("resuming VM again after $delay seconds");
-	    } else {
-		$self->loginfo("resuming VM again");
-	    }
-	    mon_cmd($vmid, 'cont');
-	}
+	$self->resume_vm_after_job_start($task, $vmid);
 
 	$query_backup_status_loop->($self, $vmid, $backup_job_uuid);
     };
     my $err = $@;
-
     if ($err) {
 	$self->logerr($err);
-	if (defined($backup_job_uuid)) {
-	    $self->loginfo("aborting backup job");
-	    eval { mon_cmd($vmid, 'backup-cancel'); };
-	    if (my $err1 = $@) {
-		$self->logerr($err1);
-	    }
-	}
+	$self->mon_backup_cancel($vmid) if defined($backup_job_uuid);
     }
 
-    if ($stop_after_backup) {
-	# stop if not running
-	eval {
-	    my $resp = mon_cmd($vmid, 'query-status');
-	    my $status = $resp && $resp->{status} ?  $resp->{status} : 'unknown';
-	    if ($status eq 'prelaunch') {
-		$self->loginfo("stopping kvm after backup task");
-		PVE::QemuServer::vm_stop($self->{storecfg}, $vmid, $skiplock);
-	    } else {
-		$self->loginfo("kvm status changed after backup ('$status')" .
-			       " - keep VM running");
-	    }
-	}
-    }
+    $self->restore_vm_power_state($vmid);
 
     if ($err) {
 	if ($cpid) {
@@ -769,6 +673,68 @@ sub qga_fs_thaw {
 
     $self->loginfo("issuing guest-agent 'fs-thaw' command");
     eval { mon_cmd($vmid, "guest-fsfreeze-thaw") };
+    $self->logerr($@) if $@;
+}
+
+# we need a running QEMU/KVM process for backup, starts a paused (prelaunch)
+# one if VM isn't already running
+sub enforce_vm_running_for_backup {
+    my ($self, $vmid) = @_;
+
+    if (PVE::QemuServer::check_running($vmid)) {
+	$self->{vm_was_running} = 1;
+	return;
+    }
+
+    eval {
+	$self->loginfo("starting kvm to execute backup task");
+	# start with skiplock
+	PVE::QemuServer::vm_start($self->{storecfg}, $vmid, undef, 1, undef, 1);
+    };
+    die $@ if $@;
+}
+
+# resume VM againe once we got in a clear state (stop mode backup of running VM)
+sub resume_vm_after_job_start {
+    my ($self, $task, $vmid) = @_;
+
+    return if !$self->{vm_was_running};
+
+    if (my $stoptime = $task->{vmstoptime}) {
+	my $delay = time() - $task->{vmstoptime};
+	$task->{vmstoptime} = undef; # avoid printing 'online after ..' twice
+	$self->loginfo("resuming VM again after $delay seconds");
+    } else {
+	$self->loginfo("resuming VM again");
+    }
+    mon_cmd($vmid, 'cont');
+}
+
+# stop again if VM was not running before
+sub restore_vm_power_state {
+    my ($self, $vmid) = @_;
+
+    # we always let VMs keep running
+    return if $self->{vm_was_running};
+
+    eval {
+	my $resp = mon_cmd($vmid, 'query-status');
+	my $status = $resp && $resp->{status} ?  $resp->{status} : 'unknown';
+	if ($status eq 'prelaunch') {
+	    $self->loginfo("stopping kvm after backup task");
+	    PVE::QemuServer::vm_stop($self->{storecfg}, $vmid, 1);
+	} else {
+	    $self->loginfo("kvm status changed after backup ('$status') - keep VM running");
+	}
+    };
+    warn $@ if $@;
+}
+
+sub mon_backup_cancel {
+    my ($self, $vmid) = @_;
+
+    $self->loginfo("aborting backup job");
+    eval { mon_cmd($vmid, 'backup-cancel') };
     $self->logerr($@) if $@;
 }
 
