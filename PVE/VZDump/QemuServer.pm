@@ -380,14 +380,8 @@ sub archive_pbs {
 	return;
     }
 
-    my $devlist = '';
-    foreach my $di (@{$task->{disks}}) {
-	if ($di->{type} eq 'block' || $di->{type} eq 'file') {
-	    $devlist .= $devlist ? ",$di->{qmdevice}" : $di->{qmdevice};
-	} else {
-	    die "implement me";
-	}
-    }
+    # get list early so we die on unkown drive types before doing anything
+    my $devlist = _get_task_devlist($task);
 
     my $stop_after_backup;
     my $resume_on_backup;
@@ -563,15 +557,7 @@ sub archive_vma {
 	return;
     }
 
-
-    my $devlist = '';
-    foreach my $di (@{$task->{disks}}) {
-	if ($di->{type} eq 'block' || $di->{type} eq 'file') {
-	    $devlist .= $devlist ? ",$di->{qmdevice}" : $di->{qmdevice};
-	} else {
-	    die "implement me";
-	}
-    }
+    my $devlist = _get_task_devlist($task);
 
     my $stop_after_backup;
     my $resume_on_backup;
@@ -771,6 +757,21 @@ sub archive_vma {
 		($signal ? " (signal $signal)\n" : "\n");
 	}
     }
+}
+
+sub _get_task_devlist {
+    my ($task) = @_;
+
+    my $devlist = '';
+    foreach my $di (@{$task->{disks}}) {
+	if ($di->{type} eq 'block' || $di->{type} eq 'file') {
+	    $devlist .= ',' if $devlist;
+	    $devlist .= $di->{qmdevice};
+	} else {
+	    die "implement me (type '$di->{type}')";
+	}
+    }
+    return $devlist;
 }
 
 sub snapshot {
