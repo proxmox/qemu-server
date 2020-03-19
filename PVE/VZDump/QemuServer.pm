@@ -257,20 +257,22 @@ sub archive {
 my $query_backup_status_loop = sub {
     my ($self, $vmid, $job_uuid) = @_;
 
-    my $status;
     my $starttime = time ();
-    my $last_per = -1;
-    my $last_total = 0;
-    my $last_zero = 0;
-    my $last_transferred = 0;
-    my $last_time = time();
+    my $last_time = $starttime;
+    my ($last_percent, $last_total, $last_zero, $last_transferred) = (-1, 0, 0, 0);
     my $transferred;
 
+    my $get_mbps = sub {
+	my ($mb, $delta) = @_;
+	return ($mb > 0) ? int(($mb / $delta) / (1000 * 1000)) : 0;
+    };
+
     while(1) {
-	$status = mon_cmd($vmid, 'query-backup');
+	my $status = mon_cmd($vmid, 'query-backup');
+
 	my $total = $status->{total} || 0;
 	$transferred = $status->{transferred} || 0;
-	my $per = $total ? int(($transferred * 100)/$total) : 0;
+	my $percent = $total ? int(($transferred * 100)/$total) : 0;
 	my $zero = $status->{'zero-bytes'} || 0;
 	my $zero_per = $total ? int(($zero * 100)/$total) : 0;
 
@@ -283,29 +285,25 @@ my $query_backup_status_loop = sub {
 	my $wbytes = $rbytes - ($zero - $last_zero);
 
 	my $timediff = ($ctime - $last_time) || 1; # fixme
-	my $mbps_read = ($rbytes > 0) ?
-	    int(($rbytes/$timediff)/(1000*1000)) : 0;
-	my $mbps_write = ($wbytes > 0) ?
-	    int(($wbytes/$timediff)/(1000*1000)) : 0;
+	my $mbps_read = $get_mbps->($rbytes, $timediff);
+	my $mbps_write = $get_mbps->($wbytes, $timediff);
 
-	my $statusline = "status: $per% ($transferred/$total), " .
-	    "sparse ${zero_per}% ($zero), duration $duration, " .
-	    "read/write $mbps_read/$mbps_write MB/s";
+	my $statusline = "status: $percent% ($transferred/$total), sparse ${zero_per}% ($zero), duration $duration, read/write $mbps_read/$mbps_write MB/s";
+
 	my $res = $status->{status} || 'unknown';
 	if ($res ne 'active') {
 	    $self->loginfo($statusline);
-	    die(($status->{errmsg} || "unknown error") . "\n")
-		if $res eq 'error';
-	    die "got unexpected status '$res'\n"
-		if $res ne 'done';
-	    die "got wrong number of transfered bytes ($total != $transferred)\n"
-		if ($res eq 'done') && ($total != $transferred);
-
+	    if ($res ne 'done') {
+		die (($status->{errmsg} || "unknown error") . "\n") if $res eq 'error';
+		die "got unexpected status '$res'\n";
+	    } elsif ($total != $transferred) {
+		die "got wrong number of transfered bytes ($total != $transferred)\n";
+	    }
 	    last;
 	}
-	if ($per != $last_per && ($timediff > 2)) {
+	if ($percent != $last_percent && ($timediff > 2)) {
 	    $self->loginfo($statusline);
-	    $last_per = $per;
+	    $last_percent = $percent;
 	    $last_total = $total if $total;
 	    $last_zero = $zero if $zero;
 	    $last_transferred = $transferred if $transferred;
@@ -316,8 +314,8 @@ my $query_backup_status_loop = sub {
 
     my $duration = time() - $starttime;
     if ($transferred && $duration) {
-	my $mb = int($transferred/(1000*1000));
-	my $mbps = int(($transferred/$duration)/(1000*1000));
+	my $mb = int($transferred / (1000 * 1000));
+	my $mbps = $get_mbps->($transferred, $duration);
 	$self->loginfo("transferred $mb MB in $duration seconds ($mbps MB/s)");
     }
 };
