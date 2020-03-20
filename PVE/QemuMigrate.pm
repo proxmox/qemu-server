@@ -601,8 +601,9 @@ sub phase2 {
     my $sock_addr = [];
     # version > 0 for unix socket support
     my $nbd_protocol_version = 1;
-    my $input = "nbd_protocol_version: $nbd_protocol_version\n";
-    $input .= "spice_ticket: $spice_ticket\n" if $spice_ticket;
+    # TODO change to 'spice_ticket: <ticket>\n' in 7.0
+    my $input = $spice_ticket ? "$spice_ticket\n" : "\n";
+    $input .= "nbd_protocol_version: $nbd_protocol_version\n";
 
     # Note: We try to keep $spice_ticket secret (do not pass via command line parameter)
     # instead we pipe it through STDIN
