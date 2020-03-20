@@ -1,3 +1,23 @@
+qemu-server (6.1-8) pve; urgency=medium
+
+  * cloudinit: make genisoimage quieter, only output errors
+
+  * Append newline to all QGA commands for compatibility with non standard
+    conforming Apple based guest agent implementation
+
+  * add experimental support for proxmox backup server
+
+  * fix #2580: api/delete: drop VM from HA resources if purge is set
+
+  * improve drive mirror completion over NBD during migration
+
+  * add secured unix socket support for NBD storage migration
+
+  * Disable memory hotplug for custom NUMA topologies and die on misaligned
+    memory for hotplug
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 20 Mar 2020 11:11:31 +0100
+
 qemu-server (6.1-7) pve; urgency=medium
 
   * vzdump: always exclude efidisks from backups of machines currently not set
