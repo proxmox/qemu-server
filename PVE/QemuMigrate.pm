@@ -1001,6 +1001,8 @@ sub phase3_cleanup {
 
     if ($self->{storage_migration}) {
 	# finish block-job with block-job-cancel, to disconnect source VM from NBD
+	# to avoid it trying to re-establish it. We are in blockjob ready state,
+	# thus, this command changes to it to blockjob complete (see qapi docs)
 	eval { PVE::QemuServer::qemu_drive_mirror_monitor($vmid, undef, $self->{storage_migration_jobs}, 'cancel'); };
 
 	if (my $err = $@) {
