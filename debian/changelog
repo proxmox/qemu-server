@@ -1,3 +1,15 @@
+qemu-server (6.1-9) pve; urgency=medium
+
+  * version_guard: early out when major/minor version is high enough
+
+  * drive-mirror: add support for incremental sync
+
+  * migrate: add replication info to disk overview
+
+  * migrate: add live-migration of replicated disks
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 25 Mar 2020 10:07:20 +0100
+
 qemu-server (6.1-8) pve; urgency=medium
 
   * cloudinit: make genisoimage quieter, only output errors
