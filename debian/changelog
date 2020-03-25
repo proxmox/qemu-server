@@ -1,4 +1,4 @@
-qemu-server (6.1-9) pve; urgency=medium
+qemu-server (6.1-10) pve; urgency=medium
 
   * version_guard: early out when major/minor version is high enough
 
@@ -8,7 +8,7 @@ qemu-server (6.1-9) pve; urgency=medium
 
   * migrate: add live-migration of replicated disks
 
- -- Proxmox Support Team <support@proxmox.com>  Wed, 25 Mar 2020 10:07:20 +0100
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 25 Mar 2020 15:16:21 +0100
 
 qemu-server (6.1-8) pve; urgency=medium
 
