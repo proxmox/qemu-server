@@ -12,6 +12,7 @@ use PVE::Cluster;
 use PVE::Storage;
 use PVE::QemuServer;
 use PVE::QemuServer::Drive;
+use PVE::QemuServer::Helpers qw(min_version);
 use PVE::QemuServer::Machine;
 use PVE::QemuServer::Monitor qw(mon_cmd);
 use Time::HiRes qw( usleep );
@@ -448,6 +449,12 @@ sub sync_disks {
 	my $rep_cfg = PVE::ReplicationConfig->new();
 	if (my $jobcfg = $rep_cfg->find_local_replication_job($vmid, $self->{node})) {
 	    if ($self->{running}) {
+
+		my $version = PVE::QemuServer::kvm_user_version();
+		if (!min_version($version, 4, 2)) {
+		    die "can't live migrate VM with replicated volumes, pve-qemu to old (< 4.2)!\n"
+		}
+
 		my $live_replicatable_volumes = {};
 		PVE::QemuServer::foreach_drive($conf, sub {
 		    my ($ds, $drive) = @_;
