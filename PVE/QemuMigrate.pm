@@ -330,7 +330,7 @@ sub sync_disks {
 	    });
 	}
 
-	my $replicatable_volumes = PVE::QemuConfig->get_replicatable_volumes($self->{storecfg}, $self->{vmid}, $conf);
+	my $replicatable_volumes = PVE::QemuConfig->get_replicatable_volumes($self->{storecfg}, $self->{vmid}, $conf, 0, 1);
 
 	my $test_volid = sub {
 	    my ($volid, $attr) = @_;

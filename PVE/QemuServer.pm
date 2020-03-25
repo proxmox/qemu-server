@@ -4755,7 +4755,7 @@ sub vm_start {
 		$local_volumes->{$ds} = [$volid, $storeid, $volname];
 	    });
 
-	    my $replicatable_volumes = PVE::QemuConfig->get_replicatable_volumes($storecfg, $vmid, $conf);
+	    my $replicatable_volumes = PVE::QemuConfig->get_replicatable_volumes($storecfg, $vmid, $conf, 0, 1);
 
 	    my $format = undef;
 
