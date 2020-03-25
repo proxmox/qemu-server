@@ -2,25 +2,28 @@ package PVE::QemuMigrate;
 
 use strict;
 use warnings;
-use PVE::AbstractMigrate;
+
 use IO::File;
 use IPC::Open2;
 use POSIX qw( WNOHANG );
-use PVE::INotify;
-use PVE::Tools;
+use Time::HiRes qw( usleep );
+
 use PVE::Cluster;
+use PVE::INotify;
+use PVE::RPCEnvironment;
+use PVE::Replication;
+use PVE::ReplicationConfig;
+use PVE::ReplicationState;
 use PVE::Storage;
-use PVE::QemuServer;
+use PVE::Tools;
+
 use PVE::QemuServer::Drive;
 use PVE::QemuServer::Helpers qw(min_version);
 use PVE::QemuServer::Machine;
 use PVE::QemuServer::Monitor qw(mon_cmd);
-use Time::HiRes qw( usleep );
-use PVE::RPCEnvironment;
-use PVE::ReplicationConfig;
-use PVE::ReplicationState;
-use PVE::Replication;
+use PVE::QemuServer;
 
+use PVE::AbstractMigrate;
 use base qw(PVE::AbstractMigrate);
 
 sub fork_command_pipe {
