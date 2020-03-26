@@ -283,6 +283,12 @@ sub sync_disks {
     my $storecfg = $self->{storecfg};
     my $override_targetsid = $self->{opts}->{targetstorage};
 
+    if (defined($override_targetsid)) {
+	my $scfg = PVE::Storage::storage_config($storecfg, $override_targetsid);
+	die "content type 'images' is not available on storage '$override_targetsid'\n"
+	    if !$scfg->{content}->{images};
+    }
+
     eval {
 
 	# found local volumes and their origin
