@@ -1,3 +1,11 @@
+qemu-server (6.1-11) pve; urgency=medium
+
+  * vzdump: fix regression in backups for specific storage
+
+  * custom CPU models: add initial parser and verifier
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 26 Mar 2020 09:00:24 +0100
+
 qemu-server (6.1-10) pve; urgency=medium
 
   * version_guard: early out when major/minor version is high enough
