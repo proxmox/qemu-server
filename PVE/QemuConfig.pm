@@ -77,6 +77,37 @@ sub has_feature {
     return $err ? 0 : 1;
 }
 
+sub valid_volume_keys {
+    my ($class, $reverse) = @_;
+
+    my @keys = PVE::QemuServer::Drive::valid_drive_names();
+
+    return $reverse ? reverse @keys : @keys;
+}
+
+# FIXME: adapt parse_drive to use $noerr for better error messages
+sub parse_volume {
+    my ($class, $key, $volume_string, $noerr) = @_;
+
+    my $volume = PVE::QemuServer::Drive::parse_drive($key, $volume_string);
+
+    die "unable to parse volume\n" if !defined($volume) && !$noerr;
+
+    return $volume;
+}
+
+sub print_volume {
+    my ($class, $key, $volume) = @_;
+
+    return PVE::QemuServer::Drive::print_drive($volume);
+}
+
+sub volid_key {
+    my ($class) = @_;
+
+    return 'file';
+}
+
 sub get_replicatable_volumes {
     my ($class, $storecfg, $vmid, $conf, $cleanup, $noerr) = @_;
 
@@ -369,7 +400,7 @@ sub __snapshot_rollback_get_unused {
 
     my $unused = [];
 
-    $class->__snapshot_foreach_volume($conf, sub {
+    $class->foreach_volume($conf, sub {
 	my ($vs, $volume) = @_;
 
 	return if PVE::QemuServer::drive_is_cdrom($volume);
@@ -377,7 +408,7 @@ sub __snapshot_rollback_get_unused {
 	my $found = 0;
 	my $volid = $volume->{file};
 
-	$class->__snapshot_foreach_volume($snap, sub {
+	$class->foreach_volume($snap, sub {
 	    my ($ds, $drive) = @_;
 
 	    return if $found;
@@ -393,11 +424,6 @@ sub __snapshot_rollback_get_unused {
     return $unused;
 }
 
-sub __snapshot_foreach_volume {
-    my ($class, $conf, $func) = @_;
-
-    PVE::QemuServer::foreach_drive($conf, $func);
-}
 # END implemented abstract methods from PVE::AbstractConfig
 
 1;
