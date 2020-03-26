@@ -5758,35 +5758,37 @@ sub update_disk_config {
     my $referencedpath = {};
 
     # update size info
-    foreach my $opt (keys %$conf) {
-	if (is_valid_drivename($opt)) {
-	    my $drive = parse_drive($opt, $conf->{$opt});
-	    my $volid = $drive->{file};
-	    next if !$volid;
+    PVE::QemuConfig->foreach_volume($conf, undef, sub {
+	my ($opt, $drive) = @_;
 
-	    # mark volid as "in-use" for next step
-	    $referenced->{$volid} = 1;
-	    if ($volid_hash->{$volid} &&
-		(my $path = $volid_hash->{$volid}->{path})) {
-		$referencedpath->{$path} = 1;
-	    }
+	my $volid = $drive->{file};
+	return if !$volid;
 
-	    next if drive_is_cdrom($drive);
-	    next if !$volid_hash->{$volid};
-
-	    my ($updated, $old_size, $new_size) = PVE::QemuServer::Drive::update_disksize($drive, $volid_hash);
-	    if (defined($updated)) {
-		$changes = 1;
-		$conf->{$opt} = print_drive($updated);
-		print "$prefix size of disk '$volid' ($opt) updated from $old_size to $new_size\n";
-	    }
+	# mark volid as "in-use" for next step
+	$referenced->{$volid} = 1;
+	if ($volid_hash->{$volid} &&
+	    (my $path = $volid_hash->{$volid}->{path})) {
+	    $referencedpath->{$path} = 1;
 	}
-    }
+
+	return if drive_is_cdrom($drive);
+	return if !$volid_hash->{$volid};
+
+	my ($updated, $old_size, $new_size) = PVE::QemuServer::Drive::update_disksize($drive, $volid_hash);
+	if (defined($updated)) {
+	    $changes = 1;
+	    $conf->{$opt} = print_drive($updated);
+	    print "$prefix size of disk '$volid' ($opt) updated from $old_size to $new_size\n";
+	}
+    });
 
     # remove 'unusedX' entry if volume is used
-    foreach my $opt (keys %$conf) {
-	next if $opt !~ m/^unused\d+$/;
-	my $volid = $conf->{$opt};
+    PVE::QemuConfig->foreach_unused_volume($conf, sub {
+	my ($opt, $drive) = @_;
+
+	my $volid = $drive->{file};
+	return if !$volid;
+
 	my $path = $volid_hash->{$volid}->{path} if $volid_hash->{$volid};
 	if ($referenced->{$volid} || ($path && $referencedpath->{$path})) {
 	    print "$prefix remove entry '$opt', its volume '$volid' is in use\n";
@@ -5796,7 +5798,7 @@ sub update_disk_config {
 
 	$referenced->{$volid} = 1;
 	$referencedpath->{$path} = 1 if $path;
-    }
+    });
 
     foreach my $volid (sort keys %$volid_hash) {
 	next if $volid =~ m/vm-$vmid-state-/;
