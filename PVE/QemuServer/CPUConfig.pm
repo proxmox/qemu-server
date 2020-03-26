@@ -16,7 +16,7 @@ get_cpu_options
 
 # under certain race-conditions, this module might be loaded before pve-cluster
 # has started completely, so ensure we don't prevent the FUSE mount with our dir
-if (PVE::Cluster::check_cfs_is_mounted()) {
+if (PVE::Cluster::check_cfs_is_mounted(1)) {
     mkdir "/etc/pve/virtual-guest";
 }
 
