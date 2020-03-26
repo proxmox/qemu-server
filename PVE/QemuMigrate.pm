@@ -536,10 +536,11 @@ sub cleanup_remotedisks {
     my ($self) = @_;
 
     foreach my $target_drive (keys %{$self->{target_drive}}) {
-	# don't clean up replicated disks!
-	next if defined($self->{target_drive}->{$target_drive}->{bitmap});
-
 	my $drive = PVE::QemuServer::parse_drive($target_drive, $self->{target_drive}->{$target_drive}->{drivestr});
+
+	# don't clean up replicated disks!
+	next if defined($self->{replicated_volumes}->{$drive->{file}});
+
 	my ($storeid, $volname) = PVE::Storage::parse_volume_id($drive->{file});
 
 	my $cmd = [@{$self->{rem_ssh}}, 'pvesm', 'free', "$storeid:$volname"];
@@ -1012,20 +1013,15 @@ sub phase2_cleanup {
 
     # cleanup ressources on target host
     if ($self->{storage_migration}) {
-
 	eval { PVE::QemuServer::qemu_blockjobs_cancel($vmid, $self->{storage_migration_jobs}) };
 	if (my $err = $@) {
 	    $self->log('err', $err);
 	}
+    }
 
-	eval { PVE::QemuMigrate::cleanup_remotedisks($self) };
-	if (my $err = $@) {
-	    $self->log('err', $err);
-	}
-	eval { $self->cleanup_bitmaps() };
-	if (my $err =$@) {
-	    $self->log('err', $err);
-	}
+    eval { $self->cleanup_bitmaps() };
+    if (my $err =$@) {
+	$self->log('err', $err);
     }
 
     my $nodename = PVE::INotify::nodename();
@@ -1036,6 +1032,13 @@ sub phase2_cleanup {
         $self->log('err', $err);
         $self->{errors} = 1;
     }
+
+    # cleanup after stopping, otherwise disks might be in-use by target VM!
+    eval { PVE::QemuMigrate::cleanup_remotedisks($self) };
+    if (my $err = $@) {
+	$self->log('err', $err);
+    }
+
 
     if ($self->{tunnel}) {
 	eval { finish_tunnel($self, $self->{tunnel});  };
