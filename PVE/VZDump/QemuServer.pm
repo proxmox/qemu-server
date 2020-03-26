@@ -380,7 +380,6 @@ sub archive_pbs {
     # get list early so we die on unkown drive types before doing anything
     my $devlist = _get_task_devlist($task);
 
-    my ($stop_after_backup, $resume_on_backup) = $self->handle_vm_powerstate($vmid);
     $self->enforce_vm_running_for_backup($vmid);
 
     my $backup_job_uuid;
