@@ -4706,7 +4706,7 @@ sub vmconfig_update_disk {
 sub vm_start {
     my ($storecfg, $vmid, $statefile, $skiplock, $migratedfrom, $paused,
 	$forcemachine, $spice_ticket, $migration_network, $migration_type,
-	$targetstorage, $timeout, $nbd_protocol_version) = @_;
+	$targetstorage, $timeout, $nbd_protocol_version, $replicated_volumes) = @_;
 
     PVE::QemuConfig->lock_config($vmid, sub {
 	my $conf = PVE::QemuConfig->load_config($vmid, $migratedfrom);
@@ -4755,16 +4755,15 @@ sub vm_start {
 		$local_volumes->{$ds} = [$volid, $storeid, $volname];
 	    });
 
-	    my $replicatable_volumes = PVE::QemuConfig->get_replicatable_volumes($storecfg, $vmid, $conf, 0, 1);
-
 	    my $format = undef;
 
 	    foreach my $opt (sort keys %$local_volumes) {
 
 		my ($volid, $storeid, $volname) = @{$local_volumes->{$opt}};
-		if ($replicatable_volumes->{$volid}) {
+		if ($replicated_volumes->{$volid}) {
 		    # re-use existing, replicated volume with bitmap on source side
 		    $local_volumes->{$opt} = $conf->{${opt}};
+		    print "re-using replicated volume: $opt - $volid\n";
 		    next;
 		}
 		my $drive = parse_drive($opt, $conf->{$opt});

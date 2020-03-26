@@ -330,7 +330,9 @@ sub sync_disks {
 	    });
 	}
 
-	my $replicatable_volumes = PVE::QemuConfig->get_replicatable_volumes($self->{storecfg}, $self->{vmid}, $conf, 0, 1);
+	my $rep_cfg = PVE::ReplicationConfig->new();
+	my $replication_jobcfg = $rep_cfg->find_local_replication_job($vmid, $self->{node});
+	my $replicatable_volumes = $replication_jobcfg ? PVE::QemuConfig->get_replicatable_volumes($self->{storecfg}, $self->{vmid}, $conf, 0, 1) : {};
 
 	my $test_volid = sub {
 	    my ($volid, $attr) = @_;
@@ -449,8 +451,7 @@ sub sync_disks {
 	    }
 	}
 
-	my $rep_cfg = PVE::ReplicationConfig->new();
-	if (my $jobcfg = $rep_cfg->find_local_replication_job($vmid, $self->{node})) {
+	if ($replication_jobcfg) {
 	    if ($self->{running}) {
 
 		my $version = PVE::QemuServer::kvm_user_version();
@@ -484,7 +485,7 @@ sub sync_disks {
 	    my $start_time = time();
 	    my $logfunc = sub { $self->log('info', shift) };
 	    $self->{replicated_volumes} = PVE::Replication::run_replication(
-	       'PVE::QemuConfig', $jobcfg, $start_time, $start_time, $logfunc);
+	       'PVE::QemuConfig', $replication_jobcfg, $start_time, $start_time, $logfunc);
 	}
 
 	# sizes in config have to be accurate for remote node to correctly
@@ -657,6 +658,11 @@ sub phase2 {
     # TODO change to 'spice_ticket: <ticket>\n' in 7.0
     my $input = $spice_ticket ? "$spice_ticket\n" : "\n";
     $input .= "nbd_protocol_version: $nbd_protocol_version\n";
+    foreach my $volid (keys %{$self->{replicated_volumes}}) {
+	$input .= "replicated_volume: $volid\n";
+    }
+
+    my $target_replicated_volumes = {};
 
     # Note: We try to keep $spice_ticket secret (do not pass via command line parameter)
     # instead we pipe it through STDIN
@@ -701,6 +707,10 @@ sub phase2 {
 	    $self->{target_drive}->{$targetdrive}->{nbd_uri} = $nbd_uri;
 	    push @$tunnel_addr, "$nbd_unix_addr:$nbd_unix_addr";
 	    push @$sock_addr, $nbd_unix_addr;
+	} elsif ($line =~ m/^re-using replicated volume: (\S+) - (.*)$/) {
+	    my $drive = $1;
+	    my $volid = $2;
+	    $target_replicated_volumes->{$volid} = $drive;
 	} elsif ($line =~ m/^QEMU: (.*)$/) {
 	    $self->log('info', "[$self->{node}] $1\n");
 	}
@@ -712,6 +722,10 @@ sub phase2 {
     die "remote command failed with exit code $exitcode\n" if $exitcode;
 
     die "unable to detect remote migration address\n" if !$raddr;
+
+    if (scalar(keys %$target_replicated_volumes) != scalar(keys %{$self->{replicated_volumes}})) {
+	die "number of replicated disks on source and target node do not match - target node too old?\n"
+    }
 
     $self->log('info', "start remote tunnel");
 

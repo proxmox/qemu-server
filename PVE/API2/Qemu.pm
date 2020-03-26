@@ -2073,6 +2073,7 @@ __PACKAGE__->register_method({
 	# read spice ticket from STDIN
 	my $spice_ticket;
 	my $nbd_protocol_version = 0;
+	my $replicated_volumes = {};
 	if ($stateuri && ($stateuri eq 'tcp' || $stateuri eq 'unix') && $migratedfrom && ($rpcenv->{type} eq 'cli')) {
 	    while (defined(my $line = <STDIN>)) {
 		chomp $line;
@@ -2080,6 +2081,8 @@ __PACKAGE__->register_method({
 		    $spice_ticket = $1;
 		} elsif ($line =~ m/^nbd_protocol_version: (\d+)$/) {
 		    $nbd_protocol_version = $1;
+		} elsif ($line =~ m/^replicated_volume: (.*)$/) {
+		    $replicated_volumes->{$1} = 1;
 		} else {
 		    # fallback for old source node
 		    $spice_ticket = $line;
@@ -2113,7 +2116,7 @@ __PACKAGE__->register_method({
 
 		PVE::QemuServer::vm_start($storecfg, $vmid, $stateuri, $skiplock, $migratedfrom, undef, $machine,
 					  $spice_ticket, $migration_network, $migration_type, $targetstorage, $timeout,
-					  $nbd_protocol_version);
+					  $nbd_protocol_version, $replicated_volumes);
 		return;
 	    };
 
