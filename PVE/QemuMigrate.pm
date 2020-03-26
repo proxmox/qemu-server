@@ -554,7 +554,7 @@ sub cleanup_remotedisks {
 
 sub cleanup_bitmaps {
     my ($self) = @_;
-    foreach my $drive (%{$self->{target_drive}}) {
+    foreach my $drive (keys %{$self->{target_drive}}) {
 	my $bitmap = $self->{target_drive}->{$drive}->{bitmap};
 	next if !$bitmap;
 	$self->log('info', "$drive: removing block-dirty-bitmap '$bitmap'");
