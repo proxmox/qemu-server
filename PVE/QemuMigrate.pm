@@ -280,6 +280,7 @@ sub sync_disks {
     # local volumes which have been copied
     $self->{volumes} = [];
 
+    my $storecfg = $self->{storecfg};
     my $override_targetsid = $self->{opts}->{targetstorage};
 
     eval {
@@ -301,21 +302,21 @@ sub sync_disks {
 	    $abort = 1;
 	};
 
-	my @sids = PVE::Storage::storage_ids($self->{storecfg});
+	my @sids = PVE::Storage::storage_ids($storecfg);
 	foreach my $storeid (@sids) {
-	    my $scfg = PVE::Storage::storage_config($self->{storecfg}, $storeid);
+	    my $scfg = PVE::Storage::storage_config($storecfg, $storeid);
 	    next if $scfg->{shared};
-	    next if !PVE::Storage::storage_check_enabled($self->{storecfg}, $storeid, undef, 1);
+	    next if !PVE::Storage::storage_check_enabled($storecfg, $storeid, undef, 1);
 
 	    # get list from PVE::Storage (for unused volumes)
-	    my $dl = PVE::Storage::vdisk_list($self->{storecfg}, $storeid, $vmid);
+	    my $dl = PVE::Storage::vdisk_list($storecfg, $storeid, $vmid);
 
 	    next if @{$dl->{$storeid}} == 0;
 
 	    my $targetsid = $override_targetsid // $storeid;
 
 	    # check if storage is available on target node
-	    PVE::Storage::storage_check_node($self->{storecfg}, $targetsid, $self->{node});
+	    PVE::Storage::storage_check_node($storecfg, $targetsid, $self->{node});
 
 	    PVE::Storage::foreach_volid($dl, sub {
 		my ($volid, $sid, $volinfo) = @_;
@@ -332,7 +333,7 @@ sub sync_disks {
 
 	my $rep_cfg = PVE::ReplicationConfig->new();
 	my $replication_jobcfg = $rep_cfg->find_local_replication_job($vmid, $self->{node});
-	my $replicatable_volumes = $replication_jobcfg ? PVE::QemuConfig->get_replicatable_volumes($self->{storecfg}, $self->{vmid}, $conf, 0, 1) : {};
+	my $replicatable_volumes = $replication_jobcfg ? PVE::QemuConfig->get_replicatable_volumes($storecfg, $vmid, $conf, 0, 1) : {};
 
 	my $test_volid = sub {
 	    my ($volid, $attr) = @_;
@@ -362,8 +363,8 @@ sub sync_disks {
 
 	    my $targetsid = $override_targetsid // $sid;
 	    # check if storage is available on both nodes
-	    my $scfg = PVE::Storage::storage_check_node($self->{storecfg}, $sid);
-	    PVE::Storage::storage_check_node($self->{storecfg}, $targetsid, $self->{node});
+	    my $scfg = PVE::Storage::storage_check_node($storecfg, $sid);
+	    PVE::Storage::storage_check_node($storecfg, $targetsid, $self->{node});
 
 	    return if $scfg->{shared};
 
@@ -377,10 +378,10 @@ sub sync_disks {
 		die "local cdrom image\n";
 	    }
 
-	    my ($path, $owner) = PVE::Storage::path($self->{storecfg}, $volid);
+	    my ($path, $owner) = PVE::Storage::path($storecfg, $volid);
 
 	    die "owned by other VM (owner = VM $owner)\n"
-		if !$owner || ($owner != $self->{vmid});
+		if !$owner || ($owner != $vmid);
 
 	    if (defined($snaprefs)) {
 		$local_volumes->{$volid}->{snapshots} = 1;
@@ -395,7 +396,7 @@ sub sync_disks {
 	    }
 
 	    die "referenced by linked clone(s)\n"
-		if PVE::Storage::volume_is_base_and_used($self->{storecfg}, $volid);
+		if PVE::Storage::volume_is_base_and_used($storecfg, $volid);
 	};
 
 	PVE::QemuServer::foreach_volid($conf, sub {
@@ -438,7 +439,7 @@ sub sync_disks {
 	# additional checks for local storage
 	foreach my $volid (keys %$local_volumes) {
 	    my ($sid, $volname) = PVE::Storage::parse_volume_id($volid);
-	    my $scfg =  PVE::Storage::storage_config($self->{storecfg}, $sid);
+	    my $scfg =  PVE::Storage::storage_config($storecfg, $sid);
 
 	    my $migratable = $scfg->{type} =~ /^(?:dir|zfspool|lvmthin|lvm)$/;
 
@@ -446,7 +447,7 @@ sub sync_disks {
 		if !$migratable;
 
 	    # image is a linked clone on local storage, se we can't migrate.
-	    if (my $basename = (PVE::Storage::parse_volname($self->{storecfg}, $volid))[3]) {
+	    if (my $basename = (PVE::Storage::parse_volname($storecfg, $volid))[3]) {
 		die "can't migrate '$volid' as it's a clone of '$basename'";
 	    }
 	}
@@ -490,7 +491,7 @@ sub sync_disks {
 
 	# sizes in config have to be accurate for remote node to correctly
 	# allocate disks, rescan to be sure
-	my $volid_hash = PVE::QemuServer::scan_volids($self->{storecfg}, $vmid);
+	my $volid_hash = PVE::QemuServer::scan_volids($storecfg, $vmid);
 	PVE::QemuServer::foreach_drive($conf, sub {
 	    my ($key, $drive) = @_;
 	    my ($updated, $old_size, $new_size) = PVE::QemuServer::Drive::update_disksize($drive, $volid_hash);
@@ -524,7 +525,7 @@ sub sync_disks {
 		# JSONSchema and get_bandwidth_limit use kbps - storage_migrate bps
 		$bwlimit = $bwlimit * 1024 if defined($bwlimit);
 
-		PVE::Storage::storage_migrate($self->{storecfg}, $volid, $self->{ssh_info}, $targetsid,
+		PVE::Storage::storage_migrate($storecfg, $volid, $self->{ssh_info}, $targetsid,
 					      undef, undef, undef, $bwlimit, $insecure, $with_snapshots);
 	    }
 	}
