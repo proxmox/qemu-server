@@ -333,7 +333,8 @@ sub sync_disks {
 
 	my $rep_cfg = PVE::ReplicationConfig->new();
 	my $replication_jobcfg = $rep_cfg->find_local_replication_job($vmid, $self->{node});
-	my $replicatable_volumes = $replication_jobcfg ? PVE::QemuConfig->get_replicatable_volumes($storecfg, $vmid, $conf, 0, 1) : {};
+	my $replicatable_volumes = !$replication_jobcfg ? {}
+	    : PVE::QemuConfig->get_replicatable_volumes($storecfg, $vmid, $conf, 0, 1);
 
 	my $test_volid = sub {
 	    my ($volid, $attr) = @_;
