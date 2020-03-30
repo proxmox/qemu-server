@@ -550,7 +550,10 @@ sub cleanup_remotedisks {
     my ($self) = @_;
 
     foreach my $target_drive (keys %{$self->{target_drive}}) {
-	my $drive = PVE::QemuServer::parse_drive($target_drive, $self->{target_drive}->{$target_drive}->{drivestr});
+	my $drivestr = $self->{target_drive}->{$target_drive}->{drivestr};
+	next if !defined($drivestr);
+
+	my $drive = PVE::QemuServer::parse_drive($target_drive, $drivestr);
 
 	# don't clean up replicated disks!
 	next if defined($self->{replicated_volumes}->{$drive->{file}});
