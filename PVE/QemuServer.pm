@@ -4806,7 +4806,7 @@ sub vm_migrate_alloc_nbd_disks {
 sub vm_start {
     my ($storecfg, $vmid, $params, $migrate_opts) = @_;
 
-    PVE::QemuConfig->lock_config($vmid, sub {
+    return PVE::QemuConfig->lock_config($vmid, sub {
 	my $conf = PVE::QemuConfig->load_config($vmid, $migrate_opts->{migratedfrom});
 
 	die "you can't start a vm if it's a template\n" if PVE::QemuConfig->is_template($conf);
@@ -4828,7 +4828,7 @@ sub vm_start {
 	    }
 	}
 
-	vm_start_nolock($storecfg, $vmid, $conf, $params, $migrate_opts);
+	return vm_start_nolock($storecfg, $vmid, $conf, $params, $migrate_opts);
     });
 }
 
@@ -4856,6 +4856,8 @@ sub vm_start_nolock {
 
     my $migratedfrom = $migrate_opts->{migratedfrom};
     my $migration_type = $migrate_opts->{type};
+
+    my $res = {};
 
     # clean up leftover reboot request files
     eval { clear_reboot_request($vmid); };
@@ -5065,6 +5067,7 @@ sub vm_start_nolock {
     }
 
     print "migration listens on $migrate_uri\n" if $migrate_uri;
+    $res->{migrate_uri} = $migrate_uri;
 
     if ($statefile && $statefile ne 'tcp' && $statefile ne 'unix')  {
 	eval { mon_cmd($vmid, "cont"); };
@@ -5092,13 +5095,19 @@ sub vm_start_nolock {
 	    $migrate_storage_uri = "nbd:${localip}:${storage_migrate_port}";
 	}
 
+	$res->{migrate_storage_uri} = $migrate_storage_uri;
+
 	foreach my $opt (sort keys %$nbd) {
 	    my $drivestr = $nbd->{$opt}->{drivestr};
 	    my $volid = $nbd->{$opt}->{volid};
 	    mon_cmd($vmid, "nbd-server-add", device => "drive-$opt", writable => JSON::true );
-	    print "storage migration listens on $migrate_storage_uri:exportname=drive-$opt volume:$drivestr\n";
+	    my $nbd_uri = "$migrate_storage_uri:exportname=drive-$opt";
+	    print "storage migration listens on $nbd_uri volume:$drivestr\n";
 	    print "re-using replicated volume: $opt - $volid\n"
 		if $nbd->{$opt}->{replicated};
+
+	    $res->{drives}->{$opt} = $nbd->{$opt};
+	    $res->{drives}->{$opt}->{nbd_uri} = $nbd_uri;
 	}
     }
 
@@ -5110,6 +5119,7 @@ sub vm_start_nolock {
 
 	if ($spice_port) {
 	    print "spice listens on port $spice_port\n";
+	    $res->{spice_port} = $spice_port;
 	    if ($migrate_opts->{spice_ticket}) {
 		mon_cmd($vmid, "set_password", protocol => 'spice', password => $migrate_opts->{spice_ticket});
 		mon_cmd($vmid, "expire_password", protocol => 'spice', time => "+30");
@@ -5143,6 +5153,8 @@ sub vm_start_nolock {
     }
 
     PVE::GuestHelpers::exec_hookscript($conf, $vmid, 'post-start');
+
+    return $res;
 }
 
 sub vm_commandline {
