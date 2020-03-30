@@ -4709,12 +4709,34 @@ sub vmconfig_update_disk {
     vm_deviceplug($storecfg, $conf, $vmid, $opt, $drive, $arch, $machine_type);
 }
 
+# see vm_start_nolock for parameters
+sub vm_start {
+    my ($storecfg, $vmid, $params, $migrate_opts) = @_;
+
+    PVE::QemuConfig->lock_config($vmid, sub {
+	my $conf = PVE::QemuConfig->load_config($vmid, $migrate_opts->{migratedfrom});
+
+	die "you can't start a vm if it's a template\n" if PVE::QemuConfig->is_template($conf);
+
+	$params->{resume} = PVE::QemuConfig->has_lock($conf, 'suspended');
+
+	PVE::QemuConfig->check_lock($conf)
+	    if !($params->{skiplock} || $params->{resume});
+
+	die "VM $vmid already running\n" if check_running($vmid, undef, $migrate_opts->{migratedfrom});
+
+	vm_start_nolock($storecfg, $vmid, $conf, $params, $migrate_opts);
+    });
+}
+
+
 # params:
 #   statefile => 'tcp', 'unix' for migration or path/volid for RAM state
 #   skiplock => 0/1, skip checking for config lock
 #   forcemachine => to force Qemu machine (rollback/migration)
 #   timeout => in seconds
 #   paused => start VM in paused state (backup)
+#   resume => resume from hibernation
 # migrate_opts:
 #   migratedfrom => source node
 #   spice_ticket => used for spice migration, passed via tunnel/stdin
@@ -4723,368 +4745,356 @@ sub vmconfig_update_disk {
 #   targetstorage = storageid/'1' - target storage for disks migrated over NBD
 #   nbd_proto_version => int, 0 for TCP, 1 for UNIX
 #   replicated_volumes = which volids should be re-used with bitmaps for nbd migration
-sub vm_start {
-    my ($storecfg, $vmid, $params, $migrate_opts) = @_;
+sub vm_start_nolock {
+    my ($storecfg, $vmid, $conf, $params, $migrate_opts) = @_;
 
-    PVE::QemuConfig->lock_config($vmid, sub {
-	my $statefile = $params->{statefile};
+    my $statefile = $params->{statefile};
+    my $resume = $params->{resume};
 
-	my $migratedfrom = $migrate_opts->{migratedfrom};
-	my $migration_type = $migrate_opts->{type};
-	my $targetstorage = $migrate_opts->{targetstorage};
+    my $migratedfrom = $migrate_opts->{migratedfrom};
+    my $migration_type = $migrate_opts->{type};
+    my $targetstorage = $migrate_opts->{targetstorage};
 
-	my $conf = PVE::QemuConfig->load_config($vmid, $migratedfrom);
+    # clean up leftover reboot request files
+    eval { clear_reboot_request($vmid); };
+    warn $@ if $@;
 
-	die "you can't start a vm if it's a template\n" if PVE::QemuConfig->is_template($conf);
+    if (!$statefile && scalar(keys %{$conf->{pending}})) {
+	vmconfig_apply_pending($vmid, $conf, $storecfg);
+	$conf = PVE::QemuConfig->load_config($vmid); # update/reload
+    }
 
-	my $is_suspended = PVE::QemuConfig->has_lock($conf, 'suspended');
+    PVE::QemuServer::Cloudinit::generate_cloudinitconfig($conf, $vmid);
 
-	PVE::QemuConfig->check_lock($conf)
-	    if !($params->{skiplock} || $is_suspended);
+    my $defaults = load_defaults();
 
-	die "VM $vmid already running\n" if check_running($vmid, undef, $migratedfrom);
+    # set environment variable useful inside network script
+    $ENV{PVE_MIGRATED_FROM} = $migratedfrom if $migratedfrom;
 
-	# clean up leftover reboot request files
-	eval { clear_reboot_request($vmid); };
-	warn $@ if $@;
+    my $local_volumes = {};
 
-	if (!$statefile && scalar(keys %{$conf->{pending}})) {
-	    vmconfig_apply_pending($vmid, $conf, $storecfg);
-	    $conf = PVE::QemuConfig->load_config($vmid); # update/reload
-	}
+    if ($targetstorage) {
+	foreach_drive($conf, sub {
+	    my ($ds, $drive) = @_;
 
-	PVE::QemuServer::Cloudinit::generate_cloudinitconfig($conf, $vmid);
+	    return if drive_is_cdrom($drive);
 
-	my $defaults = load_defaults();
+	    my $volid = $drive->{file};
 
-	# set environment variable useful inside network script
-	$ENV{PVE_MIGRATED_FROM} = $migratedfrom if $migratedfrom;
+	    return if !$volid;
 
-	my $local_volumes = {};
+	    my ($storeid, $volname) = PVE::Storage::parse_volume_id($volid);
 
-	if ($targetstorage) {
-	    foreach_drive($conf, sub {
-		my ($ds, $drive) = @_;
-
-		return if drive_is_cdrom($drive);
-
-		my $volid = $drive->{file};
-
-		return if !$volid;
-
-		my ($storeid, $volname) = PVE::Storage::parse_volume_id($volid);
-
-		my $scfg = PVE::Storage::storage_config($storecfg, $storeid);
-		return if $scfg->{shared};
-		$local_volumes->{$ds} = [$volid, $storeid, $volname];
-	    });
+	    my $scfg = PVE::Storage::storage_config($storecfg, $storeid);
+	    return if $scfg->{shared};
+	    $local_volumes->{$ds} = [$volid, $storeid, $volname];
+	});
 
 	    my $format = undef;
 
 	    foreach my $opt (sort keys %$local_volumes) {
 
-		my ($volid, $storeid, $volname) = @{$local_volumes->{$opt}};
-		if ($migrate_opts->{replicated_volumes}->{$volid}) {
-		    # re-use existing, replicated volume with bitmap on source side
-		    $local_volumes->{$opt} = $conf->{${opt}};
-		    print "re-using replicated volume: $opt - $volid\n";
-		    next;
-		}
-		my $drive = parse_drive($opt, $conf->{$opt});
-
-		# If a remote storage is specified and the format of the original
-		# volume is not available there, fall back to the default format.
-		# Otherwise use the same format as the original.
-		if ($targetstorage && $targetstorage ne "1") {
-		    $storeid = $targetstorage;
-		    my ($defFormat, $validFormats) = PVE::Storage::storage_default_format($storecfg, $storeid);
-		    my $scfg = PVE::Storage::storage_config($storecfg, $storeid);
-		    my $fileFormat = qemu_img_format($scfg, $volname);
-		    $format = (grep {$fileFormat eq $_} @{$validFormats}) ? $fileFormat : $defFormat;
-		} else {
-		    my $scfg = PVE::Storage::storage_config($storecfg, $storeid);
-		    $format = qemu_img_format($scfg, $volname);
-		}
-
-		my $newvolid = PVE::Storage::vdisk_alloc($storecfg, $storeid, $vmid, $format, undef, ($drive->{size}/1024));
-		my $newdrive = $drive;
-		$newdrive->{format} = $format;
-		$newdrive->{file} = $newvolid;
-		my $drivestr = print_drive($newdrive);
-		$local_volumes->{$opt} = $drivestr;
-		#pass drive to conf for command line
-		$conf->{$opt} = $drivestr;
+	    my ($volid, $storeid, $volname) = @{$local_volumes->{$opt}};
+	    if ($migrate_opts->{replicated_volumes}->{$volid}) {
+		# re-use existing, replicated volume with bitmap on source side
+		$local_volumes->{$opt} = $conf->{${opt}};
+		print "re-using replicated volume: $opt - $volid\n";
+		next;
 	    }
-	}
+	    my $drive = parse_drive($opt, $conf->{$opt});
 
-	PVE::GuestHelpers::exec_hookscript($conf, $vmid, 'pre-start', 1);
-
-	my $forcemachine = $params->{forcemachine};
-	if ($is_suspended) {
-	    # enforce machine type on suspended vm to ensure HW compatibility
-	    $forcemachine = $conf->{runningmachine};
-	    print "Resuming suspended VM\n";
-	}
-
-	my ($cmd, $vollist, $spice_port) = config_to_command($storecfg, $vmid, $conf, $defaults, $forcemachine);
-
-	my $migration_ip;
-	my $get_migration_ip = sub {
-	    my ($nodename) = @_;
-
-	    return $migration_ip if defined($migration_ip);
-
-	    my $cidr = $migrate_opts->{network};
-
-	    if (!defined($cidr)) {
-		my $dc_conf = PVE::Cluster::cfs_read_file('datacenter.cfg');
-		$cidr = $dc_conf->{migration}->{network};
-	    }
-
-	    if (defined($cidr)) {
-		my $ips = PVE::Network::get_local_ip_from_cidr($cidr);
-
-		die "could not get IP: no address configured on local " .
-		    "node for network '$cidr'\n" if scalar(@$ips) == 0;
-
-		die "could not get IP: multiple addresses configured on local " .
-		    "node for network '$cidr'\n" if scalar(@$ips) > 1;
-
-		$migration_ip = @$ips[0];
-	    }
-
-	    $migration_ip = PVE::Cluster::remote_node_ip($nodename, 1)
-		if !defined($migration_ip);
-
-	    return $migration_ip;
-	};
-
-	my $migrate_uri;
-	if ($statefile) {
-	    if ($statefile eq 'tcp') {
-		my $localip = "localhost";
-		my $datacenterconf = PVE::Cluster::cfs_read_file('datacenter.cfg');
-		my $nodename = nodename();
-
-		if (!defined($migration_type)) {
-		    if (defined($datacenterconf->{migration}->{type})) {
-			$migration_type = $datacenterconf->{migration}->{type};
-		    } else {
-			$migration_type = 'secure';
-		    }
-		}
-
-		if ($migration_type eq 'insecure') {
-		    $localip = $get_migration_ip->($nodename);
-		    $localip = "[$localip]" if Net::IP::ip_is_ipv6($localip);
-		}
-
-		my $pfamily = PVE::Tools::get_host_address_family($nodename);
-		my $migrate_port = PVE::Tools::next_migrate_port($pfamily);
-		$migrate_uri = "tcp:${localip}:${migrate_port}";
-		push @$cmd, '-incoming', $migrate_uri;
-		push @$cmd, '-S';
-
-	    } elsif ($statefile eq 'unix') {
-		# should be default for secure migrations as a ssh TCP forward
-		# tunnel is not deterministic reliable ready and fails regurarly
-		# to set up in time, so use UNIX socket forwards
-		my $socket_addr = "/run/qemu-server/$vmid.migrate";
-		unlink $socket_addr;
-
-		$migrate_uri = "unix:$socket_addr";
-
-		push @$cmd, '-incoming', $migrate_uri;
-		push @$cmd, '-S';
-
-	    } elsif (-e $statefile) {
-		push @$cmd, '-loadstate', $statefile;
+	    # If a remote storage is specified and the format of the original
+	    # volume is not available there, fall back to the default format.
+	    # Otherwise use the same format as the original.
+	    if ($targetstorage && $targetstorage ne "1") {
+		$storeid = $targetstorage;
+		my ($defFormat, $validFormats) = PVE::Storage::storage_default_format($storecfg, $storeid);
+		my $scfg = PVE::Storage::storage_config($storecfg, $storeid);
+		my $fileFormat = qemu_img_format($scfg, $volname);
+		$format = (grep {$fileFormat eq $_} @{$validFormats}) ? $fileFormat : $defFormat;
 	    } else {
-		my $statepath = PVE::Storage::path($storecfg, $statefile);
-		push @$vollist, $statefile;
-		push @$cmd, '-loadstate', $statepath;
+		my $scfg = PVE::Storage::storage_config($storecfg, $storeid);
+		$format = qemu_img_format($scfg, $volname);
 	    }
-	} elsif ($params->{paused}) {
-	    push @$cmd, '-S';
+
+	    my $newvolid = PVE::Storage::vdisk_alloc($storecfg, $storeid, $vmid, $format, undef, ($drive->{size}/1024));
+	    my $newdrive = $drive;
+	    $newdrive->{format} = $format;
+	    $newdrive->{file} = $newvolid;
+	    my $drivestr = print_drive($newdrive);
+	    $local_volumes->{$opt} = $drivestr;
+	    #pass drive to conf for command line
+	    $conf->{$opt} = $drivestr;
+	}
+    }
+
+    PVE::GuestHelpers::exec_hookscript($conf, $vmid, 'pre-start', 1);
+
+    my $forcemachine = $params->{forcemachine};
+    if ($resume) {
+	# enforce machine type on suspended vm to ensure HW compatibility
+	$forcemachine = $conf->{runningmachine};
+	print "Resuming suspended VM\n";
+    }
+
+    my ($cmd, $vollist, $spice_port) = config_to_command($storecfg, $vmid, $conf, $defaults, $forcemachine);
+
+    my $migration_ip;
+    my $get_migration_ip = sub {
+	my ($nodename) = @_;
+
+	return $migration_ip if defined($migration_ip);
+
+	my $cidr = $migrate_opts->{network};
+
+	if (!defined($cidr)) {
+	    my $dc_conf = PVE::Cluster::cfs_read_file('datacenter.cfg');
+	    $cidr = $dc_conf->{migration}->{network};
 	}
 
-	# host pci devices
-        for (my $i = 0; $i < $MAX_HOSTPCI_DEVICES; $i++)  {
-          my $d = parse_hostpci($conf->{"hostpci$i"});
-          next if !$d;
-	  my $pcidevices = $d->{pciid};
-	  foreach my $pcidevice (@$pcidevices) {
-		my $pciid = $pcidevice->{id};
+	if (defined($cidr)) {
+	    my $ips = PVE::Network::get_local_ip_from_cidr($cidr);
 
-		my $info = PVE::SysFSTools::pci_device_info("$pciid");
-		die "IOMMU not present\n" if !PVE::SysFSTools::check_iommu_support();
-		die "no pci device info for device '$pciid'\n" if !$info;
+	    die "could not get IP: no address configured on local " .
+		"node for network '$cidr'\n" if scalar(@$ips) == 0;
 
-		if ($d->{mdev}) {
-		    my $uuid = PVE::SysFSTools::generate_mdev_uuid($vmid, $i);
-		    PVE::SysFSTools::pci_create_mdev_device($pciid, $uuid, $d->{mdev});
+	    die "could not get IP: multiple addresses configured on local " .
+		"node for network '$cidr'\n" if scalar(@$ips) > 1;
+
+	    $migration_ip = @$ips[0];
+	}
+
+	$migration_ip = PVE::Cluster::remote_node_ip($nodename, 1)
+	    if !defined($migration_ip);
+
+	return $migration_ip;
+    };
+
+    my $migrate_uri;
+    if ($statefile) {
+	if ($statefile eq 'tcp') {
+	    my $localip = "localhost";
+	    my $datacenterconf = PVE::Cluster::cfs_read_file('datacenter.cfg');
+	    my $nodename = nodename();
+
+	    if (!defined($migration_type)) {
+		if (defined($datacenterconf->{migration}->{type})) {
+		    $migration_type = $datacenterconf->{migration}->{type};
 		} else {
-		    die "can't unbind/bind pci group to vfio '$pciid'\n"
-			if !PVE::SysFSTools::pci_dev_group_bind_to_vfio($pciid);
-		    die "can't reset pci device '$pciid'\n"
-			if $info->{has_fl_reset} and !PVE::SysFSTools::pci_dev_reset($info);
+		    $migration_type = 'secure';
 		}
-	  }
-        }
+	    }
 
-	PVE::Storage::activate_volumes($storecfg, $vollist);
-
-	eval {
-	    run_command(['/bin/systemctl', 'stop', "$vmid.scope"],
-		outfunc => sub {}, errfunc => sub {});
-	};
-	# Issues with the above 'stop' not being fully completed are extremely rare, a very low
-	# timeout should be more than enough here...
-	PVE::Systemd::wait_for_unit_removed("$vmid.scope", 5);
-
-	my $cpuunits = defined($conf->{cpuunits}) ? $conf->{cpuunits}
-	                                          : $defaults->{cpuunits};
-
-	my $start_timeout = $params->{timeout} // config_aware_timeout($conf, $is_suspended);
-	my %run_params = (
-	    timeout => $statefile ? undef : $start_timeout,
-	    umask => 0077,
-	    noerr => 1,
-	);
-
-	# when migrating, prefix QEMU output so other side can pick up any
-	# errors that might occur and show the user
-	if ($migratedfrom) {
-	    $run_params{quiet} = 1;
-	    $run_params{logfunc} = sub { print "QEMU: $_[0]\n" };
-	}
-
-	my %properties = (
-	    Slice => 'qemu.slice',
-	    KillMode => 'none',
-	    CPUShares => $cpuunits
-	);
-
-	if (my $cpulimit = $conf->{cpulimit}) {
-	    $properties{CPUQuota} = int($cpulimit * 100);
-	}
-	$properties{timeout} = 10 if $statefile; # setting up the scope shoul be quick
-
-	my $run_qemu = sub {
-	    PVE::Tools::run_fork sub {
-		PVE::Systemd::enter_systemd_scope($vmid, "Proxmox VE VM $vmid", %properties);
-
-		my $exitcode = run_command($cmd, %run_params);
-		die "QEMU exited with code $exitcode\n" if $exitcode;
-	    };
-	};
-
-	if ($conf->{hugepages}) {
-
-	    my $code = sub {
-		my $hugepages_topology = PVE::QemuServer::Memory::hugepages_topology($conf);
-		my $hugepages_host_topology = PVE::QemuServer::Memory::hugepages_host_topology();
-
-		PVE::QemuServer::Memory::hugepages_mount();
-		PVE::QemuServer::Memory::hugepages_allocate($hugepages_topology, $hugepages_host_topology);
-
-		eval { $run_qemu->() };
-		if (my $err = $@) {
-		    PVE::QemuServer::Memory::hugepages_reset($hugepages_host_topology);
-		    die $err;
-		}
-
-		PVE::QemuServer::Memory::hugepages_pre_deallocate($hugepages_topology);
-	    };
-	    eval { PVE::QemuServer::Memory::hugepages_update_locked($code); };
-
-	} else {
-	    eval { $run_qemu->() };
-	}
-
-	if (my $err = $@) {
-	    # deactivate volumes if start fails
-	    eval { PVE::Storage::deactivate_volumes($storecfg, $vollist); };
-	    die "start failed: $err";
-	}
-
-	print "migration listens on $migrate_uri\n" if $migrate_uri;
-
-	if ($statefile && $statefile ne 'tcp' && $statefile ne 'unix')  {
-	    eval { mon_cmd($vmid, "cont"); };
-	    warn $@ if $@;
-	}
-
-	#start nbd server for storage migration
-	if ($targetstorage) {
-	    my $nbd_protocol_version = $migrate_opts->{nbd_proto_version} // 0;
-
-	    my $migrate_storage_uri;
-	    # nbd_protocol_version > 0 for unix socket support
-	    if ($nbd_protocol_version > 0 && $migration_type eq 'secure') {
-		my $socket_path = "/run/qemu-server/$vmid\_nbd.migrate";
-		mon_cmd($vmid, "nbd-server-start", addr => { type => 'unix', data => { path => $socket_path } } );
-		$migrate_storage_uri = "nbd:unix:$socket_path";
-	    } else {
-		my $nodename = nodename();
-		my $localip = $get_migration_ip->($nodename);
-		my $pfamily = PVE::Tools::get_host_address_family($nodename);
-		my $storage_migrate_port = PVE::Tools::next_migrate_port($pfamily);
-
-		mon_cmd($vmid, "nbd-server-start", addr => { type => 'inet', data => { host => "${localip}", port => "${storage_migrate_port}" } } );
+	    if ($migration_type eq 'insecure') {
+		$localip = $get_migration_ip->($nodename);
 		$localip = "[$localip]" if Net::IP::ip_is_ipv6($localip);
-		$migrate_storage_uri = "nbd:${localip}:${storage_migrate_port}";
 	    }
 
-	    foreach my $opt (sort keys %$local_volumes) {
-		my $drivestr = $local_volumes->{$opt};
-		mon_cmd($vmid, "nbd-server-add", device => "drive-$opt", writable => JSON::true );
-		print "storage migration listens on $migrate_storage_uri:exportname=drive-$opt volume:$drivestr\n";
-	    }
-	}
+	    my $pfamily = PVE::Tools::get_host_address_family($nodename);
+	    my $migrate_port = PVE::Tools::next_migrate_port($pfamily);
+	    $migrate_uri = "tcp:${localip}:${migrate_port}";
+	    push @$cmd, '-incoming', $migrate_uri;
+	    push @$cmd, '-S';
 
-	if ($migratedfrom) {
-	    eval {
-		set_migration_caps($vmid);
-	    };
-	    warn $@ if $@;
+	} elsif ($statefile eq 'unix') {
+	    # should be default for secure migrations as a ssh TCP forward
+	    # tunnel is not deterministic reliable ready and fails regurarly
+	    # to set up in time, so use UNIX socket forwards
+	    my $socket_addr = "/run/qemu-server/$vmid.migrate";
+	    unlink $socket_addr;
 
-	    if ($spice_port) {
-	        print "spice listens on port $spice_port\n";
-		if ($migrate_opts->{spice_ticket}) {
-		    mon_cmd($vmid, "set_password", protocol => 'spice', password => $migrate_opts->{spice_ticket});
-		    mon_cmd($vmid, "expire_password", protocol => 'spice', time => "+30");
-		}
-	    }
+	    $migrate_uri = "unix:$socket_addr";
 
+	    push @$cmd, '-incoming', $migrate_uri;
+	    push @$cmd, '-S';
+
+	} elsif (-e $statefile) {
+	    push @$cmd, '-loadstate', $statefile;
 	} else {
-	    mon_cmd($vmid, "balloon", value => $conf->{balloon}*1024*1024)
-		if !$statefile && $conf->{balloon};
+	    my $statepath = PVE::Storage::path($storecfg, $statefile);
+	    push @$vollist, $statefile;
+	    push @$cmd, '-loadstate', $statepath;
+	}
+    } elsif ($params->{paused}) {
+	push @$cmd, '-S';
+    }
 
-	    foreach my $opt (keys %$conf) {
-		next if $opt !~  m/^net\d+$/;
-		my $nicconf = parse_net($conf->{$opt});
-		qemu_set_link_status($vmid, $opt, 0) if $nicconf->{link_down};
+    # host pci devices
+    for (my $i = 0; $i < $MAX_HOSTPCI_DEVICES; $i++)  {
+      my $d = parse_hostpci($conf->{"hostpci$i"});
+      next if !$d;
+      my $pcidevices = $d->{pciid};
+      foreach my $pcidevice (@$pcidevices) {
+	    my $pciid = $pcidevice->{id};
+
+	    my $info = PVE::SysFSTools::pci_device_info("$pciid");
+	    die "IOMMU not present\n" if !PVE::SysFSTools::check_iommu_support();
+	    die "no pci device info for device '$pciid'\n" if !$info;
+
+	    if ($d->{mdev}) {
+		my $uuid = PVE::SysFSTools::generate_mdev_uuid($vmid, $i);
+		PVE::SysFSTools::pci_create_mdev_device($pciid, $uuid, $d->{mdev});
+	    } else {
+		die "can't unbind/bind pci group to vfio '$pciid'\n"
+		    if !PVE::SysFSTools::pci_dev_group_bind_to_vfio($pciid);
+		die "can't reset pci device '$pciid'\n"
+		    if $info->{has_fl_reset} and !PVE::SysFSTools::pci_dev_reset($info);
+	    }
+      }
+    }
+
+    PVE::Storage::activate_volumes($storecfg, $vollist);
+
+    eval {
+	run_command(['/bin/systemctl', 'stop', "$vmid.scope"],
+	    outfunc => sub {}, errfunc => sub {});
+    };
+    # Issues with the above 'stop' not being fully completed are extremely rare, a very low
+    # timeout should be more than enough here...
+    PVE::Systemd::wait_for_unit_removed("$vmid.scope", 5);
+
+    my $cpuunits = defined($conf->{cpuunits}) ? $conf->{cpuunits}
+	                                      : $defaults->{cpuunits};
+
+    my $start_timeout = $params->{timeout} // config_aware_timeout($conf, $resume);
+    my %run_params = (
+	timeout => $statefile ? undef : $start_timeout,
+	umask => 0077,
+	noerr => 1,
+    );
+
+    # when migrating, prefix QEMU output so other side can pick up any
+    # errors that might occur and show the user
+    if ($migratedfrom) {
+	$run_params{quiet} = 1;
+	$run_params{logfunc} = sub { print "QEMU: $_[0]\n" };
+    }
+
+    my %properties = (
+	Slice => 'qemu.slice',
+	KillMode => 'none',
+	CPUShares => $cpuunits
+    );
+
+    if (my $cpulimit = $conf->{cpulimit}) {
+	$properties{CPUQuota} = int($cpulimit * 100);
+    }
+    $properties{timeout} = 10 if $statefile; # setting up the scope shoul be quick
+
+    my $run_qemu = sub {
+	PVE::Tools::run_fork sub {
+	    PVE::Systemd::enter_systemd_scope($vmid, "Proxmox VE VM $vmid", %properties);
+
+	    my $exitcode = run_command($cmd, %run_params);
+	    die "QEMU exited with code $exitcode\n" if $exitcode;
+	};
+    };
+
+    if ($conf->{hugepages}) {
+
+	my $code = sub {
+	    my $hugepages_topology = PVE::QemuServer::Memory::hugepages_topology($conf);
+	    my $hugepages_host_topology = PVE::QemuServer::Memory::hugepages_host_topology();
+
+	    PVE::QemuServer::Memory::hugepages_mount();
+	    PVE::QemuServer::Memory::hugepages_allocate($hugepages_topology, $hugepages_host_topology);
+
+	    eval { $run_qemu->() };
+	    if (my $err = $@) {
+		PVE::QemuServer::Memory::hugepages_reset($hugepages_host_topology);
+		die $err;
+	    }
+
+	    PVE::QemuServer::Memory::hugepages_pre_deallocate($hugepages_topology);
+	};
+	eval { PVE::QemuServer::Memory::hugepages_update_locked($code); };
+
+    } else {
+	eval { $run_qemu->() };
+    }
+
+    if (my $err = $@) {
+	# deactivate volumes if start fails
+	eval { PVE::Storage::deactivate_volumes($storecfg, $vollist); };
+	die "start failed: $err";
+    }
+
+    print "migration listens on $migrate_uri\n" if $migrate_uri;
+
+    if ($statefile && $statefile ne 'tcp' && $statefile ne 'unix')  {
+	eval { mon_cmd($vmid, "cont"); };
+	warn $@ if $@;
+    }
+
+    #start nbd server for storage migration
+    if ($targetstorage) {
+	my $nbd_protocol_version = $migrate_opts->{nbd_proto_version} // 0;
+
+	my $migrate_storage_uri;
+	# nbd_protocol_version > 0 for unix socket support
+	if ($nbd_protocol_version > 0 && $migration_type eq 'secure') {
+	    my $socket_path = "/run/qemu-server/$vmid\_nbd.migrate";
+	    mon_cmd($vmid, "nbd-server-start", addr => { type => 'unix', data => { path => $socket_path } } );
+	    $migrate_storage_uri = "nbd:unix:$socket_path";
+	} else {
+	    my $nodename = nodename();
+	    my $localip = $get_migration_ip->($nodename);
+	    my $pfamily = PVE::Tools::get_host_address_family($nodename);
+	    my $storage_migrate_port = PVE::Tools::next_migrate_port($pfamily);
+
+	    mon_cmd($vmid, "nbd-server-start", addr => { type => 'inet', data => { host => "${localip}", port => "${storage_migrate_port}" } } );
+	    $localip = "[$localip]" if Net::IP::ip_is_ipv6($localip);
+	    $migrate_storage_uri = "nbd:${localip}:${storage_migrate_port}";
+	}
+
+	foreach my $opt (sort keys %$local_volumes) {
+	    my $drivestr = $local_volumes->{$opt};
+	    mon_cmd($vmid, "nbd-server-add", device => "drive-$opt", writable => JSON::true );
+	    print "storage migration listens on $migrate_storage_uri:exportname=drive-$opt volume:$drivestr\n";
+	}
+    }
+
+    if ($migratedfrom) {
+	eval {
+	    set_migration_caps($vmid);
+	};
+	warn $@ if $@;
+
+	if ($spice_port) {
+	    print "spice listens on port $spice_port\n";
+	    if ($migrate_opts->{spice_ticket}) {
+		mon_cmd($vmid, "set_password", protocol => 'spice', password => $migrate_opts->{spice_ticket});
+		mon_cmd($vmid, "expire_password", protocol => 'spice', time => "+30");
 	    }
 	}
 
-	mon_cmd($vmid, 'qom-set',
-		    path => "machine/peripheral/balloon0",
-		    property => "guest-stats-polling-interval",
-		    value => 2) if (!defined($conf->{balloon}) || $conf->{balloon});
+    } else {
+	mon_cmd($vmid, "balloon", value => $conf->{balloon}*1024*1024)
+	    if !$statefile && $conf->{balloon};
 
-	if ($is_suspended) {
-	    print "Resumed VM, removing state\n";
-	    if (my $vmstate = $conf->{vmstate}) {
-		PVE::Storage::deactivate_volumes($storecfg, [$vmstate]);
-		PVE::Storage::vdisk_free($storecfg, $vmstate);
-	    }
-	    delete $conf->@{qw(lock vmstate runningmachine)};
-	    PVE::QemuConfig->write_config($vmid, $conf);
+	foreach my $opt (keys %$conf) {
+	    next if $opt !~  m/^net\d+$/;
+	    my $nicconf = parse_net($conf->{$opt});
+	    qemu_set_link_status($vmid, $opt, 0) if $nicconf->{link_down};
 	}
+    }
 
-	PVE::GuestHelpers::exec_hookscript($conf, $vmid, 'post-start');
-    });
+    mon_cmd($vmid, 'qom-set',
+		path => "machine/peripheral/balloon0",
+		property => "guest-stats-polling-interval",
+		value => 2) if (!defined($conf->{balloon}) || $conf->{balloon});
+
+    if ($resume) {
+	print "Resumed VM, removing state\n";
+	if (my $vmstate = $conf->{vmstate}) {
+	    PVE::Storage::deactivate_volumes($storecfg, [$vmstate]);
+	    PVE::Storage::vdisk_free($storecfg, $vmstate);
+	}
+	delete $conf->@{qw(lock vmstate runningmachine)};
+	PVE::QemuConfig->write_config($vmid, $conf);
+    }
+
+    PVE::GuestHelpers::exec_hookscript($conf, $vmid, 'post-start');
 }
 
 sub vm_commandline {
