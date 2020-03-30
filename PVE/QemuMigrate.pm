@@ -244,7 +244,7 @@ sub prepare {
 	my ($sid, $volname) = PVE::Storage::parse_volume_id($volid, 1);
 
 	# check if storage is available on both nodes
-	my $targetsid = $self->{opts}->{targetstorage} // $sid;
+	my $targetsid = PVE::QemuServer::map_storage($self->{opts}->{storagemap}, $sid);
 
 	my $scfg = PVE::Storage::storage_check_node($self->{storecfg}, $sid);
 	PVE::Storage::storage_check_node($self->{storecfg}, $targetsid, $self->{node});
@@ -281,14 +281,6 @@ sub sync_disks {
     $self->{volumes} = [];
 
     my $storecfg = $self->{storecfg};
-    my $override_targetsid = $self->{opts}->{targetstorage};
-
-    if (defined($override_targetsid)) {
-	my $scfg = PVE::Storage::storage_config($storecfg, $override_targetsid);
-	die "content type 'images' is not available on storage '$override_targetsid'\n"
-	    if !$scfg->{content}->{images};
-    }
-
     eval {
 
 	# found local volumes and their origin
@@ -319,10 +311,16 @@ sub sync_disks {
 
 	    next if @{$dl->{$storeid}} == 0;
 
-	    my $targetsid = $override_targetsid // $storeid;
-
+	    my $targetsid = PVE::QemuServer::map_storage($self->{opts}->{storagemap}, $storeid);
 	    # check if storage is available on target node
 	    PVE::Storage::storage_check_node($storecfg, $targetsid, $self->{node});
+
+	    # grandfather in existing mismatches
+	    if ($targetsid ne $storeid) {
+		my $target_scfg = PVE::Storage::storage_config($storecfg, $targetsid);
+		die "content type 'images' is not available on storage '$targetsid'\n"
+		    if !$target_scfg->{content}->{images};
+	    }
 
 	    PVE::Storage::foreach_volid($dl, sub {
 		my ($volid, $sid, $volinfo) = @_;
@@ -368,7 +366,7 @@ sub sync_disks {
 
 	    my ($sid, $volname) = PVE::Storage::parse_volume_id($volid);
 
-	    my $targetsid = $override_targetsid // $sid;
+	    my $targetsid = PVE::QemuServer::map_storage($self->{opts}->{storagemap}, $sid);
 	    # check if storage is available on both nodes
 	    my $scfg = PVE::Storage::storage_check_node($storecfg, $sid);
 	    PVE::Storage::storage_check_node($storecfg, $targetsid, $self->{node});
@@ -518,7 +516,7 @@ sub sync_disks {
 
 	foreach my $volid (keys %$local_volumes) {
 	    my ($sid, $volname) = PVE::Storage::parse_volume_id($volid);
-	    my $targetsid = $override_targetsid // $sid;
+	    my $targetsid = PVE::QemuServer::map_storage($self->{opts}->{storagemap}, $sid);
 	    my $ref = $local_volumes->{$volid}->{ref};
 	    if ($self->{running} && $ref eq 'config') {
 		push @{$self->{online_local_volumes}}, $volid;

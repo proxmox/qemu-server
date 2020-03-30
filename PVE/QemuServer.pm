@@ -97,6 +97,28 @@ PVE::JSONSchema::register_standard_option('pve-qemu-machine', {
 	optional => 1,
 });
 
+
+sub map_storage {
+    my ($map, $source) = @_;
+
+    return $source if !defined($map);
+
+    return $map->{entries}->{$source}
+	if defined($map->{entries}) && $map->{entries}->{$source};
+
+    return $map->{default} if $map->{default};
+
+    # identity (fallback)
+    return $source;
+}
+
+PVE::JSONSchema::register_standard_option('pve-targetstorage', {
+    description => "Mapping from source to target storages. Providing only a single storage ID maps all source storages to that storage. Providing the special value '1' will map each source storage to itself.",
+    type => 'string',
+    format => 'storagepair-list',
+    optional => 1,
+});
+
 #no warnings 'redefine';
 
 sub cgroups_write {
@@ -4711,7 +4733,7 @@ sub vmconfig_update_disk {
 
 # called in locked context by incoming migration
 sub vm_migrate_alloc_nbd_disks {
-    my ($storecfg, $vmid, $conf, $targetstorage, $replicated_volumes) = @_;
+    my ($storecfg, $vmid, $conf, $storagemap, $replicated_volumes) = @_;
 
     my $local_volumes = {};
     foreach_drive($conf, sub {
@@ -4746,8 +4768,8 @@ sub vm_migrate_alloc_nbd_disks {
 	# If a remote storage is specified and the format of the original
 	# volume is not available there, fall back to the default format.
 	# Otherwise use the same format as the original.
-	if ($targetstorage && $targetstorage ne "1") {
-	    $storeid = $targetstorage;
+	if (!$storagemap->{identity}) {
+	    $storeid = map_storage($storagemap, $storeid);
 	    my ($defFormat, $validFormats) = PVE::Storage::storage_default_format($storecfg, $storeid);
 	    my $scfg = PVE::Storage::storage_config($storecfg, $storeid);
 	    my $fileFormat = qemu_img_format($scfg, $volname);
@@ -4772,7 +4794,7 @@ sub vm_migrate_alloc_nbd_disks {
 
 # see vm_start_nolock for parameters, additionally:
 # migrate_opts:
-#   targetstorage = storageid/'1' - target storage for disks migrated over NBD
+#   storagemap = parsed storage map for allocating NBD disks
 sub vm_start {
     my ($storecfg, $vmid, $params, $migrate_opts) = @_;
 
@@ -4788,8 +4810,8 @@ sub vm_start {
 
 	die "VM $vmid already running\n" if check_running($vmid, undef, $migrate_opts->{migratedfrom});
 
-	$migrate_opts->{nbd} = vm_migrate_alloc_nbd_disks($storecfg, $vmid, $conf, $migrate_opts->{targetstorage}, $migrate_opts->{replicated_volumes})
-	    if $migrate_opts->{targetstorage};
+	$migrate_opts->{nbd} = vm_migrate_alloc_nbd_disks($storecfg, $vmid, $conf, $migrate_opts->{storagemap}, $migrate_opts->{replicated_volumes})
+	    if $migrate_opts->{storagemap};
 
 	vm_start_nolock($storecfg, $vmid, $conf, $params, $migrate_opts);
     });

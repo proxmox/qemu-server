@@ -2024,11 +2024,7 @@ __PACKAGE__->register_method({
 		optional => 1,
 	    },
 	    machine => get_standard_option('pve-qemu-machine'),
-	    targetstorage => {
-		description => "Target storage for the migration. (Can be '1' to use the same storage id as on the source node.)",
-		type => 'string',
-		optional => 1
-	    },
+	    targetstorage => get_standard_option('pve-targetstorage'),
 	    timeout => {
 		description => "Wait maximal timeout seconds.",
 		type => 'integer',
@@ -2067,8 +2063,15 @@ __PACKAGE__->register_method({
 	my $migration_network = $get_root_param->('migration_network');
 	my $targetstorage = $get_root_param->('targetstorage');
 
-	raise_param_exc({ targetstorage => "targetstorage can only by used with migratedfrom." })
-	    if $targetstorage && !$migratedfrom;
+	my $storagemap;
+
+	if ($targetstorage) {
+	    raise_param_exc({ targetstorage => "targetstorage can only by used with migratedfrom." })
+		if !$migratedfrom;
+	    $storagemap = eval { PVE::JSONSchema::parse_idmap($targetstorage, 'pve-storage-id') };
+	    raise_param_exc({ targetstorage => "failed to parse targetstorage map: $@" })
+		if $@;
+	}
 
 	# read spice ticket from STDIN
 	my $spice_ticket;
@@ -2119,7 +2122,7 @@ __PACKAGE__->register_method({
 		    spice_ticket => $spice_ticket,
 		    network => $migration_network,
 		    type => $migration_type,
-		    targetstorage => $targetstorage,
+		    storagemap => $storagemap,
 		    nbd_proto_version => $nbd_protocol_version,
 		    replicated_volumes => $replicated_volumes,
 		};
@@ -3385,9 +3388,7 @@ __PACKAGE__->register_method({
 		description => "Enable live storage migration for local disk",
 		optional => 1,
 	    },
-            targetstorage => get_standard_option('pve-storage-id', {
-		description => "Default target storage.",
-		optional => 1,
+            targetstorage => get_standard_option('pve-targetstorage', {
 		completion => \&PVE::QemuServer::complete_migration_storage,
             }),
 	    bwlimit => {
@@ -3451,8 +3452,22 @@ __PACKAGE__->register_method({
 
 	my $storecfg = PVE::Storage::config();
 
-	if( $param->{targetstorage}) {
-	    PVE::Storage::storage_check_node($storecfg, $param->{targetstorage}, $target);
+	if (my $targetstorage = $param->{targetstorage}) {
+	    my $storagemap = eval { PVE::JSONSchema::parse_idmap($targetstorage, 'pve-storage-id') };
+	    raise_param_exc({ targetstorage => "failed to parse targetstorage map: $@" })
+		if $@;
+
+	    foreach my $source (keys %{$storagemap->{entries}}) {
+		PVE::Storage::storage_check_node($storecfg, $storagemap->{entries}->{$source}, $target);
+	    }
+
+	    PVE::Storage::storage_check_node($storecfg, $storagemap->{default}, $target)
+		if $storagemap->{default};
+
+	    PVE::QemuServer::check_storage_availability($storecfg, $conf, $target)
+		if $storagemap->{identity};
+
+	    $param->{storagemap} = $storagemap;
         } else {
 	    PVE::QemuServer::check_storage_availability($storecfg, $conf, $target);
 	}
