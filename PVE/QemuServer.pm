@@ -4709,7 +4709,70 @@ sub vmconfig_update_disk {
     vm_deviceplug($storecfg, $conf, $vmid, $opt, $drive, $arch, $machine_type);
 }
 
-# see vm_start_nolock for parameters
+# called in locked context by incoming migration
+sub vm_migrate_alloc_nbd_disks {
+    my ($storecfg, $vmid, $conf, $targetstorage, $replicated_volumes) = @_;
+
+    my $local_volumes = {};
+    foreach_drive($conf, sub {
+	my ($ds, $drive) = @_;
+
+	return if drive_is_cdrom($drive);
+
+	my $volid = $drive->{file};
+
+	return if !$volid;
+
+	my ($storeid, $volname) = PVE::Storage::parse_volume_id($volid);
+
+	my $scfg = PVE::Storage::storage_config($storecfg, $storeid);
+	return if $scfg->{shared};
+	$local_volumes->{$ds} = [$volid, $storeid, $volname];
+    });
+
+    my $format = undef;
+
+    my $nbd = {};
+    foreach my $opt (sort keys %$local_volumes) {
+	my ($volid, $storeid, $volname) = @{$local_volumes->{$opt}};
+	if ($replicated_volumes->{$volid}) {
+	    # re-use existing, replicated volume with bitmap on source side
+	    $nbd->{$opt} = $conf->{${opt}};
+	    print "re-using replicated volume: $opt - $volid\n";
+	    next;
+	}
+	my $drive = parse_drive($opt, $conf->{$opt});
+
+	# If a remote storage is specified and the format of the original
+	# volume is not available there, fall back to the default format.
+	# Otherwise use the same format as the original.
+	if ($targetstorage && $targetstorage ne "1") {
+	    $storeid = $targetstorage;
+	    my ($defFormat, $validFormats) = PVE::Storage::storage_default_format($storecfg, $storeid);
+	    my $scfg = PVE::Storage::storage_config($storecfg, $storeid);
+	    my $fileFormat = qemu_img_format($scfg, $volname);
+	    $format = (grep {$fileFormat eq $_} @{$validFormats}) ? $fileFormat : $defFormat;
+	} else {
+	    my $scfg = PVE::Storage::storage_config($storecfg, $storeid);
+	    $format = qemu_img_format($scfg, $volname);
+	}
+
+	my $newvolid = PVE::Storage::vdisk_alloc($storecfg, $storeid, $vmid, $format, undef, ($drive->{size}/1024));
+	my $newdrive = $drive;
+	$newdrive->{format} = $format;
+	$newdrive->{file} = $newvolid;
+	my $drivestr = print_drive($newdrive);
+	$nbd->{$opt} = $drivestr;
+	#pass drive to conf for command line
+	$conf->{$opt} = $drivestr;
+    }
+
+    return $nbd;
+}
+
+# see vm_start_nolock for parameters, additionally:
+# migrate_opts:
+#   targetstorage = storageid/'1' - target storage for disks migrated over NBD
 sub vm_start {
     my ($storecfg, $vmid, $params, $migrate_opts) = @_;
 
@@ -4725,6 +4788,9 @@ sub vm_start {
 
 	die "VM $vmid already running\n" if check_running($vmid, undef, $migrate_opts->{migratedfrom});
 
+	$migrate_opts->{nbd} = vm_migrate_alloc_nbd_disks($storecfg, $vmid, $conf, $migrate_opts->{targetstorage}, $migrate_opts->{replicated_volumes})
+	    if $migrate_opts->{targetstorage};
+
 	vm_start_nolock($storecfg, $vmid, $conf, $params, $migrate_opts);
     });
 }
@@ -4738,11 +4804,11 @@ sub vm_start {
 #   paused => start VM in paused state (backup)
 #   resume => resume from hibernation
 # migrate_opts:
+#   nbd => newly allocated volumes for NBD exports (vm_migrate_alloc_nbd_disks)
 #   migratedfrom => source node
 #   spice_ticket => used for spice migration, passed via tunnel/stdin
 #   network => CIDR of migration network
 #   type => secure/insecure - tunnel over encrypted connection or plain-text
-#   targetstorage = storageid/'1' - target storage for disks migrated over NBD
 #   nbd_proto_version => int, 0 for TCP, 1 for UNIX
 #   replicated_volumes = which volids should be re-used with bitmaps for nbd migration
 sub vm_start_nolock {
@@ -4753,7 +4819,6 @@ sub vm_start_nolock {
 
     my $migratedfrom = $migrate_opts->{migratedfrom};
     my $migration_type = $migrate_opts->{type};
-    my $targetstorage = $migrate_opts->{targetstorage};
 
     # clean up leftover reboot request files
     eval { clear_reboot_request($vmid); };
@@ -4770,63 +4835,6 @@ sub vm_start_nolock {
 
     # set environment variable useful inside network script
     $ENV{PVE_MIGRATED_FROM} = $migratedfrom if $migratedfrom;
-
-    my $local_volumes = {};
-
-    if ($targetstorage) {
-	foreach_drive($conf, sub {
-	    my ($ds, $drive) = @_;
-
-	    return if drive_is_cdrom($drive);
-
-	    my $volid = $drive->{file};
-
-	    return if !$volid;
-
-	    my ($storeid, $volname) = PVE::Storage::parse_volume_id($volid);
-
-	    my $scfg = PVE::Storage::storage_config($storecfg, $storeid);
-	    return if $scfg->{shared};
-	    $local_volumes->{$ds} = [$volid, $storeid, $volname];
-	});
-
-	    my $format = undef;
-
-	    foreach my $opt (sort keys %$local_volumes) {
-
-	    my ($volid, $storeid, $volname) = @{$local_volumes->{$opt}};
-	    if ($migrate_opts->{replicated_volumes}->{$volid}) {
-		# re-use existing, replicated volume with bitmap on source side
-		$local_volumes->{$opt} = $conf->{${opt}};
-		print "re-using replicated volume: $opt - $volid\n";
-		next;
-	    }
-	    my $drive = parse_drive($opt, $conf->{$opt});
-
-	    # If a remote storage is specified and the format of the original
-	    # volume is not available there, fall back to the default format.
-	    # Otherwise use the same format as the original.
-	    if ($targetstorage && $targetstorage ne "1") {
-		$storeid = $targetstorage;
-		my ($defFormat, $validFormats) = PVE::Storage::storage_default_format($storecfg, $storeid);
-		my $scfg = PVE::Storage::storage_config($storecfg, $storeid);
-		my $fileFormat = qemu_img_format($scfg, $volname);
-		$format = (grep {$fileFormat eq $_} @{$validFormats}) ? $fileFormat : $defFormat;
-	    } else {
-		my $scfg = PVE::Storage::storage_config($storecfg, $storeid);
-		$format = qemu_img_format($scfg, $volname);
-	    }
-
-	    my $newvolid = PVE::Storage::vdisk_alloc($storecfg, $storeid, $vmid, $format, undef, ($drive->{size}/1024));
-	    my $newdrive = $drive;
-	    $newdrive->{format} = $format;
-	    $newdrive->{file} = $newvolid;
-	    my $drivestr = print_drive($newdrive);
-	    $local_volumes->{$opt} = $drivestr;
-	    #pass drive to conf for command line
-	    $conf->{$opt} = $drivestr;
-	}
-    }
 
     PVE::GuestHelpers::exec_hookscript($conf, $vmid, 'pre-start', 1);
 
@@ -5027,7 +5035,7 @@ sub vm_start_nolock {
     }
 
     #start nbd server for storage migration
-    if ($targetstorage) {
+    if (my $nbd = $migrate_opts->{nbd}) {
 	my $nbd_protocol_version = $migrate_opts->{nbd_proto_version} // 0;
 
 	my $migrate_storage_uri;
@@ -5047,8 +5055,8 @@ sub vm_start_nolock {
 	    $migrate_storage_uri = "nbd:${localip}:${storage_migrate_port}";
 	}
 
-	foreach my $opt (sort keys %$local_volumes) {
-	    my $drivestr = $local_volumes->{$opt};
+	foreach my $opt (sort keys %$nbd) {
+	    my $drivestr = $nbd->{$opt};
 	    mon_cmd($vmid, "nbd-server-add", device => "drive-$opt", writable => JSON::true );
 	    print "storage migration listens on $migrate_storage_uri:exportname=drive-$opt volume:$drivestr\n";
 	}
