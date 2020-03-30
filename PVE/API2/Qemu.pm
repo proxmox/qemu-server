@@ -3453,15 +3453,27 @@ __PACKAGE__->register_method({
 	my $storecfg = PVE::Storage::config();
 
 	if (my $targetstorage = $param->{targetstorage}) {
+	    my $check_storage = sub {
+		my ($target_sid) = @_;
+		PVE::Storage::storage_check_node($storecfg, $target_sid, $target);
+		$rpcenv->check($authuser, "/storage/$target_sid", ['Datastore.AllocateSpace']);
+		my $scfg = PVE::Storage::storage_config($storecfg, $target_sid);
+		raise_param_exc({ targetstorage => "storage '$target_sid' does not support vm images"})
+		    if !$scfg->{content}->{images};
+	    };
+
 	    my $storagemap = eval { PVE::JSONSchema::parse_idmap($targetstorage, 'pve-storage-id') };
 	    raise_param_exc({ targetstorage => "failed to parse targetstorage map: $@" })
 		if $@;
 
+	    $rpcenv->check_vm_perm($authuser, $vmid, undef, ['VM.Config.Disk'])
+		if !defined($storagemap->{identity});
+
 	    foreach my $source (keys %{$storagemap->{entries}}) {
-		PVE::Storage::storage_check_node($storecfg, $storagemap->{entries}->{$source}, $target);
+		$check_storage->($storagemap->{entries}->{$source});
 	    }
 
-	    PVE::Storage::storage_check_node($storecfg, $storagemap->{default}, $target)
+	    $check_storage->($storagemap->{default})
 		if $storagemap->{default};
 
 	    PVE::QemuServer::check_storage_availability($storecfg, $conf, $target)
