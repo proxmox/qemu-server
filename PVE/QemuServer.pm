@@ -4732,8 +4732,8 @@ sub vmconfig_update_disk {
 }
 
 # called in locked context by incoming migration
-sub vm_migrate_alloc_nbd_disks {
-    my ($storecfg, $vmid, $conf, $storagemap, $replicated_volumes) = @_;
+sub vm_migrate_get_nbd_disks {
+    my ($storecfg, $conf, $replicated_volumes) = @_;
 
     my $local_volumes = {};
     foreach_drive($conf, sub {
@@ -4749,21 +4749,30 @@ sub vm_migrate_alloc_nbd_disks {
 
 	my $scfg = PVE::Storage::storage_config($storecfg, $storeid);
 	return if $scfg->{shared};
-	$local_volumes->{$ds} = [$volid, $storeid, $volname];
+
+	# replicated disks re-use existing state via bitmap
+	my $use_existing = $replicated_volumes->{$volid} ? 1 : 0;
+	$local_volumes->{$ds} = [$volid, $storeid, $volname, $drive, $use_existing];
     });
+    return $local_volumes;
+}
+
+# called in locked context by incoming migration
+sub vm_migrate_alloc_nbd_disks {
+    my ($storecfg, $vmid, $source_volumes, $storagemap) = @_;
 
     my $format = undef;
 
     my $nbd = {};
-    foreach my $opt (sort keys %$local_volumes) {
-	my ($volid, $storeid, $volname) = @{$local_volumes->{$opt}};
-	if ($replicated_volumes->{$volid}) {
-	    # re-use existing, replicated volume with bitmap on source side
-	    $nbd->{$opt} = $conf->{${opt}};
-	    print "re-using replicated volume: $opt - $volid\n";
+    foreach my $opt (sort keys %$source_volumes) {
+	my ($volid, $storeid, $volname, $drive, $use_existing) = @{$source_volumes->{$opt}};
+
+	if ($use_existing) {
+	    $nbd->{$opt}->{drivestr} = print_drive($drive);
+	    $nbd->{$opt}->{volid} = $volid;
+	    $nbd->{$opt}->{replicated} = 1;
 	    next;
 	}
-	my $drive = parse_drive($opt, $conf->{$opt});
 
 	# If a remote storage is specified and the format of the original
 	# volume is not available there, fall back to the default format.
@@ -4784,9 +4793,8 @@ sub vm_migrate_alloc_nbd_disks {
 	$newdrive->{format} = $format;
 	$newdrive->{file} = $newvolid;
 	my $drivestr = print_drive($newdrive);
-	$nbd->{$opt} = $drivestr;
-	#pass drive to conf for command line
-	$conf->{$opt} = $drivestr;
+	$nbd->{$opt}->{drivestr} = $drivestr;
+	$nbd->{$opt}->{volid} = $newvolid;
     }
 
     return $nbd;
@@ -4810,8 +4818,15 @@ sub vm_start {
 
 	die "VM $vmid already running\n" if check_running($vmid, undef, $migrate_opts->{migratedfrom});
 
-	$migrate_opts->{nbd} = vm_migrate_alloc_nbd_disks($storecfg, $vmid, $conf, $migrate_opts->{storagemap}, $migrate_opts->{replicated_volumes})
-	    if $migrate_opts->{storagemap};
+	if (my $storagemap = $migrate_opts->{storagemap}) {
+	    my $replicated = $migrate_opts->{replicated_volumes};
+	    my $disks = vm_migrate_get_nbd_disks($storecfg, $conf, $replicated);
+	    $migrate_opts->{nbd} = vm_migrate_alloc_nbd_disks($storecfg, $vmid, $disks, $storagemap);
+
+	    foreach my $opt (keys %{$migrate_opts->{nbd}}) {
+		$conf->{$opt} = $migrate_opts->{nbd}->{$opt}->{drivestr};
+	    }
+	}
 
 	vm_start_nolock($storecfg, $vmid, $conf, $params, $migrate_opts);
     });
@@ -4826,7 +4841,7 @@ sub vm_start {
 #   paused => start VM in paused state (backup)
 #   resume => resume from hibernation
 # migrate_opts:
-#   nbd => newly allocated volumes for NBD exports (vm_migrate_alloc_nbd_disks)
+#   nbd => volumes for NBD exports (vm_migrate_alloc_nbd_disks)
 #   migratedfrom => source node
 #   spice_ticket => used for spice migration, passed via tunnel/stdin
 #   network => CIDR of migration network
@@ -5078,9 +5093,12 @@ sub vm_start_nolock {
 	}
 
 	foreach my $opt (sort keys %$nbd) {
-	    my $drivestr = $nbd->{$opt};
+	    my $drivestr = $nbd->{$opt}->{drivestr};
+	    my $volid = $nbd->{$opt}->{volid};
 	    mon_cmd($vmid, "nbd-server-add", device => "drive-$opt", writable => JSON::true );
 	    print "storage migration listens on $migrate_storage_uri:exportname=drive-$opt volume:$drivestr\n";
+	    print "re-using replicated volume: $opt - $volid\n"
+		if $nbd->{$opt}->{replicated};
 	}
     }
 
