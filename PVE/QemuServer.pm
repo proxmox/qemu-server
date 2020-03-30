@@ -4709,12 +4709,30 @@ sub vmconfig_update_disk {
     vm_deviceplug($storecfg, $conf, $vmid, $opt, $drive, $arch, $machine_type);
 }
 
+# params:
+#   statefile => 'tcp', 'unix' for migration or path/volid for RAM state
+#   skiplock => 0/1, skip checking for config lock
+#   forcemachine => to force Qemu machine (rollback/migration)
+#   timeout => in seconds
+#   paused => start VM in paused state (backup)
+# migrate_opts:
+#   migratedfrom => source node
+#   spice_ticket => used for spice migration, passed via tunnel/stdin
+#   network => CIDR of migration network
+#   type => secure/insecure - tunnel over encrypted connection or plain-text
+#   targetstorage = storageid/'1' - target storage for disks migrated over NBD
+#   nbd_proto_version => int, 0 for TCP, 1 for UNIX
+#   replicated_volumes = which volids should be re-used with bitmaps for nbd migration
 sub vm_start {
-    my ($storecfg, $vmid, $statefile, $skiplock, $migratedfrom, $paused,
-	$forcemachine, $spice_ticket, $migration_network, $migration_type,
-	$targetstorage, $timeout, $nbd_protocol_version, $replicated_volumes) = @_;
+    my ($storecfg, $vmid, $params, $migrate_opts) = @_;
 
     PVE::QemuConfig->lock_config($vmid, sub {
+	my $statefile = $params->{statefile};
+
+	my $migratedfrom = $migrate_opts->{migratedfrom};
+	my $migration_type = $migrate_opts->{type};
+	my $targetstorage = $migrate_opts->{targetstorage};
+
 	my $conf = PVE::QemuConfig->load_config($vmid, $migratedfrom);
 
 	die "you can't start a vm if it's a template\n" if PVE::QemuConfig->is_template($conf);
@@ -4722,7 +4740,7 @@ sub vm_start {
 	my $is_suspended = PVE::QemuConfig->has_lock($conf, 'suspended');
 
 	PVE::QemuConfig->check_lock($conf)
-	    if !($skiplock || $is_suspended);
+	    if !($params->{skiplock} || $is_suspended);
 
 	die "VM $vmid already running\n" if check_running($vmid, undef, $migratedfrom);
 
@@ -4766,7 +4784,7 @@ sub vm_start {
 	    foreach my $opt (sort keys %$local_volumes) {
 
 		my ($volid, $storeid, $volname) = @{$local_volumes->{$opt}};
-		if ($replicated_volumes->{$volid}) {
+		if ($migrate_opts->{replicated_volumes}->{$volid}) {
 		    # re-use existing, replicated volume with bitmap on source side
 		    $local_volumes->{$opt} = $conf->{${opt}};
 		    print "re-using replicated volume: $opt - $volid\n";
@@ -4801,6 +4819,7 @@ sub vm_start {
 
 	PVE::GuestHelpers::exec_hookscript($conf, $vmid, 'pre-start', 1);
 
+	my $forcemachine = $params->{forcemachine};
 	if ($is_suspended) {
 	    # enforce machine type on suspended vm to ensure HW compatibility
 	    $forcemachine = $conf->{runningmachine};
@@ -4811,9 +4830,11 @@ sub vm_start {
 
 	my $migration_ip;
 	my $get_migration_ip = sub {
-	    my ($cidr, $nodename) = @_;
+	    my ($nodename) = @_;
 
 	    return $migration_ip if defined($migration_ip);
+
+	    my $cidr = $migrate_opts->{network};
 
 	    if (!defined($cidr)) {
 		my $dc_conf = PVE::Cluster::cfs_read_file('datacenter.cfg');
@@ -4854,7 +4875,7 @@ sub vm_start {
 		}
 
 		if ($migration_type eq 'insecure') {
-		    $localip = $get_migration_ip->($migration_network, $nodename);
+		    $localip = $get_migration_ip->($nodename);
 		    $localip = "[$localip]" if Net::IP::ip_is_ipv6($localip);
 		}
 
@@ -4883,7 +4904,7 @@ sub vm_start {
 		push @$vollist, $statefile;
 		push @$cmd, '-loadstate', $statepath;
 	    }
-	} elsif ($paused) {
+	} elsif ($params->{paused}) {
 	    push @$cmd, '-S';
 	}
 
@@ -4924,7 +4945,7 @@ sub vm_start {
 	my $cpuunits = defined($conf->{cpuunits}) ? $conf->{cpuunits}
 	                                          : $defaults->{cpuunits};
 
-	my $start_timeout = $timeout // config_aware_timeout($conf, $is_suspended);
+	my $start_timeout = $params->{timeout} // config_aware_timeout($conf, $is_suspended);
 	my %run_params = (
 	    timeout => $statefile ? undef : $start_timeout,
 	    umask => 0077,
@@ -4996,7 +5017,7 @@ sub vm_start {
 
 	#start nbd server for storage migration
 	if ($targetstorage) {
-	    $nbd_protocol_version //= 0;
+	    my $nbd_protocol_version = $migrate_opts->{nbd_proto_version} // 0;
 
 	    my $migrate_storage_uri;
 	    # nbd_protocol_version > 0 for unix socket support
@@ -5006,7 +5027,7 @@ sub vm_start {
 		$migrate_storage_uri = "nbd:unix:$socket_path";
 	    } else {
 		my $nodename = nodename();
-		my $localip = $get_migration_ip->($migration_network, $nodename);
+		my $localip = $get_migration_ip->($nodename);
 		my $pfamily = PVE::Tools::get_host_address_family($nodename);
 		my $storage_migrate_port = PVE::Tools::next_migrate_port($pfamily);
 
@@ -5030,8 +5051,8 @@ sub vm_start {
 
 	    if ($spice_port) {
 	        print "spice listens on port $spice_port\n";
-		if ($spice_ticket) {
-		    mon_cmd($vmid, "set_password", protocol => 'spice', password => $spice_ticket);
+		if ($migrate_opts->{spice_ticket}) {
+		    mon_cmd($vmid, "set_password", protocol => 'spice', password => $migrate_opts->{spice_ticket});
 		    mon_cmd($vmid, "expire_password", protocol => 'spice', time => "+30");
 		}
 	    }

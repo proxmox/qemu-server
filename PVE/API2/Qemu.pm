@@ -2114,9 +2114,24 @@ __PACKAGE__->register_method({
 
 		syslog('info', "start VM $vmid: $upid\n");
 
-		PVE::QemuServer::vm_start($storecfg, $vmid, $stateuri, $skiplock, $migratedfrom, undef, $machine,
-					  $spice_ticket, $migration_network, $migration_type, $targetstorage, $timeout,
-					  $nbd_protocol_version, $replicated_volumes);
+		my $migrate_opts = {
+		    migratedfrom => $migratedfrom,
+		    spice_ticket => $spice_ticket,
+		    network => $migration_network,
+		    type => $migration_type,
+		    targetstorage => $targetstorage,
+		    nbd_proto_version => $nbd_protocol_version,
+		    replicated_volumes => $replicated_volumes,
+		};
+
+		my $params = {
+		    statefile => $stateuri,
+		    skiplock => $skiplock,
+		    forcemachine => $machine,
+		    timeout => $timeout,
+		};
+
+		PVE::QemuServer::vm_start($storecfg, $vmid, $params, $migrate_opts);
 		return;
 	    };
 
@@ -2584,7 +2599,7 @@ __PACKAGE__->register_method({
 		PVE::QemuServer::vm_resume($vmid, $skiplock, $nocheck);
 	    } else {
 		my $storecfg = PVE::Storage::config();
-		PVE::QemuServer::vm_start($storecfg, $vmid, undef, $skiplock);
+		PVE::QemuServer::vm_start($storecfg, $vmid, { skiplock => $skiplock });
 	    }
 
 	    return;

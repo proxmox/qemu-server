@@ -356,13 +356,13 @@ sub do_snapshots_with_qemu {
 }
 
 sub vm_start {
-    my ($storecfg, $vmid, $statefile, $skiplock, $migratedfrom, $paused, $forcemachine) = @_;
+    my ($storecfg, $vmid, $params, $migrate_opts) = @_;
 
     die "Storage config not mocked! aborting\n"
 	if defined($storecfg);
 
     die "statefile and forcemachine must be both defined or undefined! aborting\n"
-	if defined($statefile) xor defined($forcemachine);
+	if defined($params->{statefile}) xor defined($params->{forcemachine});
 
     return;
 }

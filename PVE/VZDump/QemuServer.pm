@@ -676,7 +676,11 @@ sub enforce_vm_running_for_backup {
     eval {
 	$self->loginfo("starting kvm to execute backup task");
 	# start with skiplock
-	PVE::QemuServer::vm_start($self->{storecfg}, $vmid, undef, 1, undef, 1);
+	my $params = {
+	    skiplock => 1,
+	    paused => 1,
+	};
+	PVE::QemuServer::vm_start($self->{storecfg}, $vmid, $params);
     };
     die $@ if $@;
 }
