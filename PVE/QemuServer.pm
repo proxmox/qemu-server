@@ -5758,7 +5758,7 @@ sub update_disk_config {
     my $referencedpath = {};
 
     # update size info
-    PVE::QemuConfig->foreach_volume($conf, undef, sub {
+    PVE::QemuConfig->foreach_volume($conf, sub {
 	my ($opt, $drive) = @_;
 
 	my $volid = $drive->{file};
