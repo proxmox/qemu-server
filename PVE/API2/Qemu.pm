@@ -404,7 +404,7 @@ __PACKAGE__->register_method({
 my $parse_restore_archive = sub {
     my ($storecfg, $archive) = @_;
 
-    my ($archive_storeid, $archive_volname) = PVE::Storage::parse_volume_id($archive);
+    my ($archive_storeid, $archive_volname) = PVE::Storage::parse_volume_id($archive, 1);
 
     if (defined($archive_storeid)) {
 	my $scfg =  PVE::Storage::storage_config($storecfg, $archive_storeid);
