@@ -860,12 +860,10 @@ sub phase2 {
 
     my $migrate_downtime = $defaults->{migrate_downtime};
     $migrate_downtime = $conf->{migrate_downtime} if defined($conf->{migrate_downtime});
-    if (defined($migrate_downtime)) {
-	# migrate-set-parameters expects limit in ms
-	$migrate_downtime *= 1000;
-	$self->log('info', "migration downtime limit: $migrate_downtime ms");
-	$qemu_migrate_params->{'downtime-limit'} = int($migrate_downtime);
-    }
+    # migrate-set-parameters expects limit in ms
+    $migrate_downtime *= 1000;
+    $self->log('info', "migration downtime limit: $migrate_downtime ms");
+    $qemu_migrate_params->{'downtime-limit'} = int($migrate_downtime);
 
     # set cachesize to 10% of the total memory
     my $memory =  $conf->{memory} || $defaults->{memory};
@@ -988,11 +986,13 @@ sub phase2 {
 		if ($downtimecounter > 5) {
 		    $downtimecounter = 0;
 		    $migrate_downtime *= 2;
-		    $self->log('info', "migrate_set_downtime: $migrate_downtime");
+		    $self->log('info', "auto-increased downtime to continue migration: $migrate_downtime ms");
 		    eval {
-			mon_cmd($vmid, "migrate_set_downtime", value => int($migrate_downtime*100)/100);
+			# migrate-set-parameters does not touch values not
+			# specified, so this only changes downtime-limit
+			mon_cmd($vmid, "migrate-set-parameters", 'downtime-limit' => int($migrate_downtime));
 		    };
-		    $self->log('info', "migrate_set_downtime error: $@") if $@;
+		    $self->log('info', "migrate-set-parameters error: $@") if $@;
             	}
 
 	    }
