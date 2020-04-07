@@ -17,6 +17,7 @@ use PVE::QemuConfig;
 use PVE::QemuServer;
 use PVE::QemuServer::Monitor;
 use PVE::QemuServer::Machine;
+use PVE::QemuServer::CPUConfig;
 
 my $base_env = {
     storage_config => {
@@ -181,6 +182,28 @@ $pve_common_tools->mock(
 		socktype => 1,
 	    },
 	);
+    },
+);
+
+my $pve_cpuconfig;
+$pve_cpuconfig = Test::MockModule->new('PVE::QemuServer::CPUConfig');
+$pve_cpuconfig->mock(
+    load_custom_model_conf => sub {
+	# mock custom CPU model config
+	return PVE::QemuServer::CPUConfig->parse_config("cpu-models.conf",
+<<EOF
+
+# "qemu64" is also a default CPU, used here to test that this doesn't matter
+cpu-model: qemu64
+    reported-model athlon
+    flags +aes;+avx;-kvm_pv_unhalt
+    hv-vendor-id testvend
+    phys-bits 40
+
+cpu-model: alldefault
+
+EOF
+	)
     },
 );
 
