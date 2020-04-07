@@ -320,6 +320,70 @@ sub print_cpu_device {
     return "$cpu-x86_64-cpu,id=cpu$id,socket-id=$current_socket,core-id=$current_core,thread-id=0";
 }
 
+# Resolves multiple arrays of hashes representing CPU flags with metadata to a
+# single string in QEMU "-cpu" compatible format. Later arrays have higher
+# priority.
+#
+# Hashes take the following format:
+# {
+#     aes => {
+#         op => "+", # defaults to "" if undefined
+#         reason => "to support AES acceleration", # for override warnings
+#         value => "" # needed for kvm=off (value: off) etc...
+#     },
+#     ...
+# }
+sub resolve_cpu_flags {
+    my $flags = {};
+
+    for my $hash (@_) {
+	for my $flag_name (keys %$hash) {
+	    my $flag = $hash->{$flag_name};
+	    my $old_flag = $flags->{$flag_name};
+
+	    $flag->{op} //= "";
+	    $flag->{reason} //= "unknown origin";
+
+	    if ($old_flag) {
+		my $value_changed = (defined($flag->{value}) != defined($old_flag->{value})) ||
+				    (defined($flag->{value}) && $flag->{value} ne $old_flag->{value});
+
+		if ($old_flag->{op} eq $flag->{op} && !$value_changed) {
+		    $flags->{$flag_name}->{reason} .= " & $flag->{reason}";
+		    next;
+		}
+
+		my $old = print_cpuflag_hash($flag_name, $flags->{$flag_name});
+		my $new = print_cpuflag_hash($flag_name, $flag);
+		warn "warning: CPU flag/setting $new overwrites $old\n";
+	    }
+
+	    $flags->{$flag_name} = $flag;
+	}
+    }
+
+    my $flag_str = '';
+    # sort for command line stability
+    for my $flag_name (sort keys %$flags) {
+	$flag_str .= ',';
+	$flag_str .= $flags->{$flag_name}->{op};
+	$flag_str .= $flag_name;
+	$flag_str .= "=$flags->{$flag_name}->{value}"
+	    if $flags->{$flag_name}->{value};
+    }
+
+    return $flag_str;
+}
+
+sub print_cpuflag_hash {
+    my ($flag_name, $flag) = @_;
+    my $formatted = "'$flag->{op}$flag_name";
+    $formatted .= "=$flag->{value}" if defined($flag->{value});
+    $formatted .= "'";
+    $formatted .= " ($flag->{reason})" if defined($flag->{reason});
+    return $formatted;
+}
+
 # Calculate QEMU's '-cpu' argument from a given VM configuration
 sub get_cpu_options {
     my ($conf, $arch, $kvm, $kvm_off, $machine_version, $winversion, $gpu_passthrough) = @_;
