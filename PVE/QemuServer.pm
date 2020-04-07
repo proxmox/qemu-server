@@ -104,7 +104,7 @@ sub map_storage {
     return $source if !defined($map);
 
     return $map->{entries}->{$source}
-	if defined($map->{entries}) && $map->{entries}->{$source};
+	if $map->{entries} && defined($map->{entries}->{$source});
 
     return $map->{default} if $map->{default};
 
