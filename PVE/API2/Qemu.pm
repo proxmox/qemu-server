@@ -3469,8 +3469,8 @@ __PACKAGE__->register_method({
 	    $rpcenv->check_vm_perm($authuser, $vmid, undef, ['VM.Config.Disk'])
 		if !defined($storagemap->{identity});
 
-	    foreach my $source (keys %{$storagemap->{entries}}) {
-		$check_storage->($storagemap->{entries}->{$source});
+	    foreach my $source (values %{$storagemap->{entries}}) {
+		$check_storage->($source);
 	    }
 
 	    $check_storage->($storagemap->{default})
