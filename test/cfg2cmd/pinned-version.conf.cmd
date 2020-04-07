@@ -12,7 +12,7 @@
   -nodefaults \
   -boot 'menu=on,strict=on,reboot-timeout=1000,splash=/usr/share/qemu-server/bootsplash.jpg' \
   -vnc unix:/var/run/qemu-server/8006.vnc,password \
-  -cpu kvm64,+lahf_lm,+sep,+kvm_pv_unhalt,+kvm_pv_eoi,enforce \
+  -cpu kvm64,enforce,+kvm_pv_eoi,+kvm_pv_unhalt,+lahf_lm,+sep \
   -m 1024 \
   -readconfig /usr/share/qemu-server/pve-q35.cfg \
   -device 'vmgenid,guid=bdd46b98-fefc-11e9-97b4-d72c378e0f96' \

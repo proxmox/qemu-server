@@ -384,99 +384,190 @@ sub print_cpuflag_hash {
     return $formatted;
 }
 
+sub parse_cpuflag_list {
+    my ($re, $reason, $flaglist) = @_;
+
+    my $res = {};
+    return $res if !$flaglist;
+
+    foreach my $flag (split(";", $flaglist)) {
+	if ($flag =~ $re) {
+	    $res->{$2} = { op => $1, reason => $reason };
+	}
+    }
+
+    return $res;
+}
+
 # Calculate QEMU's '-cpu' argument from a given VM configuration
 sub get_cpu_options {
     my ($conf, $arch, $kvm, $kvm_off, $machine_version, $winversion, $gpu_passthrough) = @_;
 
-    my $cpuFlags = [];
-    my $ostype = $conf->{ostype};
-
-    my $cpu = $kvm ? "kvm64" : "qemu64";
+    my $cputype = $kvm ? "kvm64" : "qemu64";
     if ($arch eq 'aarch64') {
-	$cpu = 'cortex-a57';
+	$cputype = 'cortex-a57';
     }
+
+    my $cpu = {};
+    my $custom_cpu;
     my $hv_vendor_id;
-    if (my $cputype = $conf->{cpu}) {
-	my $cpuconf = PVE::JSONSchema::parse_property_string($cpu_fmt, $cputype)
-	    or die "Cannot parse cpu description: $cputype\n";
-	$cpu = $cpuconf->{cputype};
-	$kvm_off = 1 if $cpuconf->{hidden};
-	$hv_vendor_id = $cpuconf->{'hv-vendor-id'};
+    if (my $cpu_prop_str = $conf->{cpu}) {
+	$cpu = parse_vm_cpu_conf($cpu_prop_str)
+	    or die "Cannot parse cpu description: $cpu_prop_str\n";
 
-	if (defined(my $flags = $cpuconf->{flags})) {
-	    push @$cpuFlags, split(";", $flags);
+	$cputype = $cpu->{cputype};
+
+	if (is_custom_model($cputype)) {
+	    $custom_cpu = get_custom_model($cputype);
+
+	    $cputype = $custom_cpu->{'reported-model'} //
+		$cpu_fmt->{'reported-model'}->{default};
+	    $kvm_off = $custom_cpu->{hidden}
+		if defined($custom_cpu->{hidden});
+	    $hv_vendor_id = $custom_cpu->{'hv-vendor-id'};
 	}
+
+	# VM-specific settings override custom CPU config
+	$kvm_off = $cpu->{hidden}
+	    if defined($cpu->{hidden});
+	$hv_vendor_id = $cpu->{'hv-vendor-id'}
+	    if defined($cpu->{'hv-vendor-id'});
     }
 
-    push @$cpuFlags , '+lahf_lm' if $cpu eq 'kvm64' && $arch eq 'x86_64';
+    my $pve_flags = get_pve_cpu_flags($conf, $kvm, $cputype, $arch,
+				      $machine_version);
 
-    push @$cpuFlags , '-x2apic' if $ostype && $ostype eq 'solaris';
+    my $hv_flags = get_hyperv_enlightenments($winversion, $machine_version,
+	$conf->{bios}, $gpu_passthrough, $hv_vendor_id) if $kvm;
 
-    push @$cpuFlags, '+sep' if $cpu eq 'kvm64' || $cpu eq 'kvm32';
+    my $custom_cputype_flags = parse_cpuflag_list($cpu_flag_any_re,
+	"set by custom CPU model", $custom_cpu->{flags});
 
-    push @$cpuFlags, '-rdtscp' if $cpu =~ m/^Opteron/;
+    my $vm_flags = parse_cpuflag_list($cpu_flag_supported_re,
+	"manually set for VM", $cpu->{flags});
 
-    if (min_version($machine_version, 2, 3) && $arch eq 'x86_64') {
+    my $pve_forced_flags = {};
+    $pve_forced_flags->{'enforce'} = {
+	reason => "error if requested CPU settings not available",
+    } if $cputype ne 'host' && $kvm && $arch eq 'x86_64';
+    $pve_forced_flags->{'kvm'} = {
+	value => "off",
+	reason => "hide KVM virtualization from guest",
+    } if $kvm_off;
 
-	push @$cpuFlags , '+kvm_pv_unhalt' if $kvm;
-	push @$cpuFlags , '+kvm_pv_eoi' if $kvm;
-    }
-
-    add_hyperv_enlightenments($cpuFlags, $winversion, $machine_version, $conf->{bios}, $gpu_passthrough, $hv_vendor_id) if $kvm;
-
-    push @$cpuFlags, 'enforce' if $cpu ne 'host' && $kvm && $arch eq 'x86_64';
-
-    push @$cpuFlags, 'kvm=off' if $kvm_off;
-
-    if (my $cpu_vendor = $cpu_vendor_list->{$cpu}) {
-	push @$cpuFlags, "vendor=${cpu_vendor}"
-	    if $cpu_vendor ne 'default';
+    # $cputype is the "reported-model" for custom types, so we can just look up
+    # the vendor in the default list
+    my $cpu_vendor = $cpu_vendor_list->{$cputype};
+    if ($cpu_vendor) {
+	$pve_forced_flags->{'vendor'} = {
+	    value => $cpu_vendor,
+	} if $cpu_vendor ne 'default';
     } elsif ($arch ne 'aarch64') {
 	die "internal error"; # should not happen
     }
 
-    $cpu .= "," . join(',', @$cpuFlags) if scalar(@$cpuFlags);
+    my $cpu_str = $cputype;
 
-    return ('-cpu', $cpu);
+    # will be resolved in parameter order
+    $cpu_str .= resolve_cpu_flags($pve_flags, $hv_flags, $custom_cputype_flags,
+			      $vm_flags, $pve_forced_flags);
+
+    return ('-cpu', $cpu_str);
 }
 
-sub add_hyperv_enlightenments {
-    my ($cpuFlags, $winversion, $machine_version, $bios, $gpu_passthrough, $hv_vendor_id) = @_;
+# Some hardcoded flags required by certain configurations
+sub get_pve_cpu_flags {
+    my ($conf, $kvm, $cputype, $arch, $machine_version) = @_;
+
+    my $pve_flags = {};
+    my $pve_msg = "set by PVE;";
+
+    $pve_flags->{'lahf_lm'} = {
+	op => '+',
+	reason => "$pve_msg to support Windows 8.1+",
+    } if $cputype eq 'kvm64' && $arch eq 'x86_64';
+
+    $pve_flags->{'x2apic'} = {
+	op => '-',
+	reason => "$pve_msg incompatible with Solaris",
+    } if $conf->{ostype} && $conf->{ostype} eq 'solaris';
+
+    $pve_flags->{'sep'} = {
+	op => '+',
+	reason => "$pve_msg to support Windows 8+ and improve Windows XP+",
+    } if $cputype eq 'kvm64' || $cputype eq 'kvm32';
+
+    $pve_flags->{'rdtscp'} = {
+	op => '-',
+	reason => "$pve_msg broken on AMD Opteron",
+    } if $cputype =~ m/^Opteron/;
+
+    if (min_version($machine_version, 2, 3) && $kvm && $arch eq 'x86_64') {
+	$pve_flags->{'kvm_pv_unhalt'} = {
+	    op => '+',
+	    reason => "$pve_msg to improve Linux guest spinlock performance",
+	};
+	$pve_flags->{'kvm_pv_eoi'} = {
+	    op => '+',
+	    reason => "$pve_msg to improve Linux guest interrupt performance",
+	};
+    }
+
+    return $pve_flags;
+}
+
+sub get_hyperv_enlightenments {
+    my ($winversion, $machine_version, $bios, $gpu_passthrough, $hv_vendor_id) = @_;
 
     return if $winversion < 6;
     return if $bios && $bios eq 'ovmf' && $winversion < 8;
 
-    if ($gpu_passthrough || defined($hv_vendor_id)) {
+    my $flags = {};
+    my $default_reason = "automatic Hyper-V enlightenment for Windows";
+    my $flagfn = sub {
+	my ($flag, $value, $reason) = @_;
+	$flags->{$flag} = {
+	    reason => $reason // $default_reason,
+	    value => $value,
+	}
+    };
+
+    my $hv_vendor_set = defined($hv_vendor_id);
+    if ($gpu_passthrough || $hv_vendor_set) {
 	$hv_vendor_id //= 'proxmox';
-	push @$cpuFlags , "hv_vendor_id=$hv_vendor_id";
+	$flagfn->('hv_vendor_id', $hv_vendor_id, $hv_vendor_set ?
+	    "custom hv_vendor_id set" : "NVIDIA workaround for GPU passthrough");
     }
 
     if (min_version($machine_version, 2, 3)) {
-	push @$cpuFlags , 'hv_spinlocks=0x1fff';
-	push @$cpuFlags , 'hv_vapic';
-	push @$cpuFlags , 'hv_time';
+	$flagfn->('hv_spinlocks', '0x1fff');
+	$flagfn->('hv_vapic');
+	$flagfn->('hv_time');
     } else {
-	push @$cpuFlags , 'hv_spinlocks=0xffff';
+	$flagfn->('hv_spinlocks', '0xffff');
     }
 
     if (min_version($machine_version, 2, 6)) {
-	push @$cpuFlags , 'hv_reset';
-	push @$cpuFlags , 'hv_vpindex';
-	push @$cpuFlags , 'hv_runtime';
+	$flagfn->('hv_reset');
+	$flagfn->('hv_vpindex');
+	$flagfn->('hv_runtime');
     }
 
     if ($winversion >= 7) {
-	push @$cpuFlags , 'hv_relaxed';
+	my $win7_reason = $default_reason . " 7 and higher";
+	$flagfn->('hv_relaxed', undef, $win7_reason);
 
 	if (min_version($machine_version, 2, 12)) {
-	    push @$cpuFlags , 'hv_synic';
-	    push @$cpuFlags , 'hv_stimer';
+	    $flagfn->('hv_synic', undef, $win7_reason);
+	    $flagfn->('hv_stimer', undef, $win7_reason);
 	}
 
 	if (min_version($machine_version, 3, 1)) {
-	    push @$cpuFlags , 'hv_ipi';
+	    $flagfn->('hv_ipi', undef, $win7_reason);
 	}
     }
+
+    return $flags;
 }
 
 sub get_cpu_from_running_vm {

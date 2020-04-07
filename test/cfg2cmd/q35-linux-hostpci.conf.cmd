@@ -14,7 +14,7 @@
   -nodefaults \
   -boot 'menu=on,strict=on,reboot-timeout=1000,splash=/usr/share/qemu-server/bootsplash.jpg' \
   -vnc unix:/var/run/qemu-server/8006.vnc,password \
-  -cpu kvm64,+lahf_lm,+sep,+kvm_pv_unhalt,+kvm_pv_eoi,enforce \
+  -cpu kvm64,enforce,+kvm_pv_eoi,+kvm_pv_unhalt,+lahf_lm,+sep \
   -m 512 \
   -object 'memory-backend-ram,id=ram-node0,size=256M' \
   -numa 'node,nodeid=0,cpus=0,memdev=ram-node0' \
