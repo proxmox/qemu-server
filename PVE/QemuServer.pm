@@ -2933,7 +2933,7 @@ sub query_understood_cpu_flags {
 }
 
 sub config_to_command {
-    my ($storecfg, $vmid, $conf, $defaults, $forcemachine) = @_;
+    my ($storecfg, $vmid, $conf, $defaults, $forcemachine, $forcecpu) = @_;
 
     my $cmd = [];
     my $globalFlags = [];
@@ -3339,7 +3339,12 @@ sub config_to_command {
 	push @$rtcFlags, 'base=localtime';
     }
 
-    push @$cmd, get_cpu_options($conf, $arch, $kvm, $kvm_off, $machine_version, $winversion, $gpu_passthrough);
+    if ($forcecpu) {
+	push @$cmd, '-cpu', $forcecpu;
+    } else {
+	push @$cmd, get_cpu_options($conf, $arch, $kvm, $kvm_off,
+	    $machine_version, $winversion, $gpu_passthrough);
+    }
 
     PVE::QemuServer::Memory::config($conf, $vmid, $sockets, $cores, $defaults, $hotplug_features, $cmd);
 
@@ -4837,6 +4842,7 @@ sub vm_start {
 #   statefile => 'tcp', 'unix' for migration or path/volid for RAM state
 #   skiplock => 0/1, skip checking for config lock
 #   forcemachine => to force Qemu machine (rollback/migration)
+#   forcecpu => a QEMU '-cpu' argument string to override get_cpu_options
 #   timeout => in seconds
 #   paused => start VM in paused state (backup)
 #   resume => resume from hibernation
@@ -4884,7 +4890,8 @@ sub vm_start_nolock {
 	print "Resuming suspended VM\n";
     }
 
-    my ($cmd, $vollist, $spice_port) = config_to_command($storecfg, $vmid, $conf, $defaults, $forcemachine);
+    my ($cmd, $vollist, $spice_port) = config_to_command($storecfg, $vmid, $conf,
+	$defaults, $forcemachine, $params->{forcecpu});
 
     my $migration_ip;
     my $get_migration_ip = sub {

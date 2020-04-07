@@ -17,6 +17,7 @@ use PVE::ReplicationState;
 use PVE::Storage;
 use PVE::Tools;
 
+use PVE::QemuServer::CPUConfig;
 use PVE::QemuServer::Drive;
 use PVE::QemuServer::Helpers qw(min_version);
 use PVE::QemuServer::Machine;
@@ -227,7 +228,17 @@ sub prepare {
 
 	$self->{forcemachine} = PVE::QemuServer::Machine::qemu_machine_pxe($vmid, $conf);
 
+	# To support custom CPU types, we keep QEMU's "-cpu" parameter intact.
+	# Since the parameter itself contains no reference to a custom model,
+	# this makes migration independent of changes to "cpu-models.conf".
+	if ($conf->{cpu}) {
+	    my $cpuconf = PVE::QemuServer::CPUConfig::parse_cpu_conf_basic($conf->{cpu});
+	    if ($cpuconf && PVE::QemuServer::CPUConfig::is_custom_model($cpuconf->{cputype})) {
+		$self->{forcecpu} = PVE::QemuServer::CPUConfig::get_cpu_from_running_vm($pid);
+	    }
+	}
     }
+
     my $loc_res = PVE::QemuServer::check_local_resources($conf, 1);
     if (scalar @$loc_res) {
 	if ($self->{running} || !$self->{opts}->{force}) {
@@ -660,6 +671,10 @@ sub phase2 {
 
     if ($self->{forcemachine}) {
 	push @$cmd, '--machine', $self->{forcemachine};
+    }
+
+    if ($self->{forcecpu}) {
+	push @$cmd, '--force-cpu', $self->{forcecpu};
     }
 
     if ($self->{online_local_volumes}) {

@@ -2024,6 +2024,11 @@ __PACKAGE__->register_method({
 		optional => 1,
 	    },
 	    machine => get_standard_option('pve-qemu-machine'),
+	    'force-cpu' => {
+		description => "Override QEMU's -cpu argument with the given string.",
+		type => 'string',
+		optional => 1,
+	    },
 	    targetstorage => get_standard_option('pve-targetstorage'),
 	    timeout => {
 		description => "Wait maximal timeout seconds.",
@@ -2048,6 +2053,7 @@ __PACKAGE__->register_method({
 	my $timeout = extract_param($param, 'timeout');
 
 	my $machine = extract_param($param, 'machine');
+	my $force_cpu = extract_param($param, 'force-cpu');
 
 	my $get_root_param = sub {
 	    my $value = extract_param($param, $_[0]);
@@ -2132,6 +2138,7 @@ __PACKAGE__->register_method({
 		    skiplock => $skiplock,
 		    forcemachine => $machine,
 		    timeout => $timeout,
+		    forcecpu => $force_cpu,
 		};
 
 		PVE::QemuServer::vm_start($storecfg, $vmid, $params, $migrate_opts);

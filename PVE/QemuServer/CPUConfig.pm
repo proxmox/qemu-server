@@ -106,6 +106,8 @@ my @supported_cpu_flags = (
 my $cpu_flag_supported_re = qr/([+-])(@{[join('|', @supported_cpu_flags)]})/;
 my $cpu_flag_any_re = qr/([+-])([a-zA-Z0-9\-_\.]+)/;
 
+our $qemu_cmdline_cpu_re = qr/^((?>[+-]?[\w\-_=]+,?)+)$/;
+
 my $cpu_fmt = {
     cputype => {
 	description => "Emulated CPU type. Can be default or custom name (custom model names must be prefixed with 'custom-').",
@@ -411,6 +413,18 @@ sub add_hyperv_enlightenments {
 	    push @$cpuFlags , 'hv_ipi';
 	}
     }
+}
+
+sub get_cpu_from_running_vm {
+    my ($pid) = @_;
+
+    my $cmdline = PVE::QemuServer::Helpers::parse_cmdline($pid);
+    die "could not read commandline of running machine\n"
+	if !$cmdline->{cpu}->{value};
+
+    # sanitize and untaint value
+    $cmdline->{cpu}->{value} =~ $qemu_cmdline_cpu_re;
+    return $1;
 }
 
 __PACKAGE__->register();
