@@ -1129,6 +1129,7 @@ my $update_vm_api  = sub {
 		push @delete, 'lock'; # this is the real deal to write it out
 	    }
 	    push @delete, 'runningmachine' if $conf->{runningmachine};
+	    push @delete, 'runningcpu' if $conf->{runningcpu};
 	}
 
 	PVE::QemuConfig->check_lock($conf) if !$skiplock;

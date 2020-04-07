@@ -589,8 +589,15 @@ EODESCR
 	optional => 1,
     }),
     runningmachine => get_standard_option('pve-qemu-machine', {
-	description => "Specifies the Qemu machine type of the running vm. This is used internally for snapshots.",
+	description => "Specifies the QEMU machine type of the running vm. This is used internally for snapshots.",
     }),
+    runningcpu => {
+	description => "Specifies the QEMU '-cpu' parameter of the running vm. This is used internally for snapshots.",
+	optional => 1,
+	type => 'string',
+	pattern => $PVE::QemuServer::CPUConfig::qemu_cmdline_cpu_re,
+	format_description => 'QEMU -cpu parameter'
+    },
     machine => get_standard_option('pve-qemu-machine'),
     arch => {
 	description => "Virtual processor architecture. Defaults to the host.",
@@ -1970,7 +1977,8 @@ sub json_config_properties {
     my $prop = shift;
 
     foreach my $opt (keys %$confdesc) {
-	next if $opt eq 'parent' || $opt eq 'snaptime' || $opt eq 'vmstate' || $opt eq 'runningmachine';
+	next if $opt eq 'parent' || $opt eq 'snaptime' || $opt eq 'vmstate' ||
+	    $opt eq 'runningmachine' || $opt eq 'runningcpu';
 	$prop->{$opt} = $confdesc->{$opt};
     }
 
@@ -4884,14 +4892,16 @@ sub vm_start_nolock {
     PVE::GuestHelpers::exec_hookscript($conf, $vmid, 'pre-start', 1);
 
     my $forcemachine = $params->{forcemachine};
+    my $forcecpu = $params->{forcecpu};
     if ($resume) {
-	# enforce machine type on suspended vm to ensure HW compatibility
+	# enforce machine and CPU type on suspended vm to ensure HW compatibility
 	$forcemachine = $conf->{runningmachine};
+	$forcecpu = $conf->{runningcpu};
 	print "Resuming suspended VM\n";
     }
 
     my ($cmd, $vollist, $spice_port) = config_to_command($storecfg, $vmid, $conf,
-	$defaults, $forcemachine, $params->{forcecpu});
+	$defaults, $forcemachine, $forcecpu);
 
     my $migration_ip;
     my $get_migration_ip = sub {
@@ -5155,7 +5165,7 @@ sub vm_start_nolock {
 	    PVE::Storage::deactivate_volumes($storecfg, [$vmstate]);
 	    PVE::Storage::vdisk_free($storecfg, $vmstate);
 	}
-	delete $conf->@{qw(lock vmstate runningmachine)};
+	delete $conf->@{qw(lock vmstate runningmachine runningcpu)};
 	PVE::QemuConfig->write_config($vmid, $conf);
     }
 
@@ -5169,13 +5179,15 @@ sub vm_commandline {
 
     my $conf = PVE::QemuConfig->load_config($vmid);
     my $forcemachine;
+    my $forcecpu;
 
     if ($snapname) {
 	my $snapshot = $conf->{snapshots}->{$snapname};
 	die "snapshot '$snapname' does not exist\n" if !defined($snapshot);
 
-	# check for a 'runningmachine' in snapshot
-	$forcemachine = $snapshot->{runningmachine} if $snapshot->{runningmachine};
+	# check for machine or CPU overrides in snapshot
+	$forcemachine = $snapshot->{runningmachine};
+	$forcecpu = $snapshot->{runningcpu};
 
 	$snapshot->{digest} = $conf->{digest}; # keep file digest for API
 
@@ -5184,7 +5196,8 @@ sub vm_commandline {
 
     my $defaults = load_defaults();
 
-    my $cmd = config_to_command($storecfg, $vmid, $conf, $defaults, $forcemachine);
+    my $cmd = config_to_command($storecfg, $vmid, $conf, $defaults,
+	$forcemachine, $forcecpu);
 
     return PVE::Tools::cmd2string($cmd);
 }
@@ -5458,7 +5471,7 @@ sub vm_suspend {
 		    mon_cmd($vmid, "savevm-end");
 		    PVE::Storage::deactivate_volumes($storecfg, [$vmstate]);
 		    PVE::Storage::vdisk_free($storecfg, $vmstate);
-		    delete $conf->@{qw(vmstate runningmachine)};
+		    delete $conf->@{qw(vmstate runningmachine runningcpu)};
 		    PVE::QemuConfig->write_config($vmid, $conf);
 		};
 		warn $@ if $@;

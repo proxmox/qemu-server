@@ -5,6 +5,7 @@ use warnings;
 
 use PVE::AbstractConfig;
 use PVE::INotify;
+use PVE::QemuServer::CPUConfig;
 use PVE::QemuServer::Drive;
 use PVE::QemuServer::Helpers;
 use PVE::QemuServer::Monitor qw(mon_cmd);
@@ -186,14 +187,19 @@ sub __snapshot_save_vmstate {
     my $statefile = PVE::Storage::vdisk_alloc($storecfg, $target, $vmid, 'raw', $name, $size*1024);
     my $runningmachine = PVE::QemuServer::Machine::get_current_qemu_machine($vmid);
 
-    if ($suspend) {
-	$conf->{vmstate} = $statefile;
-	$conf->{runningmachine} = $runningmachine;
-    } else {
-	my $snap = $conf->{snapshots}->{$snapname};
-	$snap->{vmstate} = $statefile;
-	$snap->{runningmachine} = $runningmachine;
+    # get current QEMU -cpu argument to ensure consistency of custom CPU models
+    my $runningcpu;
+    if (my $pid = PVE::QemuServer::check_running($vmid)) {
+	$runningcpu = PVE::QemuServer::CPUConfig::get_cpu_from_running_vm($pid);
     }
+
+    if (!$suspend) {
+	$conf = $conf->{snapshots}->{$snapname};
+    }
+
+    $conf->{vmstate} = $statefile;
+    $conf->{runningmachine} = $runningmachine;
+    $conf->{runningcpu} = $runningcpu;
 
     return $statefile;
 }
@@ -340,6 +346,11 @@ sub __snapshot_rollback_hook {
 	if (defined($conf->{runningmachine})) {
 	    $data->{forcemachine} = $conf->{runningmachine};
 	    delete $conf->{runningmachine};
+
+	    # runningcpu is newer than runningmachine, so assume it only exists
+	    # here, if at all
+	    $data->{forcecpu} = delete $conf->{runningcpu}
+		if defined($conf->{runningcpu});
 	} else {
 	    # Note: old code did not store 'machine', so we try to be smart
 	    # and guess the snapshot was generated with kvm 1.4 (pc-i440fx-1.4).
@@ -395,6 +406,7 @@ sub __snapshot_rollback_vm_start {
     my $params = {
 	statefile => $vmstate,
 	forcemachine => $data->{forcemachine},
+	forcecpu => $data->{forcecpu},
     };
     PVE::QemuServer::vm_start($storecfg, $vmid, $params);
 }
