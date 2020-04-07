@@ -149,7 +149,35 @@ my $cpu_fmt = {
 	pattern => qr/$cpu_flag_any_re(;$cpu_flag_any_re)*/,
 	optional => 1,
     },
+    'phys-bits' => {
+	type => 'string',
+	format => 'pve-phys-bits',
+	description => "The physical memory address bits that are reported to"
+		     . " the guest OS. Should be smaller or equal to the host's."
+		     . " Set to 'host' to use value from host CPU, but note that"
+		     . " doing so will break live migration to CPUs with other values.",
+	optional => 1,
+    },
 };
+
+PVE::JSONSchema::register_format('pve-phys-bits', \&parse_phys_bits);
+sub parse_phys_bits {
+    my ($str, $noerr) = @_;
+
+    my $err_msg = "value must be an integer between 8 and 64 or 'host'\n";
+
+    if ($str !~ m/^(host|\d{1,2})$/) {
+	die $err_msg if !$noerr;
+	return undef;
+    }
+
+    if ($str =~ m/^\d+$/ && (int($str) < 8 || int($str) > 64)) {
+	die $err_msg if !$noerr;
+	return undef;
+    }
+
+    return $str;
+}
 
 # $cpu_fmt describes both the CPU config passed as part of a VM config, as well
 # as the definition of a custom CPU model. There are some slight differences
@@ -471,6 +499,19 @@ sub get_cpu_options {
     # will be resolved in parameter order
     $cpu_str .= resolve_cpu_flags($pve_flags, $hv_flags, $custom_cputype_flags,
 			      $vm_flags, $pve_forced_flags);
+
+    my $phys_bits = '';
+    foreach my $conf ($custom_cpu, $cpu) {
+	next if !defined($conf);
+	my $conf_val = $conf->{'phys-bits'};
+	next if !$conf_val;
+	if ($conf_val eq 'host') {
+	    $phys_bits = ",host-phys-bits=true";
+	} else {
+	    $phys_bits = ",phys-bits=$conf_val";
+	}
+    }
+    $cpu_str .= $phys_bits;
 
     return ('-cpu', $cpu_str);
 }
