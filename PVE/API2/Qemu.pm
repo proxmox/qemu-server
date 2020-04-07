@@ -2069,7 +2069,7 @@ __PACKAGE__->register_method({
 	    raise_param_exc({ targetstorage => "targetstorage can only by used with migratedfrom." })
 		if !$migratedfrom;
 	    $storagemap = eval { PVE::JSONSchema::parse_idmap($targetstorage, 'pve-storage-id') };
-	    raise_param_exc({ targetstorage => "failed to parse targetstorage map: $@" })
+	    raise_param_exc({ targetstorage => "failed to parse storage map: $@" })
 		if $@;
 	}
 
@@ -3463,7 +3463,7 @@ __PACKAGE__->register_method({
 	    };
 
 	    my $storagemap = eval { PVE::JSONSchema::parse_idmap($targetstorage, 'pve-storage-id') };
-	    raise_param_exc({ targetstorage => "failed to parse targetstorage map: $@" })
+	    raise_param_exc({ targetstorage => "failed to parse storage map: $@" })
 		if $@;
 
 	    $rpcenv->check_vm_perm($authuser, $vmid, undef, ['VM.Config.Disk'])
