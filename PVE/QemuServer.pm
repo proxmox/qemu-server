@@ -3325,7 +3325,6 @@ sub config_to_command {
 
     # time drift fix
     my $tdf = defined($conf->{tdf}) ? $conf->{tdf} : $defaults->{tdf};
-
     my $useLocaltime = $conf->{localtime};
 
     if ($winversion >= 5) { # windows
@@ -3344,7 +3343,7 @@ sub config_to_command {
 
     push @$rtcFlags, 'driftfix=slew' if $tdf;
 
-    if (($conf->{startdate}) && ($conf->{startdate} ne 'now')) {
+    if ($conf->{startdate} && $conf->{startdate} ne 'now') {
 	push @$rtcFlags, "base=$conf->{startdate}";
     } elsif ($useLocaltime) {
 	push @$rtcFlags, 'base=localtime';
@@ -3353,8 +3352,7 @@ sub config_to_command {
     if ($forcecpu) {
 	push @$cmd, '-cpu', $forcecpu;
     } else {
-	push @$cmd, get_cpu_options($conf, $arch, $kvm, $kvm_off,
-	    $machine_version, $winversion, $gpu_passthrough);
+	push @$cmd, get_cpu_options($conf, $arch, $kvm, $kvm_off, $machine_version, $winversion, $gpu_passthrough);
     }
 
     PVE::QemuServer::Memory::config($conf, $vmid, $sockets, $cores, $defaults, $hotplug_features, $cmd);
@@ -3403,7 +3401,7 @@ sub config_to_command {
     if ($qxlnum) {
 	if ($qxlnum > 1) {
 	    if ($winversion){
-		for(my $i = 1; $i < $qxlnum; $i++){
+		for (my $i = 1; $i < $qxlnum; $i++){
 		    push @$devices, '-device', print_vga_device($conf, $vga, $arch, $machine_version, $machine_type, $i, $qxlnum, $bridges);
 		}
 	    } else {
@@ -3490,11 +3488,11 @@ sub config_to_command {
 	    }
 	}
 
-	if($drive->{interface} eq 'virtio'){
+	if ($drive->{interface} eq 'virtio'){
            push @$cmd, '-object', "iothread,id=iothread-$ds" if $drive->{iothread};
 	}
 
-        if ($drive->{interface} eq 'scsi') {
+	if ($drive->{interface} eq 'scsi') {
 
 	    my ($maxdev, $controller, $controller_prefix) = scsihw_infos($conf, $drive);
 
@@ -3519,13 +3517,13 @@ sub config_to_command {
 
 	    push @$devices, '-device', "$scsihw_type,id=$controller_prefix$controller$pciaddr$iothread$queues" if !$scsicontroller->{$controller};
 	    $scsicontroller->{$controller}=1;
-        }
+	}
 
         if ($drive->{interface} eq 'sata') {
-           my $controller = int($drive->{index} / $PVE::QemuServer::Drive::MAX_SATA_DISKS);
-           $pciaddr = print_pci_addr("ahci$controller", $bridges, $arch, $machine_type);
-           push @$devices, '-device', "ahci,id=ahci$controller,multifunction=on$pciaddr" if !$ahcicontroller->{$controller};
-           $ahcicontroller->{$controller}=1;
+	    my $controller = int($drive->{index} / $PVE::QemuServer::Drive::MAX_SATA_DISKS);
+	    $pciaddr = print_pci_addr("ahci$controller", $bridges, $arch, $machine_type);
+	    push @$devices, '-device', "ahci,id=ahci$controller,multifunction=on$pciaddr" if !$ahcicontroller->{$controller};
+	    $ahcicontroller->{$controller}=1;
         }
 
 	my $drive_cmd = print_drive_commandline_full($storecfg, $vmid, $drive);
@@ -3534,22 +3532,22 @@ sub config_to_command {
     });
 
     for (my $i = 0; $i < $MAX_NETS; $i++) {
-         next if !$conf->{"net$i"};
-         my $d = parse_net($conf->{"net$i"});
-         next if !$d;
+	 next if !$conf->{"net$i"};
+	 my $d = parse_net($conf->{"net$i"});
+	 next if !$d;
 
-         $use_virtio = 1 if $d->{model} eq 'virtio';
+	 $use_virtio = 1 if $d->{model} eq 'virtio';
 
-         if ($bootindex_hash->{n}) {
-            $d->{bootindex} = $bootindex_hash->{n};
-            $bootindex_hash->{n} += 1;
-         }
+	 if ($bootindex_hash->{n}) {
+	    $d->{bootindex} = $bootindex_hash->{n};
+	    $bootindex_hash->{n} += 1;
+	 }
 
-         my $netdevfull = print_netdev_full($vmid, $conf, $arch, $d, "net$i");
-         push @$devices, '-netdev', $netdevfull;
+	 my $netdevfull = print_netdev_full($vmid, $conf, $arch, $d, "net$i");
+	 push @$devices, '-netdev', $netdevfull;
 
-         my $netdevicefull = print_netdevice_full($vmid, $conf, $d, "net$i", $bridges, $use_old_bios_files, $arch, $machine_type);
-         push @$devices, '-device', $netdevicefull;
+	 my $netdevicefull = print_netdevice_full($vmid, $conf, $d, "net$i", $bridges, $use_old_bios_files, $arch, $machine_type);
+	 push @$devices, '-device', $netdevicefull;
     }
 
     if ($conf->{ivshmem}) {
@@ -3607,12 +3605,9 @@ sub config_to_command {
     push @$machineFlags, "type=${machine_type_min}";
 
     push @$cmd, @$devices;
-    push @$cmd, '-rtc', join(',', @$rtcFlags)
-	if scalar(@$rtcFlags);
-    push @$cmd, '-machine', join(',', @$machineFlags)
-	if scalar(@$machineFlags);
-    push @$cmd, '-global', join(',', @$globalFlags)
-	if scalar(@$globalFlags);
+    push @$cmd, '-rtc', join(',', @$rtcFlags) if scalar(@$rtcFlags);
+    push @$cmd, '-machine', join(',', @$machineFlags) if scalar(@$machineFlags);
+    push @$cmd, '-global', join(',', @$globalFlags) if scalar(@$globalFlags);
 
     if (my $vmstate = $conf->{vmstate}) {
 	my $statepath = PVE::Storage::path($storecfg, $vmstate);
@@ -4903,8 +4898,8 @@ sub vm_start_nolock {
 	print "Resuming suspended VM\n";
     }
 
-    my ($cmd, $vollist, $spice_port) = config_to_command($storecfg, $vmid, $conf,
-	$defaults, $forcemachine, $forcecpu);
+    my ($cmd, $vollist, $spice_port) =
+	config_to_command($storecfg, $vmid, $conf, $defaults, $forcemachine, $forcecpu);
 
     my $migration_ip;
     my $get_migration_ip = sub {
