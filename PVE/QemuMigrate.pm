@@ -557,8 +557,13 @@ sub sync_disks {
 		    'allow_rename' => !$local_volumes->{$volid}->{is_vmstate},
 		};
 
-		my $new_volid = PVE::Storage::storage_migrate($storecfg, $volid, $self->{ssh_info},
-							      $targetsid, $storage_migrate_opts);
+		my $new_volid = eval {
+		    PVE::Storage::storage_migrate($storecfg, $volid, $self->{ssh_info},
+						  $targetsid, $storage_migrate_opts);
+		};
+		if (my $err = $@) {
+		    die "storage migration for '$volid' to storage '$targetsid' failed - $err\n";
+		}
 
 		$self->{volume_map}->{$volid} = $new_volid;
 		$self->log('info', "volume '$volid' is '$new_volid' on the target\n");
