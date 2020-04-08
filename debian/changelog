@@ -1,3 +1,26 @@
+qemu-server (6.1-13) pve; urgency=medium
+
+  * rescan: fix call to foreach_volume
+
+  * migration: fix downtime limit auto-increase
+
+  * migrate: allow arbitrary source->target storage maps
+
+  * migrate: always check storage permissions and content type
+
+  * Include full KVM/QEMU "-cpu" parameter with live-migration and
+    snapshots/suspend to allow supporting custom CPU models
+
+  * fix #2318: allow phys-bits CPU setting
+
+  * allow custom CPU models
+
+  * config: harmonize bridge pattern to match the same limits of containers
+
+  * cpu config: add upcoming EPYC-Rome CPU type
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 08 Apr 2020 17:08:13 +0200
+
 qemu-server (6.1-12) pve; urgency=medium
 
   * CPUConfig: fix module load when pmxcfs is unavailable
