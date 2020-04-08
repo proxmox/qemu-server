@@ -3455,9 +3455,6 @@ __PACKAGE__->register_method({
 	    $param->{online} = 0;
 	}
 
-	raise_param_exc({ targetstorage => "Live storage migration can only be done online." })
-	    if !$param->{online} && $param->{targetstorage};
-
 	my $storecfg = PVE::Storage::config();
 
 	if (my $targetstorage = $param->{targetstorage}) {
