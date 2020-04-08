@@ -838,14 +838,20 @@ sub phase2 {
 	    my $source_drive = PVE::QemuServer::parse_drive($drive, $conf->{$drive});
 	    my $target_drive = PVE::QemuServer::parse_drive($drive, $target->{drivestr});
 
-	    my $source_sid = PVE::Storage::Plugin::parse_volume_id($source_drive->{file});
-	    my $target_sid = PVE::Storage::Plugin::parse_volume_id($target_drive->{file});
+	    my $source_volid = $source_drive->{file};
+	    my $target_volid = $target_drive->{file};
+
+	    my $source_sid = PVE::Storage::Plugin::parse_volume_id($source_volid);
+	    my $target_sid = PVE::Storage::Plugin::parse_volume_id($target_volid);
 
 	    my $bwlimit = PVE::Storage::get_bandwidth_limit('migration', [$source_sid, $target_sid], $opt_bwlimit);
 	    my $bitmap = $target->{bitmap};
 
 	    $self->log('info', "$drive: start migration to $nbd_uri");
 	    PVE::QemuServer::qemu_drive_mirror($vmid, $drive, $nbd_uri, $vmid, undef, $self->{storage_migration_jobs}, 'skip', undef, $bwlimit, $bitmap);
+
+	    $self->{volume_map}->{$source_volid} = $target_volid;
+	    $self->log('info', "volume '$source_volid' is '$target_volid' on the target\n");
 	}
     }
 
@@ -1114,13 +1120,6 @@ sub phase3_cleanup {
 
     my $tunnel = $self->{tunnel};
 
-    # Needs to happen before printing the drives that where migrated via qemu,
-    # since a new volume on the target might have the same ID as an old volume
-    # on the source and update_volume_ids relies on matching IDs in the config.
-    if ($self->{volume_map}) {
-	PVE::QemuConfig->update_volume_ids($conf, $self->{volume_map});
-    }
-
     if ($self->{storage_migration}) {
 	# finish block-job with block-job-cancel, to disconnect source VM from NBD
 	# to avoid it trying to re-establish it. We are in blockjob ready state,
@@ -1131,16 +1130,11 @@ sub phase3_cleanup {
 	    eval { PVE::QemuServer::qemu_blockjobs_cancel($vmid, $self->{storage_migration_jobs}) };
 	    eval { PVE::QemuMigrate::cleanup_remotedisks($self) };
 	    die "Failed to complete storage migration: $err\n";
-	} else {
-	    foreach my $target_drive (keys %{$self->{target_drive}}) {
-		my $drive = PVE::QemuServer::parse_drive($target_drive, $self->{target_drive}->{$target_drive}->{drivestr});
-		$conf->{$target_drive} = PVE::QemuServer::print_drive($drive);
-	    }
 	}
     }
 
-    # only write after successfully completing the migration
-    if ($self->{volume_map} || $self->{storage_migration}) {
+    if ($self->{volume_map}) {
+	PVE::QemuConfig->update_volume_ids($conf, $self->{volume_map});
 	PVE::QemuConfig->write_config($vmid, $conf);
     }
 
