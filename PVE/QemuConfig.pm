@@ -5,6 +5,7 @@ use warnings;
 
 use PVE::AbstractConfig;
 use PVE::INotify;
+use PVE::JSONSchema;
 use PVE::QemuServer::CPUConfig;
 use PVE::QemuServer::Drive;
 use PVE::QemuServer::Helpers;
@@ -90,7 +91,17 @@ sub valid_volume_keys {
 sub parse_volume {
     my ($class, $key, $volume_string, $noerr) = @_;
 
-    my $volume = PVE::QemuServer::Drive::parse_drive($key, $volume_string);
+    my $volume;
+    if ($key eq 'vmstate') {
+	eval { PVE::JSONSchema::check_format('pve-volume-id', $volume_string) };
+	if (my $err = $@) {
+	    return undef if $noerr;
+	    die $err;
+	}
+	$volume = { 'file' => $volume_string };
+    } else {
+	$volume = PVE::QemuServer::Drive::parse_drive($key, $volume_string);
+    }
 
     die "unable to parse volume\n" if !defined($volume) && !$noerr;
 
