@@ -145,6 +145,8 @@ my $cpu_vendor_list = {
     'Skylake-Client-IBRS' => 'GenuineIntel',
     'Skylake-Server' => 'GenuineIntel',
     'Skylake-Server-IBRS' => 'GenuineIntel',
+    'Icelake-Client' => 'GenuineIntel',
+    'Icelake-Server' => 'GenuineIntel',
 
     # AMD CPUs
     athlon => 'AuthenticAMD',
