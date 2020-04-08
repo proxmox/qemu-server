@@ -17,6 +17,7 @@ use PVE::ReplicationState;
 use PVE::Storage;
 use PVE::Tools;
 
+use PVE::QemuConfig;
 use PVE::QemuServer::CPUConfig;
 use PVE::QemuServer::Drive;
 use PVE::QemuServer::Helpers qw(min_version);
@@ -477,7 +478,7 @@ sub sync_disks {
 		}
 
 		my $live_replicatable_volumes = {};
-		PVE::QemuServer::foreach_drive($conf, sub {
+		PVE::QemuConfig->foreach_volume($conf, sub {
 		    my ($ds, $drive) = @_;
 
 		    my $volid = $drive->{file};
@@ -508,7 +509,7 @@ sub sync_disks {
 	# sizes in config have to be accurate for remote node to correctly
 	# allocate disks, rescan to be sure
 	my $volid_hash = PVE::QemuServer::scan_volids($storecfg, $vmid);
-	PVE::QemuServer::foreach_drive($conf, sub {
+	PVE::QemuConfig->foreach_volume($conf, sub {
 	    my ($key, $drive) = @_;
 	    my ($updated, $old_size, $new_size) = PVE::QemuServer::Drive::update_disksize($drive, $volid_hash);
 	    if (defined($updated)) {

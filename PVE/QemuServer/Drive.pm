@@ -14,8 +14,6 @@ drive_is_cloudinit
 drive_is_cdrom
 parse_drive
 print_drive
-foreach_drive
-foreach_volid
 );
 
 our $QEMU_FORMAT_RE = qr/raw|cow|qcow|qcow2|qed|vmdk|cloop/;
@@ -501,65 +499,6 @@ sub print_drive {
     my ($drive) = @_;
     my $skip = [ 'index', 'interface' ];
     return PVE::JSONSchema::print_property_string($drive, $alldrive_fmt, $skip);
-}
-
-sub foreach_drive {
-    my ($conf, $func, @param) = @_;
-
-    foreach my $ds (valid_drive_names()) {
-	next if !defined($conf->{$ds});
-
-	my $drive = parse_drive($ds, $conf->{$ds});
-	next if !$drive;
-
-	&$func($ds, $drive, @param);
-    }
-}
-
-sub foreach_volid {
-    my ($conf, $func, @param) = @_;
-
-    my $volhash = {};
-
-    my $test_volid = sub {
-	my ($volid, $is_cdrom, $replicate, $shared, $snapname, $size) = @_;
-
-	return if !$volid;
-
-	$volhash->{$volid}->{cdrom} //= 1;
-	$volhash->{$volid}->{cdrom} = 0 if !$is_cdrom;
-
-	$volhash->{$volid}->{replicate} //= 0;
-	$volhash->{$volid}->{replicate} = 1 if $replicate;
-
-	$volhash->{$volid}->{shared} //= 0;
-	$volhash->{$volid}->{shared} = 1 if $shared;
-
-	$volhash->{$volid}->{referenced_in_config} //= 0;
-	$volhash->{$volid}->{referenced_in_config} = 1 if !defined($snapname);
-
-	$volhash->{$volid}->{referenced_in_snapshot}->{$snapname} = 1
-	    if defined($snapname);
-	$volhash->{$volid}->{size} = $size if $size;
-    };
-
-    foreach_drive($conf, sub {
-	my ($ds, $drive) = @_;
-	$test_volid->($drive->{file}, drive_is_cdrom($drive), $drive->{replicate} // 1, $drive->{shared}, undef, $drive->{size});
-    });
-
-    foreach my $snapname (keys %{$conf->{snapshots}}) {
-	my $snap = $conf->{snapshots}->{$snapname};
-	$test_volid->($snap->{vmstate}, 0, 1, $snapname);
-	foreach_drive($snap, sub {
-	    my ($ds, $drive) = @_;
-	    $test_volid->($drive->{file}, drive_is_cdrom($drive), $drive->{replicate} // 1, $drive->{shared}, $snapname);
-        });
-    }
-
-    foreach my $volid (keys %$volhash) {
-	&$func($volid, $volhash->{$volid}, @param);
-    }
 }
 
 sub bootdisk_size {

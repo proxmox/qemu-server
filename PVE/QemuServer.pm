@@ -44,7 +44,7 @@ use PVE::QemuConfig;
 use PVE::QemuServer::Helpers qw(min_version config_aware_timeout);
 use PVE::QemuServer::Cloudinit;
 use PVE::QemuServer::CPUConfig qw(print_cpu_device get_cpu_options);
-use PVE::QemuServer::Drive qw(is_valid_drivename drive_is_cloudinit drive_is_cdrom parse_drive print_drive foreach_drive foreach_volid);
+use PVE::QemuServer::Drive qw(is_valid_drivename drive_is_cloudinit drive_is_cdrom parse_drive print_drive);
 use PVE::QemuServer::Machine;
 use PVE::QemuServer::Memory;
 use PVE::QemuServer::Monitor qw(mon_cmd);
@@ -2038,7 +2038,7 @@ sub destroy_vm {
 
     if ($conf->{template}) {
 	# check if any base image is still used by a linked clone
-	foreach_drive($conf, sub {
+	PVE::QemuConfig->foreach_volume($conf, sub {
 		my ($ds, $drive) = @_;
 		return if drive_is_cdrom($drive);
 
@@ -2052,7 +2052,7 @@ sub destroy_vm {
     }
 
     # only remove disks owned by this VM
-    foreach_drive($conf, sub {
+    PVE::QemuConfig->foreach_volume($conf, sub {
 	my ($ds, $drive) = @_;
  	return if drive_is_cdrom($drive, 1);
 
@@ -2341,7 +2341,7 @@ sub check_local_resources {
 sub check_storage_availability {
     my ($storecfg, $conf, $node) = @_;
 
-    foreach_drive($conf, sub {
+    PVE::QemuConfig->foreach_volume($conf, sub {
 	my ($ds, $drive) = @_;
 
 	my $volid = $drive->{file};
@@ -2364,7 +2364,7 @@ sub shared_nodes {
     my $nodehash = { map { $_ => 1 } @$nodelist };
     my $nodename = nodename();
 
-    foreach_drive($conf, sub {
+    PVE::QemuConfig->foreach_volume($conf, sub {
 	my ($ds, $drive) = @_;
 
 	my $volid = $drive->{file};
@@ -2396,7 +2396,7 @@ sub check_local_storage_availability {
     my $nodelist = PVE::Cluster::get_nodelist();
     my $nodehash = { map { $_ => {} } @$nodelist };
 
-    foreach_drive($conf, sub {
+    PVE::QemuConfig->foreach_volume($conf, sub {
 	my ($ds, $drive) = @_;
 
 	my $volid = $drive->{file};
@@ -3464,7 +3464,7 @@ sub config_to_command {
 	push @$devices, '-iscsi', "initiator-name=$initiator";
     }
 
-    foreach_drive($conf, sub {
+    PVE::QemuConfig->foreach_volume($conf, sub {
 	my ($ds, $drive) = @_;
 
 	if (PVE::Storage::parse_volume_id($drive->{file}, 1)) {
@@ -4250,7 +4250,7 @@ sub qemu_volume_snapshot_delete {
 
 	$running = undef;
 	my $conf = PVE::QemuConfig->load_config($vmid);
-	foreach_drive($conf, sub {
+	PVE::QemuConfig->foreach_volume($conf, sub {
 	    my ($ds, $drive) = @_;
 	    $running = 1 if $drive->{file} eq $volid;
 	});
@@ -4286,6 +4286,52 @@ sub set_migration_caps {
     }
 
     mon_cmd($vmid, "migrate-set-capabilities", capabilities => $cap_ref);
+}
+
+sub foreach_volid {
+    my ($conf, $func, @param) = @_;
+
+    my $volhash = {};
+
+    my $test_volid = sub {
+	my ($volid, $is_cdrom, $replicate, $shared, $snapname, $size) = @_;
+
+	return if !$volid;
+
+	$volhash->{$volid}->{cdrom} //= 1;
+	$volhash->{$volid}->{cdrom} = 0 if !$is_cdrom;
+
+	$volhash->{$volid}->{replicate} //= 0;
+	$volhash->{$volid}->{replicate} = 1 if $replicate;
+
+	$volhash->{$volid}->{shared} //= 0;
+	$volhash->{$volid}->{shared} = 1 if $shared;
+
+	$volhash->{$volid}->{referenced_in_config} //= 0;
+	$volhash->{$volid}->{referenced_in_config} = 1 if !defined($snapname);
+
+	$volhash->{$volid}->{referenced_in_snapshot}->{$snapname} = 1
+	    if defined($snapname);
+	$volhash->{$volid}->{size} = $size if $size;
+    };
+
+    PVE::QemuConfig->foreach_volume($conf, sub {
+	my ($ds, $drive) = @_;
+	$test_volid->($drive->{file}, drive_is_cdrom($drive), $drive->{replicate} // 1, $drive->{shared}, undef, $drive->{size});
+    });
+
+    foreach my $snapname (keys %{$conf->{snapshots}}) {
+	my $snap = $conf->{snapshots}->{$snapname};
+	$test_volid->($snap->{vmstate}, 0, 1, $snapname);
+	PVE::QemuConfig->foreach_volume($snap, sub {
+	    my ($ds, $drive) = @_;
+	    $test_volid->($drive->{file}, drive_is_cdrom($drive), $drive->{replicate} // 1, $drive->{shared}, $snapname);
+        });
+    }
+
+    foreach my $volid (keys %$volhash) {
+	&$func($volid, $volhash->{$volid}, @param);
+    }
 }
 
 my $fast_plug_option = {
@@ -4747,7 +4793,7 @@ sub vm_migrate_get_nbd_disks {
     my ($storecfg, $conf, $replicated_volumes) = @_;
 
     my $local_volumes = {};
-    foreach_drive($conf, sub {
+    PVE::QemuConfig->foreach_volume($conf, sub {
 	my ($ds, $drive) = @_;
 
 	return if drive_is_cdrom($drive);
@@ -5606,7 +5652,7 @@ sub restore_file_archive {
 my $restore_cleanup_oldconf = sub {
     my ($storecfg, $vmid, $oldconf, $virtdev_hash) = @_;
 
-    foreach_drive($oldconf, sub {
+    PVE::QemuConfig->foreach_volume($oldconf, sub {
 	my ($ds, $drive) = @_;
 
 	return if drive_is_cdrom($drive, 1);
@@ -6476,7 +6522,7 @@ sub foreach_storage_used_by_vm {
 
     my $sidhash = {};
 
-    foreach_drive($conf, sub {
+    PVE::QemuConfig->foreach_volume($conf, sub {
 	my ($ds, $drive) = @_;
 	return if drive_is_cdrom($drive);
 
@@ -6527,7 +6573,7 @@ sub template_create {
 
     my $storecfg = PVE::Storage::config();
 
-    foreach_drive($conf, sub {
+    PVE::QemuConfig->foreach_volume($conf, sub {
 	my ($ds, $drive) = @_;
 
 	return if drive_is_cdrom($drive);

@@ -19,6 +19,7 @@ use PVE::Storage;
 use PVE::Tools;
 use PVE::VZDump;
 
+use PVE::QemuConfig;
 use PVE::QemuServer;
 use PVE::QemuServer::Machine;
 use PVE::QemuServer::Monitor qw(mon_cmd);
@@ -68,7 +69,7 @@ sub prepare {
 
     my $vollist = [];
     my $drivehash = {};
-    PVE::QemuServer::foreach_drive($conf, sub {
+    PVE::QemuConfig->foreach_volume($conf, sub {
 	my ($ds, $drive) = @_;
 
 	return if PVE::QemuServer::drive_is_cdrom($drive);

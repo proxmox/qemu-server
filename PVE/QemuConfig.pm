@@ -66,7 +66,7 @@ sub has_feature {
     my ($class, $feature, $conf, $storecfg, $snapname, $running, $backup_only) = @_;
 
     my $err;
-    PVE::QemuServer::foreach_drive($conf, sub {
+    $class->foreach_volume($conf, sub {
 	my ($ds, $drive) = @_;
 
 	return if PVE::QemuServer::drive_is_cdrom($drive);

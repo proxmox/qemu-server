@@ -466,7 +466,7 @@ sub generate_cloudinitconfig {
 
     my $format = get_cloudinit_format($conf);
 
-    PVE::QemuServer::foreach_drive($conf, sub {
+    PVE::QemuConfig->foreach_volume($conf, sub {
         my ($ds, $drive) = @_;
 
 	my ($storeid, $volname) = PVE::Storage::parse_volume_id($drive->{file}, 1);

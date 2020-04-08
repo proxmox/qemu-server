@@ -63,7 +63,7 @@ my $NEW_DISK_RE = qr!^(([^/:\s]+):)?(\d+(\.\d+)?)$!;
 my $check_storage_access = sub {
    my ($rpcenv, $authuser, $storecfg, $vmid, $settings, $default_storage) = @_;
 
-   PVE::QemuServer::foreach_drive($settings, sub {
+   PVE::QemuConfig->foreach_volume($settings, sub {
 	my ($ds, $drive) = @_;
 
 	my $isCDROM = PVE::QemuServer::drive_is_cdrom($drive);
@@ -96,7 +96,7 @@ my $check_storage_access_clone = sub {
 
    my $sharedvm = 1;
 
-   PVE::QemuServer::foreach_drive($conf, sub {
+   PVE::QemuConfig->foreach_volume($conf, sub {
 	my ($ds, $drive) = @_;
 
 	my $isCDROM = PVE::QemuServer::drive_is_cdrom($drive);
@@ -216,7 +216,7 @@ my $create_disks = sub {
 	}
     };
 
-    eval { PVE::QemuServer::foreach_drive($settings, $code); };
+    eval { PVE::QemuConfig->foreach_volume($settings, $code); };
 
     # free allocated images on error
     if (my $err = $@) {
