@@ -290,7 +290,9 @@ sub sync_disks {
     my $conf = $self->{vmconf};
 
     # local volumes which have been copied
+    # and their old_id => new_id pairs
     $self->{volumes} = [];
+    $self->{volume_map} = {};
 
     my $storecfg = $self->{storecfg};
     eval {
@@ -552,8 +554,11 @@ sub sync_disks {
 		    'with_snapshots' => $local_volumes->{$volid}->{snapshots},
 		};
 
-		PVE::Storage::storage_migrate($storecfg, $volid, $self->{ssh_info},
-					      $targetsid, $storage_migrate_opts);
+		my $new_volid = PVE::Storage::storage_migrate($storecfg, $volid, $self->{ssh_info},
+							      $targetsid, $storage_migrate_opts);
+
+		$self->{volume_map}->{$volid} = $new_volid;
+		$self->log('info', "volume '$volid' is '$new_volid' on the target\n");
 	    }
 	}
     };
@@ -1109,6 +1114,13 @@ sub phase3_cleanup {
 
     my $tunnel = $self->{tunnel};
 
+    # Needs to happen before printing the drives that where migrated via qemu,
+    # since a new volume on the target might have the same ID as an old volume
+    # on the source and update_volume_ids relies on matching IDs in the config.
+    if ($self->{volume_map}) {
+	PVE::QemuConfig->update_volume_ids($conf, $self->{volume_map});
+    }
+
     if ($self->{storage_migration}) {
 	# finish block-job with block-job-cancel, to disconnect source VM from NBD
 	# to avoid it trying to re-establish it. We are in blockjob ready state,
@@ -1123,9 +1135,13 @@ sub phase3_cleanup {
 	    foreach my $target_drive (keys %{$self->{target_drive}}) {
 		my $drive = PVE::QemuServer::parse_drive($target_drive, $self->{target_drive}->{$target_drive}->{drivestr});
 		$conf->{$target_drive} = PVE::QemuServer::print_drive($drive);
-		PVE::QemuConfig->write_config($vmid, $conf);
 	    }
 	}
+    }
+
+    # only write after successfully completing the migration
+    if ($self->{volume_map} || $self->{storage_migration}) {
+	PVE::QemuConfig->write_config($vmid, $conf);
     }
 
     # transfer replication state before move config
