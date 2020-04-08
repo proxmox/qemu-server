@@ -846,6 +846,7 @@ my $net_fmt = {
 	type => 'string',
 	description => $net_fmt_bridge_descr,
 	format_description => 'bridge',
+	pattern => '[-_.\w\d]+',
 	optional => 1,
     },
     queues => {
