@@ -2973,13 +2973,15 @@ sub config_to_command {
 
     $machine_version =~ m/(\d+)\.(\d+)/;
     my ($machine_major, $machine_minor) = ($1, $2);
-    die "Installed QEMU version '$kvmver' is too old to run machine type '$machine_type', please upgrade node '$nodename'\n"
-	if !PVE::QemuServer::min_version($kvmver, $machine_major, $machine_minor);
 
-    if (!PVE::QemuServer::Machine::can_run_pve_machine_version($machine_version, $kvmver)) {
+    if ($kvmver =~ m/^\d+\.\d+\.(\d+)/ && $1 >= 90) {
+	warn "warning: Installed QEMU version ($kvmver) is a release candidate, ignoring version checks\n";
+    } elsif (!min_version($kvmver, $machine_major, $machine_minor)) {
+	die "Installed QEMU version '$kvmver' is too old to run machine type '$machine_type', please upgrade node '$nodename'\n"
+    } elsif (!PVE::QemuServer::Machine::can_run_pve_machine_version($machine_version, $kvmver)) {
 	my $max_pve_version = PVE::QemuServer::Machine::get_pve_version($machine_version);
 	die "Installed qemu-server (max feature level for $machine_major.$machine_minor is pve$max_pve_version)"
-	  . " is too old to run machine type '$machine_type', please upgrade node '$nodename'\n";
+	    ." is too old to run machine type '$machine_type', please upgrade node '$nodename'\n";
     }
 
     # if a specific +pve version is required for a feature, use $version_guard
