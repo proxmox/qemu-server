@@ -541,15 +541,19 @@ sub sync_disks {
 		next if $self->{replicated_volumes}->{$volid};
 		push @{$self->{volumes}}, $volid;
 		my $opts = $self->{opts};
-		my $insecure = $opts->{migration_type} eq 'insecure';
-		my $with_snapshots = $local_volumes->{$volid}->{snapshots};
 		# use 'migrate' limit for transfer to other node
 		my $bwlimit = PVE::Storage::get_bandwidth_limit('migration', [$targetsid, $sid], $opts->{bwlimit});
 		# JSONSchema and get_bandwidth_limit use kbps - storage_migrate bps
 		$bwlimit = $bwlimit * 1024 if defined($bwlimit);
 
-		PVE::Storage::storage_migrate($storecfg, $volid, $self->{ssh_info}, $targetsid,
-					      undef, undef, undef, $bwlimit, $insecure, $with_snapshots);
+		my $storage_migrate_opts = {
+		    'bwlimit' => $bwlimit,
+		    'insecure' => $opts->{migration_type} eq 'insecure',
+		    'with_snapshots' => $local_volumes->{$volid}->{snapshots},
+		};
+
+		PVE::Storage::storage_migrate($storecfg, $volid, $self->{ssh_info},
+					      $targetsid, $storage_migrate_opts);
 	    }
 	}
     };
