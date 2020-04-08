@@ -1,3 +1,11 @@
+qemu-server (5.0-56) unstable; urgency=medium
+
+  * add Ice Lake CPU types
+
+  * config: harmonize bridge pattern to match the one from containers
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 08 Apr 2020 17:06:05 +0200
+
 qemu-server (5.0-55) unstable; urgency=medium
 
   * Fix #2171: volid based statefiles were not activated on VM start
