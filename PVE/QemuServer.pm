@@ -4323,6 +4323,7 @@ sub foreach_volid {
     foreach my $snapname (keys %{$conf->{snapshots}}) {
 	my $snap = $conf->{snapshots}->{$snapname};
 	$test_volid->($snap->{vmstate}, 0, 1, $snapname);
+	$volhash->{$snap->{vmstate}}->{is_vmstate} = 1 if $snap->{vmstate};
 	PVE::QemuConfig->foreach_volume($snap, sub {
 	    my ($ds, $drive) = @_;
 	    $test_volid->($drive->{file}, drive_is_cdrom($drive), $drive->{replicate} // 1, $drive->{shared}, $snapname);

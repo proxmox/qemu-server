@@ -389,6 +389,8 @@ sub sync_disks {
 
 	    $local_volumes->{$volid}->{ref} = $attr->{referenced_in_config} ? 'config' : 'snapshot';
 
+	    $local_volumes->{$volid}->{is_vmstate} = $attr->{is_vmstate} ? 1 : 0;
+
 	    if ($attr->{cdrom}) {
 		if ($volid =~ /vm-\d+-cloudinit/) {
 		    $local_volumes->{$volid}->{ref} = 'generated';
@@ -552,6 +554,7 @@ sub sync_disks {
 		    'bwlimit' => $bwlimit,
 		    'insecure' => $opts->{migration_type} eq 'insecure',
 		    'with_snapshots' => $local_volumes->{$volid}->{snapshots},
+		    'allow_rename' => !$local_volumes->{$volid}->{is_vmstate},
 		};
 
 		my $new_volid = PVE::Storage::storage_migrate($storecfg, $volid, $self->{ssh_info},
