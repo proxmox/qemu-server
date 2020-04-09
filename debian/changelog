@@ -1,3 +1,22 @@
+qemu-server (6.1-14) pve; urgency=medium
+
+  * Use foreach_volume instead of foreach_drive
+
+  * Use new storage_migrate interface
+
+  * migrate: update config with changed volume IDs
+
+  * migrate: allow specifying targetstorage for offline migration
+
+  * migrate: sync_disks: use allow_rename to avoid collisions on the target
+    storage
+
+  * migrate: sync_disks: log output of storage_migrate
+
+  * migrate: also cleanup disks migrated by storage_migrate in case of failure
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 9 Apr 2020 08:56:44 +0200
+
 qemu-server (6.1-13) pve; urgency=medium
 
   * rescan: fix call to foreach_volume
