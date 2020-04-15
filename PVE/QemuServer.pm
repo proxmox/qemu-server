@@ -3056,14 +3056,12 @@ sub config_to_command {
 	}
     }
 
-    my ($ovmf_code, $ovmf_vars) = get_ovmf_files($arch);
     if ($conf->{bios} && $conf->{bios} eq 'ovmf') {
-	die "uefi base image not found\n" if ! -f $ovmf_code;
+	my ($ovmf_code, $ovmf_vars) = get_ovmf_files($arch);
+	die "uefi base image '$ovmf_code' not found\n" if ! -f $ovmf_code;
 
-	my $path;
-	my $format;
-	if (my $efidisk = $conf->{efidisk0}) {
-	    my $d = parse_drive('efidisk0', $efidisk);
+	my ($path, $format);
+	if (my $d = parse_drive('efidisk0', $conf->{efidisk0})) {
 	    my ($storeid, $volname) = PVE::Storage::parse_volume_id($d->{file}, 1);
 	    $format = $d->{format};
 	    if ($storeid) {
