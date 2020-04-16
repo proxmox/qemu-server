@@ -404,6 +404,8 @@ sub sync_disks {
 	    die "owned by other VM (owner = VM $owner)\n"
 		if !$owner || ($owner != $vmid);
 
+	    return if $attr->{is_vmstate};
+
 	    if (defined($snaprefs)) {
 		$local_volumes->{$volid}->{snapshots} = 1;
 
