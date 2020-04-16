@@ -388,6 +388,7 @@ sub sync_disks {
 	    return if $scfg->{shared};
 
 	    $local_volumes->{$volid}->{ref} = $attr->{referenced_in_config} ? 'config' : 'snapshot';
+	    $local_volumes->{$volid}->{ref} = 'storage' if $attr->{is_unused};
 
 	    $local_volumes->{$volid}->{is_vmstate} = $attr->{is_vmstate} ? 1 : 0;
 

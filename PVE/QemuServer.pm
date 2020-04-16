@@ -4303,39 +4303,52 @@ sub foreach_volid {
     my $volhash = {};
 
     my $test_volid = sub {
-	my ($volid, $is_cdrom, $replicate, $shared, $snapname, $size) = @_;
+	my ($key, $drive, $snapname) = @_;
 
+	my $volid = $drive->{file};
 	return if !$volid;
 
 	$volhash->{$volid}->{cdrom} //= 1;
-	$volhash->{$volid}->{cdrom} = 0 if !$is_cdrom;
+	$volhash->{$volid}->{cdrom} = 0 if !drive_is_cdrom($drive);
 
+	my $replicate = $drive->{replicate} // 1;
 	$volhash->{$volid}->{replicate} //= 0;
 	$volhash->{$volid}->{replicate} = 1 if $replicate;
 
 	$volhash->{$volid}->{shared} //= 0;
-	$volhash->{$volid}->{shared} = 1 if $shared;
+	$volhash->{$volid}->{shared} = 1 if $drive->{shared};
 
 	$volhash->{$volid}->{referenced_in_config} //= 0;
 	$volhash->{$volid}->{referenced_in_config} = 1 if !defined($snapname);
 
 	$volhash->{$volid}->{referenced_in_snapshot}->{$snapname} = 1
 	    if defined($snapname);
-	$volhash->{$volid}->{size} = $size if $size;
+
+	my $size = $drive->{size};
+	$volhash->{$volid}->{size} //= $size if $size;
+
+	$volhash->{$volid}->{is_vmstate} //= 0;
+	$volhash->{$volid}->{is_vmstate} = 1 if $key eq 'vmstate';
+
+	$volhash->{$volid}->{is_unused} //= 0;
+	$volhash->{$volid}->{is_unused} = 1 if $key =~ /^unused\d+$/;
     };
 
-    PVE::QemuConfig->foreach_volume($conf, sub {
+    my $include_opts = {
+	extra_keys => ['vmstate'],
+	include_unused => 1,
+    };
+
+    PVE::QemuConfig->foreach_volume_full($conf, $include_opts, sub {
 	my ($ds, $drive) = @_;
-	$test_volid->($drive->{file}, drive_is_cdrom($drive), $drive->{replicate} // 1, $drive->{shared}, undef, $drive->{size});
+	$test_volid->($ds, $drive);
     });
 
     foreach my $snapname (keys %{$conf->{snapshots}}) {
 	my $snap = $conf->{snapshots}->{$snapname};
-	$test_volid->($snap->{vmstate}, 0, 1, 0, $snapname);
-	$volhash->{$snap->{vmstate}}->{is_vmstate} = 1 if $snap->{vmstate};
-	PVE::QemuConfig->foreach_volume($snap, sub {
+	PVE::QemuConfig->foreach_volume_full($snap, $include_opts, sub {
 	    my ($ds, $drive) = @_;
-	    $test_volid->($drive->{file}, drive_is_cdrom($drive), $drive->{replicate} // 1, $drive->{shared}, $snapname);
+	    $test_volid->($ds, $drive, $snapname);
         });
     }
 
