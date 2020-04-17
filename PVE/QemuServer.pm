@@ -2751,6 +2751,29 @@ sub conf_has_audio {
     };
 }
 
+sub audio_devs {
+    my ($audio, $audiopciaddr) = @_;
+
+    my $devs = [];
+
+    my $id = $audio->{dev_id};
+    my $audiodev = "audiodev=$audio->{backend_id}";
+
+    if ($audio->{dev} eq 'AC97') {
+	push @$devs, '-device', "AC97,id=${id}${audiopciaddr},$audiodev";
+    } elsif ($audio->{dev} =~ /intel\-hda$/) {
+	push @$devs, '-device', "$audio->{dev},id=${id}${audiopciaddr}";
+	push @$devs, '-device', "hda-micro,id=${id}-codec0,bus=${id}.0,cad=0,$audiodev";
+	push @$devs, '-device', "hda-duplex,id=${id}-codec1,bus=${id}.0,cad=1,$audiodev";
+    } else {
+	die "unkown audio device '$audio->{dev}', implement me!";
+    }
+
+    push @$devs, '-audiodev', "$audio->{backend},id=$audio->{backend_id}";
+
+    return $devs;
+}
+
 sub vga_conf_has_spice {
     my ($vga) = @_;
 
@@ -3250,22 +3273,10 @@ sub config_to_command {
 	}
     }
 
-    if (my $audio = conf_has_audio($conf)) {
-
+    if (min_version($machine_version, 4, 0) && (my $audio = conf_has_audio($conf))) {
 	my $audiopciaddr = print_pci_addr("audio0", $bridges, $arch, $machine_type);
-
-	my $id = $audio->{dev_id};
-	if ($audio->{dev} eq 'AC97') {
-	    push @$devices, '-device', "AC97,id=${id}${audiopciaddr},audiodev=$audio->{backend_id}";
-	} elsif ($audio->{dev} =~ /intel\-hda$/) {
-	    push @$devices, '-device', "$audio->{dev},id=${id}${audiopciaddr}";
-	    push @$devices, '-device', "hda-micro,id=${id}-codec0,bus=${id}.0,cad=0,audiodev=$audio->{backend_id}";
-	    push @$devices, '-device', "hda-duplex,id=${id}-codec1,bus=${id}.0,cad=1,audiodev=$audio->{backend_id}";
-	} else {
-	    die "unkown audio device '$audio->{dev}', implement me!";
-	}
-
-	push @$devices, '-audiodev', "$audio->{backend},id=$audio->{backend_id}";
+	my $audio_devs = audio_devs($audio, $audiopciaddr);
+	push @$devices, @$audio_devs;
     }
 
     my $sockets = 1;
