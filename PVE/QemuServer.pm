@@ -884,6 +884,12 @@ my $net_fmt = {
 	description => 'Whether this interface should be disconnected (like pulling the plug).',
 	optional => 1,
     },
+    mtu => {
+	type => 'integer',
+	minimum => 1, maximum => 65520,
+	description => 'Force mtu (virtio only). 1 = bridge mtu value',
+	optional => 1,
+    },
 };
 
 my $netdesc = {
@@ -1592,6 +1598,19 @@ sub print_netdevice_full {
 	$tmpstr .= ",vectors=$vectors,mq=on";
     }
     $tmpstr .= ",bootindex=$net->{bootindex}" if $net->{bootindex} ;
+
+    if($net->{model} eq 'virtio' && $net->{mtu} && $net->{bridge}) {
+
+	my $mtu = $net->{mtu};
+	my $bridge_mtu = PVE::Network::read_bridge_mtu($net->{bridge});
+
+	if($mtu == 1) {
+	     $mtu = $bridge_mtu;
+        } else {
+	     die "mtu $mtu is bigger than bridge mtu $bridge_mtu" if $mtu > $bridge_mtu;
+	}
+	$tmpstr .= ",host_mtu=$mtu";
+    }
 
     if ($use_old_bios_files) {
 	my $romfile;
