@@ -1143,7 +1143,17 @@ sub phase3_cleanup {
     }
 
     if ($self->{volume_map}) {
+	my $target_drives = $self->{target_drive};
+
+	# FIXME: for NBD storage migration we now only update the volid, and
+	# not the full drivestr from the target node. Workaround that until we
+	# got some real rescan, to avoid things like wrong format in the drive
+	delete $conf->{$_} for keys %$target_drives;
 	PVE::QemuConfig->update_volume_ids($conf, $self->{volume_map});
+
+	for my $drive (keys %$target_drives) {
+	    $conf->{$drive} = $target_drives->{$drive}->{drivestr};
+	}
 	PVE::QemuConfig->write_config($vmid, $conf);
     }
 
