@@ -708,8 +708,14 @@ sub phase2 {
     # TODO change to 'spice_ticket: <ticket>\n' in 7.0
     my $input = $spice_ticket ? "$spice_ticket\n" : "\n";
     $input .= "nbd_protocol_version: $nbd_protocol_version\n";
-    foreach my $volid (keys %{$self->{replicated_volumes}}) {
-	$input .= "replicated_volume: $volid\n";
+
+    my $number_of_online_replicated_volumes = 0;
+    if ($self->{online_local_volumes}) {
+	foreach my $volid (keys %{$self->{replicated_volumes}}) {
+	    next if !(grep { $volid eq $_ } @{$self->{online_local_volumes}});
+	    $number_of_online_replicated_volumes++;
+	    $input .= "replicated_volume: $volid\n";
+	}
     }
 
     my $target_replicated_volumes = {};
@@ -773,7 +779,7 @@ sub phase2 {
 
     die "unable to detect remote migration address\n" if !$raddr;
 
-    if (scalar(keys %$target_replicated_volumes) != scalar(keys %{$self->{replicated_volumes}})) {
+    if (scalar(keys %$target_replicated_volumes) != $number_of_online_replicated_volumes) {
 	die "number of replicated disks on source and target node do not match - target node too old?\n"
     }
 
