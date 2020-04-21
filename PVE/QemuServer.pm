@@ -4065,6 +4065,14 @@ sub qemu_netdevadd {
     my $netdev = print_netdev_full($vmid, $conf, $arch, $device, $deviceid, 1);
     my %options =  split(/[=,]/, $netdev);
 
+    if (defined(my $vhost = $options{vhost})) {
+	$options{vhost} = JSON::boolean(PVE::JSONSchema::parse_boolean($vhost));
+    }
+
+    if (defined(my $queues = $options{queues})) {
+	$options{queues} = $queues + 0;
+    }
+
     mon_cmd($vmid, "netdev_add",  %options);
     return 1;
 }
