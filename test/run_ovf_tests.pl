@@ -12,8 +12,22 @@ use Data::Dumper;
 
 my $test_manifests = join ('/', $Bin, 'ovf_manifests');
 
-my $win2008 = PVE::QemuServer::OVF::parse_ovf("$test_manifests/Win_2008_R2_two-disks.ovf");
-my $win10 = PVE::QemuServer::OVF::parse_ovf("$test_manifests/Win10-Liz.ovf");
+print "parsing ovfs\n";
+
+my $win2008 = eval { PVE::QemuServer::OVF::parse_ovf("$test_manifests/Win_2008_R2_two-disks.ovf") };
+if (my $err = $@) {
+    fail('parse win2008');
+    warn("error: $err\n");
+} else {
+    ok('parse win2008');
+}
+my $win10 = eval { PVE::QemuServer::OVF::parse_ovf("$test_manifests/Win10-Liz.ovf") };
+if (my $err = $@) {
+    fail('parse win10');
+    warn("error: $err\n");
+} else {
+    ok('parse win10');
+}
 
 print "testing disks\n";
 
