@@ -213,12 +213,16 @@ ovf:Item[rasd:InstanceID='%s']/rasd:ResourceType", $controller_id);
 	my $ovf_dir = realpath(dirname(File::Spec->rel2abs($ovf)));
 	my $backing_file_path = realpath(join ('/', $ovf_dir, $filepath));
 	if ($backing_file_path !~ /^\Q${ovf_dir}\E/) {
-	    die "error parsing $filepath, are you using a symlink ?";
+	    die "error parsing $filepath, are you using a symlink ?\n";
+	}
+
+	if (!-e $backing_file_path) {
+	    die "error parsing $filepath, file seems not to exist at $backing_file_path\n";
 	}
 
 	my $virtual_size;
 	if ( !($virtual_size = PVE::Storage::file_size_info($backing_file_path)) ) {
-	    die "error parsing $backing_file_path, size seems to be $virtual_size";
+	    die "error parsing $backing_file_path, size seems to be $virtual_size\n";
 	}
 
 	$pve_disk = {
