@@ -155,7 +155,7 @@ sub parse_ovf {
 
 	# from Item, find corresponding Disk node
 	# here the dot means the search should start from the current element in dom
-	my $host_resource = $item_node->findvalue('./rasd:HostResource');
+	my $host_resource = $xpc->findvalue('rasd:HostResource', $item_node);
 	my $disk_section_path;
 	my $disk_id;
 
@@ -194,7 +194,7 @@ ovf:Disk[\@ovf:diskId='%s']/\@ovf:fileRef", $disk_id);
 	print "file path: $filepath\n" if $debug;
 
 	# from Item, find owning Controller type
-	my $controller_id = $item_node->findvalue('./rasd:Parent');
+	my $controller_id = $xpc->findvalue('rasd:Parent', $item_node);
 	my $xpath_find_parent_type = sprintf("/ovf:Envelope/ovf:VirtualSystem/ovf:VirtualHardwareSection/\
 ovf:Item[rasd:InstanceID='%s']/rasd:ResourceType", $controller_id);
 	my $controller_type = $xpc->findvalue($xpath_find_parent_type);
@@ -205,7 +205,7 @@ ovf:Item[rasd:InstanceID='%s']/rasd:ResourceType", $controller_id);
 	print "owning controller type: $controller_type\n" if $debug;
 
 	# extract corresponding Controller node details
-	my $adress_on_controller = $item_node->findvalue('./rasd:AddressOnParent');
+	my $adress_on_controller = $xpc->findvalue('rasd:AddressOnParent', $item_node);
 	my $pve_disk_address = id_to_pve($controller_type) . $adress_on_controller;
 
 	# resolve symlinks and relative path components
