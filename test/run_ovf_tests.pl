@@ -28,6 +28,13 @@ if (my $err = $@) {
 } else {
     ok('parse win10');
 }
+my $win10noNs = eval { PVE::QemuServer::OVF::parse_ovf("$test_manifests/Win10-Liz_no_default_ns.ovf") };
+if (my $err = $@) {
+    fail("parse win10 no default rasd NS");
+    warn("error: $err\n");
+} else {
+    ok('parse win10 no default rasd NS');
+}
 
 print "testing disks\n";
 
@@ -43,6 +50,10 @@ is($win10->{disks}->[0]->{disk_address}, 'scsi0', 'single disk vm has the correc
 is($win10->{disks}->[0]->{backing_file}, "$test_manifests/Win10-Liz-disk1.vmdk", 'single disk vm has the correct disk backing device');
 is($win10->{disks}->[0]->{virtual_size}, 2048, 'single disk vm has the correct size');
 
+is($win10noNs->{disks}->[0]->{disk_address}, 'scsi0', 'single disk vm (no default rasd NS) has the correct disk controller');
+is($win10noNs->{disks}->[0]->{backing_file}, "$test_manifests/Win10-Liz-disk1.vmdk", 'single disk vm (no default rasd NS) has the correct disk backing device');
+is($win10noNs->{disks}->[0]->{virtual_size}, 2048, 'single disk vm (no default rasd NS) has the correct size');
+
 print "\ntesting vm.conf extraction\n";
 
 is($win2008->{qm}->{name}, 'Win2008-R2x64', 'win2008 VM name is correct');
@@ -52,5 +63,9 @@ is($win2008->{qm}->{cores}, '1', 'win2008 VM cores are correct');
 is($win10->{qm}->{name}, 'Win10-Liz', 'win10 VM name is correct');
 is($win10->{qm}->{memory}, '6144', 'win10 VM memory is correct');
 is($win10->{qm}->{cores}, '4', 'win10 VM cores are correct');
+
+is($win10noNs->{qm}->{name}, 'Win10-Liz', 'win10 VM (no default rasd NS) name is correct');
+is($win10noNs->{qm}->{memory}, '6144', 'win10 VM (no default rasd NS) memory is correct');
+is($win10noNs->{qm}->{cores}, '4', 'win10 VM (no default rasd NS) cores are correct');
 
 done_testing();
