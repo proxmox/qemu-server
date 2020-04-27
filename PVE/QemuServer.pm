@@ -26,7 +26,7 @@ use Time::HiRes qw(gettimeofday);
 use URI::Escape;
 use UUID;
 
-use PVE::Cluster qw(cfs_register_file cfs_read_file cfs_write_file cfs_lock_file);
+use PVE::Cluster qw(cfs_register_file cfs_read_file cfs_write_file);
 use PVE::DataCenterConfig;
 use PVE::Exception qw(raise raise_param_exc);
 use PVE::GuestHelpers qw(safe_string_ne safe_num_ne safe_boolean_ne);
@@ -37,7 +37,7 @@ use PVE::RPCEnvironment;
 use PVE::Storage;
 use PVE::SysFSTools;
 use PVE::Systemd;
-use PVE::Tools qw(run_command lock_file lock_file_full file_read_firstline file_get_contents dir_glob_foreach get_host_arch $IPV6RE);
+use PVE::Tools qw(run_command file_read_firstline file_get_contents dir_glob_foreach get_host_arch $IPV6RE);
 
 use PVE::QMPClient;
 use PVE::QemuConfig;
