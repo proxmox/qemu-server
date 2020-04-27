@@ -2589,6 +2589,8 @@ __PACKAGE__->register_method({
 	    if $skiplock && $authuser ne 'root@pam';
 
 	my $nocheck = extract_param($param, 'nocheck');
+	raise_param_exc({ nocheck => "Only root may use this option." })
+	    if $nocheck && $authuser ne 'root@pam';
 
 	my $to_disk_suspended;
 	eval {
