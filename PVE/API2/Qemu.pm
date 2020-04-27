@@ -1468,32 +1468,38 @@ __PACKAGE__->register_method({
 	raise_param_exc({ skiplock => "Only root may use this option." })
 	    if $skiplock && $authuser ne 'root@pam';
 
-	# test if VM exists
-	my $conf = PVE::QemuConfig->load_config($vmid);
-	my $storecfg = PVE::Storage::config();
-	PVE::QemuConfig->check_protection($conf, "can't remove VM $vmid");
+	my $early_checks = sub {
+	    # test if VM exists
+	    my $conf = PVE::QemuConfig->load_config($vmid);
+	    PVE::QemuConfig->check_protection($conf, "can't remove VM $vmid");
 
-	my $ha_managed = PVE::HA::Config::service_is_configured("vm:$vmid");
+	    my $ha_managed = PVE::HA::Config::service_is_configured("vm:$vmid");
 
-	if (!$param->{purge}) {
-	    die "unable to remove VM $vmid - used in HA resources and purge parameter not set.\n"
-		if $ha_managed;
-	    # don't allow destroy if with replication jobs but no purge param
-	    my $repl_conf = PVE::ReplicationConfig->new();
-	    $repl_conf->check_for_existing_jobs($vmid);
-	}
+	    if (!$param->{purge}) {
+		die "unable to remove VM $vmid - used in HA resources and purge parameter not set.\n"
+		    if $ha_managed;
+		# don't allow destroy if with replication jobs but no purge param
+		my $repl_conf = PVE::ReplicationConfig->new();
+		$repl_conf->check_for_existing_jobs($vmid);
+	    }
 
-	# early tests (repeat after locking)
-	die "VM $vmid is running - destroy failed\n"
-	    if PVE::QemuServer::check_running($vmid);
+	    die "VM $vmid is running - destroy failed\n"
+		if PVE::QemuServer::check_running($vmid);
+
+	    return $ha_managed;
+	};
+
+	$early_checks->();
 
 	my $realcmd = sub {
 	    my $upid = shift;
 
+	    my $storecfg = PVE::Storage::config();
+
 	    syslog('info', "destroy VM $vmid: $upid\n");
 	    PVE::QemuConfig->lock_config($vmid, sub {
-		die "VM $vmid is running - destroy failed\n"
-		    if (PVE::QemuServer::check_running($vmid));
+		# repeat, config might have changed
+		my $ha_managed = $early_checks->();
 
 		PVE::QemuServer::destroy_vm($storecfg, $vmid, $skiplock, { lock => 'destroyed' });
 
