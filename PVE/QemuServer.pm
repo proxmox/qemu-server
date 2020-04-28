@@ -5637,28 +5637,9 @@ sub tar_restore_cleanup {
 sub restore_file_archive {
     my ($archive, $vmid, $user, $opts) = @_;
 
-    my $format = $opts->{format};
-    my $comp;
-
-    if ($archive =~ m/\.tgz$/ || $archive =~ m/\.tar\.gz$/) {
-	$format = 'tar' if !$format;
-	$comp = 'gzip';
-    } elsif ($archive =~ m/\.tar$/) {
-	$format = 'tar' if !$format;
-    } elsif ($archive =~ m/.tar.lzo$/) {
-	$format = 'tar' if !$format;
-	$comp = 'lzop';
-    } elsif ($archive =~ m/\.vma$/) {
-	$format = 'vma' if !$format;
-    } elsif ($archive =~ m/\.vma\.gz$/) {
-	$format = 'vma' if !$format;
-	$comp = 'gzip';
-    } elsif ($archive =~ m/\.vma\.lzo$/) {
-	$format = 'vma' if !$format;
-	$comp = 'lzop';
-    } else {
-	$format = 'vma' if !$format; # default
-    }
+    my $info = PVE::Storage::archive_info($archive);
+    my $format = $opts->{format} // $info->{format};
+    my $comp = $info->{compression};
 
     # try to detect archive format
     if ($format eq 'tar') {
@@ -6246,14 +6227,9 @@ sub restore_vma_archive {
     }
 
     if ($comp) {
-	my $cmd;
-	if ($comp eq 'gzip') {
-	    $cmd = ['zcat', $readfrom];
-	} elsif ($comp eq 'lzop') {
-	    $cmd = ['lzop', '-d', '-c', $readfrom];
-	} else {
-	    die "unknown compression method '$comp'\n";
-	}
+	my $info = PVE::Storage::decompressor_info('vma', $comp);
+	my $cmd = $info->{decompressor};
+	push @$cmd, $readfrom;
 	$add_pipe->($cmd);
     }
 
