@@ -7176,7 +7176,7 @@ sub complete_backup_archives {
     my $res = [];
     foreach my $id (keys %$data) {
 	foreach my $item (@{$data->{$id}}) {
-	    next if $item->{format} !~ m/^vma\.(gz|lzo)$/;
+	    next if $item->{format} !~ m/^vma\.(${\PVE::Storage::Plugin::COMPRESSOR_RE})$/;
 	    push @$res, $item->{volid} if defined($item->{volid});
 	}
     }
