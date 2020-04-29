@@ -5739,12 +5739,13 @@ my $parse_backup_hints = sub {
 	    my $drive = parse_drive($virtdev, $2);
 	    if (drive_is_cloudinit($drive)) {
 		my ($storeid, $volname) = PVE::Storage::parse_volume_id($drive->{file});
-		my $scfg = PVE::Storage::storage_config($storecfg, $options->{storage} // $storeid);
+		$storeid = $options->{storage} if defined ($options->{storage});
+		my $scfg = PVE::Storage::storage_config($storecfg, $storeid);
 		my $format = qemu_img_format($scfg, $volname); # has 'raw' fallback
 
 		$virtdev_hash->{$virtdev} = {
 		    format => $format,
-		    storeid => $options->{storage} // $storeid,
+		    storeid => $storeid,
 		    size => PVE::QemuServer::Cloudinit::CLOUDINIT_DISK_SIZE,
 		    is_cloudinit => 1,
 		};
