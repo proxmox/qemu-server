@@ -274,7 +274,8 @@ __PACKAGE__->register_method ({
 
 	my $vmid = $param->{vmid};
 
-	PVE::QemuServer::nbd_stop($vmid);
+	eval { PVE::QemuServer::nbd_stop($vmid) };
+	warn $@ if $@;
 
 	return undef;
     }});
