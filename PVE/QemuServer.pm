@@ -4339,17 +4339,10 @@ sub foreach_volid {
 	include_unused => 1,
     };
 
-    PVE::QemuConfig->foreach_volume_full($conf, $include_opts, sub {
-	my ($ds, $drive) = @_;
-	$test_volid->($ds, $drive);
-    });
-
+    PVE::QemuConfig->foreach_volume_full($conf, $include_opts, $test_volid);
     foreach my $snapname (keys %{$conf->{snapshots}}) {
 	my $snap = $conf->{snapshots}->{$snapname};
-	PVE::QemuConfig->foreach_volume_full($snap, $include_opts, sub {
-	    my ($ds, $drive) = @_;
-	    $test_volid->($ds, $drive, $snapname);
-        });
+	PVE::QemuConfig->foreach_volume_full($snap, $include_opts, $test_volid, $snapname);
     }
 
     foreach my $volid (keys %$volhash) {
