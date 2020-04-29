@@ -750,6 +750,7 @@ sub phase2 {
 	    my $targetdrive = $3;
 	    $targetdrive =~ s/drive-//g;
 
+	    $self->{stopnbd} = 1;
 	    $self->{target_drive}->{$targetdrive}->{drivestr} = $drivestr;
 	    $self->{target_drive}->{$targetdrive}->{nbd_uri} = $nbd_uri;
 	} elsif ($line =~ m!^storage migration listens on nbd:unix:(/run/qemu-server/(\d+)_nbd\.migrate):exportname=(\S+) volume:(\S+)$!) {
@@ -760,6 +761,7 @@ sub phase2 {
 	    my $targetdrive = $3;
 	    $targetdrive =~ s/drive-//g;
 
+	    $self->{stopnbd} = 1;
 	    $self->{target_drive}->{$targetdrive}->{drivestr} = $drivestr;
 	    $self->{target_drive}->{$targetdrive}->{nbd_uri} = $nbd_uri;
 	    push @$tunnel_addr, "$nbd_unix_addr:$nbd_unix_addr";
@@ -1177,7 +1179,8 @@ sub phase3_cleanup {
     $self->switch_replication_job_target() if $self->{replicated_volumes};
 
     if ($self->{livemigration}) {
-	if ($self->{storage_migration}) {
+	if ($self->{stopnbd}) {
+	    $self->log('info', "stopping NBD storage migration server on target.");
 	    # stop nbd server on remote vm - requirement for resume since 2.9
 	    my $cmd = [@{$self->{rem_ssh}}, 'qm', 'nbdstop', $vmid];
 
