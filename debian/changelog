@@ -1,3 +1,17 @@
+qemu-server (6.1-15) pve; urgency=medium
+
+  * spice audio: improve compatibility with QEMU versions newer than 4.2
+
+  * migrate: workaround issues with format switch on storage live migration
+
+  * fix live migration with replicated unused volumes
+
+  * importovf: improve compatibility with OVF files without default namespaces
+
+  * backup restore: use correct storage for format check for cloudinit drives
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 29 Apr 2020 13:37:34 +0200
+
 qemu-server (6.1-14) pve; urgency=medium
 
   * Use foreach_volume instead of foreach_drive
