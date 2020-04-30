@@ -518,6 +518,9 @@ sub sync_disks {
 	my $volid_hash = PVE::QemuServer::scan_volids($storecfg, $vmid);
 	PVE::QemuConfig->foreach_volume($conf, sub {
 	    my ($key, $drive) = @_;
+	    return if $key eq 'efidisk0'; # skip efidisk, will be handled later
+	    return if !defined($local_volumes->{$key}); # only update sizes for local volumes
+
 	    my ($updated, $old_size, $new_size) = PVE::QemuServer::Drive::update_disksize($drive, $volid_hash);
 	    if (defined($updated)) {
 		$conf->{$key} = PVE::QemuServer::print_drive($updated);
