@@ -713,10 +713,14 @@ sub phase2 {
     $input .= "nbd_protocol_version: $nbd_protocol_version\n";
 
     my $number_of_online_replicated_volumes = 0;
-    foreach my $volid (@{$self->{online_local_volumes}}) {
-	next if !$self->{replicated_volumes}->{$volid};
-	$number_of_online_replicated_volumes++;
-	$input .= "replicated_volume: $volid\n";
+
+    # prevent auto-vivification
+    if ($self->{online_local_volumes}) {
+	foreach my $volid (@{$self->{online_local_volumes}}) {
+	    next if !$self->{replicated_volumes}->{$volid};
+	    $number_of_online_replicated_volumes++;
+	    $input .= "replicated_volume: $volid\n";
+	}
     }
 
     my $target_replicated_volumes = {};
