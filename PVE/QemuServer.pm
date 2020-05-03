@@ -5385,7 +5385,11 @@ sub _do_vm_stop {
 	    return;
 	}
     } else {
-	if ($force) {
+       if (!check_running($vmid, $nocheck)) {
+	    warn "Unexpected: VM shutdown command failed, but VM not running anymore..\n";
+	    return;
+       }
+       if ($force) {
 	    warn "VM quit/powerdown failed - terminating now with SIGTERM\n";
 	    kill 15, $pid;
 	} else {
