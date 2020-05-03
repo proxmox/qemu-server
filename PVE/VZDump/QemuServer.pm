@@ -389,7 +389,7 @@ sub archive_pbs {
 	    die "interrupted by signal\n";
 	};
 
-	my $fs_frozen = $self->qga_fs_freeze($vmid);
+	my $fs_frozen = $self->qga_fs_freeze($task, $vmid);
 
 	my $params = {
 	    format => "pbs",
@@ -572,7 +572,7 @@ sub archive_vma {
 
 	$qmpclient->queue_cmd($vmid, $add_fd_cb, 'getfd', fd => $outfileno, fdname => "backup");
 
-	my $fs_frozen = $self->qga_fs_freeze($vmid);
+	my $fs_frozen = $self->qga_fs_freeze($task, $vmid);
 
 	eval { $qmpclient->queue_execute(30) };
 	my $qmperr = $@;
@@ -640,8 +640,8 @@ sub _get_task_devlist {
 }
 
 sub qga_fs_freeze {
-    my ($self, $vmid) = @_;
-    return if !$self->{vmlist}->{$vmid}->{agent} || !$self->{vm_was_running};
+    my ($self, $task, $vmid) = @_;
+    return if !$self->{vmlist}->{$vmid}->{agent} || $task->{mode} eq 'stop' || !$self->{vm_was_running};
 
     if (!PVE::QemuServer::qga_check_running($vmid, 1)) {
 	$self->loginfo("skipping guest-agent 'fs-freeze', agent configured but not running?");
