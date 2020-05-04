@@ -21,6 +21,7 @@ use PVE::GuestHelpers;
 use PVE::QemuConfig;
 use PVE::QemuServer;
 use PVE::QemuServer::Drive;
+use PVE::QemuServer::CPUConfig;
 use PVE::QemuServer::Monitor qw(mon_cmd);
 use PVE::QemuMigrate;
 use PVE::RPCEnvironment;
@@ -234,6 +235,26 @@ my $create_disks = sub {
     }
 
     return $vollist;
+};
+
+my $check_cpu_model_access = sub {
+    my ($rpcenv, $authuser, $new, $existing) = @_;
+
+    return if !defined($new->{cpu});
+
+    my $cpu = PVE::JSONSchema::check_format('pve-vm-cpu-conf', $new->{cpu});
+    return if !$cpu || !$cpu->{cputype}; # always allow default
+    my $cputype = $cpu->{cputype};
+
+    if ($existing && $existing->{cpu}) {
+	# changing only other settings doesn't require permissions for CPU model
+	my $existingCpu = PVE::JSONSchema::check_format('pve-vm-cpu-conf', $existing->{cpu});
+	return if $existingCpu->{cputype} eq $cputype;
+    }
+
+    if (PVE::QemuServer::CPUConfig::is_custom_model($cputype)) {
+	$rpcenv->check($authuser, "/nodes", ['Sys.Audit']);
+    }
 };
 
 my $cpuoptions = {
@@ -542,6 +563,8 @@ __PACKAGE__->register_method({
 	    &$check_storage_access($rpcenv, $authuser, $storecfg, $vmid, $param, $storage);
 
 	    &$check_vm_modify_config_perm($rpcenv, $authuser, $vmid, $pool, [ keys %$param]);
+
+	    &$check_cpu_model_access($rpcenv, $authuser, $param);
 
 	    foreach my $opt (keys %$param) {
 		if (PVE::QemuServer::is_valid_drivename($opt)) {
@@ -1121,6 +1144,8 @@ my $update_vm_api  = sub {
 
 	die "checksum missmatch (file change by other user?)\n"
 	    if $digest && $digest ne $conf->{digest};
+
+	&$check_cpu_model_access($rpcenv, $authuser, $param, $conf);
 
 	# FIXME: 'suspended' lock should probabyl be a state or "weak" lock?!
 	if (scalar(@delete) && grep { $_ eq 'vmstate'} @delete) {
