@@ -1,3 +1,11 @@
+qemu-server (6.1-17) pve; urgency=medium
+
+  * backup: never try to freeze in stop mode backup
+
+  * Fix #2124: Add support for zstd
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 4 May 2020 14:11:50 +0200
+
 qemu-server (6.1-16) pve; urgency=medium
 
   * spice audio: improve compatibility with QEMU versions newer than 4.2
