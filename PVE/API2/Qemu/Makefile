@@ -1,4 +1,4 @@
-SOURCES=Agent.pm
+SOURCES=Agent.pm CPU.pm
 
 .PHONY: install
 install:

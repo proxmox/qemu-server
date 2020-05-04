@@ -293,6 +293,36 @@ sub write_config {
     $class->SUPER::write_config($filename, $cfg);
 }
 
+sub get_cpu_models {
+    my ($include_custom) = @_;
+
+    my $models = [];
+
+    for my $default_model (keys %{$cpu_vendor_list}) {
+	push @$models, {
+	    name => $default_model,
+	    custom => 0,
+	    vendor => $cpu_vendor_list->{$default_model},
+	};
+    }
+
+    return $models if !$include_custom;
+
+    my $conf = load_custom_model_conf();
+    for my $custom_model (keys %{$conf->{ids}}) {
+	my $reported_model = $conf->{ids}->{$custom_model}->{'reported-model'};
+	$reported_model //= $cpu_fmt->{'reported-model'}->{default};
+	my $vendor = $cpu_vendor_list->{$reported_model};
+	push @$models, {
+	    name => "custom-$custom_model",
+	    custom => 1,
+	    vendor => $vendor,
+	};
+    }
+
+    return $models;
+}
+
 sub is_custom_model {
     my ($cputype) = @_;
     return $cputype =~ m/^custom-/;
