@@ -210,8 +210,8 @@ sub assemble {
 	    } else {
 		$found_snapshot = 1;
 	    }
-	    next; # skip all snapshots and pending changes config data
 	}
+	next if $found_snapshot || $found_pending; # skip all snapshots and pending changes config data
 
 	if ($line =~ m/^unused\d+:\s*(\S+)\s*/) {
 	    $self->loginfo("skip unused drive '$1' (not included into backup)");
