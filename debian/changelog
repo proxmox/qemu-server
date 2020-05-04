@@ -1,3 +1,13 @@
+qemu-server (6.1-18) pve; urgency=medium
+
+  * vzdump: assemble: fix skipping all pending and snapshot config entries
+
+  * api/destroy: repeat early checks after locking
+
+  * migrate: skip rescan for efidisk and shared volumes
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 04 May 2020 17:36:40 +0200
+
 qemu-server (6.1-17) pve; urgency=medium
 
   * backup: never try to freeze in stop mode backup
