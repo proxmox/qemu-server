@@ -2858,9 +2858,6 @@ __PACKAGE__->register_method({
 
 	my $running = PVE::QemuServer::check_running($vmid) || 0;
 
-	# exclusive lock if VM is running - else shared lock is enough;
-	my $shared_lock = $running ? 0 : 1;
-
 	my $clonefn = sub {
 	    # do all tests after lock but before forking worker - if possible
 
@@ -3048,11 +3045,17 @@ __PACKAGE__->register_method({
 	    return $rpcenv->fork_worker('qmclone', $vmid, $authuser, $realcmd);
 	};
 
-	return PVE::QemuConfig->lock_config_mode($vmid, 1, $shared_lock, sub {
-	    # Aquire exclusive lock lock for $newid
+	# Aquire exclusive lock lock for $newid
+	my $lock_target_vm = sub {
 	    return PVE::QemuConfig->lock_config_full($newid, 1, $clonefn);
-	});
+	};
 
+	# exclusive lock if VM is running - else shared lock is enough;
+	if ($running) {
+	    return PVE::QemuConfig->lock_config_full($vmid, 1, $lock_target_vm);
+	} else {
+	    return PVE::QemuConfig->lock_config_shared($vmid, 1, $lock_target_vm);
+	}
     }});
 
 __PACKAGE__->register_method({
