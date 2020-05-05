@@ -3388,20 +3388,16 @@ sub config_to_command {
 
     my $rng = parse_rng($conf->{rng0}) if $conf->{rng0};
     if ($rng && &$version_guard(4, 1, 2)) {
+	check_rng_source($rng->{source});
+
 	my $max_bytes = $rng->{max_bytes} // $rng_fmt->{max_bytes}->{default};
 	my $period = $rng->{period} // $rng_fmt->{period}->{default};
-
 	my $limiter_str = "";
 	if ($max_bytes) {
 	    $limiter_str = ",max-bytes=$max_bytes,period=$period";
 	}
 
-	# mostly relevant for /dev/hwrng, but doesn't hurt to check others too
-	die "cannot create VirtIO RNG device: source file '$rng->{source}' doesn't exist\n"
-	    if ! -e $rng->{source};
-
 	my $rng_addr = print_pci_addr("rng0", $bridges, $arch, $machine_type);
-
 	push @$devices, '-object', "rng-random,filename=$rng->{source},id=rng0";
 	push @$devices, '-device', "virtio-rng-pci,rng=rng0$limiter_str$rng_addr";
     }
@@ -3633,6 +3629,24 @@ sub config_to_command {
     }
 
     return wantarray ? ($cmd, $vollist, $spice_port) : $cmd;
+}
+
+sub check_rng_source {
+    my ($source) = @_;
+
+    # mostly relevant for /dev/hwrng, but doesn't hurt to check others too
+    die "cannot create VirtIO RNG device: source file '$source' doesn't exist\n"
+	if ! -e $source;
+
+    my $rng_current = '/sys/devices/virtual/misc/hw_random/rng_current';
+    if ($source eq '/dev/hwrng' && file_read_firstline($rng_current) eq 'none') {
+	# Needs to abort, otherwise QEMU crashes on first rng access.
+	# Note that rng_current cannot be changed to 'none' manually, so
+	# once the VM is past this point, it is no longer an issue.
+	die "Cannot start VM with passed-through RNG device: '/dev/hwrng'"
+	    . " exists, but '$rng_current' is set to 'none'. Ensure that"
+	    . " a compatible hardware-RNG is attached to the host.\n";
+    }
 }
 
 sub spice_port {
