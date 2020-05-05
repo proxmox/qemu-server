@@ -146,10 +146,10 @@ sub write_tunnel {
 }
 
 sub fork_tunnel {
-    my ($self, $tunnel_addr) = @_;
+    my ($self, $ssh_forward_info) = @_;
 
     my @localtunnelinfo = ();
-    foreach my $addr (@$tunnel_addr) {
+    foreach my $addr (@$ssh_forward_info) {
 	push @localtunnelinfo, '-L', $addr;
     }
 
@@ -191,9 +191,9 @@ sub finish_tunnel {
 
     $self->finish_command_pipe($tunnel, 30);
 
-    if ($tunnel->{sock_addr}) {
+    if (my $unix_sockets = $tunnel->{unix_sockets}) {
 	# ssh does not clean up on local host
-	my $cmd = ['rm', '-f', @{$tunnel->{sock_addr}}]; #
+	my $cmd = ['rm', '-f', @$unix_sockets];
 	PVE::Tools::run_command($cmd);
 
 	# .. and just to be sure check on remote side
@@ -707,8 +707,7 @@ sub phase2 {
     }
 
     my $spice_port;
-    my $tunnel_addr = [];
-    my $sock_addr = [];
+    my $unix_socket_info = {};
     # version > 0 for unix socket support
     my $nbd_protocol_version = 1;
     # TODO change to 'spice_ticket: <ticket>\n' in 7.0
@@ -771,8 +770,7 @@ sub phase2 {
 	    $self->{stopnbd} = 1;
 	    $self->{target_drive}->{$targetdrive}->{drivestr} = $drivestr;
 	    $self->{target_drive}->{$targetdrive}->{nbd_uri} = $nbd_uri;
-	    push @$tunnel_addr, "$nbd_unix_addr:$nbd_unix_addr";
-	    push @$sock_addr, $nbd_unix_addr;
+	    $unix_socket_info->{$nbd_unix_addr} = 1;
 	} elsif ($line =~ m/^re-using replicated volume: (\S+) - (.*)$/) {
 	    my $drive = $1;
 	    my $volid = $2;
@@ -798,22 +796,28 @@ sub phase2 {
     if ($migration_type eq 'secure') {
 
 	if ($ruri =~ /^unix:/) {
-	    unlink $raddr;
-	    push @$tunnel_addr, "$raddr:$raddr";
-	    $self->{tunnel} = $self->fork_tunnel($tunnel_addr);
-	    push @$sock_addr, $raddr;
+	    my $ssh_forward_info = ["$raddr:$raddr"];
+	    $unix_socket_info->{$raddr} = 1;
+
+	    my $unix_sockets = [ keys %$unix_socket_info ];
+	    for my $sock (@$unix_sockets) {
+		push @$ssh_forward_info, "$sock:$sock";
+		unlink $sock;
+	    }
+
+	    $self->{tunnel} = $self->fork_tunnel($ssh_forward_info);
 
 	    my $unix_socket_try = 0; # wait for the socket to become ready
 	    while ($unix_socket_try <= 100) {
 		$unix_socket_try++;
 		my $available = 0;
-		foreach my $sock (@$sock_addr) {
+		foreach my $sock (@$unix_sockets) {
 		    if (-S $sock) {
 			$available++;
 		    }
 		}
 
-		if ($available == @$sock_addr) {
+		if ($available == @$unix_sockets) {
 		    last;
 		}
 
@@ -824,17 +828,18 @@ sub phase2 {
 		$self->finish_tunnel($self->{tunnel});
 		die "Timeout, migration socket $ruri did not get ready";
 	    }
+	    $self->{tunnel}->{unix_sockets} = $unix_sockets if (@$unix_sockets);
 
 	} elsif ($ruri =~ /^tcp:/) {
-	    my $tunnel_addr;
+	    my $ssh_forward_info = [];
 	    if ($raddr eq "localhost") {
 		# for backwards compatibility with older qemu-server versions
 		my $pfamily = PVE::Tools::get_host_address_family($nodename);
 		my $lport = PVE::Tools::next_migrate_port($pfamily);
-		$tunnel_addr = "$lport:localhost:$rport";
+		push @$ssh_forward_info, "$lport:localhost:$rport";
 	    }
 
-	    $self->{tunnel} = $self->fork_tunnel($tunnel_addr);
+	    $self->{tunnel} = $self->fork_tunnel($ssh_forward_info);
 
 	} else {
 	    die "unsupported protocol in migration URI: $ruri\n";
@@ -843,8 +848,6 @@ sub phase2 {
 	#fork tunnel for insecure migration, to send faster commands like resume
 	$self->{tunnel} = $self->fork_tunnel();
     }
-    $self->{tunnel}->{sock_addr} = $sock_addr if (@$sock_addr);
-
     my $start = time();
 
     my $opt_bwlimit = $self->{opts}->{bwlimit};
