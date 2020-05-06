@@ -248,7 +248,7 @@ sub archive {
     my $opts = $self->{vzdump}->{opts};
     my $scfg = $opts->{scfg};
 
-    if ($scfg->{type} eq 'pbs') {
+    if ($self->{vzdump}->{opts}->{pbs}) {
 	$self->archive_pbs($task, $vmid);
     } else {
 	$self->archive_vma($task, $vmid, $filename, $comp);
