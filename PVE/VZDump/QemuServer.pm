@@ -518,7 +518,7 @@ sub archive_vma {
 	$self->loginfo(join(' ', @$cmd));
 
 	if ($opts->{stdout}) {
-	    $self->cmd($cmd, output => ">&=" . fileno($opts->{stdout}));
+	    $self->cmd($cmd, output => ">&" . fileno($opts->{stdout}));
 	} else {
 	    $self->cmd($cmd);
 	}
