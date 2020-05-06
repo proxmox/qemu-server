@@ -3084,7 +3084,8 @@ sub config_to_command {
 	die "uefi base image '$ovmf_code' not found\n" if ! -f $ovmf_code;
 
 	my ($path, $format);
-	if (my $d = parse_drive('efidisk0', $conf->{efidisk0})) {
+	if (my $efidisk = $conf->{efidisk0}) {
+	    my $d = parse_drive('efidisk0', $efidisk);
 	    my ($storeid, $volname) = PVE::Storage::parse_volume_id($d->{file}, 1);
 	    $format = $d->{format};
 	    if ($storeid) {
