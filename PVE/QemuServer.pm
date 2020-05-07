@@ -5655,6 +5655,9 @@ sub tar_restore_cleanup {
 sub restore_file_archive {
     my ($archive, $vmid, $user, $opts) = @_;
 
+    return restore_vma_archive($archive, $vmid, $user, $opts)
+	if $archive eq '-';
+
     my $info = PVE::Storage::archive_info($archive);
     my $format = $opts->{format} // $info->{format};
     my $comp = $info->{compression};
