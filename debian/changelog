@@ -1,3 +1,9 @@
+qemu-server (6.2-2) pve; urgency=medium
+
+  * adapt net-device hotplug to more strict QMP schema of QEMU 5.0
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 08 May 2020 13:00:18 +0200
+
 qemu-server (6.2-1) pve; urgency=medium
 
   * qmrestore: fix VMA restore from STDIN
