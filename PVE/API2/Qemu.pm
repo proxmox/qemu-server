@@ -3535,6 +3535,19 @@ __PACKAGE__->register_method({
 
 	if (PVE::QemuServer::check_running($vmid)) {
 	    die "can't migrate running VM without --online\n" if !$param->{online};
+
+	    my $repl_conf = PVE::ReplicationConfig->new();
+	    my $is_replicated = $repl_conf->check_for_existing_jobs($vmid, 1);
+	    my $is_replicated_to_target = defined($repl_conf->find_local_replication_job($vmid, $target));
+	    if ($is_replicated && !$is_replicated_to_target) {
+		if ($param->{force}) {
+		    warn "WARNING: Node '$target' is not a replication target. Existing replication " .
+		         "jobs will fail after migration!\n";
+		} else {
+		    die "Cannot live-migrate replicated VM to node '$target' - not a replication target." .
+		        " Use 'force' to override.\n";
+		}
+	    }
 	} else {
 	    warn "VM isn't running. Doing offline migration instead.\n" if $param->{online};
 	    $param->{online} = 0;
