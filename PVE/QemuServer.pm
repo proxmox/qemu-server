@@ -5804,7 +5804,7 @@ sub update_disk_config {
     my ($vmid, $conf, $volid_hash) = @_;
 
     my $changes;
-    my $prefix = "VM $vmid:";
+    my $prefix = "VM $vmid";
 
     # used and unused disks
     my $referenced = {};
@@ -5832,11 +5832,11 @@ sub update_disk_config {
 	return if drive_is_cdrom($drive);
 	return if !$volid_hash->{$volid};
 
-	my ($updated, $old_size, $new_size) = PVE::QemuServer::Drive::update_disksize($drive, $volid_hash);
+	my ($updated, $msg) = PVE::QemuServer::Drive::update_disksize($drive, $volid_hash->{$volid}->{size});
 	if (defined($updated)) {
 	    $changes = 1;
 	    $conf->{$opt} = print_drive($updated);
-	    print "$prefix size of disk '$volid' ($opt) updated from $old_size to $new_size\n";
+	    print "$prefix ($opt): $msg\n";
 	}
     });
 

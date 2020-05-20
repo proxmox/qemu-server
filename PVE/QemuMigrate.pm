@@ -522,11 +522,12 @@ sub sync_disks {
 
 	    my $volid = $drive->{file};
 	    return if !defined($local_volumes->{$volid}); # only update sizes for local volumes
+	    return if !defined($volid_hash->{$volid});
 
-	    my ($updated, $old_size, $new_size) = PVE::QemuServer::Drive::update_disksize($drive, $volid_hash);
+	    my ($updated, $msg) = PVE::QemuServer::Drive::update_disksize($drive, $volid_hash->{$volid}->{size});
 	    if (defined($updated)) {
 		$conf->{$key} = PVE::QemuServer::print_drive($updated);
-		$self->log('info', "size of disk '$updated->{file}' ($key) updated from $old_size to $new_size\n");
+		$self->log('info', "drive '$key': $msg");
 	    }
 	});
 

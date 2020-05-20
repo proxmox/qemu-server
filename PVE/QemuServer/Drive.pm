@@ -522,14 +522,11 @@ sub bootdisk_size {
 }
 
 sub update_disksize {
-    my ($drive, $volid_hash) = @_;
+    my ($drive, $newsize) = @_;
 
-    my $volid = $drive->{file};
-    return undef if !defined($volid);
-    return undef if !defined($volid_hash->{$volid}) || !defined($volid_hash->{$volid}->{size});
+    return undef if !defined($newsize);
 
     my $oldsize = $drive->{size} // 0;
-    my $newsize = $volid_hash->{$volid}->{size};
 
     if ($newsize != $oldsize) {
 	$drive->{size} = $newsize;
@@ -537,7 +534,9 @@ sub update_disksize {
 	my $old_fmt = PVE::JSONSchema::format_size($oldsize);
 	my $new_fmt = PVE::JSONSchema::format_size($newsize);
 
-	return wantarray ? ($drive, $old_fmt, $new_fmt) : $drive;
+	my $msg = "size of disk '$drive->{file}' updated from $old_fmt to $new_fmt";
+
+	return ($drive, $msg);
     }
 
     return undef;
