@@ -172,7 +172,7 @@ sub configdrive2_network {
     }
 
     my @ifaces = grep(/^net(\d+)$/, keys %$conf);
-    foreach my $iface (@ifaces) {
+    foreach my $iface (sort @ifaces) {
 	(my $id = $iface) =~ s/^net//;
 	next if !$conf->{"ipconfig$id"};
 	my $net = PVE::QemuServer::parse_ipconfig($conf->{"ipconfig$id"});
@@ -252,7 +252,7 @@ sub nocloud_network_v2 {
     my $dns_done;
 
     my @ifaces = grep(/^net(\d+)$/, keys %$conf);
-    foreach my $iface (@ifaces) {
+    foreach my $iface (sort @ifaces) {
 	(my $id = $iface) =~ s/^net//;
 	next if !$conf->{"ipconfig$id"};
 
@@ -323,7 +323,7 @@ sub nocloud_network {
                 . "config:\n";
 
     my @ifaces = grep(/^net(\d+)$/, keys %$conf);
-    foreach my $iface (@ifaces) {
+    foreach my $iface (sort @ifaces) {
 	(my $id = $iface) =~ s/^net//;
 	next if !$conf->{"ipconfig$id"};
 
