@@ -1095,6 +1095,9 @@ my $update_vm_api  = sub {
 	return if PVE::QemuServer::drive_is_cdrom($drive);
 
 	my ($storeid, $volname) = PVE::Storage::parse_volume_id($volid, 1);
+	die "cannot add non-managed/pass-through volume to a replicated VM\n"
+	    if !defined($storeid);
+
 	return if defined($volname) && $volname eq 'cloudinit';
 
 	my $format;
