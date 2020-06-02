@@ -1095,7 +1095,7 @@ my $update_vm_api  = sub {
 	return if PVE::QemuServer::drive_is_cdrom($drive);
 
 	my ($storeid, $volname) = PVE::Storage::parse_volume_id($volid, 1);
-	return if $volname eq 'cloudinit';
+	return if defined($volname) && $volname eq 'cloudinit';
 
 	my $format;
 	if ($volid =~ $NEW_DISK_RE) {
