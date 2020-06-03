@@ -356,6 +356,7 @@ sub archive_pbs {
 	}
 
 	local $ENV{PBS_PASSWORD} = $password;
+	local $ENV{PBS_FINGERPRINT} = $fingerprint if defined($fingerprint);
 	my $cmd = [
 	    '/usr/bin/proxmox-backup-client',
 	    'backup',
@@ -364,7 +365,6 @@ sub archive_pbs {
 	    '--backup-id', "$vmid",
 	    '--backup-time', $task->{backup_time},
 	];
-	push @$cmd, '--fingerprint', $fingerprint if defined($fingerprint);
 
 	push @$cmd, "qemu-server.conf:$conffile";
 	push @$cmd, "fw.conf:$firewall" if -e $firewall;
