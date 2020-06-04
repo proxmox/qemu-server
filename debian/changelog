@@ -1,3 +1,13 @@
+qemu-server (6.2-3) pve; urgency=medium
+
+  * fix #2748: make order of cloudinit interfaces consistent
+
+  * fix #2774: add early check for non-managed volumes
+
+  * allow to force MTU for a VM net-device
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 04 Jun 2020 11:17:09 +0200
+
 qemu-server (6.2-2) pve; urgency=medium
 
   * adapt net-device hotplug to more strict QMP schema of QEMU 5.0
