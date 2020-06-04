@@ -6176,6 +6176,8 @@ sub restore_proxmox_backup_archive {
 		'--verbose',
 		];
 
+	    push @$pbs_restore_cmd, '--format', $d->{format} if $d->{format};
+
 	    if (PVE::Storage::volume_has_feature($storecfg, 'sparseinit', $volid)) {
 		push @$pbs_restore_cmd, '--skip-zero';
 	    }
