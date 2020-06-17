@@ -1634,7 +1634,12 @@ __PACKAGE__->register_method({
 	my $websocket = $param->{websocket};
 
 	my $conf = PVE::QemuConfig->load_config($vmid, $node); # check if VM exists
-	my $use_serial = ($conf->{vga} && ($conf->{vga} =~ m/^serial\d+$/));
+	
+	my $serial;
+	if ($conf->{vga}) {
+	    my $vga = PVE::QemuServer::parse_vga($conf->{vga});
+	    $serial = $vga->{type} if $vga->{type} =~ m/^serial\d+$/;
+	}
 
 	my $authpath = "/vms/$vmid";
 
@@ -1650,7 +1655,7 @@ __PACKAGE__->register_method({
 	    (undef, $family) = PVE::Cluster::remote_node_ip($node);
 	    my $sshinfo = PVE::SSHInfo::get_ssh_info($node);
 	    # NOTE: kvm VNC traffic is already TLS encrypted or is known unsecure
-	    $remcmd = PVE::SSHInfo::ssh_info_to_command($sshinfo, $use_serial ? '-t' : '-T');
+	    $remcmd = PVE::SSHInfo::ssh_info_to_command($sshinfo, defined($serial) ? '-t' : '-T');
 	} else {
 	    $family = PVE::Tools::get_host_address_family($node);
 	}
@@ -1666,9 +1671,9 @@ __PACKAGE__->register_method({
 
 	    my $cmd;
 
-	    if ($use_serial) {
+	    if (defined($serial)) {
 
-		my $termcmd = [ '/usr/sbin/qm', 'terminal', $vmid, '-iface', $conf->{vga}, '-escape', '0' ];
+		my $termcmd = [ '/usr/sbin/qm', 'terminal', $vmid, '-iface', $serial, '-escape', '0' ];
 
 		$cmd = ['/usr/bin/vncterm', '-rfbport', $port,
 			'-timeout', $timeout, '-authpath', $authpath,
