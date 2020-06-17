@@ -1634,7 +1634,7 @@ __PACKAGE__->register_method({
 	my $websocket = $param->{websocket};
 
 	my $conf = PVE::QemuConfig->load_config($vmid, $node); # check if VM exists
-	
+
 	my $serial;
 	if ($conf->{vga}) {
 	    my $vga = PVE::QemuServer::parse_vga($conf->{vga});
