@@ -207,6 +207,15 @@ EOF
     },
 );
 
+my $pve_common_network;
+$pve_common_network = Test::MockModule->new('PVE::Network');
+$pve_common_network->mock(
+    read_bridge_mtu => sub {
+	return 1500;
+    },
+);
+
+
 my $pve_common_inotify;
 $pve_common_inotify = Test::MockModule->new('PVE::INotify');
 $pve_common_inotify->mock(
