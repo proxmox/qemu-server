@@ -1779,8 +1779,9 @@ __PACKAGE__->register_method({
 	my $conf = PVE::QemuConfig->load_config($vmid, $node); # check if VM exists
 
 	if (!defined($serial)) {
-	    if ($conf->{vga} && $conf->{vga} =~ m/^serial\d+$/) {
-		$serial = $conf->{vga};
+	    if ($conf->{vga}) {
+		my $vga = PVE::QemuServer::parse_vga($conf->{vga});
+		$serial = $vga->{type} if $vga->{type} =~ m/^serial\d+$/;
 	    }
 	}
 
