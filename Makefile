@@ -52,7 +52,7 @@ qmrestore.zsh-completion:
 	mv $@.tmp $@
 
 PKGSOURCES=qm qm.1 qmrestore qmrestore.1 qmextract qm.conf.5 qm.bash-completion qmrestore.bash-completion \
-	    qm.zsh-completion qmrestore.zsh-completion
+	    qm.zsh-completion qmrestore.zsh-completion cpu-models.conf.5
 
 .PHONY: install
 install: ${PKGSOURCES}
@@ -76,6 +76,7 @@ install: ${PKGSOURCES}
 	install -m 0755 qmextract ${DESTDIR}${LIBDIR}
 	install -m 0644 qm.1 ${DESTDIR}/${MAN1DIR}
 	install -m 0644 qmrestore.1 ${DESTDIR}/${MAN1DIR}
+	install -m 0644 cpu-models.conf.5 ${DESTDIR}/${MAN5DIR}
 	install -m 0644 qm.conf.5 ${DESTDIR}/${MAN5DIR}
 	cd ${DESTDIR}/${MAN5DIR}; ln -s -f qm.conf.5.gz vm.conf.5.gz
 
