@@ -1700,7 +1700,7 @@ __PACKAGE__->register_method({
 		    LocalPort => $port,
 		    Proto => 'tcp',
 		    GetAddrInfoFlags => 0,
-		    ) or die "failed to create socket: $!\n";
+		) or die "failed to create socket: $!\n";
 		# Inside the worker we shouldn't have any previous alarms
 		# running anyway...:
 		alarm(0);
