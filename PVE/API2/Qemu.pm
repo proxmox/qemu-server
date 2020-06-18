@@ -7,6 +7,7 @@ use Net::SSLeay;
 use POSIX;
 use IO::Socket::IP;
 use URI::Escape;
+use Crypt::OpenSSL::Random;
 
 use PVE::Cluster qw (cfs_read_file cfs_write_file);;
 use PVE::RRD;
@@ -1589,6 +1590,19 @@ __PACKAGE__->register_method({
 	return undef;
     }});
 
+# uses good entropy, each char is limited to 6 bit to get printable chars simply
+my $gen_rand_chars = sub {
+    my ($length) = @_;
+
+    die "invalid length $length" if $length < 1;
+
+    my $min = ord('!'); # first printable ascii
+    my @rand_bytes = split '', Crypt::OpenSSL::Random::random_bytes($length);
+    my $str = join('', map { chr((ord($_) & 0x3F) + $min) } @rand_bytes);
+
+    return $str;
+};
+
 my $sslcert;
 
 __PACKAGE__->register_method({
@@ -1610,6 +1624,12 @@ __PACKAGE__->register_method({
 		type => 'boolean',
 		description => "starts websockify instead of vncproxy",
 	    },
+	    'generate-password' => {
+		optional => 1,
+		type => 'boolean',
+		default => 0,
+		description => "Generates a random password to be used as ticket instead of the API ticket.",
+	    },
 	},
     },
     returns => {
@@ -1617,6 +1637,12 @@ __PACKAGE__->register_method({
 	properties => {
 	    user => { type => 'string' },
 	    ticket => { type => 'string' },
+	    password => {
+		optional => 1,
+		description => "Returned if requested with 'generate-password' param."
+		    ." Consists of printable ASCII characters ('!' .. '~').",
+		type => 'string',
+	    },
 	    cert => { type => 'string' },
 	    port => { type => 'integer' },
 	    upid => { type => 'string' },
@@ -1644,6 +1670,10 @@ __PACKAGE__->register_method({
 	my $authpath = "/vms/$vmid";
 
 	my $ticket = PVE::AccessControl::assemble_vnc_ticket($authuser, $authpath);
+	my $password = $ticket;
+	if ($param->{'generate-password'}) {
+	    $password = $gen_rand_chars->(8);
+	}
 
 	$sslcert = PVE::Tools::file_get_contents("/etc/pve/pve-root-ca.pem", 8192)
 	    if !$sslcert;
@@ -1680,7 +1710,7 @@ __PACKAGE__->register_method({
 			'-perm', 'Sys.Console'];
 
 		if ($param->{websocket}) {
-		    $ENV{PVE_VNC_TICKET} = $ticket; # pass ticket to vncterm
+		    $ENV{PVE_VNC_TICKET} = $password; # pass ticket to vncterm
 		    push @$cmd, '-notls', '-listen', 'localhost';
 		}
 
@@ -1690,7 +1720,7 @@ __PACKAGE__->register_method({
 
 	    } else {
 
-		$ENV{LC_PVE_TICKET} = $ticket if $websocket; # set ticket with "qm vncproxy"
+		$ENV{LC_PVE_TICKET} = $password if $websocket; # set ticket with "qm vncproxy"
 
 		$cmd = [@$remcmd, "/usr/sbin/qm", 'vncproxy', $vmid];
 
@@ -1725,13 +1755,16 @@ __PACKAGE__->register_method({
 
 	PVE::Tools::wait_for_vnc_port($port);
 
-	return {
+	my $res = {
 	    user => $authuser,
 	    ticket => $ticket,
 	    port => $port,
 	    upid => $upid,
 	    cert => $sslcert,
 	};
+	$res->{password} = $password if $param->{'generate-password'};
+
+	return $res;
     }});
 
 __PACKAGE__->register_method({
