@@ -3102,7 +3102,7 @@ sub config_to_command {
     }
 
     # host pci device passthrough
-    my ($kvm_off, $gpu_passthrough) = PVE::QemuServer::PCI::print_hostpci_devices(
+    my ($kvm_off, $gpu_passthrough, $legacy_igd) = PVE::QemuServer::PCI::print_hostpci_devices(
 	$conf, $devices, $winversion, $q35, $bridges, $arch, $machine_type);
 
     # usb devices
@@ -3458,7 +3458,13 @@ sub config_to_command {
 
     for my $k (sort {$b cmp $a} keys %$bridges) {
 	next if $q35 && $k < 4; # q35.cfg already includes bridges up to 3
-	$pciaddr = print_pci_addr("pci.$k", undef, $arch, $machine_type);
+
+	my $k_name = $k;
+	if ($k == 2 && $legacy_igd) {
+	    $k_name = "$k-igd";
+	}
+	$pciaddr = print_pci_addr("pci.$k_name", undef, $arch, $machine_type);
+
 	my $devstr = "pci-bridge,id=pci.$k,chassis_nr=$k$pciaddr";
 	if ($q35) {
 	    # add after -readconfig pve-q35.cfg

@@ -55,6 +55,14 @@ EODESCR
 	optional => 1,
 	default => 0,
     },
+    'legacy-igd' => {
+	type => 'boolean',
+	description => "Pass this device in legacy IGD mode (allows required"
+		     . " 1f.0 PCI bridge and assigns correct address)."
+		     . " Requires i440fx machine type and VGA set to 'none'.",
+	optional => 1,
+	default => 0,
+    },
     'mdev' => {
 	type => 'string',
         format_description => 'string',
@@ -89,7 +97,8 @@ sub get_pci_addr_map {
     $pci_addr_map = {
 	piix3 => { bus => 0, addr => 1, conflict_ok => qw(ehci)  },
 	ehci => { bus => 0, addr => 1, conflict_ok => qw(piix3) }, # instead of piix3 on arm
-	vga => { bus => 0, addr => 2 },
+	vga => { bus => 0, addr => 2, conflict_ok => qw(legacy-igd) },
+	'legacy-igd' => { bus => 0, addr => 2, conflict_ok => qw(vga) }, # legacy-igd requires vga=none
 	balloon0 => { bus => 0, addr => 3 },
 	watchdog => { bus => 0, addr => 4 },
 	scsihw0 => { bus => 0, addr => 5, conflict_ok => qw(pci.3) },
@@ -149,6 +158,7 @@ sub get_pci_addr_map {
 	'xhci' => { bus => 1, addr => 27 },
 	'pci.4' => { bus => 1, addr => 28 },
 	'rng0' => { bus => 1, addr => 29 },
+	'pci.2-igd' => { bus => 1, addr => 30 }, # replaces pci.2 in case a legacy IGD device is passed through
 	'virtio6' => { bus => 2, addr => 1 },
 	'virtio7' => { bus => 2, addr => 2 },
 	'virtio8' => { bus => 2, addr => 3 },
@@ -351,6 +361,7 @@ sub print_hostpci_devices {
 
     my $kvm_off = 0;
     my $gpu_passthrough = 0;
+    my $legacy_igd = 0;
 
     for (my $i = 0; $i < $MAX_HOSTPCI_DEVICES; $i++)  {
 	my $id = "hostpci$i";
@@ -372,7 +383,32 @@ sub print_hostpci_devices {
 		$pciaddr = print_pcie_addr($id);
 	    }
 	} else {
-	    $pciaddr = print_pci_addr($id, $bridges, $arch, $machine_type);
+	    my $pci_name = $d->{'legacy-igd'} ? 'legacy-igd' : $id;
+	    $pciaddr = print_pci_addr($pci_name, $bridges, $arch, $machine_type);
+	}
+
+	my $pcidevices = $d->{pciid};
+	my $multifunction = 1 if @$pcidevices > 1;
+
+	if ($d->{'legacy-igd'}) {
+	    die "only one device can be assigned in legacy-igd mode\n"
+		if $legacy_igd;
+	    $legacy_igd = 1;
+
+	    die "legacy IGD assignment requires VGA mode to be 'none'\n"
+		if !defined($conf->{'vga'}) || $conf->{'vga'} ne 'none';
+	    die "legacy IGD assignment requires rombar to be enabled\n"
+		if defined($d->{rombar}) && !$d->{rombar};
+	    die "legacy IGD assignment is not compatible with x-vga\n"
+		if $d->{'x-vga'};
+	    die "legacy IGD assignment is not compatible with mdev\n"
+		if $d->{mdev};
+	    die "legacy IGD assignment is not compatible with q35\n"
+		if $q35;
+	    die "legacy IGD assignment is not compatible with multifunction devices\n"
+		if $multifunction;
+	    die "legacy IGD assignment only works for devices on host bus 00:02.0\n"
+		if $pcidevices->[0]->{id} !~ m/02\.0$/;
 	}
 
 	my $xvga = '';
@@ -382,9 +418,6 @@ sub print_hostpci_devices {
 	    $vga->{type} = 'none' if !defined($conf->{vga});
 	    $gpu_passthrough = 1;
 	}
-
-	my $pcidevices = $d->{pciid};
-	my $multifunction = 1 if @$pcidevices > 1;
 
 	my $sysfspath;
 	if ($d->{mdev} && scalar(@$pcidevices) == 1) {
@@ -420,7 +453,7 @@ sub print_hostpci_devices {
 	}
     }
 
-    return ($kvm_off, $gpu_passthrough);
+    return ($kvm_off, $gpu_passthrough, $legacy_igd);
 }
 
 1;
