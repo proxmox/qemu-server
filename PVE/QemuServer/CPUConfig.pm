@@ -293,6 +293,16 @@ sub write_config {
     $class->SUPER::write_config($filename, $cfg);
 }
 
+sub add_cpu_json_properties {
+    my ($prop) = @_;
+
+    foreach my $opt (keys %$cpu_fmt) {
+	$prop->{$opt} = $cpu_fmt->{$opt};
+    }
+
+    return $prop;
+}
+
 sub get_cpu_models {
     my ($include_custom) = @_;
 
