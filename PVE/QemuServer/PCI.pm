@@ -1,12 +1,88 @@
 package PVE::QemuServer::PCI;
 
+use PVE::JSONSchema;
+use PVE::SysFSTools;
+
 use base 'Exporter';
 
 our @EXPORT_OK = qw(
 print_pci_addr
 print_pcie_addr
 print_pcie_root_port
+parse_hostpci
 );
+
+our $MAX_HOSTPCI_DEVICES = 16;
+
+my $PCIRE = qr/([a-f0-9]{4}:)?[a-f0-9]{2}:[a-f0-9]{2}(?:\.[a-f0-9])?/;
+my $hostpci_fmt = {
+    host => {
+	default_key => 1,
+	type => 'string',
+	pattern => qr/$PCIRE(;$PCIRE)*/,
+	format_description => 'HOSTPCIID[;HOSTPCIID2...]',
+	description => <<EODESCR,
+Host PCI device pass through. The PCI ID of a host's PCI device or a list
+of PCI virtual functions of the host. HOSTPCIID syntax is:
+
+'bus:dev.func' (hexadecimal numbers)
+
+You can us the 'lspci' command to list existing PCI devices.
+EODESCR
+    },
+    rombar => {
+	type => 'boolean',
+        description =>  "Specify whether or not the device's ROM will be visible in the guest's memory map.",
+	optional => 1,
+	default => 1,
+    },
+    romfile => {
+        type => 'string',
+        pattern => '[^,;]+',
+        format_description => 'string',
+        description => "Custom pci device rom filename (must be located in /usr/share/kvm/).",
+        optional => 1,
+    },
+    pcie => {
+	type => 'boolean',
+        description =>  "Choose the PCI-express bus (needs the 'q35' machine model).",
+	optional => 1,
+	default => 0,
+    },
+    'x-vga' => {
+	type => 'boolean',
+        description =>  "Enable vfio-vga device support.",
+	optional => 1,
+	default => 0,
+    },
+    'mdev' => {
+	type => 'string',
+        format_description => 'string',
+	pattern => '[^/\.:]+',
+	optional => 1,
+	description => <<EODESCR
+The type of mediated device to use.
+An instance of this type will be created on startup of the VM and
+will be cleaned up when the VM stops.
+EODESCR
+    }
+};
+PVE::JSONSchema::register_format('pve-qm-hostpci', $hostpci_fmt);
+
+our $hostpcidesc = {
+        optional => 1,
+        type => 'string', format => 'pve-qm-hostpci',
+        description => "Map host PCI devices into guest.",
+	verbose_description =>  <<EODESCR,
+Map host PCI devices into guest.
+
+NOTE: This option allows direct access to host hardware. So it is no longer
+possible to migrate such machines - use with special care.
+
+CAUTION: Experimental! User reported problems with this option.
+EODESCR
+};
+PVE::JSONSchema::register_standard_option("pve-qm-hostpci", $hostpcidesc);
 
 my $pci_addr_map;
 sub get_pci_addr_map {
@@ -251,6 +327,100 @@ sub print_pcie_root_port {
     }
 
     return $res;
+}
+
+sub parse_hostpci {
+    my ($value) = @_;
+
+    return undef if !$value;
+
+    my $res = PVE::JSONSchema::parse_property_string($hostpci_fmt, $value);
+
+    my @idlist = split(/;/, $res->{host});
+    delete $res->{host};
+    foreach my $id (@idlist) {
+	my $devs = PVE::SysFSTools::lspci($id);
+	die "no PCI device found for '$id'\n" if !scalar(@$devs);
+	push @{$res->{pciid}}, @$devs;
+    }
+    return $res;
+}
+
+sub print_hostpci_devices {
+    my ($conf, $devices, $winversion, $q35, $bridges, $arch, $machine_type) = @_;
+
+    my $kvm_off = 0;
+    my $gpu_passthrough = 0;
+
+    for (my $i = 0; $i < $MAX_HOSTPCI_DEVICES; $i++)  {
+	my $id = "hostpci$i";
+	my $d = parse_hostpci($conf->{$id});
+	next if !$d;
+
+	if (my $pcie = $d->{pcie}) {
+	    die "q35 machine model is not enabled" if !$q35;
+	    # win7 wants to have the pcie devices directly on the pcie bus
+	    # instead of in the root port
+	    if ($winversion == 7) {
+		$pciaddr = print_pcie_addr("${id}bus0");
+	    } else {
+		# add more root ports if needed, 4 are present by default
+		# by pve-q35 cfgs, rest added here on demand.
+		if ($i > 3) {
+		    push @$devices, '-device', print_pcie_root_port($i);
+		}
+		$pciaddr = print_pcie_addr($id);
+	    }
+	} else {
+	    $pciaddr = print_pci_addr($id, $bridges, $arch, $machine_type);
+	}
+
+	my $xvga = '';
+	if ($d->{'x-vga'}) {
+	    $xvga = ',x-vga=on' if !($conf->{bios} && $conf->{bios} eq 'ovmf');
+	    $kvm_off = 1;
+	    $vga->{type} = 'none' if !defined($conf->{vga});
+	    $gpu_passthrough = 1;
+	}
+
+	my $pcidevices = $d->{pciid};
+	my $multifunction = 1 if @$pcidevices > 1;
+
+	my $sysfspath;
+	if ($d->{mdev} && scalar(@$pcidevices) == 1) {
+	    my $pci_id = $pcidevices->[0]->{id};
+	    my $uuid = PVE::SysFSTools::generate_mdev_uuid($vmid, $i);
+	    $sysfspath = "/sys/bus/pci/devices/$pci_id/$uuid";
+	} elsif ($d->{mdev}) {
+	    warn "ignoring mediated device '$id' with multifunction device\n";
+	}
+
+	my $j=0;
+	foreach my $pcidevice (@$pcidevices) {
+	    my $devicestr = "vfio-pci";
+
+	    if ($sysfspath) {
+		$devicestr .= ",sysfsdev=$sysfspath";
+	    } else {
+		$devicestr .= ",host=$pcidevice->{id}";
+	    }
+
+	    my $mf_addr = $multifunction ? ".$j" : '';
+	    $devicestr .= ",id=${id}${mf_addr}${pciaddr}${mf_addr}";
+
+	    if ($j == 0) {
+		$devicestr .= ',rombar=0' if defined($d->{rombar}) && !$d->{rombar};
+		$devicestr .= "$xvga";
+		$devicestr .= ",multifunction=on" if $multifunction;
+		$devicestr .= ",romfile=/usr/share/kvm/$d->{romfile}" if $d->{romfile};
+	    }
+
+	    push @$devices, '-device', $devicestr;
+	    $j++;
+	}
+    }
+
+    return ($kvm_off, $gpu_passthrough);
 }
 
 1;
