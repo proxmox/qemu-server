@@ -1597,8 +1597,12 @@ my $gen_rand_chars = sub {
     die "invalid length $length" if $length < 1;
 
     my $min = ord('!'); # first printable ascii
-    my @rand_bytes = split '', Crypt::OpenSSL::Random::random_bytes($length);
-    my $str = join('', map { chr((ord($_) & 0x3F) + $min) } @rand_bytes);
+
+    my $rand_bytes = Crypt::OpenSSL::Random::random_bytes($length);
+    die "failed to generate random bytes!\n"
+      if !$rand_bytes;
+
+    my $str = join('', map { chr((ord($_) & 0x3F) + $min) } split('', $rand_bytes));
 
     return $str;
 };
