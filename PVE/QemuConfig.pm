@@ -165,6 +165,38 @@ sub get_replicatable_volumes {
     return $volhash;
 }
 
+sub get_backup_volumes {
+    my ($class, $conf) = @_;
+
+    my $return_volumes = [];
+
+    my $test_volume = sub {
+	my ($key, $drive) = @_;
+
+	return if PVE::QemuServer::drive_is_cdrom($drive);
+
+	my $included = $drive->{backup} // 1;
+	my $reason = "backup=";
+	$reason .= defined($drive->{backup}) ? 'no' : 'yes';
+
+	if ($key =~ m/^efidisk/ && (!defined($conf->{bios}) || $conf->{bios} ne 'ovmf')) {
+	    $included = 0;
+	    $reason = "efidisk but no OMVF BIOS";
+	}
+
+	push @$return_volumes, {
+	    key => $key,
+	    included => $included,
+	    reason => $reason,
+	    volume_config => $drive,
+	};
+    };
+
+    PVE::QemuConfig->foreach_volume($conf, $test_volume);
+
+    return $return_volumes;
+}
+
 sub __snapshot_save_vmstate {
     my ($class, $vmid, $conf, $snapname, $storecfg, $statestorage, $suspend) = @_;
 

@@ -69,37 +69,34 @@ sub prepare {
 
     my $vollist = [];
     my $drivehash = {};
-    PVE::QemuConfig->foreach_volume($conf, sub {
-	my ($ds, $drive) = @_;
+    my $backup_volumes = PVE::QemuConfig->get_backup_volumes($conf);
 
-	return if PVE::QemuServer::drive_is_cdrom($drive);
+    foreach my $volume (@{$backup_volumes}) {
+	my $name = $volume->{key};
+	my $volume_config= $volume->{volume_config};
+	my $volid = $volume_config->{file};
 
-	my $volid = $drive->{file};
-
-	if (defined($drive->{backup}) && !$drive->{backup}) {
-	    $self->loginfo("exclude disk '$ds' '$volid' (backup=no)");
-	    return;
-	} elsif ($self->{vm_was_running} && $drive->{iothread}) {
+	if (!$volume->{included}) {
+	    $self->loginfo("exclude disk '$name' '$volid' ($volume->{reason})");
+	    next;
+	} elsif ($self->{vm_was_running} && $volume_config->{iothread}) {
 	    if (!PVE::QemuServer::Machine::runs_at_least_qemu_version($vmid, 4, 0, 1)) {
-		die "disk '$ds' '$volid' (iothread=on) can't use backup feature with running QEMU " .
+		die "disk '$name' '$volid' (iothread=on) can't use backup feature with running QEMU " .
 		    "version < 4.0.1! Either set backup=no for this drive or upgrade QEMU and restart VM\n";
 	    }
-	} elsif ($ds =~ m/^efidisk/ && (!defined($conf->{bios}) || $conf->{bios} ne 'ovmf')) {
-	    $self->loginfo("excluding '$ds' (efidisks can only be backed up when BIOS is set to 'ovmf')");
-	    return;
 	} else {
-	    my $log = "include disk '$ds' '$volid'";
-	   if (defined $drive->{size}) {
-		my $readable_size = PVE::JSONSchema::format_size($drive->{size});
+	    my $log = "include disk '$name' '$volid'";
+	    if (defined(my $size = $volume_config->{size})) {
+		my $readable_size = PVE::JSONSchema::format_size($size);
 		$log .= " $readable_size";
-	   }
+	    }
 	    $self->loginfo($log);
 	}
 
 	my ($storeid, $volname) = PVE::Storage::parse_volume_id($volid, 1);
 	push @$vollist, $volid if $storeid;
-	$drivehash->{$ds} = $drive;
-    });
+	$drivehash->{$name} = $volume->{volume_config};
+    }
 
     PVE::Storage::activate_volumes($self->{storecfg}, $vollist);
 
