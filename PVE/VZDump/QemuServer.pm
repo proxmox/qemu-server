@@ -73,7 +73,7 @@ sub prepare {
 
     foreach my $volume (@{$backup_volumes}) {
 	my $name = $volume->{key};
-	my $volume_config= $volume->{volume_config};
+	my $volume_config = $volume->{volume_config};
 	my $volid = $volume_config->{file};
 
 	if (!$volume->{included}) {
