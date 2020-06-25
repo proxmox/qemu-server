@@ -32,40 +32,40 @@ EODESCR
     },
     rombar => {
 	type => 'boolean',
-        description =>  "Specify whether or not the device's ROM will be visible in the guest's memory map.",
+	description =>  "Specify whether or not the device's ROM will be visible in the"
+	    ." guest's memory map.",
 	optional => 1,
 	default => 1,
     },
     romfile => {
-        type => 'string',
-        pattern => '[^,;]+',
-        format_description => 'string',
-        description => "Custom pci device rom filename (must be located in /usr/share/kvm/).",
-        optional => 1,
+	type => 'string',
+	pattern => '[^,;]+',
+	format_description => 'string',
+	description => "Custom pci device rom filename (must be located in /usr/share/kvm/).",
+	optional => 1,
     },
     pcie => {
 	type => 'boolean',
-        description =>  "Choose the PCI-express bus (needs the 'q35' machine model).",
+	description =>  "Choose the PCI-express bus (needs the 'q35' machine model).",
 	optional => 1,
 	default => 0,
     },
     'x-vga' => {
 	type => 'boolean',
-        description =>  "Enable vfio-vga device support.",
+	description =>  "Enable vfio-vga device support.",
 	optional => 1,
 	default => 0,
     },
     'legacy-igd' => {
 	type => 'boolean',
-	description => "Pass this device in legacy IGD mode (allows required"
-		     . " 1f.0 PCI bridge and assigns correct address)."
-		     . " Requires i440fx machine type and VGA set to 'none'.",
+	description => "Pass this device in legacy IGD mode, making it the primary and exclusive"
+	    ." graphics device in the VM. Requires 'pc-i440fx' machine type and VGA set to 'none'.",
 	optional => 1,
 	default => 0,
     },
     'mdev' => {
 	type => 'string',
-        format_description => 'string',
+	format_description => 'string',
 	pattern => '[^/\.:]+',
 	optional => 1,
 	description => <<EODESCR
@@ -78,9 +78,9 @@ EODESCR
 PVE::JSONSchema::register_format('pve-qm-hostpci', $hostpci_fmt);
 
 our $hostpcidesc = {
-        optional => 1,
-        type => 'string', format => 'pve-qm-hostpci',
-        description => "Map host PCI devices into guest.",
+	optional => 1,
+	type => 'string', format => 'pve-qm-hostpci',
+	description => "Map host PCI devices into guest.",
 	verbose_description =>  <<EODESCR,
 Map host PCI devices into guest.
 
@@ -428,7 +428,7 @@ sub print_hostpci_devices {
 	    warn "ignoring mediated device '$id' with multifunction device\n";
 	}
 
-	my $j=0;
+	my $j = 0;
 	foreach my $pcidevice (@$pcidevices) {
 	    my $devicestr = "vfio-pci";
 
