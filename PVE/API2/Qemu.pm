@@ -358,8 +358,10 @@ my $check_vm_modify_config_perm = sub {
 	    $rpcenv->check_vm_perm($authuser, $vmid, $pool, ['VM.PowerMgmt']);
 	} elsif ($diskoptions->{$opt}) {
 	    $rpcenv->check_vm_perm($authuser, $vmid, $pool, ['VM.Config.Disk']);
-	} elsif ($cloudinitoptions->{$opt} || ($opt =~ m/^(?:net|ipconfig)\d+$/)) {
+	} elsif ($opt =~ m/^(?:net|ipconfig)\d+$/) {
 	    $rpcenv->check_vm_perm($authuser, $vmid, $pool, ['VM.Config.Network']);
+	} elsif ($cloudinitoptions->{$opt}) {
+	    $rpcenv->check_vm_perm($authuser, $vmid, $pool, ['VM.Config.Cloudinit', 'VM.Config.Network'], 1);
 	} elsif ($opt eq 'vmstate') {
 	    # the user needs Disk and PowerMgmt privileges to change the vmstate
 	    # also needs privileges on the storage, that will be checked later
@@ -1354,6 +1356,7 @@ my $vm_config_perm_list = [
 	    'VM.Config.Network',
 	    'VM.Config.HWType',
 	    'VM.Config.Options',
+	    'VM.Config.Cloudinit',
     ];
 
 __PACKAGE__->register_method({
