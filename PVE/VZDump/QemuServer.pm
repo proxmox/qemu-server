@@ -7,6 +7,7 @@ use File::Basename;
 use File::Path;
 use IO::File;
 use IPC::Open3;
+use JSON;
 
 use PVE::Cluster qw(cfs_read_file);
 use PVE::INotify;
@@ -295,7 +296,7 @@ my $query_backup_status_loop = sub {
 		die (($status->{errmsg} || "unknown error") . "\n") if $res eq 'error';
 		die "got unexpected status '$res'\n";
 	    } elsif ($total != $transferred) {
-		die "got wrong number of transfered bytes ($total != $transferred)\n";
+		$self->loginfo("backup was done incrementally");
 	    }
 	    last;
 	}
@@ -396,6 +397,7 @@ sub archive_pbs {
 	    password => $password,
 	    devlist => $devlist,
 	    'config-file' => $conffile,
+	    incremental => JSON::true,
 	};
 	$params->{fingerprint} = $fingerprint if defined($fingerprint);
 	$params->{'firewall-file'} = $firewall if -e $firewall;
