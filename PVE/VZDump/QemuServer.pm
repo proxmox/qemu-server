@@ -400,6 +400,8 @@ sub archive_pbs {
 	$params->{fingerprint} = $fingerprint if defined($fingerprint);
 	$params->{'firewall-file'} = $firewall if -e $firewall;
 
+	$params->{timeout} = 60; # give some time to connect to the backup server
+
 	my $res = eval { mon_cmd($vmid, "backup", %$params) };
 	my $qmperr = $@;
 	$backup_job_uuid = $res->{UUID} if $res;
