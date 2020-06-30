@@ -1,3 +1,19 @@
+qemu-server (6.2-4) pve; urgency=medium
+
+  * fix #2787: properly parse vga for vncproxy
+
+  * vncproxy: allow to request a generated VNC password
+
+  * fix #2794: allow legacy IGD passthrough
+
+  * avoid backup command timeout with PBS
+
+  * fix #2741: add VM.Config.Cloudinit permission
+
+  * enable dirty-bitmap incremental backups for PBS
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 30 Jun 2020 11:33:35 +0200
+
 qemu-server (6.2-3) pve; urgency=medium
 
   * fix #2748: make order of cloudinit interfaces consistent
