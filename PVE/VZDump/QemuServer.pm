@@ -253,27 +253,54 @@ sub archive {
     }
 }
 
+# number, [precision=1]
+my $num2str = sub {
+    return sprintf( "%." . ( $_[1] || 1 ) . "f", $_[0] );
+};
+sub bytes_to_human {
+    my ($bytes, $precission) = @_;
+
+    return $num2str->($bytes, $precission) . ' B' if $bytes < 1024;
+    my $kb = $bytes/1024;
+
+    return $num2str->($kb, $precission) . " KiB" if $kb < 1024;
+    my $mb = $kb/1024;
+
+    return $num2str->($mb, $precission) . " MiB" if $mb < 1024;
+    my $gb = $mb/1024;
+
+    return $num2str->($gb, $precission) . " GiB" if $gb < 1024;
+    my $tb = $gb/1024;
+
+    return $num2str->($tb, $precission) . " TiB";
+};
+
 my $query_backup_status_loop = sub {
     my ($self, $vmid, $job_uuid) = @_;
 
     my $starttime = time ();
     my $last_time = $starttime;
-    my ($last_percent, $last_total, $last_zero, $last_transferred) = (-1, 0, 0, 0);
-    my $transferred;
+    my ($last_percent, $last_total, $last_target,  $last_zero, $last_transferred) = (-1, 0, 0, 0, 0);
+    my ($transferred, $reused);
+    my $first_round = 1;
 
     my $get_mbps = sub {
 	my ($mb, $delta) = @_;
-	return ($mb > 0) ? int(($mb / $delta) / (1000 * 1000)) : 0;
+	return "0 B/s" if $mb <= 0;
+	my $bw = int(($mb / $delta));
+	return bytes_to_human($bw) . "/s";
     };
 
     while(1) {
 	my $status = mon_cmd($vmid, 'query-backup');
 
 	my $total = $status->{total} || 0;
+	my $dirty = $status->{dirty};
+	my $target = (defined($dirty) && $dirty < $total) ? $dirty : $total;
 	$transferred = $status->{transferred} || 0;
-	my $percent = $total ? int(($transferred * 100)/$total) : 0;
+	$reused = $status->{reused};
+	my $percent = $target ? int(($transferred * 100)/$target) : 0;
 	my $zero = $status->{'zero-bytes'} || 0;
-	my $zero_per = $total ? int(($zero * 100)/$total) : 0;
 
 	die "got unexpected uuid\n" if !$status->{uuid} || ($status->{uuid} ne $job_uuid);
 
@@ -286,8 +313,16 @@ my $query_backup_status_loop = sub {
 	my $timediff = ($ctime - $last_time) || 1; # fixme
 	my $mbps_read = $get_mbps->($rbytes, $timediff);
 	my $mbps_write = $get_mbps->($wbytes, $timediff);
+	my $target_h = bytes_to_human($target);
+	my $transferred_h = bytes_to_human($transferred);
 
-	my $statusline = "status: $percent% ($transferred/$total), sparse ${zero_per}% ($zero), duration $duration, read/write $mbps_read/$mbps_write MB/s";
+	if ($first_round && $target != $total) {
+	    my $total_h = bytes_to_human($total);
+	    $self->loginfo("using fast incremental mode (dirty-bitmap), $target_h dirty of $total_h total");
+	}
+
+	my $statusline = "status: $percent% ($transferred_h of $target_h), duration $duration"
+	    .", read: $mbps_read, write: $mbps_write";
 
 	my $res = $status->{status} || 'unknown';
 	if ($res ne 'active') {
@@ -295,27 +330,40 @@ my $query_backup_status_loop = sub {
 	    if ($res ne 'done') {
 		die (($status->{errmsg} || "unknown error") . "\n") if $res eq 'error';
 		die "got unexpected status '$res'\n";
-	    } elsif ($total != $transferred) {
-		$self->loginfo("backup was done incrementally");
 	    }
 	    last;
 	}
 	if ($percent != $last_percent && ($timediff > 2)) {
 	    $self->loginfo($statusline);
 	    $last_percent = $percent;
+	    $last_target = $target if $target;
 	    $last_total = $total if $total;
 	    $last_zero = $zero if $zero;
 	    $last_transferred = $transferred if $transferred;
 	    $last_time = $ctime;
 	}
 	sleep(1);
+	$first_round = 0;
     }
 
     my $duration = time() - $starttime;
     if ($transferred && $duration) {
-	my $mb = int($transferred / (1000 * 1000));
+	my $transferred_h = bytes_to_human($transferred, 2);
 	my $mbps = $get_mbps->($transferred, $duration);
-	$self->loginfo("transferred $mb MB in $duration seconds ($mbps MB/s)");
+	if ($reused) {
+	    my $reused_h = bytes_to_human($reused, 2);
+	    my $reuse_per = int($reused * 100 / $last_total);
+	    $self->loginfo("backup was done incrementally, reused $reused_h (${reuse_per}%) from last backup");
+	    $self->loginfo("transferred $transferred_h in $duration seconds ($mbps)");
+	} else {
+	    $self->loginfo("transferred $transferred_h in $duration seconds ($mbps)");
+	}
+    }
+
+    if ($last_zero) {
+	my $zero_per = $last_target ? int(($last_zero * 100)/$last_target) : 0;
+	my $zero_h = bytes_to_human($last_zero, 2);
+	$self->loginfo("Backup is sparse: ${zero_per}% ($zero_h) zero data");
     }
 };
 
