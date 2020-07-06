@@ -331,6 +331,10 @@ my $query_backup_status_loop = sub {
 		die (($status->{errmsg} || "unknown error") . "\n") if $res eq 'error';
 		die "got unexpected status '$res'\n";
 	    }
+	    $last_target = $target if $target;
+	    $last_total = $total if $total;
+	    $last_zero = $zero if $zero;
+	    $last_transferred = $transferred if $transferred;
 	    last;
 	}
 	if ($percent != $last_percent && ($timediff > 2)) {
