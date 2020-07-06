@@ -397,7 +397,7 @@ sub archive_pbs {
 	    password => $password,
 	    devlist => $devlist,
 	    'config-file' => $conffile,
-	    incremental => JSON::true,
+	    'use-dirty-bitmap' => JSON::true,
 	};
 	$params->{fingerprint} = $fingerprint if defined($fingerprint);
 	$params->{'firewall-file'} = $firewall if -e $firewall;
