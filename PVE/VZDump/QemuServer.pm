@@ -369,6 +369,11 @@ my $query_backup_status_loop = sub {
 	my $zero_h = bytes_to_human($last_zero, 2);
 	$self->loginfo("Backup is sparse: ${zero_per}% ($zero_h) zero data");
     }
+
+    return {
+	total => $last_total,
+	reused => $reused,
+    };
 };
 
 sub archive_pbs {
@@ -393,6 +398,7 @@ sub archive_pbs {
     my $diskcount = scalar(@{$task->{disks}});
     if (PVE::QemuConfig->is_template($self->{vmlist}->{$vmid}) || !$diskcount) {
 	my @pathlist;
+	# FIXME: accumulate disk sizes to use for backup job (email) log
 	foreach my $di (@{$task->{disks}}) {
 	    if ($di->{type} eq 'block' || $di->{type} eq 'file') {
 		push @pathlist, "$di->{qmdevice}.img:$di->{path}";
@@ -471,7 +477,8 @@ sub archive_pbs {
 
 	$self->resume_vm_after_job_start($task, $vmid);
 
-	$query_backup_status_loop->($self, $vmid, $backup_job_uuid);
+	my $res = $query_backup_status_loop->($self, $vmid, $backup_job_uuid);
+	$task->{size} = $res->{total};
     };
     my $err = $@;
     if ($err) {
