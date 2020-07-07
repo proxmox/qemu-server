@@ -477,8 +477,8 @@ sub archive_pbs {
 
 	$self->resume_vm_after_job_start($task, $vmid);
 
-	my $res = $query_backup_status_loop->($self, $vmid, $backup_job_uuid);
-	$task->{size} = $res->{total};
+	my $stat = $query_backup_status_loop->($self, $vmid, $backup_job_uuid);
+	$task->{size} = $stat->{total};
     };
     my $err = $@;
     if ($err) {
