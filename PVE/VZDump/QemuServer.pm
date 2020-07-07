@@ -357,11 +357,9 @@ my $query_backup_status_loop = sub {
 	if ($reused) {
 	    my $reused_h = bytes_to_human($reused, 2);
 	    my $reuse_per = int($reused * 100 / $last_total);
-	    $self->loginfo("backup was done incrementally, reused $reused_h (${reuse_per}%) from last backup");
-	    $self->loginfo("transferred $transferred_h in $duration seconds ($mbps)");
-	} else {
-	    $self->loginfo("transferred $transferred_h in $duration seconds ($mbps)");
+	    $self->loginfo("backup was done incrementally, reused $reused_h (${reuse_per}%)");
 	}
+	$self->loginfo("transferred $transferred_h in $duration seconds ($mbps)");
     }
 
     if ($last_zero) {
