@@ -1,8 +1,10 @@
-qemu-server (6.2-5) pve; urgency=medium
+qemu-server (6.2-6) pve; urgency=medium
+
+  * vzdump: fix variable redeclaration warning
 
   * make backup log more friendlier to read for humans
 
- -- Proxmox Support Team <support@proxmox.com>  Mon, 06 Jul 2020 21:50:55 +0200
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 07 Jul 2020 19:00:09 +0200
 
 qemu-server (6.2-4) pve; urgency=medium
 
