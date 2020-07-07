@@ -4782,10 +4782,12 @@ sub vm_start {
 
 	die "you can't start a vm if it's a template\n" if PVE::QemuConfig->is_template($conf);
 
-	$params->{resume} = PVE::QemuConfig->has_lock($conf, 'suspended');
+	my $has_suspended_lock = PVE::QemuConfig->has_lock($conf, 'suspended');
 
 	PVE::QemuConfig->check_lock($conf)
-	    if !($params->{skiplock} || $params->{resume});
+	    if !($params->{skiplock} || $has_suspended_lock);
+
+	$params->{resume} = $has_suspended_lock || defined($conf->{vmstate});
 
 	die "VM $vmid already running\n" if check_running($vmid, undef, $migrate_opts->{migratedfrom});
 
