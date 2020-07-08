@@ -443,6 +443,12 @@ sub archive_pbs {
 	    die "interrupted by signal\n";
 	};
 
+	my $qemu_support = eval { mon_cmd($vmid, "query-proxmox-support") };
+	if (!$qemu_support) {
+	    die "PBS backups are not supported by the running QEMU version. Please make "
+	      . "sure you've installed the latest version and the VM has been restarted.\n";
+	}
+
 	my $fs_frozen = $self->qga_fs_freeze($task, $vmid);
 
 	my $params = {
@@ -453,10 +459,11 @@ sub archive_pbs {
 	    password => $password,
 	    devlist => $devlist,
 	    'config-file' => $conffile,
-	    'use-dirty-bitmap' => JSON::true,
 	};
 	$params->{fingerprint} = $fingerprint if defined($fingerprint);
 	$params->{'firewall-file'} = $firewall if -e $firewall;
+
+	$params->{'use-dirty-bitmap'} = JSON::true if $qemu_support->{'pbs-dirty-bitmap'};
 
 	$params->{timeout} = 60; # give some time to connect to the backup server
 
