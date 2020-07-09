@@ -233,7 +233,7 @@ sub prepare {
 	# Since the parameter itself contains no reference to a custom model,
 	# this makes migration independent of changes to "cpu-models.conf".
 	if ($conf->{cpu}) {
-	    my $cpuconf = PVE::QemuServer::CPUConfig::parse_cpu_conf_basic($conf->{cpu});
+	    my $cpuconf = PVE::JSONSchema::parse_property_string('pve-cpu-conf', $conf->{cpu});
 	    if ($cpuconf && PVE::QemuServer::CPUConfig::is_custom_model($cpuconf->{cputype})) {
 		$self->{forcecpu} = PVE::QemuServer::CPUConfig::get_cpu_from_running_vm($pid);
 	    }
