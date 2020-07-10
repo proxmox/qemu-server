@@ -5937,6 +5937,8 @@ sub restore_proxmox_backup_archive {
     my $fingerprint = $scfg->{fingerprint};
 
     my $repo = "$username\@$server:$datastore";
+
+    # This is only used for `pbs-restore`!
     my $password = PVE::Storage::PBSPlugin::pbs_get_password($scfg, $storeid);
     local $ENV{PBS_PASSWORD} = $password;
     local $ENV{PBS_FINGERPRINT} = $fingerprint if defined($fingerprint);
@@ -6039,6 +6041,7 @@ sub restore_proxmox_backup_archive {
 
 	    my $path = PVE::Storage::path($storecfg, $volid);
 
+	    # This is the ONLY user of the PBS_ env vars set on top of this function!
 	    my $pbs_restore_cmd = [
 		'/usr/bin/pbs-restore',
 		'--repository', $repo,
