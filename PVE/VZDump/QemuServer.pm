@@ -392,6 +392,7 @@ sub archive_pbs {
 
     my $repo = "$username\@$server:$datastore";
     my $password = PVE::Storage::PBSPlugin::pbs_get_password($scfg, $opts->{storage});
+    my $keyfile = PVE::Storage::PBSPlugin::pbs_encryption_key_file_name($scfg, $opts->{storage});
 
     my $diskcount = scalar(@{$task->{disks}});
     if (PVE::QemuConfig->is_template($self->{vmlist}->{$vmid}) || !$diskcount) {
@@ -462,6 +463,13 @@ sub archive_pbs {
 	};
 	$params->{fingerprint} = $fingerprint if defined($fingerprint);
 	$params->{'firewall-file'} = $firewall if -e $firewall;
+	if (-e $keyfile) {
+	    $self->loginfo("enabling encryption");
+	    $params->{keyfile} = $keyfile;
+	    $params->{encrypt} = JSON::true;
+	} else {
+	    $params->{encrypt} = JSON::false;
+	}
 
 	$params->{'use-dirty-bitmap'} = JSON::true if $qemu_support->{'pbs-dirty-bitmap'};
 
