@@ -357,7 +357,7 @@ sub parse_hostpci {
 }
 
 sub print_hostpci_devices {
-    my ($conf, $devices, $winversion, $q35, $bridges, $arch, $machine_type) = @_;
+    my ($vmid, $conf, $devices, $winversion, $q35, $bridges, $arch, $machine_type) = @_;
 
     my $kvm_off = 0;
     my $gpu_passthrough = 0;
