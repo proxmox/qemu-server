@@ -1,3 +1,14 @@
+qemu-server (6.2-10) pve; urgency=medium
+
+  * pass-through: fix mdev cmdline generation
+
+  * docs: add man page cpu-models.conf(5)
+
+  * start: set resume parameter for VM start anytime there is a 'vmstate' in
+    the config, not just when it has the 'suspend' lock
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 13 Jul 2020 13:37:37 +0200
+
 qemu-server (6.2-9) pve; urgency=medium
 
   * support encrypted pbs backups
