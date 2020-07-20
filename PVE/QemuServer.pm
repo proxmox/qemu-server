@@ -5937,6 +5937,7 @@ sub restore_proxmox_backup_archive {
     my $datastore = $scfg->{datastore};
     my $username = $scfg->{username} // 'root@pam';
     my $fingerprint = $scfg->{fingerprint};
+    my $keyfile = PVE::Storage::PBSPlugin::pbs_encryption_key_file_name($storecfg, $storeid);
 
     my $repo = "$username\@$server:$datastore";
 
@@ -6054,6 +6055,7 @@ sub restore_proxmox_backup_archive {
 		];
 
 	    push @$pbs_restore_cmd, '--format', $d->{format} if $d->{format};
+	    push @$pbs_restore_cmd, '--keyfile', $keyfile if -e $keyfile;
 
 	    if (PVE::Storage::volume_has_feature($storecfg, 'sparseinit', $volid)) {
 		push @$pbs_restore_cmd, '--skip-zero';
