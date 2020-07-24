@@ -1,3 +1,12 @@
+qemu-server (6.2-11) pve; urgency=medium
+
+  * fix #2857: restore: pass keyfile to pbs-restore
+
+  * fix #2728: die/warn if target is not a replication target when
+    live-migrating
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 24 Jul 2020 08:13:29 +0200
+
 qemu-server (6.2-10) pve; urgency=medium
 
   * pass-through: fix mdev cmdline generation
