@@ -1648,6 +1648,11 @@ sub print_vga_device {
 	$memory = ",ram_size=67108864,vram_size=33554432";
     }
 
+    my $edidoff = "";
+    if ($type eq 'VGA' && windows_version($conf->{ostype})) {
+	$edidoff=",edid=off" if $conf->{bios} ne 'ovmf';
+    }
+
     my $q35 = PVE::QemuServer::Machine::machine_type_is_q35($conf);
     my $vgaid = "vga" . ($id // '');
     my $pciaddr;
@@ -1659,7 +1664,7 @@ sub print_vga_device {
 	$pciaddr = print_pci_addr($vgaid, $bridges, $arch, $machine);
     }
 
-    return "$type,id=${vgaid}${memory}${max_outputs}${pciaddr}";
+    return "$type,id=${vgaid}${memory}${max_outputs}${pciaddr}${edidoff}";
 }
 
 sub parse_number_sets {
