@@ -6022,7 +6022,7 @@ sub restore_proxmox_backup_archive {
 	}
 
 	my $fh = IO::File->new($cfgfn, "r") ||
-	    "unable to read qemu-server.conf - $!\n";
+	    die "unable to read qemu-server.conf - $!\n";
 
 	my $virtdev_hash = $parse_backup_hints->($rpcenv, $user, $storecfg, $fh, $devinfo, $options);
 
@@ -6183,7 +6183,7 @@ sub restore_vma_archive {
 
 	# we can read the config - that is already extracted
 	my $fh = IO::File->new($cfgfn, "r") ||
-	    "unable to read qemu-server.conf - $!\n";
+	    die "unable to read qemu-server.conf - $!\n";
 
 	my $fwcfgfn = "$tmpdir/qemu-server.fw";
 	if (-f $fwcfgfn) {
