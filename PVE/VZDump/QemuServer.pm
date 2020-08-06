@@ -472,20 +472,11 @@ sub archive_pbs {
     my $keyfile = PVE::Storage::PBSPlugin::pbs_encryption_key_file_name($scfg, $opts->{storage});
 
     my $diskcount = scalar(@{$task->{disks}});
-    if (PVE::QemuConfig->is_template($self->{vmlist}->{$vmid}) || !$diskcount) {
+    # proxmox-backup-client can only handle raw files and block devs
+    # only use it (directly) for disk-less VMs
+    if (!$diskcount) {
 	my @pathlist;
-	# FIXME: accumulate disk sizes to use for backup job (email) log
-	foreach my $di (@{$task->{disks}}) {
-	    if ($di->{type} eq 'block' || $di->{type} eq 'file') {
-		push @pathlist, "$di->{qmdevice}.img:$di->{path}";
-	    } else {
-		die "implement me (type $di->{type})";
-	    }
-	}
-
-	if (!$diskcount) {
-	    $self->loginfo("backup contains no disks");
-	}
+	$self->loginfo("backup contains no disks");
 
 	local $ENV{PBS_PASSWORD} = $password;
 	local $ENV{PBS_FINGERPRINT} = $fingerprint if defined($fingerprint);
@@ -500,7 +491,6 @@ sub archive_pbs {
 
 	push @$cmd, "qemu-server.conf:$conffile";
 	push @$cmd, "fw.conf:$firewall" if -e $firewall;
-	push @$cmd, @pathlist if scalar(@pathlist);
 
 	$self->loginfo("starting template backup");
 	$self->loginfo(join(' ', @$cmd));
@@ -549,8 +539,9 @@ sub archive_pbs {
 	    $params->{encrypt} = JSON::false;
 	}
 
+	my $is_template = PVE::QemuConfig->is_template($self->{vmlist}->{$vmid});
 	$params->{'use-dirty-bitmap'} = JSON::true
-	    if $qemu_support->{'pbs-dirty-bitmap'} && $self->{vm_was_running};
+	    if $qemu_support->{'pbs-dirty-bitmap'} && $self->{vm_was_running} && !$is_template;
 
 	$params->{timeout} = 60; # give some time to connect to the backup server
 
@@ -831,6 +822,7 @@ sub enforce_vm_running_for_backup {
 	# start with skiplock
 	my $params = {
 	    skiplock => 1,
+	    skiptemplate => 1,
 	    paused => 1,
 	};
 	PVE::QemuServer::vm_start($self->{storecfg}, $vmid, $params);

@@ -3407,6 +3407,8 @@ sub config_to_command {
         }
 
 	my $drive_cmd = print_drive_commandline_full($storecfg, $vmid, $drive);
+	$drive_cmd .= ',readonly' if PVE::QemuConfig->is_template($conf);
+
 	push @$devices, '-drive',$drive_cmd;
 	push @$devices, '-device', print_drivedevice_full($storecfg, $conf, $vmid, $drive, $bridges, $arch, $machine_type);
     });
@@ -4785,7 +4787,8 @@ sub vm_start {
     return PVE::QemuConfig->lock_config($vmid, sub {
 	my $conf = PVE::QemuConfig->load_config($vmid, $migrate_opts->{migratedfrom});
 
-	die "you can't start a vm if it's a template\n" if PVE::QemuConfig->is_template($conf);
+	die "you can't start a vm if it's a template\n"
+	    if !$params->{skiptemplate} && PVE::QemuConfig->is_template($conf);
 
 	my $has_suspended_lock = PVE::QemuConfig->has_lock($conf, 'suspended');
 
@@ -4814,6 +4817,7 @@ sub vm_start {
 # params:
 #   statefile => 'tcp', 'unix' for migration or path/volid for RAM state
 #   skiplock => 0/1, skip checking for config lock
+#   skiptemplate => 0/1, skip checking whether VM is template
 #   forcemachine => to force Qemu machine (rollback/migration)
 #   forcecpu => a QEMU '-cpu' argument string to override get_cpu_options
 #   timeout => in seconds
