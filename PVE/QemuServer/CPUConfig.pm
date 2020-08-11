@@ -107,7 +107,7 @@ my @supported_cpu_flags = (
 my $cpu_flag_supported_re = qr/([+-])(@{[join('|', @supported_cpu_flags)]})/;
 my $cpu_flag_any_re = qr/([+-])([a-zA-Z0-9\-_\.]+)/;
 
-our $qemu_cmdline_cpu_re = qr/^((?>[+-]?[\w\-_=]+,?)+)$/;
+our $qemu_cmdline_cpu_re = qr/^((?>[+-]?[\w\-\._=]+,?)+)$/;
 
 my $cpu_fmt = {
     cputype => {
