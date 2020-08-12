@@ -191,6 +191,8 @@ sub validate_cpu_conf {
     # required, but can't be forced in schema since it's encoded in section
     # header for custom models
     die "CPU is missing cputype\n" if !$cpu->{cputype};
+
+    return $cpu;
 }
 PVE::JSONSchema::register_format('pve-vm-cpu-conf', $cpu_fmt, \&validate_vm_cpu_conf);
 sub validate_vm_cpu_conf {
