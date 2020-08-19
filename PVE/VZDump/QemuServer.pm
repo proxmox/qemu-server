@@ -340,7 +340,7 @@ my $query_backup_status_loop = sub {
 	$target = $total if !$has_query_bitmap;
 	$transferred = $status->{transferred} || 0;
 	$reused = $status->{reused};
-	my $percent = $target ? int(($transferred * 100)/$target) : 0;
+	my $percent = $target ? int(($transferred * 100)/$target) : 100;
 	my $zero = $status->{'zero-bytes'} || 0;
 
 	die "got unexpected uuid\n" if !$status->{uuid} || ($status->{uuid} ne $job_uuid);
