@@ -306,7 +306,7 @@ my $query_backup_status_loop = sub {
 
     my $starttime = time ();
     my $last_time = $starttime;
-    my ($last_percent, $last_total, $last_target,  $last_zero, $last_transferred) = (-1, 0, 0, 0, 0);
+    my ($last_percent, $last_total, $last_target, $last_zero, $last_transferred) = (-1, 0, 0, 0, 0);
     my ($transferred, $reused);
 
     my $get_mbps = sub {
@@ -317,6 +317,7 @@ my $query_backup_status_loop = sub {
     };
 
     my $target = 0;
+    my $last_reused = 0;
     my $has_query_bitmap = 0;
     if (defined($pbs_features) && $pbs_features->{'query-bitmap-info'}) {
 	$has_query_bitmap = 1;
@@ -328,6 +329,7 @@ my $query_backup_status_loop = sub {
 	    $drive =~ s/^drive-//; # for consistency
 	    $self->loginfo("$drive: $text");
 	    $target += $info->{dirty};
+	    $last_reused += $info->{size} - $info->{dirty};
 	}
     }
 
@@ -347,7 +349,13 @@ my $query_backup_status_loop = sub {
 	my $duration = $ctime - $starttime;
 
 	my $rbytes = $transferred - $last_transferred;
-	my $wbytes = $rbytes - ($zero - $last_zero);
+	my $wbytes;
+	if ($reused) {
+	    # reused includes zero bytes for PBS
+	    $wbytes = $rbytes - ($reused - $last_reused);
+	} else {
+	    $wbytes = $rbytes - ($zero - $last_zero);
+	}
 
 	my $timediff = ($ctime - $last_time) || 1; # fixme
 	my $mbps_read = $get_mbps->($rbytes, $timediff);
@@ -379,6 +387,7 @@ my $query_backup_status_loop = sub {
 	    $last_zero = $zero if $zero;
 	    $last_transferred = $transferred if $transferred;
 	    $last_time = $ctime;
+	    $last_reused = $reused;
 	}
 	sleep(1);
     }
