@@ -400,15 +400,19 @@ my $query_backup_status_loop = sub {
     }
 
     my $duration = time() - $starttime;
-    if ($transferred && $duration) {
+    if ($transferred) {
 	my $transferred_h = bytes_to_human($transferred, 2);
-	my $mbps = $get_mbps->($transferred, $duration);
 	if ($reused) {
 	    my $reused_h = bytes_to_human($reused, 2);
 	    my $reuse_per = int($reused * 100 / $last_total);
 	    $self->loginfo("backup was done incrementally, reused $reused_h (${reuse_per}%)");
 	}
-	$self->loginfo("transferred $transferred_h in $duration seconds ($mbps)");
+	if ($duration) {
+	    my $mbps = $get_mbps->($transferred, $duration);
+	    $self->loginfo("transferred $transferred_h in $duration seconds ($mbps)");
+	} else {
+	    $self->loginfo("transferred $transferred_h in <1 seconds");
+	}
     }
 
     if (!defined($pbs_features) && $last_zero) {
