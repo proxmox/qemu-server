@@ -1,3 +1,22 @@
+qemu-server (6.2-12) pve; urgency=medium
+
+  * fix use of bandwidth limits with offline storage migrate
+
+  * allow one to add CPU features with a dot, like "+sse4.2", correctly
+
+  * vzdump: improve logging output with dirty bitmaps and report status
+    for each disk
+
+  * vzdump: display actually uploaded chunks as 'write' speed to conform more
+    closely with the actual network transmission line-speed.
+
+  * fix #2749: vga: disable the display EDID information for the combination of
+    Windows SeaBIOS and VGA guests to avoid a reduced list of possible screen
+    resolutions. (Windows may cache the list of possible resolutions,
+    uninstalling 'Microsoft Basic Display Adapter' and rebooting may then help)
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 19 Aug 2020 19:46:23 +0200
+
 qemu-server (6.2-11) pve; urgency=medium
 
   * fix #2857: restore: pass keyfile to pbs-restore
