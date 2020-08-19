@@ -276,23 +276,24 @@ sub bytes_to_human {
 };
 
 my $bitmap_action_to_human = sub {
-    my ($info) = @_;
+    my ($self, $info) = @_;
 
     my $action = $info->{action};
 
     if ($action eq "not-used") {
-	return "disabled";
+	return "disabled (no support)" if $self->{vm_was_running};
+	return "disabled (VM not running)";
     } elsif ($action eq "not-used-removed") {
 	return "disabled (old bitmap cleared)";
     } elsif ($action eq "new") {
-	return "created new bitmap";
+	return "created new";
     } elsif ($action eq "used") {
 	if ($info->{dirty} == 0) {
-	    return "OK, drive clean";
+	    return "OK (drive clean)";
 	} else {
 	    my $size = bytes_to_human($info->{size});
 	    my $dirty = bytes_to_human($info->{dirty});
-	    return "OK, $dirty of $size dirty";
+	    return "OK ($dirty of $size dirty)";
 	}
     } elsif ($action eq "invalid") {
 	return "existing bitmap was invalid and has been cleared";
@@ -321,15 +322,21 @@ my $query_backup_status_loop = sub {
     my $has_query_bitmap = 0;
     if (defined($pbs_features) && $pbs_features->{'query-bitmap-info'}) {
 	$has_query_bitmap = 1;
+	my $total = 0;
 	my $bitmap_info = mon_cmd($vmid, 'query-pbs-bitmap-info');
-	$self->loginfo("Fast incremental status:");
-	foreach my $info (@$bitmap_info) {
-	    my $text = $bitmap_action_to_human->($info);
+	foreach my $info (sort { $a->{drive} cmp $b->{drive} } @$bitmap_info) {
+	    my $text = $bitmap_action_to_human->($self, $info);
 	    my $drive = $info->{drive};
 	    $drive =~ s/^drive-//; # for consistency
-	    $self->loginfo("$drive: $text");
+	    $self->loginfo("$drive: dirty-bitmap status: $text");
 	    $target += $info->{dirty};
+	    $total += $info->{size};
 	    $last_reused += $info->{size} - $info->{dirty};
+	}
+	if ($target < $total) {
+	    my $total_h = bytes_to_human($total);
+	    my $target_h = bytes_to_human($target);
+	    $self->loginfo("using fast incremental mode (dirty-bitmap), $target_h dirty of $total_h total");
 	}
     }
 
