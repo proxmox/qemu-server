@@ -275,14 +275,39 @@ sub bytes_to_human {
     return $num2str->($tb, $precission) . " TiB";
 };
 
+my $bitmap_action_to_human = sub {
+    my ($info) = @_;
+
+    my $action = $info->{action};
+
+    if ($action eq "not-used") {
+	return "disabled";
+    } elsif ($action eq "not-used-removed") {
+	return "disabled (old bitmap cleared)";
+    } elsif ($action eq "new") {
+	return "created new bitmap";
+    } elsif ($action eq "used") {
+	if ($info->{dirty} == 0) {
+	    return "OK, drive clean";
+	} else {
+	    my $size = bytes_to_human($info->{size});
+	    my $dirty = bytes_to_human($info->{dirty});
+	    return "OK, $dirty of $size dirty";
+	}
+    } elsif ($action eq "invalid") {
+	return "existing bitmap was invalid and has been cleared";
+    } else {
+	return "unknown";
+    }
+};
+
 my $query_backup_status_loop = sub {
-    my ($self, $vmid, $job_uuid) = @_;
+    my ($self, $vmid, $job_uuid, $pbs_features) = @_;
 
     my $starttime = time ();
     my $last_time = $starttime;
     my ($last_percent, $last_total, $last_target,  $last_zero, $last_transferred) = (-1, 0, 0, 0, 0);
     my ($transferred, $reused);
-    my $first_round = 1;
 
     my $get_mbps = sub {
 	my ($mb, $delta) = @_;
@@ -291,12 +316,26 @@ my $query_backup_status_loop = sub {
 	return bytes_to_human($bw) . "/s";
     };
 
+    my $target = 0;
+    my $has_query_bitmap = 0;
+    if (defined($pbs_features) && $pbs_features->{'query-bitmap-info'}) {
+	$has_query_bitmap = 1;
+	my $bitmap_info = mon_cmd($vmid, 'query-pbs-bitmap-info');
+	$self->loginfo("Fast incremental status:");
+	foreach my $info (@$bitmap_info) {
+	    my $text = $bitmap_action_to_human->($info);
+	    my $drive = $info->{drive};
+	    $drive =~ s/^drive-//; # for consistency
+	    $self->loginfo("$drive: $text");
+	    $target += $info->{dirty};
+	}
+    }
+
     while(1) {
 	my $status = mon_cmd($vmid, 'query-backup');
 
 	my $total = $status->{total} || 0;
-	my $dirty = $status->{dirty};
-	my $target = (defined($dirty) && $dirty < $total) ? $dirty : $total;
+	$target = $total if !$has_query_bitmap;
 	$transferred = $status->{transferred} || 0;
 	$reused = $status->{reused};
 	my $percent = $target ? int(($transferred * 100)/$target) : 0;
@@ -315,11 +354,6 @@ my $query_backup_status_loop = sub {
 	my $mbps_write = $get_mbps->($wbytes, $timediff);
 	my $target_h = bytes_to_human($target);
 	my $transferred_h = bytes_to_human($transferred);
-
-	if ($first_round && $target != $total) {
-	    my $total_h = bytes_to_human($total);
-	    $self->loginfo("using fast incremental mode (dirty-bitmap), $target_h dirty of $total_h total");
-	}
 
 	my $statusline = "status: $percent% ($transferred_h of $target_h), duration $duration"
 	    .", read: $mbps_read, write: $mbps_write";
@@ -347,7 +381,6 @@ my $query_backup_status_loop = sub {
 	    $last_time = $ctime;
 	}
 	sleep(1);
-	$first_round = 0;
     }
 
     my $duration = time() - $starttime;
@@ -362,7 +395,7 @@ my $query_backup_status_loop = sub {
 	$self->loginfo("transferred $transferred_h in $duration seconds ($mbps)");
     }
 
-    if ($last_zero) {
+    if (!defined($pbs_features) && $last_zero) {
 	my $zero_per = $last_target ? int(($last_zero * 100)/$last_target) : 0;
 	my $zero_h = bytes_to_human($last_zero, 2);
 	$self->loginfo("Backup is sparse: ${zero_per}% ($zero_h) zero data");
@@ -490,7 +523,7 @@ sub archive_pbs {
 
 	$self->resume_vm_after_job_start($task, $vmid);
 
-	my $stat = $query_backup_status_loop->($self, $vmid, $backup_job_uuid);
+	my $stat = $query_backup_status_loop->($self, $vmid, $backup_job_uuid, $qemu_support);
 	$task->{size} = $stat->{total};
     };
     my $err = $@;
