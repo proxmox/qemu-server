@@ -513,7 +513,8 @@ sub archive_pbs {
 	    $params->{encrypt} = JSON::false;
 	}
 
-	$params->{'use-dirty-bitmap'} = JSON::true if $qemu_support->{'pbs-dirty-bitmap'};
+	$params->{'use-dirty-bitmap'} = JSON::true
+	    if $qemu_support->{'pbs-dirty-bitmap'} && $self->{vm_was_running};
 
 	$params->{timeout} = 60; # give some time to connect to the backup server
 
