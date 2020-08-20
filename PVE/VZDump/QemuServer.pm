@@ -320,7 +320,7 @@ my $bitmap_action_to_human = sub {
 };
 
 my $query_backup_status_loop = sub {
-    my ($self, $vmid, $job_uuid, $pbs_features) = @_;
+    my ($self, $vmid, $job_uuid, $qemu_support) = @_;
 
     my $starttime = time ();
     my $last_time = $starttime;
@@ -336,9 +336,8 @@ my $query_backup_status_loop = sub {
 
     my $target = 0;
     my $last_reused = 0;
-    my $has_query_bitmap = 0;
-    if (defined($pbs_features) && $pbs_features->{'query-bitmap-info'}) {
-	$has_query_bitmap = 1;
+    my $has_query_bitmap = $qemu_support && $qemu_support->{'query-bitmap-info'};
+    if ($has_query_bitmap) {
 	my $total = 0;
 	my $bitmap_info = mon_cmd($vmid, 'query-pbs-bitmap-info');
 	foreach my $info (sort { $a->{drive} cmp $b->{drive} } @$bitmap_info) {
@@ -357,11 +356,13 @@ my $query_backup_status_loop = sub {
 	}
     }
 
+    my $first_round = 1;
     while(1) {
 	my $status = mon_cmd($vmid, 'query-backup');
 
 	my $total = $status->{total} || 0;
-	$target = $total if !$has_query_bitmap;
+	my $dirty = $status->{dirty};
+	$target = (defined($dirty) && $dirty < $total) ? $dirty : $total if !$has_query_bitmap;
 	$transferred = $status->{transferred} || 0;
 	$reused = $status->{reused};
 	my $percent = $target ? int(($transferred * 100)/$target) : 100;
@@ -386,6 +387,11 @@ my $query_backup_status_loop = sub {
 	my $mbps_write = $get_mbps->($wbytes, $timediff);
 	my $target_h = bytes_to_human($target);
 	my $transferred_h = bytes_to_human($transferred);
+
+	if (!$has_query_bitmap && $first_round && $target != $total) { # FIXME: remove with PVE 7.0
+	    my $total_h = bytes_to_human($total);
+	    $self->loginfo("using fast incremental mode (dirty-bitmap), $target_h dirty of $total_h total");
+	}
 
 	my $statusline = sprintf("%3d%% ($transferred_h of $target_h) in %s"
 	    .", read: $mbps_read, write: $mbps_write", $percent, duration_to_human($duration));
@@ -414,6 +420,7 @@ my $query_backup_status_loop = sub {
 	    $last_reused = $reused;
 	}
 	sleep(1);
+	$first_round = 0 if $first_round;
     }
 
     my $duration = time() - $starttime;
