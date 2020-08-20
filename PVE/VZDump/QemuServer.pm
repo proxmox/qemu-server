@@ -400,6 +400,12 @@ my $query_backup_status_loop = sub {
     }
 
     my $duration = time() - $starttime;
+
+    if ($last_zero) {
+	my $zero_per = $last_target ? int(($last_zero * 100)/$last_target) : 0;
+	my $zero_h = bytes_to_human($last_zero, 2);
+	$self->loginfo("backup is sparse: $zero_h (${zero_per}%) total zero data");
+    }
     if ($transferred) {
 	my $transferred_h = bytes_to_human($transferred, 2);
 	if ($reused) {
@@ -413,12 +419,6 @@ my $query_backup_status_loop = sub {
 	} else {
 	    $self->loginfo("transferred $transferred_h in <1 seconds");
 	}
-    }
-
-    if (!defined($pbs_features) && $last_zero) {
-	my $zero_per = $last_target ? int(($last_zero * 100)/$last_target) : 0;
-	my $zero_h = bytes_to_human($last_zero, 2);
-	$self->loginfo("Backup is sparse: ${zero_per}% ($zero_h) zero data");
     }
 
     return {
