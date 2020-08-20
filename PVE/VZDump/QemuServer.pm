@@ -538,6 +538,7 @@ sub archive_pbs {
 	    devlist => $devlist,
 	    'config-file' => $conffile,
 	};
+	$params->{speed} = $opts->{bwlimit}*1024 if $opts->{bwlimit};
 	$params->{fingerprint} = $fingerprint if defined($fingerprint);
 	$params->{'firewall-file'} = $firewall if -e $firewall;
 	if (-e $keyfile) {
