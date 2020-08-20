@@ -257,7 +257,7 @@ sub archive {
 my $num2str = sub {
     return sprintf( "%." . ( $_[1] || 1 ) . "f", $_[0] );
 };
-sub bytes_to_human {
+my sub bytes_to_human {
     my ($bytes, $precission) = @_;
 
     return $num2str->($bytes, $precission) . ' B' if $bytes < 1024;
@@ -273,7 +273,24 @@ sub bytes_to_human {
     my $tb = $gb/1024;
 
     return $num2str->($tb, $precission) . " TiB";
-};
+}
+my sub duration_to_human {
+    my ($seconds) = @_;
+
+    return sprintf('%2ds', $seconds) if $seconds < 60;
+    my $minutes = $seconds / 60;
+    $seconds = $seconds % 60;
+
+    return sprintf('%2dm %2ds', $minutes, $seconds) if $minutes < 60;
+    my $hours = $minutes / 60;
+    $minutes = $minutes % 60;
+
+    return sprintf('%2dh %2dm %2ds', $hours, $minutes, $seconds) if $hours < 24;
+    my $days = $hours / 24;
+    $hours = $hours % 24;
+
+    return sprintf('%2dd %2dh %2dm', $days, $hours, $minutes);
+}
 
 my $bitmap_action_to_human = sub {
     my ($self, $info) = @_;
@@ -370,8 +387,8 @@ my $query_backup_status_loop = sub {
 	my $target_h = bytes_to_human($target);
 	my $transferred_h = bytes_to_human($transferred);
 
-	my $statusline = "status: $percent% ($transferred_h of $target_h), duration $duration"
-	    .", read: $mbps_read, write: $mbps_write";
+	my $statusline = sprintf("%3d%% ($transferred_h of $target_h) in %s"
+	    .", read: $mbps_read, write: $mbps_write", $percent, duration_to_human($duration));
 
 	my $res = $status->{status} || 'unknown';
 	if ($res ne 'active') {
