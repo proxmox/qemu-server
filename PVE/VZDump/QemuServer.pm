@@ -430,13 +430,13 @@ my $query_backup_status_loop = sub {
 	my $zero_h = bytes_to_human($last_zero, 2);
 	$self->loginfo("backup is sparse: $zero_h (${zero_per}%) total zero data");
     }
+    if ($reused) {
+	my $reused_h = bytes_to_human($reused, 2);
+	my $reuse_per = int($reused * 100 / $last_total);
+	$self->loginfo("backup was done incrementally, reused $reused_h (${reuse_per}%)");
+    }
     if ($transferred) {
 	my $transferred_h = bytes_to_human($transferred, 2);
-	if ($reused) {
-	    my $reused_h = bytes_to_human($reused, 2);
-	    my $reuse_per = int($reused * 100 / $last_total);
-	    $self->loginfo("backup was done incrementally, reused $reused_h (${reuse_per}%)");
-	}
 	if ($duration) {
 	    my $mbps = $get_mbps->($transferred, $duration);
 	    $self->loginfo("transferred $transferred_h in $duration seconds ($mbps)");
