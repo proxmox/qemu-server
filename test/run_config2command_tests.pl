@@ -84,6 +84,8 @@ my $current_test; # = {
 #   description => 'Test description', # if available
 #   qemu_version => '2.12',
 #   host_arch => 'HOST_ARCH',
+#   expected_error => 'error message',
+#   expected_warning => 'warning message',
 #   config => { config hash },
 #   expected => [ expected outcome cmd line array ],
 # };
@@ -92,6 +94,7 @@ my $current_test; # = {
 #   TEST: A single line describing the test, gets outputted
 #   QEMU_VERSION: \d+\.\d+(\.\d+)? (defaults to current version)
 #   HOST_ARCH: x86_64 | aarch64 (default to x86_64, to make tests stable)
+#   EXPECT_ERROR: <error message> For negative tests
 # all fields are optional
 sub parse_test($) {
     my ($config_fn) = @_;
@@ -120,6 +123,8 @@ sub parse_test($) {
 	    $current_test->{host_arch} = "$1";
 	} elsif ($line =~ /^EXPECT_ERROR:\s*(.*)\s*$/) {
 	    $current_test->{expect_error} = "$1";
+	} elsif ($line =~ /^EXPECT_WARN(?:ING)?:\s*(.*)\s*$/) {
+	    $current_test->{expect_warning} = "$1";
 	}
     }
 
@@ -305,6 +310,24 @@ sub diff($$) {
     close $diffproc;
     die "files differ:\n$diff";
 }
+
+$SIG{__WARN__} = sub {
+    my $warning = shift;
+    chomp $warning;
+    if (my $warn_expect = $current_test->{expect_warning}) {
+	if ($warn_expect ne $warning) {
+	    fail($current_test->{testname});
+	    note("warning does not match expected error: '$warning' != '$warn_expect'");
+	} else {
+	    note("got expected warning '$warning'");
+	    return;
+	}
+    }
+
+    #warn "======= WARN ======\n= ". $_[0] . "===================\n";
+    fail($current_test->{testname});
+    note("got unexpected expected warning '$warning'");
+};
 
 sub do_test($) {
     my ($config_fn) = @_;
