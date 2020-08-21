@@ -337,14 +337,17 @@ my $query_backup_status_loop = sub {
     my $target = 0;
     my $last_reused = 0;
     my $has_query_bitmap = $qemu_support && $qemu_support->{'query-bitmap-info'};
+    my $is_template = PVE::QemuConfig->is_template($self->{vmlist}->{$vmid});
     if ($has_query_bitmap) {
 	my $total = 0;
 	my $bitmap_info = mon_cmd($vmid, 'query-pbs-bitmap-info');
-	foreach my $info (sort { $a->{drive} cmp $b->{drive} } @$bitmap_info) {
-	    my $text = $bitmap_action_to_human->($self, $info);
-	    my $drive = $info->{drive};
-	    $drive =~ s/^drive-//; # for consistency
-	    $self->loginfo("$drive: dirty-bitmap status: $text");
+	for my $info (sort { $a->{drive} cmp $b->{drive} } @$bitmap_info) {
+	    if (!$is_template) {
+		my $text = $bitmap_action_to_human->($self, $info);
+		my $drive = $info->{drive};
+		$drive =~ s/^drive-//; # for consistency
+		$self->loginfo("$drive: dirty-bitmap status: $text");
+	    }
 	    $target += $info->{dirty};
 	    $total += $info->{size};
 	    $last_reused += $info->{size} - $info->{dirty};
