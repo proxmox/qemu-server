@@ -122,6 +122,13 @@ sub parse_test($) {
 	    $current_test->{expect_error} = "$1";
 	}
     }
+
+    $config_fn =~ /([^\/]+)$/;
+    my $testname = "$1";
+    if (my $desc = $current_test->{description}) {
+	$testname = "'$testname' - $desc";
+    }
+    $current_test->{testname} = $testname;
 }
 
 sub get_test_qemu_version {
@@ -306,11 +313,7 @@ sub do_test($) {
 
     parse_test $config_fn;
 
-    $config_fn =~ /([^\/]+)$/;
-    my $testname = "$1";
-    if (my $desc = $current_test->{description}) {
-	$testname = "'$testname' - $desc";
-    }
+    my $testname = $current_test->{testname};
 
     my ($vmid, $storecfg) = $base_env->@{qw(vmid storage_config)};
 
