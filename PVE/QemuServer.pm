@@ -1650,7 +1650,7 @@ sub print_vga_device {
 
     my $edidoff = "";
     if ($type eq 'VGA' && windows_version($conf->{ostype})) {
-	$edidoff=",edid=off" if $conf->{bios} ne 'ovmf';
+	$edidoff=",edid=off" if (!defined($conf->{bios}) || $conf->{bios} ne 'ovmf');
     }
 
     my $q35 = PVE::QemuServer::Machine::machine_type_is_q35($conf);
