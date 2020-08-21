@@ -324,9 +324,8 @@ $SIG{__WARN__} = sub {
 	}
     }
 
-    #warn "======= WARN ======\n= ". $_[0] . "===================\n";
     fail($current_test->{testname});
-    note("got unexpected expected warning '$warning'");
+    note("got unexpected warning '$warning'");
 };
 
 sub do_test($) {
