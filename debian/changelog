@@ -1,3 +1,13 @@
+qemu-server (6.2-14) pve; urgency=medium
+
+  * vzdump: allow bandwidth limit also PBS backup
+
+  * avoid a warning when checking the VMs bios
+
+  * fix #2862: properly backup (all) VM templates
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 24 Aug 2020 19:33:54 +0200
+
 qemu-server (6.2-13) pve; urgency=medium
 
   * fix use of bandwidth limits with offline storage migrate
