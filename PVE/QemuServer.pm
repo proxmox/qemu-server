@@ -441,6 +441,14 @@ EODESC
 	description => "Enable/disable hugepages memory.",
 	enum => [qw(any 2 1024)],
     },
+    keephugepages => {
+	optional => 1,
+	type => 'boolean',
+	default => 0,
+	description => "Use together with hugepages. If enabled, hugepages will"
+		     . " not be deleted after VM shutdown and can be used for"
+		     . " subsequent starts.",
+    },
     vcpus => {
 	optional => 1,
 	type => 'integer',
@@ -5034,11 +5042,13 @@ sub vm_start_nolock {
 
 	    eval { $run_qemu->() };
 	    if (my $err = $@) {
-		PVE::QemuServer::Memory::hugepages_reset($hugepages_host_topology);
+		PVE::QemuServer::Memory::hugepages_reset($hugepages_host_topology)
+		    if !$conf->{keephugepages};
 		die $err;
 	    }
 
-	    PVE::QemuServer::Memory::hugepages_pre_deallocate($hugepages_topology);
+	    PVE::QemuServer::Memory::hugepages_pre_deallocate($hugepages_topology)
+		if !$conf->{keephugepages};
 	};
 	eval { PVE::QemuServer::Memory::hugepages_update_locked($code); };
 
