@@ -31,7 +31,7 @@ use PVE::DataCenterConfig;
 use PVE::Exception qw(raise raise_param_exc);
 use PVE::GuestHelpers qw(safe_string_ne safe_num_ne safe_boolean_ne);
 use PVE::INotify;
-use PVE::JSONSchema qw(get_standard_option);
+use PVE::JSONSchema qw(get_standard_option parse_property_string);
 use PVE::ProcFSTools;
 use PVE::RPCEnvironment;
 use PVE::Storage;
@@ -445,9 +445,8 @@ EODESC
 	optional => 1,
 	type => 'boolean',
 	default => 0,
-	description => "Use together with hugepages. If enabled, hugepages will"
-		     . " not be deleted after VM shutdown and can be used for"
-		     . " subsequent starts.",
+	description => "Use together with hugepages. If enabled, hugepages will not not be deleted"
+	    ." after VM shutdown and can be used for subsequent starts.",
     },
     vcpus => {
 	optional => 1,
@@ -483,7 +482,8 @@ EODESC
     localtime => {
 	optional => 1,
 	type => 'boolean',
-	description => "Set the real time clock to local time. This is enabled by default if ostype indicates a Microsoft OS.",
+	description => "Set the real time clock to local time. This is enabled by default if ostype"
+	    ." indicates a Microsoft OS.",
     },
     freeze => {
 	optional => 1,
@@ -494,29 +494,28 @@ EODESC
 	optional => 1,
 	type => 'string', format => $vga_fmt,
 	description => "Configure the VGA hardware.",
-	verbose_description => "Configure the VGA Hardware. If you want to use ".
-	    "high resolution modes (>= 1280x1024x16) you may need to increase " .
-	    "the vga memory option. Since QEMU 2.9 the default VGA display type " .
-	    "is 'std' for all OS types besides some Windows versions (XP and " .
-	    "older) which use 'cirrus'. The 'qxl' option enables the SPICE " .
-	    "display server. For win* OS you can select how many independent " .
-	    "displays you want, Linux guests can add displays them self.\n".
-	    "You can also run without any graphic card, using a serial device as terminal.",
+	verbose_description => "Configure the VGA Hardware. If you want to use high resolution"
+	    ." modes (>= 1280x1024x16) you may need to increase the vga memory option. Since QEMU"
+	    ." 2.9 the default VGA display type is 'std' for all OS types besides some Windows"
+	    ." versions (XP and older) which use 'cirrus'. The 'qxl' option enables the SPICE"
+	    ." display server. For win* OS you can select how many independent displays you want,"
+	    ." Linux guests can add displays them self.\nYou can also run without any graphic card,"
+	    ." using a serial device as terminal.",
     },
     watchdog => {
 	optional => 1,
 	type => 'string', format => 'pve-qm-watchdog',
 	description => "Create a virtual hardware watchdog device.",
-	verbose_description => "Create a virtual hardware watchdog device. Once enabled" .
-	    " (by a guest action), the watchdog must be periodically polled " .
-	    "by an agent inside the guest or else the watchdog will reset " .
-	    "the guest (or execute the respective action specified)",
+	verbose_description => "Create a virtual hardware watchdog device. Once enabled (by a guest"
+	    ." action), the watchdog must be periodically polled by an agent inside the guest or"
+	    ." else the watchdog will reset the guest (or execute the respective action specified)",
     },
     startdate => {
 	optional => 1,
 	type => 'string',
 	typetext => "(now | YYYY-MM-DD | YYYY-MM-DDTHH:MM:SS)",
-	description => "Set the initial date of the real time clock. Valid format for date are: 'now' or '2006-06-17T16:01:21' or '2006-06-17'.",
+	description => "Set the initial date of the real time clock. Valid format for date are:"
+	    ."'now' or '2006-06-17T16:01:21' or '2006-06-17'.",
 	pattern => '(now|\d{4}-\d{1,2}-\d{1,2}(T\d{1,2}:\d{1,2}:\d{1,2})?)',
 	default => 'now',
     },
@@ -544,12 +543,11 @@ EODESCR
 	type => 'boolean',
 	default => 1,
 	description => "Enable/disable the USB tablet device.",
-	verbose_description => "Enable/disable the USB tablet device. This device is " .
-	    "usually needed to allow absolute mouse positioning with VNC. " .
-	    "Else the mouse runs out of sync with normal VNC clients. " .
-	    "If you're running lots of console-only guests on one host, " .
-	    "you may consider disabling this to save some context switches. " .
-	    "This is turned off by default if you use spice (-vga=qxl).",
+	verbose_description => "Enable/disable the USB tablet device. This device is usually needed"
+	    ." to allow absolute mouse positioning with VNC. Else the mouse runs out of sync with"
+	    ." normal VNC clients. If you're running lots of console-only guests on one host, you"
+	    ." may consider disabling this to save some context switches. This is turned off by"
+	    ." default if you use spice (`qm set <vmid> --vga qxl`).",
     },
     migrate_speed => {
 	optional => 1,
@@ -590,17 +588,20 @@ EODESCR
     vmstate => {
 	optional => 1,
 	type => 'string', format => 'pve-volume-id',
-	description => "Reference to a volume which stores the VM state. This is used internally for snapshots.",
+	description => "Reference to a volume which stores the VM state. This is used internally"
+	    ." for snapshots.",
     },
     vmstatestorage => get_standard_option('pve-storage-id', {
 	description => "Default storage for VM state volumes/files.",
 	optional => 1,
     }),
     runningmachine => get_standard_option('pve-qemu-machine', {
-	description => "Specifies the QEMU machine type of the running vm. This is used internally for snapshots.",
+	description => "Specifies the QEMU machine type of the running vm. This is used internally"
+	    ." for snapshots.",
     }),
     runningcpu => {
-	description => "Specifies the QEMU '-cpu' parameter of the running vm. This is used internally for snapshots.",
+	description => "Specifies the QEMU '-cpu' parameter of the running vm. This is used"
+	    ." internally for snapshots.",
 	optional => 1,
 	type => 'string',
 	pattern => $PVE::QemuServer::CPUConfig::qemu_cmdline_cpu_re,
@@ -622,7 +623,8 @@ EODESCR
     protection => {
 	optional => 1,
 	type => 'boolean',
-	description => "Sets the protection flag of the VM. This will disable the remove VM and remove disk operations.",
+	description => "Sets the protection flag of the VM. This will disable the remove VM and"
+	    ." remove disk operations.",
 	default => 0,
     },
     bios => {
@@ -636,17 +638,16 @@ EODESCR
 	type => 'string',
 	pattern => '(?:[a-fA-F0-9]{8}(?:-[a-fA-F0-9]{4}){3}-[a-fA-F0-9]{12}|[01])',
 	format_description => 'UUID',
-	description => "Set VM Generation ID. Use '1' to autogenerate on create or update, pass '0' to disable explicitly.",
-	verbose_description => "The VM generation ID (vmgenid) device exposes a".
-	    " 128-bit integer value identifier to the guest OS. This allows to".
-	    " notify the guest operating system when the virtual machine is".
-	    " executed with a different configuration (e.g. snapshot execution".
-	    " or creation from a template). The guest operating system notices".
-	    " the change, and is then able to react as appropriate by marking".
-	    " its copies of distributed databases as dirty, re-initializing its".
-	    " random number generator, etc.\n".
-	    "Note that auto-creation only works when done throug API/CLI create".
-	    " or update methods, but not when manually editing the config file.",
+	description => "Set VM Generation ID. Use '1' to autogenerate on create or update, pass '0'"
+	    ." to disable explicitly.",
+	verbose_description => "The VM generation ID (vmgenid) device exposes a 128-bit integer"
+	    ." value identifier to the guest OS. This allows to notify the guest operating system"
+	    ." when the virtual machine is executed with a different configuration (e.g. snapshot"
+	    ." execution or creation from a template). The guest operating system notices the"
+	    ." change, and is then able to react as appropriate by marking its copies of"
+	    ." distributed databases as dirty, re-initializing its random number generator, etc.\n"
+	    ."Note that auto-creation only works when done through API/CLI create or update methods"
+	    .", but not when manually editing the config file.",
 	default => "1 (autogenerated)",
 	optional => 1,
     },
@@ -659,7 +660,8 @@ EODESCR
     ivshmem => {
 	type => 'string',
 	format => $ivshmem_fmt,
-	description => "Inter-VM shared memory. Useful for direct communication between VMs, or to the host.",
+	description => "Inter-VM shared memory. Useful for direct communication between VMs, or to"
+	    ." the host.",
 	optional => 1,
     },
     audio0 => {
@@ -691,21 +693,24 @@ my $cicustom_fmt = {
     meta => {
 	type => 'string',
 	optional => 1,
-	description => 'Specify a custom file containing all meta data passed to the VM via cloud-init. This is provider specific meaning configdrive2 and nocloud differ.',
+	description => 'Specify a custom file containing all meta data passed to the VM via"
+	    ." cloud-init. This is provider specific meaning configdrive2 and nocloud differ.',
 	format => 'pve-volume-id',
 	format_description => 'volume',
     },
     network => {
 	type => 'string',
 	optional => 1,
-	description => 'Specify a custom file containing all network data passed to the VM via cloud-init.',
+	description => 'Specify a custom file containing all network data passed to the VM via'
+	    .' cloud-init.',
 	format => 'pve-volume-id',
 	format_description => 'volume',
     },
     user => {
 	type => 'string',
 	optional => 1,
-	description => 'Specify a custom file containing all user data passed to the VM via cloud-init.',
+	description => 'Specify a custom file containing all user data passed to the VM via'
+	    .' cloud-init.',
 	format => 'pve-volume-id',
 	format_description => 'volume',
     },
@@ -716,34 +721,44 @@ my $confdesc_cloudinit = {
     citype => {
 	optional => 1,
 	type => 'string',
-	description => 'Specifies the cloud-init configuration format. The default depends on the configured operating system type (`ostype`. We use the `nocloud` format for Linux, and `configdrive2` for windows.',
+	description => 'Specifies the cloud-init configuration format. The default depends on the'
+	    .' configured operating system type (`ostype`. We use the `nocloud` format for Linux,'
+	    .' and `configdrive2` for windows.',
 	enum => ['configdrive2', 'nocloud'],
     },
     ciuser => {
 	optional => 1,
 	type => 'string',
-	description => "cloud-init: User name to change ssh keys and password for instead of the image's configured default user.",
+	description => "cloud-init: User name to change ssh keys and password for instead of the"
+	    ." image's configured default user.",
     },
     cipassword => {
 	optional => 1,
 	type => 'string',
-	description => 'cloud-init: Password to assign the user. Using this is generally not recommended. Use ssh keys instead. Also note that older cloud-init versions do not support hashed passwords.',
+	description => 'cloud-init: Password to assign the user. Using this is generally not'
+	    .' recommended. Use ssh keys instead. Also note that older cloud-init versions do not'
+	    .' support hashed passwords.',
     },
     cicustom => {
 	optional => 1,
 	type => 'string',
-	description => 'cloud-init: Specify custom files to replace the automatically generated ones at start.',
+	description => 'cloud-init: Specify custom files to replace the automatically generated'
+	    .' ones at start.',
 	format => 'pve-qm-cicustom',
     },
     searchdomain => {
 	optional => 1,
 	type => 'string',
-	description => "cloud-init: Sets DNS search domains for a container. Create will automatically use the setting from the host if neither searchdomain nor nameserver are set.",
+	description => "cloud-init: Sets DNS search domains for a container. Create will'
+	    .' automatically use the setting from the host if neither searchdomain nor nameserver'
+	    .' are set.",
     },
     nameserver => {
 	optional => 1,
 	type => 'string', format => 'address-list',
-	description => "cloud-init: Sets DNS server IP address for a container. Create will automatically use the setting from the host if neither searchdomain nor nameserver are set.",
+	description => "cloud-init: Sets DNS server IP address for a container. Create will'
+	    .' automatically use the setting from the host if neither searchdomain nor nameserver'
+	    .' are set.",
     },
     sshkeys => {
 	optional => 1,
@@ -840,11 +855,14 @@ __EOD__
 
 my $net_fmt = {
     macaddr  => get_standard_option('mac-addr', {
-	description => "MAC address. That address must be unique withing your network. This is automatically generated if not specified.",
+	description => "MAC address. That address must be unique withing your network. This is"
+	    ." automatically generated if not specified.",
     }),
     model => {
 	type => 'string',
-	description => "Network Card Model. The 'virtio' model provides the best performance with very low CPU overhead. If your guest does not support this driver, it is usually best to use 'e1000'.",
+	description => "Network Card Model. The 'virtio' model provides the best performance with"
+	    ." very low CPU overhead. If your guest does not support this driver, it is usually"
+	    ." best to use 'e1000'.",
         enum => $nic_model_list,
         default_key => 1,
     },
@@ -950,10 +968,12 @@ cloud-init: Specify IP addresses and gateways for the corresponding interface.
 
 IP addresses use CIDR notation, gateways are optional but need an IP of the same type specified.
 
-The special string 'dhcp' can be used for IP addresses to use DHCP, in which case no explicit gateway should be provided.
+The special string 'dhcp' can be used for IP addresses to use DHCP, in which case no explicit
+gateway should be provided.
 For IPv6 the special string 'auto' can be used to use stateless autoconfiguration.
 
-If cloud-init is enabled and neither an IPv4 nor an IPv6 address is specified, it defaults to using dhcp on IPv4.
+If cloud-init is enabled and neither an IPv4 nor an IPv6 address is specified, it defaults to using
+dhcp on IPv4.
 EODESCR
 };
 PVE::JSONSchema::register_standard_option("pve-qm-ipconfig", $netdesc);
@@ -998,7 +1018,8 @@ The Host USB device or port or the value 'spice'. HOSTUSBDEVICE syntax is:
 
 You can use the 'lsusb -t' command to list existing usb devices.
 
-NOTE: This option allows direct access to host hardware. So it is no longer possible to migrate such machines - use with special care.
+NOTE: This option allows direct access to host hardware. So it is no longer possible to migrate such
+machines - use with special care.
 
 The value 'spice' can be used to add a usb redirection devices for spice.
 EODESCR
@@ -1028,7 +1049,8 @@ Create a serial device inside the VM (n is 0 to 3), and pass through a
 host serial device (i.e. /dev/ttyS0), or create a unix socket on the
 host side (use 'qm terminal' to open a terminal connection).
 
-NOTE: If you pass through a host serial device, it is no longer possible to migrate such machines - use with special care.
+NOTE: If you pass through a host serial device, it is no longer possible to migrate such machines -
+use with special care.
 
 CAUTION: Experimental! User reported problems with this option.
 EODESCR
@@ -1042,7 +1064,8 @@ my $paralleldesc= {
 	verbose_description =>  <<EODESCR,
 Map host parallel devices (n is 0 to 2).
 
-NOTE: This option allows direct access to host hardware. So it is no longer possible to migrate such machines - use with special care.
+NOTE: This option allows direct access to host hardware. So it is no longer possible to migrate such
+machines - use with special care.
 
 CAUTION: Experimental! User reported problems with this option.
 EODESCR
@@ -1110,6 +1133,11 @@ sub kvm_user_version {
 
     return $kvm_user_version->{$binary};
 
+}
+my sub extract_version {
+    my ($machine_type, $version) = @_;
+    $version = kvm_user_version() if !defined($version);
+    PVE::QemuServer::Machine::extract_version($machine_type, $version)
 }
 
 sub kernel_has_vhost_net {
@@ -1193,7 +1221,8 @@ sub cleanup_drive_path {
 	($drive->{file} !~ m/^([^:]+):(.+)$/) &&
 	($drive->{file} !~ m/^\d+$/)) {
 	my ($vtype, $volid) = PVE::Storage::path_to_volume_id($storecfg, $drive->{file});
-	raise_param_exc({ $opt => "unable to associate path '$drive->{file}' to any storage"}) if !$vtype;
+	raise_param_exc({ $opt => "unable to associate path '$drive->{file}' to any storage"})
+	    if !$vtype;
 	$drive->{media} = 'cdrom' if !$drive->{media} && $vtype eq 'iso';
 	verify_media_type($opt, $vtype, $drive->{media});
 	$drive->{file} = $volid;
@@ -1323,10 +1352,11 @@ sub print_drivedevice_full {
     my $device = '';
     my $maxdev = 0;
 
+    my $drive_id = "$drive->{interface}$drive->{index}";
     if ($drive->{interface} eq 'virtio') {
-	my $pciaddr = print_pci_addr("$drive->{interface}$drive->{index}", $bridges, $arch, $machine_type);
-	$device = "virtio-blk-pci,drive=drive-$drive->{interface}$drive->{index},id=$drive->{interface}$drive->{index}$pciaddr";
-	$device .= ",iothread=iothread-$drive->{interface}$drive->{index}" if $drive->{iothread};
+	my $pciaddr = print_pci_addr("$drive_id", $bridges, $arch, $machine_type);
+	$device = "virtio-blk-pci,drive=drive-$drive_id,id=${drive_id}${pciaddr}";
+	$device .= ",iothread=iothread-$drive_id" if $drive->{iothread};
     } elsif ($drive->{interface} eq 'scsi') {
 
 	my ($maxdev, $controller, $controller_prefix) = scsihw_infos($conf, $drive);
@@ -1350,7 +1380,7 @@ sub print_drivedevice_full {
 	    }
 
 	    # for compatibility only, we prefer scsi-hd (#2408, #2355, #2380)
-	    my $version = PVE::QemuServer::Machine::extract_version($machine_type, kvm_user_version());
+	    my $version = extract_version($machine_type, kvm_user_version());
 	    if ($path =~ m/^iscsi\:\/\// &&
 	       !min_version($version, 4, 1)) {
 		$devicetype = 'generic';
@@ -1358,10 +1388,12 @@ sub print_drivedevice_full {
 	}
 
 	if (!$conf->{scsihw} || ($conf->{scsihw} =~ m/^lsi/)){
-	    $device = "scsi-$devicetype,bus=$controller_prefix$controller.0,scsi-id=$unit,drive=drive-$drive->{interface}$drive->{index},id=$drive->{interface}$drive->{index}";
+	    $device = "scsi-$devicetype,bus=$controller_prefix$controller.0,scsi-id=$unit";
 	} else {
-	    $device = "scsi-$devicetype,bus=$controller_prefix$controller.0,channel=0,scsi-id=0,lun=$drive->{index},drive=drive-$drive->{interface}$drive->{index},id=$drive->{interface}$drive->{index}";
+	    $device = "scsi-$devicetype,bus=$controller_prefix$controller.0,channel=0,scsi-id=0"
+	        .",lun=$drive->{index}";
 	}
+	$device .= ",drive=drive-$drive_id,id=$drive_id";
 
 	if ($drive->{ssd} && ($devicetype eq 'block' || $devicetype eq 'hd')) {
 	    $device .= ",rotation_rate=1";
@@ -1380,7 +1412,7 @@ sub print_drivedevice_full {
 	} else {
 	    $device .= ",bus=ahci$controller.$unit";
 	}
-	$device .= ",drive=drive-$drive->{interface}$drive->{index},id=$drive->{interface}$drive->{index}";
+	$device .= ",drive=drive-$drive_id,id=$drive_id";
 
 	if ($devicetype eq 'hd') {
 	    if (my $model = $drive->{model}) {
@@ -1530,7 +1562,8 @@ sub print_netdevice_full {
     my $pciaddr = print_pci_addr("$netid", $bridges, $arch, $machine_type);
     my $tmpstr = "$device,mac=$net->{macaddr},netdev=$netid$pciaddr,id=$netid";
     if ($net->{queues} && $net->{queues} > 1 && $net->{model} eq 'virtio'){
-	#Consider we have N queues, the number of vectors needed is 2*N + 2 (plus one config interrupt and control vq)
+	# Consider we have N queues, the number of vectors needed is 2 * N + 2, i.e., one per in
+	# and out of each queue plus one config interrupt and control vector queue
 	my $vectors = $net->{queues} * 2 + 2;
 	$tmpstr .= ",vectors=$vectors,mq=on";
     }
@@ -1598,7 +1631,8 @@ sub print_netdev_full {
     my $script = $hotplug ? "pve-bridge-hotplug" : "pve-bridge";
 
     if ($net->{bridge}) {
-        $netdev = "type=tap,id=$netid,ifname=${ifname},script=/var/lib/qemu-server/$script,downscript=/var/lib/qemu-server/pve-bridgedown$vhostparam";
+	$netdev = "type=tap,id=$netid,ifname=${ifname},script=/var/lib/qemu-server/$script"
+	    .",downscript=/var/lib/qemu-server/pve-bridgedown$vhostparam";
     } else {
         $netdev = "type=user,id=$netid,hostname=$vmname";
     }
@@ -1692,7 +1726,7 @@ sub parse_number_sets {
 sub parse_numa {
     my ($data) = @_;
 
-    my $res = PVE::JSONSchema::parse_property_string($numa_fmt, $data);
+    my $res = parse_property_string($numa_fmt, $data);
     $res->{cpus} = parse_number_sets($res->{cpus}) if defined($res->{cpus});
     $res->{hostnodes} = parse_number_sets($res->{hostnodes}) if defined($res->{hostnodes});
     return $res;
@@ -1702,7 +1736,7 @@ sub parse_numa {
 sub parse_net {
     my ($data) = @_;
 
-    my $res = eval { PVE::JSONSchema::parse_property_string($net_fmt, $data) };
+    my $res = eval { parse_property_string($net_fmt, $data) };
     if ($@) {
 	warn $@;
 	return undef;
@@ -1718,7 +1752,7 @@ sub parse_net {
 sub parse_ipconfig {
     my ($data) = @_;
 
-    my $res = eval { PVE::JSONSchema::parse_property_string($ipconfig_fmt, $data) };
+    my $res = eval { parse_property_string($ipconfig_fmt, $data) };
     if ($@) {
 	warn $@;
 	return undef;
@@ -1855,7 +1889,7 @@ my $smbios1_fmt = {
 sub parse_smbios1 {
     my ($data) = @_;
 
-    my $res = eval { PVE::JSONSchema::parse_property_string($smbios1_fmt, $data) };
+    my $res = eval { parse_property_string($smbios1_fmt, $data) };
     warn $@ if $@;
     return $res;
 }
@@ -1872,7 +1906,7 @@ sub parse_watchdog {
 
     return undef if !$value;
 
-    my $res = eval { PVE::JSONSchema::parse_property_string($watchdog_fmt, $value) };
+    my $res = eval { parse_property_string($watchdog_fmt, $value) };
     warn $@ if $@;
     return $res;
 }
@@ -1882,7 +1916,7 @@ sub parse_guest_agent {
 
     return {} if !defined($value->{agent});
 
-    my $res = eval { PVE::JSONSchema::parse_property_string($agent_fmt, $value->{agent}) };
+    my $res = eval { parse_property_string($agent_fmt, $value->{agent}) };
     warn $@ if $@;
 
     # if the agent is disabled ignore the other potentially set properties
@@ -1894,7 +1928,7 @@ sub parse_vga {
     my ($value) = @_;
 
     return {} if !$value;
-    my $res = eval { PVE::JSONSchema::parse_property_string($vga_fmt, $value) };
+    my $res = eval { parse_property_string($vga_fmt, $value) };
     warn $@ if $@;
     return $res;
 }
@@ -1904,7 +1938,7 @@ sub parse_rng {
 
     return undef if !$value;
 
-    my $res = eval { PVE::JSONSchema::parse_property_string($rng_fmt, $value) };
+    my $res = eval { parse_property_string($rng_fmt, $value) };
     warn $@ if $@;
     return $res;
 }
@@ -2210,7 +2244,7 @@ sub write_vm_config {
 	}
 
 	foreach my $key (sort keys %$conf) {
-	    next if $key eq 'digest' || $key eq 'description' || $key eq 'pending' || $key eq 'snapshots';
+	    next if $key =~ /^(digest|description|pending|snapshots)$/;
 	    $raw .= "$key: $conf->{$key}\n";
 	}
 	return $raw;
@@ -2687,7 +2721,7 @@ sub conf_has_audio {
     my $audio = $conf->{"audio$id"};
     return undef if !defined($audio);
 
-    my $audioproperties = PVE::JSONSchema::parse_property_string($audio_fmt, $audio);
+    my $audioproperties = parse_property_string($audio_fmt, $audio);
     my $audiodriver = $audioproperties->{driver} // 'spice';
 
     return {
@@ -2941,7 +2975,7 @@ sub config_to_command {
     my $add_pve_version = min_version($kvmver, 4, 1);
 
     my $machine_type = get_vm_machine($conf, $forcemachine, $arch, $add_pve_version);
-    my $machine_version = PVE::QemuServer::Machine::extract_version($machine_type, $kvmver);
+    my $machine_version = extract_version($machine_type, $kvmver);
     $kvm //= 1 if is_native($arch);
 
     $machine_version =~ m/(\d+)\.(\d+)/;
@@ -2950,11 +2984,13 @@ sub config_to_command {
     if ($kvmver =~ m/^\d+\.\d+\.(\d+)/ && $1 >= 90) {
 	warn "warning: Installed QEMU version ($kvmver) is a release candidate, ignoring version checks\n";
     } elsif (!min_version($kvmver, $machine_major, $machine_minor)) {
-	die "Installed QEMU version '$kvmver' is too old to run machine type '$machine_type', please upgrade node '$nodename'\n"
+	die "Installed QEMU version '$kvmver' is too old to run machine type '$machine_type',"
+	    ." please upgrade node '$nodename'\n"
     } elsif (!PVE::QemuServer::Machine::can_run_pve_machine_version($machine_version, $kvmver)) {
 	my $max_pve_version = PVE::QemuServer::Machine::get_pve_version($machine_version);
-	die "Installed qemu-server (max feature level for $machine_major.$machine_minor is pve$max_pve_version)"
-	    ." is too old to run machine type '$machine_type', please upgrade node '$nodename'\n";
+	die "Installed qemu-server (max feature level for $machine_major.$machine_minor is"
+	    ." pve$max_pve_version) is too old to run machine type '$machine_type', please upgrade"
+	    ." node '$nodename'\n";
     }
 
     # if a specific +pve version is required for a feature, use $version_guard
@@ -2970,9 +3006,9 @@ sub config_to_command {
 	return 1;
     };
 
-    if ($kvm) {
-	die "KVM virtualisation configured, but not available. Either disable in VM configuration or enable in BIOS.\n"
-	    if !defined kvm_version();
+    if ($kvm && !defined kvm_version()) {
+	die "KVM virtualisation configured, but not available. Either disable in VM configuration"
+	    ." or enable in BIOS.\n";
     }
 
     my $q35 = PVE::QemuServer::Machine::machine_type_is_q35($conf);
@@ -3081,7 +3117,8 @@ sub config_to_command {
     }
 
     # add usb controllers
-    my @usbcontrollers = PVE::QemuServer::USB::get_usb_controllers($conf, $bridges, $arch, $machine_type, $usbdesc->{format}, $MAX_USB_DEVICES);
+    my @usbcontrollers = PVE::QemuServer::USB::get_usb_controllers(
+        $conf, $bridges, $arch, $machine_type, $usbdesc->{format}, $MAX_USB_DEVICES);
     push @$devices, @usbcontrollers if @usbcontrollers;
     my $vga = parse_vga($conf->{vga});
 
@@ -3122,7 +3159,8 @@ sub config_to_command {
     my $usb_dev_features = {};
     $usb_dev_features->{spice_usb3} = 1 if min_version($machine_version, 4, 0);
 
-    my @usbdevices = PVE::QemuServer::USB::get_usb_devices($conf, $usbdesc->{format}, $MAX_USB_DEVICES, $usb_dev_features);
+    my @usbdevices = PVE::QemuServer::USB::get_usb_devices(
+        $conf, $usbdesc->{format}, $MAX_USB_DEVICES, $usb_dev_features);
     push @$devices, @usbdevices if @usbdevices;
     # serial devices
     for (my $i = 0; $i < $MAX_SERIAL_PORTS; $i++)  {
@@ -3207,7 +3245,8 @@ sub config_to_command {
     push @$cmd, '-no-reboot' if  defined($conf->{reboot}) && $conf->{reboot} == 0;
 
     if ($vga->{type} && $vga->{type} !~ m/^serial\d+$/ && $vga->{type} ne 'none'){
-	push @$devices, '-device', print_vga_device($conf, $vga, $arch, $machine_version, $machine_type, undef, $qxlnum, $bridges);
+	push @$devices, '-device', print_vga_device(
+	    $conf, $vga, $arch, $machine_version, $machine_type, undef, $qxlnum, $bridges);
 	my $socket = PVE::QemuServer::Helpers::vnc_socket($vmid);
 	push @$cmd,  '-vnc', "unix:$socket,password";
     } else {
@@ -3290,7 +3329,8 @@ sub config_to_command {
 	if ($qxlnum > 1) {
 	    if ($winversion){
 		for (my $i = 1; $i < $qxlnum; $i++){
-		    push @$devices, '-device', print_vga_device($conf, $vga, $arch, $machine_version, $machine_type, $i, $qxlnum, $bridges);
+		    push @$devices, '-device', print_vga_device(
+		        $conf, $vga, $arch, $machine_version, $machine_type, $i, $qxlnum, $bridges);
 		}
 	    } else {
 		# assume other OS works like Linux
@@ -3317,14 +3357,17 @@ sub config_to_command {
 	my $localhost = PVE::Network::addr_to_ip($nodeaddrs[0]->{addr});
 	$spice_port = PVE::Tools::next_spice_port($pfamily, $localhost);
 
-	my $spice_enhancement = PVE::JSONSchema::parse_property_string($spice_enhancements_fmt, $conf->{spice_enhancements} // '');
+	my $spice_enhancement_str = $conf->{spice_enhancements} // '';
+	my $spice_enhancement = parse_property_string($spice_enhancements_fmt, $spice_enhancement_str);
 	if ($spice_enhancement->{foldersharing}) {
 	    push @$devices, '-chardev', "spiceport,id=foldershare,name=org.spice-space.webdav.0";
 	    push @$devices, '-device', "virtserialport,chardev=foldershare,name=org.spice-space.webdav.0";
 	}
 
 	my $spice_opts = "tls-port=${spice_port},addr=$localhost,tls-ciphers=HIGH,seamless-migration=on";
-	$spice_opts .= ",streaming-video=$spice_enhancement->{videostreaming}" if $spice_enhancement->{videostreaming};
+	$spice_opts .= ",streaming-video=$spice_enhancement->{videostreaming}"
+	    if $spice_enhancement->{videostreaming};
+
 	push @$devices, '-spice', "$spice_opts";
     }
 
@@ -3403,14 +3446,16 @@ sub config_to_command {
 		$queues = ",num_queues=$drive->{queues}";
 	    }
 
-	    push @$devices, '-device', "$scsihw_type,id=$controller_prefix$controller$pciaddr$iothread$queues" if !$scsicontroller->{$controller};
+	    push @$devices, '-device', "$scsihw_type,id=$controller_prefix$controller$pciaddr$iothread$queues"
+		if !$scsicontroller->{$controller};
 	    $scsicontroller->{$controller}=1;
 	}
 
         if ($drive->{interface} eq 'sata') {
 	    my $controller = int($drive->{index} / $PVE::QemuServer::Drive::MAX_SATA_DISKS);
 	    $pciaddr = print_pci_addr("ahci$controller", $bridges, $arch, $machine_type);
-	    push @$devices, '-device', "ahci,id=ahci$controller,multifunction=on$pciaddr" if !$ahcicontroller->{$controller};
+	    push @$devices, '-device', "ahci,id=ahci$controller,multifunction=on$pciaddr"
+		if !$ahcicontroller->{$controller};
 	    $ahcicontroller->{$controller}=1;
         }
 
@@ -3418,7 +3463,8 @@ sub config_to_command {
 	$drive_cmd .= ',readonly' if PVE::QemuConfig->is_template($conf);
 
 	push @$devices, '-drive',$drive_cmd;
-	push @$devices, '-device', print_drivedevice_full($storecfg, $conf, $vmid, $drive, $bridges, $arch, $machine_type);
+	push @$devices, '-device', print_drivedevice_full(
+	    $storecfg, $conf, $vmid, $drive, $bridges, $arch, $machine_type);
     });
 
     for (my $i = 0; $i < $MAX_NETS; $i++) {
@@ -3436,12 +3482,14 @@ sub config_to_command {
 	 my $netdevfull = print_netdev_full($vmid, $conf, $arch, $d, "net$i");
 	 push @$devices, '-netdev', $netdevfull;
 
-	 my $netdevicefull = print_netdevice_full($vmid, $conf, $d, "net$i", $bridges, $use_old_bios_files, $arch, $machine_type);
+	 my $netdevicefull = print_netdevice_full(
+	    $vmid, $conf, $d, "net$i", $bridges, $use_old_bios_files, $arch, $machine_type);
+
 	 push @$devices, '-device', $netdevicefull;
     }
 
     if ($conf->{ivshmem}) {
-	my $ivshmem = PVE::JSONSchema::parse_property_string($ivshmem_fmt, $conf->{ivshmem});
+	my $ivshmem = parse_property_string($ivshmem_fmt, $conf->{ivshmem});
 
 	my $bus;
 	if ($q35) {
@@ -3454,7 +3502,8 @@ sub config_to_command {
 	my $path = '/dev/shm/pve-shm-' . $ivshmem_name;
 
 	push @$devices, '-device', "ivshmem-plain,memdev=ivshmem$bus,";
-	push @$devices, '-object', "memory-backend-file,id=ivshmem,share=on,mem-path=$path,size=$ivshmem->{size}M";
+	push @$devices, '-object', "memory-backend-file,id=ivshmem,share=on,mem-path=$path"
+	    .",size=$ivshmem->{size}M";
     }
 
     # pci.4 is nested in pci.1
@@ -3530,12 +3579,11 @@ sub check_rng_source {
 
     my $rng_current = '/sys/devices/virtual/misc/hw_random/rng_current';
     if ($source eq '/dev/hwrng' && file_read_firstline($rng_current) eq 'none') {
-	# Needs to abort, otherwise QEMU crashes on first rng access.
-	# Note that rng_current cannot be changed to 'none' manually, so
-	# once the VM is past this point, it is no longer an issue.
-	die "Cannot start VM with passed-through RNG device: '/dev/hwrng'"
-	    . " exists, but '$rng_current' is set to 'none'. Ensure that"
-	    . " a compatible hardware-RNG is attached to the host.\n";
+	# Needs to abort, otherwise QEMU crashes on first rng access. Note that rng_current cannot
+	# be changed to 'none' manually, so once the VM is past this point, it's no longer an issue.
+	die "Cannot start VM with passed-through RNG device: '/dev/hwrng' exists, but"
+	    ." '$rng_current' is set to 'none'. Ensure that a compatible hardware-RNG is attached"
+	    ." to the host.\n";
     }
 }
 
@@ -3605,7 +3653,8 @@ sub vm_deviceplug {
     my $devices_list = vm_devices_list($vmid);
     return 1 if defined($devices_list->{$deviceid});
 
-    qemu_add_pci_bridge($storecfg, $conf, $vmid, $deviceid, $arch, $machine_type); # add PCI bridge if we need it for the device
+    # add PCI bridge if we need it for the device
+    qemu_add_pci_bridge($storecfg, $conf, $vmid, $deviceid, $arch, $machine_type);
 
     if ($deviceid eq 'tablet') {
 
@@ -3680,7 +3729,8 @@ sub vm_deviceplug {
 	my $use_old_bios_files = undef;
 	($use_old_bios_files, $machine_type) = qemu_use_old_bios_files($machine_type);
 
-	my $netdevicefull = print_netdevice_full($vmid, $conf, $device, $deviceid, undef, $use_old_bios_files, $arch, $machine_type);
+	my $netdevicefull = print_netdevice_full(
+	    $vmid, $conf, $device, $deviceid, undef, $use_old_bios_files, $arch, $machine_type);
 	qemu_deviceadd($vmid, $netdevicefull);
 	eval {
 	    qemu_deviceaddverify($vmid, $deviceid);
@@ -4410,7 +4460,7 @@ sub vmconfig_hotplug_pending {
 		# since we cannot reliably hot unplug usb devices
 		# we are disabling it
 		die "skip\n" if !$hotplug_features->{usb} || $value =~ m/spice/i;
-		my $d = eval { PVE::JSONSchema::parse_property_string($usbdesc->{format}, $value) };
+		my $d = eval { parse_property_string($usbdesc->{format}, $value) };
 		die "skip\n" if !$d;
 		qemu_usb_hotplug($storecfg, $conf, $vmid, $opt, $d, $arch, $machine_type);
 	    } elsif ($opt eq 'vcpus') {
@@ -4612,102 +4662,100 @@ sub vmconfig_update_disk {
 
     my $drive = parse_drive($opt, $value);
 
-    if ($conf->{$opt}) {
+    if ($conf->{$opt} && (my $old_drive = parse_drive($opt, $conf->{$opt}))) {
+	my $media = $drive->{media} || 'disk';
+	my $oldmedia = $old_drive->{media} || 'disk';
+	die "unable to change media type\n" if $media ne $oldmedia;
 
-	if (my $old_drive = parse_drive($opt, $conf->{$opt}))  {
+	if (!drive_is_cdrom($old_drive)) {
 
-	    my $media = $drive->{media} || 'disk';
-	    my $oldmedia = $old_drive->{media} || 'disk';
-	    die "unable to change media type\n" if $media ne $oldmedia;
+	    if ($drive->{file} ne $old_drive->{file}) {
 
-	    if (!drive_is_cdrom($old_drive)) {
+		die "skip\n" if !$hotplug;
 
-		if ($drive->{file} ne $old_drive->{file}) {
+		# unplug and register as unused
+		vm_deviceunplug($vmid, $conf, $opt);
+		vmconfig_register_unused_drive($storecfg, $vmid, $conf, $old_drive)
 
-		    die "skip\n" if !$hotplug;
+	    } else {
+		# update existing disk
 
-		    # unplug and register as unused
-		    vm_deviceunplug($vmid, $conf, $opt);
-		    vmconfig_register_unused_drive($storecfg, $vmid, $conf, $old_drive)
+		# skip non hotpluggable value
+		if (safe_string_ne($drive->{discard}, $old_drive->{discard}) ||
+		    safe_string_ne($drive->{iothread}, $old_drive->{iothread}) ||
+		    safe_string_ne($drive->{queues}, $old_drive->{queues}) ||
+		    safe_string_ne($drive->{cache}, $old_drive->{cache}) ||
+		    safe_string_ne($drive->{ssd}, $old_drive->{ssd})) {
+		    die "skip\n";
+		}
 
-		} else {
-		    # update existing disk
+		# apply throttle
+		if (safe_num_ne($drive->{mbps}, $old_drive->{mbps}) ||
+		    safe_num_ne($drive->{mbps_rd}, $old_drive->{mbps_rd}) ||
+		    safe_num_ne($drive->{mbps_wr}, $old_drive->{mbps_wr}) ||
+		    safe_num_ne($drive->{iops}, $old_drive->{iops}) ||
+		    safe_num_ne($drive->{iops_rd}, $old_drive->{iops_rd}) ||
+		    safe_num_ne($drive->{iops_wr}, $old_drive->{iops_wr}) ||
+		    safe_num_ne($drive->{mbps_max}, $old_drive->{mbps_max}) ||
+		    safe_num_ne($drive->{mbps_rd_max}, $old_drive->{mbps_rd_max}) ||
+		    safe_num_ne($drive->{mbps_wr_max}, $old_drive->{mbps_wr_max}) ||
+		    safe_num_ne($drive->{iops_max}, $old_drive->{iops_max}) ||
+		    safe_num_ne($drive->{iops_rd_max}, $old_drive->{iops_rd_max}) ||
+		    safe_num_ne($drive->{iops_wr_max}, $old_drive->{iops_wr_max}) ||
+		    safe_num_ne($drive->{bps_max_length}, $old_drive->{bps_max_length}) ||
+		    safe_num_ne($drive->{bps_rd_max_length}, $old_drive->{bps_rd_max_length}) ||
+		    safe_num_ne($drive->{bps_wr_max_length}, $old_drive->{bps_wr_max_length}) ||
+		    safe_num_ne($drive->{iops_max_length}, $old_drive->{iops_max_length}) ||
+		    safe_num_ne($drive->{iops_rd_max_length}, $old_drive->{iops_rd_max_length}) ||
+		    safe_num_ne($drive->{iops_wr_max_length}, $old_drive->{iops_wr_max_length})) {
 
-		    # skip non hotpluggable value
-		    if (safe_string_ne($drive->{discard}, $old_drive->{discard}) ||
-			safe_string_ne($drive->{iothread}, $old_drive->{iothread}) ||
-			safe_string_ne($drive->{queues}, $old_drive->{queues}) ||
-			safe_string_ne($drive->{cache}, $old_drive->{cache}) ||
-			safe_string_ne($drive->{ssd}, $old_drive->{ssd})) {
-			die "skip\n";
-		    }
+		    qemu_block_set_io_throttle(
+			$vmid,"drive-$opt",
+			($drive->{mbps} || 0)*1024*1024,
+			($drive->{mbps_rd} || 0)*1024*1024,
+			($drive->{mbps_wr} || 0)*1024*1024,
+			 $drive->{iops} || 0,
+			 $drive->{iops_rd} || 0,
+			 $drive->{iops_wr} || 0,
+			($drive->{mbps_max} || 0)*1024*1024,
+			($drive->{mbps_rd_max} || 0)*1024*1024,
+			($drive->{mbps_wr_max} || 0)*1024*1024,
+			 $drive->{iops_max} || 0,
+			 $drive->{iops_rd_max} || 0,
+			 $drive->{iops_wr_max} || 0,
+			 $drive->{bps_max_length} || 1,
+			 $drive->{bps_rd_max_length} || 1,
+			 $drive->{bps_wr_max_length} || 1,
+			 $drive->{iops_max_length} || 1,
+			 $drive->{iops_rd_max_length} || 1,
+			 $drive->{iops_wr_max_length} || 1,
+		    );
 
-		    # apply throttle
-		    if (safe_num_ne($drive->{mbps}, $old_drive->{mbps}) ||
-			safe_num_ne($drive->{mbps_rd}, $old_drive->{mbps_rd}) ||
-			safe_num_ne($drive->{mbps_wr}, $old_drive->{mbps_wr}) ||
-			safe_num_ne($drive->{iops}, $old_drive->{iops}) ||
-			safe_num_ne($drive->{iops_rd}, $old_drive->{iops_rd}) ||
-			safe_num_ne($drive->{iops_wr}, $old_drive->{iops_wr}) ||
-			safe_num_ne($drive->{mbps_max}, $old_drive->{mbps_max}) ||
-			safe_num_ne($drive->{mbps_rd_max}, $old_drive->{mbps_rd_max}) ||
-			safe_num_ne($drive->{mbps_wr_max}, $old_drive->{mbps_wr_max}) ||
-			safe_num_ne($drive->{iops_max}, $old_drive->{iops_max}) ||
-			safe_num_ne($drive->{iops_rd_max}, $old_drive->{iops_rd_max}) ||
-			safe_num_ne($drive->{iops_wr_max}, $old_drive->{iops_wr_max}) ||
-			safe_num_ne($drive->{bps_max_length}, $old_drive->{bps_max_length}) ||
-			safe_num_ne($drive->{bps_rd_max_length}, $old_drive->{bps_rd_max_length}) ||
-			safe_num_ne($drive->{bps_wr_max_length}, $old_drive->{bps_wr_max_length}) ||
-			safe_num_ne($drive->{iops_max_length}, $old_drive->{iops_max_length}) ||
-			safe_num_ne($drive->{iops_rd_max_length}, $old_drive->{iops_rd_max_length}) ||
-			safe_num_ne($drive->{iops_wr_max_length}, $old_drive->{iops_wr_max_length})) {
-
-			qemu_block_set_io_throttle($vmid,"drive-$opt",
-						   ($drive->{mbps} || 0)*1024*1024,
-						   ($drive->{mbps_rd} || 0)*1024*1024,
-						   ($drive->{mbps_wr} || 0)*1024*1024,
-						   $drive->{iops} || 0,
-						   $drive->{iops_rd} || 0,
-						   $drive->{iops_wr} || 0,
-						   ($drive->{mbps_max} || 0)*1024*1024,
-						   ($drive->{mbps_rd_max} || 0)*1024*1024,
-						   ($drive->{mbps_wr_max} || 0)*1024*1024,
-						   $drive->{iops_max} || 0,
-						   $drive->{iops_rd_max} || 0,
-						   $drive->{iops_wr_max} || 0,
-						   $drive->{bps_max_length} || 1,
-						   $drive->{bps_rd_max_length} || 1,
-						   $drive->{bps_wr_max_length} || 1,
-						   $drive->{iops_max_length} || 1,
-						   $drive->{iops_rd_max_length} || 1,
-						   $drive->{iops_wr_max_length} || 1);
-
-		    }
-
-		    return 1;
-	        }
-
-	    } else { # cdrom
-
-		if ($drive->{file} eq 'none') {
-		    mon_cmd($vmid, "eject", force => JSON::true, id => "$opt");
-		    if (drive_is_cloudinit($old_drive)) {
-			vmconfig_register_unused_drive($storecfg, $vmid, $conf, $old_drive);
-		    }
-		} else {
-		    my $path = get_iso_path($storecfg, $vmid, $drive->{file});
-
-		    # force eject if locked
-		    mon_cmd($vmid, "eject", force => JSON::true, id => "$opt");
-
-		    if ($path) {
-			mon_cmd($vmid, "blockdev-change-medium",
-			    id => "$opt", filename => "$path");
-		    }
 		}
 
 		return 1;
 	    }
+
+	} else { # cdrom
+
+	    if ($drive->{file} eq 'none') {
+		mon_cmd($vmid, "eject", force => JSON::true, id => "$opt");
+		if (drive_is_cloudinit($old_drive)) {
+		    vmconfig_register_unused_drive($storecfg, $vmid, $conf, $old_drive);
+		}
+	    } else {
+		my $path = get_iso_path($storecfg, $vmid, $drive->{file});
+
+		# force eject if locked
+		mon_cmd($vmid, "eject", force => JSON::true, id => "$opt");
+
+		if ($path) {
+		    mon_cmd($vmid, "blockdev-change-medium",
+			id => "$opt", filename => "$path");
+		}
+	    }
+
+	    return 1;
 	}
     }
 
@@ -4774,7 +4822,8 @@ sub vm_migrate_alloc_nbd_disks {
 	    $format = qemu_img_format($scfg, $volname);
 	}
 
-	my $newvolid = PVE::Storage::vdisk_alloc($storecfg, $storeid, $vmid, $format, undef, ($drive->{size}/1024));
+	my $size = $drive->{size} / 1024;
+	my $newvolid = PVE::Storage::vdisk_alloc($storecfg, $storeid, $vmid, $format, undef, $size);
 	my $newdrive = $drive;
 	$newdrive->{format} = $format;
 	$newdrive->{file} = $newvolid;
@@ -5086,7 +5135,13 @@ sub vm_start_nolock {
 	    my $pfamily = PVE::Tools::get_host_address_family($nodename);
 	    my $storage_migrate_port = PVE::Tools::next_migrate_port($pfamily);
 
-	    mon_cmd($vmid, "nbd-server-start", addr => { type => 'inet', data => { host => "${localip}", port => "${storage_migrate_port}" } } );
+	    mon_cmd($vmid, "nbd-server-start", addr => {
+		type => 'inet',
+		data => {
+		    host => "${localip}",
+		    port => "${storage_migrate_port}",
+		},
+	    });
 	    $localip = "[$localip]" if Net::IP::ip_is_ipv6($localip);
 	    $migrate_storage_uri = "nbd:${localip}:${storage_migrate_port}";
 	}
@@ -5117,7 +5172,8 @@ sub vm_start_nolock {
 	    print "spice listens on port $spice_port\n";
 	    $res->{spice_port} = $spice_port;
 	    if ($migrate_opts->{spice_ticket}) {
-		mon_cmd($vmid, "set_password", protocol => 'spice', password => $migrate_opts->{spice_ticket});
+		mon_cmd($vmid, "set_password", protocol => 'spice', password =>
+		    $migrate_opts->{spice_ticket});
 		mon_cmd($vmid, "expire_password", protocol => 'spice', time => "+30");
 	    }
 	}
@@ -5227,7 +5283,7 @@ sub vm_stop_cleanup {
 	}
 
 	if ($conf->{ivshmem}) {
-	    my $ivshmem = PVE::JSONSchema::parse_property_string($ivshmem_fmt, $conf->{ivshmem});
+	    my $ivshmem = parse_property_string($ivshmem_fmt, $conf->{ivshmem});
 	    # just delete it for now, VMs which have this already open do not
 	    # are affected, but new VMs will get a separated one. If this
 	    # becomes an issue we either add some sort of ref-counting or just
@@ -5413,7 +5469,8 @@ sub vm_suspend {
 	    }
 
 
-	    $vmstate = PVE::QemuConfig->__snapshot_save_vmstate($vmid, $conf, "suspend-$date", $storecfg, $statestorage, 1);
+	    $vmstate = PVE::QemuConfig->__snapshot_save_vmstate(
+	        $vmid, $conf, "suspend-$date", $storecfg, $statestorage, 1);
 	    $path = PVE::Storage::path($storecfg, $vmstate);
 	    PVE::QemuConfig->write_config($vmid, $conf);
 	} else {
@@ -5696,7 +5753,8 @@ my $restore_allocate_devices = sub {
 	    $name .= ".$d->{format}" if $d->{format} ne 'raw';
 	}
 
-	my $volid = PVE::Storage::vdisk_alloc($storecfg, $storeid, $vmid, $d->{format}, $name, $alloc_size);
+	my $volid = PVE::Storage::vdisk_alloc(
+	    $storecfg, $storeid, $vmid, $d->{format}, $name, $alloc_size);
 
 	print STDERR "new volume ID is '$volid'\n";
 	$d->{volid} = $volid;
@@ -5842,18 +5900,18 @@ sub update_disk_config {
 
 	my $volid = $drive->{file};
 	return if !$volid;
+	my $volume = $volid_hash->{$volid};
 
 	# mark volid as "in-use" for next step
 	$referenced->{$volid} = 1;
-	if ($volid_hash->{$volid} &&
-	    (my $path = $volid_hash->{$volid}->{path})) {
+	if ($volume && (my $path = $volume->{path})) {
 	    $referencedpath->{$path} = 1;
 	}
 
 	return if drive_is_cdrom($drive);
-	return if !$volid_hash->{$volid};
+	return if !$volume;
 
-	my ($updated, $msg) = PVE::QemuServer::Drive::update_disksize($drive, $volid_hash->{$volid}->{size});
+	my ($updated, $msg) = PVE::QemuServer::Drive::update_disksize($drive, $volume->{size});
 	if (defined($updated)) {
 	    $changes = 1;
 	    $conf->{$opt} = print_drive($updated);
@@ -6022,7 +6080,9 @@ sub restore_proxmox_backup_archive {
 	    }
 	}
 
-	my $is_qemu_server_backup = scalar(grep { $_->{filename} eq 'qemu-server.conf.blob' } @{$index->{files}});
+	my $is_qemu_server_backup = scalar(
+	    grep { $_->{filename} eq 'qemu-server.conf.blob' } @{$index->{files}}
+	);
 	if (!$is_qemu_server_backup) {
 	    die "backup does not look like a qemu-server backup (missing 'qemu-server.conf' file)\n";
 	}
@@ -6847,7 +6907,8 @@ sub clone_disk {
 	} elsif ($drivename eq 'efidisk0') {
 	    $size = get_efivars_size($conf);
 	}
-	$newvolid = PVE::Storage::vdisk_alloc($storecfg, $storeid, $newvmid, $dst_format, $name, ($size/1024));
+	$size /= 1024;
+	$newvolid = PVE::Storage::vdisk_alloc($storecfg, $storeid, $newvmid, $dst_format, $name, $size);
 	push @$newvollist, $newvolid;
 
 	PVE::Storage::activate_volumes($storecfg, [$newvolid]);
@@ -6865,7 +6926,8 @@ sub clone_disk {
 		# that is given by the OVMF_VARS.fd
 		my $src_path = PVE::Storage::path($storecfg, $drive->{file});
 		my $dst_path = PVE::Storage::path($storecfg, $newvolid);
-		run_command(['qemu-img', 'dd', '-n', '-O', $dst_format, "bs=1", "count=$size", "if=$src_path", "of=$dst_path"]);
+		run_command(['qemu-img', 'dd', '-n', '-O', $dst_format, "bs=1", "count=$size",
+		    "if=$src_path", "of=$dst_path"]);
 	    } else {
 		qemu_img_convert($drive->{file}, $newvolid, $size, $snapname, $sparseinit);
 	    }
@@ -6877,7 +6939,8 @@ sub clone_disk {
 		    if $drive->{iothread};
 	    }
 
-	    qemu_drive_mirror($vmid, $drivename, $newvolid, $newvmid, $sparseinit, $jobs, $completion, $qga, $bwlimit);
+	    qemu_drive_mirror($vmid, $drivename, $newvolid, $newvmid, $sparseinit, $jobs,
+	        $completion, $qga, $bwlimit);
 	}
     }
 
@@ -6909,7 +6972,7 @@ sub qemu_use_old_bios_files {
         $machine_type = $1;
         $use_old_bios_files = 1;
     } else {
-	my $version = PVE::QemuServer::Machine::extract_version($machine_type, kvm_user_version());
+	my $version = extract_version($machine_type, kvm_user_version());
         # Note: kvm version < 2.4 use non-efi pxe files, and have problems when we
         # load new efi bios files on migration. So this hack is required to allow
         # live migration from qemu-2.2 to qemu-2.4, which is sometimes used when
@@ -6984,7 +7047,9 @@ sub scsihw_infos {
     }
 
     my $controller = int($drive->{index} / $maxdev);
-    my $controller_prefix = ($conf->{scsihw} && $conf->{scsihw} eq 'virtio-scsi-single') ? "virtioscsi" : "scsihw";
+    my $controller_prefix = ($conf->{scsihw} && $conf->{scsihw} eq 'virtio-scsi-single')
+	? "virtioscsi"
+	: "scsihw";
 
     return ($maxdev, $controller, $controller_prefix);
 }
