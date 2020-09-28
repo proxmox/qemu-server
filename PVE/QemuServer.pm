@@ -6948,10 +6948,10 @@ sub clone_disk {
 	$storeid = $storage if $storage;
 
 	my $dst_format = resolve_dst_disk_format($storecfg, $storeid, $volname, $format);
-	my ($size) = PVE::Storage::volume_size_info($storecfg, $drive->{file}, 3);
 
 	print "create full clone of drive $drivename ($drive->{file})\n";
 	my $name = undef;
+	my $size = undef;
 	if (drive_is_cloudinit($drive)) {
 	    $name = "vm-$newvmid-cloudinit";
 	    $name .= ".$dst_format" if $dst_format ne 'raw';
@@ -6959,6 +6959,8 @@ sub clone_disk {
 	    $size = PVE::QemuServer::Cloudinit::CLOUDINIT_DISK_SIZE;
 	} elsif ($drivename eq 'efidisk0') {
 	    $size = get_efivars_size($conf);
+	} else {
+	    ($size) = PVE::Storage::volume_size_info($storecfg, $drive->{file}, 3);
 	}
 	$size /= 1024;
 	$newvolid = PVE::Storage::vdisk_alloc($storecfg, $storeid, $newvmid, $dst_format, $name, $size);
