@@ -3031,6 +3031,7 @@ __PACKAGE__->register_method({
 				if !PVE::Storage::volume_has_feature($storecfg, 'clone', $drive->{file}, $snapname, $running);
 			}
 			$drives->{$opt} = $drive;
+			next if PVE::QemuServer::drive_is_cloudinit($drive);
 			push @$vollist, $drive->{file};
 		    }
 		} else {
