@@ -360,6 +360,7 @@ my $query_backup_status_loop = sub {
     }
 
     my $first_round = 1;
+    my $last_finishing = 0;
     while(1) {
 	my $status = mon_cmd($vmid, 'query-backup');
 
@@ -401,7 +402,9 @@ my $query_backup_status_loop = sub {
 
 	my $res = $status->{status} || 'unknown';
 	if ($res ne 'active') {
-	    $self->loginfo($statusline);
+	    if ($last_percent < 100) {
+		$self->loginfo($statusline);
+	    }
 	    if ($res ne 'done') {
 		die (($status->{errmsg} || "unknown error") . "\n") if $res eq 'error';
 		die "got unexpected status '$res'\n";
@@ -421,6 +424,11 @@ my $query_backup_status_loop = sub {
 	    $last_transferred = $transferred if $transferred;
 	    $last_time = $ctime;
 	    $last_reused = $reused;
+
+	    if (!$last_finishing && $status->{finishing}) {
+		$self->loginfo("Waiting for server to finish verification...");
+	    }
+	    $last_finishing = $status->{finishing};
 	}
 	sleep(1);
 	$first_round = 0 if $first_round;
