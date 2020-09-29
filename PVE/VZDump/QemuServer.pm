@@ -426,7 +426,7 @@ my $query_backup_status_loop = sub {
 	    $last_reused = $reused;
 
 	    if (!$last_finishing && $status->{finishing}) {
-		$self->loginfo("Waiting for server to finish verification...");
+		$self->loginfo("Waiting for server to finish backup validation...");
 	    }
 	    $last_finishing = $status->{finishing};
 	}
