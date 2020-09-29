@@ -1,3 +1,13 @@
+qemu-server (6.2-15) pve; urgency=medium
+
+  * fix #2570: add 'keephugepages' config property
+
+  * vzdump: log 'finishing' state for Proxmox Backup Server jobs, to avoid
+    suggesting that the backup is stuck at 100%. This can happen when the
+    validation and mark of pre-existing chunks needs a bit longer.
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 29 Sep 2020 17:44:28 +0200
+
 qemu-server (6.2-14) pve; urgency=medium
 
   * vzdump: allow bandwidth limit also PBS backup
