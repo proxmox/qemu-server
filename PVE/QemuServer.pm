@@ -1091,6 +1091,68 @@ for (my $i = 0; $i < $MAX_USB_DEVICES; $i++)  {
     $confdesc->{"usb$i"} = $usbdesc;
 }
 
+my $boot_fmt = {
+    legacy => {
+	optional => 1,
+	default_key => 1,
+	type => 'string',
+	description => "Boot on floppy (a), hard disk (c), CD-ROM (d), or network (n)."
+		     . " Deprecated, use 'order=' instead.",
+	pattern => '[acdn]{1,4}',
+	format_description => "[acdn]{1,4}",
+
+	# note: this is also the fallback if boot: is not given at all
+	default => 'cdn',
+    },
+    order => {
+	optional => 1,
+	type => 'string',
+	format => 'pve-qm-bootdev-list',
+	format_description => "device[;device...]",
+	description => <<EODESC,
+The guest will attempt to boot from devices in the order they appear here.
+
+Disks, optical drives and passed-through storage USB devices will be directly
+booted from, NICs will load PXE, and PCIe devices will either behave like disks
+(e.g. NVMe) or load an option ROM (e.g. RAID controller, hardware NIC).
+
+Note that only devices in this list will be marked as bootable and thus loaded
+by the guest firmware (BIOS/UEFI). If you require multiple disks for booting
+(e.g. software-raid), you need to specify all of them here.
+
+Overrides the deprecated 'legacy=[acdn]*' value when given.
+EODESC
+    },
+};
+PVE::JSONSchema::register_format('pve-qm-boot', $boot_fmt);
+
+PVE::JSONSchema::register_format('pve-qm-bootdev', \&verify_bootdev);
+sub verify_bootdev {
+    my ($dev, $noerr) = @_;
+
+    return $dev if PVE::QemuServer::Drive::is_valid_drivename($dev) && $dev !~ m/^efidisk/;
+
+    my $check = sub {
+	my ($base) = @_;
+	return 0 if $dev !~ m/^$base\d+$/;
+	return 0 if !$confdesc->{$dev};
+	return 1;
+    };
+
+    return $dev if $check->("net");
+    return $dev if $check->("usb");
+    return $dev if $check->("hostpci");
+
+    return undef if $noerr;
+    die "invalid boot device '$dev'\n";
+}
+
+sub print_bootorder {
+    my ($devs) = @_;
+    my $data = { order => join(';', @$devs) };
+    return PVE::JSONSchema::print_property_string($data, $boot_fmt);
+}
+
 my $kvm_api_version = 0;
 
 sub kvm_version {
@@ -7150,6 +7212,74 @@ sub clear_reboot_request {
 	if !$res && $! != POSIX::ENOENT;
 
     return $res;
+}
+
+sub bootorder_from_legacy {
+    my ($conf, $bootcfg) = @_;
+
+    my $boot = $bootcfg->{legacy} || $boot_fmt->{legacy}->{default};
+    my $bootindex_hash = {};
+    my $i = 1;
+    foreach my $o (split(//, $boot)) {
+	$bootindex_hash->{$o} = $i*100;
+	$i++;
+    }
+
+    my $bootorder = {};
+
+    PVE::QemuConfig->foreach_volume($conf, sub {
+	my ($ds, $drive) = @_;
+
+	if (drive_is_cdrom ($drive, 1)) {
+	    if ($bootindex_hash->{d}) {
+		$bootorder->{$ds} = $bootindex_hash->{d};
+		$bootindex_hash->{d} += 1;
+	    }
+	} elsif ($bootindex_hash->{c}) {
+	    $bootorder->{$ds} = $bootindex_hash->{c}
+		if $conf->{bootdisk} && $conf->{bootdisk} eq $ds;
+	    $bootindex_hash->{c} += 1;
+	}
+    });
+
+    if ($bootindex_hash->{n}) {
+	for (my $i = 0; $i < $MAX_NETS; $i++) {
+	    my $netname = "net$i";
+	    next if !$conf->{$netname};
+	    $bootorder->{$netname} = $bootindex_hash->{n};
+	    $bootindex_hash->{n} += 1;
+	}
+    }
+
+    return $bootorder;
+}
+
+# Generate default device list for 'boot: order=' property. Matches legacy
+# default boot order, but with explicit device names. This is important, since
+# the fallback for when neither 'order' nor the old format is specified relies
+# on 'bootorder_from_legacy' above, and it would be confusing if this diverges.
+sub get_default_bootdevices {
+    my ($conf) = @_;
+
+    my @ret = ();
+
+    # harddisk
+    my $first = PVE::QemuServer::Drive::resolve_first_disk($conf, 0);
+    push @ret, $first if $first;
+
+    # cdrom
+    $first = PVE::QemuServer::Drive::resolve_first_disk($conf, 1);
+    push @ret, $first if $first;
+
+    # network
+    for (my $i = 0; $i < $MAX_NETS; $i++) {
+	my $netname = "net$i";
+	next if !$conf->{$netname};
+	push @ret, $netname;
+	last;
+    }
+
+    return \@ret;
 }
 
 # bash completion helper

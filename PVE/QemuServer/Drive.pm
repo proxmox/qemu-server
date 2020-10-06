@@ -584,16 +584,15 @@ sub is_volume_in_use {
 }
 
 sub resolve_first_disk {
-    my $conf = shift;
+    my ($conf, $cdrom) = @_;
     my @disks = valid_drive_names();
-    my $firstdisk;
-    foreach my $ds (reverse @disks) {
+    foreach my $ds (@disks) {
 	next if !$conf->{$ds};
 	my $disk = parse_drive($ds, $conf->{$ds});
-	next if drive_is_cdrom($disk);
-	$firstdisk = $ds;
+	next if drive_is_cdrom($disk) xor $cdrom;
+	return $ds;
     }
-    return $firstdisk;
+    return undef;
 }
 
 1;
