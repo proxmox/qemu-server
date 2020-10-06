@@ -1191,6 +1191,12 @@ my $update_vm_api  = sub {
 
 	    my $modified = {}; # record what $option we modify
 
+	    my $bootcfg = PVE::JSONSchema::parse_property_string('pve-qm-boot', $conf->{boot})
+		if $conf->{boot};
+	    my @bootorder = PVE::Tools::split_list($bootcfg->{order})
+		if $bootcfg && $bootcfg->{order};
+	    my $bootorder_deleted = grep {$_ eq 'bootorder'} @delete;
+
 	    foreach my $opt (@delete) {
 		$modified->{$opt} = 1;
 		$conf = PVE::QemuConfig->load_config($vmid); # update/reload
@@ -1204,6 +1210,13 @@ my $update_vm_api  = sub {
 		}
 		my $is_pending_val = defined($conf->{pending}->{$opt});
 		delete $conf->{pending}->{$opt};
+
+		# remove from bootorder if necessary
+		if (!$bootorder_deleted && @bootorder && grep {$_ eq $opt} @bootorder) {
+		    @bootorder = grep {$_ ne $opt} @bootorder;
+		    $conf->{pending}->{boot} = PVE::QemuServer::print_bootorder(\@bootorder);
+		    $modified->{boot} = 1;
+		}
 
 		if ($opt =~ m/^unused/) {
 		    my $drive = PVE::QemuServer::parse_drive($opt, $val);
@@ -1283,6 +1296,24 @@ my $update_vm_api  = sub {
 		    $conf->{pending}->{$opt} = $param->{$opt};
 		} else {
 		    $conf->{pending}->{$opt} = $param->{$opt};
+
+		    if ($opt eq 'boot') {
+			my $new_bootcfg = PVE::JSONSchema::parse_property_string('pve-qm-boot', $param->{$opt});
+			if ($new_bootcfg->{order}) {
+			    my @devs = PVE::Tools::split_list($new_bootcfg->{order});
+			    for my $dev (@devs) {
+				my $exists = $conf->{$dev} || $conf->{pending}->{$dev};
+				my $deleted = grep {$_ eq $dev} @delete;
+				die "invalid bootorder: device '$dev' does not exist'\n"
+				    if !$exists || $deleted;
+			    }
+
+			    # remove legacy boot order settings if new one set
+			    $conf->{pending}->{$opt} = PVE::QemuServer::print_bootorder(\@devs);
+			    PVE::QemuConfig->add_to_pending_delete($conf, "bootdisk")
+				if $conf->{bootdisk};
+			}
+		    }
 		}
 		PVE::QemuConfig->remove_from_pending_delete($conf, $opt);
 		PVE::QemuConfig->write_config($vmid, $conf);
