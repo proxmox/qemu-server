@@ -74,13 +74,14 @@ sub get_usb_controllers {
 }
 
 sub get_usb_devices {
-    my ($conf, $format, $max_usb_devices, $features) = @_;
+    my ($conf, $format, $max_usb_devices, $features, $bootorder) = @_;
 
     my $devices = [];
 
     for (my $i = 0; $i < $max_usb_devices; $i++)  {
-	next if !$conf->{"usb$i"};
-	my $d = eval { PVE::JSONSchema::parse_property_string($format,$conf->{"usb$i"}) };
+	my $devname = "usb$i";
+	next if !$conf->{$devname};
+	my $d = eval { PVE::JSONSchema::parse_property_string($format,$conf->{$devname}) };
 	next if !$d;
 
 	if (defined($d->{host})) {
@@ -93,8 +94,10 @@ sub get_usb_devices {
 
 		push @$devices, '-chardev', "spicevmc,id=usbredirchardev$i,name=usbredir";
 		push @$devices, '-device', "usb-redir,chardev=usbredirchardev$i,id=usbredirdev$i,bus=$bus.0";
+
+		warn "warning: spice usb port set as bootdevice, ignoring\n" if $bootorder->{$devname};
 	    } else {
-		push @$devices, '-device', print_usbdevice_full($conf, "usb$i", $hostdevice);
+		push @$devices, '-device', print_usbdevice_full($conf, $devname, $hostdevice, $bootorder);
 	    }
 	}
     }
@@ -103,7 +106,7 @@ sub get_usb_devices {
 }
 
 sub print_usbdevice_full {
-    my ($conf, $deviceid, $device) = @_;
+    my ($conf, $deviceid, $device, $bootorder) = @_;
 
     return if !$device;
     my $usbdevice = "usb-host";
@@ -120,6 +123,7 @@ sub print_usbdevice_full {
     }
 
     $usbdevice .= ",id=$deviceid";
+    $usbdevice .= ",bootindex=$bootorder->{$deviceid}" if $bootorder->{$deviceid};
     return $usbdevice;
 }
 

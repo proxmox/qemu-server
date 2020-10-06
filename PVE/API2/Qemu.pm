@@ -656,9 +656,9 @@ __PACKAGE__->register_method({
 		eval {
 		    $vollist = &$create_disks($rpcenv, $authuser, $conf, $arch, $storecfg, $vmid, $pool, $param, $storage);
 
-		    if (!$conf->{bootdisk}) {
-			my $firstdisk = PVE::QemuServer::Drive::resolve_first_disk($conf);
-			$conf->{bootdisk} = $firstdisk if $firstdisk;
+		    if (!$conf->{boot}) {
+			my $devs = PVE::QemuServer::get_default_bootdevices($conf);
+			$conf->{boot} = PVE::QemuServer::print_bootorder($devs);
 		    }
 
 		    # auto generate uuid if user did not specify smbios1 option

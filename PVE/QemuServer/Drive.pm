@@ -501,11 +501,28 @@ sub print_drive {
     return PVE::JSONSchema::print_property_string($drive, $alldrive_fmt, $skip);
 }
 
+sub get_bootdisks {
+    my ($conf) = @_;
+
+    my $bootcfg = PVE::JSONSchema::parse_property_string('pve-qm-boot', $conf->{boot})
+	if $conf->{boot};
+
+    if (!defined($bootcfg) || $bootcfg->{legacy}) {
+	return [$conf->{bootdisk}] if $conf->{bootdisk};
+	return [];
+    }
+
+    my @list = PVE::Tools::split_list($bootcfg->{order});
+    @list = grep {is_valid_drivename($_)} @list;
+    return \@list;
+}
+
 sub bootdisk_size {
     my ($storecfg, $conf) = @_;
 
-    my $bootdisk = $conf->{bootdisk};
-    return undef if !$bootdisk;
+    my $bootdisks = get_bootdisks($conf);
+    return undef if !@$bootdisks;
+    my $bootdisk = $bootdisks->[0];
     return undef if !is_valid_drivename($bootdisk);
 
     return undef if !$conf->{$bootdisk};

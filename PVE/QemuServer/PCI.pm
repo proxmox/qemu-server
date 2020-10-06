@@ -357,7 +357,7 @@ sub parse_hostpci {
 }
 
 sub print_hostpci_devices {
-    my ($vmid, $conf, $devices, $winversion, $q35, $bridges, $arch, $machine_type) = @_;
+    my ($vmid, $conf, $devices, $winversion, $q35, $bridges, $arch, $machine_type, $bootorder) = @_;
 
     my $kvm_off = 0;
     my $gpu_passthrough = 0;
@@ -446,6 +446,7 @@ sub print_hostpci_devices {
 		$devicestr .= "$xvga";
 		$devicestr .= ",multifunction=on" if $multifunction;
 		$devicestr .= ",romfile=/usr/share/kvm/$d->{romfile}" if $d->{romfile};
+		$devicestr .= ",bootindex=$bootorder->{$id}" if $bootorder->{$id};
 	    }
 
 	    push @$devices, '-device', $devicestr;

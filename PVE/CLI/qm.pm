@@ -656,8 +656,8 @@ __PACKAGE__->register_method ({
 
 	    # reload after disks entries have been created
 	    $conf = PVE::QemuConfig->load_config($vmid);
-	    my $firstdisk = PVE::QemuServer::Drive::resolve_first_disk($conf);
-	    $conf->{bootdisk} = $firstdisk if $firstdisk;
+	    my $devs = PVE::QemuServer::get_default_bootdevices($conf);
+	    $conf->{boot} = PVE::QemuServer::print_bootorder($devs);
 	    PVE::QemuConfig->write_config($vmid, $conf);
 	};
 

@@ -397,15 +397,14 @@ EODESC
     },
     boot => {
 	optional => 1,
-	type => 'string',
-	description => "Boot on floppy (a), hard disk (c), CD-ROM (d), or network (n).",
-	pattern => '[acdn]{1,4}',
-	default => 'cdn',
+	type => 'string', format => 'pve-qm-boot',
+	description => "Specify guest boot order. Use with 'order=', usage with"
+		     . " no key or 'legacy=' is deprecated.",
     },
     bootdisk => {
 	optional => 1,
 	type => 'string', format => 'pve-qm-bootdisk',
-	description => "Enable booting from specified disk.",
+	description => "Enable booting from specified disk. Deprecated: Use 'boot: order=foo;bar' instead.",
 	pattern => '(ide|sata|scsi|virtio)\d+',
     },
     smp => {
@@ -1613,8 +1612,6 @@ sub print_drive_commandline_full {
 
 sub print_netdevice_full {
     my ($vmid, $conf, $net, $netid, $bridges, $use_old_bios_files, $arch, $machine_type) = @_;
-
-    my $bootorder = $conf->{boot} || $confdesc->{boot}->{default};
 
     my $device = $net->{model};
     if ($net->{model} eq 'virtio') {
@@ -3213,17 +3210,30 @@ sub config_to_command {
 	push @$devices, '-device', $kbd if defined($kbd);
     }
 
+    my $bootorder = {};
+    my $boot = parse_property_string($boot_fmt, $conf->{boot}) if $conf->{boot};
+    if (!defined($boot) || $boot->{legacy}) {
+	$bootorder = bootorder_from_legacy($conf, $boot);
+    } elsif ($boot->{order}) {
+	# start at 100 to allow user to insert devices before us with -args
+	my $i = 100;
+	for my $dev (PVE::Tools::split_list($boot->{order})) {
+	    $bootorder->{$dev} = $i++;
+	}
+    }
+
     # host pci device passthrough
     my ($kvm_off, $gpu_passthrough, $legacy_igd) = PVE::QemuServer::PCI::print_hostpci_devices(
-	$vmid, $conf, $devices, $winversion, $q35, $bridges, $arch, $machine_type);
+	$vmid, $conf, $devices, $winversion, $q35, $bridges, $arch, $machine_type, $bootorder);
 
     # usb devices
     my $usb_dev_features = {};
     $usb_dev_features->{spice_usb3} = 1 if min_version($machine_version, 4, 0);
 
     my @usbdevices = PVE::QemuServer::USB::get_usb_devices(
-        $conf, $usbdesc->{format}, $MAX_USB_DEVICES, $usb_dev_features);
+        $conf, $usbdesc->{format}, $MAX_USB_DEVICES, $usb_dev_features, $bootorder);
     push @$devices, @usbdevices if @usbdevices;
+
     # serial devices
     for (my $i = 0; $i < $MAX_SERIAL_PORTS; $i++)  {
 	if (my $path = $conf->{"serial$i"}) {
@@ -3290,15 +3300,6 @@ sub config_to_command {
 	push @$cmd, '-smp', "$vcpus,sockets=$sockets,cores=$cores,maxcpus=$maxcpus";
     }
     push @$cmd, '-nodefaults';
-
-    my $bootorder = $conf->{boot} || $confdesc->{boot}->{default};
-
-    my $bootindex_hash = {};
-    my $i = 1;
-    foreach my $o (split(//, $bootorder)) {
-	$bootindex_hash->{$o} = $i*100;
-	$i++;
-    }
 
     push @$cmd, '-boot', "menu=on,strict=on,reboot-timeout=1000,splash=/usr/share/qemu-server/bootsplash.jpg";
 
@@ -3469,17 +3470,7 @@ sub config_to_command {
 
 	$use_virtio = 1 if $ds =~ m/^virtio/;
 
-	if (drive_is_cdrom ($drive)) {
-	    if ($bootindex_hash->{d}) {
-		$drive->{bootindex} = $bootindex_hash->{d};
-		$bootindex_hash->{d} += 1;
-	    }
-	} else {
-	    if ($bootindex_hash->{c}) {
-		$drive->{bootindex} = $bootindex_hash->{c} if $conf->{bootdisk} && ($conf->{bootdisk} eq $ds);
-		$bootindex_hash->{c} += 1;
-	    }
-	}
+	$drive->{bootindex} = $bootorder->{$ds} if $bootorder->{$ds};
 
 	if ($drive->{interface} eq 'virtio'){
            push @$cmd, '-object', "iothread,id=iothread-$ds" if $drive->{iothread};
@@ -3530,22 +3521,21 @@ sub config_to_command {
     });
 
     for (my $i = 0; $i < $MAX_NETS; $i++) {
-	next if !$conf->{"net$i"};
-	my $d = parse_net($conf->{"net$i"});
+	my $netname = "net$i";
+
+	next if !$conf->{$netname};
+	my $d = parse_net($conf->{$netname});
 	next if !$d;
 
 	$use_virtio = 1 if $d->{model} eq 'virtio';
 
-	if ($bootindex_hash->{n}) {
-	    $d->{bootindex} = $bootindex_hash->{n};
-	    $bootindex_hash->{n} += 1;
-	}
+	$d->{bootindex} = $bootorder->{$netname} if $bootorder->{$netname};
 
-	my $netdevfull = print_netdev_full($vmid, $conf, $arch, $d, "net$i");
+	my $netdevfull = print_netdev_full($vmid, $conf, $arch, $d, $netname);
 	push @$devices, '-netdev', $netdevfull;
 
 	my $netdevicefull = print_netdevice_full(
-	    $vmid, $conf, $d, "net$i", $bridges, $use_old_bios_files, $arch, $machine_type);
+	    $vmid, $conf, $d, $netname, $bridges, $use_old_bios_files, $arch, $machine_type);
 
 	push @$devices, '-device', $netdevicefull;
     }
@@ -3827,7 +3817,8 @@ sub vm_deviceunplug {
     my $devices_list = vm_devices_list($vmid);
     return 1 if !defined($devices_list->{$deviceid});
 
-    die "can't unplug bootdisk" if $conf->{bootdisk} && $conf->{bootdisk} eq $deviceid;
+    my $bootdisks = PVE::QemuServer::Drive::get_bootdisks($conf);
+    die "can't unplug bootdisk '$deviceid'\n" if grep {$_ eq $deviceid} @$bootdisks;
 
     if ($deviceid eq 'tablet' || $deviceid eq 'keyboard') {
 
