@@ -3468,24 +3468,24 @@ sub config_to_command {
     });
 
     for (my $i = 0; $i < $MAX_NETS; $i++) {
-	 next if !$conf->{"net$i"};
-	 my $d = parse_net($conf->{"net$i"});
-	 next if !$d;
+	next if !$conf->{"net$i"};
+	my $d = parse_net($conf->{"net$i"});
+	next if !$d;
 
-	 $use_virtio = 1 if $d->{model} eq 'virtio';
+	$use_virtio = 1 if $d->{model} eq 'virtio';
 
-	 if ($bootindex_hash->{n}) {
+	if ($bootindex_hash->{n}) {
 	    $d->{bootindex} = $bootindex_hash->{n};
 	    $bootindex_hash->{n} += 1;
-	 }
+	}
 
-	 my $netdevfull = print_netdev_full($vmid, $conf, $arch, $d, "net$i");
-	 push @$devices, '-netdev', $netdevfull;
+	my $netdevfull = print_netdev_full($vmid, $conf, $arch, $d, "net$i");
+	push @$devices, '-netdev', $netdevfull;
 
-	 my $netdevicefull = print_netdevice_full(
+	my $netdevicefull = print_netdevice_full(
 	    $vmid, $conf, $d, "net$i", $bridges, $use_old_bios_files, $arch, $machine_type);
 
-	 push @$devices, '-device', $netdevicefull;
+	push @$devices, '-device', $netdevicefull;
     }
 
     if ($conf->{ivshmem}) {
