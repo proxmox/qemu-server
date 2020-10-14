@@ -6451,7 +6451,7 @@ sub restore_tar_archive {
 
     if ($archive ne '-') {
 	my $firstfile = tar_archive_read_firstfile($archive);
-	die "ERROR: file '$archive' dos not lock like a QemuServer vzdump backup\n"
+	die "ERROR: file '$archive' does not look like a QemuServer vzdump backup\n"
 	    if $firstfile ne 'qemu-server.conf';
     }
 
