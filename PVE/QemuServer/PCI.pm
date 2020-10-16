@@ -1,5 +1,8 @@
 package PVE::QemuServer::PCI;
 
+use warnings;
+use strict;
+
 use PVE::JSONSchema;
 use PVE::SysFSTools;
 
@@ -357,7 +360,7 @@ sub parse_hostpci {
 }
 
 sub print_hostpci_devices {
-    my ($vmid, $conf, $devices, $winversion, $q35, $bridges, $arch, $machine_type, $bootorder) = @_;
+    my ($vmid, $conf, $devices, $vga, $winversion, $q35, $bridges, $arch, $machine_type, $bootorder) = @_;
 
     my $kvm_off = 0;
     my $gpu_passthrough = 0;

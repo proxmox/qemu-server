@@ -3214,7 +3214,7 @@ sub config_to_command {
 
     # host pci device passthrough
     my ($kvm_off, $gpu_passthrough, $legacy_igd) = PVE::QemuServer::PCI::print_hostpci_devices(
-	$vmid, $conf, $devices, $winversion, $q35, $bridges, $arch, $machine_type, $bootorder);
+	$vmid, $conf, $devices, $vga, $winversion, $q35, $bridges, $arch, $machine_type, $bootorder);
 
     # usb devices
     my $usb_dev_features = {};
