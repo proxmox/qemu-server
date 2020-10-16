@@ -997,7 +997,7 @@ sub verify_volume_id_or_qm_path {
     # if its neither 'none' nor 'cdrom' nor a path, check if its a volume-id
     $volid = eval { PVE::JSONSchema::check_format('pve-volume-id', $volid, '') };
     if ($@) {
-	return undef if $noerr;
+	return if $noerr;
 	die $@;
     }
     return $volid;
@@ -1142,7 +1142,7 @@ sub verify_bootdev {
     return $dev if $check->("usb");
     return $dev if $check->("hostpci");
 
-    return undef if $noerr;
+    return if $noerr;
     die "invalid boot device '$dev'\n";
 }
 
@@ -1158,7 +1158,7 @@ sub kvm_version {
     return $kvm_api_version if $kvm_api_version;
 
     open my $fh, '<', '/dev/kvm'
-	or return undef;
+	or return;
 
     # 0xae00 => KVM_GET_API_VERSION
     $kvm_api_version = ioctl($fh, 0xae00, 0);
@@ -1241,7 +1241,7 @@ sub filename_to_volume_id {
      if (!($file eq 'none' || $file eq 'cdrom' ||
 	  $file =~ m|^/dev/.+| || $file =~ m/^([^:]+):(.+)$/)) {
 
-	return undef if $file =~ m|/|;
+	return if $file =~ m|/|;
 
 	if ($media && $media eq 'cdrom') {
 	    $file = "local:iso/$file";
@@ -1317,7 +1317,7 @@ sub pve_verify_hotplug_features {
 
     return $value if parse_hotplug_features($value);
 
-    return undef if $noerr;
+    return if $noerr;
 
     die "unable to parse hotplug option\n";
 }
@@ -1332,12 +1332,12 @@ sub scsi_inquiry {
     my $ret = ioctl($fh, $SG_GET_VERSION_NUM, $versionbuf);
     if (!$ret) {
 	die "scsi ioctl SG_GET_VERSION_NUM failoed - $!\n" if !$noerr;
-	return undef;
+	return;
     }
     my $version = unpack("I", $versionbuf);
     if ($version < 30000) {
 	die "scsi generic interface too old\n"  if !$noerr;
-	return undef;
+	return;
     }
 
     my $buf = "\x00" x 36;
@@ -1354,13 +1354,13 @@ sub scsi_inquiry {
     $ret = ioctl($fh, $SG_IO, $packet);
     if (!$ret) {
 	die "scsi ioctl SG_IO failed - $!\n" if !$noerr;
-	return undef;
+	return;
     }
 
     my @res = unpack($sg_io_hdr_t, $packet);
     if ($res[17] || $res[18]) {
 	die "scsi ioctl SG_IO status error - $!\n" if !$noerr;
-	return undef;
+	return;
     }
 
     my $res = {};
@@ -1376,7 +1376,7 @@ sub scsi_inquiry {
 sub path_is_scsi {
     my ($path) = @_;
 
-    my $fh = IO::File->new("+<$path") || return undef;
+    my $fh = IO::File->new("+<$path") || return;
     my $res = scsi_inquiry($fh, 1);
     close($fh);
 
@@ -1402,7 +1402,7 @@ sub print_tabletdevice_full {
 sub print_keyboarddevice_full {
     my ($conf, $arch, $machine) = @_;
 
-    return undef if $arch ne 'aarch64';
+    return if $arch ne 'aarch64';
 
     return "usb-kbd,id=keyboard,bus=ehci.0,port=2";
 }
@@ -1506,7 +1506,7 @@ sub print_drivedevice_full {
 sub get_initiator_name {
     my $initiator;
 
-    my $fh = IO::File->new('/etc/iscsi/initiatorname.iscsi') || return undef;
+    my $fh = IO::File->new('/etc/iscsi/initiatorname.iscsi') || return;
     while (defined(my $line = <$fh>)) {
 	next if $line !~ m/^\s*InitiatorName\s*=\s*([\.\-:\w]+)/;
 	$initiator = $1;
@@ -1798,7 +1798,7 @@ sub parse_net {
     my $res = eval { parse_property_string($net_fmt, $data) };
     if ($@) {
 	warn $@;
-	return undef;
+	return;
     }
     if (!defined($res->{macaddr})) {
 	my $dc = PVE::Cluster::cfs_read_file('datacenter.cfg');
@@ -1814,25 +1814,25 @@ sub parse_ipconfig {
     my $res = eval { parse_property_string($ipconfig_fmt, $data) };
     if ($@) {
 	warn $@;
-	return undef;
+	return;
     }
 
     if ($res->{gw} && !$res->{ip}) {
 	warn 'gateway specified without specifying an IP address';
-	return undef;
+	return;
     }
     if ($res->{gw6} && !$res->{ip6}) {
 	warn 'IPv6 gateway specified without specifying an IPv6 address';
-	return undef;
+	return;
     }
     if ($res->{gw} && $res->{ip} eq 'dhcp') {
 	warn 'gateway specified together with DHCP';
-	return undef;
+	return;
     }
     if ($res->{gw6} && $res->{ip6} !~ /^$IPV6RE/) {
 	# gw6 + auto/dhcp
 	warn "IPv6 gateway specified together with $res->{ip6} address";
-	return undef;
+	return;
     }
 
     if (!$res->{ip} && !$res->{ip6}) {
@@ -1870,7 +1870,7 @@ sub vm_is_volid_owner {
 	}
     }
 
-    return undef;
+    return;
 }
 
 sub vmconfig_register_unused_drive {
@@ -1963,7 +1963,7 @@ PVE::JSONSchema::register_format('pve-qm-smbios1', $smbios1_fmt);
 sub parse_watchdog {
     my ($value) = @_;
 
-    return undef if !$value;
+    return if !$value;
 
     my $res = eval { parse_property_string($watchdog_fmt, $value) };
     warn $@ if $@;
@@ -1995,7 +1995,7 @@ sub parse_vga {
 sub parse_rng {
     my ($value) = @_;
 
-    return undef if !$value;
+    return if !$value;
 
     my $res = eval { parse_property_string($rng_fmt, $value) };
     warn $@ if $@;
@@ -2008,7 +2008,7 @@ sub verify_usb_device {
 
     return $value if parse_usb_device($value);
 
-    return undef if $noerr;
+    return if $noerr;
 
     die "unable to parse usb device\n";
 }
@@ -2124,7 +2124,7 @@ sub destroy_vm {
 sub parse_vm_config {
     my ($filename, $raw) = @_;
 
-    return undef if !defined($raw);
+    return if !defined($raw);
 
     my $res = {
 	digest => Digest::SHA::sha1_hex($raw),
@@ -2778,7 +2778,7 @@ sub conf_has_audio {
 
     $id //= 0;
     my $audio = $conf->{"audio$id"};
-    return undef if !defined($audio);
+    return if !defined($audio);
 
     my $audioproperties = parse_property_string($audio_fmt, $audio);
     my $audiodriver = $audioproperties->{driver} // 'spice';
@@ -3775,7 +3775,7 @@ sub vm_deviceplug {
 
     } elsif ($deviceid =~ m/^(net)(\d+)$/) {
 
-	return undef if !qemu_netdevadd($vmid, $conf, $arch, $device, $deviceid);
+	return if !qemu_netdevadd($vmid, $conf, $arch, $device, $deviceid);
 
 	my $machine_type = PVE::QemuServer::Machine::qemu_machine_pxe($vmid, $conf);
 	my $use_old_bios_files = undef;
@@ -4586,7 +4586,7 @@ sub try_deallocate_drive {
 	}
     }
 
-    return undef;
+    return;
 }
 
 sub vmconfig_delete_or_detach_drive {
@@ -6593,7 +6593,7 @@ sub do_snapshots_with_qemu {
 	return 1;
     }
 
-    return undef;
+    return;
 }
 
 sub qga_check_running {

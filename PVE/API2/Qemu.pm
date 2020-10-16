@@ -1345,7 +1345,7 @@ my $update_vm_api  = sub {
 
 	if ($sync) {
 	    &$worker();
-	    return undef;
+	    return;
 	} else {
 	    my $upid = $rpcenv->fork_worker('qmconfig', $vmid, $authuser, $worker);
 
@@ -1367,7 +1367,7 @@ my $update_vm_api  = sub {
 
 		if (!$running) {
 		    my $status = PVE::Tools::upid_read_status($upid);
-		    return undef if $status eq 'OK';
+		    return if $status eq 'OK';
 		    die $status;
 		}
 	    }
@@ -1490,7 +1490,7 @@ __PACKAGE__->register_method({
     code => sub {
 	my ($param) = @_;
 	&$update_vm_api($param, 1);
-	return undef;
+	return;
     }
 });
 
@@ -1621,7 +1621,7 @@ __PACKAGE__->register_method({
 
 	__PACKAGE__->update_vm($param);
 
-	return undef;
+	return;
     }});
 
 # uses good entropy, each char is limited to 6 bit to get printable chars simply
@@ -3821,7 +3821,7 @@ __PACKAGE__->register_method({
 	};
 
         PVE::QemuConfig->lock_config($vmid, $updatefn);
-        return undef;
+        return;
     }});
 
 __PACKAGE__->register_method({
@@ -4041,7 +4041,7 @@ __PACKAGE__->register_method({
 
 	my $snapname = extract_param($param, 'snapname');
 
-	return undef if !defined($param->{description});
+	return if !defined($param->{description});
 
 	my $updatefn =  sub {
 
@@ -4060,7 +4060,7 @@ __PACKAGE__->register_method({
 
 	PVE::QemuConfig->lock_config($vmid, $updatefn);
 
-	return undef;
+	return;
     }});
 
 __PACKAGE__->register_method({
@@ -4262,7 +4262,7 @@ __PACKAGE__->register_method({
 	};
 
 	PVE::QemuConfig->lock_config($vmid, $updatefn);
-	return undef;
+	return;
     }});
 
 __PACKAGE__->register_method({

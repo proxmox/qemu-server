@@ -62,7 +62,7 @@ sub find_by {
 	    return ($resource);
 	}
     }
-    return undef;
+    return;
 }
 
 sub dtmf_name_to_id {
@@ -71,7 +71,7 @@ sub dtmf_name_to_id {
     if ($found) {
 	return $found->{id};
     } else {
-	return undef;
+	return;
     }
 }
 
@@ -81,7 +81,7 @@ sub id_to_pve {
     if ($resource) {
 	return $resource->{pve_type};
     } else {
-	return undef;
+	return;
     }
 }
 

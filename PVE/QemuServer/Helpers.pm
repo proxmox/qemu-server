@@ -45,7 +45,7 @@ sub parse_cmdline {
     if (defined($fh)) {
 	my $line = <$fh>;
 	$fh->close;
-	return undef if !$line;
+	return if !$line;
 	my @param = split(/\0/, $line);
 
 	my $cmd = $param[0];
@@ -70,7 +70,7 @@ sub parse_cmdline {
 
 	return $phash;
     }
-    return undef;
+    return;
 }
 
 sub vm_running_locally {
@@ -100,7 +100,7 @@ sub vm_running_locally {
 	}
     }
 
-    return undef;
+    return;
 }
 
 sub min_version {

@@ -80,7 +80,7 @@ sub queue_cmd {
 
     &$push_cmd_to_queue($self, $vmid, $cmd);
 
-    return undef;
+    return;
 }
 
 # execute a single command
@@ -164,7 +164,7 @@ my $lookup_queue_info = sub {
     my $queue_info = $self->{queue_lookup}->{$fh};
     if (!$queue_info) {
 	warn "internal error - unable to lookup queue info" if !$noerr;
-	return undef;
+	return;
     }
     return $queue_info;
 };

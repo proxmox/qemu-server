@@ -486,7 +486,7 @@ __PACKAGE__->register_method({
 	my $write = agent_cmd($vmid, "file-write", { handle => $qgafh, 'buf-b64' => $buf }, "can't write to file");
 	my $res = agent_cmd($vmid, "file-close", { handle => $qgafh }, "can't close file");
 
-	return undef;
+	return;
     }});
 
 1;

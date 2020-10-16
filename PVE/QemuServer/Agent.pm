@@ -30,7 +30,7 @@ sub check_agent_error {
 	die $error if !$noerr;
 
 	warn $error;
-	return undef;
+	return;
     }
 
     return 1;
@@ -47,7 +47,7 @@ sub agent_available {
 
     if (my $err = $@) {
 	die $err if !$noerr;
-	return undef;
+	return;
     }
 
     return 1;

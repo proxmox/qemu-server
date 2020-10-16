@@ -399,10 +399,10 @@ $qemu_config_module->mock('assert_config_exists_on_node', \&assert_config_exists
 # ignore existing replication config
 my $repl_config_module = new Test::MockModule('PVE::ReplicationConfig');
 $repl_config_module->mock('new' => sub { return bless {}, "PVE::ReplicationConfig" });
-$repl_config_module->mock('check_for_existing_jobs' => sub { return undef });
+$repl_config_module->mock('check_for_existing_jobs' => sub { return });
 
 my $storage_module = new Test::MockModule('PVE::Storage');
-$storage_module->mock('config', sub { return undef; });
+$storage_module->mock('config', sub { return; });
 $storage_module->mock('path', sub { return "/some/store/statefile/path"; });
 $storage_module->mock('activate_volumes', \&mocked_activate_volumes);
 $storage_module->mock('deactivate_volumes', \&mocked_deactivate_volumes);

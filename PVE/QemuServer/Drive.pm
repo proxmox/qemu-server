@@ -395,7 +395,7 @@ sub verify_bootdisk {
 
     return $value if is_valid_drivename($value);
 
-    return undef if $noerr;
+    return if $noerr;
 
     die "invalid boot disk '$value'\n";
 }
@@ -428,17 +428,17 @@ sub parse_drive {
 	$interface = $1;
 	$index = $2;
     } else {
-	return undef;
+	return;
     }
 
     if (!defined($drivedesc_hash->{$key})) {
 	warn "invalid drive key: $key\n";
-	return undef;
+	return;
     }
 
     my $desc = $drivedesc_hash->{$key}->{format};
     my $res = eval { PVE::JSONSchema::parse_property_string($desc, $data) };
-    return undef if !$res;
+    return if !$res;
     $res->{interface} = $interface;
     $res->{index} = $index;
 
@@ -475,21 +475,21 @@ sub parse_drive {
 	}
     }
 
-    return undef if $error;
+    return if $error;
 
-    return undef if $res->{mbps_rd} && $res->{mbps};
-    return undef if $res->{mbps_wr} && $res->{mbps};
-    return undef if $res->{iops_rd} && $res->{iops};
-    return undef if $res->{iops_wr} && $res->{iops};
+    return if $res->{mbps_rd} && $res->{mbps};
+    return if $res->{mbps_wr} && $res->{mbps};
+    return if $res->{iops_rd} && $res->{iops};
+    return if $res->{iops_wr} && $res->{iops};
 
     if ($res->{media} && ($res->{media} eq 'cdrom')) {
-	return undef if $res->{snapshot} || $res->{trans} || $res->{format};
-	return undef if $res->{heads} || $res->{secs} || $res->{cyls};
-	return undef if $res->{interface} eq 'virtio';
+	return if $res->{snapshot} || $res->{trans} || $res->{format};
+	return if $res->{heads} || $res->{secs} || $res->{cyls};
+	return if $res->{interface} eq 'virtio';
     }
 
     if (my $size = $res->{size}) {
-	return undef if !defined($res->{size} = PVE::JSONSchema::parse_size($size));
+	return if !defined($res->{size} = PVE::JSONSchema::parse_size($size));
     }
 
     return $res;
@@ -521,19 +521,19 @@ sub bootdisk_size {
     my ($storecfg, $conf) = @_;
 
     my $bootdisks = get_bootdisks($conf);
-    return undef if !@$bootdisks;
+    return if !@$bootdisks;
     my $bootdisk = $bootdisks->[0];
-    return undef if !is_valid_drivename($bootdisk);
+    return if !is_valid_drivename($bootdisk);
 
-    return undef if !$conf->{$bootdisk};
+    return if !$conf->{$bootdisk};
 
     my $drive = parse_drive($bootdisk, $conf->{$bootdisk});
-    return undef if !defined($drive);
+    return if !defined($drive);
 
-    return undef if drive_is_cdrom($drive);
+    return if drive_is_cdrom($drive);
 
     my $volid = $drive->{file};
-    return undef if !$volid;
+    return if !$volid;
 
     return $drive->{size};
 }
@@ -541,7 +541,7 @@ sub bootdisk_size {
 sub update_disksize {
     my ($drive, $newsize) = @_;
 
-    return undef if !defined($newsize);
+    return if !defined($newsize);
 
     my $oldsize = $drive->{size} // 0;
 
@@ -556,7 +556,7 @@ sub update_disksize {
 	return ($drive, $msg);
     }
 
-    return undef;
+    return;
 }
 
 sub is_volume_in_use {
@@ -609,7 +609,7 @@ sub resolve_first_disk {
 	next if drive_is_cdrom($disk) xor $cdrom;
 	return $ds;
     }
-    return undef;
+    return;
 }
 
 1;

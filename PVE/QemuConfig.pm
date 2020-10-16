@@ -95,7 +95,7 @@ sub parse_volume {
     if ($key eq 'vmstate') {
 	eval { PVE::JSONSchema::check_format('pve-volume-id', $volume_string) };
 	if (my $err = $@) {
-	    return undef if $noerr;
+	    return if $noerr;
 	    die $err;
 	}
 	$volume = { 'file' => $volume_string };

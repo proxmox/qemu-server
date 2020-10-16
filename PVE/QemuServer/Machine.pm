@@ -54,7 +54,7 @@ sub extract_version {
 	}
     }
 
-    return undef;
+    return;
 }
 
 sub machine_version {

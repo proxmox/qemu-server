@@ -15,7 +15,7 @@ get_usb_devices
 sub parse_usb_device {
     my ($value) = @_;
 
-    return undef if !$value;
+    return if !$value;
 
     my $res = {};
     if ($value =~ m/^(0x)?([0-9A-Fa-f]{4}):(0x)?([0-9A-Fa-f]{4})$/) {
@@ -27,7 +27,7 @@ sub parse_usb_device {
     } elsif ($value =~ m/^spice$/i) {
 	$res->{spice} = 1;
     } else {
-	return undef;
+	return;
     }
 
     return $res;

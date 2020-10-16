@@ -225,7 +225,7 @@ my $get_addr_mapping_from_id = sub {
     my ($map, $id) = @_;
 
     my $d = $map->{$id};
-    return undef if !defined($d) || !defined($d->{bus}) || !defined($d->{addr});
+    return if !defined($d) || !defined($d->{bus}) || !defined($d->{addr});
 
     return { bus => $d->{bus}, addr => sprintf("0x%x", $d->{addr}) };
 };
@@ -342,7 +342,7 @@ sub print_pcie_root_port {
 sub parse_hostpci {
     my ($value) = @_;
 
-    return undef if !$value;
+    return if !$value;
 
     my $res = PVE::JSONSchema::parse_property_string($hostpci_fmt, $value);
 

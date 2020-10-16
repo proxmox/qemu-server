@@ -155,7 +155,7 @@ __PACKAGE__->register_method ({
 
 	print "$cmdline\n";
 
-	return undef;
+	return;
     }});
 
 __PACKAGE__->register_method ({
@@ -194,7 +194,7 @@ __PACKAGE__->register_method ({
 	    print "status: $status\n";
 	}
 
-	return undef;
+	return;
     }});
 
 __PACKAGE__->register_method ({
@@ -227,7 +227,7 @@ __PACKAGE__->register_method ({
 
 	run_vnc_proxy($vnc_socket);
 
-	return undef;
+	return;
     }});
 
 __PACKAGE__->register_method ({
@@ -254,7 +254,7 @@ __PACKAGE__->register_method ({
 	    PVE::QemuConfig->write_config($vmid, $conf);
 	});
 
-	return undef;
+	return;
     }});
 
 __PACKAGE__->register_method ({
@@ -277,7 +277,7 @@ __PACKAGE__->register_method ({
 	eval { PVE::QemuServer::nbd_stop($vmid) };
 	warn $@ if $@;
 
-	return undef;
+	return;
     }});
 
 __PACKAGE__->register_method ({
@@ -295,7 +295,7 @@ __PACKAGE__->register_method ({
 
 	if (!PVE::Cluster::check_cfs_quorum(1)) {
 	    print "no quorum\n";
-	    return undef;
+	    return;
 	}
 
 	my $tunnel_write = sub {
@@ -328,7 +328,7 @@ __PACKAGE__->register_method ({
 	    }
 	}
 
-	return undef;
+	return;
     }});
 
 __PACKAGE__->register_method ({
@@ -368,7 +368,7 @@ __PACKAGE__->register_method ({
 
 	die "wait failed - got timeout\n" if PVE::QemuServer::check_running ($vmid);
 
-	return undef;
+	return;
     }});
 
 __PACKAGE__->register_method ({
@@ -408,7 +408,7 @@ __PACKAGE__->register_method ({
 	    print "ERROR: $@" if $@;
 	}
 
-	return undef;
+	return;
 
     }});
 
@@ -442,7 +442,7 @@ __PACKAGE__->register_method ({
 
 	PVE::QemuServer::rescan($param->{vmid}, 0, $dryrun);
 
-	return undef;
+	return;
     }});
 
 __PACKAGE__->register_method ({
@@ -497,7 +497,7 @@ __PACKAGE__->register_method ({
 	my ($drive_id, $volid) = PVE::QemuServer::ImportDisk::do_import($source, $vmid, $storeid, { format => $format });
 	print "Successfully imported disk as '$drive_id:$volid'\n";
 
-	return undef;
+	return;
     }});
 
 __PACKAGE__->register_method ({
@@ -574,7 +574,7 @@ __PACKAGE__->register_method ({
 
 	system($cmd);
 
-	return undef;
+	return;
     }});
 
 __PACKAGE__->register_method ({
@@ -672,7 +672,7 @@ __PACKAGE__->register_method ({
 
 	PVE::QemuConfig->remove_lock($vmid, "create");
 
-	return undef;
+	return;
 
     }
 });
@@ -836,7 +836,7 @@ __PACKAGE__->register_method({
 	    });
 	}
 
-	return undef;
+	return;
     }});
 
 my $print_agent_result = sub {

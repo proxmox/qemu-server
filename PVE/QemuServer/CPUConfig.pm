@@ -170,12 +170,12 @@ sub parse_phys_bits {
 
     if ($str !~ m/^(host|\d{1,2})$/) {
 	die $err_msg if !$noerr;
-	return undef;
+	return;
     }
 
     if ($str =~ m/^\d+$/ && (int($str) < 8 || int($str) > 64)) {
 	die $err_msg if !$noerr;
-	return undef;
+	return;
     }
 
     return $str;
@@ -246,7 +246,7 @@ sub parse_section_header {
     my ($type, $sectionId, $errmsg, $config) =
 	$class->SUPER::parse_section_header($line);
 
-    return undef if !$type;
+    return if !$type;
     return ($type, $sectionId, $errmsg, {
 	# name is given by section header, and we can always prepend 'custom-'
 	# since we're reading the custom CPU file
@@ -331,7 +331,7 @@ sub get_custom_model {
     my $entry = $conf->{ids}->{$name};
     if (!defined($entry)) {
 	die "Custom cputype '$name' not found\n" if !$noerr;
-	return undef;
+	return;
     }
 
     my $model = {};
