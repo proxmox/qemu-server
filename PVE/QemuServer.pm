@@ -4195,39 +4195,6 @@ sub qemu_block_set_io_throttle {
 
 }
 
-# old code, only used to shutdown old VM after update
-sub __read_avail {
-    my ($fh, $timeout) = @_;
-
-    my $sel = new IO::Select;
-    $sel->add($fh);
-
-    my $res = '';
-    my $buf;
-
-    my @ready;
-    while (scalar (@ready = $sel->can_read($timeout))) {
-	my $count;
-	if ($count = $fh->sysread($buf, 8192)) {
-	    if ($buf =~ /^(.*)\(qemu\) $/s) {
-		$res .= $1;
-		last;
-	    } else {
-		$res .= $buf;
-	    }
-	} else {
-	    if (!defined($count)) {
-		die "$!\n";
-	    }
-	    last;
-	}
-    }
-
-    die "monitor read timeout\n" if !scalar(@ready);
-
-    return $res;
-}
-
 sub qemu_block_resize {
     my ($vmid, $deviceid, $storecfg, $volid, $size) = @_;
 
