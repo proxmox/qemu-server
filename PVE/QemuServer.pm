@@ -3210,17 +3210,7 @@ sub config_to_command {
 	push @$devices, '-device', $kbd if defined($kbd);
     }
 
-    my $bootorder = {};
-    my $boot = parse_property_string($boot_fmt, $conf->{boot}) if $conf->{boot};
-    if (!defined($boot) || $boot->{legacy}) {
-	$bootorder = bootorder_from_legacy($conf, $boot);
-    } elsif ($boot->{order}) {
-	# start at 100 to allow user to insert devices before us with -args
-	my $i = 100;
-	for my $dev (PVE::Tools::split_list($boot->{order})) {
-	    $bootorder->{$dev} = $i++;
-	}
-    }
+    my $bootorder = device_bootorder($conf);
 
     # host pci device passthrough
     my ($kvm_off, $gpu_passthrough, $legacy_igd) = PVE::QemuServer::PCI::print_hostpci_devices(
@@ -3370,8 +3360,8 @@ sub config_to_command {
 	}
     }
 
-    my $rng = parse_rng($conf->{rng0}) if $conf->{rng0};
-    if ($rng && &$version_guard(4, 1, 2)) {
+    my $rng = $conf->{rng0} ? parse_rng($conf->{rng0}) : undef;
+    if ($rng && $version_guard->(4, 1, 2)) {
 	check_rng_source($rng->{source});
 
 	my $max_bytes = $rng->{max_bytes} // $rng_fmt->{max_bytes}->{default};
@@ -7273,6 +7263,26 @@ sub get_default_bootdevices {
     }
 
     return \@ret;
+}
+
+sub device_bootorder {
+    my ($conf) = @_;
+
+    return bootorder_from_legacy($conf) if !defined($conf->{boot});
+
+    my $boot = parse_property_string($boot_fmt, $conf->{boot});
+
+    my $bootorder = {};
+    if (!defined($boot) || $boot->{legacy}) {
+	$bootorder = bootorder_from_legacy($conf, $boot);
+    } elsif ($boot->{order}) {
+	my $i = 100; # start at 100 to allow user to insert devices before us with -args
+	for my $dev (PVE::Tools::split_list($boot->{order})) {
+	    $bootorder->{$dev} = $i++;
+	}
+    }
+
+    return $bootorder;
 }
 
 # bash completion helper

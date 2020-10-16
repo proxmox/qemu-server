@@ -974,7 +974,7 @@ sub phase2 {
     my $downtimecounter = 0;
     while (1) {
 	$i++;
-	my $avglstat = $lstat/$i if $lstat;
+	my $avglstat = $lstat ? $lstat / $i : 0;
 
 	usleep($usleep);
 	my $stat;
