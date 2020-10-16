@@ -93,11 +93,11 @@ sub foreach_reverse_dimm {
 
     for (my $j = 0; $j < 8; $j++) {
 	for (my $i = 0; $i < 32; $i++) {
- 	    my $name = "dimm${dimm_id}";
- 	    $dimm_id--;
+	    my $name = "dimm${dimm_id}";
+	    $dimm_id--;
 	    my $numanode = $numa_map[(31-$i) % @numa_map];
- 	    $current_size -= $dimm_size;
- 	    &$func($conf, $vmid, $name, $dimm_size, $numanode, $current_size, $memory);
+	    $current_size -= $dimm_size;
+	    &$func($conf, $vmid, $name, $dimm_size, $numanode, $current_size, $memory);
 	    return  $current_size if $current_size <= $memory;
 	}
 	$dimm_size /= 2;
@@ -124,14 +124,15 @@ sub qemu_memory_hotplug {
 
     if($value > $memory) {
 
-	my $numa_hostmap = get_numa_guest_to_host_map($conf) if $conf->{hugepages};
+	my $numa_hostmap;
 
-    	foreach_dimm($conf, $vmid, $value, $sockets, sub {
+	foreach_dimm($conf, $vmid, $value, $sockets, sub {
 	    my ($conf, $vmid, $name, $dimm_size, $numanode, $current_size, $memory) = @_;
 
 		return if $current_size <= $conf->{memory};
 
 		if ($conf->{hugepages}) {
+		    $numa_hostmap = get_numa_guest_to_host_map($conf) if !$numa_hostmap;
 
 		    my $hugepages_size = hugepages_size($conf, $dimm_size);
 		    my $path = hugepages_mount_path($hugepages_size);
@@ -174,14 +175,14 @@ sub qemu_memory_hotplug {
 
     } else {
 
-    	foreach_reverse_dimm($conf, $vmid, $value, $sockets, sub {
+	foreach_reverse_dimm($conf, $vmid, $value, $sockets, sub {
 	    my ($conf, $vmid, $name, $dimm_size, $numanode, $current_size, $memory) = @_;
 
 		return if $current_size >= $conf->{memory};
 		print "try to unplug memory dimm $name\n";
 
 		my $retry = 0;
-	        while (1) {
+		while (1) {
 		    eval { PVE::QemuServer::qemu_devicedel($vmid, $name) };
 		    sleep 3;
 		    my $dimm_list = qemu_dimm_list($vmid);
@@ -292,21 +293,18 @@ sub config {
 	    if $numa_totalmemory && $numa_totalmemory != $static_memory;
 
 	#if no custom tology, we split memory and cores across numa nodes
-	if(!$numa_totalmemory) {
-
+	if (!$numa_totalmemory) {
 	    my $numa_memory = ($static_memory / $sockets);
 
 	    for (my $i = 0; $i < $sockets; $i++)  {
 		die "host NUMA node$i doesn't exist\n" if ! -d "/sys/devices/system/node/node$i/" && $conf->{hugepages};
 
-		my $cpustart = ($cores * $i);
-		my $cpuend = ($cpustart + $cores - 1) if $cores && $cores > 1;
-		my $cpus = $cpustart;
-		$cpus .= "-$cpuend" if $cpuend;
-
 		my $mem_object = print_mem_object($conf, "ram-node$i", $numa_memory);
-
 		push @$cmd, '-object', $mem_object;
+
+		my $cpus = ($cores * $i);
+		$cpus .= "-" . ($cpus + $cores - 1) if $cores > 1;
+
 		push @$cmd, '-numa', "node,nodeid=$i,cpus=$cpus,memdev=ram-node$i";
 	    }
 	}

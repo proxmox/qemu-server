@@ -61,7 +61,7 @@ sub run_vnc_proxy {
 
     die "unable to connect to socket '$path' - $!" if !$s;
 
-    my $select = new IO::Select;
+    my $select = IO::Select->new();
 
     $select->add(\*STDIN);
     $select->add($s);
@@ -392,19 +392,14 @@ __PACKAGE__->register_method ({
 
 	print "Entering Qemu Monitor for VM $vmid - type 'help' for help\n";
 
-	my $term = new Term::ReadLine ('qm');
+	my $term = Term::ReadLine->new('qm');
 
-	my $input;
-	while (defined ($input = $term->readline('qm> '))) {
+	while (defined(my $input = $term->readline('qm> '))) {
 	    chomp $input;
-
 	    next if $input =~ m/^\s*$/;
-
 	    last if $input =~ m/^\s*q(uit)?\s*$/;
 
-	    eval {
-		print PVE::QemuServer::Monitor::hmp_cmd($vmid, $input);
-	    };
+	    eval { print PVE::QemuServer::Monitor::hmp_cmd($vmid, $input) };
 	    print "ERROR: $@" if $@;
 	}
 

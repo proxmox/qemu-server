@@ -128,7 +128,7 @@ sub cloudinit_userdata {
 
     if (defined(my $keys = $conf->{sshkeys})) {
 	$keys = URI::Escape::uri_unescape($keys);
-	$keys = [map { chomp $_; $_ } split(/\n/, $keys)];
+	$keys = [map { my $key = $_; chomp $key; $key } split(/\n/, $keys)];
 	$keys = [grep { /\S/ } @$keys];
 	$content .= "ssh_authorized_keys:\n";
 	foreach my $k (@$keys) {

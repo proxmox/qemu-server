@@ -504,8 +504,8 @@ sub print_drive {
 sub get_bootdisks {
     my ($conf) = @_;
 
-    my $bootcfg = PVE::JSONSchema::parse_property_string('pve-qm-boot', $conf->{boot})
-	if $conf->{boot};
+    my $bootcfg;
+    $bootcfg = PVE::JSONSchema::parse_property_string('pve-qm-boot', $conf->{boot}) if $conf->{boot};
 
     if (!defined($bootcfg) || $bootcfg->{legacy}) {
 	return [$conf->{bootdisk}] if $conf->{bootdisk};

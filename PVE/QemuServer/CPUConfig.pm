@@ -485,11 +485,17 @@ sub get_cpu_options {
 	    if defined($cpu->{'hv-vendor-id'});
     }
 
-    my $pve_flags = get_pve_cpu_flags($conf, $kvm, $cputype, $arch,
-				      $machine_version);
+    my $pve_flags = get_pve_cpu_flags($conf, $kvm, $cputype, $arch, $machine_version);
 
-    my $hv_flags = get_hyperv_enlightenments($winversion, $machine_version,
-	$conf->{bios}, $gpu_passthrough, $hv_vendor_id) if $kvm;
+    my $hv_flags = $kvm
+	? get_hyperv_enlightenments(
+	    $winversion,
+	    $machine_version,
+	    $conf->{bios},
+	    $gpu_passthrough,
+	    $hv_vendor_id,
+	)
+	: undef;
 
     my $custom_cputype_flags = parse_cpuflag_list($cpu_flag_any_re,
 	"set by custom CPU model", $custom_cpu->{flags});

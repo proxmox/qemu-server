@@ -381,13 +381,13 @@ sub vm_stop {
 PVE::Tools::run_command("rm -rf snapshot-working");
 PVE::Tools::run_command("cp -a snapshot-input snapshot-working");
 
-my $qemu_helpers_module = new Test::MockModule('PVE::QemuServer::Helpers');
+my $qemu_helpers_module = Test::MockModule->new('PVE::QemuServer::Helpers');
 $qemu_helpers_module->mock('vm_running_locally', \&vm_running_locally);
 
-my $qemu_monitor_module = new Test::MockModule('PVE::QemuServer::Monitor');
+my $qemu_monitor_module = Test::MockModule->new('PVE::QemuServer::Monitor');
 $qemu_monitor_module->mock('qmp_cmd', \&qmp_cmd);
 
-my $qemu_config_module = new Test::MockModule('PVE::QemuConfig');
+my $qemu_config_module = Test::MockModule->new('PVE::QemuConfig');
 $qemu_config_module->mock('config_file_lock', \&config_file_lock);
 $qemu_config_module->mock('cfs_config_path', \&cfs_config_path);
 $qemu_config_module->mock('load_config', \&load_config);
@@ -397,11 +397,11 @@ $qemu_config_module->mock('__snapshot_save_vmstate', \&__snapshot_save_vmstate);
 $qemu_config_module->mock('assert_config_exists_on_node', \&assert_config_exists_on_node);
 
 # ignore existing replication config
-my $repl_config_module = new Test::MockModule('PVE::ReplicationConfig');
+my $repl_config_module = Test::MockModule->new('PVE::ReplicationConfig');
 $repl_config_module->mock('new' => sub { return bless {}, "PVE::ReplicationConfig" });
 $repl_config_module->mock('check_for_existing_jobs' => sub { return });
 
-my $storage_module = new Test::MockModule('PVE::Storage');
+my $storage_module = Test::MockModule->new('PVE::Storage');
 $storage_module->mock('config', sub { return; });
 $storage_module->mock('path', sub { return "/some/store/statefile/path"; });
 $storage_module->mock('activate_volumes', \&mocked_activate_volumes);
@@ -506,7 +506,7 @@ $vol_snapshot_rollback_possible->{"local:snapshotable-disk-4"} = 1;
 
 #printf("\n");
 #printf("Setting up Mocking for PVE::Tools\n");
-#my $tools_module = new Test::MockModule('PVE::Tools');
+#my $tools_module = Test::MockModule->new('PVE::Tools');
 #$tools_module->mock('run_command' => \&mocked_run_command);
 #printf("\trun_command() mocked\n");
 #

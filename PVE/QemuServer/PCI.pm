@@ -363,6 +363,7 @@ sub print_hostpci_devices {
     my $gpu_passthrough = 0;
     my $legacy_igd = 0;
 
+    my $pciaddr;
     for (my $i = 0; $i < $MAX_HOSTPCI_DEVICES; $i++)  {
 	my $id = "hostpci$i";
 	my $d = parse_hostpci($conf->{$id});
@@ -388,7 +389,7 @@ sub print_hostpci_devices {
 	}
 
 	my $pcidevices = $d->{pciid};
-	my $multifunction = 1 if @$pcidevices > 1;
+	my $multifunction = @$pcidevices > 1;
 
 	if ($d->{'legacy-igd'}) {
 	    die "only one device can be assigned in legacy-igd mode\n"

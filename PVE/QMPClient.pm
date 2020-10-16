@@ -17,12 +17,12 @@ use PVE::QemuServer::Helpers;
 # This implementation uses IO::Multiplex (libio-multiplex-perl) and
 # allows you to issue qmp and qga commands to different VMs in parallel.
 
-# Note: qemu can onyl handle 1 connection, so we close connections asap
+# Note: qemu can only handle 1 connection, so we close connections asap
 
 sub new {
     my ($class, $eventcb) = @_;
 
-    my $mux = new IO::Multiplex;
+    my $mux = IO::Multiplex->new();
 
     my $self = bless {
 	mux => $mux,

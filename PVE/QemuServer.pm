@@ -5936,7 +5936,8 @@ sub update_disk_config {
 	my $volid = $drive->{file};
 	return if !$volid;
 
-	my $path = $volid_hash->{$volid}->{path} if $volid_hash->{$volid};
+	my $path;
+	$path = $volid_hash->{$volid}->{path} if $volid_hash->{$volid};
 	if ($referenced->{$volid} || ($path && $referencedpath->{$path})) {
 	    print "$prefix remove entry '$opt', its volume '$volid' is in use\n";
 	    $changes = 1;
@@ -6157,8 +6158,7 @@ sub restore_proxmox_backup_archive {
 
 	$fh->seek(0, 0) || die "seek failed - $!\n";
 
-	my $outfd = new IO::File ($tmpfn, "w") ||
-	    die "unable to write config for VM $vmid\n";
+	my $outfd = IO::File->new($tmpfn, "w") || die "unable to write config for VM $vmid\n";
 
 	my $cookie = { netcount => 0 };
 	while (defined(my $line = <$fh>)) {
@@ -6331,8 +6331,7 @@ sub restore_vma_archive {
 
 	$fh->seek(0, 0) || die "seek failed - $!\n";
 
-	my $outfd = new IO::File ($tmpfn, "w") ||
-	    die "unable to write config for VM $vmid\n";
+	my $outfd = IO::File->new($tmpfn, "w") || die "unable to write config for VM $vmid\n";
 
 	my $cookie = { netcount => 0 };
 	while (defined(my $line = <$fh>)) {
@@ -6482,11 +6481,9 @@ sub restore_tar_archive {
 
 	my $confsrc = "$tmpdir/qemu-server.conf";
 
-	my $srcfd = new IO::File($confsrc, "r") ||
-	    die "unable to open file '$confsrc'\n";
+	my $srcfd = IO::File->new($confsrc, "r") || die "unable to open file '$confsrc'\n";
 
-	my $outfd = new IO::File ($tmpfn, "w") ||
-	    die "unable to write config for VM $vmid\n";
+	my $outfd = IO::File->new($tmpfn, "w") || die "unable to write config for VM $vmid\n";
 
 	my $cookie = { netcount => 0 };
 	while (defined (my $line = <$srcfd>)) {
@@ -6541,6 +6538,7 @@ sub do_snapshots_with_qemu {
 
     my $storage_name = PVE::Storage::parse_volume_id($volid);
     my $scfg = $storecfg->{ids}->{$storage_name};
+    die "could not find storage '$storage_name'\n" if !defined($scfg);
 
     if ($qemu_snap_storage->{$scfg->{type}} && !$scfg->{krbd}){
 	return 1;
