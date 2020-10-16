@@ -1191,10 +1191,11 @@ my $update_vm_api  = sub {
 
 	    my $modified = {}; # record what $option we modify
 
-	    my $bootcfg = PVE::JSONSchema::parse_property_string('pve-qm-boot', $conf->{boot})
-		if $conf->{boot};
-	    my @bootorder = PVE::Tools::split_list($bootcfg->{order})
-		if $bootcfg && $bootcfg->{order};
+	    my @bootorder;
+	    if (my $boot = $conf->{boot}) {
+		my $bootcfg = PVE::JSONSchema::parse_property_string('pve-qm-boot', $boot);
+		@bootorder = PVE::Tools::split_list($bootcfg->{order}) if $bootcfg && $bootcfg->{order};
+	    }
 	    my $bootorder_deleted = grep {$_ eq 'bootorder'} @delete;
 
 	    foreach my $opt (@delete) {
