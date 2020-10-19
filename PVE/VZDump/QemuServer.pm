@@ -8,6 +8,7 @@ use File::Path;
 use IO::File;
 use IPC::Open3;
 use JSON;
+use POSIX qw(EINTR EAGAIN);
 
 use PVE::Cluster qw(cfs_read_file);
 use PVE::INotify;
@@ -515,6 +516,7 @@ sub archive_pbs {
     my $devlist = _get_task_devlist($task);
 
     $self->enforce_vm_running_for_backup($vmid);
+    $self->register_qmeventd_handle($vmid);
 
     my $backup_job_uuid;
     eval {
@@ -683,6 +685,7 @@ sub archive_vma {
     my $devlist = _get_task_devlist($task);
 
     $self->enforce_vm_running_for_backup($vmid);
+    $self->register_qmeventd_handle($vmid);
 
     my $cpid;
     my $backup_job_uuid;
@@ -841,6 +844,34 @@ sub enforce_vm_running_for_backup {
     die $@ if $@;
 }
 
+sub register_qmeventd_handle {
+    my ($self, $vmid) = @_;
+
+    my $fh;
+    my $peer = "/var/run/qmeventd.sock";
+    my $count = 0;
+
+    for (;;) {
+	$count++;
+	$fh = IO::Socket::UNIX->new(Peer => $peer, Blocking => 0, Timeout => 1);
+	last if $fh;
+	if ($! != EINTR && $! != EAGAIN) {
+	    $self->log("warn", "unable to connect to qmeventd socket (vmid: $vmid) - $!\n");
+	    return;
+	}
+	if ($count > 4) {
+	    $self->log("warn", "unable to connect to qmeventd socket (vmid: $vmid)"
+			     . " - timeout after $count retries\n");
+	    return;
+	}
+	usleep(25000);
+    }
+
+    # send handshake to mark VM as backing up
+    print $fh to_json({vzdump => {vmid => "$vmid"}});
+    $self->{qmeventd_fh} = $fh;
+}
+
 # resume VM againe once we got in a clear state (stop mode backup of running VM)
 sub resume_vm_after_job_start {
     my ($self, $task, $vmid) = @_;
@@ -894,7 +925,9 @@ sub snapshot {
 sub cleanup {
     my ($self, $task, $vmid) = @_;
 
-    # nothing to do ?
+    if ($self->{qmeventd_fh}) {
+	close($self->{qmeventd_fh});
+    }
 }
 
 1;
