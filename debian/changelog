@@ -1,3 +1,17 @@
+qemu-server (6.2-16) pve; urgency=medium
+
+  * fix #3010: add 'bootorder' parameter for better control of boot devices
+
+  * fix VM clone from snapshot with cloudinit disk
+
+  * fix various possible issues by avoiding conditionally declared variables
+    altogether
+
+  * PCI passthrough: fix setting VGA to 'none' when marking passed-through
+    device as 'Primary GPU'
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 19 Oct 2020 15:51:48 +0200
+
 qemu-server (6.2-15) pve; urgency=medium
 
   * fix #2570: add 'keephugepages' config property
