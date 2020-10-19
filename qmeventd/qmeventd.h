@@ -38,18 +38,51 @@ static inline void bail_neg(int errval, const char *msg)
     }
 }
 
+typedef enum {
+    CLIENT_NONE,
+    CLIENT_QEMU,
+    CLIENT_VZDUMP
+} ClientType;
+
+typedef enum {
+    STATE_HANDSHAKE,
+    STATE_IDLE,
+    STATE_EXPECT_STATUS_RESP,
+    STATE_TERMINATING
+} ClientState;
+
 struct Client {
     char buf[4096];
-    char vmid[16];
+    unsigned int buflen;
+
     int fd;
     pid_t pid;
-    unsigned int buflen;
-    unsigned short graceful;
-    unsigned short guest;
+
+    ClientType type;
+    ClientState state;
+
+    // only relevant for type=CLIENT_QEMU
+    struct {
+        char vmid[16];
+        unsigned short graceful;
+        unsigned short guest;
+        bool term_check_queued;
+        bool backup;
+    } qemu;
+
+    // only relevant for type=CLIENT_VZDUMP
+    struct {
+        // vmid of referenced backup
+        char vmid[16];
+    } vzdump;
 };
 
 void handle_qmp_handshake(struct Client *client);
 void handle_qmp_event(struct Client *client, struct json_object *obj);
+void handle_qmp_return(struct Client *client, struct json_object *data, bool error);
+void handle_vzdump_handshake(struct Client *client, struct json_object *data);
 void handle_client(struct Client *client);
 void add_new_client(int client_fd);
 void cleanup_client(struct Client *client);
+void terminate_client(struct Client *client);
+void terminate_check(struct Client *client);

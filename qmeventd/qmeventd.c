@@ -55,12 +55,15 @@
 #include <sys/un.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <gmodule.h>
 
 #include "qmeventd.h"
 
 static int verbose = 0;
 static int epoll_fd = 0;
 static const char *progname;
+GHashTable *vm_clients; // key=vmid (freed on remove), value=*Client (free manually)
+
 /*
  * Helper functions
  */
@@ -165,15 +168,39 @@ must_write(int fd, const char *buf, size_t len)
  * qmp handling functions
  */
 
+static void
+send_qmp_cmd(struct Client *client, const char *buf, size_t len)
+{
+    if (!must_write(client->fd, buf, len - 1)) {
+	fprintf(stderr, "%s: cannot send QMP message\n", client->qemu.vmid);
+	cleanup_client(client);
+    }
+}
+
 void
 handle_qmp_handshake(struct Client *client)
 {
-    VERBOSE_PRINT("%s: got QMP handshake\n", client->vmid);
-    static const char qmp_answer[] = "{\"execute\":\"qmp_capabilities\"}\n";
-    if (!must_write(client->fd, qmp_answer, sizeof(qmp_answer) - 1)) {
-	fprintf(stderr, "%s: cannot complete handshake\n", client->vmid);
+    VERBOSE_PRINT("pid%d: got QMP handshake, assuming QEMU client\n", client->pid);
+
+    // extract vmid from cmdline, now that we know it's a QEMU process
+    unsigned long vmid = get_vmid_from_pid(client->pid);
+    int res = snprintf(client->qemu.vmid, sizeof(client->qemu.vmid), "%lu", vmid);
+    if (vmid == 0 || res < 0 || res >= (int)sizeof(client->qemu.vmid)) {
+	fprintf(stderr, "could not get vmid from pid %d\n", client->pid);
 	cleanup_client(client);
+	return;
     }
+
+    VERBOSE_PRINT("pid%d: assigned VMID: %s\n", client->pid, client->qemu.vmid);
+    client->type = CLIENT_QEMU;
+    if(!g_hash_table_insert(vm_clients, strdup(client->qemu.vmid), client)) {
+	// not fatal, just means backup handling won't work
+	fprintf(stderr, "%s: could not insert client into VMID->client table\n",
+		client->qemu.vmid);
+    }
+
+    static const char qmp_answer[] = "{\"execute\":\"qmp_capabilities\"}\n";
+    send_qmp_cmd(client, qmp_answer, sizeof(qmp_answer));
 }
 
 void
@@ -183,18 +210,156 @@ handle_qmp_event(struct Client *client, struct json_object *obj)
     if (!json_object_object_get_ex(obj, "event", &event)) {
 	return;
     }
-    VERBOSE_PRINT("%s: got QMP event: %s\n", client->vmid,
+    VERBOSE_PRINT("%s: got QMP event: %s\n", client->qemu.vmid,
 		  json_object_get_string(event));
+
+    if (client->state == STATE_TERMINATING) {
+	// QEMU sometimes sends a second SHUTDOWN after SIGTERM, ignore
+	VERBOSE_PRINT("%s: event was after termination, ignoring\n",
+		      client->qemu.vmid);
+	return;
+    }
+
     // event, check if shutdown and get guest parameter
     if (!strcmp(json_object_get_string(event), "SHUTDOWN")) {
-	client->graceful = 1;
+	client->qemu.graceful = 1;
 	struct json_object *data;
 	struct json_object *guest;
 	if (json_object_object_get_ex(obj, "data", &data) &&
 	    json_object_object_get_ex(data, "guest", &guest))
 	{
-	    client->guest = (unsigned short)json_object_get_boolean(guest);
+	    client->qemu.guest = (unsigned short)json_object_get_boolean(guest);
 	}
+
+	// check if a backup is running and kill QEMU process if not
+	terminate_check(client);
+    }
+}
+
+void
+terminate_check(struct Client *client)
+{
+    if (client->state != STATE_IDLE) {
+	// if we're already in a request, queue this one until after
+	VERBOSE_PRINT("%s: terminate_check queued\n", client->qemu.vmid);
+	client->qemu.term_check_queued = true;
+	return;
+    }
+
+    client->qemu.term_check_queued = false;
+
+    VERBOSE_PRINT("%s: query-status\n", client->qemu.vmid);
+    client->state = STATE_EXPECT_STATUS_RESP;
+    static const char qmp_req[] = "{\"execute\":\"query-status\"}\n";
+    send_qmp_cmd(client, qmp_req, sizeof(qmp_req));
+}
+
+void
+handle_qmp_return(struct Client *client, struct json_object *data, bool error)
+{
+    if (error) {
+        const char *msg = "n/a";
+        struct json_object *desc;
+        if (json_object_object_get_ex(data, "desc", &desc)) {
+            msg = json_object_get_string(desc);
+        }
+        fprintf(stderr, "%s: received error from QMP: %s\n",
+                client->qemu.vmid, msg);
+        client->state = STATE_IDLE;
+        goto out;
+    }
+
+    struct json_object *status;
+    json_bool has_status = data &&
+	json_object_object_get_ex(data, "status", &status);
+
+    bool active = false;
+    if (has_status) {
+	const char *status_str = json_object_get_string(status);
+	active = status_str &&
+	    (!strcmp(status_str, "running") || !strcmp(status_str, "paused"));
+    }
+
+    switch (client->state) {
+	case STATE_EXPECT_STATUS_RESP:
+	    client->state = STATE_IDLE;
+	    if (active) {
+		VERBOSE_PRINT("%s: got status: VM is active\n", client->qemu.vmid);
+	    } else if (!client->qemu.backup) {
+		terminate_client(client);
+	    } else {
+		// if we're in a backup, don't do anything, vzdump will notify
+		// us when the backup finishes
+		VERBOSE_PRINT("%s: not active, but running backup - keep alive\n",
+			      client->qemu.vmid);
+	    }
+	    break;
+
+	// this means we received the empty return from our handshake answer
+	case STATE_HANDSHAKE:
+	    client->state = STATE_IDLE;
+	    VERBOSE_PRINT("%s: QMP handshake complete\n", client->qemu.vmid);
+	    break;
+
+	case STATE_IDLE:
+	case STATE_TERMINATING:
+	    VERBOSE_PRINT("%s: spurious return value received\n",
+			  client->qemu.vmid);
+	    break;
+    }
+
+out:
+    if (client->qemu.term_check_queued) {
+	terminate_check(client);
+    }
+}
+
+/*
+ * VZDump specific client functions
+ */
+
+void
+handle_vzdump_handshake(struct Client *client, struct json_object *data)
+{
+    client->state = STATE_IDLE;
+
+    struct json_object *vmid_obj;
+    json_bool has_vmid = data && json_object_object_get_ex(data, "vmid", &vmid_obj);
+
+    if (!has_vmid) {
+	VERBOSE_PRINT("pid%d: invalid vzdump handshake: no vmid\n",
+		      client->pid);
+	return;
+    }
+
+    const char *vmid_str = json_object_get_string(vmid_obj);
+
+    if (!vmid_str) {
+	VERBOSE_PRINT("pid%d: invalid vzdump handshake: vmid is not a string\n",
+		      client->pid);
+	return;
+    }
+
+    int res = snprintf(client->vzdump.vmid, sizeof(client->vzdump.vmid), "%s", vmid_str);
+    if (res < 0 || res >= (int)sizeof(client->vzdump.vmid)) {
+	VERBOSE_PRINT("pid%d: invalid vzdump handshake: vmid too long or invalid\n",
+		      client->pid);
+	return;
+    }
+
+    struct Client *vmc =
+	(struct Client*) g_hash_table_lookup(vm_clients, client->vzdump.vmid);
+    if (vmc) {
+	vmc->qemu.backup = true;
+
+	// only mark as VZDUMP once we have set everything up, otherwise 'cleanup'
+	// might try to access an invalid value
+	client->type = CLIENT_VZDUMP;
+	VERBOSE_PRINT("%s: vzdump backup started\n",
+		      client->vzdump.vmid);
+    } else {
+	VERBOSE_PRINT("%s: vzdump requested backup start for unregistered VM\n",
+		      client->vzdump.vmid);
     }
 }
 
@@ -206,30 +371,25 @@ void
 add_new_client(int client_fd)
 {
     struct Client *client = calloc(sizeof(struct Client), 1);
+    client->state = STATE_HANDSHAKE;
+    client->type = CLIENT_NONE;
     client->fd = client_fd;
     client->pid = get_pid_from_fd(client_fd);
     if (client->pid == 0) {
 	fprintf(stderr, "could not get pid from client\n");
 	goto err;
     }
-    unsigned long vmid = get_vmid_from_pid(client->pid);
-    int res = snprintf(client->vmid, sizeof(client->vmid), "%lu", vmid);
-    if (vmid == 0 || res < 0 || res >= (int)sizeof(client->vmid)) {
-	fprintf(stderr, "could not get vmid from pid %d\n", client->pid);
-	goto err;
-    }
 
     struct epoll_event ev;
     ev.events = EPOLLIN;
     ev.data.ptr = client;
-    res = epoll_ctl(epoll_fd, EPOLL_CTL_ADD, client_fd, &ev);
+    int res = epoll_ctl(epoll_fd, EPOLL_CTL_ADD, client_fd, &ev);
     if (res < 0) {
 	perror("epoll_ctl client add");
 	goto err;
     }
 
-    VERBOSE_PRINT("added new client, pid: %d, vmid: %s\n", client->pid,
-		client->vmid);
+    VERBOSE_PRINT("added new client, pid: %d\n", client->pid);
 
     return;
 err:
@@ -237,20 +397,16 @@ err:
     free(client);
 }
 
-void
-cleanup_client(struct Client *client)
+static void
+cleanup_qemu_client(struct Client *client)
 {
-    VERBOSE_PRINT("%s: client exited, status: graceful: %d, guest: %d\n",
-		  client->vmid, client->graceful, client->guest);
-    log_neg(epoll_ctl(epoll_fd, EPOLL_CTL_DEL, client->fd, NULL), "epoll del");
-    (void)close(client->fd);
-
-    unsigned short graceful = client->graceful;
-    unsigned short guest = client->guest;
-    char vmid[sizeof(client->vmid)];
-    strncpy(vmid, client->vmid, sizeof(vmid));
-    free(client);
-    VERBOSE_PRINT("%s: executing cleanup\n", vmid);
+    unsigned short graceful = client->qemu.graceful;
+    unsigned short guest = client->qemu.guest;
+    char vmid[sizeof(client->qemu.vmid)];
+    strncpy(vmid, client->qemu.vmid, sizeof(vmid));
+    g_hash_table_remove(vm_clients, &vmid); // frees key, ignore errors
+    VERBOSE_PRINT("%s: executing cleanup (graceful: %d, guest: %d)\n",
+		vmid, graceful, guest);
 
     int pid = fork();
     if (pid < 0) {
@@ -276,9 +432,50 @@ cleanup_client(struct Client *client)
 }
 
 void
+cleanup_client(struct Client *client)
+{
+    log_neg(epoll_ctl(epoll_fd, EPOLL_CTL_DEL, client->fd, NULL), "epoll del");
+    (void)close(client->fd);
+
+    struct Client *vmc;
+    switch (client->type) {
+	case CLIENT_QEMU:
+	    cleanup_qemu_client(client);
+	    break;
+
+	case CLIENT_VZDUMP:
+	    vmc = (struct Client*) g_hash_table_lookup(vm_clients, client->vzdump.vmid);
+	    if (vmc) {
+		VERBOSE_PRINT("%s: backup ended\n", client->vzdump.vmid);
+		vmc->qemu.backup = false;
+		terminate_check(vmc);
+	    }
+	    break;
+
+	case CLIENT_NONE:
+	    // do nothing, only close socket
+	    break;
+    }
+
+    free(client);
+}
+
+void
+terminate_client(struct Client *client)
+{
+    VERBOSE_PRINT("%s: terminating client (pid %d)\n",
+		  client->qemu.vmid, client->pid);
+
+    client->state = STATE_TERMINATING;
+
+    int err = kill(client->pid, SIGTERM);
+    log_neg(err, "kill");
+}
+
+void
 handle_client(struct Client *client)
 {
-    VERBOSE_PRINT("%s: entering handle\n", client->vmid);
+    VERBOSE_PRINT("pid%d: entering handle\n", client->pid);
     ssize_t len;
     do {
 	len = read(client->fd, (client->buf+client->buflen),
@@ -292,12 +489,12 @@ handle_client(struct Client *client)
 	}
 	return;
     } else if (len == 0) {
-	VERBOSE_PRINT("%s: got EOF\n", client->vmid);
+	VERBOSE_PRINT("pid%d: got EOF\n", client->pid);
 	cleanup_client(client);
 	return;
     }
 
-    VERBOSE_PRINT("%s: read %ld bytes\n", client->vmid, len);
+    VERBOSE_PRINT("pid%d: read %ld bytes\n", client->pid, len);
     client->buflen += len;
 
     struct json_tokener *tok = json_tokener_new();
@@ -318,20 +515,26 @@ handle_client(struct Client *client)
 			handle_qmp_handshake(client);
 		    } else if (json_object_object_get_ex(jobj, "event", &obj)) {
 			handle_qmp_event(client, jobj);
+		    } else if (json_object_object_get_ex(jobj, "return", &obj)) {
+			handle_qmp_return(client, obj, false);
+		    } else if (json_object_object_get_ex(jobj, "error", &obj)) {
+			handle_qmp_return(client, obj, true);
+		    } else if (json_object_object_get_ex(jobj, "vzdump", &obj)) {
+			handle_vzdump_handshake(client, obj);
 		    } // else ignore message
 		}
 		break;
 	    case json_tokener_continue:
 		if (client->buflen >= sizeof(client->buf)) {
-		    VERBOSE_PRINT("%s, msg too large, discarding buffer\n",
-				  client->vmid);
+		    VERBOSE_PRINT("pid%d: msg too large, discarding buffer\n",
+				  client->pid);
 		    memset(client->buf, 0, sizeof(client->buf));
 		    client->buflen = 0;
 		} // else we have enough space try again after next read
 		break;
 	    default:
-		VERBOSE_PRINT("%s: parse error: %d, discarding buffer\n",
-			      client->vmid, jerr);
+		VERBOSE_PRINT("pid%d: parse error: %d, discarding buffer\n",
+			      client->pid, jerr);
 		memset(client->buf, 0, client->buflen);
 		client->buflen = 0;
 		break;
@@ -401,6 +604,8 @@ main(int argc, char *argv[])
     if (daemonize) {
 	bail_neg(daemon(0, 1), "daemon");
     }
+
+    vm_clients = g_hash_table_new_full(g_str_hash, g_str_equal, free, NULL);
 
     int nevents;
 
