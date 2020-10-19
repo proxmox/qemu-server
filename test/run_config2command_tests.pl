@@ -401,7 +401,7 @@ print "testing config to command stabillity\n";
 if (my $file = shift) {
     do_test $file;
 } else {
-    foreach my $file (<cfg2cmd/*.conf>) {
+    while (my $file = <cfg2cmd/*.conf>) {
 	do_test $file;
     }
 }
