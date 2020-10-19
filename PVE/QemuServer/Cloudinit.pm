@@ -171,7 +171,7 @@ sub configdrive2_network {
 	$content .= "        dns_search $searchdomains\n";
     }
 
-    my @ifaces = grep(/^net(\d+)$/, keys %$conf);
+    my @ifaces = grep { /^net(\d+)$/ } keys %$conf;
     foreach my $iface (sort @ifaces) {
 	(my $id = $iface) =~ s/^net//;
 	next if !$conf->{"ipconfig$id"};
@@ -251,7 +251,7 @@ sub nocloud_network_v2 {
 
     my $dns_done;
 
-    my @ifaces = grep(/^net(\d+)$/, keys %$conf);
+    my @ifaces = grep { /^net(\d+)$/ } keys %$conf;
     foreach my $iface (sort @ifaces) {
 	(my $id = $iface) =~ s/^net//;
 	next if !$conf->{"ipconfig$id"};
@@ -322,7 +322,7 @@ sub nocloud_network {
     my $content = "version: 1\n"
                 . "config:\n";
 
-    my @ifaces = grep(/^net(\d+)$/, keys %$conf);
+    my @ifaces = grep { /^net(\d+)$/ } keys %$conf;
     foreach my $iface (sort @ifaces) {
 	(my $id = $iface) =~ s/^net//;
 	next if !$conf->{"ipconfig$id"};
