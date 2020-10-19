@@ -3709,10 +3709,9 @@ sub vm_deviceplug {
     } elsif ($deviceid =~ m/^usb(\d+)$/) {
 
 	die "usb hotplug currently not reliable\n";
-	# since we can't reliably hot unplug all added usb devices
-	# and usb passthrough disables live migration
-	# we disable usb hotplugging for now
-	qemu_deviceadd($vmid, PVE::QemuServer::USB::print_usbdevice_full($conf, $deviceid, $device));
+	# since we can't reliably hot unplug all added usb devices and usb
+	# passthrough breaks live migration we disable usb hotplugging for now
+	#qemu_deviceadd($vmid, PVE::QemuServer::USB::print_usbdevice_full($conf, $deviceid, $device));
 
     } elsif ($deviceid =~ m/^(virtio)(\d+)$/) {
 
@@ -3817,11 +3816,10 @@ sub vm_deviceunplug {
     } elsif ($deviceid =~ m/^usb\d+$/) {
 
 	die "usb hotplug currently not reliable\n";
-	# when unplugging usb devices this way,
-	# there may be remaining usb controllers/hubs
-	# so we disable it for now
-	qemu_devicedel($vmid, $deviceid);
-	qemu_devicedelverify($vmid, $deviceid);
+	# when unplugging usb devices this way, there may be remaining usb
+	# controllers/hubs so we disable it for now
+	#qemu_devicedel($vmid, $deviceid);
+	#qemu_devicedelverify($vmid, $deviceid);
 
     } elsif ($deviceid =~ m/^(virtio)(\d+)$/) {
 
@@ -4390,10 +4388,9 @@ sub vmconfig_hotplug_pending {
 		}
 	    } elsif ($opt =~ m/^usb\d+/) {
 		die "skip\n";
-		# since we cannot reliably hot unplug usb devices
-		# we are disabling it
-		die "skip\n" if !$hotplug_features->{usb} || $conf->{$opt} =~ m/spice/i;
-		vm_deviceunplug($vmid, $conf, $opt);
+		# since we cannot reliably hot unplug usb devices we are disabling it
+		#die "skip\n" if !$hotplug_features->{usb} || $conf->{$opt} =~ m/spice/i;
+		#vm_deviceunplug($vmid, $conf, $opt);
 	    } elsif ($opt eq 'vcpus') {
 		die "skip\n" if !$hotplug_features->{cpu};
 		qemu_cpu_hotplug($vmid, $conf, undef);
@@ -4467,12 +4464,11 @@ sub vmconfig_hotplug_pending {
 		}
 	    } elsif ($opt =~ m/^usb\d+$/) {
 		die "skip\n";
-		# since we cannot reliably hot unplug usb devices
-		# we are disabling it
-		die "skip\n" if !$hotplug_features->{usb} || $value =~ m/spice/i;
-		my $d = eval { parse_property_string($usbdesc->{format}, $value) };
-		die "skip\n" if !$d;
-		qemu_usb_hotplug($storecfg, $conf, $vmid, $opt, $d, $arch, $machine_type);
+		# since we cannot reliably hot unplug usb devices we disable it for now
+		#die "skip\n" if !$hotplug_features->{usb} || $value =~ m/spice/i;
+		#my $d = eval { parse_property_string($usbdesc->{format}, $value) };
+		#die "skip\n" if !$d;
+		#qemu_usb_hotplug($storecfg, $conf, $vmid, $opt, $d, $arch, $machine_type);
 	    } elsif ($opt eq 'vcpus') {
 		die "skip\n" if !$hotplug_features->{cpu};
 		qemu_cpu_hotplug($vmid, $conf, $value);
@@ -5035,10 +5031,10 @@ sub vm_start_nolock {
 		my $uuid = PVE::SysFSTools::generate_mdev_uuid($vmid, $i);
 		PVE::SysFSTools::pci_create_mdev_device($pciid, $uuid, $d->{mdev});
 	    } else {
-		die "can't unbind/bind pci group to vfio '$pciid'\n"
+		die "can't unbind/bind PCI group to VFIO '$pciid'\n"
 		    if !PVE::SysFSTools::pci_dev_group_bind_to_vfio($pciid);
-		die "can't reset pci device '$pciid'\n"
-		    if $info->{has_fl_reset} and !PVE::SysFSTools::pci_dev_reset($info);
+		die "can't reset PCI device '$pciid'\n"
+		    if $info->{has_fl_reset} && !PVE::SysFSTools::pci_dev_reset($info);
 	    }
       }
     }
