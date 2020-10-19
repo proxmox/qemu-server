@@ -63,6 +63,8 @@ static int verbose = 0;
 static int epoll_fd = 0;
 static const char *progname;
 GHashTable *vm_clients; // key=vmid (freed on remove), value=*Client (free manually)
+GSList *forced_cleanups;
+volatile sig_atomic_t alarm_triggered = 0;
 
 /*
  * Helper functions
@@ -468,8 +470,39 @@ terminate_client(struct Client *client)
 
     client->state = STATE_TERMINATING;
 
+    // open a pidfd before kill for later cleanup
+    int pidfd = pidfd_open(client->pid, 0);
+    if (pidfd < 0) {
+	switch (errno) {
+	    case ESRCH:
+		// process already dead for some reason, cleanup done
+		VERBOSE_PRINT("%s: failed to open pidfd, process already dead (pid %d)\n",
+			      client->qemu.vmid, client->pid);
+		return;
+
+	    // otherwise fall back to just using the PID directly, but don't
+	    // print if we only failed because we're running on an older kernel
+	    case ENOSYS:
+		break;
+	    default:
+		perror("failed to open QEMU pidfd for cleanup");
+		break;
+	}
+    }
+
     int err = kill(client->pid, SIGTERM);
     log_neg(err, "kill");
+
+    struct CleanupData *data_ptr = malloc(sizeof(struct CleanupData));
+    struct CleanupData data = {
+	.pid = client->pid,
+	.pidfd = pidfd
+    };
+    *data_ptr = data;
+    forced_cleanups = g_slist_prepend(forced_cleanups, (void *)data_ptr);
+
+    // resets any other alarms, but will fire eventually and cleanup all
+    alarm(5);
 }
 
 void
@@ -545,6 +578,55 @@ handle_client(struct Client *client)
 }
 
 
+/*
+ * SIGALRM and cleanup handling
+ *
+ * terminate_client will set an alarm for 5 seconds and add its client's PID to
+ * the forced_cleanups list - when the timer expires, we iterate the list and
+ * attempt to issue SIGKILL to all processes which haven't yet stopped.
+ */
+
+static void
+alarm_handler(__attribute__((unused)) int signum)
+{
+    alarm_triggered = 1;
+}
+
+static void
+sigkill(void *ptr, __attribute__((unused)) void *unused)
+{
+    struct CleanupData data = *((struct CleanupData *)ptr);
+    int err;
+
+    if (data.pidfd > 0) {
+	err = pidfd_send_signal(data.pidfd, SIGKILL, NULL, 0);
+    } else {
+	err = kill(data.pid, SIGKILL);
+    }
+
+    if (err < 0) {
+	if (errno != ESRCH) {
+	    fprintf(stderr, "SIGKILL cleanup of pid '%d' failed - %s\n",
+		    data.pid, strerror(errno));
+	}
+    } else {
+	fprintf(stderr, "cleanup failed, terminating pid '%d' with SIGKILL\n",
+		data.pid);
+    }
+}
+
+static void
+handle_forced_cleanup()
+{
+    if (alarm_triggered) {
+	alarm_triggered = 0;
+	g_slist_foreach(forced_cleanups, sigkill, NULL);
+	g_slist_free_full(forced_cleanups, free);
+	forced_cleanups = NULL;
+    }
+}
+
+
 int
 main(int argc, char *argv[])
 {
@@ -577,6 +659,7 @@ main(int argc, char *argv[])
     }
 
     signal(SIGCHLD, SIG_IGN);
+    signal(SIGALRM, alarm_handler);
 
     socket_path = argv[optind];
 
@@ -612,7 +695,7 @@ main(int argc, char *argv[])
     for(;;) {
 	nevents = epoll_wait(epoll_fd, events, 1, -1);
 	if (nevents < 0 && errno == EINTR) {
-	    // signal happened, try again
+	    handle_forced_cleanup();
 	    continue;
 	}
 	bail_neg(nevents, "epoll_wait");
@@ -630,5 +713,7 @@ main(int argc, char *argv[])
 		handle_client((struct Client *)events[n].data.ptr);
 	    }
 	}
+
+	handle_forced_cleanup();
     }
 }
