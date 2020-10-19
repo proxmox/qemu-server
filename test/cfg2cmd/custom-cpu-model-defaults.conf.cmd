@@ -1,6 +1,7 @@
 /usr/bin/kvm \
   -id 8006 \
   -name customcpu-defaults \
+  -no-shutdown \
   -chardev 'socket,id=qmp,path=/var/run/qemu-server/8006.qmp,server,nowait' \
   -mon 'chardev=qmp,mode=control' \
   -chardev 'socket,id=qmp-event,path=/var/run/qmeventd.sock,reconnect=5' \

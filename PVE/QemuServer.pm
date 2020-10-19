@@ -3087,6 +3087,8 @@ sub config_to_command {
 
     push @$cmd, '-name', $vmname;
 
+    push @$cmd, '-no-shutdown';
+
     my $use_virtio = 0;
 
     my $qmpsocket = PVE::QemuServer::Helpers::qmp_socket($vmid);
