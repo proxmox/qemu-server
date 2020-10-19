@@ -299,8 +299,7 @@ my $bitmap_action_to_human = sub {
     my $action = $info->{action};
 
     if ($action eq "not-used") {
-	return "disabled (no support)" if $self->{vm_was_running};
-	return "disabled (VM not running)";
+	return "disabled (no support)";
     } elsif ($action eq "not-used-removed") {
 	return "disabled (old bitmap cleared)";
     } elsif ($action eq "new") {
@@ -554,7 +553,7 @@ sub archive_pbs {
 
 	my $is_template = PVE::QemuConfig->is_template($self->{vmlist}->{$vmid});
 	$params->{'use-dirty-bitmap'} = JSON::true
-	    if $qemu_support->{'pbs-dirty-bitmap'} && $self->{vm_was_running} && !$is_template;
+	    if $qemu_support->{'pbs-dirty-bitmap'} && !$is_template;
 
 	$params->{timeout} = 60; # give some time to connect to the backup server
 
