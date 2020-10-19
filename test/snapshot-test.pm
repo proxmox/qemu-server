@@ -1,4 +1,4 @@
-package PVE::QemuServer;
+package PVE::QemuServer; ## no critic
 
 use strict;
 use warnings;
@@ -638,3 +638,5 @@ printf("Successful snapshot_rollback with saved vmstate and machine config and r
 testcase_rollback("302", "test", "", { "local:snapshotable-disk-1" => "test" });
 
 done_testing();
+
+1;
