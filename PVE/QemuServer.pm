@@ -4860,13 +4860,22 @@ sub vm_start {
 	    if !$params->{skiptemplate} && PVE::QemuConfig->is_template($conf);
 
 	my $has_suspended_lock = PVE::QemuConfig->has_lock($conf, 'suspended');
+	my $has_backup_lock = PVE::QemuConfig->has_lock($conf, 'backup');
+
+	my $running = check_running($vmid, undef, $migrate_opts->{migratedfrom});
+
+	if ($has_backup_lock && $running) {
+	    # a backup is currently running, attempt to start the guest in the
+	    # existing QEMU instance
+	    return vm_resume($vmid);
+	}
 
 	PVE::QemuConfig->check_lock($conf)
 	    if !($params->{skiplock} || $has_suspended_lock);
 
 	$params->{resume} = $has_suspended_lock || defined($conf->{vmstate});
 
-	die "VM $vmid already running\n" if check_running($vmid, undef, $migrate_opts->{migratedfrom});
+	die "VM $vmid already running\n" if $running;
 
 	if (my $storagemap = $migrate_opts->{storagemap}) {
 	    my $replicated = $migrate_opts->{replicated_volumes};
@@ -5546,9 +5555,12 @@ sub vm_resume {
     PVE::QemuConfig->lock_config($vmid, sub {
 	my $res = mon_cmd($vmid, 'query-status');
 	my $resume_cmd = 'cont';
+	my $reset = 0;
 
-	if ($res->{status} && $res->{status} eq 'suspended') {
-	    $resume_cmd = 'system_wakeup';
+	if ($res->{status}) {
+	    return if $res->{status} eq 'running'; # job done, go home
+	    $resume_cmd = 'system_wakeup' if $res->{status} eq 'suspended';
+	    $reset = 1 if $res->{status} eq 'shutdown';
 	}
 
 	if (!$nocheck) {
@@ -5559,6 +5571,11 @@ sub vm_resume {
 		if !($skiplock || PVE::QemuConfig->has_lock($conf, 'backup'));
 	}
 
+	if ($reset) {
+	    # required if a VM shuts down during a backup and we get a resume
+	    # request before the backup finishes for example
+	    mon_cmd($vmid, "system_reset");
+	}
 	mon_cmd($vmid, $resume_cmd);
     });
 }
