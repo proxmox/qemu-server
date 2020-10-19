@@ -577,7 +577,7 @@ sub archive_pbs {
     my $err = $@;
     if ($err) {
 	$self->logerr($err);
-	$self->mon_backup_cancel($vmid) if defined($backup_job_uuid);
+	$self->mon_backup_cancel($vmid);
     }
     $self->restore_vm_power_state($vmid);
 
@@ -754,7 +754,7 @@ sub archive_vma {
     my $err = $@;
     if ($err) {
 	$self->logerr($err);
-	$self->mon_backup_cancel($vmid) if defined($backup_job_uuid);
+	$self->mon_backup_cancel($vmid);
     }
 
     $self->restore_vm_power_state($vmid);
