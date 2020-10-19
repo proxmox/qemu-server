@@ -1157,11 +1157,11 @@ my $kvm_api_version = 0;
 sub kvm_version {
     return $kvm_api_version if $kvm_api_version;
 
-    open my $fh, '<', '/dev/kvm'
-	or return;
+    open my $fh, '<', '/dev/kvm' or return;
 
     # 0xae00 => KVM_GET_API_VERSION
     $kvm_api_version = ioctl($fh, 0xae00, 0);
+    close($fh);
 
     return $kvm_api_version;
 }
@@ -6244,10 +6244,7 @@ sub restore_vma_archive {
     my $mapfifo = "/var/tmp/vzdumptmp$$.fifo";
     POSIX::mkfifo($mapfifo, 0600);
     my $fifofh;
-
-    my $openfifo = sub {
-	open($fifofh, '>', $mapfifo) || die $!;
-    };
+    my $openfifo = sub { open($fifofh, '>', $mapfifo) or die $! };
 
     $add_pipe->(['vma', 'extract', '-v', '-r', $mapfifo, $readfrom, $tmpdir]);
 
@@ -6372,6 +6369,7 @@ sub restore_vma_archive {
 		$oldtimeout = undef;
 		alarm($tmp);
 		close($fifofh);
+		$fifofh = undef;
 	    }
 	};
 
@@ -6384,6 +6382,7 @@ sub restore_vma_archive {
 
     $restore_deactivate_volumes->($cfg, $devinfo);
 
+    close($fifofh) if $fifofh;
     unlink $mapfifo;
     rmtree $tmpdir;
 
