@@ -1148,6 +1148,7 @@ sub verify_bootdev {
 
 sub print_bootorder {
     my ($devs) = @_;
+    return "" if !@$devs;
     my $data = { order => join(';', @$devs) };
     return PVE::JSONSchema::print_property_string($data, $boot_fmt);
 }
