@@ -4247,6 +4247,8 @@ sub qemu_volume_snapshot_delete {
 sub set_migration_caps {
     my ($vmid) = @_;
 
+    my $qemu_support = eval { mon_cmd($vmid, "query-proxmox-support") };
+
     my $cap_ref = [];
 
     my $enabled_cap = {
@@ -4254,7 +4256,8 @@ sub set_migration_caps {
 	"xbzrle" => 1,
 	"x-rdma-pin-all" => 0,
 	"zero-blocks" => 0,
-	"compress" => 0
+	"compress" => 0,
+	"dirty-bitmaps" => $qemu_support->{'pbs-dirty-bitmap-migration'} ? 1 : 0,
     };
 
     my $supported_capabilities = mon_cmd($vmid, "query-migrate-capabilities");
