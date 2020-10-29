@@ -227,6 +227,19 @@ sub prepare {
 	die "can't migrate running VM without --online\n" if !$online;
 	$running = $pid;
 
+	my $repl_conf = PVE::ReplicationConfig->new();
+	my $is_replicated = $repl_conf->check_for_existing_jobs($vmid, 1);
+	my $is_replicated_to_target = defined($repl_conf->find_local_replication_job($vmid, $self->{node}));
+	if ($is_replicated && !$is_replicated_to_target) {
+	    if ($self->{opts}->{force}) {
+		$self->log('warn', "WARNING: Node '$self->{node}' is not a replication target. Existing " .
+			           "replication jobs will fail after migration!\n");
+	    } else {
+		die "Cannot live-migrate replicated VM to node '$self->{node}' - not a replication " .
+		    "target. Use 'force' to override.\n";
+	    }
+	}
+
 	$self->{forcemachine} = PVE::QemuServer::Machine::qemu_machine_pxe($vmid, $conf);
 
 	# To support custom CPU types, we keep QEMU's "-cpu" parameter intact.
