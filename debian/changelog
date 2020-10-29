@@ -1,3 +1,11 @@
+qemu-server (6.2-18) pve; urgency=medium
+
+  * migrate: tell QEMU to enable dirty-bitmap migration, if supported
+
+  * partially fix #3056: always try to cancel backups when failed to start job
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 29 Oct 2020 18:23:13 +0100
+
 qemu-server (6.2-17) pve; urgency=medium
 
   * bootorder: don't print empty 'order=' property
