@@ -224,6 +224,10 @@ sub prepare {
     $self->{replication_jobcfg} = $repl_conf->find_local_replication_job($vmid, $self->{node});
     $self->{is_replicated} = $repl_conf->check_for_existing_jobs($vmid, 1);
 
+    if ($self->{replication_jobcfg} && defined($self->{replication_jobcfg}->{remove_job})) {
+	die "refusing to migrate replicated VM whose replication job is marked for removal\n";
+    }
+
     PVE::QemuConfig->check_lock($conf);
 
     my $running = 0;
