@@ -220,6 +220,10 @@ sub prepare {
     # test if VM exists
     my $conf = $self->{vmconf} = PVE::QemuConfig->load_config($vmid);
 
+    my $repl_conf = PVE::ReplicationConfig->new();
+    $self->{replication_jobcfg} = $repl_conf->find_local_replication_job($vmid, $self->{node});
+    $self->{is_replicated} = $repl_conf->check_for_existing_jobs($vmid, 1);
+
     PVE::QemuConfig->check_lock($conf);
 
     my $running = 0;
@@ -227,10 +231,7 @@ sub prepare {
 	die "can't migrate running VM without --online\n" if !$online;
 	$running = $pid;
 
-	my $repl_conf = PVE::ReplicationConfig->new();
-	my $is_replicated = $repl_conf->check_for_existing_jobs($vmid, 1);
-	my $is_replicated_to_target = defined($repl_conf->find_local_replication_job($vmid, $self->{node}));
-	if ($is_replicated && !$is_replicated_to_target) {
+	if ($self->{is_replicated} && !$self->{replication_jobcfg}) {
 	    if ($self->{opts}->{force}) {
 		$self->log('warn', "WARNING: Node '$self->{node}' is not a replication target. Existing " .
 			           "replication jobs will fail after migration!\n");
@@ -362,9 +363,7 @@ sub sync_disks {
 	    });
 	}
 
-	my $rep_cfg = PVE::ReplicationConfig->new();
-	my $replication_jobcfg = $rep_cfg->find_local_replication_job($vmid, $self->{node});
-	my $replicatable_volumes = !$replication_jobcfg ? {}
+	my $replicatable_volumes = !$self->{replication_jobcfg} ? {}
 	    : PVE::QemuConfig->get_replicatable_volumes($storecfg, $vmid, $conf, 0, 1);
 
 	my $test_volid = sub {
@@ -489,7 +488,7 @@ sub sync_disks {
 	    }
 	}
 
-	if ($replication_jobcfg) {
+	if ($self->{replication_jobcfg}) {
 	    if ($self->{running}) {
 
 		my $version = PVE::QemuServer::kvm_user_version();
@@ -523,7 +522,7 @@ sub sync_disks {
 	    my $start_time = time();
 	    my $logfunc = sub { $self->log('info', shift) };
 	    $self->{replicated_volumes} = PVE::Replication::run_replication(
-	       'PVE::QemuConfig', $replication_jobcfg, $start_time, $start_time, $logfunc);
+	       'PVE::QemuConfig', $self->{replication_jobcfg}, $start_time, $start_time, $logfunc);
 	}
 
 	# sizes in config have to be accurate for remote node to correctly
@@ -1193,7 +1192,7 @@ sub phase3_cleanup {
     }
 
     # transfer replication state before move config
-    $self->transfer_replication_state() if $self->{replicated_volumes};
+    $self->transfer_replication_state() if $self->{is_replicated};
 
     # move config to remote node
     my $conffile = PVE::QemuConfig->config_file($vmid);
@@ -1202,7 +1201,7 @@ sub phase3_cleanup {
     die "Failed to move config to node '$self->{node}' - rename failed: $!\n"
         if !rename($conffile, $newconffile);
 
-    $self->switch_replication_job_target() if $self->{replicated_volumes};
+    $self->switch_replication_job_target() if $self->{is_replicated};
 
     if ($self->{livemigration}) {
 	if ($self->{stopnbd}) {
