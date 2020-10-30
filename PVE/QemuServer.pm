@@ -27,6 +27,7 @@ use URI::Escape;
 use UUID;
 
 use PVE::Cluster qw(cfs_register_file cfs_read_file cfs_write_file);
+use PVE::CGroup;
 use PVE::DataCenterConfig;
 use PVE::Exception qw(raise raise_param_exc);
 use PVE::GuestHelpers qw(safe_string_ne safe_num_ne safe_boolean_ne);
@@ -43,6 +44,7 @@ use PVE::QMPClient;
 use PVE::QemuConfig;
 use PVE::QemuServer::Helpers qw(min_version config_aware_timeout);
 use PVE::QemuServer::Cloudinit;
+use PVE::QemuServer::CGroup;
 use PVE::QemuServer::CPUConfig qw(print_cpu_device get_cpu_options);
 use PVE::QemuServer::Drive qw(is_valid_drivename drive_is_cloudinit drive_is_cdrom parse_drive print_drive);
 use PVE::QemuServer::Machine;
@@ -120,14 +122,6 @@ PVE::JSONSchema::register_standard_option('pve-targetstorage', {
 });
 
 #no warnings 'redefine';
-
-sub cgroups_write {
-   my ($controller, $vmid, $option, $value) = @_;
-
-   my $path = "/sys/fs/cgroup/$controller/qemu.slice/$vmid.scope/$option";
-   PVE::ProcFSTools::write_proc_entry($path, $value);
-
-}
 
 my $nodename_cache;
 sub nodename {
@@ -4375,6 +4369,7 @@ sub vmconfig_hotplug_pending {
 
     my $hotplug_features = parse_hotplug_features(defined($conf->{hotplug}) ? $conf->{hotplug} : '1');
 
+    my $cgroup = PVE::QemuServer::CGroup->new($vmid);
     my $pending_delete_hash = PVE::QemuConfig->parse_pending_delete($conf->{pending}->{delete});
     foreach my $opt (sort keys %$pending_delete_hash) {
 	next if $selection && !$selection->{$opt};
@@ -4419,9 +4414,9 @@ sub vmconfig_hotplug_pending {
 		die "skip\n" if !$hotplug_features->{memory};
 		PVE::QemuServer::Memory::qemu_memory_hotplug($vmid, $conf, $defaults, $opt);
 	    } elsif ($opt eq 'cpuunits') {
-		cgroups_write("cpu", $vmid, "cpu.shares", $defaults->{cpuunits});
+		$cgroup->change_cpu_shares(undef, $defaults->{cpuunits});
 	    } elsif ($opt eq 'cpulimit') {
-		cgroups_write("cpu", $vmid, "cpu.cfs_quota_us", -1);
+		$cgroup->change_cpu_quota(-1, 100000);
 	    } else {
 		die "skip\n";
 	    }
@@ -4506,10 +4501,10 @@ sub vmconfig_hotplug_pending {
 		die "skip\n" if !$hotplug_features->{memory};
 		$value = PVE::QemuServer::Memory::qemu_memory_hotplug($vmid, $conf, $defaults, $opt, $value);
 	    } elsif ($opt eq 'cpuunits') {
-		cgroups_write("cpu", $vmid, "cpu.shares", $conf->{pending}->{$opt});
+		$cgroup->change_cpu_shares($conf->{pending}->{$opt}, $defaults->{cpuunits});
 	    } elsif ($opt eq 'cpulimit') {
 		my $cpulimit = $conf->{pending}->{$opt} == 0 ? -1 : int($conf->{pending}->{$opt} * 100000);
-		cgroups_write("cpu", $vmid, "cpu.cfs_quota_us", $cpulimit);
+		$cgroup->change_cpu_quota($cpulimit, 100000);
 	    } else {
 		die "skip\n";  # skip non-hot-pluggable options
 	    }
