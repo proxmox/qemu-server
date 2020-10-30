@@ -5078,9 +5078,14 @@ sub vm_start_nolock {
 
     my %properties = (
 	Slice => 'qemu.slice',
-	KillMode => 'none',
-	CPUShares => $cpuunits
+	KillMode => 'none'
     );
+
+    if (PVE::CGroup::cgroup_mode() == 2) {
+	$properties{CPUWeight} = $cpuunits;
+    } else {
+	$properties{CPUShares} = $cpuunits;
+    }
 
     if (my $cpulimit = $conf->{cpulimit}) {
 	$properties{CPUQuota} = int($cpulimit * 100);
