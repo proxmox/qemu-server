@@ -1,3 +1,12 @@
+qemu-server (6.2-19) pve; urgency=medium
+
+  * fix #3113: unbreak drive hotplug
+
+  * qmeventd: add handling for -no-shutdown QEMU instances, to avoid errors if
+    the guest OS shuts down the VM during a backup job.
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 05 Nov 2020 13:37:00 +0100
+
 qemu-server (6.2-18) pve; urgency=medium
 
   * migrate: tell QEMU to enable dirty-bitmap migration, if supported
