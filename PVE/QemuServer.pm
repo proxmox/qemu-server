@@ -3719,7 +3719,7 @@ sub vm_deviceplug {
 	qemu_iothread_add($vmid, $deviceid, $device);
 
         qemu_driveadd($storecfg, $vmid, $device);
-        my $devicefull = print_drivedevice_full($storecfg, $conf, $vmid, $device, $arch, $machine_type);
+        my $devicefull = print_drivedevice_full($storecfg, $conf, $vmid, $device, undef, $arch, $machine_type);
 
         qemu_deviceadd($vmid, $devicefull);
 	eval { qemu_deviceaddverify($vmid, $deviceid); };
@@ -3755,7 +3755,7 @@ sub vm_deviceplug {
         qemu_findorcreatescsihw($storecfg,$conf, $vmid, $device, $arch, $machine_type);
         qemu_driveadd($storecfg, $vmid, $device);
 
-	my $devicefull = print_drivedevice_full($storecfg, $conf, $vmid, $device, $arch, $machine_type);
+	my $devicefull = print_drivedevice_full($storecfg, $conf, $vmid, $device, undef, $arch, $machine_type);
 	eval { qemu_deviceadd($vmid, $devicefull); };
 	if (my $err = $@) {
 	    eval { qemu_drivedel($vmid, $deviceid); };
