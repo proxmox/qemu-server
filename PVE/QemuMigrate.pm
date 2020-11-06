@@ -269,7 +269,6 @@ sub prepare {
 
     my $vollist = PVE::QemuServer::get_vm_volumes($conf);
 
-    my $need_activate = [];
     foreach my $volid (@$vollist) {
 	my ($sid, $volname) = PVE::Storage::parse_volume_id($volid, 1);
 
@@ -284,15 +283,8 @@ sub prepare {
 	    my $plugin = PVE::Storage::Plugin->lookup($scfg->{type});
 	    warn "Used shared storage '$sid' is not online on source node!\n"
 		if !$plugin->check_connection($sid, $scfg);
-	} else {
-	    # only activate if not shared
-	    next if ($volid =~ m/vm-\d+-cloudinit/);
-	    push @$need_activate, $volid;
 	}
     }
-
-    # activate volumes
-    PVE::Storage::activate_volumes($self->{storecfg}, $need_activate);
 
     # test ssh connection
     my $cmd = [ @{$self->{rem_ssh}}, '/bin/true' ];
