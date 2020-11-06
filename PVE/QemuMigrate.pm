@@ -585,6 +585,11 @@ sub sync_disks {
 
 		$self->{volume_map}->{$volid} = $new_volid;
 		$self->log('info', "volume '$volid' is '$new_volid' on the target\n");
+
+		eval { PVE::Storage::deactivate_volumes($storecfg, [$volid]); };
+		if (my $err = $@) {
+		    $self->log('warn', $err);
+		}
 	    }
 	}
     };
