@@ -1,3 +1,13 @@
+qemu-server (6.2-20) pve; urgency=medium
+
+  * don't migrate replicated VM whose replication job is marked for
+    removal
+
+  * ensure qmeventd service is stopped after pve-guests and pve-ha-lrm service
+    on shutdown
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 12 Nov 2020 17:08:45 +0100
+
 qemu-server (6.2-19) pve; urgency=medium
 
   * fix #3113: unbreak drive hotplug
