@@ -2099,7 +2099,7 @@ __PACKAGE__->register_method({
 	$status->{ha} = PVE::HA::Config::get_service_status("vm:$param->{vmid}");
 
 	$status->{spice} = 1 if PVE::QemuServer::vga_conf_has_spice($conf->{vga});
-	$status->{agent} = 1 if (PVE::QemuServer::parse_guest_agent($conf)->{enabled});
+	$status->{agent} = 1 if PVE::QemuServer::get_qga_key($conf, 'enabled');
 
 	return $status;
     }});
@@ -3298,7 +3298,7 @@ __PACKAGE__->register_method({
 
 		    PVE::QemuConfig->write_config($vmid, $conf);
 
-		    my $do_trim = PVE::QemuServer::parse_guest_agent($conf)->{fstrim_cloned_disks};
+		    my $do_trim = PVE::QemuServer::get_qga_key($conf, 'fstrim_cloned_disks');
 		    if ($running && $do_trim && PVE::QemuServer::qga_check_running($vmid)) {
 			eval { mon_cmd($vmid, "guest-fstrim") };
 		    }

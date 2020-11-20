@@ -1966,16 +1966,24 @@ sub parse_watchdog {
 }
 
 sub parse_guest_agent {
-    my ($value) = @_;
+    my ($conf) = @_;
 
-    return {} if !defined($value->{agent});
+    return {} if !defined($conf->{agent});
 
-    my $res = eval { parse_property_string($agent_fmt, $value->{agent}) };
+    my $res = eval { parse_property_string($agent_fmt, $conf->{agent}) };
     warn $@ if $@;
 
     # if the agent is disabled ignore the other potentially set properties
     return {} if !$res->{enabled};
     return $res;
+}
+
+sub get_qga_key {
+    my ($conf, $key) = @_;
+    return undef if !defined($conf->{agent});
+
+    my $agent = parse_guest_agent($conf);
+    return $agent->{$key};
 }
 
 sub parse_vga {
@@ -5359,7 +5367,7 @@ sub _do_vm_stop {
 
     eval {
 	if ($shutdown) {
-	    if (defined($conf) && parse_guest_agent($conf)->{enabled}) {
+	    if (defined($conf) && get_qga_key($conf, 'enabled')) {
 		mon_cmd($vmid, "guest-shutdown", timeout => $timeout);
 	    } else {
 		mon_cmd($vmid, "system_powerdown");
