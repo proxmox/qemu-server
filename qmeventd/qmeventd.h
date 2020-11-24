@@ -30,7 +30,7 @@
 #define __NR_pidfd_send_signal 424
 #endif
 
-#define VERBOSE_PRINT(...) do { if (verbose) { printf(__VA_ARGS__); } } while (0)
+#define VERBOSE_PRINT(...) do { if (verbose) { printf(__VA_ARGS__); fflush(stdout); } } while (0)
 
 static inline void log_neg(int errval, const char *msg)
 {
