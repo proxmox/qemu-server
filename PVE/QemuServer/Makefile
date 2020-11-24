@@ -9,6 +9,7 @@ SOURCES=PCI.pm		\
 	Monitor.pm	\
 	Machine.pm	\
 	CPUConfig.pm	\
+	CGroup.pm	\
 	Drive.pm	\
 
 .PHONY: install
