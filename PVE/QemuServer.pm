@@ -2750,6 +2750,14 @@ sub vmstatus {
 
     foreach my $vmid (keys %$list) {
 	next if $opt_vmid && ($vmid ne $opt_vmid);
+	# we can't use the $qmpclient since it might have already aborted on
+	# 'query-balloon', but this might also fail for older versions...
+	my $qemu_support = eval { mon_cmd($vmid, "query-proxmox-support") };
+	$res->{$vmid}->{'proxmox-support'} = $qemu_support // {};
+    }
+
+    foreach my $vmid (keys %$list) {
+	next if $opt_vmid && ($vmid ne $opt_vmid);
 	$res->{$vmid}->{qmpstatus} = $res->{$vmid}->{status} if !$res->{$vmid}->{qmpstatus};
     }
 

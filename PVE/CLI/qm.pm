@@ -110,7 +110,7 @@ sub print_recursive_hash {
 	foreach my $item (@$hash) {
 	    print_recursive_hash("\t$prefix", $item);
 	}
-    } elsif (!ref($hash) && defined($hash)) {
+    } elsif ((!ref($hash) && defined($hash)) || ref($hash) eq 'JSON::PP::Boolean') {
 	if (defined($key)) {
 	    print "$prefix$key: $hash\n";
 	} else {
