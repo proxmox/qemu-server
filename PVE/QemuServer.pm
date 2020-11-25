@@ -6951,7 +6951,7 @@ sub clone_disk {
 	} elsif ($drivename eq 'efidisk0') {
 	    $size = get_efivars_size($conf);
 	} else {
-	    ($size) = PVE::Storage::volume_size_info($storecfg, $drive->{file}, 3);
+	    ($size) = PVE::Storage::volume_size_info($storecfg, $drive->{file}, 10);
 	}
 	$size /= 1024;
 	$newvolid = PVE::Storage::vdisk_alloc($storecfg, $storeid, $newvmid, $dst_format, $name, $size);
@@ -6991,12 +6991,12 @@ sub clone_disk {
     }
 
 no_data_clone:
-    my ($size) = PVE::Storage::volume_size_info($storecfg, $newvolid, 3);
+    my ($size) = eval { PVE::Storage::volume_size_info($storecfg, $newvolid, 10) };
 
     my $disk = $drive;
     $disk->{format} = undef;
     $disk->{file} = $newvolid;
-    $disk->{size} = $size;
+    $disk->{size} = $size if defined($size);
 
     return $disk;
 }
