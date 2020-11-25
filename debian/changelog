@@ -1,3 +1,15 @@
+qemu-server (6.3-1) pve; urgency=medium
+
+  * deactivate volumes after storage migrate
+
+  * print query-proxmox-support result in 'full' status
+
+  * clone disk: avoid errors after disk was moved by QEMU
+
+  * replace cgroups_write by cgroup change_cpu_shares && change_cpu_quota
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 25 Nov 2020 14:30:50 +0100
+
 qemu-server (6.2-20) pve; urgency=medium
 
   * don't migrate replicated VM whose replication job is marked for
