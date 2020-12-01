@@ -204,6 +204,69 @@ sub finish_tunnel {
     die $err if $err;
 }
 
+sub start_remote_tunnel {
+    my ($self, $raddr, $rport, $ruri, $unix_socket_info) = @_;
+
+    my $nodename = PVE::INotify::nodename();
+    my $migration_type = $self->{opts}->{migration_type};
+
+    if ($migration_type eq 'secure') {
+
+	if ($ruri =~ /^unix:/) {
+	    my $ssh_forward_info = ["$raddr:$raddr"];
+	    $unix_socket_info->{$raddr} = 1;
+
+	    my $unix_sockets = [ keys %$unix_socket_info ];
+	    for my $sock (@$unix_sockets) {
+		push @$ssh_forward_info, "$sock:$sock";
+		unlink $sock;
+	    }
+
+	    $self->{tunnel} = $self->fork_tunnel($ssh_forward_info);
+
+	    my $unix_socket_try = 0; # wait for the socket to become ready
+	    while ($unix_socket_try <= 100) {
+		$unix_socket_try++;
+		my $available = 0;
+		foreach my $sock (@$unix_sockets) {
+		    if (-S $sock) {
+			$available++;
+		    }
+		}
+
+		if ($available == @$unix_sockets) {
+		    last;
+		}
+
+		usleep(50000);
+	    }
+	    if ($unix_socket_try > 100) {
+		$self->{errors} = 1;
+		$self->finish_tunnel($self->{tunnel});
+		die "Timeout, migration socket $ruri did not get ready";
+	    }
+	    $self->{tunnel}->{unix_sockets} = $unix_sockets if (@$unix_sockets);
+
+	} elsif ($ruri =~ /^tcp:/) {
+	    my $ssh_forward_info = [];
+	    if ($raddr eq "localhost") {
+		# for backwards compatibility with older qemu-server versions
+		my $pfamily = PVE::Tools::get_host_address_family($nodename);
+		my $lport = PVE::Tools::next_migrate_port($pfamily);
+		push @$ssh_forward_info, "$lport:localhost:$rport";
+	    }
+
+	    $self->{tunnel} = $self->fork_tunnel($ssh_forward_info);
+
+	} else {
+	    die "unsupported protocol in migration URI: $ruri\n";
+	}
+    } else {
+	#fork tunnel for insecure migration, to send faster commands like resume
+	$self->{tunnel} = $self->fork_tunnel();
+    }
+}
+
 sub lock_vm {
     my ($self, $vmid, $code, @param) = @_;
 
@@ -808,62 +871,8 @@ sub phase2 {
     }
 
     $self->log('info', "start remote tunnel");
+    $self->start_remote_tunnel($raddr, $rport, $ruri, $unix_socket_info);
 
-    if ($migration_type eq 'secure') {
-
-	if ($ruri =~ /^unix:/) {
-	    my $ssh_forward_info = ["$raddr:$raddr"];
-	    $unix_socket_info->{$raddr} = 1;
-
-	    my $unix_sockets = [ keys %$unix_socket_info ];
-	    for my $sock (@$unix_sockets) {
-		push @$ssh_forward_info, "$sock:$sock";
-		unlink $sock;
-	    }
-
-	    $self->{tunnel} = $self->fork_tunnel($ssh_forward_info);
-
-	    my $unix_socket_try = 0; # wait for the socket to become ready
-	    while ($unix_socket_try <= 100) {
-		$unix_socket_try++;
-		my $available = 0;
-		foreach my $sock (@$unix_sockets) {
-		    if (-S $sock) {
-			$available++;
-		    }
-		}
-
-		if ($available == @$unix_sockets) {
-		    last;
-		}
-
-		usleep(50000);
-	    }
-	    if ($unix_socket_try > 100) {
-		$self->{errors} = 1;
-		$self->finish_tunnel($self->{tunnel});
-		die "Timeout, migration socket $ruri did not get ready";
-	    }
-	    $self->{tunnel}->{unix_sockets} = $unix_sockets if (@$unix_sockets);
-
-	} elsif ($ruri =~ /^tcp:/) {
-	    my $ssh_forward_info = [];
-	    if ($raddr eq "localhost") {
-		# for backwards compatibility with older qemu-server versions
-		my $pfamily = PVE::Tools::get_host_address_family($nodename);
-		my $lport = PVE::Tools::next_migrate_port($pfamily);
-		push @$ssh_forward_info, "$lport:localhost:$rport";
-	    }
-
-	    $self->{tunnel} = $self->fork_tunnel($ssh_forward_info);
-
-	} else {
-	    die "unsupported protocol in migration URI: $ruri\n";
-	}
-    } else {
-	#fork tunnel for insecure migration, to send faster commands like resume
-	$self->{tunnel} = $self->fork_tunnel();
-    }
     my $start = time();
 
     my $opt_bwlimit = $self->{opts}->{bwlimit};
