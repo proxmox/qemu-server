@@ -610,7 +610,7 @@ sub sync_disks {
 
 	$self->log('info', "copying local disk images") if scalar(%$local_volumes);
 
-	foreach my $volid (keys %$local_volumes) {
+	foreach my $volid (sort keys %$local_volumes) {
 	    my ($sid, $volname) = PVE::Storage::parse_volume_id($volid);
 	    my $targetsid = PVE::QemuServer::map_storage($self->{opts}->{storagemap}, $sid);
 	    my $ref = $local_volumes->{$volid}->{ref};
