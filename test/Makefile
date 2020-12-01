@@ -1,6 +1,6 @@
 all: test
 
-test: test_snapshot test_ovf test_cfg_to_cmd test_pci_addr_conflicts test_qemu_img_convert
+test: test_snapshot test_ovf test_cfg_to_cmd test_pci_addr_conflicts test_qemu_img_convert test_migration
 
 test_snapshot: run_snapshot_tests.pl
 	./run_snapshot_tests.pl
@@ -17,3 +17,6 @@ test_qemu_img_convert: run_qemu_img_convert_tests.pl
 
 test_pci_addr_conflicts: run_pci_addr_checks.pl
 	./run_pci_addr_checks.pl
+
+test_migration: run_qemu_migrate_tests.pl MigrationTest/*.pm
+	./run_qemu_migrate_tests.pl
