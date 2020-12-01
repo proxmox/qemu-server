@@ -1194,14 +1194,7 @@ sub phase3_cleanup {
 
     # transfer replication state before move config
     $self->transfer_replication_state() if $self->{is_replicated};
-
-    # move config to remote node
-    my $conffile = PVE::QemuConfig->config_file($vmid);
-    my $newconffile = PVE::QemuConfig->config_file($vmid, $self->{node});
-
-    die "Failed to move config to node '$self->{node}' - rename failed: $!\n"
-        if !rename($conffile, $newconffile);
-
+    PVE::QemuConfig->move_config_to_node($vmid, $self->{node});
     $self->switch_replication_job_target() if $self->{is_replicated};
 
     if ($self->{livemigration}) {
