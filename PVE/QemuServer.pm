@@ -5798,7 +5798,10 @@ my $restore_allocate_devices = sub {
 	my $name;
 	if ($d->{is_cloudinit}) {
 	    $name = "vm-$vmid-cloudinit";
-	    $name .= ".$d->{format}" if $d->{format} ne 'raw';
+	    my $scfg = PVE::Storage::storage_config($storecfg, $storeid);
+	    if ($scfg->{path}) {
+		$name .= ".$d->{format}";
+	    }
 	}
 
 	my $volid = PVE::Storage::vdisk_alloc(
@@ -6943,7 +6946,10 @@ sub clone_disk {
 	my $size = undef;
 	if (drive_is_cloudinit($drive)) {
 	    $name = "vm-$newvmid-cloudinit";
-	    $name .= ".$dst_format" if $dst_format ne 'raw';
+	    my $scfg = PVE::Storage::storage_config($storecfg, $storeid);
+	    if ($scfg->{path}) {
+		$name .= ".$dst_format";
+	    }
 	    $snapname = undef;
 	    $size = PVE::QemuServer::Cloudinit::CLOUDINIT_DISK_SIZE;
 	} elsif ($drivename eq 'efidisk0') {
