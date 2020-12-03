@@ -34,6 +34,7 @@ use PVE::GuestHelpers qw(safe_string_ne safe_num_ne safe_boolean_ne);
 use PVE::INotify;
 use PVE::JSONSchema qw(get_standard_option parse_property_string);
 use PVE::ProcFSTools;
+use PVE::PBSClient;
 use PVE::RPCEnvironment;
 use PVE::Storage;
 use PVE::SysFSTools;
@@ -6058,13 +6059,10 @@ sub restore_proxmox_backup_archive {
     my ($storeid, $volname) = PVE::Storage::parse_volume_id($archive);
     my $scfg = PVE::Storage::storage_config($storecfg, $storeid);
 
-    my $server = $scfg->{server};
-    my $datastore = $scfg->{datastore};
-    my $username = $scfg->{username} // 'root@pam';
     my $fingerprint = $scfg->{fingerprint};
     my $keyfile = PVE::Storage::PBSPlugin::pbs_encryption_key_file_name($storecfg, $storeid);
 
-    my $repo = "$username\@$server:$datastore";
+    my $repo = PVE::PBSClient::get_repository($scfg);
 
     # This is only used for `pbs-restore`!
     my $password = PVE::Storage::PBSPlugin::pbs_get_password($scfg, $storeid);

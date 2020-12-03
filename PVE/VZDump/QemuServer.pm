@@ -14,6 +14,7 @@ use PVE::Cluster qw(cfs_read_file);
 use PVE::INotify;
 use PVE::IPCC;
 use PVE::JSONSchema;
+use PVE::PBSClient;
 use PVE::QMPClient;
 use PVE::Storage::Plugin;
 use PVE::Storage::PBSPlugin;
@@ -473,12 +474,8 @@ sub archive_pbs {
 
     my $starttime = time();
 
-    my $server = $scfg->{server};
-    my $datastore = $scfg->{datastore};
-    my $username = $scfg->{username} // 'root@pam';
     my $fingerprint = $scfg->{fingerprint};
-
-    my $repo = "$username\@$server:$datastore";
+    my $repo = PVE::PBSClient::get_repository($scfg);
     my $password = PVE::Storage::PBSPlugin::pbs_get_password($scfg, $opts->{storage});
     my $keyfile = PVE::Storage::PBSPlugin::pbs_encryption_key_file_name($scfg, $opts->{storage});
 
