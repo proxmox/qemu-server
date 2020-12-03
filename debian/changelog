@@ -1,3 +1,10 @@
+qemu-server (6.3-2) pve; urgency=medium
+
+  * PBS: use improved method to assemble repository url, fixing issues when
+    using IPv6 or non-default ports
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 03 Dec 2020 18:06:25 +0100
+
 qemu-server (6.3-1) pve; urgency=medium
 
   * deactivate volumes after storage migrate
