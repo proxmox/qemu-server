@@ -6951,8 +6951,9 @@ sub clone_disk {
 	} else {
 	    ($size) = PVE::Storage::volume_size_info($storecfg, $drive->{file}, 10);
 	}
-	$size /= 1024;
-	$newvolid = PVE::Storage::vdisk_alloc($storecfg, $storeid, $newvmid, $dst_format, $name, $size);
+	$newvolid = PVE::Storage::vdisk_alloc(
+	    $storecfg, $storeid, $newvmid, $dst_format, $name, ($size/1024)
+	);
 	push @$newvollist, $newvolid;
 
 	PVE::Storage::activate_volumes($storecfg, [$newvolid]);
