@@ -1513,7 +1513,7 @@ __PACKAGE__->register_method({
 	    skiplock => get_standard_option('skiplock'),
 	    purge => {
 		type => 'boolean',
-		description => "Remove vmid from backup cron jobs.",
+		description => "Remove VM ID from backup jobs, replication jobs and HA resource configuration.",
 		optional => 1,
 	    },
 	},
