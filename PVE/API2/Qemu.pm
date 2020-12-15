@@ -1501,7 +1501,8 @@ __PACKAGE__->register_method({
     method => 'DELETE',
     protected => 1,
     proxyto => 'node',
-    description => "Destroy the vm (also delete all used/owned volumes).",
+    description => "Destroy the VM and  all used/owned volumes. Removes any VM specific permissions"
+	." and firewall rules",
     permissions => {
 	check => [ 'perm', '/vms/{vmid}', ['VM.Allocate']],
     },
@@ -1513,7 +1514,7 @@ __PACKAGE__->register_method({
 	    skiplock => get_standard_option('skiplock'),
 	    purge => {
 		type => 'boolean',
-		description => "Remove VM ID from backup jobs, replication jobs and HA resource configuration.",
+		description => "Remove VMID from configurations, like backup & replication jobs and HA.",
 		optional => 1,
 	    },
 	},
