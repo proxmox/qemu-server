@@ -156,7 +156,7 @@ my $agent_fmt = {
 	default_key => 1,
     },
     fstrim_cloned_disks => {
-	description => "Run fstrim after cloning/moving a disk.",
+	description => "Run fstrim after moving a disk or migrating the VM.",
 	type => 'boolean',
 	optional => 1,
 	default => 0
