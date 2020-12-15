@@ -1,3 +1,13 @@
+qemu-server (6.3-3) pve; urgency=medium
+
+  * api: adapt VM destroy and purge description
+
+  * clone disk: fix regression in offline clone of efidisk
+
+  * cloudinit: fix cloning/restoring of cloudinit disks in raw format
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 15 Dec 2020 16:33:01 +0100
+
 qemu-server (6.3-2) pve; urgency=medium
 
   * PBS: use improved method to assemble repository url, fixing issues when
