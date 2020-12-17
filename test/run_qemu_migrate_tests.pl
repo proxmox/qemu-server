@@ -417,7 +417,8 @@ sub local_volids_for_vm {
 
 my $tests = [
 # each test consists of the following:
-# name           - unique name for the test
+# name           - unique name for the test which also serves as a dir name and
+#                  gets passed to make, so don't use whitespace or slash
 # target         - hostname of target node
 # vmid           - ID of the VM to migrate
 # opts           - options for the migrate() call
@@ -1492,17 +1493,30 @@ my $tests = [
     },
 ];
 
-mkdir $RUN_DIR_PATH;
-
-file_set_contents("${RUN_DIR_PATH}/replication_config", to_json($replication_config));
-file_set_contents("${RUN_DIR_PATH}/storage_config", to_json($storage_config));
-file_set_contents("${RUN_DIR_PATH}/source_vdisks", to_json($source_vdisks));
-
 my $single_test_name = shift;
+
+if (defined($single_test_name) && $single_test_name eq 'DUMP_NAMES') {
+    my $output = '';
+    foreach my $test (@{$tests}) {
+	$output .= $test->{name} . ' ';
+    }
+    print "$output\n";
+    exit 0;
+}
+
+mkdir $RUN_DIR_PATH;
 
 foreach my $test (@{$tests}) {
     my $name = $test->{name};
     next if defined($single_test_name) && $name ne $single_test_name;
+
+    my $run_dir = "${RUN_DIR_PATH}/${name}";
+
+    mkdir $run_dir;
+    file_set_contents("${run_dir}/replication_config", to_json($replication_config));
+    file_set_contents("${run_dir}/storage_config", to_json($storage_config));
+    file_set_contents("${run_dir}/source_vdisks", to_json($source_vdisks));
+
     my $expect_die = $test->{expect_die};
     my $expected = $test->{expected};
 
@@ -1525,18 +1539,18 @@ foreach my $test (@{$tests}) {
 	opts => $test->{opts},
     };
 
-    file_set_contents("${RUN_DIR_PATH}/nbd_info", to_json({}));
-    file_set_contents("${RUN_DIR_PATH}/source_volids", to_json($source_volids));
-    file_set_contents("${RUN_DIR_PATH}/target_volids", to_json($target_volids));
-    file_set_contents("${RUN_DIR_PATH}/vm_config", to_json($vm_config));
-    file_set_contents("${RUN_DIR_PATH}/vm_status", to_json($test->{vm_status}));
-    file_set_contents("${RUN_DIR_PATH}/expected_calls", to_json($test->{expected_calls}));
-    file_set_contents("${RUN_DIR_PATH}/fail_config", to_json($fail_config));
-    file_set_contents("${RUN_DIR_PATH}/storage_migrate_map", to_json($storage_migrate_map));
-    file_set_contents("${RUN_DIR_PATH}/migrate_params", to_json($migrate_params));
+    file_set_contents("${run_dir}/nbd_info", to_json({}));
+    file_set_contents("${run_dir}/source_volids", to_json($source_volids));
+    file_set_contents("${run_dir}/target_volids", to_json($target_volids));
+    file_set_contents("${run_dir}/vm_config", to_json($vm_config));
+    file_set_contents("${run_dir}/vm_status", to_json($test->{vm_status}));
+    file_set_contents("${run_dir}/expected_calls", to_json($test->{expected_calls}));
+    file_set_contents("${run_dir}/fail_config", to_json($fail_config));
+    file_set_contents("${run_dir}/storage_migrate_map", to_json($storage_migrate_map));
+    file_set_contents("${run_dir}/migrate_params", to_json($migrate_params));
 
     $ENV{QM_LIB_PATH} = $QM_LIB_PATH;
-    $ENV{RUN_DIR_PATH} = $RUN_DIR_PATH;
+    $ENV{RUN_DIR_PATH} = $run_dir;
     my $exitcode = run_command([
 	'/usr/bin/perl',
 	"-I${MIGRATE_LIB_PATH}",
@@ -1545,7 +1559,7 @@ foreach my $test (@{$tests}) {
     ], noerr => 1, errfunc => sub {print "#$name - $_[0]\n"} );
 
     if (defined($expect_die) && $exitcode) {
-	my $log = file_get_contents("${RUN_DIR_PATH}/log");
+	my $log = file_get_contents("${run_dir}/log");
 	my @lines = split /\n/, $log;
 
 	my $matched = 0;
@@ -1565,14 +1579,14 @@ foreach my $test (@{$tests}) {
 	note("mocked migrate call failed, but it was not expected - check log");
     }
 
-    my $expected_calls = decode_json(file_get_contents("${RUN_DIR_PATH}/expected_calls"));
+    my $expected_calls = decode_json(file_get_contents("${run_dir}/expected_calls"));
     foreach my $call (keys %{$expected_calls}) {
 	fail($name);
 	note("expected call '$call' was not made");
     }
 
     if (!defined($expect_die)) {
-	my $nbd_info = decode_json(file_get_contents("${RUN_DIR_PATH}/nbd_info"));
+	my $nbd_info = decode_json(file_get_contents("${run_dir}/nbd_info"));
 	foreach my $drive (keys %{$nbd_info}) {
 	    fail($name);
 	    note("drive '$drive' was not mirrored");
@@ -1580,15 +1594,13 @@ foreach my $test (@{$tests}) {
     }
 
     my $actual = {
-	source_volids => decode_json(file_get_contents("${RUN_DIR_PATH}/source_volids")),
-	target_volids => decode_json(file_get_contents("${RUN_DIR_PATH}/target_volids")),
-	vm_config => decode_json(file_get_contents("${RUN_DIR_PATH}/vm_config")),
-	vm_status => decode_json(file_get_contents("${RUN_DIR_PATH}/vm_status")),
+	source_volids => decode_json(file_get_contents("${run_dir}/source_volids")),
+	target_volids => decode_json(file_get_contents("${run_dir}/target_volids")),
+	vm_config => decode_json(file_get_contents("${run_dir}/vm_config")),
+	vm_status => decode_json(file_get_contents("${run_dir}/vm_status")),
     };
 
     is_deeply($actual, $expected, $name);
-
-    rename("${RUN_DIR_PATH}/log", "${RUN_DIR_PATH}/log-$name") or die "rename log failed\n";
 }
 
 done_testing();
