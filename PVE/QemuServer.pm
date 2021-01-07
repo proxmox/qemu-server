@@ -211,7 +211,7 @@ my $audio_fmt = {
     },
     driver =>  {
 	type => 'string',
-	enum => ['spice'],
+	enum => ['spice', 'none'],
 	default => 'spice',
 	optional => 1,
 	description => "Driver backend for the audio device."
