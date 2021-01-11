@@ -145,6 +145,18 @@ $storage_module->mock(
     },
 );
 
+our $storage_plugin_module = Test::MockModule->new("PVE::Storage::Plugin");
+$storage_plugin_module->mock(
+    cluster_lock_storage => sub {
+	my ($class, $storeid, $shared, $timeout, $func, @param) = @_;
+
+	mkdir "${RUN_DIR_PATH}/lock";
+
+	my $path = "${RUN_DIR_PATH}/lock/pve-storage-${storeid}";
+	return PVE::Tools::lock_file($path, $timeout, $func, @param);
+    },
+);
+
 our $systemd_module = Test::MockModule->new("PVE::Systemd");
 $systemd_module->mock(
     wait_for_unit_removed => sub {
