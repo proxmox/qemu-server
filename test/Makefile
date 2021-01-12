@@ -25,3 +25,7 @@ test_migration: run_qemu_migrate_tests.pl MigrationTest/*.pm $(MIGRATION_TEST_TA
 
 $(MIGRATION_TEST_TARGETS):
 	./run_qemu_migrate_tests.pl $(@:test_migration_%=%)
+
+.PHONY: clean
+clean:
+	rm -rf MigrationTest/run
