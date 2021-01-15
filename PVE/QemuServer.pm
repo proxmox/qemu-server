@@ -6965,6 +6965,12 @@ sub clone_disk {
 	PVE::Storage::activate_volumes($storecfg, [$newvolid]);
 
 	if (drive_is_cloudinit($drive)) {
+	    # when cloning multiple disks (e.g. during clone_vm) it might be the last disk
+	    # if this is the case, we have to complete any block-jobs still there from
+	    # previous drive-mirrors
+	    if (($completion eq 'complete') && (scalar(keys %$jobs) > 0)) {
+		qemu_drive_mirror_monitor($vmid, $newvmid, $jobs, $completion, $qga);
+	    }
 	    goto no_data_clone;
 	}
 
