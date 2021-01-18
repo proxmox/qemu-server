@@ -214,7 +214,7 @@ sub validate_vm_cpu_conf {
     # in a VM-specific config, certain properties are limited/forbidden
 
     die "VM-specific CPU flags must be a subset of: @{[join(', ', @supported_cpu_flags)]}\n"
-	if ($cpu->{flags} && $cpu->{flags} !~ m/$cpu_flag_supported_re(;$cpu_flag_supported_re)*/);
+	if ($cpu->{flags} && $cpu->{flags} !~ m/^$cpu_flag_supported_re(;$cpu_flag_supported_re)*$/);
 
     die "Property 'reported-model' not allowed in VM-specific CPU config.\n"
 	if defined($cpu->{'reported-model'});
@@ -442,7 +442,7 @@ sub parse_cpuflag_list {
     return $res if !$flaglist;
 
     foreach my $flag (split(";", $flaglist)) {
-	if ($flag =~ $re) {
+	if ($flag =~ m/^$re$/) {
 	    $res->{$2} = { op => $1, reason => $reason };
 	}
     }
