@@ -2417,16 +2417,6 @@ __PACKAGE__->register_method({
 	return $rpcenv->fork_worker('qmreset', $vmid, $authuser, $realcmd);
     }});
 
-my sub vm_is_paused {
-    my ($vmid) = @_;
-    my $qmpstatus = eval {
-	PVE::QemuConfig::assert_config_exists_on_node($vmid);
-	mon_cmd($vmid, "query-status");
-    };
-    warn "$@\n" if $@;
-    return $qmpstatus && $qmpstatus->{status} eq "paused";
-}
-
 __PACKAGE__->register_method({
     name => 'vm_shutdown',
     path => '{vmid}/status/shutdown',
@@ -2495,7 +2485,7 @@ __PACKAGE__->register_method({
 	#
 	# checking the qmp status here to get feedback to the gui/cli/api
 	# and the status query should not take too long
-	if (vm_is_paused($vmid)) {
+	if (PVE::QemuServer::vm_is_paused($vmid)) {
 	    if ($param->{forceStop}) {
 		warn "VM is paused - stop instead of shutdown\n";
 		$shutdown = 0;
@@ -2571,7 +2561,7 @@ __PACKAGE__->register_method({
 	my $node = extract_param($param, 'node');
 	my $vmid = extract_param($param, 'vmid');
 
-	die "VM is paused - cannot shutdown\n" if vm_is_paused($vmid);
+	die "VM is paused - cannot shutdown\n" if PVE::QemuServer::vm_is_paused($vmid);
 
 	die "VM $vmid not running\n" if !PVE::QemuServer::check_running($vmid);
 

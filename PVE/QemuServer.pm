@@ -7389,4 +7389,14 @@ sub complete_migration_storage {
     return $res;
 }
 
+sub vm_is_paused {
+    my ($vmid) = @_;
+    my $qmpstatus = eval {
+	PVE::QemuConfig::assert_config_exists_on_node($vmid);
+	mon_cmd($vmid, "query-status");
+    };
+    warn "$@\n" if $@;
+    return $qmpstatus && $qmpstatus->{status} eq "paused";
+}
+
 1;

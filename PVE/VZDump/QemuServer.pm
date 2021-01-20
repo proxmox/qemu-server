@@ -62,8 +62,11 @@ sub prepare {
 	if defined($conf->{name});
 
     $self->{vm_was_running} = 1;
+    $self->{vm_was_paused} = 0;
     if (!PVE::QemuServer::check_running($vmid)) {
 	$self->{vm_was_running} = 0;
+    } elsif (PVE::QemuServer::vm_is_paused($vmid)) {
+	$self->{vm_was_paused} = 1;
     }
 
     $task->{hostname} = $conf->{name};
@@ -176,11 +179,15 @@ sub start_vm {
 sub suspend_vm {
     my ($self, $task, $vmid) = @_;
 
+    return if $self->{vm_was_paused};
+
     $self->cmd ("qm suspend $vmid --skiplock");
 }
 
 sub resume_vm {
     my ($self, $task, $vmid) = @_;
+
+    return if $self->{vm_was_paused};
 
     $self->cmd ("qm resume $vmid --skiplock");
 }
@@ -794,7 +801,7 @@ sub _get_task_devlist {
 
 sub qga_fs_freeze {
     my ($self, $task, $vmid) = @_;
-    return if !$self->{vmlist}->{$vmid}->{agent} || $task->{mode} eq 'stop' || !$self->{vm_was_running};
+    return if !$self->{vmlist}->{$vmid}->{agent} || $task->{mode} eq 'stop' || !$self->{vm_was_running} || $self->{vm_was_paused};
 
     if (!PVE::QemuServer::qga_check_running($vmid, 1)) {
 	$self->loginfo("skipping guest-agent 'fs-freeze', agent configured but not running?");
@@ -872,7 +879,7 @@ sub register_qmeventd_handle {
 sub resume_vm_after_job_start {
     my ($self, $task, $vmid) = @_;
 
-    return if !$self->{vm_was_running};
+    return if !$self->{vm_was_running} || $self->{vm_was_paused};
 
     if (my $stoptime = $task->{vmstoptime}) {
 	my $delay = time() - $task->{vmstoptime};
