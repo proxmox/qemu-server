@@ -1522,7 +1522,7 @@ __PACKAGE__->register_method({
 		description => "If set, destroy all disks with the VMID from all enabled storages.",
 		optional => 1,
 		default => 1, # FIXME: replace to false in PVE 7.0, this is dangerous!
-	    }
+	    },
 	},
     },
     returns => {
