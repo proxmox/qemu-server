@@ -634,6 +634,7 @@ __PACKAGE__->register_method ({
 	$conf->{memory} = $parsed->{qm}->{memory} if defined($parsed->{qm}->{memory});
 	$conf->{cores} = $parsed->{qm}->{cores} if defined($parsed->{qm}->{cores});
 
+	my $imported_disks = [];
 	eval {
 	    # order matters, as do_import() will load_config() internally
 	    $conf->{vmgenid} = PVE::QemuServer::generate_uuid();
@@ -642,11 +643,13 @@ __PACKAGE__->register_method ({
 
 	    foreach my $disk (@{ $parsed->{disks} }) {
 		my ($file, $drive) = ($disk->{backing_file}, $disk->{disk_address});
-		PVE::QemuServer::ImportDisk::do_import($file, $vmid, $storeid, {
+		my ($name, $volid) = PVE::QemuServer::ImportDisk::do_import($file, $vmid, $storeid, {
 		    drive_name => $drive,
 		    format => $format,
 		    skiplock => 1,
 		});
+		# for cleanup on (later) error
+		push @$imported_disks, $volid;
 	    }
 
 	    # reload after disks entries have been created
@@ -656,10 +659,13 @@ __PACKAGE__->register_method ({
 	    PVE::QemuConfig->write_config($vmid, $conf);
 	};
 
-	my $err = $@;
-	if ($err) {
+	if (my $err = $@) {
 	    my $skiplock = 1;
-	    # eval for additional safety in error path
+	    warn "error during import, cleaning up created resources...\n";
+	    for my $volid (@$imported_disks) {
+		eval { PVE::Storage::vdisk_free($storecfg, $volid) };
+		warn "cleanup of $volid failed: $@\n" if $@;
+	    }
 	    eval { PVE::QemuServer::destroy_vm($storecfg, $vmid, $skiplock) };
 	    warn "Could not destroy VM $vmid: $@" if "$@";
 	    die "import failed - $err";
