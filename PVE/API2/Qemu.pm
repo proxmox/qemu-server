@@ -1517,6 +1517,12 @@ __PACKAGE__->register_method({
 		description => "Remove VMID from configurations, like backup & replication jobs and HA.",
 		optional => 1,
 	    },
+	    'destroy-unreferenced-disks' => {
+		type => 'boolean',
+		description => "If set, destroy all disks with the VMID from all enabled storages.",
+		optional => 1,
+		default => 1, # FIXME: replace to false in PVE 7.0, this is dangerous!
+	    }
 	},
     },
     returns => {
@@ -1566,7 +1572,15 @@ __PACKAGE__->register_method({
 		# repeat, config might have changed
 		my $ha_managed = $early_checks->();
 
-		PVE::QemuServer::destroy_vm($storecfg, $vmid, $skiplock, { lock => 'destroyed' });
+		# FIXME: drop fallback to true with 7.0, to dangerous for default
+		my $purge_unreferenced = $param->{'destroy-unreferenced-disks'} // 1;
+
+		PVE::QemuServer::destroy_vm(
+		    $storecfg,
+		    $vmid,
+		    $skiplock, { lock => 'destroyed' },
+		    $purge_unreferenced,
+		);
 
 		PVE::AccessControl::remove_vm_access($vmid);
 		PVE::Firewall::remove_vmfw_conf($vmid);

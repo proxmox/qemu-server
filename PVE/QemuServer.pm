@@ -2074,7 +2074,7 @@ sub check_type {
 }
 
 sub destroy_vm {
-    my ($storecfg, $vmid, $skiplock, $replacement_conf) = @_;
+    my ($storecfg, $vmid, $skiplock, $replacement_conf, $purge_unreferenced) = @_;
 
     my $conf = PVE::QemuConfig->load_config($vmid);
 
@@ -2110,13 +2110,14 @@ sub destroy_vm {
 	warn "Could not remove disk '$volid', check manually: $@" if $@;
     });
 
-    # also remove unused disk
-    my $vmdisks = PVE::Storage::vdisk_list($storecfg, undef, $vmid);
-    PVE::Storage::foreach_volid($vmdisks, sub {
-	my ($volid, $sid, $volname, $d) = @_;
-	eval { PVE::Storage::vdisk_free($storecfg, $volid) };
-	warn $@ if $@;
-    });
+    if ($purge_unreferenced) { # also remove unreferenced disk
+	my $vmdisks = PVE::Storage::vdisk_list($storecfg, undef, $vmid);
+	PVE::Storage::foreach_volid($vmdisks, sub {
+	    my ($volid, $sid, $volname, $d) = @_;
+	    eval { PVE::Storage::vdisk_free($storecfg, $volid) };
+	    warn $@ if $@;
+	});
+    }
 
     if (defined $replacement_conf) {
 	PVE::QemuConfig->write_config($vmid, $replacement_conf);
