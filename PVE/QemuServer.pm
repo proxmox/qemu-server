@@ -2095,8 +2095,8 @@ sub destroy_vm {
 	});
     }
 
-    # only remove disks owned by this VM
-    PVE::QemuConfig->foreach_volume($conf, sub {
+    # only remove disks owned by this VM (referenced in the config)
+    PVE::QemuConfig->foreach_volume_full($conf, { include_unused => 1 }, sub {
 	my ($ds, $drive) = @_;
  	return if drive_is_cdrom($drive, 1);
 
