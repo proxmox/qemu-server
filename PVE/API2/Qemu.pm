@@ -1519,7 +1519,8 @@ __PACKAGE__->register_method({
 	    },
 	    'destroy-unreferenced-disks' => {
 		type => 'boolean',
-		description => "If set, destroy all disks with the VMID from all enabled storages.",
+		description => "If set, destroy additionally all disks not referenced in the config"
+		 ." but with a matching VMID from all enabled storages.",
 		optional => 1,
 		default => 1, # FIXME: replace to false in PVE 7.0, this is dangerous!
 	    },
