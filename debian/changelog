@@ -1,3 +1,17 @@
+qemu-server (6.3-4) pve; urgency=medium
+
+  * audio: add the "none" dummy audio backend
+
+  * fix drive-mirror completion with cloudinit
+
+  * vm destroy: allow opt-out of purging unreferenced disks
+
+  * fix #2788: do not resume vms after backup if they were paused before
+
+  * anchor CPU flag regex to avoid arbitrary flag suffixes
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 28 Jan 2021 17:21:07 +0100
+
 qemu-server (6.3-3) pve; urgency=medium
 
   * api: adapt VM destroy and purge description
