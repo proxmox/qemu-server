@@ -1134,6 +1134,16 @@ sub phase2 {
 	    die "unable to parse migration status '$stat->{status}' - aborting\n";
 	}
     }
+
+    if ($self->{storage_migration}) {
+	# finish block-job with block-job-cancel, to disconnect source VM from NBD
+	# to avoid it trying to re-establish it. We are in blockjob ready state,
+	# thus, this command changes to it to blockjob complete (see qapi docs)
+	eval { PVE::QemuServer::qemu_drive_mirror_monitor($vmid, undef, $self->{storage_migration_jobs}, 'cancel'); };
+	if (my $err = $@) {
+	    die "Failed to complete storage migration: $err\n";
+	}
+    }
 }
 
 sub phase2_cleanup {
@@ -1208,19 +1218,6 @@ sub phase3_cleanup {
     return if $self->{phase2errors};
 
     my $tunnel = $self->{tunnel};
-
-    if ($self->{storage_migration}) {
-	# finish block-job with block-job-cancel, to disconnect source VM from NBD
-	# to avoid it trying to re-establish it. We are in blockjob ready state,
-	# thus, this command changes to it to blockjob complete (see qapi docs)
-	eval { PVE::QemuServer::qemu_drive_mirror_monitor($vmid, undef, $self->{storage_migration_jobs}, 'cancel'); };
-
-	if (my $err = $@) {
-	    eval { PVE::QemuServer::qemu_blockjobs_cancel($vmid, $self->{storage_migration_jobs}) };
-	    eval { PVE::QemuMigrate::cleanup_remotedisks($self) };
-	    die "Failed to complete storage migration: $err\n";
-	}
-    }
 
     if ($self->{volume_map}) {
 	my $target_drives = $self->{target_drive};

@@ -139,6 +139,12 @@ $MigrationTest::Shared::qemu_server_module->mock(
 	file_set_contents("${RUN_DIR_PATH}/nbd_info", to_json($nbd_info));
     },
     qemu_drive_mirror_monitor => sub {
+	my ($vmid, $vmiddst, $jobs, $completion, $qga) = @_;
+
+	if ($fail_config->{qemu_drive_mirror_monitor} &&
+	    $fail_config->{qemu_drive_mirror_monitor} eq $completion) {
+	    die "qemu_drive_mirror_monitor '$completion' error\n";
+	}
 	return;
     },
     set_migration_caps => sub {

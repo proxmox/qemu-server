@@ -1445,6 +1445,41 @@ my $tests = [
 	},
     },
     {
+	name => '149_running_unused_block_job_cancel_fail',
+	target => 'pve1',
+	vmid => 149,
+	vm_status => {
+	    running => 1,
+	    runningmachine => 'pc-q35-5.0+pve0',
+	},
+	opts => {
+	    online => 1,
+	    'with-local-disks' => 1,
+	},
+	config_patch => {
+	    scsi1 => undef,
+	    unused0 => 'local-dir:149/vm-149-disk-0.qcow2',
+	},
+	expected_calls => {},
+	expect_die => "qemu_drive_mirror_monitor 'cancel' error",
+	# note that 'cancel' is also used to finish and that's what this test is about
+	fail_config => {
+	    'qemu_drive_mirror_monitor' => 'cancel',
+	},
+	expected => {
+	    source_volids => local_volids_for_vm(149),
+	    target_volids => {},
+	    vm_config => get_patched_config(149, {
+		scsi1 => undef,
+		unused0 => 'local-dir:149/vm-149-disk-0.qcow2',
+	    }),
+	    vm_status => {
+		running => 1,
+		runningmachine => 'pc-q35-5.0+pve0',
+	    },
+	},
+    },
+    {
 	name => '149_offline',
 	target => 'pve1',
 	vmid => 149,
