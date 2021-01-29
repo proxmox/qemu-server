@@ -9,6 +9,7 @@ use POSIX qw( WNOHANG );
 use Time::HiRes qw( usleep );
 
 use PVE::Cluster;
+use PVE::GuestHelpers qw(safe_string_ne);
 use PVE::INotify;
 use PVE::RPCEnvironment;
 use PVE::Replication;
@@ -357,7 +358,7 @@ sub prepare {
     return $running;
 }
 
-sub sync_disks {
+sub scan_local_volumes {
     my ($self, $vmid) = @_;
 
     my $conf = $self->{vmconf};
@@ -366,12 +367,13 @@ sub sync_disks {
     # and their old_id => new_id pairs
     $self->{volumes} = [];
     $self->{volume_map} = {};
+    $self->{local_volumes} = {};
 
     my $storecfg = $self->{storecfg};
     eval {
 
 	# found local volumes and their origin
-	my $local_volumes = {};
+	my $local_volumes = $self->{local_volumes};
 	my $local_volumes_errors = {};
 	my $other_errors = [];
 	my $abort = 0;
@@ -608,11 +610,7 @@ sub sync_disks {
 	    PVE::QemuServer::update_efidisk_size($conf);
 	}
 
-	$self->log('info', "copying local disk images") if scalar(%$local_volumes);
-
 	foreach my $volid (sort keys %$local_volumes) {
-	    my ($sid, $volname) = PVE::Storage::parse_volume_id($volid);
-	    my $targetsid = PVE::QemuServer::map_storage($self->{opts}->{storagemap}, $sid);
 	    my $ref = $local_volumes->{$volid}->{ref};
 	    if ($self->{running} && $ref eq 'config') {
 		push @{$self->{online_local_volumes}}, $volid;
@@ -624,39 +622,70 @@ sub sync_disks {
 	    } else {
 		next if $self->{replicated_volumes}->{$volid};
 		push @{$self->{volumes}}, $volid;
-		my $opts = $self->{opts};
-		# use 'migrate' limit for transfer to other node
-		my $bwlimit = PVE::Storage::get_bandwidth_limit('migration', [$targetsid, $sid], $opts->{bwlimit});
-		# JSONSchema and get_bandwidth_limit use kbps - storage_migrate bps
-		$bwlimit = $bwlimit * 1024 if defined($bwlimit);
-
-		my $storage_migrate_opts = {
-		    'ratelimit_bps' => $bwlimit,
-		    'insecure' => $opts->{migration_type} eq 'insecure',
-		    'with_snapshots' => $local_volumes->{$volid}->{snapshots},
-		    'allow_rename' => !$local_volumes->{$volid}->{is_vmstate},
-		};
-
-		my $logfunc = sub { $self->log('info', $_[0]); };
-		my $new_volid = eval {
-		    PVE::Storage::storage_migrate($storecfg, $volid, $self->{ssh_info},
-						  $targetsid, $storage_migrate_opts, $logfunc);
-		};
-		if (my $err = $@) {
-		    die "storage migration for '$volid' to storage '$targetsid' failed - $err\n";
-		}
-
-		$self->{volume_map}->{$volid} = $new_volid;
-		$self->log('info', "volume '$volid' is '$new_volid' on the target\n");
-
-		eval { PVE::Storage::deactivate_volumes($storecfg, [$volid]); };
-		if (my $err = $@) {
-		    $self->log('warn', $err);
-		}
+		$local_volumes->{$volid}->{migration_mode} = 'offline';
 	    }
 	}
     };
-    die "Failed to sync data - $@" if $@;
+    die "Problem found while scanning volumes - $@" if $@;
+}
+
+sub filter_local_volumes {
+    my ($self, $migration_mode) = @_;
+
+    my $volumes = $self->{local_volumes};
+    my @filtered_volids;
+
+    foreach my $volid (sort keys %{$volumes}) {
+	next if defined($migration_mode) && safe_string_ne($volumes->{$volid}->{migration_mode}, $migration_mode);
+	push @filtered_volids, $volid;
+    }
+
+    return @filtered_volids;
+}
+
+sub sync_offline_local_volumes {
+    my ($self) = @_;
+
+    my $local_volumes = $self->{local_volumes};
+    my @volids = $self->filter_local_volumes('offline');
+
+    my $storecfg = $self->{storecfg};
+    my $opts = $self->{opts};
+
+    $self->log('info', "copying local disk images") if scalar(@volids);
+
+    foreach my $volid (@volids) {
+	my ($sid, $volname) = PVE::Storage::parse_volume_id($volid);
+	my $targetsid = PVE::QemuServer::map_storage($self->{opts}->{storagemap}, $sid);
+	# use 'migration' limit for transfer to other node
+	my $bwlimit = PVE::Storage::get_bandwidth_limit('migration', [$targetsid, $sid], $opts->{bwlimit});
+	# JSONSchema and get_bandwidth_limit use kbps - storage_migrate bps
+	$bwlimit = $bwlimit * 1024 if defined($bwlimit);
+
+	my $storage_migrate_opts = {
+	    'ratelimit_bps' => $bwlimit,
+	    'insecure' => $opts->{migration_type} eq 'insecure',
+	    'with_snapshots' => $local_volumes->{$volid}->{snapshots},
+	    'allow_rename' => !$local_volumes->{$volid}->{is_vmstate},
+	};
+
+	my $logfunc = sub { $self->log('info', $_[0]); };
+	my $new_volid = eval {
+	    PVE::Storage::storage_migrate($storecfg, $volid, $self->{ssh_info},
+					  $targetsid, $storage_migrate_opts, $logfunc);
+	};
+	if (my $err = $@) {
+	    die "storage migration for '$volid' to storage '$targetsid' failed - $err\n";
+	}
+
+	$self->{volume_map}->{$volid} = $new_volid;
+	$self->log('info', "volume '$volid' is '$new_volid' on the target\n");
+
+	eval { PVE::Storage::deactivate_volumes($storecfg, [$volid]); };
+	if (my $err = $@) {
+	    $self->log('warn', $err);
+	}
+    }
 }
 
 sub cleanup_remotedisks {
@@ -704,11 +733,12 @@ sub phase1 {
     $conf->{lock} = 'migrate';
     PVE::QemuConfig->write_config($vmid, $conf);
 
-    sync_disks($self, $vmid);
-
-    # sync_disks fixes disk sizes to match their actual size, write changes so
+    # scan_local_volumes fixes disk sizes to match their actual size, write changes so
     # target allocates correct volumes
+    $self->scan_local_volumes($vmid);
     PVE::QemuConfig->write_config($vmid, $conf);
+
+    $self->sync_offline_local_volumes();
 };
 
 sub phase1_cleanup {
