@@ -1465,7 +1465,6 @@ my $tests = [
 	},
     },
     {
-	# FIXME also cleanup remote disks when failing this early
 	name => '149_storage_migrate_fail',
 	target => 'pve1',
 	vmid => 149,
@@ -1482,9 +1481,7 @@ my $tests = [
 	expect_die => "storage_migrate 'local-lvm:vm-149-disk-0' error",
 	expected => {
 	    source_volids => local_volids_for_vm(149),
-	    target_volids => {
-		'local-dir:149/vm-149-disk-0.qcow2' => 1,
-	    },
+	    target_volids => {},
 	    vm_config => $vm_configs->{149},
 	    vm_status => {
 		running => 0,

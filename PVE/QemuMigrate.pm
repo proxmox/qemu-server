@@ -695,16 +695,11 @@ sub sync_offline_local_volumes {
 sub cleanup_remotedisks {
     my ($self) = @_;
 
-    foreach my $target_drive (keys %{$self->{target_drive}}) {
-	my $drivestr = $self->{target_drive}->{$target_drive}->{drivestr};
-	next if !defined($drivestr);
-
-	my $drive = PVE::QemuServer::parse_drive($target_drive, $drivestr);
-
+    foreach my $volid (values %{$self->{volume_map}}) {
 	# don't clean up replicated disks!
-	next if defined($self->{replicated_volumes}->{$drive->{file}});
+	next if defined($self->{replicated_volumes}->{$volid});
 
-	my ($storeid, $volname) = PVE::Storage::parse_volume_id($drive->{file});
+	my ($storeid, $volname) = PVE::Storage::parse_volume_id($volid);
 
 	my $cmd = [@{$self->{rem_ssh}}, 'pvesm', 'free', "$storeid:$volname"];
 
@@ -759,20 +754,15 @@ sub phase1_cleanup {
 	$self->log('err', $err);
     }
 
-    my @volids = $self->filter_local_volumes('offline');
-    if (scalar(@volids)) {
-	foreach my $volid (@volids) {
-	    next if defined($self->{replicated_volumes}->{$volid});
-	    $self->log('err', "found stale volume copy '$volid' on node '$self->{node}'");
-	    # fixme: try to remove ?
-	}
+    eval { $self->cleanup_remotedisks() };
+    if (my $err = $@) {
+	$self->log('err', $err);
     }
 
     eval { $self->cleanup_bitmaps() };
     if (my $err =$@) {
 	$self->log('err', $err);
     }
-
 }
 
 sub phase2 {
