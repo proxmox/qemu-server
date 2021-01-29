@@ -415,6 +415,7 @@ sub scan_local_volumes {
 		my ($volid, $sid, $volinfo) = @_;
 
 		$local_volumes->{$volid}->{ref} = 'storage';
+		$local_volumes->{$volid}->{size} = $volinfo->{size};
 
 		# If with_snapshots is not set for storage migrate, it tries to use
 		# a raw+size stream, but on-the-fly conversion from qcow2 to raw+size
@@ -587,17 +588,15 @@ sub scan_local_volumes {
 	}
 
 	# sizes in config have to be accurate for remote node to correctly
-	# allocate disks, rescan to be sure
-	my $volid_hash = PVE::QemuServer::scan_volids($storecfg, $vmid);
+	# allocate disks
 	PVE::QemuConfig->foreach_volume($conf, sub {
 	    my ($key, $drive) = @_;
 	    return if $key eq 'efidisk0'; # skip efidisk, will be handled later
 
 	    my $volid = $drive->{file};
 	    return if !defined($local_volumes->{$volid}); # only update sizes for local volumes
-	    return if !defined($volid_hash->{$volid});
 
-	    my ($updated, $msg) = PVE::QemuServer::Drive::update_disksize($drive, $volid_hash->{$volid}->{size});
+	    my ($updated, $msg) = PVE::QemuServer::Drive::update_disksize($drive, $local_volumes->{$volid}->{size});
 	    if (defined($updated)) {
 		$conf->{$key} = PVE::QemuServer::print_drive($updated);
 		$self->log('info', "drive '$key': $msg");
