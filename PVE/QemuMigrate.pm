@@ -365,7 +365,6 @@ sub scan_local_volumes {
 
     # local volumes which have been copied
     # and their old_id => new_id pairs
-    $self->{volumes} = [];
     $self->{volume_map} = {};
     $self->{local_volumes} = {};
 
@@ -599,14 +598,10 @@ sub scan_local_volumes {
 	    my $ref = $local_volumes->{$volid}->{ref};
 	    if ($self->{running} && $ref eq 'config') {
 		push @{$self->{online_local_volumes}}, $volid;
-	    } elsif ($ref eq 'generated') {
-		die "can't live migrate VM with local cloudinit disk. use a shared storage instead\n" if $self->{running};
-		# skip all generated volumes but queue them for deletion in phase3_cleanup
-		push @{$self->{volumes}}, $volid;
-		next;
+	    } elsif ($self->{running} && $ref eq 'generated') {
+		die "can't live migrate VM with local cloudinit disk. use a shared storage instead\n";
 	    } else {
 		next if $self->{replicated_volumes}->{$volid};
-		push @{$self->{volumes}}, $volid;
 		$local_volumes->{$volid}->{migration_mode} = 'offline';
 	    }
 	}
@@ -764,8 +759,10 @@ sub phase1_cleanup {
 	$self->log('err', $err);
     }
 
-    if ($self->{volumes}) {
-	foreach my $volid (@{$self->{volumes}}) {
+    my @volids = $self->filter_local_volumes('offline');
+    if (scalar(@volids)) {
+	foreach my $volid (@volids) {
+	    next if defined($self->{replicated_volumes}->{$volid});
 	    $self->log('err', "found stale volume copy '$volid' on node '$self->{node}'");
 	    # fixme: try to remove ?
 	}
@@ -1198,18 +1195,7 @@ sub phase2_cleanup {
 sub phase3 {
     my ($self, $vmid) = @_;
 
-    my $volids = $self->{volumes};
-    return if $self->{phase2errors};
-
-    # destroy local copies
-    foreach my $volid (@$volids) {
-	eval { PVE::Storage::vdisk_free($self->{storecfg}, $volid); };
-	if (my $err = $@) {
-	    $self->log('err', "removing local copy of '$volid' failed - $err");
-	    $self->{errors} = 1;
-	    last if $err =~ /^interrupted by signal$/;
-	}
-    }
+    return;
 }
 
 sub phase3_cleanup {
@@ -1334,22 +1320,17 @@ sub phase3_cleanup {
 	$self->{errors} = 1;
     }
 
-    if($self->{storage_migration}) {
-	# destroy local copies
-	my $volids = $self->{online_local_volumes};
+    # destroy local copies
+    foreach my $volid (keys %{$self->{local_volumes}}) {
+	# keep replicated volumes!
+	next if $self->{replicated_volumes}->{$volid};
 
-	foreach my $volid (@$volids) {
-	    # keep replicated volumes!
-	    next if $self->{replicated_volumes}->{$volid};
-
-	    eval { PVE::Storage::vdisk_free($self->{storecfg}, $volid); };
-	    if (my $err = $@) {
-		$self->log('err', "removing local copy of '$volid' failed - $err");
-		$self->{errors} = 1;
-		last if $err =~ /^interrupted by signal$/;
-	    }
+	eval { PVE::Storage::vdisk_free($self->{storecfg}, $volid); };
+	if (my $err = $@) {
+	    $self->log('err', "removing local copy of '$volid' failed - $err");
+	    $self->{errors} = 1;
+	    last if $err =~ /^interrupted by signal$/;
 	}
-
     }
 
     # clear migrate lock
