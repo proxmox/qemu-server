@@ -587,28 +587,6 @@ sub scan_local_volumes {
 	       'PVE::QemuConfig', $self->{replication_jobcfg}, $start_time, $start_time, $logfunc);
 	}
 
-	# sizes in config have to be accurate for remote node to correctly
-	# allocate disks
-	PVE::QemuConfig->foreach_volume($conf, sub {
-	    my ($key, $drive) = @_;
-	    return if $key eq 'efidisk0'; # skip efidisk, will be handled later
-
-	    my $volid = $drive->{file};
-	    return if !defined($local_volumes->{$volid}); # only update sizes for local volumes
-
-	    my ($updated, $msg) = PVE::QemuServer::Drive::update_disksize($drive, $local_volumes->{$volid}->{size});
-	    if (defined($updated)) {
-		$conf->{$key} = PVE::QemuServer::print_drive($updated);
-		$self->log('info', "drive '$key': $msg");
-	    }
-	});
-
-	# we want to set the efidisk size in the config to the size of the
-	# real OVMF_VARS.fd image, else we can create a too big image, which does not work
-	if (defined($conf->{efidisk0})) {
-	    PVE::QemuServer::update_efidisk_size($conf);
-	}
-
 	foreach my $volid (sort keys %$local_volumes) {
 	    my $ref = $local_volumes->{$volid}->{ref};
 	    if ($self->{running} && $ref eq 'config') {
@@ -626,6 +604,33 @@ sub scan_local_volumes {
 	}
     };
     die "Problem found while scanning volumes - $@" if $@;
+}
+
+sub config_update_local_disksizes {
+    my ($self) = @_;
+
+    my $conf = $self->{vmconf};
+    my $local_volumes = $self->{local_volumes};
+
+    PVE::QemuConfig->foreach_volume($conf, sub {
+	my ($key, $drive) = @_;
+	return if $key eq 'efidisk0'; # skip efidisk, will be handled later
+
+	my $volid = $drive->{file};
+	return if !defined($local_volumes->{$volid}); # only update sizes for local volumes
+
+	my ($updated, $msg) = PVE::QemuServer::Drive::update_disksize($drive, $local_volumes->{$volid}->{size});
+	if (defined($updated)) {
+	    $conf->{$key} = PVE::QemuServer::print_drive($updated);
+	    $self->log('info', "drive '$key': $msg");
+	}
+    });
+
+    # we want to set the efidisk size in the config to the size of the
+    # real OVMF_VARS.fd image, else we can create a too big image, which does not work
+    if (defined($conf->{efidisk0})) {
+	PVE::QemuServer::update_efidisk_size($conf);
+    }
 }
 
 sub filter_local_volumes {
@@ -732,9 +737,11 @@ sub phase1 {
     $conf->{lock} = 'migrate';
     PVE::QemuConfig->write_config($vmid, $conf);
 
-    # scan_local_volumes fixes disk sizes to match their actual size, write changes so
-    # target allocates correct volumes
     $self->scan_local_volumes($vmid);
+
+    # fix disk sizes to match their actual size and write changes,
+    # so that the target allocates the correct volumes
+    $self->config_update_local_disksizes();
     PVE::QemuConfig->write_config($vmid, $conf);
 
     $self->sync_offline_local_volumes();
