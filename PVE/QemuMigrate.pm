@@ -411,11 +411,19 @@ sub scan_local_volumes {
 		    if !$target_scfg->{content}->{images};
 	    }
 
+	    my $bwlimit = PVE::Storage::get_bandwidth_limit(
+		'migration',
+		[$targetsid, $storeid],
+		$self->{opts}->{bwlimit},
+	    );
+
 	    PVE::Storage::foreach_volid($dl, sub {
 		my ($volid, $sid, $volinfo) = @_;
 
 		$local_volumes->{$volid}->{ref} = 'storage';
 		$local_volumes->{$volid}->{size} = $volinfo->{size};
+		$local_volumes->{$volid}->{targetsid} = $targetsid;
+		$local_volumes->{$volid}->{bwlimit} = $bwlimit;
 
 		# If with_snapshots is not set for storage migrate, it tries to use
 		# a raw+size stream, but on-the-fly conversion from qcow2 to raw+size
@@ -659,12 +667,9 @@ sub sync_offline_local_volumes {
     $self->log('info', "copying local disk images") if scalar(@volids);
 
     foreach my $volid (@volids) {
-	my ($sid, $volname) = PVE::Storage::parse_volume_id($volid);
-	my $targetsid = PVE::QemuServer::map_storage($self->{opts}->{storagemap}, $sid);
-	# use 'migration' limit for transfer to other node
-	my $bwlimit = PVE::Storage::get_bandwidth_limit('migration', [$targetsid, $sid], $opts->{bwlimit});
-	# JSONSchema and get_bandwidth_limit use kbps - storage_migrate bps
-	$bwlimit = $bwlimit * 1024 if defined($bwlimit);
+	my $targetsid = $local_volumes->{$volid}->{targetsid};
+	my $bwlimit = $local_volumes->{$volid}->{bwlimit};
+	$bwlimit = $bwlimit * 1024 if defined($bwlimit); # storage_migrate uses bps
 
 	my $storage_migrate_opts = {
 	    'ratelimit_bps' => $bwlimit,
@@ -777,6 +782,7 @@ sub phase2 {
     my ($self, $vmid) = @_;
 
     my $conf = $self->{vmconf};
+    my $local_volumes = $self->{local_volumes};
 
     $self->log('info', "starting VM $vmid on remote node '$self->{node}'");
 
@@ -911,8 +917,6 @@ sub phase2 {
 
     my $start = time();
 
-    my $opt_bwlimit = $self->{opts}->{bwlimit};
-
     if (defined($self->{online_local_volumes})) {
 	$self->{storage_migration} = 1;
 	$self->{storage_migration_jobs} = {};
@@ -930,10 +934,7 @@ sub phase2 {
 	    my $source_volid = $source_drive->{file};
 	    my $target_volid = $target_drive->{file};
 
-	    my $source_sid = PVE::Storage::Plugin::parse_volume_id($source_volid);
-	    my $target_sid = PVE::Storage::Plugin::parse_volume_id($target_volid);
-
-	    my $bwlimit = PVE::Storage::get_bandwidth_limit('migration', [$source_sid, $target_sid], $opt_bwlimit);
+	    my $bwlimit = $local_volumes->{$source_volid}->{bwlimit};
 	    my $bitmap = $target->{bitmap};
 
 	    $self->log('info', "$drive: start migration to $nbd_uri");
@@ -960,7 +961,7 @@ sub phase2 {
 
     # migrate speed can be set via bwlimit (datacenter.cfg and API) and via the
     # migrate_speed parameter in qm.conf - take the lower of the two.
-    my $bwlimit = PVE::Storage::get_bandwidth_limit('migration', undef, $opt_bwlimit) // 0;
+    my $bwlimit = PVE::Storage::get_bandwidth_limit('migration', undef, $self->{opts}->{bwlimit}) // 0;
     my $migrate_speed = $conf->{migrate_speed} // 0;
     # migrate_speed is in MB/s, bwlimit in KB/s
     $migrate_speed *= 1024;
