@@ -846,6 +846,22 @@ sub phase2 {
 	}
     }
 
+    my $handle_storage_migration_listens = sub {
+	my ($drive_key, $drivestr, $nbd_uri) = @_;
+
+	$self->{stopnbd} = 1;
+	$self->{target_drive}->{$drive_key}->{drivestr} = $drivestr;
+	$self->{target_drive}->{$drive_key}->{nbd_uri} = $nbd_uri;
+
+	my $source_drive = PVE::QemuServer::parse_drive($drive_key, $conf->{$drive_key});
+	my $target_drive = PVE::QemuServer::parse_drive($drive_key, $drivestr);
+	my $source_volid = $source_drive->{file};
+	my $target_volid = $target_drive->{file};
+
+	$self->{volume_map}->{$source_volid} = $target_volid;
+	$self->log('info', "volume '$source_volid' is '$target_volid' on the target\n");
+    };
+
     my $target_replicated_volumes = {};
 
     # Note: We try to keep $spice_ticket secret (do not pass via command line parameter)
@@ -877,9 +893,7 @@ sub phase2 {
 	    my $targetdrive = $3;
 	    $targetdrive =~ s/drive-//g;
 
-	    $self->{stopnbd} = 1;
-	    $self->{target_drive}->{$targetdrive}->{drivestr} = $drivestr;
-	    $self->{target_drive}->{$targetdrive}->{nbd_uri} = $nbd_uri;
+	    $handle_storage_migration_listens->($targetdrive, $drivestr, $nbd_uri);
 	} elsif ($line =~ m!^storage migration listens on nbd:unix:(/run/qemu-server/(\d+)_nbd\.migrate):exportname=(\S+) volume:(\S+)$!) {
 	    my $drivestr = $4;
 	    die "Destination UNIX socket's VMID does not match source VMID" if $vmid ne $2;
@@ -888,9 +902,7 @@ sub phase2 {
 	    my $targetdrive = $3;
 	    $targetdrive =~ s/drive-//g;
 
-	    $self->{stopnbd} = 1;
-	    $self->{target_drive}->{$targetdrive}->{drivestr} = $drivestr;
-	    $self->{target_drive}->{$targetdrive}->{nbd_uri} = $nbd_uri;
+	    $handle_storage_migration_listens->($targetdrive, $drivestr, $nbd_uri);
 	    $unix_socket_info->{$nbd_unix_addr} = 1;
 	} elsif ($line =~ m/^re-using replicated volume: (\S+) - (.*)$/) {
 	    my $drive = $1;
@@ -929,19 +941,13 @@ sub phase2 {
 	    my $nbd_uri = $target->{nbd_uri};
 
 	    my $source_drive = PVE::QemuServer::parse_drive($drive, $conf->{$drive});
-	    my $target_drive = PVE::QemuServer::parse_drive($drive, $target->{drivestr});
-
 	    my $source_volid = $source_drive->{file};
-	    my $target_volid = $target_drive->{file};
 
 	    my $bwlimit = $local_volumes->{$source_volid}->{bwlimit};
 	    my $bitmap = $target->{bitmap};
 
 	    $self->log('info', "$drive: start migration to $nbd_uri");
 	    PVE::QemuServer::qemu_drive_mirror($vmid, $drive, $nbd_uri, $vmid, undef, $self->{storage_migration_jobs}, 'skip', undef, $bwlimit, $bitmap);
-
-	    $self->{volume_map}->{$source_volid} = $target_volid;
-	    $self->log('info', "volume '$source_volid' is '$target_volid' on the target\n");
 	}
     }
 
