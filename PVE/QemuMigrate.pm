@@ -597,7 +597,7 @@ sub scan_local_volumes {
 	foreach my $volid (sort keys %$local_volumes) {
 	    my $ref = $local_volumes->{$volid}->{ref};
 	    if ($self->{running} && $ref eq 'config') {
-		push @{$self->{online_local_volumes}}, $volid;
+		$local_volumes->{$volid}->{migration_mode} = 'online';
 	    } elsif ($self->{running} && $ref eq 'generated') {
 		die "can't live migrate VM with local cloudinit disk. use a shared storage instead\n";
 	    } else {
@@ -770,6 +770,9 @@ sub phase2 {
 
     my $conf = $self->{vmconf};
     my $local_volumes = $self->{local_volumes};
+    my @online_local_volumes = $self->filter_local_volumes('online');
+
+    $self->{storage_migration} = 1 if scalar(@online_local_volumes);
 
     $self->log('info', "starting VM $vmid on remote node '$self->{node}'");
 
@@ -810,7 +813,7 @@ sub phase2 {
 	push @$cmd, '--force-cpu', $self->{forcecpu};
     }
 
-    if ($self->{online_local_volumes}) {
+    if ($self->{storage_migration}) {
 	push @$cmd, '--targetstorage', ($self->{opts}->{targetstorage} // '1');
     }
 
@@ -823,14 +826,10 @@ sub phase2 {
     $input .= "nbd_protocol_version: $nbd_protocol_version\n";
 
     my $number_of_online_replicated_volumes = 0;
-
-    # prevent auto-vivification
-    if ($self->{online_local_volumes}) {
-	foreach my $volid (@{$self->{online_local_volumes}}) {
-	    next if !$self->{replicated_volumes}->{$volid};
-	    $number_of_online_replicated_volumes++;
-	    $input .= "replicated_volume: $volid\n";
-	}
+    foreach my $volid (@online_local_volumes) {
+	next if !$self->{replicated_volumes}->{$volid};
+	$number_of_online_replicated_volumes++;
+	$input .= "replicated_volume: $volid\n";
     }
 
     my $handle_storage_migration_listens = sub {
@@ -916,13 +915,12 @@ sub phase2 {
 
     my $start = time();
 
-    if (defined($self->{online_local_volumes})) {
-	$self->{storage_migration} = 1;
+    if ($self->{storage_migration}) {
 	$self->{storage_migration_jobs} = {};
 	$self->log('info', "starting storage migration");
 
 	die "The number of local disks does not match between the source and the destination.\n"
-	    if (scalar(keys %{$self->{target_drive}}) != scalar @{$self->{online_local_volumes}});
+	    if (scalar(keys %{$self->{target_drive}}) != scalar(@online_local_volumes));
 	foreach my $drive (keys %{$self->{target_drive}}){
 	    my $target = $self->{target_drive}->{$drive};
 	    my $nbd_uri = $target->{nbd_uri};
