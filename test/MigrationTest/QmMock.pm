@@ -86,6 +86,8 @@ $MigrationTest::Shared::storage_module->mock(
 	    $volid = "${storeid}:${name_without_extension}";
 	}
 
+	PVE::Storage::parse_volume_id($volid);
+
 	die "vdisk_alloc '$volid' error\n" if $fail_config->{vdisk_alloc}
 					   && $fail_config->{vdisk_alloc} eq $volid;
 

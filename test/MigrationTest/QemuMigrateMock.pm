@@ -221,6 +221,8 @@ $MigrationTest::Shared::storage_module->mock(
     vdisk_free => sub {
 	my ($scfg, $volid) = @_;
 
+	PVE::Storage::parse_volume_id($volid);
+
 	die "vdisk_free '$volid' error\n" if defined($fail_config->{vdisk_free})
 					  && $fail_config->{vdisk_free} eq $volid;
 
@@ -292,6 +294,7 @@ $MigrationTest::Shared::tools_module->mock(
 		    $cmd = shift @{$cmd_tail};
 		    if ($cmd eq 'free') {
 			my $volid = shift @{$cmd_tail};
+			PVE::Storage::parse_volume_id($volid);
 			return 1 if $fail_config->{ssh_pvesm_free}
 				 && $fail_config->{ssh_pvesm_free} eq $volid;
 			MigrationTest::Shared::remove_target_volid($volid);

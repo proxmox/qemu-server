@@ -23,6 +23,8 @@ my $test_vmid = $migrate_params->{vmid};
 sub add_target_volid {
     my ($volid) = @_;
 
+    PVE::Storage::parse_volume_id($volid);
+
     lock_file_full("${RUN_DIR_PATH}/target_volids.lock", undef, 0, sub {
 	my $target_volids = decode_json(file_get_contents("${RUN_DIR_PATH}/target_volids"));
 	die "target volid already present " if defined($target_volids->{$volid});
@@ -34,6 +36,8 @@ sub add_target_volid {
 
 sub remove_target_volid {
     my ($volid) = @_;
+
+    PVE::Storage::parse_volume_id($volid);
 
     lock_file_full("${RUN_DIR_PATH}/target_volids.lock", undef, 0, sub {
 	my $target_volids = decode_json(file_get_contents("${RUN_DIR_PATH}/target_volids"));
