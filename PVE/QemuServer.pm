@@ -4458,6 +4458,8 @@ sub foreach_volid {
 
 	$volhash->{$volid}->{is_unused} //= 0;
 	$volhash->{$volid}->{is_unused} = 1 if $key =~ /^unused\d+$/;
+
+	$volhash->{$volid}->{drivename} = $key if is_valid_drivename($key);
     };
 
     my $include_opts = {

@@ -476,6 +476,9 @@ sub scan_local_volumes {
 
 	    $local_volumes->{$volid}->{is_vmstate} = $attr->{is_vmstate} ? 1 : 0;
 
+	    $local_volumes->{$volid}->{drivename} = $attr->{drivename}
+		if $attr->{drivename};
+
 	    if ($attr->{cdrom}) {
 		if ($volid =~ /vm-\d+-cloudinit/) {
 		    $local_volumes->{$volid}->{ref} = 'generated';
@@ -560,43 +563,6 @@ sub scan_local_volumes {
 	    }
 	}
 
-	if ($self->{replication_jobcfg}) {
-	    if ($self->{running}) {
-
-		my $version = PVE::QemuServer::kvm_user_version();
-		if (!min_version($version, 4, 2)) {
-		    die "can't live migrate VM with replicated volumes, pve-qemu to old (< 4.2)!\n"
-		}
-
-		my $live_replicatable_volumes = {};
-		PVE::QemuConfig->foreach_volume($conf, sub {
-		    my ($ds, $drive) = @_;
-
-		    my $volid = $drive->{file};
-		    $live_replicatable_volumes->{$ds} = $volid
-			if defined($replicatable_volumes->{$volid});
-		});
-		foreach my $drive (keys %$live_replicatable_volumes) {
-		    my $volid = $live_replicatable_volumes->{$drive};
-
-		    my $bitmap = "repl_$drive";
-
-		    # start tracking before replication to get full delta + a few duplicates
-		    $self->log('info', "$drive: start tracking writes using block-dirty-bitmap '$bitmap'");
-		    mon_cmd($vmid, 'block-dirty-bitmap-add', node => "drive-$drive", name => $bitmap);
-
-		    # other info comes from target node in phase 2
-		    $self->{target_drive}->{$drive}->{bitmap} = $bitmap;
-		}
-	    }
-	    $self->log('info', "replicating disk images");
-
-	    my $start_time = time();
-	    my $logfunc = sub { $self->log('info', shift) };
-	    my $replicated_volumes = PVE::Replication::run_replication(
-	       'PVE::QemuConfig', $self->{replication_jobcfg}, $start_time, $start_time, $logfunc);
-	}
-
 	foreach my $volid (sort keys %$local_volumes) {
 	    my $ref = $local_volumes->{$volid}->{ref};
 	    if ($self->{running} && $ref eq 'config') {
@@ -609,6 +575,50 @@ sub scan_local_volumes {
 	}
     };
     die "Problem found while scanning volumes - $@" if $@;
+}
+
+sub handle_replication {
+    my ($self, $vmid) = @_;
+
+    my $conf = $self->{vmconf};
+    my $local_volumes = $self->{local_volumes};
+
+    return if !$self->{replication_jobcfg};
+    if ($self->{running}) {
+
+	my $version = PVE::QemuServer::kvm_user_version();
+	if (!min_version($version, 4, 2)) {
+	    die "can't live migrate VM with replicated volumes, pve-qemu to old (< 4.2)!\n"
+	}
+
+	my @live_replicatable_volumes = $self->filter_local_volumes('online', 1);
+	foreach my $volid (@live_replicatable_volumes) {
+	    my $drive = $local_volumes->{$volid}->{drivename};
+	    die "internal error - no drive for '$volid'\n" if !defined($drive);
+
+	    my $bitmap = "repl_$drive";
+
+	    # start tracking before replication to get full delta + a few duplicates
+	    $self->log('info', "$drive: start tracking writes using block-dirty-bitmap '$bitmap'");
+	    mon_cmd($vmid, 'block-dirty-bitmap-add', node => "drive-$drive", name => $bitmap);
+
+	    # other info comes from target node in phase 2
+	    $self->{target_drive}->{$drive}->{bitmap} = $bitmap;
+	}
+    }
+    $self->log('info', "replicating disk images");
+
+    my $start_time = time();
+    my $logfunc = sub { $self->log('info', shift) };
+    my $actual_replicated_volumes = PVE::Replication::run_replication(
+       'PVE::QemuConfig', $self->{replication_jobcfg}, $start_time, $start_time, $logfunc);
+
+    # extra safety check
+    my @replicated_volumes = $self->filter_local_volumes(undef, 1);
+    foreach my $volid (@replicated_volumes) {
+	die "expected volume '$volid' to get replicated, but it wasn't\n"
+	    if !$actual_replicated_volumes->{$volid};
+    }
 }
 
 sub config_update_local_disksizes {
@@ -743,6 +753,8 @@ sub phase1 {
     # so that the target allocates the correct volumes
     $self->config_update_local_disksizes();
     PVE::QemuConfig->write_config($vmid, $conf);
+
+    $self->handle_replication($vmid);
 
     $self->sync_offline_local_volumes();
 };
