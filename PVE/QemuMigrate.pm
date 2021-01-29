@@ -961,11 +961,15 @@ sub phase2 {
     # migrate speed can be set via bwlimit (datacenter.cfg and API) and via the
     # migrate_speed parameter in qm.conf - take the lower of the two.
     my $bwlimit = PVE::Storage::get_bandwidth_limit('migration', undef, $opt_bwlimit) // 0;
-    my $migrate_speed = $conf->{migrate_speed} // $bwlimit;
+    my $migrate_speed = $conf->{migrate_speed} // 0;
     # migrate_speed is in MB/s, bwlimit in KB/s
     $migrate_speed *= 1024;
 
-    $migrate_speed = ($bwlimit < $migrate_speed) ? $bwlimit : $migrate_speed;
+    if ($bwlimit && $migrate_speed) {
+	$migrate_speed = ($bwlimit < $migrate_speed) ? $bwlimit : $migrate_speed;
+    } else {
+	$migrate_speed ||= $bwlimit;
+    }
 
     # always set migrate speed (overwrite kvm default of 32m) we set a very high
     # default of 8192m which is basically unlimited
