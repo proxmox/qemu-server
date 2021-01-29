@@ -9,7 +9,7 @@ use POSIX qw( WNOHANG );
 use Time::HiRes qw( usleep );
 
 use PVE::Cluster;
-use PVE::GuestHelpers qw(safe_string_ne);
+use PVE::GuestHelpers qw(safe_boolean_ne safe_string_ne);
 use PVE::INotify;
 use PVE::RPCEnvironment;
 use PVE::Replication;
@@ -434,6 +434,9 @@ sub scan_local_volumes {
 
 	my $replicatable_volumes = !$self->{replication_jobcfg} ? {}
 	    : PVE::QemuConfig->get_replicatable_volumes($storecfg, $vmid, $conf, 0, 1);
+	foreach my $volid (keys %{$replicatable_volumes}) {
+	    $local_volumes->{$volid}->{replicated} = 1;
+	}
 
 	my $test_volid = sub {
 	    my ($volid, $attr) = @_;
@@ -590,7 +593,7 @@ sub scan_local_volumes {
 
 	    my $start_time = time();
 	    my $logfunc = sub { $self->log('info', shift) };
-	    $self->{replicated_volumes} = PVE::Replication::run_replication(
+	    my $replicated_volumes = PVE::Replication::run_replication(
 	       'PVE::QemuConfig', $self->{replication_jobcfg}, $start_time, $start_time, $logfunc);
 	}
 
@@ -601,7 +604,6 @@ sub scan_local_volumes {
 	    } elsif ($self->{running} && $ref eq 'generated') {
 		die "can't live migrate VM with local cloudinit disk. use a shared storage instead\n";
 	    } else {
-		next if $self->{replicated_volumes}->{$volid};
 		$local_volumes->{$volid}->{migration_mode} = 'offline';
 	    }
 	}
@@ -637,13 +639,14 @@ sub config_update_local_disksizes {
 }
 
 sub filter_local_volumes {
-    my ($self, $migration_mode) = @_;
+    my ($self, $migration_mode, $replicated) = @_;
 
     my $volumes = $self->{local_volumes};
     my @filtered_volids;
 
     foreach my $volid (sort keys %{$volumes}) {
 	next if defined($migration_mode) && safe_string_ne($volumes->{$volid}->{migration_mode}, $migration_mode);
+	next if defined($replicated) && safe_boolean_ne($volumes->{$volid}->{replicated}, $replicated);
 	push @filtered_volids, $volid;
     }
 
@@ -654,7 +657,7 @@ sub sync_offline_local_volumes {
     my ($self) = @_;
 
     my $local_volumes = $self->{local_volumes};
-    my @volids = $self->filter_local_volumes('offline');
+    my @volids = $self->filter_local_volumes('offline', 0);
 
     my $storecfg = $self->{storecfg};
     my $opts = $self->{opts};
@@ -695,9 +698,11 @@ sub sync_offline_local_volumes {
 sub cleanup_remotedisks {
     my ($self) = @_;
 
+    my $local_volumes = $self->{local_volumes};
+
     foreach my $volid (values %{$self->{volume_map}}) {
 	# don't clean up replicated disks!
-	next if defined($self->{replicated_volumes}->{$volid});
+	next if $local_volumes->{$volid}->{replicated};
 
 	my ($storeid, $volname) = PVE::Storage::parse_volume_id($volid);
 
@@ -825,10 +830,8 @@ sub phase2 {
     my $input = $spice_ticket ? "$spice_ticket\n" : "\n";
     $input .= "nbd_protocol_version: $nbd_protocol_version\n";
 
-    my $number_of_online_replicated_volumes = 0;
-    foreach my $volid (@online_local_volumes) {
-	next if !$self->{replicated_volumes}->{$volid};
-	$number_of_online_replicated_volumes++;
+    my @online_replicated_volumes = $self->filter_local_volumes('online', 1);
+    foreach my $volid (@online_replicated_volumes) {
 	$input .= "replicated_volume: $volid\n";
     }
 
@@ -906,7 +909,7 @@ sub phase2 {
 
     die "unable to detect remote migration address\n" if !$raddr;
 
-    if (scalar(keys %$target_replicated_volumes) != $number_of_online_replicated_volumes) {
+    if (scalar(keys %$target_replicated_volumes) != scalar(@online_replicated_volumes)) {
 	die "number of replicated disks on source and target node do not match - target node too old?\n"
     }
 
@@ -1308,11 +1311,10 @@ sub phase3_cleanup {
 	$self->{errors} = 1;
     }
 
-    # destroy local copies
-    foreach my $volid (keys %{$self->{local_volumes}}) {
-	# keep replicated volumes!
-	next if $self->{replicated_volumes}->{$volid};
+    my @not_replicated_volumes = $self->filter_local_volumes(undef, 0);
 
+    # destroy local copies
+    foreach my $volid (@not_replicated_volumes) {
 	eval { PVE::Storage::vdisk_free($self->{storecfg}, $volid); };
 	if (my $err = $@) {
 	    $self->log('err', "removing local copy of '$volid' failed - $err");
