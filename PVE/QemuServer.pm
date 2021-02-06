@@ -4462,6 +4462,13 @@ sub vmconfig_hotplug_pending {
 	    $conf->{$opt} = delete $conf->{pending}->{$opt};
 	}
 
+	my $pending_delete_hash = PVE::QemuConfig->parse_pending_delete($conf->{pending}->{delete});
+	foreach my $opt (sort keys %$pending_delete_hash) {
+	    next if !grep { $_ eq $opt } @cloudinit_opts;
+	    PVE::QemuConfig->remove_from_pending_delete($conf, $opt);
+	    delete $conf->{$opt};
+	}
+
 	my $new_conf = { %$conf };
 	$new_conf->{$key} = $value;
 	PVE::QemuServer::Cloudinit::generate_cloudinitconfig($new_conf, $vmid);
