@@ -718,7 +718,7 @@ my $confdesc_cloudinit = {
 	description => 'Specifies the cloud-init configuration format. The default depends on the'
 	    .' configured operating system type (`ostype`. We use the `nocloud` format for Linux,'
 	    .' and `configdrive2` for windows.',
-	enum => ['configdrive2', 'nocloud'],
+	enum => ['configdrive2', 'nocloud', 'opennebula'],
     },
     ciuser => {
 	optional => 1,

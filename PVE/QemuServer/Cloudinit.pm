@@ -6,6 +6,7 @@ use warnings;
 use File::Path;
 use Digest::SHA;
 use URI::Escape;
+use MIME::Base64 qw(encode_base64);
 
 use PVE::Tools qw(run_command file_set_contents);
 use PVE::Storage;
@@ -241,6 +242,96 @@ sub generate_configdrive2 {
     commit_cloudinit_disk($conf, $vmid, $drive, $volname, $storeid, $files, 'config-2');
 }
 
+sub generate_opennebula {
+    my ($conf, $vmid, $drive, $volname, $storeid) = @_;
+
+    my ($hostname, $fqdn) = get_hostname_fqdn($conf, $vmid);
+
+    my $content = "";
+
+    my $username = $conf->{ciuser} || "root";
+    my $password = encode_base64($conf->{cipassword}) if defined($conf->{cipassword});
+
+    $content .= "USERNAME=$username\n" if defined($username);
+    $content .= "CRYPTED_PASSWORD_BASE64=$password\n" if defined($password);
+
+    if (defined(my $keys = $conf->{sshkeys})) {
+        $keys = URI::Escape::uri_unescape($keys);
+        $keys = [map { my $key = $_; chomp $key; $key } split(/\n/, $keys)];
+        $keys = [grep { /\S/ } @$keys];
+        $content .= "SSH_PUBLIC_KEY=\"";
+
+        foreach my $k (@$keys) {
+	     $content .= "$k\n";
+        }
+        $content .= "\"\n";
+
+    }
+
+    my ($searchdomains, $nameservers) = get_dns_conf($conf);
+    if ($nameservers && @$nameservers) {
+        $nameservers = join(' ', @$nameservers);
+        $content .= "DNS=\"$nameservers\"\n";
+    }
+
+    $content .= "SET_HOSTNAME=$hostname\n";
+
+    if ($searchdomains && @$searchdomains) {
+        $searchdomains = join(' ', @$searchdomains);
+        $content .= "SEARCH_DOMAIN=\"$searchdomains\"\n";
+    }
+
+    my $networkenabled = undef;
+    my @ifaces = grep { /^net(\d+)$/ } keys %$conf;
+    foreach my $iface (sort @ifaces) {
+        (my $id = $iface) =~ s/^net//;
+	my $net = PVE::QemuServer::parse_net($conf->{$iface});
+        next if !$conf->{"ipconfig$id"};
+	my $ipconfig = PVE::QemuServer::parse_ipconfig($conf->{"ipconfig$id"});
+        my $ethid = "ETH$id";
+
+	my $mac = lc $net->{hwaddr};
+
+	if ($ipconfig->{ip}) {
+	    $networkenabled = 1;
+
+	    if ($ipconfig->{ip} eq 'dhcp') {
+		$content .= $ethid."_DHCP=YES\n";
+	    } else {
+		my ($addr, $mask) = split_ip4($ipconfig->{ip});
+		$content .= $ethid."_IP=$addr\n";
+		$content .= $ethid."_MASK=$mask\n";
+		$content .= $ethid."_MAC=$mac\n";
+		$content .= $ethid."_GATEWAY=$ipconfig->{gw}\n" if $ipconfig->{gw};
+	    }
+	    $content .= $ethid."_MTU=$net->{mtu}\n" if $net->{mtu};
+	}
+
+	if ($ipconfig->{ip6}) {
+	    $networkenabled = 1;
+	    if ($ipconfig->{ip6} eq 'dhcp') {
+		$content .= $ethid."_DHCP6=YES\n";
+	    } elsif ($ipconfig->{ip6} eq 'auto') {
+		$content .= $ethid."_AUTO6=YES\n";
+	    } else {
+		my ($addr, $mask) = split('/', $ipconfig->{ip6});
+		$content .= $ethid."_IP6=$addr\n";
+		$content .= $ethid."_MASK6=$mask\n";
+		$content .= $ethid."_MAC6=$mac\n";
+		$content .= $ethid."_GATEWAY6=$ipconfig->{gw6}\n" if $ipconfig->{gw6};
+	    }
+	    $content .= $ethid."_MTU=$net->{mtu}\n" if $net->{mtu};
+	}
+    }
+
+    $content .= "NETWORK=YES\n" if $networkenabled;
+
+    my $files = {
+	'/context.sh' => $content,
+    };
+    commit_cloudinit_disk($conf, $vmid, $drive, $volname, $storeid, $files, 'CONTEXT');
+}
+
 sub nocloud_network_v2 {
     my ($conf) = @_;
 
@@ -459,6 +550,7 @@ sub read_cloudinit_snippets_file {
 my $cloudinit_methods = {
     configdrive2 => \&generate_configdrive2,
     nocloud => \&generate_nocloud,
+    opennebula => \&generate_opennebula,
 };
 
 sub generate_cloudinitconfig {
