@@ -339,6 +339,8 @@ sub __snapshot_create_vol_snapshot {
     my $device = "drive-$ds";
     my $storecfg = PVE::Storage::config();
 
+    print "snapshotting '$device' ($drive->{file})\n";
+
     PVE::QemuServer::qemu_volume_snapshot($vmid, $device, $storecfg, $volid, $snapname);
 }
 
