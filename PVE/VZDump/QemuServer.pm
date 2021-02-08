@@ -21,6 +21,7 @@ use PVE::Storage::PBSPlugin;
 use PVE::Storage;
 use PVE::Tools;
 use PVE::VZDump;
+use PVE::Format qw(render_duration render_bytes);
 
 use PVE::QemuConfig;
 use PVE::QemuServer;
@@ -262,45 +263,6 @@ sub archive {
     }
 }
 
-# number, [precision=1]
-my $num2str = sub {
-    return sprintf( "%." . ( $_[1] || 1 ) . "f", $_[0] );
-};
-my sub bytes_to_human {
-    my ($bytes, $precission) = @_;
-
-    return $num2str->($bytes, $precission) . ' B' if $bytes < 1024;
-    my $kb = $bytes/1024;
-
-    return $num2str->($kb, $precission) . " KiB" if $kb < 1024;
-    my $mb = $kb/1024;
-
-    return $num2str->($mb, $precission) . " MiB" if $mb < 1024;
-    my $gb = $mb/1024;
-
-    return $num2str->($gb, $precission) . " GiB" if $gb < 1024;
-    my $tb = $gb/1024;
-
-    return $num2str->($tb, $precission) . " TiB";
-}
-my sub duration_to_human {
-    my ($seconds) = @_;
-
-    return sprintf('%2ds', $seconds) if $seconds < 60;
-    my $minutes = $seconds / 60;
-    $seconds = $seconds % 60;
-
-    return sprintf('%2dm %2ds', $minutes, $seconds) if $minutes < 60;
-    my $hours = $minutes / 60;
-    $minutes = $minutes % 60;
-
-    return sprintf('%2dh %2dm %2ds', $hours, $minutes, $seconds) if $hours < 24;
-    my $days = $hours / 24;
-    $hours = $hours % 24;
-
-    return sprintf('%2dd %2dh %2dm', $days, $hours, $minutes);
-}
-
 my $bitmap_action_to_human = sub {
     my ($self, $info) = @_;
 
@@ -316,8 +278,8 @@ my $bitmap_action_to_human = sub {
 	if ($info->{dirty} == 0) {
 	    return "OK (drive clean)";
 	} else {
-	    my $size = bytes_to_human($info->{size});
-	    my $dirty = bytes_to_human($info->{dirty});
+	    my $size = render_bytes($info->{size}, 1);
+	    my $dirty = render_bytes($info->{dirty}, 1);
 	    return "OK ($dirty of $size dirty)";
 	}
     } elsif ($action eq "invalid") {
@@ -339,7 +301,7 @@ my $query_backup_status_loop = sub {
 	my ($mb, $delta) = @_;
 	return "0 B/s" if $mb <= 0;
 	my $bw = int(($mb / $delta));
-	return bytes_to_human($bw) . "/s";
+	return render_bytes($bw, 1) . "/s";
     };
 
     my $target = 0;
@@ -361,8 +323,8 @@ my $query_backup_status_loop = sub {
 	    $last_reused += $info->{size} - $info->{dirty};
 	}
 	if ($target < $total) {
-	    my $total_h = bytes_to_human($total);
-	    my $target_h = bytes_to_human($target);
+	    my $total_h = render_bytes($total, 1);
+	    my $target_h = render_bytes($target, 1);
 	    $self->loginfo("using fast incremental mode (dirty-bitmap), $target_h dirty of $total_h total");
 	}
     }
@@ -397,16 +359,16 @@ my $query_backup_status_loop = sub {
 	my $timediff = ($ctime - $last_time) || 1; # fixme
 	my $mbps_read = $get_mbps->($rbytes, $timediff);
 	my $mbps_write = $get_mbps->($wbytes, $timediff);
-	my $target_h = bytes_to_human($target);
-	my $transferred_h = bytes_to_human($transferred);
+	my $target_h = render_bytes($target, 1);
+	my $transferred_h = render_bytes($transferred, 1);
 
 	if (!$has_query_bitmap && $first_round && $target != $total) { # FIXME: remove with PVE 7.0
-	    my $total_h = bytes_to_human($total);
+	    my $total_h = render_bytes($total, 1);
 	    $self->loginfo("using fast incremental mode (dirty-bitmap), $target_h dirty of $total_h total");
 	}
 
 	my $statusline = sprintf("%3d%% ($transferred_h of $target_h) in %s"
-	    .", read: $mbps_read, write: $mbps_write", $percent, duration_to_human($duration));
+	    .", read: $mbps_read, write: $mbps_write", $percent, render_duration($duration));
 
 	my $res = $status->{status} || 'unknown';
 	if ($res ne 'active') {
@@ -446,16 +408,16 @@ my $query_backup_status_loop = sub {
 
     if ($last_zero) {
 	my $zero_per = $last_target ? int(($last_zero * 100)/$last_target) : 0;
-	my $zero_h = bytes_to_human($last_zero, 2);
+	my $zero_h = render_bytes($last_zero);
 	$self->loginfo("backup is sparse: $zero_h (${zero_per}%) total zero data");
     }
     if ($reused) {
-	my $reused_h = bytes_to_human($reused, 2);
+	my $reused_h = render_bytes($reused);
 	my $reuse_per = int($reused * 100 / $last_total);
 	$self->loginfo("backup was done incrementally, reused $reused_h (${reuse_per}%)");
     }
     if ($transferred) {
-	my $transferred_h = bytes_to_human($transferred, 2);
+	my $transferred_h = render_bytes($transferred);
 	if ($duration) {
 	    my $mbps = $get_mbps->($transferred, $duration);
 	    $self->loginfo("transferred $transferred_h in $duration seconds ($mbps)");
