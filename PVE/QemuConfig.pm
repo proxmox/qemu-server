@@ -14,6 +14,7 @@ use PVE::QemuServer;
 use PVE::QemuServer::Machine;
 use PVE::Storage;
 use PVE::Tools;
+use PVE::Format qw(render_bytes render_duration);
 
 use base qw(PVE::AbstractConfig);
 
@@ -280,14 +281,25 @@ sub __snapshot_create_vol_snapshots_hook {
 		PVE::Storage::activate_volumes($storecfg, [$snap->{vmstate}]);
 
 		mon_cmd($vmid, "savevm-start", statefile => $path);
+		print "saving VM state and RAM\n";
+		my $render_state = sub {
+		    my ($stat) = @_;
+		    my $b = render_bytes($stat->{bytes});
+		    my $t = render_duration($stat->{'total-time'} / 1000);
+		    return ($b, $t);
+		};
 		for(;;) {
 		    my $stat = mon_cmd($vmid, "query-savevm");
 		    if (!$stat->{status}) {
 			die "savevm not active\n";
 		    } elsif ($stat->{status} eq 'active') {
 			sleep(1);
+			my ($b, $t) = $render_state->($stat);
+			print "$b in $t\n";
 			next;
 		    } elsif ($stat->{status} eq 'completed') {
+			my ($b, $t) = $render_state->($stat);
+			print "completed savevm in $t, saved $b\n";
 			last;
 		    } else {
 			die "query-savevm returned status '$stat->{status}'\n";
