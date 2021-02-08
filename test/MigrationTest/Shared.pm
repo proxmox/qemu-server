@@ -140,9 +140,10 @@ $storage_module->mock(
     config => sub {
 	return $storage_config;
     },
-    get_bandwitdth_limit => sub {
+    get_bandwidth_limit => sub {
 	return 123456;
     },
+    cfs_read_file => $mocked_cfs_read_file,
 );
 
 our $storage_plugin_module = Test::MockModule->new("PVE::Storage::Plugin");
