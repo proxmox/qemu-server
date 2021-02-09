@@ -600,6 +600,7 @@ sigkill(void *ptr, __attribute__((unused)) void *unused)
 
     if (data.pidfd > 0) {
 	err = pidfd_send_signal(data.pidfd, SIGKILL, NULL, 0);
+	(void)close(data.pidfd);
     } else {
 	err = kill(data.pid, SIGKILL);
     }
@@ -619,6 +620,7 @@ static void
 handle_forced_cleanup()
 {
     if (alarm_triggered) {
+	VERBOSE_PRINT("clearing forced cleanup backlog\n");
 	alarm_triggered = 0;
 	g_slist_foreach(forced_cleanups, sigkill, NULL);
 	g_slist_free_full(forced_cleanups, free);
