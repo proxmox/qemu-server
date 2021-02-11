@@ -13,7 +13,7 @@ CFLAGS += $(shell pkg-config --cflags json-c glib-2.0)
 LDFLAGS += $(shell pkg-config --libs json-c glib-2.0)
 
 qmeventd: qmeventd.c
-	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $<
+	$(CC) $(CFLAGS) -o $@ $< $(LDFLAGS)
 
 docs: qmeventd.8
 
