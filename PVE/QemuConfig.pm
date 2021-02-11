@@ -289,14 +289,19 @@ sub __snapshot_create_vol_snapshots_hook {
 		    my $t = render_duration($stat->{'total-time'} / 1000);
 		    return ($b, $t);
 		};
+		my $round = 0;
 		for(;;) {
+		    $round++;
 		    my $stat = mon_cmd($vmid, "query-savevm");
 		    if (!$stat->{status}) {
 			die "savevm not active\n";
 		    } elsif ($stat->{status} eq 'active') {
+			if ($round < 60 || $round % 10 == 0) {
+			    my ($b, $t) = $render_state->($stat);
+			    print "$b in $t\n";
+			}
+			print "reducing reporting rate to every 10s\n" if $round == 60;
 			sleep(1);
-			my ($b, $t) = $render_state->($stat);
-			print "$b in $t\n";
 			next;
 		    } elsif ($stat->{status} eq 'completed') {
 			my ($b, $t) = $render_state->($stat);
