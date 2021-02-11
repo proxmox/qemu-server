@@ -192,13 +192,11 @@ handle_qmp_event(struct Client *client, struct json_object *obj)
     if (!json_object_object_get_ex(obj, "event", &event)) {
 	return;
     }
-    VERBOSE_PRINT("%s: got QMP event: %s\n", client->qemu.vmid,
-		  json_object_get_string(event));
+    VERBOSE_PRINT("%s: got QMP event: %s\n", client->qemu.vmid, json_object_get_string(event));
 
     if (client->state == STATE_TERMINATING) {
 	// QEMU sometimes sends a second SHUTDOWN after SIGTERM, ignore
-	VERBOSE_PRINT("%s: event was after termination, ignoring\n",
-		      client->qemu.vmid);
+	VERBOSE_PRINT("%s: event was after termination, ignoring\n", client->qemu.vmid);
 	return;
     }
 
@@ -544,15 +542,13 @@ handle_client(struct Client *client)
 		break;
 	    case json_tokener_continue:
 		if (client->buflen >= sizeof(client->buf)) {
-		    VERBOSE_PRINT("pid%d: msg too large, discarding buffer\n",
-				  client->pid);
+		    VERBOSE_PRINT("pid%d: msg too large, discarding buffer\n", client->pid);
 		    memset(client->buf, 0, sizeof(client->buf));
 		    client->buflen = 0;
 		} // else we have enough space try again after next read
 		break;
 	    default:
-		VERBOSE_PRINT("pid%d: parse error: %d, discarding buffer\n",
-			      client->pid, jerr);
+		VERBOSE_PRINT("pid%d: parse error: %d, discarding buffer\n", client->pid, jerr);
 		memset(client->buf, 0, client->buflen);
 		client->buflen = 0;
 		break;
