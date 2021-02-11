@@ -3,6 +3,7 @@
     Copyright (C) 2018 - 2021 Proxmox Server Solutions GmbH
 
     Author: Dominik Csapak <d.csapak@proxmox.com>
+    Author: Stefan Reiter <s.reiter@proxmox.com>
 */
 
 #include <sys/syscall.h>

@@ -3,23 +3,19 @@
     Copyright (C) 2018 - 2021 Proxmox Server Solutions GmbH
 
     Author: Dominik Csapak <d.csapak@proxmox.com>
+    Author: Stefan Reiter <s.reiter@proxmox.com>
 
-    qmeventd listens on a given socket, and waits for qemu processes
-    to connect
+    Description:
 
-    it then waits for shutdown events followed by the closing of the socket,
-    it then calls /usr/sbin/qm cleanup with following arguments
-
-    /usr/sbin/qm cleanup VMID <graceful> <guest>
-
-    parameter explanation:
-
-    graceful:
-    1|0 depending if it saw a shutdown event before the socket closed
-
-    guest:
-    1|0 depending if the shutdown was requested from the guest
-
+    qmeventd listens on a given socket, and waits for qemu processes to
+    connect. After accepting a connection qmeventd waits for shutdown events
+    followed by the closing of the socket. Once that happens `qm cleanup` will
+    be executed with following three arguments:
+    VMID <graceful> <guest>
+    Where `graceful` can be `1` or `0` depending if shutdown event was observed
+    before the socket got closed. The second parameter `guest` is also boolean
+    `1` or `0` depending if the shutdown was requested from the guest OS
+    (i.e., the "inside").
 */
 
 #ifndef _GNU_SOURCE
@@ -28,6 +24,7 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <gmodule.h>
 #include <json.h>
 #include <signal.h>
 #include <stdbool.h>
@@ -39,7 +36,6 @@
 #include <sys/un.h>
 #include <sys/wait.h>
 #include <unistd.h>
-#include <gmodule.h>
 
 #include "qmeventd.h"
 
