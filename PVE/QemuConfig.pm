@@ -279,9 +279,10 @@ sub __snapshot_create_vol_snapshots_hook {
 	    if ($snap->{vmstate}) {
 		my $path = PVE::Storage::path($storecfg, $snap->{vmstate});
 		PVE::Storage::activate_volumes($storecfg, [$snap->{vmstate}]);
+		my $state_storage_id = PVE::Storage::parse_volume_id($snap->{vmstate});
 
 		mon_cmd($vmid, "savevm-start", statefile => $path);
-		print "saving VM state and RAM\n";
+		print "saving VM state and RAM using storage '$state_storage_id'\n";
 		my $render_state = sub {
 		    my ($stat) = @_;
 		    my $b = render_bytes($stat->{bytes});
