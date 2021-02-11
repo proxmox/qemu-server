@@ -305,10 +305,10 @@ sub __snapshot_create_vol_snapshots_hook {
 			next;
 		    } elsif ($stat->{status} eq 'completed') {
 			my ($b, $t) = $render_state->($stat);
-			print "completed savevm in $t, saved $b\n";
+			print "completed saving the VM state in $t, saved $b\n";
 			last;
 		    } else {
-			die "query-savevm returned status '$stat->{status}'\n";
+			die "query-savevm returned unexpected status '$stat->{status}'\n";
 		    }
 		}
 	    } else {
