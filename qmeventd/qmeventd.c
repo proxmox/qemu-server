@@ -353,6 +353,11 @@ void
 add_new_client(int client_fd)
 {
     struct Client *client = calloc(sizeof(struct Client), 1);
+    if (client == NULL) {
+	fprintf(stderr, "could not add new client - allocation failed!\n");
+	fflush(stderr);
+	return;
+    }
     client->state = STATE_HANDSHAKE;
     client->type = CLIENT_NONE;
     client->fd = client_fd;
