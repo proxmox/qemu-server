@@ -1,3 +1,16 @@
+qemu-server (6.3-5) pve; urgency=medium
+
+  * cloudinit: add opennebula config format
+
+  * cloudinit: remove pending delete on online regenerate image
+
+  * snapshot/save-vm: periodically print progress and show information about
+    drives during snapshot
+
+  * qmeventd: explicitly close() pidfds
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 11 Feb 2021 18:05:18 +0100
+
 qemu-server (6.3-4) pve; urgency=medium
 
   * audio: add the "none" dummy audio backend
