@@ -1235,7 +1235,12 @@ my $update_vm_api  = sub {
 		    }
 		} elsif (PVE::QemuServer::is_valid_drivename($opt)) {
 		    PVE::QemuConfig->check_protection($conf, "can't remove drive '$opt'");
-		    $rpcenv->check_vm_perm($authuser, $vmid, undef, ['VM.Config.Disk']);
+		    my $drive = PVE::QemuServer::parse_drive($opt, $val);
+		    if (PVE::QemuServer::drive_is_cdrom($drive)) {
+			$rpcenv->check_vm_perm($authuser, $vmid, undef, ['VM.Config.CDROM']);
+		    } else {
+			$rpcenv->check_vm_perm($authuser, $vmid, undef, ['VM.Config.Disk']);
+		    }
 		    PVE::QemuServer::vmconfig_register_unused_drive($storecfg, $vmid, $conf, PVE::QemuServer::parse_drive($opt, $val))
 			if $is_pending_val;
 		    PVE::QemuConfig->add_to_pending_delete($conf, $opt, $force);
