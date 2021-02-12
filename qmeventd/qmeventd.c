@@ -307,39 +307,33 @@ handle_vzdump_handshake(struct Client *client, struct json_object *data)
     json_bool has_vmid = data && json_object_object_get_ex(data, "vmid", &vmid_obj);
 
     if (!has_vmid) {
-	VERBOSE_PRINT("pid%d: invalid vzdump handshake: no vmid\n",
-		      client->pid);
+	VERBOSE_PRINT("pid%d: invalid vzdump handshake: no vmid\n", client->pid);
 	return;
     }
 
     const char *vmid_str = json_object_get_string(vmid_obj);
 
     if (!vmid_str) {
-	VERBOSE_PRINT("pid%d: invalid vzdump handshake: vmid is not a string\n",
-		      client->pid);
+	VERBOSE_PRINT("pid%d: invalid vzdump handshake: vmid is not a string\n", client->pid);
 	return;
     }
 
     int res = snprintf(client->vzdump.vmid, sizeof(client->vzdump.vmid), "%s", vmid_str);
     if (res < 0 || res >= (int)sizeof(client->vzdump.vmid)) {
-	VERBOSE_PRINT("pid%d: invalid vzdump handshake: vmid too long or invalid\n",
-		      client->pid);
+	VERBOSE_PRINT("pid%d: invalid vzdump handshake: vmid too long or invalid\n", client->pid);
 	return;
     }
 
-    struct Client *vmc =
-	(struct Client*) g_hash_table_lookup(vm_clients, client->vzdump.vmid);
+    struct Client *vmc = (struct Client*) g_hash_table_lookup(vm_clients, client->vzdump.vmid);
     if (vmc) {
 	vmc->qemu.backup = true;
 
 	// only mark as VZDUMP once we have set everything up, otherwise 'cleanup'
 	// might try to access an invalid value
 	client->type = CLIENT_VZDUMP;
-	VERBOSE_PRINT("%s: vzdump backup started\n",
-		      client->vzdump.vmid);
+	VERBOSE_PRINT("%s: vzdump backup started\n", client->vzdump.vmid);
     } else {
-	VERBOSE_PRINT("%s: vzdump requested backup start for unregistered VM\n",
-		      client->vzdump.vmid);
+	VERBOSE_PRINT("%s: vzdump requested backup start for unregistered VM\n", client->vzdump.vmid);
     }
 }
 
@@ -448,8 +442,7 @@ cleanup_client(struct Client *client)
 void
 terminate_client(struct Client *client)
 {
-    VERBOSE_PRINT("%s: terminating client (pid %d)\n",
-		  client->qemu.vmid, client->pid);
+    VERBOSE_PRINT("%s: terminating client (pid %d)\n", client->qemu.vmid, client->pid);
 
     client->state = STATE_TERMINATING;
 
@@ -686,8 +679,7 @@ main(int argc, char *argv[])
 	for (int n = 0; n < nevents; n++) {
 	    if (events[n].data.fd == sock) {
 
-		int conn_sock = accept4(sock, NULL, NULL,
-					SOCK_NONBLOCK | SOCK_CLOEXEC);
+		int conn_sock = accept4(sock, NULL, NULL, SOCK_NONBLOCK | SOCK_CLOEXEC);
 		log_neg(conn_sock, "accept");
 		if (conn_sock > -1) {
 		    add_new_client(conn_sock);
