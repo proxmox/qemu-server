@@ -342,7 +342,11 @@ sub qmp_cmd {
 	return;
     }
     if ($exec eq "query-savevm") {
-	return { "status" => "completed" };
+	return {
+	    "status" => "completed",
+	    "bytes" => 1024*1024*1024,
+	    "total-time" => 5000,
+        };
     }
     die "unexpected vm_qmp_command!\n";
 }
