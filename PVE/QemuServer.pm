@@ -2557,6 +2557,16 @@ our $vmstatus_return_properties = {
 	type => 'string',
 	optional => 1,
     },
+    'running-machine' => {
+	description => "The currently running machine type (if running).",
+	type => 'string',
+	optional => 1,
+    },
+    'running-qemu' => {
+	description => "The currently running QEMU version (if running).",
+	type => 'string',
+	optional => 1,
+    },
 };
 
 my $last_proc_pid_stat;
@@ -2735,10 +2745,32 @@ sub vmstatus {
 	$res->{$vmid}->{diskwrite} = $totalwrbytes;
     };
 
+    my $machinecb = sub {
+	my ($vmid, $resp) = @_;
+	my $data = $resp->{'return'} || [];
+
+	$res->{$vmid}->{'running-machine'} =
+	    PVE::QemuServer::Machine::current_from_query_machines($data);
+    };
+
+    my $versioncb = sub {
+	my ($vmid, $resp) = @_;
+	my $data = $resp->{'return'} // {};
+	my $version = 'unknown';
+
+	if (my $v = $data->{qemu}) {
+	    $version = $v->{major} . "." . $v->{minor} . "." . $v->{micro};
+	}
+
+	$res->{$vmid}->{'running-qemu'} = $version;
+    };
+
     my $statuscb = sub {
 	my ($vmid, $resp) = @_;
 
 	$qmpclient->queue_cmd($vmid, $blockstatscb, 'query-blockstats');
+	$qmpclient->queue_cmd($vmid, $machinecb, 'query-machines');
+	$qmpclient->queue_cmd($vmid, $versioncb, 'query-version');
 	# this fails if ballon driver is not loaded, so this must be
 	# the last commnand (following command are aborted if this fails).
 	$qmpclient->queue_cmd($vmid, $ballooncb, 'query-balloon');
