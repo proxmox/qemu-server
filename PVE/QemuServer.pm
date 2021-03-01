@@ -6991,7 +6991,11 @@ sub clone_disk {
 		# that is given by the OVMF_VARS.fd
 		my $src_path = PVE::Storage::path($storecfg, $drive->{file});
 		my $dst_path = PVE::Storage::path($storecfg, $newvolid);
-		run_command(['qemu-img', 'dd', '-n', '-O', $dst_format, "bs=1", "count=$size",
+
+		# better for Ceph if block size is not too small, see bug #3324
+		my $bs = 1024*1024;
+
+		run_command(['qemu-img', 'dd', '-n', '-O', $dst_format, "bs=$bs", "osize=$size",
 		    "if=$src_path", "of=$dst_path"]);
 	    } else {
 		qemu_img_convert($drive->{file}, $newvolid, $size, $snapname, $sparseinit);
