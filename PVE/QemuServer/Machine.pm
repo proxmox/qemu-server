@@ -18,11 +18,8 @@ sub machine_type_is_q35 {
     return $conf->{machine} && ($conf->{machine} =~ m/q35/) ? 1 : 0;
 }
 
-# this only works if VM is running
-sub get_current_qemu_machine {
-    my ($vmid) = @_;
-
-    my $res = PVE::QemuServer::Monitor::mon_cmd($vmid, 'query-machines');
+sub current_from_query_machines {
+    my ($res) = @_;
 
     my ($current, $pve_version, $default);
     foreach my $e (@$res) {
@@ -35,6 +32,15 @@ sub get_current_qemu_machine {
 
     # fallback to the default machine if current is not supported by qemu
     return $current || $default || 'pc';
+}
+
+# this only works if VM is running
+sub get_current_qemu_machine {
+    my ($vmid) = @_;
+
+    my $res = PVE::QemuServer::Monitor::mon_cmd($vmid, 'query-machines');
+
+    return current_from_query_machines($res);
 }
 
 # returns a string with major.minor+pve<VERSION>, patch version-part is ignored
