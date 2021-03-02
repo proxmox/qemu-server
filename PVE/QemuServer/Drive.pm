@@ -253,10 +253,14 @@ my $ide_fmt = {
 };
 PVE::JSONSchema::register_format("pve-qm-ide", $ide_fmt);
 
+my $ALLOCATION_SYNTAX_DESC =
+    "Use the special syntax STORAGE_ID:SIZE_IN_GiB to allocate a new volume.";
+
 my $idedesc = {
     optional => 1,
     type => 'string', format => $ide_fmt,
-    description => "Use volume as IDE hard disk or CD-ROM (n is 0 to " .($MAX_IDE_DISKS -1) . ").",
+    description => "Use volume as IDE hard disk or CD-ROM (n is 0 to " .($MAX_IDE_DISKS -1) . "). " .
+	$ALLOCATION_SYNTAX_DESC,
 };
 PVE::JSONSchema::register_standard_option("pve-qm-ide", $idedesc);
 
@@ -271,7 +275,8 @@ my $scsi_fmt = {
 my $scsidesc = {
     optional => 1,
     type => 'string', format => $scsi_fmt,
-    description => "Use volume as SCSI hard disk or CD-ROM (n is 0 to " . ($MAX_SCSI_DISKS - 1) . ").",
+    description => "Use volume as SCSI hard disk or CD-ROM (n is 0 to " . ($MAX_SCSI_DISKS - 1) . "). " .
+	$ALLOCATION_SYNTAX_DESC,
 };
 PVE::JSONSchema::register_standard_option("pve-qm-scsi", $scsidesc);
 
@@ -283,7 +288,8 @@ my $sata_fmt = {
 my $satadesc = {
     optional => 1,
     type => 'string', format => $sata_fmt,
-    description => "Use volume as SATA hard disk or CD-ROM (n is 0 to " . ($MAX_SATA_DISKS - 1). ").",
+    description => "Use volume as SATA hard disk or CD-ROM (n is 0 to " . ($MAX_SATA_DISKS - 1). "). " .
+	$ALLOCATION_SYNTAX_DESC,
 };
 PVE::JSONSchema::register_standard_option("pve-qm-sata", $satadesc);
 
@@ -294,7 +300,8 @@ my $virtio_fmt = {
 my $virtiodesc = {
     optional => 1,
     type => 'string', format => $virtio_fmt,
-    description => "Use volume as VIRTIO hard disk (n is 0 to " . ($MAX_VIRTIO_DISKS - 1) . ").",
+    description => "Use volume as VIRTIO hard disk (n is 0 to " . ($MAX_VIRTIO_DISKS - 1) . "). " .
+	$ALLOCATION_SYNTAX_DESC,
 };
 PVE::JSONSchema::register_standard_option("pve-qm-virtio", $virtiodesc);
 
@@ -330,7 +337,9 @@ my $efidisk_fmt = {
 my $efidisk_desc = {
     optional => 1,
     type => 'string', format => $efidisk_fmt,
-    description => "Configure a Disk for storing EFI vars",
+    description => "Configure a Disk for storing EFI vars. " .
+	$ALLOCATION_SYNTAX_DESC . " Note that SIZE_IN_GiB is ignored here " .
+	"and that the default EFI vars are copied to the volume instead.",
 };
 
 PVE::JSONSchema::register_standard_option("pve-qm-efidisk", $efidisk_desc);
