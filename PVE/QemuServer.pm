@@ -6211,7 +6211,7 @@ sub restore_proxmox_backup_archive {
 
     my $repo = PVE::PBSClient::get_repository($scfg);
 
-    # This is only used for `pbs-restore`!
+    # This is only used for `pbs-restore` and the QEMU PBS driver (live-restore)
     my $password = PVE::Storage::PBSPlugin::pbs_get_password($scfg, $storeid);
     local $ENV{PBS_PASSWORD} = $password;
     local $ENV{PBS_FINGERPRINT} = $fingerprint if defined($fingerprint);
@@ -6308,34 +6308,35 @@ sub restore_proxmox_backup_archive {
 	# allocate volumes
 	my $map = $restore_allocate_devices->($storecfg, $virtdev_hash, $vmid);
 
-	foreach my $virtdev (sort keys %$virtdev_hash) {
-	    my $d = $virtdev_hash->{$virtdev};
-	    next if $d->{is_cloudinit}; # no need to restore cloudinit
+	if (!$options->{live}) {
+	    foreach my $virtdev (sort keys %$virtdev_hash) {
+		my $d = $virtdev_hash->{$virtdev};
+		next if $d->{is_cloudinit}; # no need to restore cloudinit
 
-	    my $volid = $d->{volid};
+		my $volid = $d->{volid};
 
-	    my $path = PVE::Storage::path($storecfg, $volid);
+		my $path = PVE::Storage::path($storecfg, $volid);
 
-	    # This is the ONLY user of the PBS_ env vars set on top of this function!
-	    my $pbs_restore_cmd = [
-		'/usr/bin/pbs-restore',
-		'--repository', $repo,
-		$pbs_backup_name,
-		"$d->{devname}.img.fidx",
-		$path,
-		'--verbose',
-		];
+		my $pbs_restore_cmd = [
+		    '/usr/bin/pbs-restore',
+		    '--repository', $repo,
+		    $pbs_backup_name,
+		    "$d->{devname}.img.fidx",
+		    $path,
+		    '--verbose',
+		    ];
 
-	    push @$pbs_restore_cmd, '--format', $d->{format} if $d->{format};
-	    push @$pbs_restore_cmd, '--keyfile', $keyfile if -e $keyfile;
+		push @$pbs_restore_cmd, '--format', $d->{format} if $d->{format};
+		push @$pbs_restore_cmd, '--keyfile', $keyfile if -e $keyfile;
 
-	    if (PVE::Storage::volume_has_feature($storecfg, 'sparseinit', $volid)) {
-		push @$pbs_restore_cmd, '--skip-zero';
+		if (PVE::Storage::volume_has_feature($storecfg, 'sparseinit', $volid)) {
+		    push @$pbs_restore_cmd, '--skip-zero';
+		}
+
+		my $dbg_cmdstring = PVE::Tools::cmd2string($pbs_restore_cmd);
+		print "restore proxmox backup image: $dbg_cmdstring\n";
+		run_command($pbs_restore_cmd);
 	    }
-
-	    my $dbg_cmdstring = PVE::Tools::cmd2string($pbs_restore_cmd);
-	    print "restore proxmox backup image: $dbg_cmdstring\n";
-	    run_command($pbs_restore_cmd);
 	}
 
 	$fh->seek(0, 0) || die "seek failed - $!\n";
@@ -6355,7 +6356,9 @@ sub restore_proxmox_backup_archive {
     };
     my $err = $@;
 
-    $restore_deactivate_volumes->($storecfg, $devinfo);
+    if ($err || !$options->{live}) {
+	$restore_deactivate_volumes->($storecfg, $devinfo);
+    }
 
     rmtree $tmpdir;
 
@@ -6370,6 +6373,103 @@ sub restore_proxmox_backup_archive {
 
     eval { rescan($vmid, 1); };
     warn $@ if $@;
+
+    PVE::AccessControl::add_vm_to_pool($vmid, $options->{pool}) if $options->{pool};
+
+    if ($options->{live}) {
+	eval {
+	    # enable interrupts
+	    local $SIG{INT} =
+		local $SIG{TERM} =
+		local $SIG{QUIT} =
+		local $SIG{HUP} =
+		local $SIG{PIPE} = sub { die "interrupted by signal\n"; };
+
+	    my $conf = PVE::QemuConfig->load_config($vmid);
+	    die "cannot do live-restore for template\n"
+		if PVE::QemuConfig->is_template($conf);
+
+	    pbs_live_restore($vmid, $conf, $storecfg, $devinfo, $repo, $keyfile, $pbs_backup_name);
+	};
+
+	$err = $@;
+	if ($err) {
+	    warn "Detroying live-restore VM, all temporary data will be lost!\n";
+	    $restore_deactivate_volumes->($storecfg, $devinfo);
+	    $restore_destroy_volumes->($storecfg, $devinfo);
+	    unlink $conffile;
+	    die $err;
+	}
+    }
+}
+
+sub pbs_live_restore {
+    my ($vmid, $conf, $storecfg, $restored_disks, $repo, $keyfile, $snap) = @_;
+
+    print "Starting VM for live-restore\n";
+
+    my $pbs_backing = {};
+    foreach my $ds (keys %$restored_disks) {
+	$ds =~ m/^drive-(.*)$/;
+	$pbs_backing->{$1} = {
+	    repository => $repo,
+	    snapshot => $snap,
+	    archive => "$ds.img.fidx",
+	};
+	$pbs_backing->{$1}->{keyfile} = $keyfile if -e $keyfile;
+    }
+
+    eval {
+	# make sure HA doesn't interrupt our restore by stopping the VM
+	if (PVE::HA::Config::vm_is_ha_managed($vmid)) {
+	    my $cmd = ['ha-manager', 'set',  "vm:$vmid", '--state', 'started'];
+	    PVE::Tools::run_command($cmd);
+	}
+
+	# start VM with backing chain pointing to PBS backup, environment vars
+	# for PBS driver in QEMU (PBS_PASSWORD and PBS_FINGERPRINT) are already
+	# set by our caller
+	PVE::QemuServer::vm_start_nolock(
+	    $storecfg,
+	    $vmid,
+	    $conf,
+	    {
+		paused => 1,
+		'pbs-backing' => $pbs_backing,
+	    },
+	    {},
+	);
+
+	# begin streaming, i.e. data copy from PBS to target disk for every vol,
+	# this will effectively collapse the backing image chain consisting of
+	# [target <- alloc-track -> PBS snapshot] to just [target] (alloc-track
+	# removes itself once all backing images vanish with 'auto-remove=on')
+	my $jobs = {};
+	foreach my $ds (keys %$restored_disks) {
+	    my $job_id = "restore-$ds";
+	    mon_cmd($vmid, 'block-stream',
+		'job-id' => $job_id,
+		device => "$ds",
+	    );
+	    $jobs->{$job_id} = {};
+	}
+
+	mon_cmd($vmid, 'cont');
+	qemu_drive_mirror_monitor($vmid, undef, $jobs, 'auto', 0, 'stream');
+
+	# all jobs finished, remove blockdevs now to disconnect from PBS
+	foreach my $ds (keys %$restored_disks) {
+	    mon_cmd($vmid, 'blockdev-del', 'node-name' => "$ds-pbs");
+	}
+    };
+
+    my $err = $@;
+
+    if ($err) {
+	warn "An error occured during live-restore: $err\n";
+	_do_vm_stop($storecfg, $vmid, 1, 1, 10, 0, 1);
+	die "live-restore failed\n";
+    }
 }
 
 sub restore_vma_archive {
@@ -6585,6 +6685,8 @@ sub restore_vma_archive {
 
     eval { rescan($vmid, 1); };
     warn $@ if $@;
+
+    PVE::AccessControl::add_vm_to_pool($vmid, $opts->{pool}) if $opts->{pool};
 }
 
 sub restore_tar_archive {

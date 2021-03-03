@@ -526,6 +526,12 @@ __PACKAGE__->register_method({
 		    description => "Assign a unique random ethernet address.",
 		    requires => 'archive',
 		},
+		'live-restore' => {
+		    optional => 1,
+		    type => 'boolean',
+		    description => "Start the VM immediately from the backup and restore in background. PBS only.",
+		    requires => 'archive',
+		},
 		pool => {
 		    optional => 1,
 		    type => 'string', format => 'pve-poolid',
@@ -567,6 +573,10 @@ __PACKAGE__->register_method({
 	my $start_after_create = extract_param($param, 'start');
 	my $storage = extract_param($param, 'storage');
 	my $unique = extract_param($param, 'unique');
+	my $live_restore = extract_param($param, 'live-restore');
+
+	raise_param_exc({ 'start' => "cannot specify 'start' with 'live-restore'" })
+	    if $start_after_create && $live_restore;
 
 	if (defined(my $ssh_keys = $param->{sshkeys})) {
 		$ssh_keys = URI::Escape::uri_unescape($ssh_keys);
@@ -652,8 +662,10 @@ __PACKAGE__->register_method({
 		    pool => $pool,
 		    unique => $unique,
 		    bwlimit => $bwlimit,
+		    live => $live_restore,
 		};
 		if ($archive->{type} eq 'file' || $archive->{type} eq 'pipe') {
+		    die "live-restore is only compatible with PBS\n" if $live_restore;
 		    PVE::QemuServer::restore_file_archive($archive->{path} // '-', $vmid, $authuser, $restore_options);
 		} elsif ($archive->{type} eq 'pbs') {
 		    PVE::QemuServer::restore_proxmox_backup_archive($archive->{volid}, $vmid, $authuser, $restore_options);
@@ -667,8 +679,6 @@ __PACKAGE__->register_method({
 		    eval { PVE::QemuServer::template_create($vmid, $restored_conf) };
 		    warn $@ if $@;
 		}
-
-		PVE::AccessControl::add_vm_to_pool($vmid, $pool) if $pool;
 	    };
 
 	    # ensure no old replication state are exists
