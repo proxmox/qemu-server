@@ -7558,6 +7558,34 @@ sub device_bootorder {
     return $bootorder;
 }
 
+sub register_qmeventd_handle {
+    my ($vmid) = @_;
+
+    my $fh;
+    my $peer = "/var/run/qmeventd.sock";
+    my $count = 0;
+
+    for (;;) {
+	$count++;
+	$fh = IO::Socket::UNIX->new(Peer => $peer, Blocking => 0, Timeout => 1);
+	last if $fh;
+	if ($! != EINTR && $! != EAGAIN) {
+	    die "unable to connect to qmeventd socket (vmid: $vmid) - $!\n";
+	}
+	if ($count > 4) {
+	    die "unable to connect to qmeventd socket (vmid: $vmid) - timeout "
+	      . "after $count retries\n";
+	}
+	usleep(25000);
+    }
+
+    # send handshake to mark VM as backing up
+    print $fh to_json({vzdump => {vmid => "$vmid"}});
+
+    # return handle to be closed later when inhibit is no longer required
+    return $fh;
+}
+
 # bash completion helper
 
 sub complete_backup_archives {
