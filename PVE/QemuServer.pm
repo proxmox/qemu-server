@@ -1515,28 +1515,31 @@ sub get_initiator_name {
 }
 
 sub print_drive_commandline_full {
-    my ($storecfg, $vmid, $drive) = @_;
+    my ($storecfg, $vmid, $drive, $pbs_name) = @_;
 
     my $path;
     my $volid = $drive->{file};
-    my $format;
+    my $format = $drive->{format};
 
     if (drive_is_cdrom($drive)) {
 	$path = get_iso_path($storecfg, $vmid, $volid);
+        die "cannot back cdrom drive with PBS snapshot\n" if $pbs_name;
     } else {
 	my ($storeid, $volname) = PVE::Storage::parse_volume_id($volid, 1);
 	if ($storeid) {
 	    $path = PVE::Storage::path($storecfg, $volid);
 	    my $scfg = PVE::Storage::storage_config($storecfg, $storeid);
-	    $format = qemu_img_format($scfg, $volname);
+	    $format //= qemu_img_format($scfg, $volname);
 	} else {
 	    $path = $volid;
-	    $format = "raw";
+	    $format //= "raw";
 	}
    }
 
+   my $is_rbd = $path =~ m/^rbd:/;
+
     my $opts = '';
-    my @qemu_drive_options = qw(heads secs cyls trans media format cache rerror werror aio discard);
+    my @qemu_drive_options = qw(heads secs cyls trans media cache rerror werror aio discard);
     foreach my $o (@qemu_drive_options) {
 	$opts .= ",$o=$drive->{$o}" if defined($drive->{$o});
     }
@@ -1569,7 +1572,13 @@ sub print_drive_commandline_full {
 	}
     }
 
-    $opts .= ",format=$format" if $format && !$drive->{format};
+    if ($pbs_name) {
+	$format = "rbd" if $is_rbd;
+	die "PBS backing requires a drive with known format\n" if !$format;
+	$opts .= ",format=alloc-track,file.driver=$format";
+    } elsif ($format) {
+	$opts .= ",format=$format";
+    }
 
     my $cache_direct = 0;
 
@@ -1599,12 +1608,39 @@ sub print_drive_commandline_full {
 	    # This used to be our default with discard not being specified:
 	    $detectzeroes = 'on';
 	}
-	$opts .= ",detect-zeroes=$detectzeroes" if $detectzeroes;
+
+	# note: 'detect-zeroes' works per blockdev and we want it to persist
+	# after the alloc-track is removed, so put it on 'file' directly
+	my $dz_param = $pbs_name ? "file.detect-zeroes" : "detect-zeroes";
+	$opts .= ",$dz_param=$detectzeroes" if $detectzeroes;
     }
 
-    my $pathinfo = $path ? "file=$path," : '';
+    if ($pbs_name) {
+	$opts .= ",backing=$pbs_name";
+	$opts .= ",auto-remove=on";
+    }
+
+    # my $file_param = $pbs_name ? "file.file.filename" : "file";
+    my $file_param = "file";
+    if ($pbs_name) {
+	# non-rbd drivers require the underlying file to be a seperate block
+	# node, so add a second .file indirection
+	$file_param .= ".file" if !$is_rbd;
+	$file_param .= ".filename";
+    }
+    my $pathinfo = $path ? "$file_param=$path," : '';
 
     return "${pathinfo}if=none,id=drive-$drive->{interface}$drive->{index}$opts";
+}
+
+sub print_pbs_blockdev {
+    my ($pbs_conf, $pbs_name) = @_;
+    my $blockdev = "driver=pbs,node-name=$pbs_name,read-only=on";
+    $blockdev .= ",repository=$pbs_conf->{repository}";
+    $blockdev .= ",snapshot=$pbs_conf->{snapshot}";
+    $blockdev .= ",archive=$pbs_conf->{archive}";
+    $blockdev .= ",keyfile=$pbs_conf->{keyfile}" if $pbs_conf->{keyfile};
+    return $blockdev;
 }
 
 sub print_netdevice_full {
@@ -3093,7 +3129,8 @@ sub query_understood_cpu_flags {
 }
 
 sub config_to_command {
-    my ($storecfg, $vmid, $conf, $defaults, $forcemachine, $forcecpu) = @_;
+    my ($storecfg, $vmid, $conf, $defaults, $forcemachine, $forcecpu,
+        $pbs_backing) = @_;
 
     my $cmd = [];
     my $globalFlags = [];
@@ -3589,7 +3626,14 @@ sub config_to_command {
 	    $ahcicontroller->{$controller}=1;
         }
 
-	my $drive_cmd = print_drive_commandline_full($storecfg, $vmid, $drive);
+	my $pbs_conf = $pbs_backing->{$ds};
+	my $pbs_name = undef;
+	if ($pbs_conf) {
+	    $pbs_name = "drive-$ds-pbs";
+	    push @$devices, '-blockdev', print_pbs_blockdev($pbs_conf, $pbs_name);
+	}
+
+	my $drive_cmd = print_drive_commandline_full($storecfg, $vmid, $drive, $pbs_name);
 	$drive_cmd .= ',readonly' if PVE::QemuConfig->is_template($conf);
 
 	push @$devices, '-drive',$drive_cmd;
@@ -5001,6 +5045,15 @@ sub vm_start {
 #   timeout => in seconds
 #   paused => start VM in paused state (backup)
 #   resume => resume from hibernation
+#   pbs-backing => {
+#      sata0 => {
+#         repository
+#         snapshot
+#         keyfile
+#         archive
+#      },
+#      virtio2 => ...
+#   }
 # migrate_opts:
 #   nbd => volumes for NBD exports (vm_migrate_alloc_nbd_disks)
 #   migratedfrom => source node
@@ -5047,8 +5100,8 @@ sub vm_start_nolock {
 	print "Resuming suspended VM\n";
     }
 
-    my ($cmd, $vollist, $spice_port) =
-	config_to_command($storecfg, $vmid, $conf, $defaults, $forcemachine, $forcecpu);
+    my ($cmd, $vollist, $spice_port) = config_to_command($storecfg, $vmid,
+	$conf, $defaults, $forcemachine, $forcecpu, $params->{'pbs-backing'});
 
     my $migration_ip;
     my $get_migration_ip = sub {
