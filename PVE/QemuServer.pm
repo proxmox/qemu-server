@@ -6880,55 +6880,61 @@ sub qemu_drive_mirror {
 # 'complete': wait until all jobs are ready, block-job-complete them (default)
 # 'cancel': wait until all jobs are ready, block-job-cancel them
 # 'skip': wait until all jobs are ready, return with block jobs in ready state
+# 'auto': wait until all jobs disappear, only use for jobs which complete automatically
 sub qemu_drive_mirror_monitor {
-    my ($vmid, $vmiddst, $jobs, $completion, $qga) = @_;
+    my ($vmid, $vmiddst, $jobs, $completion, $qga, $op) = @_;
 
     $completion //= 'complete';
+    $op //= "mirror";
 
     eval {
 	my $err_complete = 0;
 
 	while (1) {
-	    die "storage migration timed out\n" if $err_complete > 300;
+	    die "block job ('$op') timed out\n" if $err_complete > 300;
 
 	    my $stats = mon_cmd($vmid, "query-block-jobs");
 
-	    my $running_mirror_jobs = {};
+	    my $running_jobs = {};
 	    foreach my $stat (@$stats) {
-		next if $stat->{type} ne 'mirror';
-		$running_mirror_jobs->{$stat->{device}} = $stat;
+		next if $stat->{type} ne $op;
+		$running_jobs->{$stat->{device}} = $stat;
 	    }
 
 	    my $readycounter = 0;
 
 	    foreach my $job (keys %$jobs) {
 
-	        if(defined($jobs->{$job}->{complete}) && !defined($running_mirror_jobs->{$job})) {
-		    print "$job : finished\n";
+		my $vanished = !defined($running_jobs->{$job});
+		my $complete = defined($jobs->{$job}->{complete}) && $vanished;
+	        if($complete || ($vanished && $completion eq 'auto')) {
+		    print "$job: finished\n";
 		    delete $jobs->{$job};
 		    next;
 		}
 
-		die "$job: mirroring has been cancelled\n" if !defined($running_mirror_jobs->{$job});
+		die "$job: '$op' has been cancelled\n" if !defined($running_jobs->{$job});
 
-		my $busy = $running_mirror_jobs->{$job}->{busy};
-		my $ready = $running_mirror_jobs->{$job}->{ready};
-		if (my $total = $running_mirror_jobs->{$job}->{len}) {
-		    my $transferred = $running_mirror_jobs->{$job}->{offset} || 0;
+		my $busy = $running_jobs->{$job}->{busy};
+		my $ready = $running_jobs->{$job}->{ready};
+		if (my $total = $running_jobs->{$job}->{len}) {
+		    my $transferred = $running_jobs->{$job}->{offset} || 0;
 		    my $remaining = $total - $transferred;
 		    my $percent = sprintf "%.2f", ($transferred * 100 / $total);
 
 		    print "$job: transferred: $transferred bytes remaining: $remaining bytes total: $total bytes progression: $percent % busy: $busy ready: $ready \n";
 		}
 
-		$readycounter++ if $running_mirror_jobs->{$job}->{ready};
+		$readycounter++ if $running_jobs->{$job}->{ready};
 	    }
 
 	    last if scalar(keys %$jobs) == 0;
 
 	    if ($readycounter == scalar(keys %$jobs)) {
-		print "all mirroring jobs are ready \n";
-		last if $completion eq 'skip'; #do the complete later
+		print "all '$op' jobs are ready\n";
+
+		# do the complete later (or has already been done)
+		last if $completion eq 'skip' || $completion eq 'auto';
 
 		if ($vmiddst && $vmiddst != $vmid) {
 		    my $agent_running = $qga && qga_check_running($vmid);
@@ -6984,7 +6990,7 @@ sub qemu_drive_mirror_monitor {
 
     if ($err) {
 	eval { PVE::QemuServer::qemu_blockjobs_cancel($vmid, $jobs) };
-	die "mirroring error: $err";
+	die "block job ('$op') error: $err";
     }
 
 }
