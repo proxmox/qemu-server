@@ -2215,6 +2215,8 @@ sub parse_vm_config {
 
 		$conf->{$key} = $value;
 	    }
+	} else {
+	    warn "vm $vmid - unable to parse config: $line\n";
 	}
     }
 
