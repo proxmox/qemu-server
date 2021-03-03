@@ -6440,6 +6440,8 @@ sub pbs_live_restore {
 	    {},
 	);
 
+	my $qmeventd_fd = register_qmeventd_handle($vmid);
+
 	# begin streaming, i.e. data copy from PBS to target disk for every vol,
 	# this will effectively collapse the backing image chain consisting of
 	# [target <- alloc-track -> PBS snapshot] to just [target] (alloc-track
@@ -6461,6 +6463,8 @@ sub pbs_live_restore {
 	foreach my $ds (keys %$restored_disks) {
 	    mon_cmd($vmid, 'blockdev-del', 'node-name' => "$ds-pbs");
 	}
+
+	close($qmeventd_fd);
     };
 
     my $err = $@;
