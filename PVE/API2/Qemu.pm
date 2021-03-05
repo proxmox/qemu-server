@@ -329,6 +329,42 @@ my $cloudinitoptions = {
     sshkeys => 1,
 };
 
+my $check_vm_create_serial_perm = sub {
+    my ($rpcenv, $authuser, $vmid, $pool, $param) = @_;
+
+    return 1 if $authuser eq 'root@pam';
+
+    foreach my $opt (keys %{$param}) {
+	next if $opt !~ m/^serial\d+$/;
+
+	if ($param->{$opt} eq 'socket') {
+	    $rpcenv->check_vm_perm($authuser, $vmid, $pool, ['VM.Config.HWType']);
+	} else {
+	    die "only root can set '$opt' config for real devices\n";
+	}
+    }
+
+    return 1;
+};
+
+my $check_vm_create_usb_perm = sub {
+    my ($rpcenv, $authuser, $vmid, $pool, $param) = @_;
+
+    return 1 if $authuser eq 'root@pam';
+
+    foreach my $opt (keys %{$param}) {
+	next if $opt !~ m/^usb\d+$/;
+
+	if ($param->{$opt} =~ m/spice/) {
+	    $rpcenv->check_vm_perm($authuser, $vmid, $pool, ['VM.Config.HWType']);
+	} else {
+	    die "only root can set '$opt' config for real devices\n";
+	}
+    }
+
+    return 1;
+};
+
 my $check_vm_modify_config_perm = sub {
     my ($rpcenv, $authuser, $vmid, $pool, $key_list) = @_;
 
@@ -566,6 +602,9 @@ __PACKAGE__->register_method({
 	    &$check_storage_access($rpcenv, $authuser, $storecfg, $vmid, $param, $storage);
 
 	    &$check_vm_modify_config_perm($rpcenv, $authuser, $vmid, $pool, [ keys %$param]);
+
+	    &$check_vm_create_serial_perm($rpcenv, $authuser, $vmid, $pool, $param);
+	    &$check_vm_create_usb_perm($rpcenv, $authuser, $vmid, $pool, $param);
 
 	    &$check_cpu_model_access($rpcenv, $authuser, $param);
 
