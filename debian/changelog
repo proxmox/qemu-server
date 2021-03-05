@@ -1,3 +1,26 @@
+qemu-server (6.3-6) pve; urgency=medium
+
+  * fix #3324: clone disk: use larger blocksize for EFI disk
+
+  * fix #3301: status: add currently running machine and QEMU version to full
+    status
+
+  * api: add endpoint to list all available QEMU machine type and version
+    tuples
+
+  * always pin virtual machines with Windows as ostype to a fixed QEMU machine
+    version by default. For existing VMs with Windows based OS-type use the 5.1
+    machine version (or the next available one, for older QEMU versions) to
+    improve stabillity of the hardware layout from Windows point of view. Linux
+    and other OS types are not as sensitive to those changes, so keep the
+    default to the currently latest available machine versions for non-Windows
+    VMs.
+
+  * update VM: check for CDROM not just drive permissions when removing a
+    device
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 05 Mar 2021 21:42:59 +0100
+
 qemu-server (6.3-5) pve; urgency=medium
 
   * cloudinit: add opennebula config format
