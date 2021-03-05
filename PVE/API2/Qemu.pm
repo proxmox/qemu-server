@@ -670,6 +670,20 @@ __PACKAGE__->register_method({
 			$conf->{vmgenid} = PVE::QemuServer::generate_uuid();
 		    }
 
+		    my $machine = $conf->{machine};
+		    if (!$machine || $machine =~ m/^(?:pc|q35|virt)$/) {
+			# always pin Windows' machine version on create, they get to easily confused
+			if (PVE::QemuServer::windows_version($conf->{ostype})) {
+			    my $pin_version = PVE::QemuServer::kvm_user_version();
+			    if (!$machine || $machine eq 'pc') {
+				$machine = "pc-i440fx-$pin_version";
+			    } elsif ($machine eq 'q35') {
+				$machine = "pc-q35-$pin_version";
+			    }
+			    $conf->{machine} = $machine;
+			}
+		    }
+
 		    PVE::QemuConfig->write_config($vmid, $conf);
 
 		};
