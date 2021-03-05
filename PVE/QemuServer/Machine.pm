@@ -83,7 +83,7 @@ sub get_pve_version {
 sub can_run_pve_machine_version {
     my ($machine_version, $kvmversion) = @_;
 
-    $machine_version =~ m/^(\d+)\.(\d+)(?:\+pve(\d+))$/;
+    $machine_version =~ m/^(\d+)\.(\d+)(?:\+pve(\d+))?$/;
     my $major = $1;
     my $minor = $2;
     my $pvever = $3;
