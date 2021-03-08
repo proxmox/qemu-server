@@ -5876,13 +5876,15 @@ my $restore_allocate_devices = sub {
 };
 
 my $restore_update_config_line = sub {
-    my ($outfd, $cookie, $vmid, $map, $line, $unique) = @_;
+    my ($cookie, $vmid, $map, $line, $unique) = @_;
 
-    return if $line =~ m/^\#qmdump\#/;
-    return if $line =~ m/^\#vzdump\#/;
-    return if $line =~ m/^lock:/;
-    return if $line =~ m/^unused\d+:/;
-    return if $line =~ m/^parent:/;
+    return '' if $line =~ m/^\#qmdump\#/;
+    return '' if $line =~ m/^\#vzdump\#/;
+    return '' if $line =~ m/^lock:/;
+    return '' if $line =~ m/^unused\d+:/;
+    return '' if $line =~ m/^parent:/;
+
+    my $res = '';
 
     my $dc = PVE::Cluster::cfs_read_file('datacenter.cfg');
     if (($line =~ m/^(vlan(\d+)):\s*(\S+)\s*$/)) {
@@ -5898,7 +5900,7 @@ my $restore_update_config_line = sub {
 	    };
 	    my $netstr = print_net($net);
 
-	    print $outfd "net$cookie->{netcount}: $netstr\n";
+	    $res .= "net$cookie->{netcount}: $netstr\n";
 	    $cookie->{netcount}++;
 	}
     } elsif (($line =~ m/^(net\d+):\s*(\S+)\s*$/) && $unique) {
@@ -5906,20 +5908,20 @@ my $restore_update_config_line = sub {
 	my $net = parse_net($netstr);
 	$net->{macaddr} = PVE::Tools::random_ether_addr($dc->{mac_prefix}) if $net->{macaddr};
 	$netstr = print_net($net);
-	print $outfd "$id: $netstr\n";
+	$res .= "$id: $netstr\n";
     } elsif ($line =~ m/^((ide|scsi|virtio|sata|efidisk)\d+):\s*(\S+)\s*$/) {
 	my $virtdev = $1;
 	my $value = $3;
 	my $di = parse_drive($virtdev, $value);
 	if (defined($di->{backup}) && !$di->{backup}) {
-	    print $outfd "#$line";
+	    $res .= "#$line";
 	} elsif ($map->{$virtdev}) {
 	    delete $di->{format}; # format can change on restore
 	    $di->{file} = $map->{$virtdev};
 	    $value = print_drive($di);
-	    print $outfd "$virtdev: $value\n";
+	    $res .= "$virtdev: $value\n";
 	} else {
-	    print $outfd $line;
+	    $res .= $line;
 	}
     } elsif (($line =~ m/^vmgenid: (.*)/)) {
 	my $vmgenid = $1;
@@ -5927,17 +5929,19 @@ my $restore_update_config_line = sub {
 	    # always generate a new vmgenid if there was a valid one setup
 	    $vmgenid = generate_uuid();
 	}
-	print $outfd "vmgenid: $vmgenid\n";
+	$res .= "vmgenid: $vmgenid\n";
     } elsif (($line =~ m/^(smbios1: )(.*)/) && $unique) {
 	my ($uuid, $uuid_str);
 	UUID::generate($uuid);
 	UUID::unparse($uuid, $uuid_str);
 	my $smbios1 = parse_smbios1($2);
 	$smbios1->{uuid} = $uuid_str;
-	print $outfd $1.print_smbios1($smbios1)."\n";
+	$res .= $1.print_smbios1($smbios1)."\n";
     } else {
-	print $outfd $line;
+	$res .= $line;
     }
+
+    return $res;
 };
 
 my $restore_deactivate_volumes = sub {
@@ -6141,7 +6145,6 @@ sub restore_proxmox_backup_archive {
     mkpath $tmpdir;
 
     my $conffile = PVE::QemuConfig->config_file($vmid);
-    my $tmpfn = "$conffile.$$.tmp";
      # disable interrupts (always do cleanups)
     local $SIG{INT} =
 	local $SIG{TERM} =
@@ -6151,6 +6154,7 @@ sub restore_proxmox_backup_archive {
     # Note: $oldconf is undef if VM does not exists
     my $cfs_path = PVE::QemuConfig->cfs_config_path($vmid);
     my $oldconf = PVE::Cluster::cfs_read_file($cfs_path);
+    my $new_conf_raw = '';
 
     my $rpcenv = PVE::RPCEnvironment::get();
     my $devinfo = {};
@@ -6253,15 +6257,18 @@ sub restore_proxmox_backup_archive {
 
 	$fh->seek(0, 0) || die "seek failed - $!\n";
 
-	my $outfd = IO::File->new($tmpfn, "w") || die "unable to write config for VM $vmid\n";
-
 	my $cookie = { netcount => 0 };
 	while (defined(my $line = <$fh>)) {
-	    $restore_update_config_line->($outfd, $cookie, $vmid, $map, $line, $options->{unique});
+	    $new_conf_raw .= $restore_update_config_line->(
+		$cookie,
+		$vmid,
+		$map,
+		$line,
+		$options->{unique},
+	    );
 	}
 
 	$fh->close();
-	$outfd->close();
     };
     my $err = $@;
 
@@ -6270,13 +6277,11 @@ sub restore_proxmox_backup_archive {
     rmtree $tmpdir;
 
     if ($err) {
-	unlink $tmpfn;
 	$restore_destroy_volumes->($storecfg, $devinfo);
 	die $err;
     }
 
-    rename($tmpfn, $conffile) ||
-	die "unable to commit configuration file '$conffile'\n";
+    PVE::Tools::file_set_contents($conffile, $new_conf_raw);
 
     PVE::Cluster::cfs_update(); # make sure we read new file
 
@@ -6351,11 +6356,11 @@ sub restore_vma_archive {
     my $rpcenv = PVE::RPCEnvironment::get();
 
     my $conffile = PVE::QemuConfig->config_file($vmid);
-    my $tmpfn = "$conffile.$$.tmp";
 
     # Note: $oldconf is undef if VM does not exist
     my $cfs_path = PVE::QemuConfig->cfs_config_path($vmid);
     my $oldconf = PVE::Cluster::cfs_read_file($cfs_path);
+    my $new_conf_raw = '';
 
     my %storage_limits;
 
@@ -6423,15 +6428,18 @@ sub restore_vma_archive {
 
 	$fh->seek(0, 0) || die "seek failed - $!\n";
 
-	my $outfd = IO::File->new($tmpfn, "w") || die "unable to write config for VM $vmid\n";
-
 	my $cookie = { netcount => 0 };
 	while (defined(my $line = <$fh>)) {
-	    $restore_update_config_line->($outfd, $cookie, $vmid, $map, $line, $opts->{unique});
+	    $new_conf_raw .= $restore_update_config_line->(
+		$cookie,
+		$vmid,
+		$map,
+		$line,
+		$opts->{unique},
+	    );
 	}
 
 	$fh->close();
-	$outfd->close();
     };
 
     eval {
@@ -6482,13 +6490,11 @@ sub restore_vma_archive {
     rmtree $tmpdir;
 
     if ($err) {
-	unlink $tmpfn;
 	$restore_destroy_volumes->($cfg, $devinfo);
 	die $err;
     }
 
-    rename($tmpfn, $conffile) ||
-	die "unable to commit configuration file '$conffile'\n";
+    PVE::Tools::file_set_contents($conffile, $new_conf_raw);
 
     PVE::Cluster::cfs_update(); # make sure we read new file
 
@@ -6533,7 +6539,7 @@ sub restore_tar_archive {
     local $ENV{VZDUMP_USER} = $user;
 
     my $conffile = PVE::QemuConfig->config_file($vmid);
-    my $tmpfn = "$conffile.$$.tmp";
+    my $new_conf_raw = '';
 
     # disable interrupts (always do cleanups)
     local $SIG{INT} =
@@ -6577,26 +6583,27 @@ sub restore_tar_archive {
 
 	my $srcfd = IO::File->new($confsrc, "r") || die "unable to open file '$confsrc'\n";
 
-	my $outfd = IO::File->new($tmpfn, "w") || die "unable to write config for VM $vmid\n";
-
 	my $cookie = { netcount => 0 };
 	while (defined (my $line = <$srcfd>)) {
-	    $restore_update_config_line->($outfd, $cookie, $vmid, $map, $line, $opts->{unique});
+	    $new_conf_raw .= $restore_update_config_line->(
+		$cookie,
+		$vmid,
+		$map,
+		$line,
+		$opts->{unique},
+	    );
 	}
 
 	$srcfd->close();
-	$outfd->close();
     };
     if (my $err = $@) {
-	unlink $tmpfn;
 	tar_restore_cleanup($storecfg, "$tmpdir/qmrestore.stat") if !$opts->{info};
 	die $err;
     }
 
     rmtree $tmpdir;
 
-    rename $tmpfn, $conffile ||
-	die "unable to commit configuration file '$conffile'\n";
+    PVE::Tools::file_set_contents($conffile, $new_conf_raw);
 
     PVE::Cluster::cfs_update(); # make sure we read new file
 
