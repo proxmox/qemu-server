@@ -531,20 +531,18 @@ sub bootdisk_size {
 
     my $bootdisks = get_bootdisks($conf);
     return if !@$bootdisks;
-    my $bootdisk = $bootdisks->[0];
-    return if !is_valid_drivename($bootdisk);
+    for my $bootdisk (@$bootdisks) {
+	next if !is_valid_drivename($bootdisk);
+	next if !$conf->{$bootdisk};
+	my $drive = parse_drive($bootdisk, $conf->{$bootdisk});
+	next if !defined($drive);
+	next if drive_is_cdrom($drive);
+	my $volid = $drive->{file};
+	next if !$volid;
+	return $drive->{size};
+    }
 
-    return if !$conf->{$bootdisk};
-
-    my $drive = parse_drive($bootdisk, $conf->{$bootdisk});
-    return if !defined($drive);
-
-    return if drive_is_cdrom($drive);
-
-    my $volid = $drive->{file};
-    return if !$volid;
-
-    return $drive->{size};
+    return;
 }
 
 sub update_disksize {
