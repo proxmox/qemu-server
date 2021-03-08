@@ -521,7 +521,7 @@ sub archive_pbs {
 	$params->{'use-dirty-bitmap'} = JSON::true
 	    if $qemu_support->{'pbs-dirty-bitmap'} && !$is_template;
 
-	$params->{timeout} = 60; # give some time to connect to the backup server
+	$params->{timeout} = 125; # give some time to connect to the backup server
 
 	my $res = eval { mon_cmd($vmid, "backup", %$params) };
 	my $qmperr = $@;
