@@ -1,3 +1,9 @@
+qemu-server (6.3-7) pve; urgency=medium
+
+  * vzdump: increase Proxmox Backup Server backup QMP command timeout
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 09 Mar 2021 08:21:43 +0100
+
 qemu-server (6.3-6) pve; urgency=medium
 
   * fix #3324: clone disk: use larger blocksize for EFI disk
