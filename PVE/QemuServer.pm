@@ -2678,7 +2678,7 @@ sub vmstatus {
 	$d->{diskread} = 0;
 	$d->{diskwrite} = 0;
 
-        $d->{template} = PVE::QemuConfig->is_template($conf);
+        $d->{template} = 1 if PVE::QemuConfig->is_template($conf);
 
 	$d->{serial} = 1 if conf_has_serial($conf);
 	$d->{lock} = $conf->{lock} if $conf->{lock};
