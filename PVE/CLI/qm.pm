@@ -100,14 +100,14 @@ sub print_recursive_hash {
 	if (defined($key)) {
 	    print "$prefix$key:\n";
 	}
-	foreach my $itemkey (keys %$hash) {
+	for my $itemkey (sort keys %$hash) {
 	    print_recursive_hash("\t$prefix", $hash->{$itemkey}, $itemkey);
 	}
     } elsif (ref($hash) eq 'ARRAY') {
 	if (defined($key)) {
 	    print "$prefix$key:\n";
 	}
-	foreach my $item (@$hash) {
+	for my $item (@$hash) {
 	    print_recursive_hash("\t$prefix", $item);
 	}
     } elsif ((!ref($hash) && defined($hash)) || ref($hash) eq 'JSON::PP::Boolean') {
