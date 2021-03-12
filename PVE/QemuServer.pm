@@ -2891,6 +2891,35 @@ my $default_machines = {
     aarch64 => 'virt',
 };
 
+sub get_installed_machine_version {
+    my ($kvmversion) = @_;
+    $kvmversion = kvm_user_version() if !defined($kvmversion);
+    $kvmversion =~ m/^(\d+\.\d+)/;
+    return $1;
+}
+
+sub windows_get_pinned_machine_version {
+    my ($machine, $base_version, $kvmversion) = @_;
+
+    my $pin_version = $base_version;
+    if (!defined($base_version) ||
+	!PVE::QemuServer::Machine::can_run_pve_machine_version($base_version, $kvmversion)
+    ) {
+	$pin_version = get_installed_machine_version($kvmversion);
+    }
+    if (!$machine || $machine eq 'pc') {
+	$machine = "pc-i440fx-$pin_version";
+    } elsif ($machine eq 'q35') {
+	$machine = "pc-q35-$pin_version";
+    } elsif ($machine eq 'virt') {
+	$machine = "virt-$pin_version";
+    } else {
+	warn "unknown machine type '$machine', not touching that!\n";
+    }
+
+    return $machine;
+}
+
 sub get_vm_machine {
     my ($conf, $forcemachine, $arch, $add_pve_version, $kvmversion) = @_;
 
@@ -2902,16 +2931,7 @@ sub get_vm_machine {
 	# layout which confuses windows quite a bit and may result in various regressions..
 	# see: https://lists.gnu.org/archive/html/qemu-devel/2021-02/msg08484.html
 	if (windows_version($conf->{ostype})) {
-	    my $pin_version = '5.1';
-	    if (!PVE::QemuServer::Machine::can_run_pve_machine_version($pin_version, $kvmversion)) {
-		$kvmversion =~ m/^(\d+\.\d+)/;
-		$pin_version = $1;
-	    }
-	    if (!$machine || $machine eq 'pc') {
-		$machine = "pc-i440fx-$pin_version";
-	    } elsif ($machine eq 'q35') {
-		$machine = "pc-q35-$pin_version";
-	    }
+	    $machine = windows_get_pinned_machine_version($machine, '5.1', $kvmversion);
 	}
 	$arch //= 'x86_64';
 	$machine ||= $default_machines->{$arch};
