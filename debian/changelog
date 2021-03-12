@@ -1,3 +1,11 @@
+qemu-server (6.3-8) pve; urgency=medium
+
+  * qm status: sort hash keys on verbose output
+
+  * improve windows VM version pinning on VM creation
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 12 Mar 2021 10:01:09 +0100
+
 qemu-server (6.3-7) pve; urgency=medium
 
   * vzdump: increase Proxmox Backup Server backup QMP command timeout
