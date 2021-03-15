@@ -6400,11 +6400,13 @@ sub restore_vma_archive {
 
 	my $virtdev_hash = $parse_backup_hints->($rpcenv, $user, $cfg, $fh, $devinfo, $opts);
 
-	foreach my $key (keys %storage_limits) {
-	    my $limit = PVE::Storage::get_bandwidth_limit('restore', [$key], $bwlimit);
-	    next if !$limit;
-	    print STDERR "rate limit for storage $key: $limit KiB/s\n";
-	    $storage_limits{$key} = $limit * 1024;
+	foreach my $info (values %{$virtdev_hash}) {
+	    my $storeid = $info->{storeid};
+	    next if defined($storage_limits{$storeid});
+
+	    my $limit = PVE::Storage::get_bandwidth_limit('restore', [$storeid], $bwlimit) // 0;
+	    print STDERR "rate limit for storage $storeid: $limit KiB/s\n" if $limit;
+	    $storage_limits{$storeid} = $limit * 1024;
 	}
 
 	foreach my $devname (keys %$devinfo) {
