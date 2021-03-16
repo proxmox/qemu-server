@@ -281,6 +281,7 @@ sub __snapshot_create_vol_snapshots_hook {
 		PVE::Storage::activate_volumes($storecfg, [$snap->{vmstate}]);
 		my $state_storage_id = PVE::Storage::parse_volume_id($snap->{vmstate});
 
+		PVE::QemuServer::set_migration_caps($vmid, 1);
 		mon_cmd($vmid, "savevm-start", statefile => $path);
 		print "saving VM state and RAM using storage '$state_storage_id'\n";
 		my $render_state = sub {

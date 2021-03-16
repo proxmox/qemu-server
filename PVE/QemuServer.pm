@@ -4330,9 +4330,12 @@ sub qemu_volume_snapshot_delete {
 }
 
 sub set_migration_caps {
-    my ($vmid) = @_;
+    my ($vmid, $savevm) = @_;
 
     my $qemu_support = eval { mon_cmd($vmid, "query-proxmox-support") };
+
+    my $bitmap_prop = $savevm ? 'pbs-dirty-bitmap-savevm' : 'pbs-dirty-bitmap-migration';
+    my $dirty_bitmaps = $qemu_support->{$bitmap_prop} ? 1 : 0;
 
     my $cap_ref = [];
 
@@ -4342,7 +4345,7 @@ sub set_migration_caps {
 	"x-rdma-pin-all" => 0,
 	"zero-blocks" => 0,
 	"compress" => 0,
-	"dirty-bitmaps" => $qemu_support->{'pbs-dirty-bitmap-migration'} ? 1 : 0,
+	"dirty-bitmaps" => $dirty_bitmaps,
     };
 
     my $supported_capabilities = mon_cmd($vmid, "query-migrate-capabilities");
@@ -5600,6 +5603,7 @@ sub vm_suspend {
 	PVE::Storage::activate_volumes($storecfg, [$vmstate]);
 
 	eval {
+	    set_migration_caps($vmid, 1);
 	    mon_cmd($vmid, "savevm-start", statefile => $path);
 	    for(;;) {
 		my $state = mon_cmd($vmid, "query-savevm");

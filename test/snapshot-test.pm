@@ -380,6 +380,8 @@ sub vm_stop {
     return;
 }
 
+sub set_migration_caps {} # ignored
+
 # END redefine PVE::QemuServer methods
 
 PVE::Tools::run_command("rm -rf snapshot-working");
