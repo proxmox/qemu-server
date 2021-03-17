@@ -490,9 +490,15 @@ sub archive_pbs {
 	};
 
 	my $qemu_support = eval { mon_cmd($vmid, "query-proxmox-support") };
-	if (!$qemu_support) {
-	    die "PBS backups are not supported by the running QEMU version. Please make "
-	      . "sure you've installed the latest version and the VM has been restarted.\n";
+	my $err = $@;
+	if (!$qemu_support || $err) {
+	    die "query-proxmox-support returned empty value\n" if !$err;
+	    if ($err =~ m/The command query-proxmox-support has not been found/) {
+		die "PBS backups are not supported by the running QEMU version. Please make "
+		  . "sure you've installed the latest version and the VM has been restarted.\n";
+	    } else {
+		die "QMP command query-proxmox-support failed - $err\n";
+	    }
 	}
 
 	my $fs_frozen = $self->qga_fs_freeze($task, $vmid);
