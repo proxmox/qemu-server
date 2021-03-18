@@ -3,7 +3,7 @@ MIGRATION_TEST_TARGETS := $(addprefix test_migration_,$(MIGRATION_TEST_NAMES))
 
 all: test
 
-test: test_snapshot test_ovf test_cfg_to_cmd test_pci_addr_conflicts test_qemu_img_convert test_migration
+test: test_snapshot test_ovf test_cfg_to_cmd test_pci_addr_conflicts test_qemu_img_convert test_migration test_restore_config
 
 test_snapshot: run_snapshot_tests.pl
 	./run_snapshot_tests.pl
@@ -25,6 +25,9 @@ test_migration: run_qemu_migrate_tests.pl MigrationTest/*.pm $(MIGRATION_TEST_TA
 
 $(MIGRATION_TEST_TARGETS):
 	./run_qemu_migrate_tests.pl $(@:test_migration_%=%)
+
+test_restore_config: run_qemu_restore_config_tests.pl
+	./run_qemu_restore_config_tests.pl
 
 .PHONY: clean
 clean:

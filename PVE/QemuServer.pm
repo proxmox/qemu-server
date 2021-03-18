@@ -5971,7 +5971,7 @@ my $restore_allocate_devices = sub {
     return $map;
 };
 
-my $restore_update_config_line = sub {
+sub restore_update_config_line {
     my ($cookie, $vmid, $map, $line, $unique) = @_;
 
     return '' if $line =~ m/^\#qmdump\#/;
@@ -6038,7 +6038,7 @@ my $restore_update_config_line = sub {
     }
 
     return $res;
-};
+}
 
 my $restore_deactivate_volumes = sub {
     my ($storecfg, $devinfo) = @_;
@@ -6351,7 +6351,7 @@ sub restore_proxmox_backup_archive {
 
 	my $cookie = { netcount => 0 };
 	while (defined(my $line = <$fh>)) {
-	    $new_conf_raw .= $restore_update_config_line->(
+	    $new_conf_raw .= restore_update_config_line(
 		$cookie,
 		$vmid,
 		$map,
@@ -6618,7 +6618,7 @@ sub restore_vma_archive {
 
 	my $cookie = { netcount => 0 };
 	while (defined(my $line = <$fh>)) {
-	    $new_conf_raw .= $restore_update_config_line->(
+	    $new_conf_raw .= restore_update_config_line(
 		$cookie,
 		$vmid,
 		$map,
@@ -6775,7 +6775,7 @@ sub restore_tar_archive {
 
 	my $cookie = { netcount => 0 };
 	while (defined (my $line = <$srcfd>)) {
-	    $new_conf_raw .= $restore_update_config_line->(
+	    $new_conf_raw .= restore_update_config_line(
 		$cookie,
 		$vmid,
 		$map,
