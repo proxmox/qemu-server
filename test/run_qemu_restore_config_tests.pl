@@ -52,7 +52,6 @@ dir_glob_foreach('./restore-config-input', '[0-9]+.conf', sub {
     while (defined(my $line = <$fh>)) {
 	$got .= PVE::QemuServer::restore_update_config_line(
 	    $cookie,
-	    $vmid,
 	    $map,
 	    $line,
 	    0,
