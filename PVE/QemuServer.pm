@@ -2156,7 +2156,7 @@ sub destroy_vm {
     });
 
     if ($purge_unreferenced) { # also remove unreferenced disk
-	my $vmdisks = PVE::Storage::vdisk_list($storecfg, undef, $vmid);
+	my $vmdisks = PVE::Storage::vdisk_list($storecfg, undef, $vmid, undef, 'images');
 	PVE::Storage::foreach_volid($vmdisks, sub {
 	    my ($volid, $sid, $volname, $d) = @_;
 	    eval { PVE::Storage::vdisk_free($storecfg, $volid) };
@@ -6070,10 +6070,11 @@ my $restore_destroy_volumes = sub {
     }
 };
 
+# FIXME For PVE 7.0, remove $content_type and always use 'images'
 sub scan_volids {
-    my ($cfg, $vmid) = @_;
+    my ($cfg, $vmid, $content_type) = @_;
 
-    my $info = PVE::Storage::vdisk_list($cfg, undef, $vmid);
+    my $info = PVE::Storage::vdisk_list($cfg, undef, $vmid, undef, $content_type);
 
     my $volid_hash = {};
     foreach my $storeid (keys %$info) {
@@ -6166,14 +6167,8 @@ sub rescan {
 
     my $cfg = PVE::Storage::config();
 
-    # FIXME: Remove once our RBD plugin can handle CT and VM on a single storage
-    # see: https://pve.proxmox.com/pipermail/pve-devel/2018-July/032900.html
-    foreach my $stor (keys %{$cfg->{ids}}) {
-	delete($cfg->{ids}->{$stor}) if ! $cfg->{ids}->{$stor}->{content}->{images};
-    }
-
     print "rescan volumes...\n";
-    my $volid_hash = scan_volids($cfg, $vmid);
+    my $volid_hash = scan_volids($cfg, $vmid, 'images');
 
     my $updatefn =  sub {
 	my ($vmid) = @_;
