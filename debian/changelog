@@ -1,3 +1,14 @@
+qemu-server (6.3-9) pve; urgency=medium
+
+  * restore vma: fix applying storage-specific bandwidth limit
+
+  * snapshot: set migration caps before savevm-start
+
+  * vzdump: improve error logging for query-proxmox-support to avoid
+    false-positives
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 26 Mar 2021 09:47:27 +0100
+
 qemu-server (6.3-8) pve; urgency=medium
 
   * qm status: sort hash keys on verbose output
