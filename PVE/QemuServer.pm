@@ -964,7 +964,8 @@ IP addresses use CIDR notation, gateways are optional but need an IP of the same
 
 The special string 'dhcp' can be used for IP addresses to use DHCP, in which case no explicit
 gateway should be provided.
-For IPv6 the special string 'auto' can be used to use stateless autoconfiguration.
+For IPv6 the special string 'auto' can be used to use stateless autoconfiguration. This requires
+cloud-init 19.4 or newer.
 
 If cloud-init is enabled and neither an IPv4 nor an IPv6 address is specified, it defaults to using
 dhcp on IPv4.

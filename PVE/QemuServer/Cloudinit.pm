@@ -449,8 +449,8 @@ sub nocloud_network {
 	    if ($ip eq 'dhcp') {
 		$content .= "${i}- type: dhcp6\n";
 	    } elsif ($ip eq 'auto') {
-		# SLAAC is not supported by cloud-init, this fallback should work with an up-to-date netplan at least
-		$content .= "${i}- type: dhcp6\n";
+		# SLAAC is only supported by cloud-init since 19.4
+		$content .= "${i}- type: ipv6_slaac\n";
 	    } else {
 		$content .= "${i}- type: static6\n"
 		       . "${i}  address: '$ip'\n";
