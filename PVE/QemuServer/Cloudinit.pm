@@ -452,7 +452,7 @@ sub nocloud_network {
 		# SLAAC is not supported by cloud-init, this fallback should work with an up-to-date netplan at least
 		$content .= "${i}- type: dhcp6\n";
 	    } else {
-		$content .= "${i}- type: static\n"
+		$content .= "${i}- type: static6\n"
 		       . "${i}  address: '$ip'\n";
 		if (defined(my $gw = $ipconfig->{gw6})) {
 		    $content .= "${i}  gateway: '$gw'\n";
