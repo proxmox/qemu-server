@@ -1,3 +1,13 @@
+qemu-server (6.3-10) pve; urgency=medium
+
+  * increase timeout for block (disk) resize QMP command
+
+  * fix #3314: cloudinit: IPv6 requires type 'static6'
+
+  * fix #2670: cloudinit: enable SLAAC again now that client support is there
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 30 Mar 2021 18:40:58 +0200
+
 qemu-server (6.3-9) pve; urgency=medium
 
   * restore vma: fix applying storage-specific bandwidth limit
