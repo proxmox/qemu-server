@@ -4291,8 +4291,13 @@ sub qemu_block_resize {
     my $padding = (1024 - $size % 1024) % 1024;
     $size = $size + $padding;
 
-    mon_cmd($vmid, "block_resize", device => $deviceid, size => int($size));
-
+    mon_cmd(
+	$vmid,
+	"block_resize",
+	device => $deviceid,
+	size => int($size),
+	timeout => 60,
+    );
 }
 
 sub qemu_volume_snapshot {
