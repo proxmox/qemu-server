@@ -49,7 +49,9 @@ sub get_current_qemu_machine {
 sub extract_version {
     my ($machine_type, $kvmversion) = @_;
 
-    if (defined($machine_type) && $machine_type =~ m/^(?:pc(?:-i440fx|-q35)?|virt)-(\d+)\.(\d+)(?:\.(\d+))?(\+pve\d+)?/) {
+    if (defined($machine_type) && $machine_type =~
+	m/^(?:pc(?:-i440fx|-q35)?|virt)-(\d+)\.(\d+)(?:\.(\d+))?(\+pve\d+)?(?:\.pxe)?/)
+    {
 	my $versionstr = "$1.$2";
 	$versionstr .= $4 if $4;
 	return $versionstr;
@@ -83,7 +85,7 @@ sub get_pve_version {
 sub can_run_pve_machine_version {
     my ($machine_version, $kvmversion) = @_;
 
-    $machine_version =~ m/^(\d+)\.(\d+)(?:\+pve(\d+))?$/;
+    $machine_version =~ m/^(\d+)\.(\d+)(?:\+pve(\d+))?(?:\.pxe)?$/;
     my $major = $1;
     my $minor = $2;
     my $pvever = $3;

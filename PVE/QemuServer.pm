@@ -2986,10 +2986,15 @@ sub get_vm_machine {
 	}
     }
 
-    if ($add_pve_version && $machine !~ m/\+pve\d+$/) {
+    if ($add_pve_version && $machine !~ m/\+pve\d+?(?:\.pxe)?$/) {
+	my $is_pxe = $machine =~ m/^(.*?)\.pxe$/;
+	$machine = $1 if $is_pxe;
+
 	# for version-pinned machines that do not include a pve-version (e.g.
 	# pc-q35-4.1), we assume 0 to keep them stable in case we bump
 	$machine .= '+pve0';
+
+	$machine .= '.pxe' if $is_pxe;
     }
 
     return $machine;
