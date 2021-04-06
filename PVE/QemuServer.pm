@@ -6437,16 +6437,7 @@ sub pbs_live_restore {
 	# start VM with backing chain pointing to PBS backup, environment vars
 	# for PBS driver in QEMU (PBS_PASSWORD and PBS_FINGERPRINT) are already
 	# set by our caller
-	PVE::QemuServer::vm_start_nolock(
-	    $storecfg,
-	    $vmid,
-	    $conf,
-	    {
-		paused => 1,
-		'pbs-backing' => $pbs_backing,
-	    },
-	    {},
-	);
+	vm_start_nolock($storecfg, $vmid, $conf, {paused => 1, 'pbs-backing' => $pbs_backing}, {});
 
 	my $qmeventd_fd = register_qmeventd_handle($vmid);
 
