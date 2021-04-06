@@ -30,6 +30,7 @@ use PVE::Cluster qw(cfs_register_file cfs_read_file cfs_write_file);
 use PVE::CGroup;
 use PVE::DataCenterConfig;
 use PVE::Exception qw(raise raise_param_exc);
+use PVE::Format qw(render_duration render_bytes);
 use PVE::GuestHelpers qw(safe_string_ne safe_num_ne safe_boolean_ne);
 use PVE::INotify;
 use PVE::JSONSchema qw(get_standard_option parse_property_string);
@@ -7058,10 +7059,12 @@ sub qemu_drive_mirror_monitor {
     eval {
 	my $err_complete = 0;
 
+	my $starttime = time ();
 	while (1) {
 	    die "block job ('$op') timed out\n" if $err_complete > 300;
 
 	    my $stats = mon_cmd($vmid, "query-block-jobs");
+	    my $ctime = time();
 
 	    my $running_jobs = {};
 	    for my $stat (@$stats) {
@@ -7077,7 +7080,7 @@ sub qemu_drive_mirror_monitor {
 		my $vanished = !defined($job);
 		my $complete = defined($jobs->{$job_id}->{complete}) && $vanished;
 	        if($complete || ($vanished && $completion eq 'auto')) {
-		    print "$job_id: finished\n";
+		    print "$job_id: $op-job finished\n";
 		    delete $jobs->{$job_id};
 		    next;
 		}
@@ -7091,7 +7094,23 @@ sub qemu_drive_mirror_monitor {
 		    my $remaining = $total - $transferred;
 		    my $percent = sprintf "%.2f", ($transferred * 100 / $total);
 
-		    print "$job_id: transferred: $transferred bytes remaining: $remaining bytes total: $total bytes progression: $percent % busy: $busy ready: $ready \n";
+		    my $duration = $ctime - $starttime;
+		    my $total_h = render_bytes($total, 1);
+		    my $transferred_h = render_bytes($transferred, 1);
+
+		    my $status = sprintf(
+		        "transferred $transferred_h of $total_h ($percent%%) in %s",
+		        render_duration($duration),
+		    );
+
+		    if ($ready) {
+			if ($busy) {
+			    $status .= ", still busy"; # shouldn't even happen? but mirror is weird
+			} else {
+			    $status .= ", ready";
+			}
+		    }
+		    print "$job_id: $status\n";
 		}
 
 		$readycounter++ if $job->{ready};
@@ -7143,7 +7162,7 @@ sub qemu_drive_mirror_monitor {
 			}
 			eval { mon_cmd($vmid, $op, device => $job_id) };
 			if ($@ =~ m/cannot be completed/) {
-			    print "$job_id: Block job cannot be completed, try again.\n";
+			    print "$job_id: block job cannot be completed, trying again.\n";
 			    $err_complete++;
 			}else {
 			    print "$job_id: Completed successfully.\n";
@@ -7159,9 +7178,8 @@ sub qemu_drive_mirror_monitor {
 
     if ($err) {
 	eval { PVE::QemuServer::qemu_blockjobs_cancel($vmid, $jobs) };
-	die "block job ('$op') error: $err";
+	die "block job ($op) error: $err";
     }
-
 }
 
 sub qemu_blockjobs_cancel {
