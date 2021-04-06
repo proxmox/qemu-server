@@ -7062,36 +7062,36 @@ sub qemu_drive_mirror_monitor {
 	    my $stats = mon_cmd($vmid, "query-block-jobs");
 
 	    my $running_jobs = {};
-	    foreach my $stat (@$stats) {
+	    for my $stat (@$stats) {
 		next if $stat->{type} ne $op;
 		$running_jobs->{$stat->{device}} = $stat;
 	    }
 
 	    my $readycounter = 0;
 
-	    foreach my $job (keys %$jobs) {
+	    for my $job_id (sort keys %$jobs) {
 
-		my $vanished = !defined($running_jobs->{$job});
-		my $complete = defined($jobs->{$job}->{complete}) && $vanished;
+		my $vanished = !defined($running_jobs->{$job_id});
+		my $complete = defined($jobs->{$job_id}->{complete}) && $vanished;
 	        if($complete || ($vanished && $completion eq 'auto')) {
-		    print "$job: finished\n";
-		    delete $jobs->{$job};
+		    print "$job_id: finished\n";
+		    delete $jobs->{$job_id};
 		    next;
 		}
 
-		die "$job: '$op' has been cancelled\n" if !defined($running_jobs->{$job});
+		die "$job_id: '$op' has been cancelled\n" if !defined($running_jobs->{$job_id});
 
-		my $busy = $running_jobs->{$job}->{busy};
-		my $ready = $running_jobs->{$job}->{ready};
-		if (my $total = $running_jobs->{$job}->{len}) {
-		    my $transferred = $running_jobs->{$job}->{offset} || 0;
+		my $busy = $running_jobs->{$job_id}->{busy};
+		my $ready = $running_jobs->{$job_id}->{ready};
+		if (my $total = $running_jobs->{$job_id}->{len}) {
+		    my $transferred = $running_jobs->{$job_id}->{offset} || 0;
 		    my $remaining = $total - $transferred;
 		    my $percent = sprintf "%.2f", ($transferred * 100 / $total);
 
-		    print "$job: transferred: $transferred bytes remaining: $remaining bytes total: $total bytes progression: $percent % busy: $busy ready: $ready \n";
+		    print "$job_id: transferred: $transferred bytes remaining: $remaining bytes total: $total bytes progression: $percent % busy: $busy ready: $ready \n";
 		}
 
-		$readycounter++ if $running_jobs->{$job}->{ready};
+		$readycounter++ if $running_jobs->{$job_id}->{ready};
 	    }
 
 	    last if scalar(keys %$jobs) == 0;
@@ -7126,9 +7126,9 @@ sub qemu_drive_mirror_monitor {
 		    last;
 		} else {
 
-		    foreach my $job (keys %$jobs) {
+		    for my $job_id (sort keys %$jobs) {
 			# try to switch the disk if source and destination are on the same guest
-			print "$job: Completing block job...\n";
+			print "$job_id: Completing block job_id...\n";
 
 			my $op;
 			if ($completion eq 'complete') {
@@ -7138,13 +7138,13 @@ sub qemu_drive_mirror_monitor {
 			} else {
 			    die "invalid completion value: $completion\n";
 			}
-			eval { mon_cmd($vmid, $op, device => $job) };
+			eval { mon_cmd($vmid, $op, device => $job_id) };
 			if ($@ =~ m/cannot be completed/) {
-			    print "$job: Block job cannot be completed, try again.\n";
+			    print "$job_id: Block job cannot be completed, try again.\n";
 			    $err_complete++;
 			}else {
-			    print "$job: Completed successfully.\n";
-			    $jobs->{$job}->{complete} = 1;
+			    print "$job_id: Completed successfully.\n";
+			    $jobs->{$job_id}->{complete} = 1;
 			}
 		    }
 		}
