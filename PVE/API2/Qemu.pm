@@ -646,6 +646,7 @@ __PACKAGE__->register_method({
 	eval { PVE::QemuConfig->create_and_lock_config($vmid, $force) };
 	die "$emsg $@" if $@;
 
+	my $restored_data = 0;
 	my $restorefn = sub {
 	    my $conf = PVE::QemuConfig->load_config($vmid);
 
@@ -662,13 +663,16 @@ __PACKAGE__->register_method({
 		    live => $live_restore,
 		};
 		if ($archive->{type} eq 'file' || $archive->{type} eq 'pipe') {
-		    die "live-restore is only compatible with PBS\n" if $live_restore;
+		    die "live-restore is only compatible with backup images from a Proxmox Backup Server\n"
+			if $live_restore;
 		    PVE::QemuServer::restore_file_archive($archive->{path} // '-', $vmid, $authuser, $restore_options);
 		} elsif ($archive->{type} eq 'pbs') {
 		    PVE::QemuServer::restore_proxmox_backup_archive($archive->{volid}, $vmid, $authuser, $restore_options);
 		} else {
 		    die "unknown backup archive type\n";
 		}
+		$restored_data = 1;
+
 		my $restored_conf = PVE::QemuConfig->load_config($vmid);
 		# Convert restored VM to template if backup was VM template
 		if (PVE::QemuConfig->is_template($restored_conf)) {
@@ -757,6 +761,13 @@ __PACKAGE__->register_method({
 		if (my $err = $@) {
 		    eval { PVE::QemuConfig->remove_lock($vmid, 'create') };
 		    warn $@ if $@;
+		    if ($restored_data) {
+			warn "error after data was restored, VM disks should be OK but config may "
+			    ."require adaptions. VM $vmid state is NOT cleaned up.\n";
+		    } else {
+			warn "error before or during data restore, some or all disks were not "
+			    ."completely restored. VM $vmid state is NOT cleaned up.\n";
+		    }
 		    die $err;
 		}
 	    };
