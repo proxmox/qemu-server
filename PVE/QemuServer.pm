@@ -6416,7 +6416,7 @@ sub pbs_live_restore {
     print "Starting VM for live-restore\n";
 
     my $pbs_backing = {};
-    foreach my $ds (keys %$restored_disks) {
+    for my $ds (keys %$restored_disks) {
 	$ds =~ m/^drive-(.*)$/;
 	$pbs_backing->{$1} = {
 	    repository => $repo,
@@ -6454,7 +6454,7 @@ sub pbs_live_restore {
 	# [target <- alloc-track -> PBS snapshot] to just [target] (alloc-track
 	# removes itself once all backing images vanish with 'auto-remove=on')
 	my $jobs = {};
-	foreach my $ds (keys %$restored_disks) {
+	for my $ds (sort keys %$restored_disks) {
 	    my $job_id = "restore-$ds";
 	    mon_cmd($vmid, 'block-stream',
 		'job-id' => $job_id,
@@ -6467,7 +6467,7 @@ sub pbs_live_restore {
 	qemu_drive_mirror_monitor($vmid, undef, $jobs, 'auto', 0, 'stream');
 
 	# all jobs finished, remove blockdevs now to disconnect from PBS
-	foreach my $ds (keys %$restored_disks) {
+	for my $ds (sort keys %$restored_disks) {
 	    mon_cmd($vmid, 'blockdev-del', 'node-name' => "$ds-pbs");
 	}
 
