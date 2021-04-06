@@ -7070,8 +7070,9 @@ sub qemu_drive_mirror_monitor {
 	    my $readycounter = 0;
 
 	    for my $job_id (sort keys %$jobs) {
+		my $job = $running_jobs->{$job_id};
 
-		my $vanished = !defined($running_jobs->{$job_id});
+		my $vanished = !defined($job);
 		my $complete = defined($jobs->{$job_id}->{complete}) && $vanished;
 	        if($complete || ($vanished && $completion eq 'auto')) {
 		    print "$job_id: finished\n";
@@ -7079,19 +7080,19 @@ sub qemu_drive_mirror_monitor {
 		    next;
 		}
 
-		die "$job_id: '$op' has been cancelled\n" if !defined($running_jobs->{$job_id});
+		die "$job_id: '$op' has been cancelled\n" if !defined($job);
 
-		my $busy = $running_jobs->{$job_id}->{busy};
-		my $ready = $running_jobs->{$job_id}->{ready};
-		if (my $total = $running_jobs->{$job_id}->{len}) {
-		    my $transferred = $running_jobs->{$job_id}->{offset} || 0;
+		my $busy = $job->{busy};
+		my $ready = $job->{ready};
+		if (my $total = $job->{len}) {
+		    my $transferred = $job->{offset} || 0;
 		    my $remaining = $total - $transferred;
 		    my $percent = sprintf "%.2f", ($transferred * 100 / $total);
 
 		    print "$job_id: transferred: $transferred bytes remaining: $remaining bytes total: $total bytes progression: $percent % busy: $busy ready: $ready \n";
 		}
 
-		$readycounter++ if $running_jobs->{$job_id}->{ready};
+		$readycounter++ if $job->{ready};
 	    }
 
 	    last if scalar(keys %$jobs) == 0;
