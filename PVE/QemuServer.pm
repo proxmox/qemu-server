@@ -6405,7 +6405,7 @@ sub restore_proxmox_backup_archive {
 	    warn "destroying partially live-restored VM, all temporary data will be lost!\n";
 	    $restore_deactivate_volumes->($storecfg, $devinfo);
 	    $restore_destroy_volumes->($storecfg, $devinfo);
-	    unlink $conffile;
+	    PVE::QemuConfig->destroy_config($vmid);
 	    die $err;
 	}
     }
