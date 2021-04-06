@@ -6390,7 +6390,7 @@ sub restore_proxmox_backup_archive {
 		local $SIG{TERM} =
 		local $SIG{QUIT} =
 		local $SIG{HUP} =
-		local $SIG{PIPE} = sub { die "interrupted by signal\n"; };
+		local $SIG{PIPE} = sub { die "got signal ($!) - abort\n"; };
 
 	    my $conf = PVE::QemuConfig->load_config($vmid);
 	    die "cannot do live-restore for template\n"
@@ -6401,7 +6401,7 @@ sub restore_proxmox_backup_archive {
 
 	$err = $@;
 	if ($err) {
-	    warn "Detroying live-restore VM, all temporary data will be lost!\n";
+	    warn "destroying partially live-restored VM, all temporary data will be lost!\n";
 	    $restore_deactivate_volumes->($storecfg, $devinfo);
 	    $restore_destroy_volumes->($storecfg, $devinfo);
 	    unlink $conffile;
@@ -6466,7 +6466,9 @@ sub pbs_live_restore {
 	mon_cmd($vmid, 'cont');
 	qemu_drive_mirror_monitor($vmid, undef, $jobs, 'auto', 0, 'stream');
 
-	# all jobs finished, remove blockdevs now to disconnect from PBS
+	print "restore-drive jobs finished successfully, removing all tracking block devices"
+	    ." to disconnect from Proxmox Backup Server\n";
+
 	for my $ds (sort keys %$restored_disks) {
 	    mon_cmd($vmid, 'blockdev-del', 'node-name' => "$ds-pbs");
 	}
