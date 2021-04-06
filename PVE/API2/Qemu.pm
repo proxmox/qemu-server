@@ -575,9 +575,6 @@ __PACKAGE__->register_method({
 	my $unique = extract_param($param, 'unique');
 	my $live_restore = extract_param($param, 'live-restore');
 
-	raise_param_exc({ 'start' => "cannot specify 'start' with 'live-restore'" })
-	    if $start_after_create && $live_restore;
-
 	if (defined(my $ssh_keys = $param->{sshkeys})) {
 		$ssh_keys = URI::Escape::uri_unescape($ssh_keys);
 		PVE::Tools::validate_ssh_public_keys($ssh_keys);
@@ -686,7 +683,7 @@ __PACKAGE__->register_method({
 
 	    PVE::QemuConfig->lock_config_full($vmid, 1, $realcmd);
 
-	    if ($start_after_create) {
+	    if ($start_after_create && !$live_restore) {
 		print "Execute autostart\n";
 		eval { PVE::API2::Qemu->vm_start({ vmid => $vmid, node => $node }) };
 		warn $@ if $@;
