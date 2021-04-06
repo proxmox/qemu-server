@@ -1404,13 +1404,18 @@ sub print_keyboarddevice_full {
     return "usb-kbd,id=keyboard,bus=ehci.0,port=2";
 }
 
+my sub get_drive_id {
+    my ($drive) = @_;
+    return "$drive->{interface}$drive->{index}";
+}
+
 sub print_drivedevice_full {
     my ($storecfg, $conf, $vmid, $drive, $bridges, $arch, $machine_type) = @_;
 
     my $device = '';
     my $maxdev = 0;
 
-    my $drive_id = "$drive->{interface}$drive->{index}";
+    my $drive_id = get_drive_id($drive);
     if ($drive->{interface} eq 'virtio') {
 	my $pciaddr = print_pci_addr("$drive_id", $bridges, $arch, $machine_type);
 	$device = "virtio-blk-pci,drive=drive-$drive_id,id=${drive_id}${pciaddr}";
@@ -1520,10 +1525,11 @@ sub print_drive_commandline_full {
     my $path;
     my $volid = $drive->{file};
     my $format = $drive->{format};
+    my $drive_id = get_drive_id($drive);
 
     if (drive_is_cdrom($drive)) {
 	$path = get_iso_path($storecfg, $vmid, $volid);
-        die "cannot back cdrom drive with PBS snapshot\n" if $pbs_name;
+        die "$drive_id: cannot back cdrom drive with PBS snapshot\n" if $pbs_name;
     } else {
 	my ($storeid, $volname) = PVE::Storage::parse_volume_id($volid, 1);
 	if ($storeid) {
@@ -1574,7 +1580,8 @@ sub print_drive_commandline_full {
 
     if ($pbs_name) {
 	$format = "rbd" if $is_rbd;
-	die "PBS backing requires a drive with known format\n" if !$format;
+	die "$drive_id: Proxmox Backup Server backed drive cannot auto-detect the format\n"
+	    if !$format;
 	$opts .= ",format=alloc-track,file.driver=$format";
     } elsif ($format) {
 	$opts .= ",format=$format";
