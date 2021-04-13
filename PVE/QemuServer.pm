@@ -1451,7 +1451,7 @@ sub print_drivedevice_full {
 	    }
 	}
 
-	if (!$conf->{scsihw} || ($conf->{scsihw} =~ m/^lsi/)){
+	if (!$conf->{scsihw} || $conf->{scsihw} =~ m/^lsi/ || $conf->{scsihw} eq 'pvscsi') {
 	    $device = "scsi-$devicetype,bus=$controller_prefix$controller.0,scsi-id=$unit";
 	} else {
 	    $device = "scsi-$devicetype,bus=$controller_prefix$controller.0,channel=0,scsi-id=0"
