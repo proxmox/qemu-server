@@ -6394,8 +6394,7 @@ sub restore_proxmox_backup_archive {
 		local $SIG{PIPE} = sub { die "got signal ($!) - abort\n"; };
 
 	    my $conf = PVE::QemuConfig->load_config($vmid);
-	    die "cannot do live-restore for template\n"
-		if PVE::QemuConfig->is_template($conf);
+	    die "cannot do live-restore for template\n" if PVE::QemuConfig->is_template($conf);
 
 	    pbs_live_restore($vmid, $conf, $storecfg, $devinfo, $repo, $keyfile, $pbs_backup_name);
 	};
@@ -6427,16 +6426,15 @@ sub pbs_live_restore {
 	$pbs_backing->{$1}->{keyfile} = $keyfile if -e $keyfile;
     }
 
+    my $drives_streamed = 0;
     eval {
 	# make sure HA doesn't interrupt our restore by stopping the VM
 	if (PVE::HA::Config::vm_is_ha_managed($vmid)) {
-	    my $cmd = ['ha-manager', 'set',  "vm:$vmid", '--state', 'started'];
-	    PVE::Tools::run_command($cmd);
+	    run_command(['ha-manager', 'set',  "vm:$vmid", '--state', 'started']);
 	}
 
-	# start VM with backing chain pointing to PBS backup, environment vars
-	# for PBS driver in QEMU (PBS_PASSWORD and PBS_FINGERPRINT) are already
-	# set by our caller
+	# start VM with backing chain pointing to PBS backup, environment vars for PBS driver
+	# in QEMU (PBS_PASSWORD and PBS_FINGERPRINT) are already set by our caller
 	vm_start_nolock($storecfg, $vmid, $conf, {paused => 1, 'pbs-backing' => $pbs_backing}, {});
 
 	my $qmeventd_fd = register_qmeventd_handle($vmid);
