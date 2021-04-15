@@ -590,7 +590,7 @@ sub is_volume_in_use {
 		    next if !$storeid;
 		    my $scfg = PVE::Storage::storage_config($storecfg, $storeid, 1);
 		    next if !$scfg;
-		    return 1 if $path eq PVE::Storage::path($storecfg, $drive->{file}, $snapname);
+		    return 1 if $path eq PVE::Storage::path($storecfg, $drive->{file});
 		}
 	    }
 	}
