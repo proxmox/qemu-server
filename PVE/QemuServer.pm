@@ -6960,9 +6960,10 @@ sub qemu_img_convert {
 	if($line =~ m/\((\S+)\/100\%\)/){
 	    my $percent = $1;
 	    my $transferred = int($size * $percent / 100);
-	    my $remaining = $size - $transferred;
+	    my $total_h = render_bytes($size, 1);
+	    my $transferred_h = render_bytes($transferred, 1);
 
-	    print "transferred: $transferred bytes remaining: $remaining bytes total: $size bytes progression: $percent %\n";
+	    print "transferred $transferred_h of $total_h ($percent%)";
 	}
 
     };
