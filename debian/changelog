@@ -1,3 +1,16 @@
+qemu-server (6.3-11) pve; urgency=medium
+
+  * enable live-restore tech preview for Proxmox Backup Server hosted backup
+    snapshots.
+
+  * drive mirror: rework periodic status reporting to be human friendlier
+
+  * drive mirror: stop logging progress for a disk once it got ready
+
+  * image convert: use human-readable units in progress report
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 15 Apr 2021 18:32:06 +0200
+
 qemu-server (6.3-10) pve; urgency=medium
 
   * increase timeout for block (disk) resize QMP command
