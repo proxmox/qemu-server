@@ -7100,7 +7100,8 @@ sub qemu_drive_mirror_monitor {
 			    $status .= ", ready";
 			}
 		    }
-		    print "$job_id: $status\n";
+		    print "$job_id: $status\n" if !$jobs->{$job_id}->{ready};
+		    $jobs->{$job_id}->{ready} = $ready;
 		}
 
 		$readycounter++ if $job->{ready};
