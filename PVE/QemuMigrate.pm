@@ -977,15 +977,13 @@ sub phase2 {
     } else {
 	$migrate_speed ||= $bwlimit;
     }
+    $migrate_speed ||= ($defaults->{migrate_speed} || 0) * 1024;
 
-    # always set migrate speed (overwrite kvm default of 32m) we set a very high
-    # default of 8192m which is basically unlimited
-    $migrate_speed ||= ($defaults->{migrate_speed} || 8192) * 1024;
-
-    # qmp takes migrate_speed in B/s.
-    $migrate_speed *= 1024;
-    $self->log('info', "migration speed limit: $migrate_speed B/s");
-    $qemu_migrate_params->{'max-bandwidth'} = int($migrate_speed);
+    if ($migrate_speed) {
+	$migrate_speed *= 1024; # qmp takes migrate_speed in B/s.
+	$self->log('info', "migration speed limit: $migrate_speed B/s");
+	$qemu_migrate_params->{'max-bandwidth'} = int($migrate_speed);
+    }
 
     my $migrate_downtime = $defaults->{migrate_downtime};
     $migrate_downtime = $conf->{migrate_downtime} if defined($conf->{migrate_downtime});
