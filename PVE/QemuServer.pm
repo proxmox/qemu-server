@@ -2127,7 +2127,7 @@ sub destroy_vm {
 
     if ($conf->{template}) {
 	# check if any base image is still used by a linked clone
-	PVE::QemuConfig->foreach_volume($conf, sub {
+	PVE::QemuConfig->foreach_volume_full($conf, { include_unused => 1 }, sub {
 		my ($ds, $drive) = @_;
 		return if drive_is_cdrom($drive);
 
