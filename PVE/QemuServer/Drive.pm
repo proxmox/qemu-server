@@ -574,7 +574,7 @@ sub is_volume_in_use {
     my $path = PVE::Storage::path($storecfg, $volid);
 
     my $scan_config = sub {
-	my ($cref, $snapname) = @_;
+	my ($cref) = @_;
 
 	foreach my $key (keys %$cref) {
 	    my $value = $cref->{$key};
@@ -602,8 +602,8 @@ sub is_volume_in_use {
 
     undef $skip_drive;
 
-    foreach my $snapname (keys %{$conf->{snapshots}}) {
-	return 1 if &$scan_config($conf->{snapshots}->{$snapname}, $snapname);
+    for my $snap (values %{$conf->{snapshots}}) {
+	return 1 if $scan_config->($snap);
     }
 
     return 0;
