@@ -957,10 +957,8 @@ sub phase2 {
     # load_defaults
     my $defaults = PVE::QemuServer::load_defaults();
 
-    $self->log('info', "set migration_caps");
-    eval {
-	PVE::QemuServer::set_migration_caps($vmid);
-    };
+    $self->log('info', "set migration capabilities");
+    eval { PVE::QemuServer::set_migration_caps($vmid) };
     warn $@ if $@;
 
     my $qemu_migrate_params = {};
