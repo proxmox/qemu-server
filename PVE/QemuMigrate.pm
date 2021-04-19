@@ -1031,7 +1031,7 @@ sub phase2 {
     my $merr = $@;
     $self->log('info', "migrate uri => $ruri failed: $merr") if $merr;
 
-    my $lstat = 0;
+    my $last_mem_transferred = 0;
     my $usleep = 1000000;
     my $i = 0;
     my $err_count = 0;
@@ -1039,7 +1039,7 @@ sub phase2 {
     my $downtimecounter = 0;
     while (1) {
 	$i++;
-	my $avglstat = $lstat ? $lstat / $i : 0;
+	my $avglstat = $last_mem_transferred ? $last_mem_transferred / $i : 0;
 
 	usleep($usleep);
 
@@ -1068,6 +1068,8 @@ sub phase2 {
 	$merr = undef;
 	$err_count = 0;
 
+	my $memstat = $stat->{ram};
+
 	if ($status eq 'completed') {
 	    my $delay = time() - $start;
 	    if ($delay > 0) {
@@ -1087,10 +1089,10 @@ sub phase2 {
 	    last;
 	}
 
-	if ($stat->{ram}->{transferred} ne $lstat) {
-	    my $trans = $stat->{ram}->{transferred} || 0;
-	    my $rem = $stat->{ram}->{remaining} || 0;
-	    my $total = $stat->{ram}->{total} || 0;
+	if ($memstat->{transferred} ne $last_mem_transferred) {
+	    my $trans = $memstat->{transferred} || 0;
+	    my $rem = $memstat->{remaining} || 0;
+	    my $total = $memstat->{total} || 0;
 
 	    my $xbzrle = $stat->{"xbzrle-cache"} || {};
 	    my $xbzrlecachesize = $xbzrle->{"cache-size"} || 0;
@@ -1111,7 +1113,7 @@ sub phase2 {
 		$self->log('info', "migration xbzrle cachesize: ${xbzrlecachesize} transferred ${xbzrlebytes} pages ${xbzrlepages} cachemiss ${xbzrlecachemiss} overflow ${xbzrleoverflow}");
 	    }
 
-	    if (($lastrem  && $rem > $lastrem ) || ($rem == 0)) {
+	    if (($lastrem && $rem > $lastrem) || ($rem == 0)) {
 		$downtimecounter++;
 	    }
 	    $lastrem = $rem;
@@ -1129,7 +1131,7 @@ sub phase2 {
 	    }
 	}
 
-	$lstat = $stat->{ram}->{transferred};
+	$last_mem_transferred = $memstat->{transferred};
     }
 
     if ($self->{storage_migration}) {
