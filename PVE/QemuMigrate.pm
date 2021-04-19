@@ -1046,93 +1046,94 @@ sub phase2 {
 	my $avglstat = $lstat ? $lstat / $i : 0;
 
 	usleep($usleep);
-	my $stat;
-	eval {
-	    $stat = mon_cmd($vmid, "query-migrate");
-	};
+
+	my $stat = eval { mon_cmd($vmid, "query-migrate") };
 	if (my $err = $@) {
 	    $err_count++;
 	    warn "query migrate failed: $err\n";
 	    $self->log('info', "query migrate failed: $err");
 	    if ($err_count <= 5) {
-		usleep(1000000);
+		usleep(1_000_000);
 		next;
 	    }
 	    die "too many query migrate failures - aborting\n";
 	}
 
-        if (defined($stat->{status}) && $stat->{status} =~ m/^(setup)$/im) {
-            sleep(1);
-            next;
-        }
-
-	if (defined($stat->{status}) && $stat->{status} =~ m/^(active|completed|failed|cancelled)$/im) {
-	    $merr = undef;
-	    $err_count = 0;
-	    if ($stat->{status} eq 'completed') {
-		my $delay = time() - $start;
-		if ($delay > 0) {
-		    my $mbps = sprintf "%.2f", $memory / $delay;
-		    my $downtime = $stat->{downtime} || 0;
-		    $self->log('info', "migration speed: $mbps MB/s - downtime $downtime ms");
-		}
-	    }
-
-	    if ($stat->{status} eq 'failed' || $stat->{status} eq 'cancelled') {
-		$self->log('info', "migration status error: $stat->{status}");
-		die "aborting\n"
-	    }
-
-	    if ($stat->{status} ne 'active') {
-		$self->log('info', "migration status: $stat->{status}");
-		last;
-	    }
-
-	    if ($stat->{ram}->{transferred} ne $lstat) {
-		my $trans = $stat->{ram}->{transferred} || 0;
-		my $rem = $stat->{ram}->{remaining} || 0;
-		my $total = $stat->{ram}->{total} || 0;
-		my $xbzrlecachesize = $stat->{"xbzrle-cache"}->{"cache-size"} || 0;
-		my $xbzrlebytes = $stat->{"xbzrle-cache"}->{"bytes"} || 0;
-		my $xbzrlepages = $stat->{"xbzrle-cache"}->{"pages"} || 0;
-		my $xbzrlecachemiss = $stat->{"xbzrle-cache"}->{"cache-miss"} || 0;
-		my $xbzrleoverflow = $stat->{"xbzrle-cache"}->{"overflow"} || 0;
-		# reduce sleep if remainig memory is lower than the average transfer speed
-		$usleep = 100000 if $avglstat && $rem < $avglstat;
-
-		$self->log('info', "migration status: $stat->{status} (transferred ${trans}, " .
-			   "remaining ${rem}), total ${total})");
-
-		if (${xbzrlecachesize}) {
-		    $self->log('info', "migration xbzrle cachesize: ${xbzrlecachesize} transferred ${xbzrlebytes} pages ${xbzrlepages} cachemiss ${xbzrlecachemiss} overflow ${xbzrleoverflow}");
-		}
-
-		if (($lastrem  && $rem > $lastrem ) || ($rem == 0)) {
-		    $downtimecounter++;
-		}
-		$lastrem = $rem;
-
-		if ($downtimecounter > 5) {
-		    $downtimecounter = 0;
-		    $migrate_downtime *= 2;
-		    $self->log('info', "auto-increased downtime to continue migration: $migrate_downtime ms");
-		    eval {
-			# migrate-set-parameters does not touch values not
-			# specified, so this only changes downtime-limit
-			mon_cmd($vmid, "migrate-set-parameters", 'downtime-limit' => int($migrate_downtime));
-		    };
-		    $self->log('info', "migrate-set-parameters error: $@") if $@;
-            	}
-
-	    }
-
-
-	    $lstat = $stat->{ram}->{transferred};
-
-	} else {
-	    die $merr if $merr;
-	    die "unable to parse migration status '$stat->{status}' - aborting\n";
+	my $status = $stat->{status};
+	if (defined($status) && $status =~ m/^(setup)$/im) {
+	    sleep(1);
+	    next;
 	}
+
+	if (!defined($status) || $status !~ m/^(active|completed|failed|cancelled)$/im) {
+	    die $merr if $merr;
+	    die "unable to parse migration status '$status' - aborting\n";
+	}
+	$merr = undef;
+	$err_count = 0;
+
+	if ($status eq 'completed') {
+	    my $delay = time() - $start;
+	    if ($delay > 0) {
+		my $mbps = sprintf "%.2f", $memory / $delay;
+		my $downtime = $stat->{downtime} || 0;
+		$self->log('info', "migration speed: $mbps MB/s - downtime $downtime ms");
+	    }
+	}
+
+	if ($status eq 'failed' || $status eq 'cancelled') {
+	    $self->log('info', "migration status error: $status");
+	    die "aborting\n"
+	}
+
+	if ($status ne 'active') {
+	    $self->log('info', "migration status: $status");
+	    last;
+	}
+
+	if ($stat->{ram}->{transferred} ne $lstat) {
+	    my $trans = $stat->{ram}->{transferred} || 0;
+	    my $rem = $stat->{ram}->{remaining} || 0;
+	    my $total = $stat->{ram}->{total} || 0;
+
+	    my $xbzrle = $stat->{"xbzrle-cache"} || {};
+	    my $xbzrlecachesize = $xbzrle->{"cache-size"} || 0;
+	    my $xbzrlebytes = $xbzrle->{"bytes"} || 0;
+	    my $xbzrlepages = $xbzrle->{"pages"} || 0;
+	    my $xbzrlecachemiss = $xbzrle->{"cache-miss"} || 0;
+	    my $xbzrleoverflow = $xbzrle->{"overflow"} || 0;
+
+	    # reduce sleep if remainig memory is lower than the average transfer speed
+	    $usleep = 100_000 if $avglstat && $rem < $avglstat;
+
+	    $self->log(
+		'info',
+		"migration $status (transferred ${trans}, remaining ${rem}), total ${total})"
+	    );
+
+	    if ($xbzrlecachesize) {
+		$self->log('info', "migration xbzrle cachesize: ${xbzrlecachesize} transferred ${xbzrlebytes} pages ${xbzrlepages} cachemiss ${xbzrlecachemiss} overflow ${xbzrleoverflow}");
+	    }
+
+	    if (($lastrem  && $rem > $lastrem ) || ($rem == 0)) {
+		$downtimecounter++;
+	    }
+	    $lastrem = $rem;
+
+	    if ($downtimecounter > 5) {
+		$downtimecounter = 0;
+		$migrate_downtime *= 2;
+		$self->log('info', "auto-increased downtime to continue migration: $migrate_downtime ms");
+		eval {
+		    # migrate-set-parameters does not touch values not
+		    # specified, so this only changes downtime-limit
+		    mon_cmd($vmid, "migrate-set-parameters", 'downtime-limit' => int($migrate_downtime));
+		};
+		$self->log('info', "migrate-set-parameters error: $@") if $@;
+	    }
+	}
+
+	$lstat = $stat->{ram}->{transferred};
     }
 
     if ($self->{storage_migration}) {
