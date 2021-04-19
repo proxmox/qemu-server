@@ -1101,6 +1101,8 @@ sub phase2 {
 	    # reduce sleep if remainig memory is lower than the average transfer speed
 	    $usleep = 100_000 if $avglstat && $rem < $avglstat;
 
+	    # also reduce loggin if we poll more frequent
+	    my $should_log = $usleep > 100_000 ? 1 : ($i % 10) == 0;
 
 	    my $total_h = render_bytes($total, 1);
 	    my $transferred_h = render_bytes($trans, 1);
@@ -1113,7 +1115,7 @@ sub phase2 {
 		$progress .= ", VM dirties lots of memory: $dirty_rate_h/s";
 	    }
 
-	    $self->log('info', "migration $status, $progress");
+	    $self->log('info', "migration $status, $progress") if $should_log;
 
 	    my $xbzrle = $stat->{"xbzrle-cache"} || {};
 	    my ($xbzrlebytes, $xbzrlepages) = $xbzrle->@{'bytes', 'pages'};
@@ -1127,7 +1129,7 @@ sub phase2 {
 
 		$msg .= ", overflow $xbzrle->{overflow}" if $xbzrle->{overflow};
 
-		$self->log('info', "xbzrle: $msg");
+		$self->log('info', "xbzrle: $msg") if $should_log;
 	    }
 
 	    if (($lastrem && $rem > $lastrem) || ($rem == 0)) {
