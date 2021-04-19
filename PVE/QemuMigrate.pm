@@ -8,6 +8,7 @@ use IPC::Open2;
 use POSIX qw( WNOHANG );
 use Time::HiRes qw( usleep );
 
+use PVE::Format qw(render_bytes);
 use PVE::Cluster;
 use PVE::GuestHelpers qw(safe_boolean_ne safe_string_ne);
 use PVE::INotify;
@@ -979,7 +980,7 @@ sub phase2 {
 
     if ($migrate_speed) {
 	$migrate_speed *= 1024; # qmp takes migrate_speed in B/s.
-	$self->log('info', "migration speed limit: $migrate_speed B/s");
+	$self->log('info', "migration speed limit: ". render_bytes($migrate_speed, 1) ."/s");
 	$qemu_migrate_params->{'max-bandwidth'} = int($migrate_speed);
     }
 
@@ -995,7 +996,7 @@ sub phase2 {
     my $cachesize = int($memory * 1048576 / 10);
     $cachesize = round_powerof2($cachesize);
 
-    $self->log('info', "migration cachesize: $cachesize B");
+    $self->log('info', "migration cachesize: " . render_bytes($cachesize, 1));
     $qemu_migrate_params->{'xbzrle-cache-size'} = int($cachesize);
 
     $self->log('info', "set migration parameters");
@@ -1073,9 +1074,10 @@ sub phase2 {
 	if ($status eq 'completed') {
 	    my $delay = time() - $start;
 	    if ($delay > 0) {
-		my $mbps = sprintf "%.2f", $memory / $delay;
+		my $total = $memstat->{total} || 0;
+		my $avg_speed = render_bytes($total / $delay, 1);
 		my $downtime = $stat->{downtime} || 0;
-		$self->log('info', "migration speed: $mbps MB/s - downtime $downtime ms");
+		$self->log('info', "average migration speed: $avg_speed/s - downtime $downtime ms");
 	    }
 	}
 
@@ -1093,24 +1095,39 @@ sub phase2 {
 	    my $trans = $memstat->{transferred} || 0;
 	    my $rem = $memstat->{remaining} || 0;
 	    my $total = $memstat->{total} || 0;
-
-	    my $xbzrle = $stat->{"xbzrle-cache"} || {};
-	    my $xbzrlecachesize = $xbzrle->{"cache-size"} || 0;
-	    my $xbzrlebytes = $xbzrle->{"bytes"} || 0;
-	    my $xbzrlepages = $xbzrle->{"pages"} || 0;
-	    my $xbzrlecachemiss = $xbzrle->{"cache-miss"} || 0;
-	    my $xbzrleoverflow = $xbzrle->{"overflow"} || 0;
+	    my $speed = ($memstat->{'pages-per-second'} // 0) * ($memstat->{'page-size'} // 0);
+	    my $dirty_rate = ($memstat->{'dirty-pages-rate'} // 0) * ($memstat->{'page-size'} // 0);
 
 	    # reduce sleep if remainig memory is lower than the average transfer speed
 	    $usleep = 100_000 if $avglstat && $rem < $avglstat;
 
-	    $self->log(
-		'info',
-		"migration $status (transferred ${trans}, remaining ${rem}), total ${total})"
-	    );
 
-	    if ($xbzrlecachesize) {
-		$self->log('info', "migration xbzrle cachesize: ${xbzrlecachesize} transferred ${xbzrlebytes} pages ${xbzrlepages} cachemiss ${xbzrlecachemiss} overflow ${xbzrleoverflow}");
+	    my $total_h = render_bytes($total, 1);
+	    my $transferred_h = render_bytes($trans, 1);
+	    my $speed_h = render_bytes($speed, 1);
+
+	    my $progress = "transferred $transferred_h of $total_h VM-state, ${speed_h}/s";
+
+	    if ($dirty_rate > $speed) {
+		my $dirty_rate_h = render_bytes($dirty_rate, 1);
+		$progress .= ", VM dirties lots of memory: $dirty_rate_h/s";
+	    }
+
+	    $self->log('info', "migration $status, $progress");
+
+	    my $xbzrle = $stat->{"xbzrle-cache"} || {};
+	    my ($xbzrlebytes, $xbzrlepages) = $xbzrle->@{'bytes', 'pages'};
+	    if ($xbzrlebytes || $xbzrlepages) {
+		my $bytes_h = render_bytes($xbzrlebytes, 1);
+
+		my $msg = "send updates to $xbzrlepages pages in $bytes_h encoded memory";
+
+		$msg .= sprintf(", cache-miss %.2f%%", $xbzrle->{'cache-miss-rate'} * 100)
+		    if $xbzrle->{'cache-miss-rate'};
+
+		$msg .= ", overflow $xbzrle->{overflow}" if $xbzrle->{overflow};
+
+		$self->log('info', "xbzrle: $msg");
 	    }
 
 	    if (($lastrem && $rem > $lastrem) || ($rem == 0)) {
