@@ -2140,8 +2140,7 @@ sub destroy_vm {
 	});
     }
 
-    # only remove disks owned by this VM (referenced in the config)
-    PVE::QemuConfig->foreach_volume_full($conf, { include_unused => 1 }, sub {
+    my $remove_owned_drive = sub {
 	my ($ds, $drive) = @_;
  	return if drive_is_cdrom($drive, 1);
 
@@ -2153,7 +2152,21 @@ sub destroy_vm {
 
 	eval { PVE::Storage::vdisk_free($storecfg, $volid) };
 	warn "Could not remove disk '$volid', check manually: $@" if $@;
-    });
+    };
+
+    # only remove disks owned by this VM (referenced in the config)
+    my $include_opts = {
+	include_unused => 1,
+	extra_keys => ['vmstate'],
+    };
+    PVE::QemuConfig->foreach_volume_full($conf, $include_opts, $remove_owned_drive);
+
+    for my $snap (values %{$conf->{snapshots}}) {
+	next if !defined($snap->{vmstate});
+	my $drive = PVE::QemuConfig->parse_volume('vmstate', $snap->{vmstate}, 1);
+	next if !defined($drive);
+	$remove_owned_drive->('vmstate', $drive);
+    }
 
     if ($purge_unreferenced) { # also remove unreferenced disk
 	my $vmdisks = PVE::Storage::vdisk_list($storecfg, undef, $vmid, undef, 'images');
