@@ -551,6 +551,7 @@ sub archive_pbs {
     if ($err) {
 	$self->logerr($err);
 	$self->mon_backup_cancel($vmid);
+	$self->resume_vm_after_job_start($task, $vmid);
     }
     $self->restore_vm_power_state($vmid);
 
@@ -729,6 +730,7 @@ sub archive_vma {
     if ($err) {
 	$self->logerr($err);
 	$self->mon_backup_cancel($vmid);
+	$self->resume_vm_after_job_start($task, $vmid);
     }
 
     $self->restore_vm_power_state($vmid);
@@ -815,7 +817,7 @@ sub enforce_vm_running_for_backup {
     die $@ if $@;
 }
 
-# resume VM againe once we got in a clear state (stop mode backup of running VM)
+# resume VM again once in a clear state (stop mode backup of running VM)
 sub resume_vm_after_job_start {
     my ($self, $task, $vmid) = @_;
 
