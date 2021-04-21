@@ -6386,28 +6386,17 @@ sub restore_proxmox_backup_archive {
     PVE::AccessControl::add_vm_to_pool($vmid, $options->{pool}) if $options->{pool};
 
     if ($options->{live}) {
-	eval {
-	    # enable interrupts
-	    local $SIG{INT} =
-		local $SIG{TERM} =
-		local $SIG{QUIT} =
-		local $SIG{HUP} =
-		local $SIG{PIPE} = sub { die "got signal ($!) - abort\n"; };
+	# enable interrupts
+	local $SIG{INT} =
+	    local $SIG{TERM} =
+	    local $SIG{QUIT} =
+	    local $SIG{HUP} =
+	    local $SIG{PIPE} = sub { die "got signal ($!) - abort\n"; };
 
-	    my $conf = PVE::QemuConfig->load_config($vmid);
-	    die "cannot do live-restore for template\n" if PVE::QemuConfig->is_template($conf);
+	my $conf = PVE::QemuConfig->load_config($vmid);
+	die "cannot do live-restore for template\n" if PVE::QemuConfig->is_template($conf);
 
-	    pbs_live_restore($vmid, $conf, $storecfg, $devinfo, $repo, $keyfile, $pbs_backup_name);
-	};
-
-	$err = $@;
-	if ($err) {
-	    warn "destroying partially live-restored VM, all temporary data will be lost!\n";
-	    $restore_deactivate_volumes->($storecfg, $devinfo);
-	    $restore_destroy_volumes->($storecfg, $devinfo);
-	    PVE::QemuConfig->destroy_config($vmid);
-	    die $err;
-	}
+	pbs_live_restore($vmid, $conf, $storecfg, $devinfo, $repo, $keyfile, $pbs_backup_name);
     }
 }
 
