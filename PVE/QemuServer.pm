@@ -6376,6 +6376,11 @@ sub restore_proxmox_backup_archive {
 	die $err;
     }
 
+    if ($options->{live}) {
+	# keep lock during live-restore
+	$new_conf_raw .= "\nlock: create";
+    }
+
     PVE::Tools::file_set_contents($conffile, $new_conf_raw);
 
     PVE::Cluster::cfs_update(); # make sure we read new file
@@ -6397,6 +6402,8 @@ sub restore_proxmox_backup_archive {
 	die "cannot do live-restore for template\n" if PVE::QemuConfig->is_template($conf);
 
 	pbs_live_restore($vmid, $conf, $storecfg, $devinfo, $repo, $keyfile, $pbs_backup_name);
+
+	PVE::QemuConfig->remove_lock($vmid, "create");
     }
 }
 
