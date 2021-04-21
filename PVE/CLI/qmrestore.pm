@@ -58,7 +58,12 @@ __PACKAGE__->register_method({
 		optional => 1,
 		type => 'number',
 		minimum => '0',
-	    }
+	    },
+	    'live-restore' => {
+		optional => 1,
+		type => 'boolean',
+		description => "Start the VM immediately from the backup and restore in background. PBS only.",
+	    },
 	},
     },
     returns => {
