@@ -6958,7 +6958,7 @@ sub qemu_img_convert {
 	    my $total_h = render_bytes($size, 1);
 	    my $transferred_h = render_bytes($transferred, 1);
 
-	    print "transferred $transferred_h of $total_h ($percent%)";
+	    print "transferred $transferred_h of $total_h ($percent%)\n";
 	}
 
     };
