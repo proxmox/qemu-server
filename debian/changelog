@@ -1,3 +1,25 @@
+qemu-server (6.4-1) pve; urgency=medium
+
+  * fix the +pveN versioned machine types when PXE is used
+
+  * migration: avoid re-scanning all volumes
+
+  * migration: do not always set default speed limit if none is configured
+
+  * migration: rework logging to more humand friendly format, avoiding to much
+    output noise
+
+  * qmrestore: add live-restore option for CLI tool
+
+  * live-restore: hold 'create' lock during operation
+
+  * live-restore: don't remove VM on error, to allow an VM user to save any new
+    data before retrying the operation.
+
+  * fix #3369: auto-start vm after failed stopmode backup
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 23 Apr 2021 16:26:54 +0200
+
 qemu-server (6.3-11) pve; urgency=medium
 
   * enable live-restore tech preview for Proxmox Backup Server hosted backup
