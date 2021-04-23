@@ -929,8 +929,6 @@ sub phase2 {
     $self->log('info', "start remote tunnel");
     $self->start_remote_tunnel($raddr, $rport, $ruri, $unix_socket_info);
 
-    my $start = time();
-
     if ($self->{storage_migration}) {
 	$self->{storage_migration_jobs} = {};
 	$self->log('info', "starting storage migration");
@@ -1024,6 +1022,8 @@ sub phase2 {
 	$self->log('info', "client_migrate_info error: $@") if $@;
 
     }
+
+    my $start = time();
 
     $self->log('info', "start migrate command to $ruri");
     eval {
