@@ -3647,7 +3647,13 @@ sub config_to_command {
 	}
 
 	my $drive_cmd = print_drive_commandline_full($storecfg, $vmid, $drive, $pbs_name);
-	$drive_cmd .= ',readonly' if PVE::QemuConfig->is_template($conf);
+
+	# extra protection for templates, but SATA and IDE don't support it..
+	my $read_only = PVE::QemuConfig->is_template($conf)
+	    && $drive->{interface} ne 'sata'
+	    && $drive->{interface} ne 'ide';
+
+	$drive_cmd .= ',readonly' if $read_only;
 
 	push @$devices, '-drive',$drive_cmd;
 	push @$devices, '-device', print_drivedevice_full(
