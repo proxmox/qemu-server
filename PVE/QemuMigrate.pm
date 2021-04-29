@@ -966,8 +966,7 @@ sub phase2 {
     # migrate_speed parameter in qm.conf - take the lower of the two.
     my $bwlimit = PVE::Storage::get_bandwidth_limit('migration', undef, $self->{opts}->{bwlimit}) // 0;
     my $migrate_speed = $conf->{migrate_speed} // 0;
-    # migrate_speed is in MB/s, bwlimit in KB/s
-    $migrate_speed *= 1024;
+    $migrate_speed *= 1024; # migrate_speed is in MB/s, bwlimit in KB/s
 
     if ($bwlimit && $migrate_speed) {
 	$migrate_speed = ($bwlimit < $migrate_speed) ? $bwlimit : $migrate_speed;
@@ -979,8 +978,11 @@ sub phase2 {
     if ($migrate_speed) {
 	$migrate_speed *= 1024; # qmp takes migrate_speed in B/s.
 	$self->log('info', "migration speed limit: ". render_bytes($migrate_speed, 1) ."/s");
-	$qemu_migrate_params->{'max-bandwidth'} = int($migrate_speed);
+    } else {
+	# always set migrate speed as QEMU default to 128 MiBps == 1 Gbps, use 16 GiBps == 128 Gbps
+	$migrate_speed = (16 << 30);
     }
+    $qemu_migrate_params->{'max-bandwidth'} = int($migrate_speed);
 
     my $migrate_downtime = $defaults->{migrate_downtime};
     $migrate_downtime = $conf->{migrate_downtime} if defined($conf->{migrate_downtime});
