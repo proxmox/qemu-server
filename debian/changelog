@@ -1,3 +1,13 @@
+qemu-server (6.4-2) pve; urgency=medium
+
+  * fix #2862: allow sata/ide template backups
+
+  * migration: improve speed-limits for >1G connections again
+
+  * fix getting bootdisk size for new bootorder config scheme
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 29 Apr 2021 16:16:04 +0200
+
 qemu-server (6.4-1) pve; urgency=medium
 
   * fix the +pveN versioned machine types when PXE is used
