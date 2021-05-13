@@ -1,3 +1,9 @@
+qemu-server (7.0-1) pve; urgency=medium
+
+  * re-build for Proxmox VE 7 / Debian Bullseye
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 13 May 2021 19:11:18 +0200
+
 qemu-server (6.4-2) pve; urgency=medium
 
   * fix #2862: allow sata/ide template backups
