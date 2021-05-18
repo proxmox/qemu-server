@@ -6429,17 +6429,23 @@ sub restore_proxmox_backup_archive {
 sub pbs_live_restore {
     my ($vmid, $conf, $storecfg, $restored_disks, $repo, $keyfile, $snap) = @_;
 
-    print "Starting VM for live-restore\n";
+    print "starting VM for live-restore\n";
+    print "repository: '$repo'\n";
+    print "snapshot: '$snap'\n";
 
     my $pbs_backing = {};
     for my $ds (keys %$restored_disks) {
 	$ds =~ m/^drive-(.*)$/;
-	$pbs_backing->{$1} = {
+	my $confname = $1;
+	$pbs_backing->{$confname} = {
 	    repository => $repo,
 	    snapshot => $snap,
 	    archive => "$ds.img.fidx",
 	};
-	$pbs_backing->{$1}->{keyfile} = $keyfile if -e $keyfile;
+	$pbs_backing->{$confname}->{keyfile} = $keyfile if -e $keyfile;
+
+	my $drive = parse_drive($confname, $conf->{$confname});
+	print "restoring '$ds' to '$drive->{file}'\n";
     }
 
     my $drives_streamed = 0;
