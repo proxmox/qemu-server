@@ -3157,7 +3157,7 @@ __PACKAGE__->register_method({
 		    my $total_jobs = scalar(keys %{$drives});
 		    my $i = 1;
 
-		    foreach my $opt (keys %$drives) {
+		    foreach my $opt (sort keys %$drives) {
 			my $drive = $drives->{$opt};
 			my $skipcomplete = ($total_jobs != $i); # finish after last drive
 			my $completion = $skipcomplete ? 'skip' : 'complete';
