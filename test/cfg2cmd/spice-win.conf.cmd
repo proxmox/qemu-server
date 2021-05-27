@@ -2,7 +2,7 @@
   -id 8006 \
   -name spiceusb3 \
   -no-shutdown \
-  -chardev 'socket,id=qmp,path=/var/run/qemu-server/8006.qmp,server,nowait' \
+  -chardev 'socket,id=qmp,path=/var/run/qemu-server/8006.qmp,server=on,wait=off' \
   -mon 'chardev=qmp,mode=control' \
   -chardev 'socket,id=qmp-event,path=/var/run/qmeventd.sock,reconnect=5' \
   -mon 'chardev=qmp-event,mode=control' \
@@ -12,7 +12,7 @@
   -smp '2,sockets=1,cores=2,maxcpus=2' \
   -nodefaults \
   -boot 'menu=on,strict=on,reboot-timeout=1000,splash=/usr/share/qemu-server/bootsplash.jpg' \
-  -vnc unix:/var/run/qemu-server/8006.vnc,password \
+  -vnc 'unix:/var/run/qemu-server/8006.vnc,password=on' \
   -no-hpet \
   -cpu 'kvm64,enforce,hv_ipi,hv_relaxed,hv_reset,hv_runtime,hv_spinlocks=0x1fff,hv_stimer,hv_synic,hv_time,hv_vapic,hv_vpindex,+kvm_pv_eoi,+kvm_pv_unhalt,+lahf_lm,+sep' \
   -m 768 \

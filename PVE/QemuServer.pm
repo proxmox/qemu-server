@@ -3069,7 +3069,7 @@ sub query_supported_cpu_flags {
 	    $qemu_cmd,
 	    '-machine', $default_machine,
 	    '-display', 'none',
-	    '-chardev', "socket,id=qmp,path=/var/run/qemu-server/$fakevmid.qmp,server,nowait",
+	    '-chardev', "socket,id=qmp,path=/var/run/qemu-server/$fakevmid.qmp,server=on,wait=off",
 	    '-mon', 'chardev=qmp,mode=control',
 	    '-pidfile', $pidfile,
 	    '-S', '-daemonize'
@@ -3226,7 +3226,7 @@ sub config_to_command {
     my $use_virtio = 0;
 
     my $qmpsocket = PVE::QemuServer::Helpers::qmp_socket($vmid);
-    push @$cmd, '-chardev', "socket,id=qmp,path=$qmpsocket,server,nowait";
+    push @$cmd, '-chardev', "socket,id=qmp,path=$qmpsocket,server=on,wait=off";
     push @$cmd, '-mon', "chardev=qmp,mode=control";
 
     if (min_version($machine_version, 2, 12)) {
@@ -3294,7 +3294,7 @@ sub config_to_command {
 	    $size_str = ",size=" . (-s $ovmf_vars);
 	}
 
-	push @$cmd, '-drive', "if=pflash,unit=0,format=raw,readonly,file=$ovmf_code";
+	push @$cmd, '-drive', "if=pflash,unit=0,format=raw,readonly=on,file=$ovmf_code";
 	push @$cmd, '-drive', "if=pflash,unit=1,format=$format,id=drive-efidisk0$size_str,file=$path";
     }
 
@@ -3366,7 +3366,7 @@ sub config_to_command {
 	if (my $path = $conf->{"serial$i"}) {
 	    if ($path eq 'socket') {
 		my $socket = "/var/run/qemu-server/${vmid}.serial$i";
-		push @$devices, '-chardev', "socket,id=serial$i,path=$socket,server,nowait";
+		push @$devices, '-chardev', "socket,id=serial$i,path=$socket,server=on,wait=off";
 		# On aarch64, serial0 is the UART device. Qemu only allows
 		# connecting UART devices via the '-serial' command line, as
 		# the device has a fixed slot on the hardware...
@@ -3438,7 +3438,7 @@ sub config_to_command {
 	push @$devices, '-device', print_vga_device(
 	    $conf, $vga, $arch, $machine_version, $machine_type, undef, $qxlnum, $bridges);
 	my $socket = PVE::QemuServer::Helpers::vnc_socket($vmid);
-	push @$cmd,  '-vnc', "unix:$socket,password";
+	push @$cmd,  '-vnc', "unix:$socket,password=on";
     } else {
 	push @$cmd, '-vga', 'none' if $vga->{type} eq 'none';
 	push @$cmd, '-nographic';
@@ -3486,7 +3486,7 @@ sub config_to_command {
 
     if ($guest_agent->{enabled}) {
 	my $qgasocket = PVE::QemuServer::Helpers::qmp_socket($vmid, 1);
-	push @$devices, '-chardev', "socket,path=$qgasocket,server,nowait,id=qga0";
+	push @$devices, '-chardev', "socket,path=$qgasocket,server=on,wait=off,id=qga0";
 
 	if (!$guest_agent->{type} || $guest_agent->{type} eq 'virtio') {
 	    my $pciaddr = print_pci_addr("qga0", $bridges, $arch, $machine_type);
@@ -3653,7 +3653,7 @@ sub config_to_command {
 	    && $drive->{interface} ne 'sata'
 	    && $drive->{interface} ne 'ide';
 
-	$drive_cmd .= ',readonly' if $read_only;
+	$drive_cmd .= ',readonly=on' if $read_only;
 
 	push @$devices, '-drive',$drive_cmd;
 	push @$devices, '-device', print_drivedevice_full(

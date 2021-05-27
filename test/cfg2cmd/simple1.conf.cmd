@@ -2,7 +2,7 @@
   -id 8006 \
   -name simple \
   -no-shutdown \
-  -chardev 'socket,id=qmp,path=/var/run/qemu-server/8006.qmp,server,nowait' \
+  -chardev 'socket,id=qmp,path=/var/run/qemu-server/8006.qmp,server=on,wait=off' \
   -mon 'chardev=qmp,mode=control' \
   -chardev 'socket,id=qmp-event,path=/var/run/qmeventd.sock,reconnect=5' \
   -mon 'chardev=qmp-event,mode=control' \
@@ -12,7 +12,7 @@
   -smp '3,sockets=1,cores=3,maxcpus=3' \
   -nodefaults \
   -boot 'menu=on,strict=on,reboot-timeout=1000,splash=/usr/share/qemu-server/bootsplash.jpg' \
-  -vnc unix:/var/run/qemu-server/8006.vnc,password \
+  -vnc 'unix:/var/run/qemu-server/8006.vnc,password=on' \
   -cpu kvm64,enforce,+kvm_pv_eoi,+kvm_pv_unhalt,+lahf_lm,+sep \
   -m 768 \
   -device 'pci-bridge,id=pci.1,chassis_nr=1,bus=pci.0,addr=0x1e' \
