@@ -440,6 +440,7 @@ sub archive_pbs {
     my $repo = PVE::PBSClient::get_repository($scfg);
     my $password = PVE::Storage::PBSPlugin::pbs_get_password($scfg, $opts->{storage});
     my $keyfile = PVE::Storage::PBSPlugin::pbs_encryption_key_file_name($scfg, $opts->{storage});
+    my $master_keyfile = PVE::Storage::PBSPlugin::pbs_master_pubkey_file_name($scfg, $opts->{storage});
 
     my $diskcount = scalar(@{$task->{disks}});
     # proxmox-backup-client can only handle raw files and block devs
@@ -494,6 +495,12 @@ sub archive_pbs {
 	    }
 	}
 
+	if (!defined($qemu_support->{"pbs-masterkey"}) && -e $master_keyfile) {
+	    $self->loginfo("WARNING: backup target is configured with master key, but running QEMU version does not support master keys.");
+	    $self->loginfo("Please make sure you've installed the latest version and the VM has been restarted to use master key feature.");
+	    $master_keyfile = undef; # skip rest of master key handling below
+	}
+
 	my $fs_frozen = $self->qga_fs_freeze($task, $vmid);
 
 	my $params = {
@@ -512,7 +519,13 @@ sub archive_pbs {
 	    $self->loginfo("enabling encryption");
 	    $params->{keyfile} = $keyfile;
 	    $params->{encrypt} = JSON::true;
+	    if (defined($master_keyfile) && -e $master_keyfile) {
+		$self->loginfo("enabling master key feature");
+		$params->{"master-keyfile"} = $master_keyfile;
+	    }
 	} else {
+	    $self->loginfo("WARNING: backup target is configured with master key, but this backup is not encrypted - master key settings will be ignored!")
+		if defined($master_keyfile) && -e $master_keyfile;
 	    $params->{encrypt} = JSON::false;
 	}
 
