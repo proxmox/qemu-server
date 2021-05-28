@@ -6430,8 +6430,7 @@ sub pbs_live_restore {
     my ($vmid, $conf, $storecfg, $restored_disks, $repo, $keyfile, $snap) = @_;
 
     print "starting VM for live-restore\n";
-    print "repository: '$repo'\n";
-    print "snapshot: '$snap'\n";
+    print "repository: '$repo', snapshot: '$snap'\n";
 
     my $pbs_backing = {};
     for my $ds (keys %$restored_disks) {
