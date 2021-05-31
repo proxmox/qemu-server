@@ -5,6 +5,7 @@ use warnings;
 
 use lib qw(..);
 
+use Test::MockModule;
 use Test::More;
 
 use File::Basename;
@@ -14,6 +15,13 @@ use PVE::Tools qw(dir_glob_foreach file_get_contents);
 
 my $INPUT_DIR = './restore-config-input';
 my $EXPECTED_DIR = './restore-config-expected';
+
+my $pve_cluster_module = Test::MockModule->new('PVE::Cluster');
+$pve_cluster_module->mock(
+    cfs_read_file => sub {
+	return {};
+    },
+);
 
 # NOTE update when you add/remove tests
 plan tests => 4;
