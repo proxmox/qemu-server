@@ -2651,8 +2651,8 @@ sub vmstatus {
 
 	my $conf = PVE::QemuConfig->load_config($vmid);
 
-	my $d = { vmid => $vmid };
-	$d->{pid} = $list->{$vmid}->{pid};
+	my $d = { vmid => int($vmid) };
+	$d->{pid} = int($list->{$vmid}->{pid});
 
 	# fixme: better status?
 	$d->{status} = $list->{$vmid}->{pid} ? 'running' : 'stopped';
@@ -2711,8 +2711,8 @@ sub vmstatus {
 	$d->{netin} += $netdev->{$dev}->{transmit};
 
 	if ($full) {
-	    $d->{nics}->{$dev}->{netout} = $netdev->{$dev}->{receive};
-	    $d->{nics}->{$dev}->{netin} = $netdev->{$dev}->{transmit};
+	    $d->{nics}->{$dev}->{netout} = int($netdev->{$dev}->{receive});
+	    $d->{nics}->{$dev}->{netin} = int($netdev->{$dev}->{transmit});
 	}
 
     }
