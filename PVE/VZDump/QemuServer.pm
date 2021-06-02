@@ -329,7 +329,6 @@ my $query_backup_status_loop = sub {
 	}
     }
 
-    my $first_round = 1;
     my $last_finishing = 0;
     while(1) {
 	my $status = mon_cmd($vmid, 'query-backup');
@@ -361,11 +360,6 @@ my $query_backup_status_loop = sub {
 	my $mbps_write = $get_mbps->($wbytes, $timediff);
 	my $target_h = render_bytes($target, 1);
 	my $transferred_h = render_bytes($transferred, 1);
-
-	if (!$has_query_bitmap && $first_round && $target != $total) { # FIXME: remove with PVE 7.0
-	    my $total_h = render_bytes($total, 1);
-	    $self->loginfo("using fast incremental mode (dirty-bitmap), $target_h dirty of $total_h total");
-	}
 
 	my $statusline = sprintf("%3d%% ($transferred_h of $target_h) in %s"
 	    .", read: $mbps_read, write: $mbps_write", $percent, render_duration($duration));
@@ -401,7 +395,6 @@ my $query_backup_status_loop = sub {
 	    $last_finishing = $status->{finishing};
 	}
 	sleep(1);
-	$first_round = 0 if $first_round;
     }
 
     my $duration = time() - $starttime;
