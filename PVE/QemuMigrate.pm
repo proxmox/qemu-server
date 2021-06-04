@@ -839,9 +839,8 @@ sub phase2 {
     my $unix_socket_info = {};
     # version > 0 for unix socket support
     my $nbd_protocol_version = 1;
-    # TODO change to 'spice_ticket: <ticket>\n' in 7.0
-    my $input = $spice_ticket ? "$spice_ticket\n" : "\n";
-    $input .= "nbd_protocol_version: $nbd_protocol_version\n";
+    my $input = "nbd_protocol_version: $nbd_protocol_version\n";
+    $input .= "spice_ticket: $spice_ticket\n" if $spice_ticket;
 
     my @online_replicated_volumes = $self->filter_local_volumes('online', 1);
     foreach my $volid (@online_replicated_volumes) {
