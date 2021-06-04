@@ -7,6 +7,7 @@ use lib qw(..);
 
 use Test::MockModule;
 use Test::More;
+use Test::MockModule;
 
 use File::Basename;
 
@@ -25,6 +26,19 @@ $pve_cluster_module->mock(
 
 # NOTE update when you add/remove tests
 plan tests => 4;
+
+my $cfs_mock = Test::MockModule->new("PVE::Cluster");
+$cfs_mock->mock(
+    cfs_read_file => sub {
+	my ($file) = @_;
+
+	if ($file eq 'datacenter.cfg') {
+	    return {};
+	} else {
+	    die "'cfs_read_file' called - missing mock?\n";
+	}
+    },
+);
 
 dir_glob_foreach('./restore-config-input', '[0-9]+.conf', sub {
     my ($file) = @_;
