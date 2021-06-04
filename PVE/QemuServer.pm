@@ -6091,11 +6091,10 @@ my $restore_destroy_volumes = sub {
     }
 };
 
-# FIXME For PVE 7.0, remove $content_type and always use 'images'
 sub scan_volids {
-    my ($cfg, $vmid, $content_type) = @_;
+    my ($cfg, $vmid) = @_;
 
-    my $info = PVE::Storage::vdisk_list($cfg, undef, $vmid, undef, $content_type);
+    my $info = PVE::Storage::vdisk_list($cfg, undef, $vmid, undef, 'images');
 
     my $volid_hash = {};
     foreach my $storeid (keys %$info) {
@@ -6189,7 +6188,7 @@ sub rescan {
     my $cfg = PVE::Storage::config();
 
     print "rescan volumes...\n";
-    my $volid_hash = scan_volids($cfg, $vmid, 'images');
+    my $volid_hash = scan_volids($cfg, $vmid);
 
     my $updatefn =  sub {
 	my ($vmid) = @_;
