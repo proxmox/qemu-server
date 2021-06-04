@@ -3782,6 +3782,11 @@ sub config_to_command {
 	print "activating and using '$vmstate' as vmstate\n";
     }
 
+    if (PVE::QemuConfig->is_template($conf)) {
+	# needed to workaround base volumes being read-only
+	push @$cmd, '-snapshot';
+    }
+
     # add custom args
     if ($conf->{args}) {
 	my $aa = PVE::Tools::split_args($conf->{args});

@@ -33,4 +33,5 @@
   -device 'ide-hd,bus=ahci0.0,drive=drive-sata0,id=sata0'
   -netdev 'type=tap,id=net0,ifname=tap8006i0,script=/var/lib/qemu-server/pve-bridge,downscript=/var/lib/qemu-server/pve-bridgedown,vhost=on' \
   -device 'virtio-net-pci,mac=A2:C0:43:77:08:A0,netdev=net0,bus=pci.0,addr=0x12,id=net0,bootindex=300' \
-  -machine 'type=pc'
+  -machine 'type=pc' \
+  -snapshot
