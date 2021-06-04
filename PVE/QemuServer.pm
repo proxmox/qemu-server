@@ -48,7 +48,7 @@ use PVE::QemuServer::Helpers qw(min_version config_aware_timeout);
 use PVE::QemuServer::Cloudinit;
 use PVE::QemuServer::CGroup;
 use PVE::QemuServer::CPUConfig qw(print_cpu_device get_cpu_options);
-use PVE::QemuServer::Drive qw(is_valid_drivename drive_is_cloudinit drive_is_cdrom parse_drive print_drive);
+use PVE::QemuServer::Drive qw(is_valid_drivename drive_is_cloudinit drive_is_cdrom drive_is_read_only parse_drive print_drive);
 use PVE::QemuServer::Machine;
 use PVE::QemuServer::Memory;
 use PVE::QemuServer::Monitor qw(mon_cmd);
@@ -3679,11 +3679,7 @@ sub config_to_command {
 	    $storecfg, $vmid, $drive, $pbs_name, min_version($kvmver, 6, 0));
 
 	# extra protection for templates, but SATA and IDE don't support it..
-	my $read_only = PVE::QemuConfig->is_template($conf)
-	    && $drive->{interface} ne 'sata'
-	    && $drive->{interface} ne 'ide';
-
-	$drive_cmd .= ',readonly=on' if $read_only;
+	$drive_cmd .= ',readonly=on' if drive_is_read_only($conf, $drive);
 
 	push @$devices, '-drive',$drive_cmd;
 	push @$devices, '-device', print_drivedevice_full(
