@@ -1592,7 +1592,7 @@ __PACKAGE__->register_method({
 		description => "If set, destroy additionally all disks not referenced in the config"
 		 ." but with a matching VMID from all enabled storages.",
 		optional => 1,
-		default => 1, # FIXME: replace to false in PVE 7.0, this is dangerous!
+		default => 0,
 	    },
 	},
     },
@@ -1643,8 +1643,7 @@ __PACKAGE__->register_method({
 		# repeat, config might have changed
 		my $ha_managed = $early_checks->();
 
-		# FIXME: drop fallback to true with 7.0, to dangerous for default
-		my $purge_unreferenced = $param->{'destroy-unreferenced-disks'} // 1;
+		my $purge_unreferenced = $param->{'destroy-unreferenced-disks'};
 
 		PVE::QemuServer::destroy_vm(
 		    $storecfg,
