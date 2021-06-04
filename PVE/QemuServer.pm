@@ -3291,6 +3291,7 @@ sub config_to_command {
 	die "uefi base image '$ovmf_code' not found\n" if ! -f $ovmf_code;
 
 	my ($path, $format);
+	my $read_only_str = '';
 	if (my $efidisk = $conf->{efidisk0}) {
 	    my $d = parse_drive('efidisk0', $efidisk);
 	    my ($storeid, $volname) = PVE::Storage::parse_volume_id($d->{file}, 1);
@@ -3306,6 +3307,8 @@ sub config_to_command {
 		die "efidisk format must be specified\n"
 		    if !defined($format);
 	    }
+
+	    $read_only_str = ',readonly=on' if drive_is_read_only($conf, $d);
 	} else {
 	    warn "no efidisk configured! Using temporary efivars disk.\n";
 	    $path = "/tmp/$vmid-ovmf.fd";
@@ -3323,7 +3326,7 @@ sub config_to_command {
 	my $cache = $path =~ m/^rbd:/ ? ',cache=writeback' : '';
 
 	push @$cmd, '-drive', "if=pflash,unit=0,format=raw,readonly=on,file=$ovmf_code";
-	push @$cmd, '-drive', "if=pflash,unit=1$cache,format=$format,id=drive-efidisk0$size_str,file=$path";
+	push @$cmd, '-drive', "if=pflash,unit=1$cache,format=$format,id=drive-efidisk0$size_str,file=${path}${read_only_str}";
     }
 
     # load q35 config
