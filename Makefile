@@ -105,7 +105,7 @@ test:
 
 .PHONY: upload
 upload: ${DEB}
-	tar cf - ${DEBS} | ssh -X repoman@repo.proxmox.com upload --product pve --dist buster
+	tar cf - ${DEBS} | ssh -X repoman@repo.proxmox.com upload --product pve --dist bullseye
 
 .PHONY: clean
 clean:
