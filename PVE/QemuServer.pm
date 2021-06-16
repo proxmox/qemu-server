@@ -3307,13 +3307,8 @@ sub config_to_command {
 	    $size_str = ",size=" . (-s $ovmf_vars);
 	}
 
-	# on slower ceph clusters, booting without cache on efidisk can take a while.
-	# enable cache by default, should not be harmful since it's only the efidisk
-	# see #3329
-	my $cache = "";
-	if ($path =~ m/^rbd:/) {
-	    $cache = ',cache=writeback';
-	}
+	# on slower ceph clusters, booting without cache on efidisk can take a while, see #3329
+	my $cache = $path =~ m/^rbd:/ ? ',cache=writeback' : '';
 
 	push @$cmd, '-drive', "if=pflash,unit=0,format=raw,readonly=on,file=$ovmf_code";
 	push @$cmd, '-drive', "if=pflash,unit=1$cache,format=$format,id=drive-efidisk0$size_str,file=$path";
