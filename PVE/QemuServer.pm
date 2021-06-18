@@ -2654,7 +2654,7 @@ sub vmstatus {
 	my $conf = PVE::QemuConfig->load_config($vmid);
 
 	my $d = { vmid => int($vmid) };
-	$d->{pid} = int($list->{$vmid}->{pid});
+	$d->{pid} = int($list->{$vmid}->{pid}) if $list->{$vmid}->{pid};
 
 	# fixme: better status?
 	$d->{status} = $list->{$vmid}->{pid} ? 'running' : 'stopped';
