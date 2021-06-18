@@ -365,7 +365,9 @@ my $confdesc = {
     description => {
 	optional => 1,
 	type => 'string',
-	description => "Description for the VM. Only used on the configuration web interface. This is saved as comment inside the configuration file.",
+	description => "Description for the VM. Shown in the web-interface VM's summary."
+	    ." This is saved as comment inside the configuration file.",
+	maxLength => 1024 * 8,
     },
     ostype => {
 	optional => 1,
