@@ -2458,8 +2458,8 @@ sub check_storage_availability {
 	return if !$sid;
 
 	# check if storage is available on both nodes
-	my $scfg = PVE::Storage::storage_check_node($storecfg, $sid);
-	PVE::Storage::storage_check_node($storecfg, $sid, $node);
+	my $scfg = PVE::Storage::storage_check_enabled($storecfg, $sid);
+	PVE::Storage::storage_check_enabled($storecfg, $sid, $node);
    });
 }
 

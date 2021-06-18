@@ -3024,7 +3024,7 @@ __PACKAGE__->register_method({
 	    PVE::Storage::storage_check_enabled($storecfg, $storage);
 	    if ($target) {
 		# check if storage is available on target node
-		PVE::Storage::storage_check_node($storecfg, $storage, $target);
+		PVE::Storage::storage_check_enabled($storecfg, $storage, $target);
 		# clone only works if target storage is shared
 		my $scfg = PVE::Storage::storage_config($storecfg, $storage);
 		die "can't clone to non-shared storage '$storage'\n" if !$scfg->{shared};
@@ -3687,7 +3687,7 @@ __PACKAGE__->register_method({
 	if (my $targetstorage = $param->{targetstorage}) {
 	    my $check_storage = sub {
 		my ($target_sid) = @_;
-		PVE::Storage::storage_check_node($storecfg, $target_sid, $target);
+		PVE::Storage::storage_check_enabled($storecfg, $target_sid, $target);
 		$rpcenv->check($authuser, "/storage/$target_sid", ['Datastore.AllocateSpace']);
 		my $scfg = PVE::Storage::storage_config($storecfg, $target_sid);
 		raise_param_exc({ targetstorage => "storage '$target_sid' does not support vm images"})
