@@ -341,7 +341,14 @@ sub prepare {
 	my $targetsid = PVE::QemuServer::map_storage($self->{opts}->{storagemap}, $sid);
 
 	my $scfg = PVE::Storage::storage_check_enabled($self->{storecfg}, $sid);
-	PVE::Storage::storage_check_enabled($self->{storecfg}, $targetsid, $self->{node});
+	my $target_scfg = PVE::Storage::storage_check_enabled(
+	    $self->{storecfg},
+	    $targetsid,
+	    $self->{node},
+	);
+
+	die "content type 'images' is not available on storage '$targetsid'\n"
+	    if !$target_scfg->{content}->{images};
 
 	if ($scfg->{shared}) {
 	    # PVE::Storage::activate_storage checks this for non-shared storages
@@ -396,20 +403,20 @@ sub scan_local_volumes {
 	    next if !PVE::Storage::storage_check_enabled($storecfg, $storeid, undef, 1);
 
 	    # get list from PVE::Storage (for unused volumes)
-	    my $dl = PVE::Storage::vdisk_list($storecfg, $storeid, $vmid);
+	    my $dl = PVE::Storage::vdisk_list($storecfg, $storeid, $vmid, undef, 'images');
 
 	    next if @{$dl->{$storeid}} == 0;
 
 	    my $targetsid = PVE::QemuServer::map_storage($self->{opts}->{storagemap}, $storeid);
 	    # check if storage is available on target node
-	    PVE::Storage::storage_check_enabled($storecfg, $targetsid, $self->{node});
+	    my $target_scfg = PVE::Storage::storage_check_enabled(
+		$storecfg,
+		$targetsid,
+		$self->{node},
+	    );
 
-	    # grandfather in existing mismatches
-	    if ($targetsid ne $storeid) {
-		my $target_scfg = PVE::Storage::storage_config($storecfg, $targetsid);
-		die "content type 'images' is not available on storage '$targetsid'\n"
-		    if !$target_scfg->{content}->{images};
-	    }
+	    die "content type 'images' is not available on storage '$targetsid'\n"
+		if !$target_scfg->{content}->{images};
 
 	    my $bwlimit = PVE::Storage::get_bandwidth_limit(
 		'migration',

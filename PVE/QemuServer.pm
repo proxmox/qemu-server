@@ -2460,6 +2460,9 @@ sub check_storage_availability {
 	# check if storage is available on both nodes
 	my $scfg = PVE::Storage::storage_check_enabled($storecfg, $sid);
 	PVE::Storage::storage_check_enabled($storecfg, $sid, $node);
+
+	die "content type 'images' is not available on storage '$sid'\n"
+	    if !$scfg->{content}->{images};
    });
 }
 
