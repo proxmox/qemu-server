@@ -1,3 +1,23 @@
+qemu-server (7.0-3) bullseye; urgency=medium
+
+  * vzdump: add master key support
+
+  * vzdump: drop legacy fallback logging for dirty-bitmap
+
+  * vm destroy: do not remove unreferenced disks by default
+
+  * fix #3329: turn on cache=writeback for efidisks on rbd
+
+  * avoid setting LUN number for drives when the `pvscsi` controller is used,
+    as that cannot handle multiple LUNs, increase the `scsi-id` instead
+
+  * config: limit description/comment length to 8 KiB
+
+  * migrate: enforce that image content type is available and configured on
+    target storage
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 21 Jun 2021 11:17:52 +0200
+
 qemu-server (7.0-2) bullseye; urgency=medium
 
   * api: clone: sort vm disks to keep numbers consistent
