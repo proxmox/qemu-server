@@ -116,7 +116,7 @@ my %drivedesc_base = (
     },
     aio => {
 	type => 'string',
-	enum => [qw(native threads)],
+	enum => [qw(native threads io_uring)],
 	description => 'AIO type to use.',
 	optional => 1,
     },
