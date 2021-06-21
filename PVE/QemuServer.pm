@@ -1523,7 +1523,7 @@ sub get_initiator_name {
 }
 
 sub print_drive_commandline_full {
-    my ($storecfg, $vmid, $drive, $pbs_name) = @_;
+    my ($storecfg, $vmid, $drive, $pbs_name, $io_uring) = @_;
 
     my $path;
     my $volid = $drive->{file};
@@ -1599,12 +1599,17 @@ sub print_drive_commandline_full {
 	$cache_direct = 1;
     }
 
-    # aio native works only with O_DIRECT
     if (!$drive->{aio}) {
-	if($cache_direct) {
-	    $opts .= ",aio=native";
+	if ($io_uring) {
+	    # io_uring supports all cache modes
+	    $opts .= ",aio=io_uring";
 	} else {
-	    $opts .= ",aio=threads";
+	    # aio native works only with O_DIRECT
+	    if($cache_direct) {
+		$opts .= ",aio=native";
+	    } else {
+		$opts .= ",aio=threads";
+	    }
 	}
     }
 
@@ -3667,7 +3672,8 @@ sub config_to_command {
 	    push @$devices, '-blockdev', print_pbs_blockdev($pbs_conf, $pbs_name);
 	}
 
-	my $drive_cmd = print_drive_commandline_full($storecfg, $vmid, $drive, $pbs_name);
+	my $drive_cmd = print_drive_commandline_full(
+	    $storecfg, $vmid, $drive, $pbs_name, min_version($kvmver, 6, 0));
 
 	# extra protection for templates, but SATA and IDE don't support it..
 	my $read_only = PVE::QemuConfig->is_template($conf)
@@ -4081,7 +4087,9 @@ sub qemu_objectdel {
 sub qemu_driveadd {
     my ($storecfg, $vmid, $device) = @_;
 
-    my $drive = print_drive_commandline_full($storecfg, $vmid, $device);
+    my $kvmver = get_running_qemu_version($vmid);
+    my $io_uring = min_version($kvmver, 6, 0);
+    my $drive = print_drive_commandline_full($storecfg, $vmid, $device, undef, $io_uring);
     $drive =~ s/\\/\\\\/g;
     my $ret = PVE::QemuServer::Monitor::hmp_cmd($vmid, "drive_add auto \"$drive\"");
 
