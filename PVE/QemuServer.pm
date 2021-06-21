@@ -5287,7 +5287,9 @@ sub vm_start_nolock {
 
     my %properties = (
 	Slice => 'qemu.slice',
-	KillMode => 'none'
+	KillMode => 'process',
+	SendSIGKILL => 0,
+	TimeoutStopUSec => ULONG_MAX, # infinity
     );
 
     if (PVE::CGroup::cgroup_mode() == 2) {
