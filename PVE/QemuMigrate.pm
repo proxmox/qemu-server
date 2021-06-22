@@ -509,7 +509,10 @@ sub scan_local_volumes {
 		# exceptions: 'zfspool' or 'qcow2' files (on directory storage)
 
 		die "online storage migration not possible if snapshot exists\n" if $self->{running};
-		if (!($scfg->{type} eq 'zfspool' || $local_volumes->{$volid}->{format} eq 'qcow2')) {
+		if (!($scfg->{type} eq 'zfspool'
+		    || ($scfg->{type} eq 'btrfs' && $local_volumes->{$volid}->{format} eq 'raw')
+		    || $local_volumes->{$volid}->{format} eq 'qcow2'
+		)) {
 		    die "non-migratable snapshot exists\n";
 		}
 	    }
@@ -560,7 +563,7 @@ sub scan_local_volumes {
 	    my ($sid, $volname) = PVE::Storage::parse_volume_id($volid);
 	    my $scfg =  PVE::Storage::storage_config($storecfg, $sid);
 
-	    my $migratable = $scfg->{type} =~ /^(?:dir|zfspool|lvmthin|lvm)$/;
+	    my $migratable = $scfg->{type} =~ /^(?:dir|btrfs|zfspool|lvmthin|lvm)$/;
 
 	    die "can't migrate '$volid' - storage type '$scfg->{type}' not supported\n"
 		if !$migratable;
