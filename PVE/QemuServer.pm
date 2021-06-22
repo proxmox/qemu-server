@@ -3615,6 +3615,7 @@ sub config_to_command {
 	my ($ds, $drive) = @_;
 
 	if (PVE::Storage::parse_volume_id($drive->{file}, 1)) {
+	    check_volume_storage_type($storecfg, $drive->{file});
 	    push @$vollist, $drive->{file};
 	}
 
@@ -7742,6 +7743,19 @@ sub vm_is_paused {
     };
     warn "$@\n" if $@;
     return $qmpstatus && $qmpstatus->{status} eq "paused";
+}
+
+sub check_volume_storage_type {
+    my ($storecfg, $vol) = @_;
+
+    my ($storeid, $volname) = PVE::Storage::parse_volume_id($vol);
+    my $scfg = PVE::Storage::storage_config($storecfg, $storeid);
+    my ($vtype) = PVE::Storage::parse_volname($storecfg, $vol);
+
+    die "storage '$storeid' does not support content-type '$vtype'\n"
+	if !$scfg->{content}->{$vtype};
+
+    return 1;
 }
 
 1;
