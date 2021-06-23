@@ -280,7 +280,7 @@ sub prepare {
 
     my $online = $self->{opts}->{online};
 
-    $self->{storecfg} = PVE::Storage::config();
+    my $storecfg = $self->{storecfg} = PVE::Storage::config();
 
     # test if VM exists
     my $conf = $self->{vmconf} = PVE::QemuConfig->load_config($vmid);
@@ -333,16 +333,15 @@ sub prepare {
     }
 
     my $vollist = PVE::QemuServer::get_vm_volumes($conf);
-
     foreach my $volid (@$vollist) {
 	my ($sid, $volname) = PVE::Storage::parse_volume_id($volid, 1);
 
 	# check if storage is available on both nodes
 	my $targetsid = PVE::QemuServer::map_storage($self->{opts}->{storagemap}, $sid);
 
-	my $scfg = PVE::Storage::storage_check_enabled($self->{storecfg}, $sid);
+	my $scfg = PVE::Storage::storage_check_enabled($storecfg, $sid);
 	my $target_scfg = PVE::Storage::storage_check_enabled(
-	    $self->{storecfg},
+	    $storecfg,
 	    $targetsid,
 	    $self->{node},
 	);
