@@ -1,3 +1,19 @@
+qemu-server (7.0-4) bullseye; urgency=medium
+
+  * enable io-uring support by default when running QEMU 6.0 or newer
+
+  * VM start: always check if storages of volumes support correct content-type
+
+  * use KillMode 'process' for systemd scope to cope with depreacation of
+    KillMode=none
+
+  * cli, api: handle new warnings task status
+
+  * improve backup of templates with EFI disks and with SATA and IDE
+    disk controllers in use
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 23 Jun 2021 12:57:27 +0200
+
 qemu-server (7.0-3) bullseye; urgency=medium
 
   * vzdump: add master key support
