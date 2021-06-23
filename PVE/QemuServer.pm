@@ -2466,8 +2466,10 @@ sub check_storage_availability {
 	my $scfg = PVE::Storage::storage_check_enabled($storecfg, $sid);
 	PVE::Storage::storage_check_enabled($storecfg, $sid, $node);
 
-	die "content type 'images' is not available on storage '$sid'\n"
-	    if !$scfg->{content}->{images};
+	my ($vtype) = PVE::Storage::parse_volname($storecfg, $volid);
+
+	die "$volid: content type '$vtype' is not available on storage '$sid'\n"
+	    if !$scfg->{content}->{$vtype};
    });
 }
 
