@@ -345,9 +345,10 @@ sub prepare {
 	    $targetsid,
 	    $self->{node},
 	);
+	my ($vtype) = PVE::Storage::parse_volname($storecfg, $volid);
 
-	die "content type 'images' is not available on storage '$targetsid'\n"
-	    if !$target_scfg->{content}->{images};
+	die "$volid: content type '$vtype' is not available on storage '$targetsid'\n"
+	    if !$target_scfg->{content}->{$vtype};
 
 	if ($scfg->{shared}) {
 	    # PVE::Storage::activate_storage checks this for non-shared storages
