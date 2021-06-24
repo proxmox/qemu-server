@@ -30,6 +30,13 @@ my $base_env = {
 		type => 'dir',
 		shared => 0,
 	    },
+	    'btrfs-store' => {
+		content => {
+		    images => 1,
+		},
+		path => '/butter/bread',
+		type => 'btrfs',
+	    },
 	    'cifs-store' => {
 		shared => 1,
 		path => '/mnt/pve/cifs-store',
