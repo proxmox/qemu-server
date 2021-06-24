@@ -1263,6 +1263,17 @@ my $update_vm_api  = sub {
 	    }
 	    my $bootorder_deleted = grep {$_ eq 'bootorder'} @delete;
 
+	    my $check_drive_perms = sub {
+		my ($opt, $val) = @_;
+		my $drive = PVE::QemuServer::parse_drive($opt, $val);
+		# FIXME: cloudinit: CDROM or Disk?
+		if (PVE::QemuServer::drive_is_cdrom($drive)) { # CDROM
+		    $rpcenv->check_vm_perm($authuser, $vmid, undef, ['VM.Config.CDROM']);
+		} else {
+		    $rpcenv->check_vm_perm($authuser, $vmid, undef, ['VM.Config.Disk']);
+		}
+	    };
+
 	    foreach my $opt (@delete) {
 		$modified->{$opt} = 1;
 		$conf = PVE::QemuConfig->load_config($vmid); # update/reload
@@ -1300,12 +1311,7 @@ my $update_vm_api  = sub {
 		    }
 		} elsif (PVE::QemuServer::is_valid_drivename($opt)) {
 		    PVE::QemuConfig->check_protection($conf, "can't remove drive '$opt'");
-		    my $drive = PVE::QemuServer::parse_drive($opt, $val);
-		    if (PVE::QemuServer::drive_is_cdrom($drive)) {
-			$rpcenv->check_vm_perm($authuser, $vmid, undef, ['VM.Config.CDROM']);
-		    } else {
-			$rpcenv->check_vm_perm($authuser, $vmid, undef, ['VM.Config.Disk']);
-		    }
+		    $check_drive_perms->($opt, $val);
 		    PVE::QemuServer::vmconfig_register_unused_drive($storecfg, $vmid, $conf, PVE::QemuServer::parse_drive($opt, $val))
 			if $is_pending_val;
 		    PVE::QemuConfig->add_to_pending_delete($conf, $opt, $force);
@@ -1340,13 +1346,7 @@ my $update_vm_api  = sub {
 		my $arch = PVE::QemuServer::get_vm_arch($conf);
 
 		if (PVE::QemuServer::is_valid_drivename($opt)) {
-		    my $drive = PVE::QemuServer::parse_drive($opt, $param->{$opt});
-		    # FIXME: cloudinit: CDROM or Disk?
-		    if (PVE::QemuServer::drive_is_cdrom($drive)) { # CDROM
-			$rpcenv->check_vm_perm($authuser, $vmid, undef, ['VM.Config.CDROM']);
-		    } else {
-			$rpcenv->check_vm_perm($authuser, $vmid, undef, ['VM.Config.Disk']);
-		    }
+		    $check_drive_perms->($opt, $param->{$opt});
 		    PVE::QemuServer::vmconfig_register_unused_drive($storecfg, $vmid, $conf, PVE::QemuServer::parse_drive($opt, $conf->{pending}->{$opt}))
 			if defined($conf->{pending}->{$opt});
 
