@@ -1530,14 +1530,15 @@ sub print_drive_commandline_full {
     my $format = $drive->{format};
     my $drive_id = get_drive_id($drive);
 
+    my ($storeid, $volname) = PVE::Storage::parse_volume_id($volid, 1);
+    my $scfg = $storeid ? PVE::Storage::storage_config($storecfg, $storeid) : undef;
+
     if (drive_is_cdrom($drive)) {
 	$path = get_iso_path($storecfg, $vmid, $volid);
         die "$drive_id: cannot back cdrom drive with PBS snapshot\n" if $pbs_name;
     } else {
-	my ($storeid, $volname) = PVE::Storage::parse_volume_id($volid, 1);
 	if ($storeid) {
 	    $path = PVE::Storage::path($storecfg, $volid);
-	    my $scfg = PVE::Storage::storage_config($storecfg, $storeid);
 	    $format //= qemu_img_format($scfg, $volname);
 	} else {
 	    $path = $volid;
@@ -1594,7 +1595,7 @@ sub print_drive_commandline_full {
 
     if (my $cache = $drive->{cache}) {
 	$cache_direct = $cache =~ /^(?:off|none|directsync)$/;
-    } elsif (!drive_is_cdrom($drive)) {
+    } elsif (!drive_is_cdrom($drive) && !($scfg && $scfg->{type} eq 'btrfs' && !$scfg->{nocow})) {
 	$opts .= ",cache=none";
 	$cache_direct = 1;
     }
