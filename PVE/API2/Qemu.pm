@@ -1346,6 +1346,12 @@ my $update_vm_api  = sub {
 		my $arch = PVE::QemuServer::get_vm_arch($conf);
 
 		if (PVE::QemuServer::is_valid_drivename($opt)) {
+		    # old drive
+		    if ($conf->{$opt}) {
+			$check_drive_perms->($opt, $conf->{$opt});
+		    }
+
+		    # new drive
 		    $check_drive_perms->($opt, $param->{$opt});
 		    PVE::QemuServer::vmconfig_register_unused_drive($storecfg, $vmid, $conf, PVE::QemuServer::parse_drive($opt, $conf->{pending}->{$opt}))
 			if defined($conf->{pending}->{$opt});
