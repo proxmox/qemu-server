@@ -2,7 +2,10 @@ qemu-server (7.0-5) bullseye; urgency=medium
 
   * don't default to O_DIRECT (cache=none) on btrfs without nocow
 
- -- Proxmox Support Team <support@proxmox.com>  Thu, 24 Jun 2021 18:45:52 +0200
+  * fix #2175: api: update VM: check old drive-config for permissions too to
+    ensure a valid transition when limited to CDROM changes.
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 24 Jun 2021 18:58:19 +0200
 
 qemu-server (7.0-4) bullseye; urgency=medium
 
