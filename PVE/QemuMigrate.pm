@@ -337,9 +337,15 @@ sub prepare {
 	my ($sid, $volname) = PVE::Storage::parse_volume_id($volid, 1);
 
 	# check if storage is available on both nodes
-	my $targetsid = PVE::QemuServer::map_storage($self->{opts}->{storagemap}, $sid);
-
 	my $scfg = PVE::Storage::storage_check_enabled($storecfg, $sid);
+
+	my $targetsid;
+	if ($scfg->{shared}) {
+	    $targetsid = $sid;
+	} else {
+	    $targetsid = PVE::QemuServer::map_storage($self->{opts}->{storagemap}, $sid);
+	}
+
 	my $target_scfg = PVE::Storage::storage_check_enabled(
 	    $storecfg,
 	    $targetsid,
@@ -472,9 +478,16 @@ sub scan_local_volumes {
 
 	    my ($sid, $volname) = PVE::Storage::parse_volume_id($volid);
 
-	    my $targetsid = PVE::QemuServer::map_storage($self->{opts}->{storagemap}, $sid);
 	    # check if storage is available on both nodes
 	    my $scfg = PVE::Storage::storage_check_enabled($storecfg, $sid);
+
+	    my $targetsid;
+	    if ($scfg->{shared}) {
+		$targetsid = $sid;
+	    } else {
+		$targetsid = PVE::QemuServer::map_storage($self->{opts}->{storagemap}, $sid);
+	    }
+
 	    PVE::Storage::storage_check_enabled($storecfg, $targetsid, $self->{node});
 
 	    return if $scfg->{shared};
