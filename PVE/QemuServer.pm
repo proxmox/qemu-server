@@ -6365,35 +6365,36 @@ sub restore_proxmox_backup_archive {
 	# allocate volumes
 	my $map = $restore_allocate_devices->($storecfg, $virtdev_hash, $vmid);
 
-	if (!$options->{live}) {
-	    foreach my $virtdev (sort keys %$virtdev_hash) {
-		my $d = $virtdev_hash->{$virtdev};
-		next if $d->{is_cloudinit}; # no need to restore cloudinit
+	foreach my $virtdev (sort keys %$virtdev_hash) {
+	    my $d = $virtdev_hash->{$virtdev};
+	    next if $d->{is_cloudinit}; # no need to restore cloudinit
 
-		my $volid = $d->{volid};
+	    # for live-restore we only want to preload the efidisk
+	    next if $options->{live} && $virtdev ne 'efidisk0';
 
-		my $path = PVE::Storage::path($storecfg, $volid);
+	    my $volid = $d->{volid};
 
-		my $pbs_restore_cmd = [
-		    '/usr/bin/pbs-restore',
-		    '--repository', $repo,
-		    $pbs_backup_name,
-		    "$d->{devname}.img.fidx",
-		    $path,
-		    '--verbose',
-		    ];
+	    my $path = PVE::Storage::path($storecfg, $volid);
 
-		push @$pbs_restore_cmd, '--format', $d->{format} if $d->{format};
-		push @$pbs_restore_cmd, '--keyfile', $keyfile if -e $keyfile;
+	    my $pbs_restore_cmd = [
+		'/usr/bin/pbs-restore',
+		'--repository', $repo,
+		$pbs_backup_name,
+		"$d->{devname}.img.fidx",
+		$path,
+		'--verbose',
+		];
 
-		if (PVE::Storage::volume_has_feature($storecfg, 'sparseinit', $volid)) {
-		    push @$pbs_restore_cmd, '--skip-zero';
-		}
+	    push @$pbs_restore_cmd, '--format', $d->{format} if $d->{format};
+	    push @$pbs_restore_cmd, '--keyfile', $keyfile if -e $keyfile;
 
-		my $dbg_cmdstring = PVE::Tools::cmd2string($pbs_restore_cmd);
-		print "restore proxmox backup image: $dbg_cmdstring\n";
-		run_command($pbs_restore_cmd);
+	    if (PVE::Storage::volume_has_feature($storecfg, 'sparseinit', $volid)) {
+		push @$pbs_restore_cmd, '--skip-zero';
 	    }
+
+	    my $dbg_cmdstring = PVE::Tools::cmd2string($pbs_restore_cmd);
+	    print "restore proxmox backup image: $dbg_cmdstring\n";
+	    run_command($pbs_restore_cmd);
 	}
 
 	$fh->seek(0, 0) || die "seek failed - $!\n";
@@ -6448,6 +6449,7 @@ sub restore_proxmox_backup_archive {
 	my $conf = PVE::QemuConfig->load_config($vmid);
 	die "cannot do live-restore for template\n" if PVE::QemuConfig->is_template($conf);
 
+	delete $devinfo->{'drive-efidisk0'};
 	pbs_live_restore($vmid, $conf, $storecfg, $devinfo, $repo, $keyfile, $pbs_backup_name);
 
 	PVE::QemuConfig->remove_lock($vmid, "create");
