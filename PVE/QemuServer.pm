@@ -6449,7 +6449,7 @@ sub restore_proxmox_backup_archive {
 	my $conf = PVE::QemuConfig->load_config($vmid);
 	die "cannot do live-restore for template\n" if PVE::QemuConfig->is_template($conf);
 
-	delete $devinfo->{'drive-efidisk0'};
+	delete $devinfo->{'drive-efidisk0'}; # this special drive is already restored before start
 	pbs_live_restore($vmid, $conf, $storecfg, $devinfo, $repo, $keyfile, $pbs_backup_name);
 
 	PVE::QemuConfig->remove_lock($vmid, "create");
