@@ -1,3 +1,13 @@
+qemu-server (7.0-6) bullseye; urgency=medium
+
+  * live-restore: preload efidisk before starting VM
+
+  * For now do not use io_uring for drives backed by Ceph RBD, with KRBD and
+    write-back or write-through cache enabled, as in that case some polling/IO
+    may hang in QEMU 6.0.
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 02 Jul 2021 09:45:06 +0200
+
 qemu-server (7.0-5) bullseye; urgency=medium
 
   * don't default to O_DIRECT (cache=none) on btrfs without nocow
