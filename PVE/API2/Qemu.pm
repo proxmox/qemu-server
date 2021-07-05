@@ -1413,7 +1413,7 @@ my $update_vm_api  = sub {
 	    if ($running) {
 		PVE::QemuServer::vmconfig_hotplug_pending($vmid, $conf, $storecfg, $modified, $errors);
 	    } else {
-		PVE::QemuServer::vmconfig_apply_pending($vmid, $conf, $storecfg, $running, $errors);
+		PVE::QemuServer::vmconfig_apply_pending($vmid, $conf, $storecfg, $errors);
 	    }
 	    raise_param_exc($errors) if scalar(keys %$errors);
 
