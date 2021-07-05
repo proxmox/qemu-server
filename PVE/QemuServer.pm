@@ -3326,8 +3326,12 @@ sub config_to_command {
 	    $size_str = ",size=" . (-s $ovmf_vars);
 	}
 
-	# on slower ceph clusters, booting without cache on efidisk can take a while, see #3329
-	my $cache = $path =~ m/^rbd:/ ? ',cache=writeback' : '';
+	# SPI flash does lots of read-modify-write OPs, without writeback this gets really slow #3329
+	my $cache = "";
+	if ($path =~ m/^rbd:/) {
+		$cache = ',cache=writeback';
+		$path .= ':rbd_cache_policy=writeback'; # avoid write-around, we *need* to cache writes too
+	}
 
 	push @$cmd, '-drive', "if=pflash,unit=0,format=raw,readonly=on,file=$ovmf_code";
 	push @$cmd, '-drive', "if=pflash,unit=1$cache,format=$format,id=drive-efidisk0$size_str,file=${path}${read_only_str}";

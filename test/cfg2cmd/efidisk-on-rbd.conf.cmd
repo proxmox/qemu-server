@@ -10,7 +10,7 @@
   -daemonize \
   -smbios 'type=1,uuid=3dd750ce-d910-44d0-9493-525c0be4e688' \
   -drive 'if=pflash,unit=0,format=raw,readonly=on,file=/usr/share/pve-edk2-firmware//OVMF_CODE.fd' \
-  -drive 'if=pflash,unit=1,cache=writeback,format=raw,id=drive-efidisk0,size=131072,file=rbd:cpool/vm-100-disk-1:mon_host=127.0.0.42;127.0.0.21;[\:\:1]:auth_supported=none' \
+  -drive 'if=pflash,unit=1,cache=writeback,format=raw,id=drive-efidisk0,size=131072,file=rbd:cpool/vm-100-disk-1:mon_host=127.0.0.42;127.0.0.21;[\:\:1]:auth_supported=none:rbd_cache_policy=writeback' \
   -smp '1,sockets=1,cores=1,maxcpus=1' \
   -nodefaults \
   -boot 'menu=on,strict=on,reboot-timeout=1000,splash=/usr/share/qemu-server/bootsplash.jpg' \
