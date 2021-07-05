@@ -1,3 +1,11 @@
+qemu-server (7.0-7) bullseye; urgency=medium
+
+  * improve #3329: ensure write-back is used over write-around for EFI disk,
+    as OVMF profits a lot from cached writes due to its frequent
+    read-modify-write operations
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 05 Jul 2021 20:49:50 +0200
+
 qemu-server (7.0-6) bullseye; urgency=medium
 
   * live-restore: preload efidisk before starting VM
