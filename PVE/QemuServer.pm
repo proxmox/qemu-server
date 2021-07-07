@@ -1605,8 +1605,11 @@ sub print_drive_commandline_full {
     # io_uring with cache mode writeback or writethrough on krbd will hang...
     my $rbd_no_io_uring = $scfg && $scfg->{type} eq 'rbd' && $scfg->{krbd} && !$cache_direct;
 
+    # io_uring with cache mode writeback or writethrough on LVM will hang...
+    my $lvm_no_io_uring = $scfg && $scfg->{type} eq 'lvm' && !$cache_direct;
+
     if (!$drive->{aio}) {
-	if ($io_uring && !$rbd_no_io_uring) {
+	if ($io_uring && !$rbd_no_io_uring && !$lvm_no_io_uring) {
 	    # io_uring supports all cache modes
 	    $opts .= ",aio=io_uring";
 	} else {
