@@ -315,11 +315,13 @@ my $confdesc = {
     cpuunits => {
 	optional => 1,
 	type => 'integer',
-        description => "CPU weight for a VM.",
-	verbose_description => "CPU weight for a VM. Argument is used in the kernel fair scheduler. The larger the number is, the more CPU time this VM gets. Number is relative to weights of all the other running VMs.",
+        description => "CPU weight for a VM, will be clamped to [1, 10000] in cgroup v2.",
+	verbose_description => "CPU weight for a VM. Argument is used in the kernel fair scheduler."
+	    ." The larger the number is, the more CPU time this VM gets. Number is relative to"
+	    ." weights of all the other running VMs.",
 	minimum => 2,
 	maximum => 262144,
-	default => 1024,
+	default => 'cgroup v1: 1024, cgroup v2: 100',
     },
     memory => {
 	optional => 1,
