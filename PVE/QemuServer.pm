@@ -3172,6 +3172,10 @@ sub query_understood_cpu_flags {
     return \@flags;
 }
 
+my sub get_cpuunits {
+    my ($conf) = @_;
+    return $conf->{cpuunits} // (PVE::CGroup::cgroup_mode() == 2 ? 100 : 1024);
+}
 sub config_to_command {
     my ($storecfg, $vmid, $conf, $defaults, $forcemachine, $forcecpu,
         $pbs_backing) = @_;
@@ -3241,8 +3245,7 @@ sub config_to_command {
     my $use_old_bios_files = undef;
     ($use_old_bios_files, $machine_type) = qemu_use_old_bios_files($machine_type);
 
-    my $cpuunits = defined($conf->{cpuunits}) ?
-            $conf->{cpuunits} : $defaults->{cpuunits};
+    my $cpuunits = get_cpuunits($conf);
 
     push @$cmd, $kvm_binary;
 
@@ -4623,7 +4626,7 @@ sub vmconfig_hotplug_pending {
 		die "skip\n" if !$hotplug_features->{memory};
 		PVE::QemuServer::Memory::qemu_memory_hotplug($vmid, $conf, $defaults, $opt);
 	    } elsif ($opt eq 'cpuunits') {
-		$cgroup->change_cpu_shares(undef, $defaults->{cpuunits});
+		$cgroup->change_cpu_shares(undef, 1024);
 	    } elsif ($opt eq 'cpulimit') {
 		$cgroup->change_cpu_quota(-1, 100000);
 	    } else {
@@ -4717,7 +4720,7 @@ sub vmconfig_hotplug_pending {
 		die "skip\n" if !$hotplug_features->{memory};
 		$value = PVE::QemuServer::Memory::qemu_memory_hotplug($vmid, $conf, $defaults, $opt, $value);
 	    } elsif ($opt eq 'cpuunits') {
-		$cgroup->change_cpu_shares($conf->{pending}->{$opt}, $defaults->{cpuunits});
+		$cgroup->change_cpu_shares($conf->{pending}->{$opt}, 1024);
 	    } elsif ($opt eq 'cpulimit') {
 		my $cpulimit = $conf->{pending}->{$opt} == 0 ? -1 : int($conf->{pending}->{$opt} * 100000);
 		$cgroup->change_cpu_quota($cpulimit, 100000);
@@ -5284,8 +5287,7 @@ sub vm_start_nolock {
     # timeout should be more than enough here...
     PVE::Systemd::wait_for_unit_removed("$vmid.scope", 5);
 
-    my $cpuunits = defined($conf->{cpuunits}) ? $conf->{cpuunits}
-	                                      : $defaults->{cpuunits};
+    my $cpuunits = get_cpuunits($conf);
 
     my $start_timeout = $params->{timeout} // config_aware_timeout($conf, $resume);
     my %run_params = (
