@@ -1,3 +1,10 @@
+qemu-server (7.0-10) bullseye; urgency=medium
+
+  * avoid using io_uring for drives backed by LVM and configured for write-back
+    or write-through cache
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 07 Jul 2021 14:56:34 +0200
+
 qemu-server (7.0-9) bullseye; urgency=medium
 
   * cpu weight: always clamp value to lower maximum for cgroup v2 and fix
