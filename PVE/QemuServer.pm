@@ -5307,6 +5307,7 @@ sub vm_start_nolock {
     );
 
     if (PVE::CGroup::cgroup_mode() == 2) {
+	$cpuunits = 10000 if $cpuunits >= 10000; # else we get an error
 	$properties{CPUWeight} = $cpuunits;
     } else {
 	$properties{CPUShares} = $cpuunits;
