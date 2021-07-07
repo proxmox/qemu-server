@@ -1,10 +1,11 @@
-qemu-server (7.0-8) bullseye; urgency=medium
+qemu-server (7.0-9) bullseye; urgency=medium
 
-  * cpu weight: always clamp value to lower maximum for cgroup v2
+  * cpu weight: always clamp value to lower maximum for cgroup v2 and fix
+    defaults (v1 -> 1024, v2 -> 100)
 
   * api: improve error handling when applying pending config changes
 
- -- Proxmox Support Team <support@proxmox.com>  Wed, 07 Jul 2021 10:27:57 +0200
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 07 Jul 2021 12:02:13 +0200
 
 qemu-server (7.0-7) bullseye; urgency=medium
 
