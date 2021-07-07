@@ -1,3 +1,11 @@
+qemu-server (7.0-8) bullseye; urgency=medium
+
+  * cpu weight: always clamp value to lower maximum for cgroup v2
+
+  * api: improve error handling when applying pending config changes
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 07 Jul 2021 10:27:57 +0200
+
 qemu-server (7.0-7) bullseye; urgency=medium
 
   * improve #3329: ensure write-back is used over write-around for EFI disk,
