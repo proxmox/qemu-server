@@ -6397,12 +6397,12 @@ sub restore_proxmox_backup_archive {
 	    my $d = $virtdev_hash->{$virtdev};
 	    next if $d->{is_cloudinit}; # no need to restore cloudinit
 
+	    # this fails if storage is unavailable
+	    my $volid = $d->{volid};
+	    my $path = PVE::Storage::path($storecfg, $volid);
+
 	    # for live-restore we only want to preload the efidisk
 	    next if $options->{live} && $virtdev ne 'efidisk0';
-
-	    my $volid = $d->{volid};
-
-	    my $path = PVE::Storage::path($storecfg, $volid);
 
 	    my $pbs_restore_cmd = [
 		'/usr/bin/pbs-restore',
