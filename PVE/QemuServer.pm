@@ -5171,7 +5171,9 @@ sub vm_start_nolock {
 	$conf = PVE::QemuConfig->load_config($vmid); # update/reload
     }
 
-    PVE::QemuServer::Cloudinit::generate_cloudinitconfig($conf, $vmid);
+    # don't regenerate the ISO if the VM is started as part of a live migration
+    # this way we can reuse the old ISO with the correct config
+    PVE::QemuServer::Cloudinit::generate_cloudinitconfig($conf, $vmid) if !$migratedfrom;
 
     my $defaults = load_defaults();
 

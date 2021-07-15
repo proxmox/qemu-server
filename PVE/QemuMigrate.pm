@@ -579,7 +579,8 @@ sub scan_local_volumes {
 	    if ($self->{running} && $ref eq 'config') {
 		$local_volumes->{$volid}->{migration_mode} = 'online';
 	    } elsif ($self->{running} && $ref eq 'generated') {
-		die "can't live migrate VM with local cloudinit disk. use a shared storage instead\n";
+		# offline migrate the cloud-init ISO and don't regenerate on VM start
+		$local_volumes->{$volid}->{migration_mode} = 'offline';
 	    } else {
 		$local_volumes->{$volid}->{migration_mode} = 'offline';
 	    }
