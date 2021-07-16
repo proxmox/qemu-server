@@ -832,9 +832,21 @@ for (my $i = 0; $i < $MAX_NUMA; $i++)  {
     $confdesc->{"numa$i"} = $numadesc;
 }
 
-my $nic_model_list = ['rtl8139', 'ne2k_pci', 'e1000',  'pcnet',  'virtio',
-		      'ne2k_isa', 'i82551', 'i82557b', 'i82559er', 'vmxnet3',
-		      'e1000-82540em', 'e1000-82544gc', 'e1000-82545em'];
+my $nic_model_list = [
+    'e1000',
+    'e1000-82540em',
+    'e1000-82544gc',
+    'e1000-82545em',
+    'i82551',
+    'i82557b',
+    'i82559er',
+    'ne2k_isa',
+    'ne2k_pci',
+    'pcnet',
+    'rtl8139',
+    'virtio',
+    'vmxnet3',
+];
 my $nic_model_list_txt = join(' ', sort @$nic_model_list);
 
 my $net_fmt_bridge_descr = <<__EOD__;
