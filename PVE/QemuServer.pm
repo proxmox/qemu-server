@@ -837,6 +837,7 @@ my $nic_model_list = [
     'e1000-82540em',
     'e1000-82544gc',
     'e1000-82545em',
+    'e1000e',
     'i82551',
     'i82557b',
     'i82559er',
@@ -1719,6 +1720,8 @@ sub print_netdevice_full {
 	    $romfile = 'pxe-virtio.rom';
 	} elsif ($device eq 'e1000') {
 	    $romfile = 'pxe-e1000.rom';
+	} elsif ($device eq 'e1000e') {
+	    $romfile = 'pxe-e1000e.rom';
 	} elsif ($device eq 'ne2k') {
 	    $romfile = 'pxe-ne2k_pci.rom';
 	} elsif ($device eq 'pcnet') {
