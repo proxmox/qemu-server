@@ -111,7 +111,8 @@ sub parse_ovf {
     my $ovf_name = $xpc->findvalue($xpath_find_name);
 
     if ($ovf_name) {
-	($qm->{name} = $ovf_name) =~ s/[^a-zA-Z0-9\-]//g; # PVE::QemuServer::confdesc requires a valid DNS name
+	# PVE::QemuServer::confdesc requires a valid DNS name
+	($qm->{name} = $ovf_name) =~ s/[^a-zA-Z0-9\-\.]//g;
     } else {
 	warn "warning: unable to parse the VM name in this OVF manifest, generating a default value\n";
     }
