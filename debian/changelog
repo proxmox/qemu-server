@@ -1,3 +1,17 @@
+qemu-server (7.0-11) bullseye; urgency=medium
+
+  * nic: support the intel e1000e model
+
+  * lvm: avoid the use of io_uring for now
+
+  * live-restore: fail early if target storage doesn't exist
+
+  * api: always add new CD drives to bootorder
+
+  * fix #2563: allow live migration with local cloud-init disk
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 23 Jul 2021 11:08:48 +0200
+
 qemu-server (7.0-10) bullseye; urgency=medium
 
   * avoid using io_uring for drives backed by LVM and configured for write-back
