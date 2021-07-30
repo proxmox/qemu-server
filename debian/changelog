@@ -1,3 +1,11 @@
+qemu-server (7.0-12) bullseye; urgency=medium
+
+  * fix #3371: import ovf: allow the use of dots in the VM name
+
+  * bootorder: fix double entry on cdrom edit
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 30 Jul 2021 16:53:44 +0200
+
 qemu-server (7.0-11) bullseye; urgency=medium
 
   * nic: support the intel e1000e model
