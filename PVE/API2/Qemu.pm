@@ -1360,7 +1360,7 @@ my $update_vm_api  = sub {
 
 		    # append new CD drives to bootorder to mark them bootable
 		    my $drive = PVE::QemuServer::parse_drive($opt, $param->{$opt});
-		    if (PVE::QemuServer::drive_is_cdrom($drive, 1)) {
+		    if (PVE::QemuServer::drive_is_cdrom($drive, 1) && !grep(/^$opt$/, @bootorder)) {
 			push @bootorder, $opt;
 			$conf->{pending}->{boot} = PVE::QemuServer::print_bootorder(\@bootorder);
 			$modified->{boot} = 1;
