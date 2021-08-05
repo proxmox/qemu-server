@@ -1,3 +1,9 @@
+qemu-server (7.0-13) bullseye; urgency=medium
+
+  * fix bootorder regression with implicit default order
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 5 Aug 2021 14:03:14 +0200
+
 qemu-server (7.0-12) bullseye; urgency=medium
 
   * fix #3371: import ovf: allow the use of dots in the VM name
