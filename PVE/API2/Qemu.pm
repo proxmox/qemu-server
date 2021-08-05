@@ -1358,12 +1358,15 @@ my $update_vm_api  = sub {
 
 		    &$create_disks($rpcenv, $authuser, $conf->{pending}, $arch, $storecfg, $vmid, undef, {$opt => $param->{$opt}});
 
-		    # append new CD drives to bootorder to mark them bootable
-		    my $drive = PVE::QemuServer::parse_drive($opt, $param->{$opt});
-		    if (PVE::QemuServer::drive_is_cdrom($drive, 1) && !grep(/^$opt$/, @bootorder)) {
-			push @bootorder, $opt;
-			$conf->{pending}->{boot} = PVE::QemuServer::print_bootorder(\@bootorder);
-			$modified->{boot} = 1;
+		    # default legacy boot order implies all cdroms anyway
+		    if (@bootorder) {
+			# append new CD drives to bootorder to mark them bootable
+			my $drive = PVE::QemuServer::parse_drive($opt, $param->{$opt});
+			if (PVE::QemuServer::drive_is_cdrom($drive, 1) && !grep(/^$opt$/, @bootorder)) {
+			    push @bootorder, $opt;
+			    $conf->{pending}->{boot} = PVE::QemuServer::print_bootorder(\@bootorder);
+			    $modified->{boot} = 1;
+			}
 		    }
 		} elsif ($opt =~ m/^serial\d+/) {
 		    if ((!defined($conf->{$opt}) || $conf->{$opt} eq 'socket') && $param->{$opt} eq 'socket') {
