@@ -430,14 +430,14 @@ sub __snapshot_rollback_hook {
 }
 
 sub __snapshot_rollback_vol_possible {
-    my ($class, $drive, $snapname) = @_;
+    my ($class, $drive, $snapname, $blockers) = @_;
 
     return if PVE::QemuServer::drive_is_cdrom($drive);
 
     my $storecfg = PVE::Storage::config();
     my $volid = $drive->{file};
 
-    PVE::Storage::volume_rollback_is_possible($storecfg, $volid, $snapname);
+    PVE::Storage::volume_rollback_is_possible($storecfg, $volid, $snapname, $blockers);
 }
 
 sub __snapshot_rollback_vol_rollback {
