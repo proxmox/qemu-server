@@ -143,8 +143,7 @@ sub qemu_memory_hotplug {
 			my $hugepages_host_topology = hugepages_host_topology();
 			hugepages_allocate($hugepages_topology, $hugepages_host_topology);
 
-			eval { mon_cmd($vmid, "object-add", 'qom-type' => "memory-backend-file", id => "mem-$name", props => {
-					     size => int($dimm_size*1024*1024), 'mem-path' => $path, share => JSON::true, prealloc => JSON::true } ); };
+			eval { mon_cmd($vmid, "object-add", 'qom-type' => "memory-backend-file", id => "mem-$name", size => int($dimm_size*1024*1024), 'mem-path' => $path, share => JSON::true, prealloc => JSON::true ) };
 			if (my $err = $@) {
 			    hugepages_reset($hugepages_host_topology);
 			    die $err;
@@ -155,7 +154,7 @@ sub qemu_memory_hotplug {
 		    eval { hugepages_update_locked($code); };
 
 		} else {
-		    eval { mon_cmd($vmid, "object-add", 'qom-type' => "memory-backend-ram", id => "mem-$name", props => { size => int($dimm_size*1024*1024) } ) };
+		    eval { mon_cmd($vmid, "object-add", 'qom-type' => "memory-backend-ram", id => "mem-$name", size => int($dimm_size*1024*1024) ) };
 		}
 
 		if (my $err = $@) {
