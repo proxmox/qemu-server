@@ -4026,46 +4026,36 @@ sub vm_deviceunplug {
     die "can't unplug bootdisk '$deviceid'\n" if grep {$_ eq $deviceid} @$bootdisks;
 
     if ($deviceid eq 'tablet' || $deviceid eq 'keyboard') {
-
 	qemu_devicedel($vmid, $deviceid);
-
     } elsif ($deviceid =~ m/^usb\d+$/) {
-
 	die "usb hotplug currently not reliable\n";
 	# when unplugging usb devices this way, there may be remaining usb
 	# controllers/hubs so we disable it for now
 	#qemu_devicedel($vmid, $deviceid);
 	#qemu_devicedelverify($vmid, $deviceid);
-
     } elsif ($deviceid =~ m/^(virtio)(\d+)$/) {
 	my $device = parse_drive($deviceid, $conf->{$deviceid});
 
-        qemu_devicedel($vmid, $deviceid);
-        qemu_devicedelverify($vmid, $deviceid);
-        qemu_drivedel($vmid, $deviceid);
-	qemu_iothread_del($vmid, $deviceid, $device);
-
-    } elsif ($deviceid =~ m/^(virtioscsi|scsihw)(\d+)$/) {
-
 	qemu_devicedel($vmid, $deviceid);
 	qemu_devicedelverify($vmid, $deviceid);
-
+	qemu_drivedel($vmid, $deviceid);
+	qemu_iothread_del($vmid, $deviceid, $device);
+    } elsif ($deviceid =~ m/^(virtioscsi|scsihw)(\d+)$/) {
+	qemu_devicedel($vmid, $deviceid);
+	qemu_devicedelverify($vmid, $deviceid);
     } elsif ($deviceid =~ m/^(scsi)(\d+)$/) {
 	my $device = parse_drive($deviceid, $conf->{$deviceid});
 
-        qemu_devicedel($vmid, $deviceid);
-        qemu_drivedel($vmid, $deviceid);
+	qemu_devicedel($vmid, $deviceid);
+	qemu_drivedel($vmid, $deviceid);
 	qemu_deletescsihw($conf, $vmid, $deviceid);
 
 	qemu_iothread_del($vmid, "virtioscsi$device->{index}", $device)
 	    if $conf->{scsihw} && ($conf->{scsihw} eq 'virtio-scsi-single');
-
     } elsif ($deviceid =~ m/^(net)(\d+)$/) {
-
-        qemu_devicedel($vmid, $deviceid);
-        qemu_devicedelverify($vmid, $deviceid);
-        qemu_netdevdel($vmid, $deviceid);
-
+	qemu_devicedel($vmid, $deviceid);
+	qemu_devicedelverify($vmid, $deviceid);
+	qemu_netdevdel($vmid, $deviceid);
     } else {
 	die "can't unplug device '$deviceid'\n";
     }
@@ -4089,7 +4079,7 @@ sub qemu_devicedel {
 }
 
 sub qemu_iothread_add {
-    my($vmid, $deviceid, $device) = @_;
+    my ($vmid, $deviceid, $device) = @_;
 
     if ($device->{iothread}) {
 	my $iothreads = vm_iothreads_list($vmid);
@@ -4098,7 +4088,7 @@ sub qemu_iothread_add {
 }
 
 sub qemu_iothread_del {
-    my($vmid, $deviceid, $device) = @_;
+    my ($vmid, $deviceid, $device) = @_;
 
     if ($device->{iothread}) {
 	my $iothreads = vm_iothreads_list($vmid);
@@ -4107,7 +4097,7 @@ sub qemu_iothread_del {
 }
 
 sub qemu_objectadd {
-    my($vmid, $objectid, $qomtype) = @_;
+    my ($vmid, $objectid, $qomtype) = @_;
 
     mon_cmd($vmid, "object-add", id => $objectid, "qom-type" => $qomtype);
 
@@ -4115,7 +4105,7 @@ sub qemu_objectadd {
 }
 
 sub qemu_objectdel {
-    my($vmid, $objectid) = @_;
+    my ($vmid, $objectid) = @_;
 
     mon_cmd($vmid, "object-del", id => $objectid);
 
@@ -4138,7 +4128,7 @@ sub qemu_driveadd {
 }
 
 sub qemu_drivedel {
-    my($vmid, $deviceid) = @_;
+    my ($vmid, $deviceid) = @_;
 
     my $ret = PVE::QemuServer::Monitor::hmp_cmd($vmid, "drive_del drive-$deviceid");
     $ret =~ s/^\s+//;
@@ -4187,7 +4177,7 @@ sub qemu_findorcreatescsihw {
     my $scsihwid="$controller_prefix$controller";
     my $devices_list = vm_devices_list($vmid);
 
-    if(!defined($devices_list->{$scsihwid})) {
+    if (!defined($devices_list->{$scsihwid})) {
 	vm_deviceplug($storecfg, $conf, $vmid, $scsihwid, $device, $arch, $machine_type);
     }
 
@@ -4210,7 +4200,7 @@ sub qemu_deletescsihw {
     foreach my $opt (keys %{$devices_list}) {
 	if (is_valid_drivename($opt)) {
 	    my $drive = parse_drive($opt, $conf->{$opt});
-	    if($drive->{interface} eq 'scsi' && $drive->{index} < (($maxdev-1)*($controller+1))) {
+	    if ($drive->{interface} eq 'scsi' && $drive->{index} < (($maxdev-1)*($controller+1))) {
 		return 1;
 	    }
 	}
