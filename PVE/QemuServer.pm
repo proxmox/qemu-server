@@ -4038,23 +4038,27 @@ sub vm_deviceunplug {
 	#qemu_devicedelverify($vmid, $deviceid);
 
     } elsif ($deviceid =~ m/^(virtio)(\d+)$/) {
+	my $device = parse_drive($deviceid, $conf->{$deviceid});
 
         qemu_devicedel($vmid, $deviceid);
         qemu_devicedelverify($vmid, $deviceid);
         qemu_drivedel($vmid, $deviceid);
-	qemu_iothread_del($conf, $vmid, $deviceid);
+	qemu_iothread_del($vmid, $deviceid, $device);
 
     } elsif ($deviceid =~ m/^(virtioscsi|scsihw)(\d+)$/) {
 
 	qemu_devicedel($vmid, $deviceid);
 	qemu_devicedelverify($vmid, $deviceid);
-	qemu_iothread_del($conf, $vmid, $deviceid);
 
     } elsif ($deviceid =~ m/^(scsi)(\d+)$/) {
+	my $device = parse_drive($deviceid, $conf->{$deviceid});
 
         qemu_devicedel($vmid, $deviceid);
         qemu_drivedel($vmid, $deviceid);
 	qemu_deletescsihw($conf, $vmid, $deviceid);
+
+	qemu_iothread_del($vmid, "virtioscsi$device->{index}", $device)
+	    if $conf->{scsihw} && ($conf->{scsihw} eq 'virtio-scsi-single');
 
     } elsif ($deviceid =~ m/^(net)(\d+)$/) {
 
@@ -4094,13 +4098,8 @@ sub qemu_iothread_add {
 }
 
 sub qemu_iothread_del {
-    my($conf, $vmid, $deviceid) = @_;
+    my($vmid, $deviceid, $device) = @_;
 
-    my $confid = $deviceid;
-    if ($deviceid =~ m/^(?:virtioscsi|scsihw)(\d+)$/) {
-	$confid = 'scsi' . $1;
-    }
-    my $device = parse_drive($confid, $conf->{$confid});
     if ($device->{iothread}) {
 	my $iothreads = vm_iothreads_list($vmid);
 	qemu_objectdel($vmid, "iothread-$deviceid") if $iothreads->{"iothread-$deviceid"};
