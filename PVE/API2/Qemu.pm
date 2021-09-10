@@ -4353,8 +4353,7 @@ __PACKAGE__->register_method({
 
 	my $disk = extract_param($param, 'disk');
 
-	my $updatefn =  sub {
-
+	my $load_and_check = sub {
 	    my $conf = PVE::QemuConfig->load_config($vmid);
 
 	    PVE::QemuConfig->check_lock($conf);
@@ -4368,17 +4367,23 @@ __PACKAGE__->register_method({
 	    die "you can't convert a VM to template if VM is running\n"
 		if PVE::QemuServer::check_running($vmid);
 
-	    my $realcmd = sub {
-		PVE::QemuServer::template_create($vmid, $conf, $disk);
-	    };
-
-	    $conf->{template} = 1;
-	    PVE::QemuConfig->write_config($vmid, $conf);
-
-	    return $rpcenv->fork_worker('qmtemplate', $vmid, $authuser, $realcmd);
+	    return $conf;
 	};
 
-	return PVE::QemuConfig->lock_config($vmid, $updatefn);
+	$load_and_check->();
+
+	my $realcmd = sub {
+	    PVE::QemuConfig->lock_config($vmid, sub {
+		my $conf = $load_and_check->();
+
+		$conf->{template} = 1;
+		PVE::QemuConfig->write_config($vmid, $conf);
+
+		PVE::QemuServer::template_create($vmid, $conf, $disk);
+	    });
+	};
+
+	return $rpcenv->fork_worker('qmtemplate', $vmid, $authuser, $realcmd);
     }});
 
 __PACKAGE__->register_method({
