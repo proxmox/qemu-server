@@ -4336,7 +4336,10 @@ __PACKAGE__->register_method({
 
 	},
     },
-    returns => { type => 'null'},
+    returns => {
+	type => 'string',
+	description => "the task ID.",
+    },
     code => sub {
 	my ($param) = @_;
 
@@ -4375,8 +4378,7 @@ __PACKAGE__->register_method({
 	    return $rpcenv->fork_worker('qmtemplate', $vmid, $authuser, $realcmd);
 	};
 
-	PVE::QemuConfig->lock_config($vmid, $updatefn);
-	return;
+	return PVE::QemuConfig->lock_config($vmid, $updatefn);
     }});
 
 __PACKAGE__->register_method({
