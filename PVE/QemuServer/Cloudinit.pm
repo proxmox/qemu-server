@@ -479,15 +479,15 @@ sub nocloud_network {
 }
 
 sub nocloud_metadata {
-    my ($uuid) = @_;
-    return "instance-id: $uuid\n";
+    my ($uuid, $hostname) = @_;
+    return "instance-id: $uuid\nhostname: $hostname\n";
 }
 
 sub nocloud_gen_metadata {
-    my ($user, $network) = @_;
+    my ($user, $network, $hostname) = @_;
 
     my $uuid_str = Digest::SHA::sha1_hex($user.$network);
-    return nocloud_metadata($uuid_str);
+    return nocloud_metadata($uuid_str, $hostname);
 }
 
 sub generate_nocloud {
@@ -498,7 +498,8 @@ sub generate_nocloud {
     $network_data = nocloud_network($conf) if !defined($network_data);
 
     if (!defined($meta_data)) {
-	$meta_data = nocloud_gen_metadata($user_data, $network_data);
+	my ($hostname, $fqdn) = get_hostname_fqdn($conf, $vmid);
+	$meta_data = nocloud_gen_metadata($user_data, $network_data, $hostname);
     }
 
     my $files = {
@@ -589,7 +590,8 @@ sub dump_cloudinit_config {
 	my $user = cloudinit_userdata($conf, $vmid);
 	if ($format eq 'nocloud') {
 	    my $network = nocloud_network($conf);
-	    return nocloud_gen_metadata($user, $network);
+	    my ($hostname, $fqdn) = get_hostname_fqdn($conf, $vmid);
+	    return nocloud_gen_metadata($user, $network, $hostname);
 	} else {
 	    my $network = configdrive2_network($conf);
 	    return configdrive2_gen_metadata($user, $network);
