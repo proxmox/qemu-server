@@ -1,3 +1,15 @@
+qemu-server (7.0-14) bullseye; urgency=medium
+
+  * fix #3581: pass size via argument for memory-backend-ram QMP call
+
+  * fix #3608: improve removal of the underlying SCSI controller when removing
+    last drive on it
+
+  * migrate: do not suggest that we map shared storages to avoid that
+    subsequent checks could result in false negatives.
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 22 Sep 2021 09:31:06 +0200
+
 qemu-server (7.0-13) bullseye; urgency=medium
 
   * fix bootorder regression with implicit default order
