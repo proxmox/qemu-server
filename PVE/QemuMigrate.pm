@@ -345,11 +345,7 @@ sub prepare {
 	    $targetsid = PVE::QemuServer::map_storage($self->{opts}->{storagemap}, $sid);
 	}
 
-	my $target_scfg = PVE::Storage::storage_check_enabled(
-	    $storecfg,
-	    $targetsid,
-	    $self->{node},
-	);
+	my $target_scfg = PVE::Storage::storage_check_enabled($storecfg, $targetsid, $self->{node});
 	my ($vtype) = PVE::Storage::parse_volname($storecfg, $volid);
 
 	die "$volid: content type '$vtype' is not available on storage '$targetsid'\n"
