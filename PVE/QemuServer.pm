@@ -2172,16 +2172,19 @@ sub destroy_vm {
 	});
     }
 
+    my $volids = {};
     my $remove_owned_drive = sub {
 	my ($ds, $drive) = @_;
  	return if drive_is_cdrom($drive, 1);
 
 	my $volid = $drive->{file};
 	return if !$volid || $volid =~ m|^/|;
+	return if $volids->{$volid};
 
 	my ($path, $owner) = PVE::Storage::path($storecfg, $volid);
 	return if !$path || !$owner || ($owner != $vmid);
 
+	$volids->{$volid} = 1;
 	eval { PVE::Storage::vdisk_free($storecfg, $volid) };
 	warn "Could not remove disk '$volid', check manually: $@" if $@;
     };
@@ -2199,6 +2202,8 @@ sub destroy_vm {
 	next if !defined($drive);
 	$remove_owned_drive->('vmstate', $drive);
     }
+
+    PVE::QemuConfig->foreach_volume_full($conf->{pending}, $include_opts, $remove_owned_drive);
 
     if ($purge_unreferenced) { # also remove unreferenced disk
 	my $vmdisks = PVE::Storage::vdisk_list($storecfg, undef, $vmid, undef, 'images');
