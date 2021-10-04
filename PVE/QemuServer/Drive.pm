@@ -306,16 +306,6 @@ my $virtiodesc = {
 };
 PVE::JSONSchema::register_standard_option("pve-qm-virtio", $virtiodesc);
 
-my $alldrive_fmt = {
-    %drivedesc_base,
-    %iothread_fmt,
-    %model_fmt,
-    %queues_fmt,
-    %scsiblock_fmt,
-    %ssd_fmt,
-    %wwn_fmt,
-};
-
 my $efidisk_fmt = {
     volume => { alias => 'file' },
     file => {
@@ -344,6 +334,55 @@ my $efidisk_desc = {
 };
 
 PVE::JSONSchema::register_standard_option("pve-qm-efidisk", $efidisk_desc);
+
+my %tpmversion_fmt = (
+    version => {
+	type => 'string',
+	enum => [qw(v1.2 v2.0)],
+	description => "The TPM interface version. v2.0 is newer and should be "
+		     . "preferred. Note that this cannot be changed later on.",
+	optional => 1,
+	default => 'v2.0',
+    },
+);
+my $tpmstate_fmt = {
+    volume => { alias => 'file' },
+    file => {
+	type => 'string',
+	format => 'pve-volume-id-or-qm-path',
+	default_key => 1,
+	format_description => 'volume',
+	description => "The drive's backing volume.",
+    },
+    size => {
+	type => 'string',
+	format => 'disk-size',
+	format_description => 'DiskSize',
+	description => "Disk size. This is purely informational and has no effect.",
+	optional => 1,
+    },
+    %tpmversion_fmt,
+};
+my $tpmstate_desc = {
+    optional => 1,
+    type => 'string', format => $tpmstate_fmt,
+    description => "Configure a Disk for storing TPM state. " .
+	$ALLOCATION_SYNTAX_DESC . " Note that SIZE_IN_GiB is ignored here " .
+	"and that the default size of 4 MiB will always be used instead. The " .
+	"format is also fixed to 'raw'.",
+};
+use constant TPMSTATE_DISK_SIZE => 4 * 1024 * 1024;
+
+my $alldrive_fmt = {
+    %drivedesc_base,
+    %iothread_fmt,
+    %model_fmt,
+    %queues_fmt,
+    %scsiblock_fmt,
+    %ssd_fmt,
+    %wwn_fmt,
+    %tpmversion_fmt,
+};
 
 my $unused_fmt = {
     volume => { alias => 'file' },
@@ -379,6 +418,7 @@ for (my $i = 0; $i < $MAX_VIRTIO_DISKS; $i++)  {
 }
 
 $drivedesc_hash->{efidisk0} = $efidisk_desc;
+$drivedesc_hash->{tpmstate0} = $tpmstate_desc;
 
 for (my $i = 0; $i < $MAX_UNUSED_DISKS; $i++) {
     $drivedesc_hash->{"unused$i"} = $unuseddesc;
@@ -390,7 +430,8 @@ sub valid_drive_names {
             (map { "scsi$_" } (0 .. ($MAX_SCSI_DISKS - 1))),
             (map { "virtio$_" } (0 .. ($MAX_VIRTIO_DISKS - 1))),
             (map { "sata$_" } (0 .. ($MAX_SATA_DISKS - 1))),
-            'efidisk0');
+            'efidisk0',
+            'tpmstate0');
 }
 
 sub is_valid_drivename {

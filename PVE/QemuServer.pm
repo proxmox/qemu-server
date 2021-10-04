@@ -1143,7 +1143,8 @@ PVE::JSONSchema::register_format('pve-qm-bootdev', \&verify_bootdev);
 sub verify_bootdev {
     my ($dev, $noerr) = @_;
 
-    return $dev if PVE::QemuServer::Drive::is_valid_drivename($dev) && $dev !~ m/^efidisk/;
+    my $special = $dev =~ m/^efidisk/ || $dev =~ m/^tpmstate/;
+    return $dev if PVE::QemuServer::Drive::is_valid_drivename($dev) && !$special;
 
     my $check = sub {
 	my ($base) = @_;
@@ -2966,6 +2967,90 @@ sub audio_devs {
     return $devs;
 }
 
+sub get_tpm_paths {
+    my ($vmid) = @_;
+    return {
+	socket => "/var/run/qemu-server/$vmid.swtpm",
+	pid => "/var/run/qemu-server/$vmid.swtpm.pid",
+    };
+}
+
+sub add_tpm_device {
+    my ($vmid, $devices, $conf) = @_;
+
+    return if !$conf->{tpmstate0};
+
+    my $paths = get_tpm_paths($vmid);
+
+    push @$devices, "-chardev", "socket,id=tpmchar,path=$paths->{socket}";
+    push @$devices, "-tpmdev", "emulator,id=tpmdev,chardev=tpmchar";
+    push @$devices, "-device", "tpm-tis,tpmdev=tpmdev";
+}
+
+sub start_swtpm {
+    my ($storecfg, $vmid, $tpmdrive, $migration) = @_;
+
+    return if !$tpmdrive;
+
+    my $state;
+    my $tpm = parse_drive("tpmstate0", $tpmdrive);
+    my ($storeid, $volname) = PVE::Storage::parse_volume_id($tpm->{file}, 1);
+    if ($storeid) {
+	$state = PVE::Storage::map_volume($storecfg, $tpm->{file});
+    } else {
+	$state = $tpm->{file};
+    }
+
+    my $paths = get_tpm_paths($vmid);
+
+    # during migration, we will get state from remote
+    #
+    if (!$migration) {
+	# run swtpm_setup to create a new TPM state if it doesn't exist yet
+	my $setup_cmd = [
+	    "swtpm_setup",
+	    "--tpmstate",
+	    "file://$state",
+	    "--createek",
+	    "--create-ek-cert",
+	    "--create-platform-cert",
+	    "--lock-nvram",
+	    "--config",
+	    "/etc/swtpm_setup.conf", # do not use XDG configs
+	    "--runas",
+	    "0", # force creation as root, error if not possible
+	    "--not-overwrite", # ignore existing state, do not modify
+	];
+
+	push @$setup_cmd, "--tpm2" if $tpm->{version} eq 'v2.0';
+	# TPM 2.0 supports ECC crypto, use if possible
+	push @$setup_cmd, "--ecc" if $tpm->{version} eq 'v2.0';
+
+	run_command($setup_cmd, outfunc => sub {
+	    print "swtpm_setup: $1\n";
+	});
+    }
+
+    my $emulator_cmd = [
+	"swtpm",
+	"socket",
+	"--tpmstate",
+	"backend-uri=file://$state,mode=0600",
+	"--ctrl",
+	"type=unixio,path=$paths->{socket},mode=0600",
+	"--pid",
+	"file=$paths->{pid}",
+	"--terminate", # terminate on QEMU disconnect
+	"--daemon",
+    ];
+    push @$emulator_cmd, "--tpm2" if $tpm->{version} eq 'v2.0';
+    run_command($emulator_cmd, outfunc => sub { print $1; });
+
+    # return untainted PID of swtpm daemon so it can be killed on error
+    file_read_firstline($paths->{pid}) =~ m/(\d+)/;
+    return $1;
+}
+
 sub vga_conf_has_spice {
     my ($vga) = @_;
 
@@ -3467,6 +3552,8 @@ sub config_to_command {
 	push @$devices, @$audio_devs;
     }
 
+    add_tpm_device($vmid, $devices, $conf);
+
     my $sockets = 1;
     $sockets = $conf->{smp} if $conf->{smp}; # old style - no longer iused
     $sockets = $conf->{sockets} if  $conf->{sockets};
@@ -3663,6 +3750,8 @@ sub config_to_command {
 
 	# ignore efidisk here, already added in bios/fw handling code above
 	return if $drive->{interface} eq 'efidisk';
+	# similar for TPM
+	return if $drive->{interface} eq 'tpmstate';
 
 	$use_virtio = 1 if $ds =~ m/^virtio/;
 
@@ -4524,6 +4613,9 @@ sub foreach_volid {
 	$volhash->{$volid}->{is_vmstate} //= 0;
 	$volhash->{$volid}->{is_vmstate} = 1 if $key eq 'vmstate';
 
+	$volhash->{$volid}->{is_tpmstate} //= 0;
+	$volhash->{$volid}->{is_tpmstate} = 1 if $key eq 'tpmstate0';
+
 	$volhash->{$volid}->{is_unused} //= 0;
 	$volhash->{$volid}->{is_unused} = 1 if $key =~ /^unused\d+$/;
 
@@ -4721,7 +4813,7 @@ sub vmconfig_hotplug_pending {
 		vmconfig_update_net($storecfg, $conf, $hotplug_features->{network},
 				    $vmid, $opt, $value, $arch, $machine_type);
 	    } elsif (is_valid_drivename($opt)) {
-		die "skip\n" if $opt eq 'efidisk0';
+		die "skip\n" if $opt eq 'efidisk0' || $opt eq 'tpmstate0';
 		# some changes can be done without hotplug
 		my $drive = parse_drive($opt, $value);
 		if (drive_is_cloudinit($drive)) {
@@ -5341,8 +5433,17 @@ sub vm_start_nolock {
 	PVE::Tools::run_fork sub {
 	    PVE::Systemd::enter_systemd_scope($vmid, "Proxmox VE VM $vmid", %properties);
 
+	    my $tpmpid;
+	    if (my $tpm = $conf->{tpmstate0}) {
+		# start the TPM emulator so QEMU can connect on start
+		$tpmpid = start_swtpm($storecfg, $vmid, $tpm, $migratedfrom);
+	    }
+
 	    my $exitcode = run_command($cmd, %run_params);
-	    die "QEMU exited with code $exitcode\n" if $exitcode;
+	    if ($exitcode) {
+		kill 'TERM', $tpmpid if $tpmpid;
+		die "QEMU exited with code $exitcode\n";
+	    }
 	};
     };
 
@@ -5542,6 +5643,14 @@ sub vm_stop_cleanup {
 	if (!$keepActive) {
 	    my $vollist = get_vm_volumes($conf);
 	    PVE::Storage::deactivate_volumes($storecfg, $vollist);
+
+	    if (my $tpmdrive = $conf->{tpmstate0}) {
+		my $tpm = parse_drive("tpmstate0", $tpmdrive);
+		my ($storeid, $volname) = PVE::Storage::parse_volume_id($tpm->{file}, 1);
+		if ($storeid) {
+		    PVE::Storage::unmap_volume($storecfg, $tpm->{file});
+		}
+	    }
 	}
 
 	foreach my $ext (qw(mon qmp pid vnc qga)) {
@@ -6079,7 +6188,7 @@ sub restore_update_config_line {
 	$net->{macaddr} = PVE::Tools::random_ether_addr($dc->{mac_prefix}) if $net->{macaddr};
 	$netstr = print_net($net);
 	$res .= "$id: $netstr\n";
-    } elsif ($line =~ m/^((ide|scsi|virtio|sata|efidisk)\d+):\s*(\S+)\s*$/) {
+    } elsif ($line =~ m/^((ide|scsi|virtio|sata|efidisk|tpmstate)\d+):\s*(\S+)\s*$/) {
 	my $virtdev = $1;
 	my $value = $3;
 	my $di = parse_drive($virtdev, $value);
@@ -6397,8 +6506,8 @@ sub restore_proxmox_backup_archive {
 	    my $volid = $d->{volid};
 	    my $path = PVE::Storage::path($storecfg, $volid);
 
-	    # for live-restore we only want to preload the efidisk
-	    next if $options->{live} && $virtdev ne 'efidisk0';
+	    # for live-restore we only want to preload the efidisk and TPM state
+	    next if $options->{live} && $virtdev ne 'efidisk0' && $virtdev ne 'tpmstate0';
 
 	    my $pbs_restore_cmd = [
 		'/usr/bin/pbs-restore',
@@ -6473,7 +6582,9 @@ sub restore_proxmox_backup_archive {
 	my $conf = PVE::QemuConfig->load_config($vmid);
 	die "cannot do live-restore for template\n" if PVE::QemuConfig->is_template($conf);
 
-	delete $devinfo->{'drive-efidisk0'}; # this special drive is already restored before start
+	# these special drives are already restored before start
+	delete $devinfo->{'drive-efidisk0'};
+	delete $devinfo->{'drive-tpmstate0-backup'};
 	pbs_live_restore($vmid, $conf, $storecfg, $devinfo, $repo, $keyfile, $pbs_backup_name);
 
 	PVE::QemuConfig->remove_lock($vmid, "create");
@@ -7307,6 +7418,8 @@ sub clone_disk {
 	    $size = PVE::QemuServer::Cloudinit::CLOUDINIT_DISK_SIZE;
 	} elsif ($drivename eq 'efidisk0') {
 	    $size = get_efivars_size($conf);
+	} elsif ($drivename eq 'tpmstate0') {
+	    $size = PVE::QemuServer::Drive::TPMSTATE_DISK_SIZE;
 	} else {
 	    ($size) = PVE::Storage::volume_size_info($storecfg, $drive->{file}, 10);
 	}
@@ -7346,6 +7459,8 @@ sub clone_disk {
 		qemu_img_convert($drive->{file}, $newvolid, $size, $snapname, $sparseinit);
 	    }
 	} else {
+
+	    die "cannot move TPM state while VM is running\n" if $drivename eq 'tpmstate0';
 
 	    my $kvmver = get_running_qemu_version ($vmid);
 	    if (!min_version($kvmver, 2, 7)) {
@@ -7415,6 +7530,14 @@ sub update_efidisk_size {
     $conf->{efidisk0} = print_drive($disk);
 
     return;
+}
+
+sub update_tpmstate_size {
+    my ($conf) = @_;
+
+    my $disk = PVE::QemuServer::parse_drive('tpmstate0', $conf->{tpmstate0});
+    $disk->{size} = PVE::QemuServer::Drive::TPMSTATE_DISK_SIZE;
+    $conf->{tpmstate0} = print_drive($disk);
 }
 
 sub create_efidisk($$$$$) {

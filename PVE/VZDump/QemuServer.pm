@@ -86,11 +86,10 @@ sub prepare {
 	if (!$volume->{included}) {
 	    $self->loginfo("exclude disk '$name' '$volid' ($volume->{reason})");
 	    next;
-	} elsif ($self->{vm_was_running} && $volume_config->{iothread}) {
-	    if (!PVE::QemuServer::Machine::runs_at_least_qemu_version($vmid, 4, 0, 1)) {
-		die "disk '$name' '$volid' (iothread=on) can't use backup feature with running QEMU " .
-		    "version < 4.0.1! Either set backup=no for this drive or upgrade QEMU and restart VM\n";
-	    }
+	} elsif ($self->{vm_was_running} && $volume_config->{iothread} &&
+		 !PVE::QemuServer::Machine::runs_at_least_qemu_version($vmid, 4, 0, 1)) {
+	    die "disk '$name' '$volid' (iothread=on) can't use backup feature with running QEMU " .
+		"version < 4.0.1! Either set backup=no for this drive or upgrade QEMU and restart VM\n";
 	} else {
 	    my $log = "include disk '$name' '$volid'";
 	    if (defined(my $size = $volume_config->{size})) {
@@ -130,6 +129,12 @@ sub prepare {
 	    virtdev => $ds,
 	    qmdevice => "drive-$ds",
 	};
+
+	if ($ds eq 'tpmstate0') {
+	    # TPM drive only exists for backup, which is reflected in the name
+	    $diskinfo->{qmdevice} = 'drive-tpmstate0-backup';
+	    $task->{tpmpath} = $path;
+	}
 
 	if (-b $path) {
 	    $diskinfo->{type} = 'block';
@@ -425,6 +430,28 @@ my $query_backup_status_loop = sub {
     };
 };
 
+my $attach_tpmstate_drive = sub {
+    my ($self, $task, $vmid) = @_;
+
+    return if !$task->{tpmpath};
+
+    # unconditionally try to remove the tpmstate-named drive - it only exists
+    # for backing up, and avoids errors if left over from some previous event
+    eval { PVE::QemuServer::qemu_drivedel($vmid, "tpmstate0-backup"); };
+
+    $self->loginfo('attaching TPM drive to QEMU for backup');
+
+    my $drive = "file=$task->{tpmpath},if=none,read-only=on,id=drive-tpmstate0-backup";
+    my $ret = PVE::QemuServer::Monitor::hmp_cmd($vmid, "drive_add auto \"$drive\"");
+    die "attaching TPM drive failed\n" if $ret !~ m/OK/s;
+};
+
+my $detach_tpmstate_drive = sub {
+    my ($task, $vmid) = @_;
+    return if !$task->{tpmpath} || !PVE::QemuServer::check_running($vmid);
+    eval { PVE::QemuServer::qemu_drivedel($vmid, "tpmstate0-backup"); };
+};
+
 sub archive_pbs {
     my ($self, $task, $vmid) = @_;
 
@@ -500,6 +527,8 @@ sub archive_pbs {
 	    $self->loginfo("Please make sure you've installed the latest version and the VM has been restarted to use master key feature.");
 	    $master_keyfile = undef; # skip rest of master key handling below
 	}
+
+	$attach_tpmstate_drive->($self, $task, $vmid);
 
 	my $fs_frozen = $self->qga_fs_freeze($task, $vmid);
 
@@ -672,6 +701,8 @@ sub archive_vma {
 	$SIG{INT} = $SIG{TERM} = $SIG{QUIT} = $SIG{HUP} = $SIG{PIPE} = sub {
 	    die "interrupted by signal\n";
 	};
+
+	$attach_tpmstate_drive->($self, $task, $vmid);
 
 	my $outfh;
 	if ($opts->{stdout}) {
@@ -875,6 +906,8 @@ sub snapshot {
 
 sub cleanup {
     my ($self, $task, $vmid) = @_;
+
+    $detach_tpmstate_drive->($task, $vmid);
 
     if ($self->{qmeventd_fh}) {
 	close($self->{qmeventd_fh});
