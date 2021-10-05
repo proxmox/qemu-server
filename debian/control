@@ -3,6 +3,7 @@ Section: admin
 Priority: optional
 Maintainer: Proxmox Support Team <support@proxmox.com>
 Build-Depends: debhelper (>= 12~),
+               libglib2.0-dev,
                libio-multiplex-perl,
                libjson-c-dev,
                libpve-cluster-perl,
@@ -20,7 +21,6 @@ Build-Depends: debhelper (>= 12~),
                pve-edk2-firmware,
                pve-firewall,
                pve-qemu-kvm,
-               libglib2.0-dev,
 Standards-Version: 4.5.1
 Homepage: https://www.proxmox.com
 
@@ -50,7 +50,6 @@ Depends: dbus,
          ${misc:Depends},
          ${perl:Depends},
          ${shlibs:Depends},
-Breaks: pve-ha-manager (<= 3.0-4),
-        pve-manager (<= 6.0-13),
+Breaks: pve-ha-manager (<= 3.0-4), pve-manager (<= 6.0-13)
 Description: Qemu Server Tools
  This package contains the Qemu Server tools used by Proxmox VE
