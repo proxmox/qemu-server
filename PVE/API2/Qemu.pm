@@ -187,8 +187,7 @@ my $create_disks = sub {
 	    } elsif ($ds eq 'tpmstate0') {
 		# swtpm can only use raw volumes, and uses a fixed size
 		$size = PVE::Tools::convert_size(PVE::QemuServer::Drive::TPMSTATE_DISK_SIZE, 'b' => 'kb');
-		$volid = PVE::Storage::vdisk_alloc($storecfg, $storeid, $vmid,
-		    "raw", undef, $size);
+		$volid = PVE::Storage::vdisk_alloc($storecfg, $storeid, $vmid, "raw", undef, $size);
 	    } else {
 		$volid = PVE::Storage::vdisk_alloc($storecfg, $storeid, $vmid, $fmt, undef, $size);
 	    }

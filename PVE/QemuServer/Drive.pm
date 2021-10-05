@@ -339,8 +339,8 @@ my %tpmversion_fmt = (
     version => {
 	type => 'string',
 	enum => [qw(v1.2 v2.0)],
-	description => "The TPM interface version. v2.0 is newer and should be "
-		     . "preferred. Note that this cannot be changed later on.",
+	description => "The TPM interface version. v2.0 is newer and should be preferred."
+	    ." Note that this cannot be changed later on.",
 	optional => 1,
 	default => 'v2.0',
     },
