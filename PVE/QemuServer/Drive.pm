@@ -306,6 +306,26 @@ my $virtiodesc = {
 };
 PVE::JSONSchema::register_standard_option("pve-qm-virtio", $virtiodesc);
 
+my %efitype_fmt = (
+    efitype => {
+	type => 'string',
+	enum => [qw(2m 4m)],
+	description => "Size and type of the OVMF EFI vars. '4m' is newer and recommended,"
+	    . " and required for Secure Boot. For backwards compatibility, '2m' is used"
+	    . " if not otherwise specified.",
+	optional => 1,
+	default => '2m',
+    },
+    'ms-keys' => {
+	type => 'boolean',
+	description => "Pre-enroll the Microsoft Standard UEFI Secure Boot keys if"
+	    . " used with 'efitype=4m'. Note that this will enable Secure Boot by"
+	    . " default, though it can still be turned off from within the VM.",
+	optional => 1,
+	default => 0,
+    },
+);
+
 my $efidisk_fmt = {
     volume => { alias => 'file' },
     file => {
@@ -323,6 +343,7 @@ my $efidisk_fmt = {
 	description => "Disk size. This is purely informational and has no effect.",
 	optional => 1,
     },
+    %efitype_fmt,
 };
 
 my $efidisk_desc = {
@@ -382,6 +403,7 @@ my $alldrive_fmt = {
     %ssd_fmt,
     %wwn_fmt,
     %tpmversion_fmt,
+    %efitype_fmt,
 };
 
 my $unused_fmt = {

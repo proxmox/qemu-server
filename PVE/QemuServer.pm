@@ -63,14 +63,26 @@ eval {
 
 my $EDK2_FW_BASE = '/usr/share/pve-edk2-firmware/';
 my $OVMF = {
-    x86_64 => [
-	"$EDK2_FW_BASE/OVMF_CODE.fd",
-	"$EDK2_FW_BASE/OVMF_VARS.fd"
-    ],
-    aarch64 => [
-	"$EDK2_FW_BASE/AAVMF_CODE.fd",
-	"$EDK2_FW_BASE/AAVMF_VARS.fd"
-    ],
+    x86_64 => {
+	'4m' => [
+	    "$EDK2_FW_BASE/OVMF_CODE_4M.secboot.fd",
+	    "$EDK2_FW_BASE/OVMF_VARS_4M.fd",
+	],
+	'4m-ms' => [
+	    "$EDK2_FW_BASE/OVMF_CODE_4M.secboot.fd",
+	    "$EDK2_FW_BASE/OVMF_VARS_4M.ms.fd",
+	],
+	default => [
+	    "$EDK2_FW_BASE/OVMF_CODE.fd",
+	    "$EDK2_FW_BASE/OVMF_VARS.fd",
+	],
+    },
+    aarch64 => {
+	default => [
+	    "$EDK2_FW_BASE/AAVMF_CODE.fd",
+	    "$EDK2_FW_BASE/AAVMF_VARS.fd",
+	],
+    },
 };
 
 my $cpuinfo = PVE::ProcFSTools::read_cpuinfo();
@@ -3140,13 +3152,18 @@ sub get_vm_machine {
     return $machine;
 }
 
-sub get_ovmf_files($) {
-    my ($arch) = @_;
+sub get_ovmf_files($$) {
+    my ($arch, $efidisk) = @_;
 
-    my $ovmf = $OVMF->{$arch}
+    my $types = $OVMF->{$arch}
 	or die "no OVMF images known for architecture '$arch'\n";
 
-    return @$ovmf;
+    my $type = 'default';
+    if (defined($efidisk->{efitype}) && $efidisk->{efitype} eq '4m') {
+	$type = $efidisk->{'ms-keys'} ? "4m-ms" : "4m";
+    }
+
+    return $types->{$type}->@*;
 }
 
 my $Arch2Qemu = {
@@ -3405,13 +3422,17 @@ sub config_to_command {
     }
 
     if ($conf->{bios} && $conf->{bios} eq 'ovmf') {
-	my ($ovmf_code, $ovmf_vars) = get_ovmf_files($arch);
+	my $d;
+	if (my $efidisk = $conf->{efidisk0}) {
+	    $d = parse_drive('efidisk0', $efidisk);
+	}
+
+	my ($ovmf_code, $ovmf_vars) = get_ovmf_files($arch, $d);
 	die "uefi base image '$ovmf_code' not found\n" if ! -f $ovmf_code;
 
 	my ($path, $format);
 	my $read_only_str = '';
-	if (my $efidisk = $conf->{efidisk0}) {
-	    my $d = parse_drive('efidisk0', $efidisk);
+	if ($d) {
 	    my ($storeid, $volname) = PVE::Storage::parse_volume_id($d->{file}, 1);
 	    $format = $d->{format};
 	    if ($storeid) {
@@ -7516,7 +7537,8 @@ sub qemu_use_old_bios_files {
 sub get_efivars_size {
     my ($conf) = @_;
     my $arch = get_vm_arch($conf);
-    my (undef, $ovmf_vars) = get_ovmf_files($arch);
+    my $efidisk = $conf->{efidisk0} ? parse_drive('efidisk0', $conf->{efidisk0}) : undef;
+    my (undef, $ovmf_vars) = get_ovmf_files($arch, $efidisk);
     die "uefi vars image '$ovmf_vars' not found\n" if ! -f $ovmf_vars;
     return -s $ovmf_vars;
 }
@@ -7541,10 +7563,10 @@ sub update_tpmstate_size {
     $conf->{tpmstate0} = print_drive($disk);
 }
 
-sub create_efidisk($$$$$) {
-    my ($storecfg, $storeid, $vmid, $fmt, $arch) = @_;
+sub create_efidisk($$$$$$) {
+    my ($storecfg, $storeid, $vmid, $fmt, $arch, $efidisk) = @_;
 
-    my (undef, $ovmf_vars) = get_ovmf_files($arch);
+    my (undef, $ovmf_vars) = get_ovmf_files($arch, $efidisk);
     die "EFI vars default image not found\n" if ! -f $ovmf_vars;
 
     my $vars_size_b = -s $ovmf_vars;
