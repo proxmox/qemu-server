@@ -17,7 +17,7 @@ parse_hostpci
 
 our $MAX_HOSTPCI_DEVICES = 16;
 
-my $PCIRE = qr/([a-f0-9]{4}:)?[a-f0-9]{2}:[a-f0-9]{2}(?:\.[a-f0-9])?/;
+my $PCIRE = qr/(?:[a-f0-9]{4}:)?[a-f0-9]{2}:[a-f0-9]{2}(?:\.[a-f0-9])?/;
 my $hostpci_fmt = {
     host => {
 	default_key => 1,
