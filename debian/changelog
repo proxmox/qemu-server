@@ -1,3 +1,12 @@
+qemu-server (7.0-16) bullseye; urgency=medium
+
+  * ovmf: support secure boot enabled code images
+
+  * ovmf: support provisioning an EFI vars template with secureboot by default
+    on and distribution + Microsofts secure-boot key pre-enrolled
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 05 Oct 2021 20:22:18 +0200
+
 qemu-server (7.0-15) bullseye; urgency=medium
 
   * api: return task-worker UPID in create template endpoint
