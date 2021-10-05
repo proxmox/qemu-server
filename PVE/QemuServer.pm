@@ -3160,7 +3160,7 @@ sub get_ovmf_files($$) {
 
     my $type = 'default';
     if (defined($efidisk->{efitype}) && $efidisk->{efitype} eq '4m') {
-	$type = $efidisk->{'ms-keys'} ? "4m-ms" : "4m";
+	$type = $efidisk->{'pre-enrolled-keys'} ? "4m-ms" : "4m";
     }
 
     return $types->{$type}->@*;

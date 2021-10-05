@@ -316,11 +316,11 @@ my %efitype_fmt = (
 	optional => 1,
 	default => '2m',
     },
-    'ms-keys' => {
+    'pre-enrolled-keys' => {
 	type => 'boolean',
-	description => "Pre-enroll the Microsoft Standard UEFI Secure Boot keys if"
-	    . " used with 'efitype=4m'. Note that this will enable Secure Boot by"
-	    . " default, though it can still be turned off from within the VM.",
+	description => "Use am EFI vars template with distribution-specific and Microsoft Standard"
+	    ." keys enrolled, if used with 'efitype=4m'. Note that this will enable Secure Boot by"
+	    ." default, though it can still be turned off from within the VM.",
 	optional => 1,
 	default => 0,
     },
