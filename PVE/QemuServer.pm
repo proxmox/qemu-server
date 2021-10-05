@@ -5441,6 +5441,7 @@ sub vm_start_nolock {
 
 	    my $exitcode = run_command($cmd, %run_params);
 	    if ($exitcode) {
+		warn "stopping swtpm instance (pid $tpmpid) due to QEMU startup error\n";
 		kill 'TERM', $tpmpid if $tpmpid;
 		die "QEMU exited with code $exitcode\n";
 	    }
