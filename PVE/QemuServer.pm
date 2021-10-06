@@ -4844,6 +4844,8 @@ sub vmconfig_hotplug_pending {
 	    } elsif ($opt eq 'cpulimit') {
 		my $cpulimit = $conf->{pending}->{$opt} == 0 ? -1 : int($conf->{pending}->{$opt} * 100000);
 		$cgroup->change_cpu_quota($cpulimit, 100000);
+	    } elsif ($opt eq 'agent') {
+		vmconfig_update_agent($conf, $opt, $value);
 	    } else {
 		die "skip\n";  # skip non-hot-pluggable options
 	    }
@@ -5000,6 +5002,29 @@ sub vmconfig_update_net {
 	vm_deviceplug($storecfg, $conf, $vmid, $opt, $newnet, $arch, $machine_type);
     } else {
 	die "skip\n";
+    }
+}
+
+sub vmconfig_update_agent {
+    my ($conf, $opt, $value) = @_;
+
+    die "skip\n" if !$conf->{$opt};
+
+    my $hotplug_options = { fstrim_cloned_disks => 1 };
+
+    my $old_agent = parse_guest_agent($conf);
+    my $agent = parse_guest_agent({$opt => $value});
+
+    #added/changed options
+    foreach my $option (keys %$agent) {
+	next if defined($hotplug_options->{$option});
+	die "skip\n" if safe_string_ne($agent->{$option}, $old_agent->{$option});
+    }
+
+    #removed options
+    foreach my $option (keys %$old_agent) {
+	next if defined($hotplug_options->{$option});
+	die "skip\n" if safe_string_ne($old_agent->{$option}, $agent->{$option});
     }
 }
 
