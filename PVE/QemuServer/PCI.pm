@@ -461,4 +461,24 @@ sub print_hostpci_devices {
     return ($kvm_off, $gpu_passthrough, $legacy_igd);
 }
 
+sub prepare_pci_device {
+    my ($vmid, $pciid, $confslot, $mdev) = @_;
+
+    my $info = PVE::SysFSTools::pci_device_info("$pciid");
+    die "IOMMU not present\n" if !PVE::SysFSTools::check_iommu_support();
+    die "no pci device info for device '$pciid'\n" if !$info;
+
+    if ($mdev) {
+	my $uuid = PVE::SysFSTools::generate_mdev_uuid($vmid, $confslot);
+	PVE::SysFSTools::pci_create_mdev_device($pciid, $uuid, $mdev);
+    } else {
+	die "can't unbind/bind PCI group to VFIO '$pciid'\n"
+	    if !PVE::SysFSTools::pci_dev_group_bind_to_vfio($pciid);
+	die "can't reset PCI device '$pciid'\n"
+	    if $info->{has_fl_reset} && !PVE::SysFSTools::pci_dev_reset($info);
+    }
+
+    return;
+}
+
 1;
