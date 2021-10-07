@@ -5381,13 +5381,30 @@ sub vm_start_nolock {
 	push @$cmd, '-S';
     }
 
-    # host pci devices
+    my $start_timeout = $params->{timeout} // config_aware_timeout($conf, $resume);
+
+    my $pci_devices = {}; # host pci devices
     for (my $i = 0; $i < $PVE::QemuServer::PCI::MAX_HOSTPCI_DEVICES; $i++)  {
-      my $d = parse_hostpci($conf->{"hostpci$i"});
-      next if !$d;
-      for my $pcidevice ($d->{pciid}->@*) {
-	PVE::QemuServer::PCI::prepare_pci_device($vmid, $pcidevice->{id}, $i, $d->{mdev});
-      }
+	my $dev = $conf->{"hostpci$i"} or next;
+	$pci_devices->{$i} = parse_hostpci($dev);
+    }
+
+    my $pci_id_list = [ map { $_->{id} } map { $_->{pciid}->@* } values $pci_devices->%* ];
+    # reserve all PCI IDs before actually doing anything with them
+    PVE::QemuServer::PCI::reserve_pci_usage($pci_id_list, $vmid, $start_timeout);
+
+    eval {
+	for my $id (sort keys %$pci_devices) {
+	    my $d = $pci_devices->{$id};
+	    for my $dev ($d->{pciid}->@*) {
+		PVE::QemuServer::PCI::prepare_pci_device($vmid, $dev->{id}, $id, $d->{mdev});
+	    }
+	}
+    };
+    if (my $err = $@) {
+	eval { PVE::QemuServer::PCI::remove_pci_reservation($pci_id_list) };
+	warn $@ if $@;
+	die $err;
     }
 
     PVE::Storage::activate_volumes($storecfg, $vollist);
@@ -5402,7 +5419,6 @@ sub vm_start_nolock {
 
     my $cpuunits = get_cpuunits($conf);
 
-    my $start_timeout = $params->{timeout} // config_aware_timeout($conf, $resume);
     my %run_params = (
 	timeout => $statefile ? undef : $start_timeout,
 	umask => 0077,
@@ -5482,8 +5498,15 @@ sub vm_start_nolock {
     if (my $err = $@) {
 	# deactivate volumes if start fails
 	eval { PVE::Storage::deactivate_volumes($storecfg, $vollist); };
+	eval { PVE::QemuServer::PCI::remove_pci_reservation($pci_id_list) };
+
 	die "start failed: $err";
     }
+
+    # re-reserve all PCI IDs now that we can know the actual VM PID
+    my $pid = PVE::QemuServer::Helpers::vm_running_locally($vmid);
+    eval { PVE::QemuServer::PCI::reserve_pci_usage($pci_id_list, $vmid, undef, $pid) };
+    warn $@ if $@;
 
     print "migration listens on $migrate_uri\n" if $migrate_uri;
     $res->{migrate_uri} = $migrate_uri;
@@ -5673,6 +5696,7 @@ sub vm_stop_cleanup {
 	    unlink '/dev/shm/pve-shm-' . ($ivshmem->{name} // $vmid);
 	}
 
+	my $ids = [];
 	foreach my $key (keys %$conf) {
 	    next if $key !~ m/^hostpci(\d+)$/;
 	    my $hostpciindex = $1;
@@ -5681,9 +5705,11 @@ sub vm_stop_cleanup {
 
 	    foreach my $pci (@{$d->{pciid}}) {
 		my $pciid = $pci->{id};
+		push @$ids, $pci->{id};
 		PVE::SysFSTools::pci_cleanup_mdev_device($pciid, $uuid);
 	    }
 	}
+	PVE::QemuServer::PCI::remove_pci_reservation($ids);
 
 	vmconfig_apply_pending($vmid, $conf, $storecfg) if $apply_pending_changes;
     };
