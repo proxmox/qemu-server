@@ -5,6 +5,7 @@ use strict;
 
 use PVE::JSONSchema;
 use PVE::SysFSTools;
+use PVE::Tools;
 
 use base 'Exporter';
 
@@ -482,6 +483,108 @@ sub prepare_pci_device {
 	die "can't reset PCI device '$pciid'\n"
 	    if $info->{has_fl_reset} && !PVE::SysFSTools::pci_dev_reset($info);
     }
+}
+
+my $PCIID_RESERVATION_FILE = "/var/run/pve-reserved-pciids";
+my $PCIID_RESERVATION_LCK = "/var/lock/pve-reserved-pciids.lck";
+
+my $parse_pci_reservation = sub {
+    my $pciids = {};
+
+    if (my $fh = IO::File->new ($PCIID_RESERVATION_FILE, "r")) {
+	while (my $line = <$fh>) {
+	    if ($line =~ m/^($PCIRE)\s(\d+)\s(time|pid)\:(\d+)$/) {
+		$pciids->{$1} = {
+		    vmid => $2,
+		    "$3" => $4,
+		};
+	    }
+	}
+    }
+
+    return $pciids;
+};
+
+my $write_pci_reservation = sub {
+    my ($pciids) = @_;
+
+    my $data = "";
+    foreach my $p (keys %$pciids) {
+	my $entry = $pciids->{$p};
+	if (defined($entry->{pid})) {
+	    $data .= "$p $entry->{vmid} pid:$entry->{pid}\n";
+	} else {
+	    $data .= "$p $entry->{vmid} time:$entry->{time}\n";
+	}
+    }
+
+    PVE::Tools::file_set_contents($PCIID_RESERVATION_FILE, $data);
+};
+
+sub remove_pci_reservation {
+    my ($ids) = @_;
+
+    return if !scalar(@$ids); # do nothing for empty list
+
+    my $code = sub {
+	my $pciids = $parse_pci_reservation->();
+
+	for my $id (@$ids) {
+	    delete $pciids->{$id};
+	}
+
+	$write_pci_reservation->($pciids);
+    };
+
+    PVE::Tools::lock_file($PCIID_RESERVATION_LCK, 10, $code);
+    die $@ if $@;
+
+    return;
+}
+
+sub reserve_pci_usage {
+    my ($ids, $vmid, $timeout, $pid) = @_;
+
+    return if !scalar(@$ids); # do nothing for empty list
+
+    PVE::Tools::lock_file($PCIID_RESERVATION_LCK, 10, sub {
+
+	my $ctime = time();
+	my $pciids = $parse_pci_reservation->();
+
+	for my $id (@$ids) {
+	    my $errmsg = "PCI device '$id' already in use\n";
+	    if (my $pciid = $pciids->{$id}) {
+		if ($pciid->{vmid} != $vmid) {
+		    # check time based reservation
+		    die $errmsg if defined($pciid->{time}) && $pciid->{time} > $ctime;
+
+		    # check running vm
+		    my $pid = PVE::QemuServer::Helpers::vm_running_locally($pciid->{vmid});
+		    if (my $oldpid = $pciid->{pid}) {
+			die $errmsg if defined($pid) && $pid == $oldpid;
+			warn "leftover PCI reservation found for $id, ignoring...\n"
+			    if !defined($pid) || $pid != $oldpid;
+		    }
+		}
+	    }
+
+	    $pciids->{$id} = {
+		vmid => $vmid,
+	    };
+	    if (defined($timeout)) {
+		# we save the time when the reservation gets invalid (+5s),
+		# since the start timeout depends on the config
+		$pciids->{$id}->{time} = $ctime + $timeout + 5;
+	    }
+	    $pciids->{$id}->{pid} = $pid if defined($pid);
+	}
+
+	$write_pci_reservation->($pciids);
+
+	return;
+    });
+    die $@ if $@;
 }
 
 1;
