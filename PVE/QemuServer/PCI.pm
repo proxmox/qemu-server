@@ -224,6 +224,11 @@ sub get_pci_addr_map {
     return $pci_addr_map;
 }
 
+my sub generate_mdev_uuid {
+    my ($vmid, $index) = @_;
+    return sprintf("%08d-0000-0000-0000-%012d", $index, $vmid);
+}
+
 my $get_addr_mapping_from_id = sub {
     my ($map, $id) = @_;
 
@@ -426,7 +431,7 @@ sub print_hostpci_devices {
 	my $sysfspath;
 	if ($d->{mdev} && scalar(@$pcidevices) == 1) {
 	    my $pci_id = $pcidevices->[0]->{id};
-	    my $uuid = PVE::SysFSTools::generate_mdev_uuid($vmid, $i);
+	    my $uuid = generate_mdev_uuid($vmid, $i);
 	    $sysfspath = "/sys/bus/pci/devices/$pci_id/$uuid";
 	} elsif ($d->{mdev}) {
 	    warn "ignoring mediated device '$id' with multifunction device\n";
@@ -469,7 +474,7 @@ sub prepare_pci_device {
     die "no pci device info for device '$pciid'\n" if !$info;
 
     if ($mdev) {
-	my $uuid = PVE::SysFSTools::generate_mdev_uuid($vmid, $index);
+	my $uuid = generate_mdev_uuid($vmid, $index);
 	PVE::SysFSTools::pci_create_mdev_device($pciid, $uuid, $mdev);
     } else {
 	die "can't unbind/bind PCI group to VFIO '$pciid'\n"
