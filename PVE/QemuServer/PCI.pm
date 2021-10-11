@@ -482,8 +482,6 @@ sub prepare_pci_device {
 	die "can't reset PCI device '$pciid'\n"
 	    if $info->{has_fl_reset} && !PVE::SysFSTools::pci_dev_reset($info);
     }
-
-    return;
 }
 
 1;

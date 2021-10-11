@@ -5385,11 +5385,8 @@ sub vm_start_nolock {
     for (my $i = 0; $i < $PVE::QemuServer::PCI::MAX_HOSTPCI_DEVICES; $i++)  {
       my $d = parse_hostpci($conf->{"hostpci$i"});
       next if !$d;
-      my $pcidevices = $d->{pciid};
-      foreach my $pcidevice (@$pcidevices) {
-	    my $pciid = $pcidevice->{id};
-
-	    PVE::QemuServer::PCI::prepare_pci_device($vmid, $pciid, $i, $d->{mdev});
+      for my $pcidevice ($d->{pciid}->@*) {
+	PVE::QemuServer::PCI::prepare_pci_device($vmid, $pcidevice->{id}, $i, $d->{mdev});
       }
     }
 
