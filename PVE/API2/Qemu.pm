@@ -24,6 +24,7 @@ use PVE::QemuServer;
 use PVE::QemuServer::Drive;
 use PVE::QemuServer::CPUConfig;
 use PVE::QemuServer::Monitor qw(mon_cmd);
+use PVE::QemuServer::Machine;
 use PVE::QemuMigrate;
 use PVE::RPCEnvironment;
 use PVE::AccessControl;
@@ -183,8 +184,9 @@ my $create_disks = sub {
 
 	    my $volid;
 	    if ($ds eq 'efidisk0') {
+		my $smm = PVE::QemuServer::Machine::machine_type_is_q35($conf);
 		($volid, $size) = PVE::QemuServer::create_efidisk(
-		    $storecfg, $storeid, $vmid, $fmt, $arch, $disk);
+		    $storecfg, $storeid, $vmid, $fmt, $arch, $disk, $smm);
 	    } elsif ($ds eq 'tpmstate0') {
 		# swtpm can only use raw volumes, and uses a fixed size
 		$size = PVE::Tools::convert_size(PVE::QemuServer::Drive::TPMSTATE_DISK_SIZE, 'b' => 'kb');
