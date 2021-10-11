@@ -462,14 +462,14 @@ sub print_hostpci_devices {
 }
 
 sub prepare_pci_device {
-    my ($vmid, $pciid, $confslot, $mdev) = @_;
+    my ($vmid, $pciid, $index, $mdev) = @_;
 
     my $info = PVE::SysFSTools::pci_device_info("$pciid");
     die "IOMMU not present\n" if !PVE::SysFSTools::check_iommu_support();
     die "no pci device info for device '$pciid'\n" if !$info;
 
     if ($mdev) {
-	my $uuid = PVE::SysFSTools::generate_mdev_uuid($vmid, $confslot);
+	my $uuid = PVE::SysFSTools::generate_mdev_uuid($vmid, $index);
 	PVE::SysFSTools::pci_create_mdev_device($pciid, $uuid, $mdev);
     } else {
 	die "can't unbind/bind PCI group to VFIO '$pciid'\n"
