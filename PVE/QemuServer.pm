@@ -4745,7 +4745,7 @@ sub vmconfig_hotplug_pending {
 	    } elsif ($opt eq 'cpuunits') {
 		$cgroup->change_cpu_shares(undef, 1024);
 	    } elsif ($opt eq 'cpulimit') {
-		$cgroup->change_cpu_quota(-1, 100000);
+		$cgroup->change_cpu_quota(undef, undef); # reset, cgroup module can better decide values
 	    } else {
 		die "skip\n";
 	    }
