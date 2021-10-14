@@ -22,7 +22,7 @@ use JSON;
 use MIME::Base64;
 use POSIX;
 use Storable qw(dclone);
-use Time::HiRes qw(gettimeofday);
+use Time::HiRes qw(gettimeofday usleep);
 use URI::Escape;
 use UUID;
 
@@ -3057,6 +3057,14 @@ sub start_swtpm {
     ];
     push @$emulator_cmd, "--tpm2" if $tpm->{version} eq 'v2.0';
     run_command($emulator_cmd, outfunc => sub { print $1; });
+
+    # swtpm may take a bit to start before daemonizing, wait up to 5s for pid
+    my $tries = 100;
+    while (! -e $paths->{pid}) {
+	usleep(50000);
+	die "failed to start swtpm: pid file '$paths->{pid}' wasn't created.\n"
+	    if --$tries == 0;
+    }
 
     # return untainted PID of swtpm daemon so it can be killed on error
     file_read_firstline($paths->{pid}) =~ m/(\d+)/;
