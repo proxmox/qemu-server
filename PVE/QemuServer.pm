@@ -4541,7 +4541,7 @@ sub qemu_volume_snapshot {
 
     my $running = check_running($vmid);
 
-    if ($running && do_snapshots_with_qemu($storecfg, $volid)){
+    if ($running && do_snapshots_with_qemu($storecfg, $volid, $deviceid)) {
 	mon_cmd($vmid, 'blockdev-snapshot-internal-sync', device => $deviceid, name => $snap);
     } else {
 	PVE::Storage::volume_snapshot($storecfg, $volid, $snap);
@@ -4563,7 +4563,7 @@ sub qemu_volume_snapshot_delete {
 	});
     }
 
-    if ($running && do_snapshots_with_qemu($storecfg, $volid)){
+    if ($running && do_snapshots_with_qemu($storecfg, $volid, $deviceid)) {
 	mon_cmd($vmid, 'blockdev-snapshot-delete-internal-sync', device => $deviceid, name => $snap);
     } else {
 	PVE::Storage::volume_snapshot_delete($storecfg, $volid, $snap, $running);
@@ -7042,7 +7042,9 @@ my $qemu_snap_storage = {
     rbd => 1,
 };
 sub do_snapshots_with_qemu {
-    my ($storecfg, $volid) = @_;
+    my ($storecfg, $volid, $deviceid) = @_;
+
+    return if $deviceid =~ m/tpmstate0/;
 
     my $storage_name = PVE::Storage::parse_volume_id($volid);
     my $scfg = $storecfg->{ids}->{$storage_name};
