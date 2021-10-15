@@ -296,31 +296,31 @@ sub generate_opennebula {
 	    $networkenabled = 1;
 
 	    if ($ipconfig->{ip} eq 'dhcp') {
-		$content .= $ethid."_DHCP=YES\n";
+		$content .= "${ethid}_DHCP=YES\n";
 	    } else {
 		my ($addr, $mask) = split_ip4($ipconfig->{ip});
-		$content .= $ethid."_IP=$addr\n";
-		$content .= $ethid."_MASK=$mask\n";
-		$content .= $ethid."_MAC=$mac\n";
-		$content .= $ethid."_GATEWAY=$ipconfig->{gw}\n" if $ipconfig->{gw};
+		$content .= "${ethid}_IP=$addr\n";
+		$content .= "${ethid}_MASK=$mask\n";
+		$content .= "${ethid}_MAC=$mac\n";
+		$content .= "${ethid}_GATEWAY=$ipconfig->{gw}\n" if $ipconfig->{gw};
 	    }
-	    $content .= $ethid."_MTU=$net->{mtu}\n" if $net->{mtu};
+	    $content .= "${ethid}_MTU=$net->{mtu}\n" if $net->{mtu};
 	}
 
 	if ($ipconfig->{ip6}) {
 	    $networkenabled = 1;
 	    if ($ipconfig->{ip6} eq 'dhcp') {
-		$content .= $ethid."_DHCP6=YES\n";
+		$content .= "${ethid}_DHCP6=YES\n";
 	    } elsif ($ipconfig->{ip6} eq 'auto') {
-		$content .= $ethid."_AUTO6=YES\n";
+		$content .= "${ethid}_AUTO6=YES\n";
 	    } else {
 		my ($addr, $mask) = split('/', $ipconfig->{ip6});
-		$content .= $ethid."_IP6=$addr\n";
-		$content .= $ethid."_MASK6=$mask\n";
-		$content .= $ethid."_MAC6=$mac\n";
-		$content .= $ethid."_GATEWAY6=$ipconfig->{gw6}\n" if $ipconfig->{gw6};
+		$content .= "${ethid}_IP6=$addr\n";
+		$content .= "${ethid}_MASK6=$mask\n";
+		$content .= "${ethid}_MAC6=$mac\n";
+		$content .= "${ethid}_GATEWAY6=$ipconfig->{gw6}\n" if $ipconfig->{gw6};
 	    }
-	    $content .= $ethid."_MTU=$net->{mtu}\n" if $net->{mtu};
+	    $content .= "${ethid}_MTU=$net->{mtu}\n" if $net->{mtu};
 	}
     }
 
