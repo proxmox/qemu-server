@@ -491,7 +491,6 @@ my $PCIID_RESERVATION_LOCK = "${PCIID_RESERVATION_FILE}.lock";
 
 my $parse_pci_reservation_unlocked = sub {
     my $pciids = {};
-
     if (my $fh = IO::File->new($PCIID_RESERVATION_FILE, "r")) {
 	while (my $line = <$fh>) {
 	    if ($line =~ m/^($PCIRE)\s(\d+)\s(time|pid)\:(\d+)$/) {
@@ -502,88 +501,74 @@ my $parse_pci_reservation_unlocked = sub {
 	    }
 	}
     }
-
     return $pciids;
 };
 
 my $write_pci_reservation_unlocked = sub {
-    my ($pciids) = @_;
+    my ($reservations) = @_;
 
     my $data = "";
-    foreach my $p (keys %$pciids) {
-	my $entry = $pciids->{$p};
-	if (defined($entry->{pid})) {
-	    $data .= "$p $entry->{vmid} pid:$entry->{pid}\n";
+    for my $pci_id (sort keys $reservations->%*) {
+	my ($vmid, $pid, $time) = $reservations->{$pci_id}->@{'vmid', 'pid', 'time'};
+	if (defined($pid)) {
+	    $data .= "$pci_id $vmid pid:$pid\n";
 	} else {
-	    $data .= "$p $entry->{vmid} time:$entry->{time}\n";
+	    $data .= "$pci_id $vmid time:$time\n";
 	}
     }
-
     PVE::Tools::file_set_contents($PCIID_RESERVATION_FILE, $data);
 };
 
 sub remove_pci_reservation {
-    my ($ids) = @_;
+    my ($dropped_ids) = @_;
 
-    return if !scalar(@$ids); # do nothing for empty list
+    $dropped_ids = [ $dropped_ids ] if !ref($dropped_ids);
+    return if !scalar(@$dropped_ids); # do nothing for empty list
 
-    my $code = sub {
-	my $pciids = $parse_pci_reservation_unlocked->();
-
-	for my $id (@$ids) {
-	    delete $pciids->{$id};
-	}
-
-	$write_pci_reservation_unlocked->($pciids);
-    };
-
-    PVE::Tools::lock_file($PCIID_RESERVATION_LOCK, 10, $code);
+    PVE::Tools::lock_file($PCIID_RESERVATION_LOCK, 2, sub {
+	my $reservation_list = $parse_pci_reservation_unlocked->();
+	delete $reservation_list->@{$dropped_ids->@*};
+	$write_pci_reservation_unlocked->($reservation_list);
+    });
     die $@ if $@;
-
-    return;
 }
 
 sub reserve_pci_usage {
-    my ($ids, $vmid, $timeout, $pid) = @_;
+    my ($requested_ids, $vmid, $timeout, $pid) = @_;
 
-    return if !scalar(@$ids); # do nothing for empty list
+    $requested_ids = [ $requested_ids ] if !ref($requested_ids);
+    return if !scalar(@$requested_ids); # do nothing for empty list
 
-    PVE::Tools::lock_file($PCIID_RESERVATION_LOCK, 10, sub {
+    PVE::Tools::lock_file($PCIID_RESERVATION_LOCK, 5, sub {
+	my $reservation_list = $parse_pci_reservation_unlocked->();
 
 	my $ctime = time();
-	my $pciids = $parse_pci_reservation_unlocked->();
+	for my $id ($requested_ids->@*) {
+	    my $reservation = $reservation_list->{$id};
+	    if ($reservation && $reservation->{vmid} != $vmid) {
+		# check time based reservation
+		die "PCI device '$id' is currently reserved for use by VMID '$reservation->{vmid}'\n"
+		    if defined($reservation->{time}) && $reservation->{time} > $ctime;
 
-	for my $id (@$ids) {
-	    my $errmsg = "PCI device '$id' already in use\n";
-	    if (my $pciid = $pciids->{$id}) {
-		if ($pciid->{vmid} != $vmid) {
-		    # check time based reservation
-		    die $errmsg if defined($pciid->{time}) && $pciid->{time} > $ctime;
-
+		if (my $reserved_pid = $reservation->{pid}) {
 		    # check running vm
-		    my $pid = PVE::QemuServer::Helpers::vm_running_locally($pciid->{vmid});
-		    if (my $oldpid = $pciid->{pid}) {
-			die $errmsg if defined($pid) && $pid == $oldpid;
-			warn "leftover PCI reservation found for $id, ignoring...\n"
-			    if !defined($pid) || $pid != $oldpid;
+		    my $running_pid = PVE::QemuServer::Helpers::vm_running_locally($reservation->{vmid});
+		    if (defined($running_pid) && $running_pid == $reserved_pid) {
+			die "PCI device '$id' already in use by VMID '$reservation->{vmid}'\n";
+		    } else {
+			warn "leftover PCI reservation found for $id, lets take it...\n";
 		    }
 		}
 	    }
 
-	    $pciids->{$id} = {
-		vmid => $vmid,
-	    };
-	    if (defined($timeout)) {
-		# we save the time when the reservation gets invalid (+5s),
-		# since the start timeout depends on the config
-		$pciids->{$id}->{time} = $ctime + $timeout + 5;
+	    $reservation_list->{$id} = { vmid => $vmid };
+	    if (defined($pid)) { # VM started up, we can reserve now with the actual PID
+		$reservation_list->{$id}->{pid} = $pid;
+	    } elsif (defined($timeout)) { # tempoaray reserve as we don't now the PID yet
+		$reservation_list->{$id}->{time} = $ctime + $timeout + 5;
 	    }
-	    $pciids->{$id}->{pid} = $pid if defined($pid);
 	}
-
-	$write_pci_reservation_unlocked->($pciids);
-
-	return;
+	$write_pci_reservation_unlocked->($reservation_list);
     });
     die $@ if $@;
 }
