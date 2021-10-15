@@ -488,10 +488,10 @@ sub prepare_pci_device {
 my $PCIID_RESERVATION_FILE = "/var/run/pve-reserved-pciids";
 my $PCIID_RESERVATION_LCK = "/var/lock/pve-reserved-pciids.lck";
 
-my $parse_pci_reservation = sub {
+my $parse_pci_reservation_unlocked = sub {
     my $pciids = {};
 
-    if (my $fh = IO::File->new ($PCIID_RESERVATION_FILE, "r")) {
+    if (my $fh = IO::File->new($PCIID_RESERVATION_FILE, "r")) {
 	while (my $line = <$fh>) {
 	    if ($line =~ m/^($PCIRE)\s(\d+)\s(time|pid)\:(\d+)$/) {
 		$pciids->{$1} = {
@@ -505,7 +505,7 @@ my $parse_pci_reservation = sub {
     return $pciids;
 };
 
-my $write_pci_reservation = sub {
+my $write_pci_reservation_unlocked = sub {
     my ($pciids) = @_;
 
     my $data = "";
@@ -527,13 +527,13 @@ sub remove_pci_reservation {
     return if !scalar(@$ids); # do nothing for empty list
 
     my $code = sub {
-	my $pciids = $parse_pci_reservation->();
+	my $pciids = $parse_pci_reservation_unlocked->();
 
 	for my $id (@$ids) {
 	    delete $pciids->{$id};
 	}
 
-	$write_pci_reservation->($pciids);
+	$write_pci_reservation_unlocked->($pciids);
     };
 
     PVE::Tools::lock_file($PCIID_RESERVATION_LCK, 10, $code);
@@ -550,7 +550,7 @@ sub reserve_pci_usage {
     PVE::Tools::lock_file($PCIID_RESERVATION_LCK, 10, sub {
 
 	my $ctime = time();
-	my $pciids = $parse_pci_reservation->();
+	my $pciids = $parse_pci_reservation_unlocked->();
 
 	for my $id (@$ids) {
 	    my $errmsg = "PCI device '$id' already in use\n";
@@ -580,7 +580,7 @@ sub reserve_pci_usage {
 	    $pciids->{$id}->{pid} = $pid if defined($pid);
 	}
 
-	$write_pci_reservation->($pciids);
+	$write_pci_reservation_unlocked->($pciids);
 
 	return;
     });
