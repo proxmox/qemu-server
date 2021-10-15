@@ -485,8 +485,9 @@ sub prepare_pci_device {
     }
 }
 
-my $PCIID_RESERVATION_FILE = "/var/run/pve-reserved-pciids";
-my $PCIID_RESERVATION_LCK = "/var/lock/pve-reserved-pciids.lck";
+my $RUNDIR = '/run/qemu-server';
+my $PCIID_RESERVATION_FILE = "${RUNDIR}/pci-id-reservations";
+my $PCIID_RESERVATION_LOCK = "${PCIID_RESERVATION_FILE}.lock";
 
 my $parse_pci_reservation_unlocked = sub {
     my $pciids = {};
@@ -536,7 +537,7 @@ sub remove_pci_reservation {
 	$write_pci_reservation_unlocked->($pciids);
     };
 
-    PVE::Tools::lock_file($PCIID_RESERVATION_LCK, 10, $code);
+    PVE::Tools::lock_file($PCIID_RESERVATION_LOCK, 10, $code);
     die $@ if $@;
 
     return;
@@ -547,7 +548,7 @@ sub reserve_pci_usage {
 
     return if !scalar(@$ids); # do nothing for empty list
 
-    PVE::Tools::lock_file($PCIID_RESERVATION_LCK, 10, sub {
+    PVE::Tools::lock_file($PCIID_RESERVATION_LOCK, 10, sub {
 
 	my $ctime = time();
 	my $pciids = $parse_pci_reservation_unlocked->();
