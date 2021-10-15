@@ -245,41 +245,26 @@ sub generate_configdrive2 {
 sub generate_opennebula {
     my ($conf, $vmid, $drive, $volname, $storeid) = @_;
 
-    my ($hostname, $fqdn) = get_hostname_fqdn($conf, $vmid);
-
     my $content = "";
 
     my $username = $conf->{ciuser} || "root";
-    my $password = encode_base64($conf->{cipassword}) if defined($conf->{cipassword});
-
     $content .= "USERNAME=$username\n" if defined($username);
-    $content .= "CRYPTED_PASSWORD_BASE64=$password\n" if defined($password);
 
-    if (defined(my $keys = $conf->{sshkeys})) {
-        $keys = URI::Escape::uri_unescape($keys);
-        $keys = [map { my $key = $_; chomp $key; $key } split(/\n/, $keys)];
-        $keys = [grep { /\S/ } @$keys];
-        $content .= "SSH_PUBLIC_KEY=\"";
-
-        foreach my $k (@$keys) {
-	     $content .= "$k\n";
-        }
-        $content .= "\"\n";
-
+    if (defined(my $password = $conf->{cipassword})) {
+	$content .= "CRYPTED_PASSWORD_BASE64=". encode_base64($password) ."\n";
     }
 
-    my ($searchdomains, $nameservers) = get_dns_conf($conf);
-    if ($nameservers && @$nameservers) {
-        $nameservers = join(' ', @$nameservers);
-        $content .= "DNS=\"$nameservers\"\n";
+    if (defined($conf->{sshkeys})) {
+	my $keys = [ split(/\s*\n\s*/, URI::Escape::uri_unescape($conf->{sshkeys})) ];
+	$content .= "SSH_PUBLIC_KEY=\"". join("\n", $keys->@*) ."\"\n";
     }
 
+    my ($hostname, $fqdn) = get_hostname_fqdn($conf, $vmid);
     $content .= "SET_HOSTNAME=$hostname\n";
 
-    if ($searchdomains && @$searchdomains) {
-        $searchdomains = join(' ', @$searchdomains);
-        $content .= "SEARCH_DOMAIN=\"$searchdomains\"\n";
-    }
+    my ($searchdomains, $nameservers) = get_dns_conf($conf);
+    $content .= 'DNS="' . join(' ', @$nameservers) ."\"\n" if $nameservers && @$nameservers;
+    $content .= 'SEARCH_DOMAIN="'. join(' ', @$searchdomains) ."\"\n" if $searchdomains && @$searchdomains;
 
     my $networkenabled = undef;
     my @ifaces = grep { /^net(\d+)$/ } keys %$conf;
@@ -326,9 +311,7 @@ sub generate_opennebula {
 
     $content .= "NETWORK=YES\n" if $networkenabled;
 
-    my $files = {
-	'/context.sh' => $content,
-    };
+    my $files = { '/context.sh' => $content };
     commit_cloudinit_disk($conf, $vmid, $drive, $volname, $storeid, $files, 'CONTEXT');
 }
 
