@@ -471,7 +471,7 @@ sub prepare_pci_device {
     my ($vmid, $pciid, $index, $mdev) = @_;
 
     my $info = PVE::SysFSTools::pci_device_info("$pciid");
-    die "IOMMU not present\n" if !PVE::SysFSTools::check_iommu_support();
+    die "cannot prepare PCI pass-through, IOMMU not present\n" if !PVE::SysFSTools::check_iommu_support();
     die "no pci device info for device '$pciid'\n" if !$info;
 
     if ($mdev) {
