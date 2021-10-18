@@ -158,6 +158,8 @@ sub config_aware_timeout {
 	$timeout = 150;
     }
 
+    $timeout += 5 if $config->{tpmstate0}; # we allow the swtpm 5s startup time
+
     return $timeout;
 }
 
