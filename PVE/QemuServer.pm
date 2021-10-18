@@ -5432,7 +5432,7 @@ sub vm_start_nolock {
 	$run_params{logfunc} = sub { print "QEMU: $_[0]\n" };
     }
 
-    my %properties = (
+    my %systemd_properties = (
 	Slice => 'qemu.slice',
 	KillMode => 'process',
 	SendSIGKILL => 0,
@@ -5441,19 +5441,19 @@ sub vm_start_nolock {
 
     if (PVE::CGroup::cgroup_mode() == 2) {
 	$cpuunits = 10000 if $cpuunits >= 10000; # else we get an error
-	$properties{CPUWeight} = $cpuunits;
+	$systemd_properties{CPUWeight} = $cpuunits;
     } else {
-	$properties{CPUShares} = $cpuunits;
+	$systemd_properties{CPUShares} = $cpuunits;
     }
 
     if (my $cpulimit = $conf->{cpulimit}) {
-	$properties{CPUQuota} = int($cpulimit * 100);
+	$systemd_properties{CPUQuota} = int($cpulimit * 100);
     }
-    $properties{timeout} = 10 if $statefile; # setting up the scope shoul be quick
+    $systemd_properties{timeout} = 10 if $statefile; # setting up the scope shoul be quick
 
     my $run_qemu = sub {
 	PVE::Tools::run_fork sub {
-	    PVE::Systemd::enter_systemd_scope($vmid, "Proxmox VE VM $vmid", %properties);
+	    PVE::Systemd::enter_systemd_scope($vmid, "Proxmox VE VM $vmid", %systemd_properties);
 
 	    my $tpmpid;
 	    if (my $tpm = $conf->{tpmstate0}) {
