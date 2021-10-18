@@ -3060,9 +3060,8 @@ sub start_swtpm {
 
     my $tries = 100; # swtpm may take a bit to start before daemonizing, wait up to 5s for pid
     while (! -e $paths->{pid}) {
+	die "failed to start swtpm: pid file '$paths->{pid}' wasn't created.\n" if --$tries == 0;
 	usleep(50_000);
-	die "failed to start swtpm: pid file '$paths->{pid}' wasn't created.\n"
-	    if --$tries == 0;
     }
 
     # return untainted PID of swtpm daemon so it can be killed on error
