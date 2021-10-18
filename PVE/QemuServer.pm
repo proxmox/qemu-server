@@ -3058,10 +3058,9 @@ sub start_swtpm {
     push @$emulator_cmd, "--tpm2" if $tpm->{version} eq 'v2.0';
     run_command($emulator_cmd, outfunc => sub { print $1; });
 
-    # swtpm may take a bit to start before daemonizing, wait up to 5s for pid
-    my $tries = 100;
+    my $tries = 100; # swtpm may take a bit to start before daemonizing, wait up to 5s for pid
     while (! -e $paths->{pid}) {
-	usleep(50000);
+	usleep(50_000);
 	die "failed to start swtpm: pid file '$paths->{pid}' wasn't created.\n"
 	    if --$tries == 0;
     }
@@ -3267,8 +3266,7 @@ sub query_supported_cpu_flags {
 	};
 	my $err = $@;
 
-	# force stop with 10 sec timeout and 'nocheck'
-	# always stop, even if QMP failed
+	# force stop with 10 sec timeout and 'nocheck', always stop, even if QMP failed
 	vm_stop(undef, $fakevmid, 1, 1, 10, 0, 1);
 
 	die $err if $err;
@@ -5418,8 +5416,7 @@ sub vm_start_nolock {
     PVE::Storage::activate_volumes($storecfg, $vollist);
 
     eval {
-	run_command(['/bin/systemctl', 'stop', "$vmid.scope"],
-	    outfunc => sub {}, errfunc => sub {});
+	run_command(['/bin/systemctl', 'stop', "$vmid.scope"], outfunc => sub{}, errfunc => sub{});
     };
     # Issues with the above 'stop' not being fully completed are extremely rare, a very low
     # timeout should be more than enough here...
