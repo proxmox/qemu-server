@@ -3511,10 +3511,8 @@ sub config_to_command {
     }
 
     # enable absolute mouse coordinates (needed by vnc)
-    my $tablet;
-    if (defined($conf->{tablet})) {
-	$tablet = $conf->{tablet};
-    } else {
+    my $tablet = $conf->{tablet};
+    if (!defined($tablet)) {
 	$tablet = $defaults->{tablet};
 	$tablet = 0 if $qxlnum; # disable for spice because it is not needed
 	$tablet = 0 if $vga->{type} =~ m/^serial\d+$/; # disable if we use serial terminal (no vga card)
@@ -3542,23 +3540,22 @@ sub config_to_command {
 
     # serial devices
     for (my $i = 0; $i < $MAX_SERIAL_PORTS; $i++)  {
-	if (my $path = $conf->{"serial$i"}) {
-	    if ($path eq 'socket') {
-		my $socket = "/var/run/qemu-server/${vmid}.serial$i";
-		push @$devices, '-chardev', "socket,id=serial$i,path=$socket,server=on,wait=off";
-		# On aarch64, serial0 is the UART device. Qemu only allows
-		# connecting UART devices via the '-serial' command line, as
-		# the device has a fixed slot on the hardware...
-		if ($arch eq 'aarch64' && $i == 0) {
-		    push @$devices, '-serial', "chardev:serial$i";
-		} else {
-		    push @$devices, '-device', "isa-serial,chardev=serial$i";
-		}
+	my $path = $conf->{"serial$i"} or next;
+	if ($path eq 'socket') {
+	    my $socket = "/var/run/qemu-server/${vmid}.serial$i";
+	    push @$devices, '-chardev', "socket,id=serial$i,path=$socket,server=on,wait=off";
+	    # On aarch64, serial0 is the UART device. Qemu only allows
+	    # connecting UART devices via the '-serial' command line, as
+	    # the device has a fixed slot on the hardware...
+	    if ($arch eq 'aarch64' && $i == 0) {
+		push @$devices, '-serial', "chardev:serial$i";
 	    } else {
-		die "no such serial device\n" if ! -c $path;
-		push @$devices, '-chardev', "tty,id=serial$i,path=$path";
 		push @$devices, '-device', "isa-serial,chardev=serial$i";
 	    }
+	} else {
+	    die "no such serial device\n" if ! -c $path;
+	    push @$devices, '-chardev', "tty,id=serial$i,path=$path";
+	    push @$devices, '-device', "isa-serial,chardev=serial$i";
 	}
     }
 
