@@ -292,9 +292,9 @@ my $confdesc = {
 	default => 0,
     },
     hotplug => {
-        optional => 1,
-        type => 'string', format => 'pve-hotplug-features',
-        description => "Selectively enable hotplug features. This is a comma separated list of"
+	optional => 1,
+	type => 'string', format => 'pve-hotplug-features',
+	description => "Selectively enable hotplug features. This is a comma separated list of"
 	    ." hotplug features: 'network', 'disk', 'cpu', 'memory' and 'usb'. Use '0' to disable"
 	    ." hotplug completely. Using '1' as value is an alias for the default `network,disk,usb`.",
         default => 'network,disk,usb',
@@ -319,12 +319,12 @@ my $confdesc = {
 	    ." total of '2' CPU time. Value '0' indicates no CPU limit.",
 	minimum => 0,
 	maximum => 128,
-        default => 0,
+	default => 0,
     },
     cpuunits => {
 	optional => 1,
 	type => 'integer',
-        description => "CPU weight for a VM, will be clamped to [1, 10000] in cgroup v2.",
+	description => "CPU weight for a VM, will be clamped to [1, 10000] in cgroup v2.",
 	verbose_description => "CPU weight for a VM. Argument is used in the kernel fair scheduler."
 	    ." The larger the number is, the more CPU time this VM gets. Number is relative to"
 	    ." weights of all the other running VMs.",
@@ -341,15 +341,15 @@ my $confdesc = {
 	default => 512,
     },
     balloon => {
-        optional => 1,
-        type => 'integer',
-        description => "Amount of target RAM for the VM in MB. Using zero disables the ballon driver.",
+	optional => 1,
+	type => 'integer',
+	description => "Amount of target RAM for the VM in MB. Using zero disables the ballon driver.",
 	minimum => 0,
     },
     shares => {
-        optional => 1,
-        type => 'integer',
-        description => "Amount of memory shares for auto-ballooning. The larger the number is, the"
+	optional => 1,
+	type => 'integer',
+	description => "Amount of memory shares for auto-ballooning. The larger the number is, the"
 	    ." more memory this VM gets. Number is relative to weights of all other running VMs."
 	    ." Using zero disables auto-ballooning. Auto-ballooning is done by pvestatd.",
 	minimum => 0,
@@ -386,7 +386,7 @@ my $confdesc = {
     ostype => {
 	optional => 1,
 	type => 'string',
-        enum => [qw(other wxp w2k w2k3 w2k8 wvista win7 win8 win10 win11 l24 l26 solaris)],
+	enum => [qw(other wxp w2k w2k3 w2k8 wvista win7 win8 win10 win11 l24 l26 solaris)],
 	description => "Specify guest operating system.",
 	verbose_description => <<EODESC,
 Specify guest operating system. This is used to enable special
@@ -411,8 +411,8 @@ EODESC
     boot => {
 	optional => 1,
 	type => 'string', format => 'pve-qm-boot',
-	description => "Specify guest boot order. Use with 'order=', usage with"
-		     . " no key or 'legacy=' is deprecated.",
+	description => "Specify guest boot order. Use the 'order=' sub-property as usage with no"
+	    ." key or 'legacy=' is deprecated.",
     },
     bootdisk => {
 	optional => 1,
@@ -3478,8 +3478,7 @@ sub config_to_command {
 	push @$cmd, '-drive', "if=pflash,unit=1$cache,format=$format,id=drive-efidisk0$size_str,file=${path}${read_only_str}";
     }
 
-    # load q35 config
-    if ($q35) {
+    if ($q35) { # tell QEMU to load q35 config early
 	# we use different pcie-port hardware for qemu >= 4.0 for passthrough
 	if (min_version($machine_version, 4, 0)) {
 	    push @$devices, '-readconfig', '/usr/share/qemu-server/pve-q35-4.0.cfg';
@@ -3593,11 +3592,9 @@ sub config_to_command {
 
     my $allowed_vcpus = $cpuinfo->{cpus};
 
-    die "MAX $allowed_vcpus vcpus allowed per VM on this node\n"
-	if ($allowed_vcpus < $maxcpus);
+    die "MAX $allowed_vcpus vcpus allowed per VM on this node\n" if ($allowed_vcpus < $maxcpus);
 
-    if($hotplug_features->{cpu} && min_version($machine_version, 2, 7)) {
-
+    if ($hotplug_features->{cpu} && min_version($machine_version, 2, 7)) {
 	push @$cmd, '-smp', "1,sockets=$sockets,cores=$cores,maxcpus=$maxcpus";
         for (my $i = 2; $i <= $vcpus; $i++)  {
 	    my $cpustr = print_cpu_device($conf,$i);
