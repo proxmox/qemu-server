@@ -28,9 +28,9 @@
   -device 'virtio-scsi-pci,id=scsihw0,bus=pci.0,addr=0x5' \
   -drive 'file=/var/lib/vz/images/8006/base-8006-disk-1.qcow2,if=none,id=drive-scsi0,discard=on,format=qcow2,cache=none,aio=native,detect-zeroes=unmap,readonly=on' \
   -device 'scsi-hd,bus=scsihw0.0,channel=0,scsi-id=0,lun=0,drive=drive-scsi0,id=scsi0,bootindex=100' \
-  -device 'ahci,id=ahci0,multifunction=on,bus=pci.0,addr=0x7'
-  -drive 'file=/var/lib/vz/images/8006/base-8006-disk-0.qcow2,if=none,id=drive-sata0,discard=on,format=qcow2,cache=none,aio=native,detect-zeroes=unmap'
-  -device 'ide-hd,bus=ahci0.0,drive=drive-sata0,id=sata0'
+  -device 'ahci,id=ahci0,multifunction=on,bus=pci.0,addr=0x7' \
+  -drive 'file=/var/lib/vz/images/8006/base-8006-disk-0.qcow2,if=none,id=drive-sata0,discard=on,format=qcow2,cache=none,aio=native,detect-zeroes=unmap' \
+  -device 'ide-hd,bus=ahci0.0,drive=drive-sata0,id=sata0' \
   -netdev 'type=tap,id=net0,ifname=tap8006i0,script=/var/lib/qemu-server/pve-bridge,downscript=/var/lib/qemu-server/pve-bridgedown,vhost=on' \
   -device 'virtio-net-pci,mac=A2:C0:43:77:08:A0,netdev=net0,bus=pci.0,addr=0x12,id=net0,bootindex=300' \
   -machine 'type=pc' \
