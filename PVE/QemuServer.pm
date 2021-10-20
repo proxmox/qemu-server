@@ -87,12 +87,10 @@ my $OVMF = {
 
 my $cpuinfo = PVE::ProcFSTools::read_cpuinfo();
 
-# Note about locking: we use flock on the config file protect
-# against concurent actions.
-# Aditionaly, we have a 'lock' setting in the config file. This
-# can be set to 'migrate', 'backup', 'snapshot' or 'rollback'. Most actions are not
-# allowed when such lock is set. But you can ignore this kind of
-# lock with the --skiplock flag.
+# Note about locking: we use flock on the config file protect against concurent actions.
+# Aditionaly, we have a 'lock' setting in the config file. This  can be set to 'migrate',
+# 'backup', 'snapshot' or 'rollback'. Most actions are not allowed when such lock is set.
+# But you can ignore this kind of lock with the --skiplock flag.
 
 cfs_register_file('/qemu-server/',
 		  \&parse_vm_config,
@@ -163,7 +161,7 @@ PVE::JSONSchema::register_format('pve-qm-watchdog', $watchdog_fmt);
 
 my $agent_fmt = {
     enabled => {
-	description => "Enable/disable Qemu GuestAgent.",
+	description => "Enable/disable communication with a Qemu Guest Agent (QGA) running in the VM.",
 	type => 'boolean',
 	default => 0,
 	default_key => 1,
@@ -252,33 +250,29 @@ my $rng_fmt = {
 	type => 'string',
 	enum => ['/dev/urandom', '/dev/random', '/dev/hwrng'],
 	default_key => 1,
-	description => "The file on the host to gather entropy from. In most"
-		     . " cases /dev/urandom should be preferred over /dev/random"
-		     . " to avoid entropy-starvation issues on the host. Using"
-		     . " urandom does *not* decrease security in any meaningful"
-		     . " way, as it's still seeded from real entropy, and the"
-		     . " bytes provided will most likely be mixed with real"
-		     . " entropy on the guest as well. /dev/hwrng can be used"
-		     . " to pass through a hardware RNG from the host.",
+	description => "The file on the host to gather entropy from. In most cases '/dev/urandom'"
+	    ." should be preferred over '/dev/random' to avoid entropy-starvation issues on the"
+	    ." host. Using urandom does *not* decrease security in any meaningful way, as it's"
+	    ." still seeded from real entropy, and the bytes provided will most likely be mixed"
+	    ." with real entropy on the guest as well. '/dev/hwrng' can be used to pass through"
+	    ." a hardware RNG from the host.",
     },
     max_bytes => {
 	type => 'integer',
-	description => "Maximum bytes of entropy injected into the guest every"
-		     . " 'period' milliseconds. Prefer a lower value when using"
-		     . " /dev/random as source. Use 0 to disable limiting"
-		     . " (potentially dangerous!).",
+	description => "Maximum bytes of entropy allowed to get injected into the guest every"
+	    ." 'period' milliseconds. Prefer a lower value when using '/dev/random' as source. Use"
+	    ." `0` to disable limiting (potentially dangerous!).",
 	optional => 1,
 
-	# default is 1 KiB/s, provides enough entropy to the guest to avoid
-	# boot-starvation issues (e.g. systemd etc...) while allowing no chance
-	# of overwhelming the host, provided we're reading from /dev/urandom
+	# default is 1 KiB/s, provides enough entropy to the guest to avoid boot-starvation issues
+	# (e.g. systemd etc...) while allowing no chance of overwhelming the host, provided we're
+	# reading from /dev/urandom
 	default => 1024,
     },
     period => {
 	type => 'integer',
-	description => "Every 'period' milliseconds the entropy-injection quota"
-		     . " is reset, allowing the guest to retrieve another"
-		     . " 'max_bytes' of entropy.",
+	description => "Every 'period' milliseconds the entropy-injection quota is reset, allowing"
+	    ." the guest to retrieve another 'max_bytes' of entropy.",
 	optional => 1,
 	default => 1000,
     },
@@ -300,7 +294,9 @@ my $confdesc = {
     hotplug => {
         optional => 1,
         type => 'string', format => 'pve-hotplug-features',
-        description => "Selectively enable hotplug features. This is a comma separated list of hotplug features: 'network', 'disk', 'cpu', 'memory' and 'usb'. Use '0' to disable hotplug completely. Value '1' is an alias for the default 'network,disk,usb'.",
+        description => "Selectively enable hotplug features. This is a comma separated list of"
+	    ." hotplug features: 'network', 'disk', 'cpu', 'memory' and 'usb'. Use '0' to disable"
+	    ." hotplug completely. Using '1' as value is an alias for the default `network,disk,usb`.",
         default => 'network,disk,usb',
     },
     reboot => {
@@ -319,7 +315,8 @@ my $confdesc = {
 	optional => 1,
 	type => 'number',
 	description => "Limit of CPU usage.",
-        verbose_description => "Limit of CPU usage.\n\nNOTE: If the computer has 2 CPUs, it has total of '2' CPU time. Value '0' indicates no CPU limit.",
+	verbose_description => "Limit of CPU usage.\n\nNOTE: If the computer has 2 CPUs, it has"
+	    ." total of '2' CPU time. Value '0' indicates no CPU limit.",
 	minimum => 0,
 	maximum => 128,
         default => 0,
@@ -338,7 +335,8 @@ my $confdesc = {
     memory => {
 	optional => 1,
 	type => 'integer',
-	description => "Amount of RAM for the VM in MB. This is the maximum available memory when you use the balloon device.",
+	description => "Amount of RAM for the VM in MB. This is the maximum available memory when"
+	    ." you use the balloon device.",
 	minimum => 16,
 	default => 512,
     },
@@ -351,7 +349,9 @@ my $confdesc = {
     shares => {
         optional => 1,
         type => 'integer',
-        description => "Amount of memory shares for auto-ballooning. The larger the number is, the more memory this VM gets. Number is relative to weights of all other running VMs. Using zero disables auto-ballooning. Auto-ballooning is done by pvestatd.",
+        description => "Amount of memory shares for auto-ballooning. The larger the number is, the"
+	    ." more memory this VM gets. Number is relative to weights of all other running VMs."
+	    ." Using zero disables auto-ballooning. Auto-ballooning is done by pvestatd.",
 	minimum => 0,
 	maximum => 50000,
 	default => 1000,
@@ -359,8 +359,8 @@ my $confdesc = {
     keyboard => {
 	optional => 1,
 	type => 'string',
-	description => "Keybord layout for vnc server. Default is read from the '/etc/pve/datacenter.cfg' configuration file.".
-		       "It should not be necessary to set it.",
+	description => "Keyboard layout for VNC server. The default is read from the"
+	    ."'/etc/pve/datacenter.cfg' configuration file. It should not be necessary to set it.",
 	enum => PVE::Tools::kvmkeymaplist(),
 	default => undef,
     },
@@ -475,7 +475,7 @@ EODESC
     },
     agent => {
 	optional => 1,
-	description => "Enable/disable Qemu GuestAgent and its properties.",
+	description => "Enable/disable communication with the Qemu Guest Agent and its properties.",
 	type => 'string',
 	format => $agent_fmt,
     },
@@ -494,8 +494,8 @@ EODESC
     localtime => {
 	optional => 1,
 	type => 'boolean',
-	description => "Set the real time clock to local time. This is enabled by default if ostype"
-	    ." indicates a Microsoft OS.",
+	description => "Set the real time clock (RTC) to local time. This is enabled by default if"
+	    ." the `ostype` indicates a Microsoft Windows OS.",
     },
     freeze => {
 	optional => 1,
