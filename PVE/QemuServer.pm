@@ -1844,7 +1844,6 @@ sub print_vga_device {
     my $q35 = PVE::QemuServer::Machine::machine_type_is_q35($conf);
     my $vgaid = "vga" . ($id // '');
     my $pciaddr;
-
     if ($q35 && $vgaid eq 'vga') {
 	# the first display uses pcie.0 bus on q35 machines
 	$pciaddr = print_pcie_addr($vgaid, $bridges, $arch, $machine);
@@ -3313,11 +3312,8 @@ sub config_to_command {
         $pbs_backing) = @_;
 
     my $cmd = [];
-    my $globalFlags = [];
-    my $machineFlags = [];
-    my $rtcFlags = [];
+    my ($globalFlags, $machineFlags, $rtcFlags) = ([], [], []);
     my $devices = [];
-    my $pciaddr = '';
     my $bridges = {};
     my $ostype = $conf->{ostype};
     my $winversion = windows_version($ostype);
@@ -3739,13 +3735,13 @@ sub config_to_command {
 
     # enable balloon by default, unless explicitly disabled
     if (!defined($conf->{balloon}) || $conf->{balloon}) {
-	$pciaddr = print_pci_addr("balloon0", $bridges, $arch, $machine_type);
+	my $pciaddr = print_pci_addr("balloon0", $bridges, $arch, $machine_type);
 	push @$devices, '-device', "virtio-balloon-pci,id=balloon0$pciaddr";
     }
 
     if ($conf->{watchdog}) {
 	my $wdopts = parse_watchdog($conf->{watchdog});
-	$pciaddr = print_pci_addr("watchdog", $bridges, $arch, $machine_type);
+	my $pciaddr = print_pci_addr("watchdog", $bridges, $arch, $machine_type);
 	my $watchdog = $wdopts->{model} || 'i6300esb';
 	push @$devices, '-device', "$watchdog$pciaddr";
 	push @$devices, '-watchdog-action', $wdopts->{action} if $wdopts->{action};
@@ -3789,7 +3785,7 @@ sub config_to_command {
 	    die "scsi$drive->{index}: machine version 4.1~pve2 or higher is required to use more than 14 SCSI disks\n"
 		if $drive->{index} > 13 && !&$version_guard(4, 1, 2);
 
-	    $pciaddr = print_pci_addr("$controller_prefix$controller", $bridges, $arch, $machine_type);
+	    my $pciaddr = print_pci_addr("$controller_prefix$controller", $bridges, $arch, $machine_type);
 	    my $scsihw_type = $scsihw =~ m/^virtio-scsi-single/ ? "virtio-scsi-pci" : $scsihw;
 
 	    my $iothread = '';
@@ -3812,7 +3808,7 @@ sub config_to_command {
 
         if ($drive->{interface} eq 'sata') {
 	    my $controller = int($drive->{index} / $PVE::QemuServer::Drive::MAX_SATA_DISKS);
-	    $pciaddr = print_pci_addr("ahci$controller", $bridges, $arch, $machine_type);
+	    my $pciaddr = print_pci_addr("ahci$controller", $bridges, $arch, $machine_type);
 	    push @$devices, '-device', "ahci,id=ahci$controller,multifunction=on$pciaddr"
 		if !$ahcicontroller->{$controller};
 	    $ahcicontroller->{$controller}=1;
@@ -3877,15 +3873,12 @@ sub config_to_command {
     # pci.4 is nested in pci.1
     $bridges->{1} = 1 if $bridges->{4};
 
-    if (!$q35) {
-	# add pci bridges
-        if (min_version($machine_version, 2, 3)) {
+    if (!$q35) { # add pci bridges
+	if (min_version($machine_version, 2, 3)) {
 	   $bridges->{1} = 1;
 	   $bridges->{2} = 1;
 	}
-
 	$bridges->{3} = 1 if $scsihw =~ m/^virtio-scsi-single/;
-
     }
 
     for my $k (sort {$b cmp $a} keys %$bridges) {
@@ -3895,11 +3888,10 @@ sub config_to_command {
 	if ($k == 2 && $legacy_igd) {
 	    $k_name = "$k-igd";
 	}
-	$pciaddr = print_pci_addr("pci.$k_name", undef, $arch, $machine_type);
-
+	my $pciaddr = print_pci_addr("pci.$k_name", undef, $arch, $machine_type);
 	my $devstr = "pci-bridge,id=pci.$k,chassis_nr=$k$pciaddr";
-	if ($q35) {
-	    # add after -readconfig pve-q35.cfg
+
+	if ($q35) { # add after -readconfig pve-q35.cfg
 	    splice @$devices, 2, 0, '-device', $devstr;
 	} else {
 	    unshift @$devices, '-device', $devstr if $k > 0;
@@ -4030,43 +4022,33 @@ sub vm_deviceplug {
     qemu_add_pci_bridge($storecfg, $conf, $vmid, $deviceid, $arch, $machine_type);
 
     if ($deviceid eq 'tablet') {
-
 	qemu_deviceadd($vmid, print_tabletdevice_full($conf, $arch));
-
     } elsif ($deviceid eq 'keyboard') {
-
 	qemu_deviceadd($vmid, print_keyboarddevice_full($conf, $arch));
-
     } elsif ($deviceid =~ m/^usb(\d+)$/) {
-
 	die "usb hotplug currently not reliable\n";
 	# since we can't reliably hot unplug all added usb devices and usb
 	# passthrough breaks live migration we disable usb hotplugging for now
 	#qemu_deviceadd($vmid, PVE::QemuServer::USB::print_usbdevice_full($conf, $deviceid, $device));
-
     } elsif ($deviceid =~ m/^(virtio)(\d+)$/) {
-
 	qemu_iothread_add($vmid, $deviceid, $device);
 
-        qemu_driveadd($storecfg, $vmid, $device);
-        my $devicefull = print_drivedevice_full($storecfg, $conf, $vmid, $device, undef, $arch, $machine_type);
+	qemu_driveadd($storecfg, $vmid, $device);
+	my $devicefull = print_drivedevice_full($storecfg, $conf, $vmid, $device, undef, $arch, $machine_type);
 
-        qemu_deviceadd($vmid, $devicefull);
+	qemu_deviceadd($vmid, $devicefull);
 	eval { qemu_deviceaddverify($vmid, $deviceid); };
 	if (my $err = $@) {
 	    eval { qemu_drivedel($vmid, $deviceid); };
 	    warn $@ if $@;
 	    die $err;
         }
-
     } elsif ($deviceid =~ m/^(virtioscsi|scsihw)(\d+)$/) {
-
-
-        my $scsihw = defined($conf->{scsihw}) ? $conf->{scsihw} : "lsi";
-        my $pciaddr = print_pci_addr($deviceid, undef, $arch, $machine_type);
+	my $scsihw = defined($conf->{scsihw}) ? $conf->{scsihw} : "lsi";
+	my $pciaddr = print_pci_addr($deviceid, undef, $arch, $machine_type);
 	my $scsihw_type = $scsihw eq 'virtio-scsi-single' ? "virtio-scsi-pci" : $scsihw;
 
-        my $devicefull = "$scsihw_type,id=$deviceid$pciaddr";
+	my $devicefull = "$scsihw_type,id=$deviceid$pciaddr";
 
 	if($deviceid =~ m/^virtioscsi(\d+)$/ && $device->{iothread}) {
 	    qemu_iothread_add($vmid, $deviceid, $device);
@@ -4077,11 +4059,9 @@ sub vm_deviceplug {
 	    $devicefull .= ",num_queues=$device->{queues}";
 	}
 
-        qemu_deviceadd($vmid, $devicefull);
-        qemu_deviceaddverify($vmid, $deviceid);
-
+	qemu_deviceadd($vmid, $devicefull);
+	qemu_deviceaddverify($vmid, $deviceid);
     } elsif ($deviceid =~ m/^(scsi)(\d+)$/) {
-
         qemu_findorcreatescsihw($storecfg,$conf, $vmid, $device, $arch, $machine_type);
         qemu_driveadd($storecfg, $vmid, $device);
 
@@ -4092,9 +4072,7 @@ sub vm_deviceplug {
 	    warn $@ if $@;
 	    die $err;
         }
-
     } elsif ($deviceid =~ m/^(net)(\d+)$/) {
-
 	return if !qemu_netdevadd($vmid, $conf, $arch, $device, $deviceid);
 
 	my $machine_type = PVE::QemuServer::Machine::qemu_machine_pxe($vmid, $conf);
@@ -4113,16 +4091,13 @@ sub vm_deviceplug {
 	    warn $@ if $@;
 	    die $err;
 	}
-
     } elsif (!$q35 && $deviceid =~ m/^(pci\.)(\d+)$/) {
-
 	my $bridgeid = $2;
 	my $pciaddr = print_pci_addr($deviceid, undef, $arch, $machine_type);
 	my $devicefull = "pci-bridge,id=pci.$bridgeid,chassis_nr=$bridgeid$pciaddr";
 
 	qemu_deviceadd($vmid, $devicefull);
 	qemu_deviceaddverify($vmid, $deviceid);
-
     } else {
 	die "can't hotplug device '$deviceid'\n";
     }

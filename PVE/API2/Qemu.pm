@@ -429,7 +429,7 @@ __PACKAGE__->register_method({
     proxyto => 'node',
     protected => 1, # qemu pid files are only readable by root
     parameters => {
-    	additionalProperties => 0,
+	additionalProperties => 0,
 	properties => {
 	    node => get_standard_option('pve-node'),
 	    full => {
@@ -502,7 +502,7 @@ __PACKAGE__->register_method({
     protected => 1,
     proxyto => 'node',
     parameters => {
-    	additionalProperties => 0,
+	additionalProperties => 0,
 	properties => PVE::QemuServer::json_config_properties(
 	    {
 		node => get_standard_option('pve-node'),
@@ -636,8 +636,7 @@ __PACKAGE__->register_method({
 	    raise_param_exc({ archive => "option conflicts with other options ($keystr)"}) if $keystr;
 
 	    if ($archive eq '-') {
-		die "pipe requires cli environment\n"
-		    if $rpcenv->{type} ne 'cli';
+		die "pipe requires cli environment\n" if $rpcenv->{type} ne 'cli';
 		$archive = { type => 'pipe' };
 	    } else {
 		PVE::Storage::check_volume_access($rpcenv, $authuser, $storecfg, $vmid, $archive);
@@ -804,7 +803,7 @@ __PACKAGE__->register_method({
 	user => 'all',
     },
     parameters => {
-    	additionalProperties => 0,
+	additionalProperties => 0,
 	properties => {
 	    node => get_standard_option('pve-node'),
 	    vmid => get_standard_option('pve-vmid'),
@@ -866,7 +865,7 @@ __PACKAGE__->register_method({
     },
     description => "Read VM RRD statistics (returns PNG)",
     parameters => {
-    	additionalProperties => 0,
+	additionalProperties => 0,
 	properties => {
 	    node => get_standard_option('pve-node'),
 	    vmid => get_standard_option('pve-vmid'),
@@ -912,7 +911,7 @@ __PACKAGE__->register_method({
     },
     description => "Read VM RRD statistics",
     parameters => {
-    	additionalProperties => 0,
+	additionalProperties => 0,
 	properties => {
 	    node => get_standard_option('pve-node'),
 	    vmid => get_standard_option('pve-vmid'),
@@ -955,7 +954,7 @@ __PACKAGE__->register_method({
 	check => ['perm', '/vms/{vmid}', [ 'VM.Audit' ]],
     },
     parameters => {
-    	additionalProperties => 0,
+	additionalProperties => 0,
 	properties => {
 	    node => get_standard_option('pve-node'),
 	    vmid => get_standard_option('pve-vmid', { completion => \&PVE::QemuServer::complete_vmid }),
@@ -1494,7 +1493,7 @@ __PACKAGE__->register_method({
 	check => ['perm', '/vms/{vmid}', $vm_config_perm_list, any => 1],
     },
     parameters => {
-    	additionalProperties => 0,
+	additionalProperties => 0,
 	properties => PVE::QemuServer::json_config_properties(
 	    {
 		node => get_standard_option('pve-node'),
@@ -1549,7 +1548,7 @@ __PACKAGE__->register_method({
 	check => ['perm', '/vms/{vmid}', $vm_config_perm_list, any => 1],
     },
     parameters => {
-    	additionalProperties => 0,
+	additionalProperties => 0,
 	properties => PVE::QemuServer::json_config_properties(
 	    {
 		node => get_standard_option('pve-node'),
@@ -1599,7 +1598,7 @@ __PACKAGE__->register_method({
 	check => [ 'perm', '/vms/{vmid}', ['VM.Allocate']],
     },
     parameters => {
-    	additionalProperties => 0,
+	additionalProperties => 0,
 	properties => {
 	    node => get_standard_option('pve-node'),
 	    vmid => get_standard_option('pve-vmid', { completion => \&PVE::QemuServer::complete_vmid_stopped }),
@@ -1706,7 +1705,7 @@ __PACKAGE__->register_method({
 	check => [ 'perm', '/vms/{vmid}', ['VM.Config.Disk']],
     },
     parameters => {
-    	additionalProperties => 0,
+	additionalProperties => 0,
 	properties => {
 	    node => get_standard_option('pve-node'),
 	    vmid => get_standard_option('pve-vmid', { completion => \&PVE::QemuServer::complete_vmid }),
@@ -1761,7 +1760,7 @@ __PACKAGE__->register_method({
     },
     description => "Creates a TCP VNC proxy connections.",
     parameters => {
-    	additionalProperties => 0,
+	additionalProperties => 0,
 	properties => {
 	    node => get_standard_option('pve-node'),
 	    vmid => get_standard_option('pve-vmid'),
@@ -1779,7 +1778,7 @@ __PACKAGE__->register_method({
 	},
     },
     returns => {
-    	additionalProperties => 0,
+	additionalProperties => 0,
 	properties => {
 	    user => { type => 'string' },
 	    ticket => { type => 'string' },
@@ -2019,7 +2018,7 @@ __PACKAGE__->register_method({
     },
     description => "Opens a weksocket for VNC traffic.",
     parameters => {
-    	additionalProperties => 0,
+	additionalProperties => 0,
 	properties => {
 	    node => get_standard_option('pve-node'),
 	    vmid => get_standard_option('pve-vmid'),
@@ -2078,7 +2077,7 @@ __PACKAGE__->register_method({
     },
     description => "Returns a SPICE configuration to connect to the VM.",
     parameters => {
-    	additionalProperties => 0,
+	additionalProperties => 0,
 	properties => {
 	    node => get_standard_option('pve-node'),
 	    vmid => get_standard_option('pve-vmid'),
@@ -2122,7 +2121,7 @@ __PACKAGE__->register_method({
 	user => 'all',
     },
     parameters => {
-    	additionalProperties => 0,
+	additionalProperties => 0,
 	properties => {
 	    node => get_standard_option('pve-node'),
 	    vmid => get_standard_option('pve-vmid'),
@@ -2168,7 +2167,7 @@ __PACKAGE__->register_method({
 	check => ['perm', '/vms/{vmid}', [ 'VM.Audit' ]],
     },
     parameters => {
-    	additionalProperties => 0,
+	additionalProperties => 0,
 	properties => {
 	    node => get_standard_option('pve-node'),
 	    vmid => get_standard_option('pve-vmid'),
@@ -2222,7 +2221,7 @@ __PACKAGE__->register_method({
 	check => ['perm', '/vms/{vmid}', [ 'VM.PowerMgmt' ]],
     },
     parameters => {
-    	additionalProperties => 0,
+	additionalProperties => 0,
 	properties => {
 	    node => get_standard_option('pve-node'),
 	    vmid => get_standard_option('pve-vmid',
@@ -2381,7 +2380,7 @@ __PACKAGE__->register_method({
 	check => ['perm', '/vms/{vmid}', [ 'VM.PowerMgmt' ]],
     },
     parameters => {
-    	additionalProperties => 0,
+	additionalProperties => 0,
 	properties => {
 	    node => get_standard_option('pve-node'),
 	    vmid => get_standard_option('pve-vmid',
@@ -2469,7 +2468,7 @@ __PACKAGE__->register_method({
 	check => ['perm', '/vms/{vmid}', [ 'VM.PowerMgmt' ]],
     },
     parameters => {
-    	additionalProperties => 0,
+	additionalProperties => 0,
 	properties => {
 	    node => get_standard_option('pve-node'),
 	    vmid => get_standard_option('pve-vmid',
@@ -2520,7 +2519,7 @@ __PACKAGE__->register_method({
 	check => ['perm', '/vms/{vmid}', [ 'VM.PowerMgmt' ]],
     },
     parameters => {
-    	additionalProperties => 0,
+	additionalProperties => 0,
 	properties => {
 	    node => get_standard_option('pve-node'),
 	    vmid => get_standard_option('pve-vmid',
@@ -2681,7 +2680,7 @@ __PACKAGE__->register_method({
 	check => ['perm', '/vms/{vmid}', [ 'VM.PowerMgmt' ]],
     },
     parameters => {
-    	additionalProperties => 0,
+	additionalProperties => 0,
 	properties => {
 	    node => get_standard_option('pve-node'),
 	    vmid => get_standard_option('pve-vmid',
@@ -2765,7 +2764,7 @@ __PACKAGE__->register_method({
 	check => ['perm', '/vms/{vmid}', [ 'VM.PowerMgmt' ]],
     },
     parameters => {
-    	additionalProperties => 0,
+	additionalProperties => 0,
 	properties => {
 	    node => get_standard_option('pve-node'),
 	    vmid => get_standard_option('pve-vmid',
@@ -2837,7 +2836,7 @@ __PACKAGE__->register_method({
 	check => ['perm', '/vms/{vmid}', [ 'VM.Console' ]],
     },
     parameters => {
-    	additionalProperties => 0,
+	additionalProperties => 0,
 	properties => {
 	    node => get_standard_option('pve-node'),
 	    vmid => get_standard_option('pve-vmid',
@@ -2881,7 +2880,7 @@ __PACKAGE__->register_method({
 	check => ['perm', '/vms/{vmid}', [ 'VM.Audit' ]],
     },
     parameters => {
-    	additionalProperties => 0,
+	additionalProperties => 0,
 	properties => {
 	    node => get_standard_option('pve-node'),
 	    vmid => get_standard_option('pve-vmid'),
@@ -2957,7 +2956,7 @@ __PACKAGE__->register_method({
 	]
     },
     parameters => {
-    	additionalProperties => 0,
+	additionalProperties => 0,
 	properties => {
 	    node => get_standard_option('pve-node'),
 	    vmid => get_standard_option('pve-vmid', { completion => \&PVE::QemuServer::complete_vmid }),
@@ -3288,7 +3287,7 @@ __PACKAGE__->register_method({
 	    ],
     },
     parameters => {
-        additionalProperties => 0,
+	additionalProperties => 0,
 	properties => {
 	    node => get_standard_option('pve-node'),
 	    vmid => get_standard_option('pve-vmid', { completion => \&PVE::QemuServer::complete_vmid }),
@@ -3603,7 +3602,7 @@ __PACKAGE__->register_method({
 	check => ['perm', '/vms/{vmid}', [ 'VM.Migrate' ]],
     },
     parameters => {
-    	additionalProperties => 0,
+	additionalProperties => 0,
 	properties => {
 	    node => get_standard_option('pve-node'),
 	    vmid => get_standard_option('pve-vmid', { completion => \&PVE::QemuServer::complete_vmid }),
@@ -3779,7 +3778,7 @@ __PACKAGE__->register_method({
         check => ['perm', '/vms/{vmid}', [ 'VM.Monitor' ]],
     },
     parameters => {
-    	additionalProperties => 0,
+	additionalProperties => 0,
 	properties => {
 	    node => get_standard_option('pve-node'),
 	    vmid => get_standard_option('pve-vmid'),
@@ -3829,8 +3828,8 @@ __PACKAGE__->register_method({
         check => ['perm', '/vms/{vmid}', [ 'VM.Config.Disk' ]],
     },
     parameters => {
-        additionalProperties => 0,
-        properties => {
+	additionalProperties => 0,
+	properties => {
 	    node => get_standard_option('pve-node'),
 	    vmid => get_standard_option('pve-vmid', { completion => \&PVE::QemuServer::complete_vmid }),
 	    skiplock => get_standard_option('skiplock'),
@@ -3954,7 +3953,7 @@ __PACKAGE__->register_method({
     proxyto => 'node',
     protected => 1, # qemu pid files are only readable by root
     parameters => {
-    	additionalProperties => 0,
+	additionalProperties => 0,
 	properties => {
 	    vmid => get_standard_option('pve-vmid', { completion => \&PVE::QemuServer::complete_vmid }),
 	    node => get_standard_option('pve-node'),
@@ -4099,7 +4098,7 @@ __PACKAGE__->register_method({
 	user => 'all',
     },
     parameters => {
-    	additionalProperties => 0,
+	additionalProperties => 0,
 	properties => {
 	    vmid => get_standard_option('pve-vmid'),
 	    node => get_standard_option('pve-node'),
