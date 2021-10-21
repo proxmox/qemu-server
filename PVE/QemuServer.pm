@@ -2111,9 +2111,16 @@ sub verify_usb_device {
 sub json_config_properties {
     my $prop = shift;
 
+    my $skip_json_config_opts = {
+	parent => 1,
+	snaptime => 1,
+	vmstate => 1,
+	runningmachine => 1,
+	runningcpu => 1,
+    };
+
     foreach my $opt (keys %$confdesc) {
-	next if $opt eq 'parent' || $opt eq 'snaptime' || $opt eq 'vmstate' ||
-	    $opt eq 'runningmachine' || $opt eq 'runningcpu';
+	next if $skip_json_config_opts->{$opt};
 	$prop->{$opt} = $confdesc->{$opt};
     }
 
