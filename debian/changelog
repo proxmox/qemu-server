@@ -1,3 +1,15 @@
+qemu-server (7.0-17) bullseye; urgency=medium
+
+  * fix #3258: block vm start when a PCI(e) device is already in use
+
+  * snapshot: fix TPM state with RBD
+
+  * swtpm: wait for PID file to appear before continuing with VM start
+
+  * OS type: add entry for Windows 11/Server 2022
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 21 Oct 2021 11:57:09 +0200
+
 qemu-server (7.0-16) bullseye; urgency=medium
 
   * ovmf: support secure boot enabled code images
