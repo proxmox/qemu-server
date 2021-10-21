@@ -286,6 +286,15 @@ my $rng_fmt = {
     },
 };
 
+my $meta_info_fmt = {
+    'ctime' => {
+	type => 'integer',
+	description => "The guest creation timestamp as UNIX epoch time",
+	minimum => 0,
+	optional => 1,
+    },
+};
+
 my $confdesc = {
     onboot => {
 	optional => 1,
@@ -705,6 +714,12 @@ EODESCR
 	type => 'string',
 	format => $rng_fmt,
 	description => "Configure a VirtIO-based Random Number Generator.",
+	optional => 1,
+    },
+    meta => {
+	type => 'string',
+	format => $meta_info_fmt,
+	description => "Some (read-only) meta-information about this guest.",
 	optional => 1,
     },
 };
@@ -2115,6 +2130,27 @@ sub parse_rng {
     return $res;
 }
 
+sub parse_meta_info {
+    my ($value) = @_;
+
+    return if !$value;
+
+    my $res = eval { parse_property_string($meta_info_fmt, $value) };
+    warn $@ if $@;
+    return $res;
+}
+
+sub new_meta_info_string {
+    my () = @_; # for now do not allow to override any value
+
+    return PVE::JSONSchema::print_property_string(
+	{
+	    ctime => "". int(time()),
+	},
+	$meta_info_fmt
+    );
+}
+
 PVE::JSONSchema::register_format('pve-qm-usb-device', \&verify_usb_device);
 sub verify_usb_device {
     my ($value, $noerr) = @_;
@@ -2136,6 +2172,7 @@ sub json_config_properties {
 	vmstate => 1,
 	runningmachine => 1,
 	runningcpu => 1,
+	meta => 1,
     };
 
     foreach my $opt (keys %$confdesc) {

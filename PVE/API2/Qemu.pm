@@ -708,6 +708,8 @@ __PACKAGE__->register_method({
 		my $conf = $param;
 		my $arch = PVE::QemuServer::get_vm_arch($conf);
 
+		$conf->{meta} = PVE::QemuServer::new_meta_info_string();
+
 		my $vollist = [];
 		eval {
 		    $vollist = &$create_disks($rpcenv, $authuser, $conf, $arch, $storecfg, $vmid, $pool, $param, $storage);
