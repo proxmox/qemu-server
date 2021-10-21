@@ -2158,6 +2158,31 @@ sub new_meta_info_string {
     );
 }
 
+sub qemu_created_version_fixups {
+    my ($conf, $forcemachine, $kvmver) = @_;
+
+    my $meta = parse_meta_info($conf->{meta}) // {};
+    my $forced_vers = PVE::QemuServer::Machine::extract_version($forcemachine);
+
+    # check if we need to apply some handling for VMs that always use the latest machine version but
+    # had a machine version transition happen that affected HW such that, e.g., an OS config change
+    # would be required (we do not want to pin machine version for non-windows OS type)
+    if (
+	(!defined($conf->{machine}) || $conf->{machine} =~ m/^(?:pc|q35|virt)$/) # non-versioned machine
+	&& (!defined($meta->{'creation-qemu'}) || !min_version($meta->{'creation-qemu'}, 6, 1)) # created before 6.1
+	&& (!$forced_vers || min_version($forced_vers, 6, 1)) # handle snapshot-rollback/migrations
+	&& min_version($kvmver, 6, 1) # only need to apply the change since 6.1
+    ) {
+	my $q35 = PVE::QemuServer::Machine::machine_type_is_q35($conf);
+	if ($q35 && $conf->{ostype} && $conf->{ostype} eq 'l26') {
+	    # this changed to default-on in Q 6.1 for q35 machines, it will mess with PCI slot view
+	    # and thus with the predictable interface naming of systemd
+	    return ['-global', 'ICH9-LPC.acpi-pci-hotplug-with-bridge-support=off'];
+	}
+    }
+    return;
+}
+
 PVE::JSONSchema::register_format('pve-qm-usb-device', \&verify_usb_device);
 sub verify_usb_device {
     my ($value, $noerr) = @_;
@@ -3552,6 +3577,10 @@ sub config_to_command {
 	} else {
 	    push @$devices, '-readconfig', '/usr/share/qemu-server/pve-q35.cfg';
 	}
+    }
+
+    if (defined(my $fixups = qemu_created_version_fixups($conf, $forcemachine, $kvmver))) {
+	push @$cmd, $fixups->@*;
     }
 
     if ($conf->{vmgenid}) {
