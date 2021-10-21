@@ -293,6 +293,12 @@ my $meta_info_fmt = {
 	minimum => 0,
 	optional => 1,
     },
+    'creation-qemu' => {
+	type => 'string',
+	description => "The QEMU (machine) version from the time this VM was created.",
+	pattern => '\d+(\.\d+)+',
+	optional => 1,
+    },
 };
 
 my $confdesc = {
@@ -2145,6 +2151,7 @@ sub new_meta_info_string {
 
     return PVE::JSONSchema::print_property_string(
 	{
+	    'creation-qemu' => kvm_user_version(),
 	    ctime => "". int(time()),
 	},
 	$meta_info_fmt
