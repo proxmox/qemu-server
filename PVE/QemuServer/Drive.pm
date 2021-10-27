@@ -175,6 +175,14 @@ my %queues_fmt = (
     }
 );
 
+my %readonly_fmt = (
+    ro => {
+	type => 'boolean',
+	description => "Whether the drive is read-only.",
+	optional => 1,
+    },
+);
+
 my %scsiblock_fmt = (
     scsiblock => {
 	type => 'boolean',
@@ -269,6 +277,7 @@ my $scsi_fmt = {
     %drivedesc_base,
     %iothread_fmt,
     %queues_fmt,
+    %readonly_fmt,
     %scsiblock_fmt,
     %ssd_fmt,
     %wwn_fmt,
@@ -297,6 +306,7 @@ PVE::JSONSchema::register_standard_option("pve-qm-sata", $satadesc);
 my $virtio_fmt = {
     %drivedesc_base,
     %iothread_fmt,
+    %readonly_fmt,
 };
 my $virtiodesc = {
     optional => 1,
@@ -399,6 +409,7 @@ my $alldrive_fmt = {
     %iothread_fmt,
     %model_fmt,
     %queues_fmt,
+    %readonly_fmt,
     %scsiblock_fmt,
     %ssd_fmt,
     %wwn_fmt,

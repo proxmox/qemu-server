@@ -1597,6 +1597,12 @@ sub print_drive_commandline_full {
 	$opts .= ",snapshot=$v";
     }
 
+    # ro is 'readonly', and only accepts on|off
+    if (defined($drive->{ro})) {
+	my $v = $drive->{ro} ? 'on' : 'off';
+	$opts .= ",readonly=$v";
+    }
+
     foreach my $type (['', '-total'], [_rd => '-read'], [_wr => '-write']) {
 	my ($dir, $qmpname) = @$type;
 	if (my $v = $drive->{"mbps$dir"}) {
