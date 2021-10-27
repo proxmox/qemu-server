@@ -1597,10 +1597,8 @@ sub print_drive_commandline_full {
 	$opts .= ",snapshot=$v";
     }
 
-    # ro is 'readonly', and only accepts on|off
-    if (defined($drive->{ro})) {
-	my $v = $drive->{ro} ? 'on' : 'off';
-	$opts .= ",readonly=$v";
+    if (defined($drive->{ro})) { # ro maps to QEMUs `readonly`, which accepts `on` or `off` only
+	$opts .= ",readonly=" . ($drive->{ro} ? 'on' : 'off');
     }
 
     foreach my $type (['', '-total'], [_rd => '-read'], [_wr => '-write']) {
