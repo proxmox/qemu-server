@@ -867,7 +867,7 @@ sub resume_vm_after_job_start {
     } else {
 	$self->loginfo("resuming VM again");
     }
-    mon_cmd($vmid, 'cont');
+    mon_cmd($vmid, 'cont', timeout => 45);
 }
 
 # stop again if VM was not running before
