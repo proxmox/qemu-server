@@ -734,6 +734,14 @@ my $cicustom_fmt = {
 	format => 'pve-volume-id',
 	format_description => 'volume',
     },
+    vendor => {
+    type => 'string',
+    optional => 1,
+    description => 'Specify a custom file containing all vendor data passed to the VM via'
+     .' cloud-init.',
+    format => 'pve-volume-id',
+    format_description => 'volume',
+    },
 };
 PVE::JSONSchema::register_format('pve-qm-cicustom', $cicustom_fmt);
 

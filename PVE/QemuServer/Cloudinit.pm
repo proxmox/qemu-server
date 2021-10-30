@@ -227,17 +227,22 @@ EOF
 sub generate_configdrive2 {
     my ($conf, $vmid, $drive, $volname, $storeid) = @_;
 
-    my ($user_data, $network_data, $meta_data) = get_custom_cloudinit_files($conf);
+    my ($user_data, $network_data, $meta_data, $vendor_data) = get_custom_cloudinit_files($conf);
     $user_data = cloudinit_userdata($conf, $vmid) if !defined($user_data);
     $network_data = configdrive2_network($conf) if !defined($network_data);
 
     if (!defined($meta_data)) {
 	$meta_data = configdrive2_gen_metadata($user_data, $network_data);
     }
+
+    my $sum = length($user_data) + length($network_data) + length($meta_data) + length($vendor_data);
+    die "Cloud-Init sum of snippets too big (> 3 MiB)\n" if $sum > (3 * 1024 * 1024);
+
     my $files = {
 	'/openstack/latest/user_data' => $user_data,
 	'/openstack/content/0000' => $network_data,
-	'/openstack/latest/meta_data.json' => $meta_data
+	'/openstack/latest/meta_data.json' => $meta_data,
+	'/openstack/latest/vendor_data.json' => $vendor_data
     };
     commit_cloudinit_disk($conf, $vmid, $drive, $volname, $storeid, $files, 'config-2');
 }
@@ -476,7 +481,7 @@ sub nocloud_gen_metadata {
 sub generate_nocloud {
     my ($conf, $vmid, $drive, $volname, $storeid) = @_;
 
-    my ($user_data, $network_data, $meta_data) = get_custom_cloudinit_files($conf);
+    my ($user_data, $network_data, $meta_data, $vendor_data) = get_custom_cloudinit_files($conf);
     $user_data = cloudinit_userdata($conf, $vmid) if !defined($user_data);
     $network_data = nocloud_network($conf) if !defined($network_data);
 
@@ -484,10 +489,14 @@ sub generate_nocloud {
 	$meta_data = nocloud_gen_metadata($user_data, $network_data);
     }
 
+    my $sum = length($user_data) + length($network_data) + length($meta_data) + length($vendor_data);
+    die "Cloud-Init sum of snippets too big (> 3 MiB)\n" if $sum > (3 * 1024 * 1024);
+
     my $files = {
 	'/user-data' => $user_data,
 	'/network-config' => $network_data,
-	'/meta-data' => $meta_data
+	'/meta-data' => $meta_data,
+	'/vendor-data' => $vendor_data
     };
     commit_cloudinit_disk($conf, $vmid, $drive, $volname, $storeid, $files, 'cidata');
 }
@@ -501,6 +510,7 @@ sub get_custom_cloudinit_files {
     my $network_volid = $files->{network};
     my $user_volid = $files->{user};
     my $meta_volid = $files->{meta};
+    my $vendor_volid = $files->{vendor};
 
     my $storage_conf = PVE::Storage::config();
 
@@ -519,7 +529,12 @@ sub get_custom_cloudinit_files {
 	$meta_data = read_cloudinit_snippets_file($storage_conf, $meta_volid);
     }
 
-    return ($user_data, $network_data, $meta_data);
+    my $vendor_data;
+    if ($vendor_volid) {
+	$vendor_data = read_cloudinit_snippets_file($storage_conf, $vendor_volid);
+    }
+
+    return ($user_data, $network_data, $meta_data, $vendor_data);
 }
 
 sub read_cloudinit_snippets_file {
