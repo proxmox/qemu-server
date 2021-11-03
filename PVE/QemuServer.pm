@@ -1436,7 +1436,7 @@ sub print_tabletdevice_full {
 }
 
 sub print_keyboarddevice_full {
-    my ($conf, $arch, $machine) = @_;
+    my ($conf, $arch) = @_;
 
     return if $arch ne 'aarch64';
 
