@@ -1384,9 +1384,9 @@ sub scsi_inquiry {
     # see /usr/include/scsi/sg.h
     my $sg_io_hdr_t = "i i C C s I P P P I I i P C C C C S S i I I";
 
-    my $packet = pack($sg_io_hdr_t, ord('S'), -3, length($cmd),
-		      length($sensebuf), 0, length($buf), $buf,
-		      $cmd, $sensebuf, 6000);
+    my $packet = pack(
+	$sg_io_hdr_t, ord('S'), -3, length($cmd), length($sensebuf), 0, length($buf), $buf, $cmd, $sensebuf, 6000
+    );
 
     $ret = ioctl($fh, $SG_IO, $packet);
     if (!$ret) {
@@ -1401,11 +1401,10 @@ sub scsi_inquiry {
     }
 
     my $res = {};
-    (my $byte0, my $byte1, $res->{vendor},
-     $res->{product}, $res->{revision}) = unpack("C C x6 A8 A16 A4", $buf);
+    $res->@{qw(type removable vendor product revision)} = unpack("C C x6 A8 A16 A4", $buf);
 
-    $res->{removable} = $byte1 & 128 ? 1 : 0;
-    $res->{type} = $byte0 & 31;
+    $res->{removable} = $res->{removable} & 128 ? 1 : 0;
+    $res->{type} &= 0x1F;
 
     return $res;
 }
