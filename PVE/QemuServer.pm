@@ -1235,7 +1235,7 @@ sub kvm_user_version {
 my sub extract_version {
     my ($machine_type, $version) = @_;
     $version = kvm_user_version() if !defined($version);
-    PVE::QemuServer::Machine::extract_version($machine_type, $version)
+    return PVE::QemuServer::Machine::extract_version($machine_type, $version)
 }
 
 sub kernel_has_vhost_net {
