@@ -17,8 +17,8 @@
   -vnc 'unix:/var/run/qemu-server/8006.vnc,password=on' \
   -cpu kvm64,enforce,+kvm_pv_eoi,+kvm_pv_unhalt,+lahf_lm,+sep \
   -m 512 \
-  -readconfig /usr/share/qemu-server/pve-q35-4.0.cfg
-  -device 'usb-tablet,id=tablet,bus=ehci.0,port=1'
+  -readconfig /usr/share/qemu-server/pve-q35-4.0.cfg \
+  -device 'usb-tablet,id=tablet,bus=ehci.0,port=1' \
   -chardev 'socket,id=tpmchar,path=/var/run/qemu-server/8006.swtpm' \
   -tpmdev 'emulator,id=tpmdev,chardev=tpmchar' \
   -device 'tpm-tis,tpmdev=tpmdev' \
