@@ -235,6 +235,8 @@ sub generate_configdrive2 {
 	$meta_data = configdrive2_gen_metadata($user_data, $network_data);
     }
 
+    # we always allocate a 4MiB disk for cloudinit and with the overhead of the ISO
+    # make sure we always stay below it by keeping the sum of all files below 3 MiB
     my $sum = length($user_data) + length($network_data) + length($meta_data) + length($vendor_data);
     die "Cloud-Init sum of snippets too big (> 3 MiB)\n" if $sum > (3 * 1024 * 1024);
 
@@ -489,6 +491,8 @@ sub generate_nocloud {
 	$meta_data = nocloud_gen_metadata($user_data, $network_data);
     }
 
+    # we always allocate a 4MiB disk for cloudinit and with the overhead of the ISO
+    # make sure we always stay below it by keeping the sum of all files below 3 MiB
     my $sum = length($user_data) + length($network_data) + length($meta_data) + length($vendor_data);
     die "Cloud-Init sum of snippets too big (> 3 MiB)\n" if $sum > (3 * 1024 * 1024);
 
