@@ -1,3 +1,29 @@
+qemu-server (7.0-18) bullseye; urgency=medium
+
+  * use non SMM ovmf code file for i440fx machines
+
+  * fix hot-unplugging (removing) a cpulimit on a running VM
+
+  * vm start: only print tpm-related message if there is an actual instance
+
+  * vzdump: increase timeout for QMP 'cont' command after backup started
+
+  * drives: expose readonly flag for SCSI/VirtIO drives as 'ro' property
+
+  * qemu-agent: allow hotplug of the 'fstrim cloned disk' option
+
+  * fix #2429: allow to specify cloud-init vendor snippet via 'cicustom'
+
+  * config: add new meta property with the VM creation time
+
+  * config: meta: also save the QEMU version installed during creation
+
+  * cfg2cmd: switch off ACPI hotplug on bridges for q35 VMs with linux as
+    ostype to avoid changes in network interface naming due to systemd's
+    predicatble naming scheme
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 04 Nov 2021 15:29:55 +0100
+
 qemu-server (7.0-17) bullseye; urgency=medium
 
   * fix #3258: block vm start when a PCI(e) device is already in use
