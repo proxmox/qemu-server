@@ -5015,17 +5015,17 @@ sub vmconfig_update_agent {
     my $old_agent = parse_guest_agent($conf);
     my $agent = parse_guest_agent({$opt => $value});
 
-    #added/changed options
-    foreach my $option (keys %$agent) {
+    for my $option (keys %$agent) { # added/changed options
 	next if defined($hotplug_options->{$option});
 	die "skip\n" if safe_string_ne($agent->{$option}, $old_agent->{$option});
     }
 
-    #removed options
-    foreach my $option (keys %$old_agent) {
+    for my $option (keys %$old_agent) { # removed options
 	next if defined($hotplug_options->{$option});
 	die "skip\n" if safe_string_ne($old_agent->{$option}, $agent->{$option});
     }
+
+    return; # either no actual change (e.g., format string reordered) or just hotpluggable changes
 }
 
 sub vmconfig_update_disk {
