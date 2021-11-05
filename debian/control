@@ -20,6 +20,7 @@ Build-Depends: debhelper (>= 12~),
                pve-doc-generator (>= 6.2-5),
                pve-edk2-firmware,
                pve-firewall,
+               pve-ha-manager <!nocheck>,
                pve-qemu-kvm,
 Standards-Version: 4.5.1
 Homepage: https://www.proxmox.com
