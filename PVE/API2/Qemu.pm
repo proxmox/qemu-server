@@ -135,6 +135,18 @@ my $check_storage_access_clone = sub {
    return $sharedvm;
 };
 
+my $check_storage_access_migrate = sub {
+    my ($rpcenv, $authuser, $storecfg, $storage, $node) = @_;
+
+    PVE::Storage::storage_check_enabled($storecfg, $storage, $node);
+
+    $rpcenv->check($authuser, "/storage/$storage", ['Datastore.AllocateSpace']);
+
+    my $scfg = PVE::Storage::storage_config($storecfg, $storage);
+    die "storage '$storage' does not support vm images\n"
+	if !$scfg->{content}->{images};
+};
+
 # Note: $pool is only needed when creating a VM, because pool permissions
 # are automatically inherited if VM already exists inside a pool.
 my $create_disks = sub {
@@ -3925,17 +3937,7 @@ __PACKAGE__->register_method({
 	}
 
 	my $storecfg = PVE::Storage::config();
-
 	if (my $targetstorage = $param->{targetstorage}) {
-	    my $check_storage = sub {
-		my ($target_sid) = @_;
-		PVE::Storage::storage_check_enabled($storecfg, $target_sid, $target);
-		$rpcenv->check($authuser, "/storage/$target_sid", ['Datastore.AllocateSpace']);
-		my $scfg = PVE::Storage::storage_config($storecfg, $target_sid);
-		raise_param_exc({ targetstorage => "storage '$target_sid' does not support vm images"})
-		    if !$scfg->{content}->{images};
-	    };
-
 	    my $storagemap = eval { PVE::JSONSchema::parse_idmap($targetstorage, 'pve-storage-id') };
 	    raise_param_exc({ targetstorage => "failed to parse storage map: $@" })
 		if $@;
@@ -3944,10 +3946,10 @@ __PACKAGE__->register_method({
 		if !defined($storagemap->{identity});
 
 	    foreach my $target_sid (values %{$storagemap->{entries}}) {
-		$check_storage->($target_sid);
+		$check_storage_access_migrate->($rpcenv, $authuser, $storecfg, $target_sid, $target);
 	    }
 
-	    $check_storage->($storagemap->{default})
+	    $check_storage_access_migrate->($rpcenv, $authuser, $storecfg, $storagemap->{default}, $target)
 		if $storagemap->{default};
 
 	    PVE::QemuServer::check_storage_availability($storecfg, $conf, $target)
