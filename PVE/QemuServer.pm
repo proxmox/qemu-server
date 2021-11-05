@@ -3403,6 +3403,16 @@ my sub get_cpuunits {
     my ($conf) = @_;
     return $conf->{cpuunits} // (PVE::CGroup::cgroup_mode() == 2 ? 100 : 1024);
 }
+
+# Since commit 277d33454f77ec1d1e0bc04e37621e4dd2424b67 in pve-qemu, smm is not off by default
+# anymore. But smm=off seems to be required when using SeaBIOS and serial display.
+my sub should_disable_smm {
+    my ($conf, $vga) = @_;
+
+    return (!defined($conf->{bios}) || $conf->{bios} eq 'seabios') &&
+	$vga->{type} && $vga->{type} =~ m/^serial\d+$/;
+}
+
 sub config_to_command {
     my ($storecfg, $vmid, $conf, $defaults, $forcemachine, $forcecpu,
         $pbs_backing) = @_;
@@ -4001,6 +4011,8 @@ sub config_to_command {
     if (!$kvm) {
 	push @$machineFlags, 'accel=tcg';
     }
+
+    push @$machineFlags, 'smm=off' if should_disable_smm($conf, $vga);
 
     my $machine_type_min = $machine_type;
     if ($add_pve_version) {
