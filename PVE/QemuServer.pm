@@ -137,7 +137,7 @@ sub map_storage {
 PVE::JSONSchema::register_standard_option('pve-targetstorage', {
     description => "Mapping from source to target storages. Providing only a single storage ID maps all source storages to that storage. Providing the special value '1' will map each source storage to itself.",
     type => 'string',
-    format => 'storagepair-list',
+    format => 'storage-pair-list',
     optional => 1,
 });
 
