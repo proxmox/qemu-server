@@ -3320,13 +3320,15 @@ __PACKAGE__->register_method({
             },
 	    delete => {
 		type => 'boolean',
-		description => "Delete the original disk after successful copy. By default the original disk is kept as unused disk.",
+		description => "Delete the original disk after successful copy. By default the " .
+		    "original disk is kept as unused disk.",
 		optional => 1,
 		default => 0,
 	    },
 	    digest => {
 		type => 'string',
-		description => 'Prevent changes if current configuration file has different SHA1 digest. This can be used to prevent concurrent modifications.',
+		description => 'Prevent changes if current configuration file has different SHA1 " .
+		    "digest. This can be used to prevent concurrent modifications.',
 		maxLength => 40,
 		optional => 1,
 	    },
@@ -3403,11 +3405,20 @@ __PACKAGE__->register_method({
                 (!$format || !$oldfmt || $oldfmt eq $format);
 
 	    # this only checks snapshots because $disk is passed!
-	    my $snapshotted = PVE::QemuServer::Drive::is_volume_in_use($storecfg, $conf, $disk, $old_volid);
+	    my $snapshotted = PVE::QemuServer::Drive::is_volume_in_use(
+		$storecfg,
+		$conf,
+		$disk,
+		$old_volid
+	    );
 	    die "you can't move a disk with snapshots and delete the source\n"
 		if $snapshotted && $param->{delete};
 
-	    PVE::Cluster::log_msg('info', $authuser, "move disk VM $vmid: move --disk $disk --storage $storeid");
+	    PVE::Cluster::log_msg(
+		'info',
+		$authuser,
+		"move disk VM $vmid: move --disk $disk --storage $storeid"
+	    );
 
 	    my $running = PVE::QemuServer::check_running($vmid);
 
@@ -3426,7 +3437,11 @@ __PACKAGE__->register_method({
 			if $snapshotted;
 
 		    my $bwlimit = extract_param($param, 'bwlimit');
-		    my $movelimit = PVE::Storage::get_bandwidth_limit('move', [$oldstoreid, $storeid], $bwlimit);
+		    my $movelimit = PVE::Storage::get_bandwidth_limit(
+			'move',
+			[$oldstoreid, $storeid],
+			$bwlimit
+		    );
 
 		    my $newdrive = PVE::QemuServer::clone_disk(
 			$storecfg,
