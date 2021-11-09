@@ -467,6 +467,10 @@ sub valid_drive_names {
             'tpmstate0');
 }
 
+sub valid_drive_names_with_unused {
+    return (valid_drive_names(), map {"unused$_"} (0 .. ($MAX_UNUSED_DISKS - 1)));
+}
+
 sub is_valid_drivename {
     my $dev = shift;
 
