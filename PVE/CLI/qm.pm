@@ -910,7 +910,7 @@ our $cmddef = {
 
     resize => [ "PVE::API2::Qemu", 'resize_vm', ['vmid', 'disk', 'size'], { node => $nodename } ],
 
-    'move-disk' => [ "PVE::API2::Qemu", 'move_vm_disk', ['vmid', 'disk', 'storage'], { node => $nodename }, $upid_exit ],
+    'move-disk' => [ "PVE::API2::Qemu", 'move_vm_disk', ['vmid', 'disk', 'storage', 'target-vmid', 'target-disk'], { node => $nodename }, $upid_exit ],
     move_disk => { alias => 'move-disk' },
 
     unlink => [ "PVE::API2::Qemu", 'unlink', ['vmid'], { node => $nodename } ],
