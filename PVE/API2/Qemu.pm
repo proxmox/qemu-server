@@ -3554,10 +3554,17 @@ __PACKAGE__->register_method({
 		if PVE::QemuServer::check_running($vmid) && $disk !~ m/^unused\d+$/;
 
 	    # now re-parse using target disk slot format
-	    $drive = PVE::QemuServer::parse_drive(
-	        $target_disk,
-	        $source_conf->{$disk},
-	    );
+	    if ($target_disk =~ /^unused\d+$/) {
+		$drive = PVE::QemuServer::parse_drive(
+		    $target_disk,
+		    $source_volid,
+		);
+	    } else {
+		$drive = PVE::QemuServer::parse_drive(
+		    $target_disk,
+		    $source_conf->{$disk},
+		);
+	    }
 	    die "failed to parse source disk for target disk format - $@\n" if !$drive;
 
 	    my $repl_conf = PVE::ReplicationConfig->new();
