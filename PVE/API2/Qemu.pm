@@ -3288,10 +3288,7 @@ __PACKAGE__->register_method({
 	description => "You need 'VM.Config.Disk' permissions on /vms/{vmid}, " .
 	    "and 'Datastore.AllocateSpace' permissions on the storage. To move ".
 	    "a disk to another VM, you need the permissions on the target VM as well.",
-	check => [ 'and',
-		   ['perm', '/vms/{vmid}', [ 'VM.Config.Disk' ]],
-		   ['perm', '/storage/{storage}', [ 'Datastore.AllocateSpace' ]],
-	    ],
+	check => ['perm', '/vms/{vmid}', [ 'VM.Config.Disk' ]],
     },
     parameters => {
 	additionalProperties => 0,
@@ -3381,8 +3378,7 @@ __PACKAGE__->register_method({
 	    my $conf = PVE::QemuConfig->load_config($vmid);
 	    PVE::QemuConfig->check_lock($conf);
 
-	    die "VM config checksum missmatch (file change by other user?)\n"
-		if $digest && $digest ne $conf->{digest};
+	    PVE::Tools::assert_if_modified($digest, $conf->{digest});
 
 	    die "disk '$disk' does not exist\n" if !$conf->{$disk};
 
@@ -3649,7 +3645,10 @@ __PACKAGE__->register_method({
 	    raise_param_exc({ 'target-vmid' => "must be different than source VMID to reassign disk" })
 		if $vmid eq $target_vmid;
 
-	    &$load_and_check_reassign_configs();
+	    my (undef, undef, $drive) = &$load_and_check_reassign_configs();
+	    my $storeid = PVE::Storage::parse_volume_id($drive->{file});
+	    $rpcenv->check($authuser, "/storage/$storeid", ['Datastore.AllocateSpace']);
+
 	    return $rpcenv->fork_worker(
 		'qmmove',
 		"${vmid}-${disk}>${target_vmid}-${target_disk}",
@@ -3657,6 +3656,8 @@ __PACKAGE__->register_method({
 		$disk_reassignfn
 	    );
 	} elsif ($storeid) {
+	    $rpcenv->check($authuser, "/storage/$storeid", ['Datastore.AllocateSpace']);
+
 	    die "cannot move disk '$disk', only configured disks can be moved to another storage\n"
 		if $disk =~ m/^unused\d+$/;
 	    return PVE::QemuConfig->lock_config($vmid, $move_updatefn);
