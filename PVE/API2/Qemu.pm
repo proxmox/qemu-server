@@ -3646,8 +3646,8 @@ __PACKAGE__->register_method({
 		if $vmid eq $target_vmid;
 
 	    my (undef, undef, $drive) = &$load_and_check_reassign_configs();
-	    my $storeid = PVE::Storage::parse_volume_id($drive->{file});
-	    $rpcenv->check($authuser, "/storage/$storeid", ['Datastore.AllocateSpace']);
+	    my $storage = PVE::Storage::parse_volume_id($drive->{file});
+	    $rpcenv->check($authuser, "/storage/$storage", ['Datastore.AllocateSpace']);
 
 	    return $rpcenv->fork_worker(
 		'qmmove',
