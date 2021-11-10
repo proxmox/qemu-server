@@ -3607,15 +3607,21 @@ __PACKAGE__->register_method({
 		    PVE::QemuConfig->write_config($vmid, $source_conf);
 
 		    my $drive_string = PVE::QemuServer::print_drive($drive);
-		    &$update_vm_api(
-			{
-			    node => $node,
-			    vmid => $target_vmid,
-			    digest => $target_digest,
-			    $target_disk => $drive_string,
-			},
-			1,
-		    );
+
+		    if ($target_disk =~ /^unused\d+$/) {
+			$target_conf->{$target_disk} = $drive_string;
+			PVE::QemuConfig->write_config($target_vmid, $target_conf);
+		    } else {
+			&$update_vm_api(
+			    {
+				node => $node,
+				vmid => $target_vmid,
+				digest => $target_digest,
+				$target_disk => $drive_string,
+			    },
+			    1,
+			);
+		    }
 
 		    # remove possible replication snapshots
 		    if (PVE::Storage::volume_has_feature(
