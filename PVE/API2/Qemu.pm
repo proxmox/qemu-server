@@ -3375,10 +3375,7 @@ __PACKAGE__->register_method({
 	my $storeid = extract_param($param, 'storage');
 	my $format = extract_param($param, 'format');
 
-	die "either set storage or target-vmid, but not both\n" if $storeid && $target_vmid;
-
 	my $storecfg = PVE::Storage::config();
-	my $source_volid;
 
 	my $move_updatefn =  sub {
 	    my $conf = PVE::QemuConfig->load_config($vmid);
@@ -3507,11 +3504,13 @@ __PACKAGE__->register_method({
 	    my $vmlist = PVE::Cluster::get_vmlist()->{ids};
 
 	    die "could not find VM ${vmid}\n" if !exists($vmlist->{$vmid});
+	    die "could not find target VM ${target_vmid}\n" if !exists($vmlist->{$target_vmid});
 
-	    if ($vmlist->{$vmid}->{node} ne $vmlist->{$target_vmid}->{node}) {
-		die "Both VMs need to be on the same node $vmlist->{$vmid}->{node}) ".
-		    "but target VM is on $vmlist->{$target_vmid}->{node}.\n";
-	    }
+	    my $source_node = $vmlist->{$vmid}->{node};
+	    my $target_node = $vmlist->{$target_vmid}->{node};
+
+	    die "Both VMs need to be on the same node ($source_node != $target_node)\n"
+		if $source_node ne $target_node;
 
 	    my $source_conf = PVE::QemuConfig->load_config($vmid);
 	    PVE::QemuConfig->check_lock($source_conf);
@@ -3534,46 +3533,45 @@ __PACKAGE__->register_method({
 	    die "Disk '${disk}' for VM '$vmid' does not exist\n" if !defined($source_conf->{$disk});
 
 	    die "Target disk key '${target_disk}' is already in use for VM '$target_vmid'\n"
-		if exists($target_conf->{$target_disk});
+		if $target_conf->{$target_disk};
 
 	    my $drive = PVE::QemuServer::parse_drive(
 		$disk,
 		$source_conf->{$disk},
 	    );
-	    $source_volid = $drive->{file};
+	    die "failed to parse source disk - $@\n" if !$drive;
+
+	    my $source_volid = $drive->{file};
 
 	    die "disk '${disk}' has no associated volume\n" if !$source_volid;
 	    die "CD drive contents can't be moved to another VM\n"
 		if PVE::QemuServer::drive_is_cdrom($drive, 1);
-	    die "Can't move  physical disk to another VM\n" if $source_volid =~ m|^/dev/|;
+
+	    my $storeid = PVE::Storage::parse_volume_id($source_volid, 1);
+	    die "Volume '$source_volid' not managed by PVE\n" if !defined($storeid);
+
 	    die "Can't move disk used by a snapshot to another VM\n"
 		if PVE::QemuServer::Drive::is_volume_in_use($storecfg, $source_conf, $disk, $source_volid);
 	    die "Storage does not support moving of this disk to another VM\n"
 		if (!PVE::Storage::volume_has_feature($storecfg, 'rename', $source_volid));
-	    die "Cannot move disk to another VM while the source VM is running\n"
+	    die "Cannot move disk to another VM while the source VM is running - detach first\n"
 		if PVE::QemuServer::check_running($vmid) && $disk !~ m/^unused\d+$/;
 
-	    if ($target_disk !~ m/^unused\d+$/ && $target_disk =~ m/^([^\d]+)\d+$/) {
-		my $interface = $1;
-		my $desc = PVE::JSONSchema::get_standard_option("pve-qm-${interface}");
-		eval {
-		    PVE::JSONSchema::parse_property_string(
-			$desc->{format},
-			$source_conf->{$disk},
-		    )
-		};
-		die "Cannot move disk to another VM: $@" if $@;
-	    }
+	    # now re-parse using target disk slot format
+	    $drive = PVE::QemuServer::parse_drive(
+	        $target_disk,
+	        $source_conf->{$disk},
+	    );
+	    die "failed to parse source disk for target disk format - $@\n" if !$drive;
 
 	    my $repl_conf = PVE::ReplicationConfig->new();
-	    my $is_replicated = $repl_conf->check_for_existing_jobs($target_vmid, 1);
-	    my ($storeid, undef) = PVE::Storage::parse_volume_id($source_volid);
-	    my $format = (PVE::Storage::parse_volname($storecfg, $source_volid))[6];
-	    if ($is_replicated && !PVE::Storage::storage_can_replicate($storecfg, $storeid, $format)) {
-		die "Cannot move disk to a replicated VM. Storage does not support replication!\n";
+	    if ($repl_conf->check_for_existing_jobs($target_vmid, 1)) {
+		my $format = (PVE::Storage::parse_volname($storecfg, $source_volid))[6];
+		die "Cannot move disk to a replicated VM. Storage does not support replication!\n"
+		    if !PVE::Storage::storage_can_replicate($storecfg, $storeid, $format);
 	    }
 
-	    return ($source_conf, $target_conf);
+	    return ($source_conf, $target_conf, $drive);
 	};
 
 	my $logfunc = sub {
@@ -3584,12 +3582,9 @@ __PACKAGE__->register_method({
 	my $disk_reassignfn = sub {
 	    return PVE::QemuConfig->lock_config($vmid, sub {
 		return PVE::QemuConfig->lock_config($target_vmid, sub {
-		    my ($source_conf, $target_conf) = &$load_and_check_reassign_configs();
+		    my ($source_conf, $target_conf, $drive) = &$load_and_check_reassign_configs();
 
-		    my $drive_param = PVE::QemuServer::parse_drive(
-			$target_disk,
-			$source_conf->{$disk},
-		    );
+		    my $source_volid = $drive->{file};
 
 		    print "moving disk '$disk' from VM '$vmid' to '$target_vmid'\n";
 		    my ($storeid, $source_volname) = PVE::Storage::parse_volume_id($source_volid);
@@ -3602,13 +3597,13 @@ __PACKAGE__->register_method({
 			$target_vmid,
 		    );
 
-		    $drive_param->{file} = $new_volid;
+		    $drive->{file} = $new_volid;
 
 		    delete $source_conf->{$disk};
 		    print "removing disk '${disk}' from VM '${vmid}' config\n";
 		    PVE::QemuConfig->write_config($vmid, $source_conf);
 
-		    my $drive_string = PVE::QemuServer::print_drive($drive_param);
+		    my $drive_string = PVE::QemuServer::print_drive($drive);
 		    &$update_vm_api(
 			{
 			    node => $node,
@@ -3644,12 +3639,14 @@ __PACKAGE__->register_method({
 	    });
 	};
 
-	if ($target_vmid) {
+	if ($target_vmid && $storeid) {
+	    my $msg = "either set 'storage' or 'target-vmid', but not both";
+	    raise_param_exc({ 'target-vmid' => $msg, 'storage' => $msg });
+	} elsif ($target_vmid) {
 	    $rpcenv->check_vm_perm($authuser, $target_vmid, undef, ['VM.Config.Disk'])
 		if $authuser ne 'root@pam';
 
-	    die "Moving a disk to the same VM is not possible. Did you mean to ".
-		"move the disk to a different storage?\n"
+	    raise_param_exc({ 'target-vmid' => "must be different than source VMID to reassign disk" })
 		if $vmid eq $target_vmid;
 
 	    &$load_and_check_reassign_configs();
@@ -3664,9 +3661,8 @@ __PACKAGE__->register_method({
 		if $disk =~ m/^unused\d+$/;
 	    return PVE::QemuConfig->lock_config($vmid, $move_updatefn);
 	} else {
-	    die "Provide either a 'storage' to move the disk to a different " .
-		"storage or 'target-vmid' and 'target-disk' to move the disk " .
-		"to another VM\n";
+	    my $msg = "both 'storage' and 'target-vmid' missing, either needs to be set";
+	    raise_param_exc({ 'target-vmid' => $msg, 'storage' => $msg });
 	}
     }});
 
