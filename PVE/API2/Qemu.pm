@@ -3321,23 +3321,23 @@ __PACKAGE__->register_method({
 		completion => \&PVE::QemuServer::complete_storage,
 		optional => 1,
             }),
-            'format' => {
-                type => 'string',
-                description => "Target Format.",
-                enum => [ 'raw', 'qcow2', 'vmdk' ],
-                optional => 1,
-            },
+	    'format' => {
+		type => 'string',
+		description => "Target Format.",
+		enum => [ 'raw', 'qcow2', 'vmdk' ],
+		optional => 1,
+	    },
 	    delete => {
 		type => 'boolean',
-		description => "Delete the original disk after successful copy. By default the " .
-		    "original disk is kept as unused disk.",
+		description => "Delete the original disk after successful copy. By default the"
+		    ." original disk is kept as unused disk.",
 		optional => 1,
 		default => 0,
 	    },
 	    digest => {
 		type => 'string',
-		description => 'Prevent changes if current configuration file has different SHA1 " .
-		    "digest. This can be used to prevent concurrent modifications.',
+		description => 'Prevent changes if current configuration file has different SHA1"
+		    ." digest. This can be used to prevent concurrent modifications.',
 		maxLength => 40,
 		optional => 1,
 	    },
@@ -3350,15 +3350,15 @@ __PACKAGE__->register_method({
 	    },
 	    'target-disk' => {
 	        type => 'string',
-		description => "The config key the disk will be moved to on the target VM " .
-		    "(for example, ide0 or scsi1). Default is the source disk key.",
+		description => "The config key the disk will be moved to on the target VM"
+		    ." (for example, ide0 or scsi1). Default is the source disk key.",
 		enum => [PVE::QemuServer::Drive::valid_drive_names_with_unused()],
 		optional => 1,
 	    },
 	    'target-digest' => {
 		type => 'string',
-		description => 'Prevent changes if current configuration file of the target VM has " .
-		    "a different SHA1 digest. This can be used to prevent concurrent modifications.',
+		description => 'Prevent changes if the current config file of the target VM has a"
+		    ." different SHA1 digest. This can be used to detect concurrent modifications.',
 		maxLength => 40,
 		optional => 1,
 	    },
