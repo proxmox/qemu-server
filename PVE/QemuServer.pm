@@ -3410,7 +3410,7 @@ my sub should_disable_smm {
     my ($conf, $vga) = @_;
 
     return (!defined($conf->{bios}) || $conf->{bios} eq 'seabios') &&
-	$vga->{type} && $vga->{type} =~ m/^serial\d+$/;
+	$vga->{type} && $vga->{type} =~ m/^(serial\d+|none)$/;
 }
 
 sub config_to_command {
