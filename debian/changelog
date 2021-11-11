@@ -1,3 +1,17 @@
+qemu-server (7.0-19) bullseye; urgency=medium
+
+  * rollback: improve interaction with snapshot replication
+
+  * cli: qm: rename 'move_disk' command to 'move-disk' with an alias for
+    backward compatibility
+
+  * pi: move-disk: add possibility to reassign a disk to another VM
+
+  * turn SMM off when SeaBIOS and a serial-display are used in combination to
+    avoid a possible boot loop
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 11 Nov 2021 12:49:10 +0100
+
 qemu-server (7.0-18) bullseye; urgency=medium
 
   * use non SMM ovmf code file for i440fx machines
