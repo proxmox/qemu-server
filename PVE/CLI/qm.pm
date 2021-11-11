@@ -878,30 +878,25 @@ sub param_mapping {
 }
 
 our $cmddef = {
-    list => [ "PVE::API2::Qemu", 'vmlist', [],
-	     { node => $nodename }, sub {
-		 my $vmlist = shift;
+    list=> [ "PVE::API2::Qemu", 'vmlist', [], { node => $nodename }, sub {
+	my $vmlist = shift;
 
-		 exit 0 if (!scalar(@$vmlist));
+	exit 0 if (!scalar(@$vmlist));
 
-		 printf "%10s %-20s %-10s %-10s %12s %-10s\n",
-		 qw(VMID NAME STATUS MEM(MB) BOOTDISK(GB) PID);
+	printf "%10s %-20s %-10s %-10s %12s %-10s\n",
+	qw(VMID NAME STATUS MEM(MB) BOOTDISK(GB) PID);
 
-		 foreach my $rec (sort { $a->{vmid} <=> $b->{vmid} } @$vmlist) {
-		     printf "%10s %-20s %-10s %-10s %12.2f %-10s\n", $rec->{vmid}, $rec->{name},
-		     $rec->{qmpstatus} || $rec->{status},
-		     ($rec->{maxmem} || 0)/(1024*1024),
-		     ($rec->{maxdisk} || 0)/(1024*1024*1024),
-		     $rec->{pid}||0;
-		 }
-
-
-	      } ],
+	foreach my $rec (sort { $a->{vmid} <=> $b->{vmid} } @$vmlist) {
+	    printf "%10s %-20s %-10s %-10s %12.2f %-10s\n", $rec->{vmid}, $rec->{name},
+	        $rec->{qmpstatus} || $rec->{status},
+	        ($rec->{maxmem} || 0)/(1024*1024),
+	        ($rec->{maxdisk} || 0)/(1024*1024*1024),
+	        $rec->{pid} || 0;
+	}
+    }],
 
     create => [ "PVE::API2::Qemu", 'create_vm', ['vmid'], { node => $nodename }, $upid_exit ],
-
     destroy => [ "PVE::API2::Qemu", 'destroy_vm', ['vmid'], { node => $nodename }, $upid_exit ],
-
     clone => [ "PVE::API2::Qemu", 'clone_vm', ['vmid', 'newid'], { node => $nodename }, $upid_exit ],
 
     migrate => [ "PVE::API2::Qemu", 'migrate_vm', ['vmid', 'target'], { node => $nodename }, $upid_exit ],
@@ -915,24 +910,24 @@ our $cmddef = {
 
     unlink => [ "PVE::API2::Qemu", 'unlink', ['vmid'], { node => $nodename } ],
 
-    config => [ "PVE::API2::Qemu", 'vm_config', ['vmid'],
-		{ node => $nodename }, sub {
-		    my $config = shift;
-		    foreach my $k (sort (keys %$config)) {
-			next if $k eq 'digest';
-			my $v = $config->{$k};
-			if ($k eq 'description') {
-			    $v = PVE::Tools::encode_text($v);
-			}
-			print "$k: $v\n";
-		    }
-		}],
+    config => [ "PVE::API2::Qemu", 'vm_config', ['vmid'], { node => $nodename }, sub {
+	my $config = shift;
+	foreach my $k (sort (keys %$config)) {
+	    next if $k eq 'digest';
+	    my $v = $config->{$k};
+	    if ($k eq 'description') {
+		$v = PVE::Tools::encode_text($v);
+	    }
+	    print "$k: $v\n";
+	}
+    }],
 
     pending => [ "PVE::API2::Qemu", 'vm_pending', ['vmid'], { node => $nodename }, \&PVE::GuestHelpers::format_pending ],
     showcmd => [ __PACKAGE__, 'showcmd', ['vmid']],
 
     status => [ __PACKAGE__, 'status', ['vmid']],
 
+    # FIXME: for 8.0 move to command group snapshot { create, list, destroy, rollback }
     snapshot => [ "PVE::API2::Qemu", 'snapshot', ['vmid', 'snapname'], { node => $nodename } , $upid_exit ],
 
     delsnapshot => [ "PVE::API2::Qemu", 'delsnapshot', ['vmid', 'snapname'], { node => $nodename } , $upid_exit ],
@@ -943,18 +938,13 @@ our $cmddef = {
 
     template => [ "PVE::API2::Qemu", 'template', ['vmid'], { node => $nodename }],
 
+    # FIXME: should be in a power command group?
     start => [ "PVE::API2::Qemu", 'vm_start', ['vmid'], { node => $nodename } , $upid_exit ],
-
     stop => [ "PVE::API2::Qemu", 'vm_stop', ['vmid'], { node => $nodename }, $upid_exit ],
-
     reset => [ "PVE::API2::Qemu", 'vm_reset', ['vmid'], { node => $nodename }, $upid_exit ],
-
     shutdown => [ "PVE::API2::Qemu", 'vm_shutdown', ['vmid'], { node => $nodename }, $upid_exit ],
-
     reboot => [ "PVE::API2::Qemu", 'vm_reboot', ['vmid'], { node => $nodename }, $upid_exit ],
-
     suspend => [ "PVE::API2::Qemu", 'vm_suspend', ['vmid'], { node => $nodename }, $upid_exit ],
-
     resume => [ "PVE::API2::Qemu", 'vm_resume', ['vmid'], { node => $nodename }, $upid_exit ],
 
     sendkey => [ "PVE::API2::Qemu", 'vm_sendkey', ['vmid', 'key'], { node => $nodename } ],
@@ -965,6 +955,7 @@ our $cmddef = {
 
     unlock => [ __PACKAGE__, 'unlock', ['vmid']],
 
+    # FIXME: should this be in a 'disk' command group with move and resize and import?
     rescan  => [ __PACKAGE__, 'rescan', []],
 
     monitor  => [ __PACKAGE__, 'monitor', ['vmid']],
