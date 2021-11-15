@@ -457,6 +457,10 @@ for (my $i = 0; $i < $MAX_UNUSED_DISKS; $i++) {
     $drivedesc_hash->{"unused$i"} = $unuseddesc;
 }
 
+sub valid_drive_names_for_boot {
+    return grep { $_ ne 'efidisk0' && $_ ne 'tpmstate0' } valid_drive_names();
+}
+
 sub valid_drive_names {
     # order is important - used to autoselect boot disk
     return ((map { "ide$_" } (0 .. ($MAX_IDE_DISKS - 1))),
@@ -697,7 +701,7 @@ sub is_volume_in_use {
 
 sub resolve_first_disk {
     my ($conf, $cdrom) = @_;
-    my @disks = valid_drive_names();
+    my @disks = valid_drive_names_for_boot();
     foreach my $ds (@disks) {
 	next if !$conf->{$ds};
 	my $disk = parse_drive($ds, $conf->{$ds});
