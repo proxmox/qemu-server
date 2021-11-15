@@ -5501,7 +5501,12 @@ sub vm_start_nolock {
 	$pci_devices->{$i} = parse_hostpci($dev);
     }
 
-    my $pci_id_list = [ map { $_->{id} } map { $_->{pciid}->@* } values $pci_devices->%* ];
+    # do not reserve pciid for mediated devices, sysfs will error out for duplicate assignment
+    my $real_pci_devices = [ grep { !(defined($_->{mdev}) && scalar($_->{pciid}->@*) == 1) } values $pci_devices->%* ];
+
+    # map to a flat list of pci ids
+    my $pci_id_list = [ map { $_->{id} } map { $_->{pciid}->@* } $real_pci_devices->@* ];
+
     # reserve all PCI IDs before actually doing anything with them
     PVE::QemuServer::PCI::reserve_pci_usage($pci_id_list, $vmid, $start_timeout);
 
