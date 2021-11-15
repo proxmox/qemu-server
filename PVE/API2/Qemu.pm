@@ -1477,7 +1477,7 @@ my $update_vm_api  = sub {
 		if (!$running) {
 		    my $status = PVE::Tools::upid_read_status($upid);
 		    return if !PVE::Tools::upid_status_is_error($status);
-		    die $status;
+		    die "failed to update VM $vmid: $status\n";
 		}
 	    }
 
