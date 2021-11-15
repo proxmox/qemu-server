@@ -1,11 +1,13 @@
-qemu-server (7.1-1) bullseye; urgency=medium
+qemu-server (7.1-2) bullseye; urgency=medium
 
   * cfg2cmd: disable SMM when display=none and SeaBIOS is both used
 
   * pci: do not reserve pci-ids for mediated devices, already handled by sysfs
     anyway
 
- -- Proxmox Support Team <support@proxmox.com>  Mon, 15 Nov 2021 16:26:58 +0100
+  * exclude efidisk and tpmstate for boot disk selection heuristic
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 15 Nov 2021 16:59:23 +0100
 
 qemu-server (7.0-19) bullseye; urgency=medium
 
