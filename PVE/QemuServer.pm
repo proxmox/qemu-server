@@ -5238,6 +5238,7 @@ sub vm_migrate_get_nbd_disks {
 	my ($ds, $drive) = @_;
 
 	return if drive_is_cdrom($drive);
+	return if $ds eq 'tpmstate0';
 
 	my $volid = $drive->{file};
 
