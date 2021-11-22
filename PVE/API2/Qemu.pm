@@ -2328,9 +2328,11 @@ __PACKAGE__->register_method({
 		    $nbd_protocol_version = $1;
 		} elsif ($line =~ m/^replicated_volume: (.*)$/) {
 		    $replicated_volumes->{$1} = 1;
-		} else {
+		} elsif (!$spice_ticket) {
 		    # fallback for old source node
 		    $spice_ticket = $line;
+		} else {
+		    warn "unknown 'start' parameter on STDIN: '$line'\n";
 		}
 	    }
 	}
