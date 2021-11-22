@@ -870,6 +870,14 @@ sub phase2 {
     # version > 0 for unix socket support
     my $nbd_protocol_version = 1;
     my $input = "nbd_protocol_version: $nbd_protocol_version\n";
+
+    if ($conf->{tpmstate0}) {
+	my $tpmdrive = PVE::QemuServer::parse_drive('tpmstate0', $conf->{tpmstate0});
+	my $tpmvol = $tpmdrive->{file};
+	$input .= "tpmstate0: $self->{volume_map}->{$tpmvol}"
+	    if $self->{volume_map}->{$tpmvol} && $tpmvol ne $self->{volume_map}->{$tpmvol};
+    }
+
     $input .= "spice_ticket: $spice_ticket\n" if $spice_ticket;
 
     my @online_replicated_volumes = $self->filter_local_volumes('online', 1);

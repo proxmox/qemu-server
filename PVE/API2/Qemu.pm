@@ -2319,6 +2319,7 @@ __PACKAGE__->register_method({
 	my $spice_ticket;
 	my $nbd_protocol_version = 0;
 	my $replicated_volumes = {};
+	my $tpmstate_vol;
 	if ($stateuri && ($stateuri eq 'tcp' || $stateuri eq 'unix') && $migratedfrom && ($rpcenv->{type} eq 'cli')) {
 	    while (defined(my $line = <STDIN>)) {
 		chomp $line;
@@ -2328,6 +2329,8 @@ __PACKAGE__->register_method({
 		    $nbd_protocol_version = $1;
 		} elsif ($line =~ m/^replicated_volume: (.*)$/) {
 		    $replicated_volumes->{$1} = 1;
+		} elsif ($line =~ m/^tpmstate0: (.*)$/) {
+		    $tpmstate_vol = $1;
 		} elsif (!$spice_ticket) {
 		    # fallback for old source node
 		    $spice_ticket = $line;
@@ -2369,6 +2372,7 @@ __PACKAGE__->register_method({
 		    storagemap => $storagemap,
 		    nbd_proto_version => $nbd_protocol_version,
 		    replicated_volumes => $replicated_volumes,
+		    tpmstate_vol => $tpmstate_vol,
 		};
 
 		my $params = {

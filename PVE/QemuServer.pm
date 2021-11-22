@@ -5370,7 +5370,8 @@ sub vm_start {
 #   network => CIDR of migration network
 #   type => secure/insecure - tunnel over encrypted connection or plain-text
 #   nbd_proto_version => int, 0 for TCP, 1 for UNIX
-#   replicated_volumes = which volids should be re-used with bitmaps for nbd migration
+#   replicated_volumes => which volids should be re-used with bitmaps for nbd migration
+#   tpmstate_vol => new volid of tpmstate0, not yet contained in config
 sub vm_start_nolock {
     my ($storecfg, $vmid, $conf, $params, $migrate_opts) = @_;
 
@@ -5394,6 +5395,13 @@ sub vm_start_nolock {
     # don't regenerate the ISO if the VM is started as part of a live migration
     # this way we can reuse the old ISO with the correct config
     PVE::QemuServer::Cloudinit::generate_cloudinitconfig($conf, $vmid) if !$migratedfrom;
+
+    # override TPM state vol if migrated, conf is out of date still
+    if (my $tpmvol = $migrate_opts->{tpmstate_vol}) {
+        my $parsed = parse_drive("tpmstate0", $conf->{tpmstate0});
+        $parsed->{file} = $tpmvol;
+        $conf->{tpmstate0} = print_drive($parsed);
+    }
 
     my $defaults = load_defaults();
 
