@@ -4998,6 +4998,8 @@ sub vmconfig_delete_or_detach_drive {
 sub vmconfig_apply_pending {
     my ($vmid, $conf, $storecfg, $errors) = @_;
 
+    return if !scalar(keys %{$conf->{pending}});
+
     my $add_apply_error = sub {
 	my ($opt, $msg) = @_;
 	my $err_msg = "unable to apply pending change $opt : $msg";
