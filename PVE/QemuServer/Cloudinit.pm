@@ -230,6 +230,7 @@ sub generate_configdrive2 {
     my ($user_data, $network_data, $meta_data, $vendor_data) = get_custom_cloudinit_files($conf);
     $user_data = cloudinit_userdata($conf, $vmid) if !defined($user_data);
     $network_data = configdrive2_network($conf) if !defined($network_data);
+    $vendor_data = '' if !defined($vendor_data);
 
     if (!defined($meta_data)) {
 	$meta_data = configdrive2_gen_metadata($user_data, $network_data);
@@ -486,6 +487,7 @@ sub generate_nocloud {
     my ($user_data, $network_data, $meta_data, $vendor_data) = get_custom_cloudinit_files($conf);
     $user_data = cloudinit_userdata($conf, $vmid) if !defined($user_data);
     $network_data = nocloud_network($conf) if !defined($network_data);
+    $vendor_data = '' if !defined($vendor_data);
 
     if (!defined($meta_data)) {
 	$meta_data = nocloud_gen_metadata($user_data, $network_data);
