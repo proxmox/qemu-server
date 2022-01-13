@@ -241,6 +241,25 @@ sub __snapshot_save_vmstate {
     return $statefile;
 }
 
+sub __snapshot_activate_storages {
+    my ($class, $conf, $include_vmstate) = @_;
+
+    my $storecfg = PVE::Storage::config();
+    my $opts = $include_vmstate ? { 'extra_keys' => ['vmstate'] } : {};
+    my $storage_hash = {};
+
+    $class->foreach_volume_full($conf, $opts, sub {
+	my ($key, $drive) = @_;
+
+	return if PVE::QemuServer::drive_is_cdrom($drive);
+
+	my ($storeid) = PVE::Storage::parse_volume_id($drive->{file});
+	$storage_hash->{$storeid} = 1;
+    });
+
+    PVE::Storage::activate_storage_list($storecfg, [ sort keys $storage_hash->%* ]);
+}
+
 sub __snapshot_check_running {
     my ($class, $vmid) = @_;
     return PVE::QemuServer::Helpers::vm_running_locally($vmid);
