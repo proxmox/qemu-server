@@ -77,6 +77,34 @@ The type of mediated device to use.
 An instance of this type will be created on startup of the VM and
 will be cleaned up when the VM stops.
 EODESCR
+    },
+    'vendor-id' => {
+	type => 'string',
+	pattern => qr/^0x[0-9a-fA-F]{4}$/,
+	format_description => 'hex id',
+	optional => 1,
+	description => "Override PCI vendor ID visible to guest"
+    },
+    'device-id' => {
+	type => 'string',
+	pattern => qr/^0x[0-9a-fA-F]{4}$/,
+	format_description => 'hex id',
+	optional => 1,
+	description => "Override PCI device ID visible to guest"
+    },
+    'sub-vendor-id' => {
+	type => 'string',
+	pattern => qr/^0x[0-9a-fA-F]{4}$/,
+	format_description => 'hex id',
+	optional => 1,
+	description => "Override PCI subsystem vendor ID visible to guest"
+    },
+    'sub-device-id' => {
+	type => 'string',
+	pattern => qr/^0x[0-9a-fA-F]{4}$/,
+	format_description => 'hex id',
+	optional => 1,
+	description => "Override PCI subsystem device ID visible to guest"
     }
 };
 PVE::JSONSchema::register_format('pve-qm-hostpci', $hostpci_fmt);
@@ -457,6 +485,9 @@ sub print_hostpci_devices {
 		$devicestr .= ",multifunction=on" if $multifunction;
 		$devicestr .= ",romfile=/usr/share/kvm/$d->{romfile}" if $d->{romfile};
 		$devicestr .= ",bootindex=$bootorder->{$id}" if $bootorder->{$id};
+		for my $option (qw(vendor-id device-id sub-vendor-id sub-device-id)) {
+		    $devicestr .= ",x-pci-$option=$d->{$option}" if $d->{$option};
+		}
 	    }
 
 	    push @$devices, '-device', $devicestr;
