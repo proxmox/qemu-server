@@ -7642,8 +7642,8 @@ sub clone_disk {
 no_data_clone:
     my ($size) = eval { PVE::Storage::volume_size_info($storecfg, $newvolid, 10) };
 
-    my $disk = $drive;
-    $disk->{format} = undef;
+    my $disk = dclone($drive);
+    delete $disk->{format};
     $disk->{file} = $newvolid;
     $disk->{size} = $size if defined($size);
 
