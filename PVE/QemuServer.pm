@@ -7466,9 +7466,11 @@ sub qemu_drive_mirror_monitor {
 		    if ($agent_running) {
 			print "freeze filesystem\n";
 			eval { mon_cmd($vmid, "guest-fsfreeze-freeze"); };
+			warn $@ if $@;
 		    } else {
 			print "suspend vm\n";
 			eval { PVE::QemuServer::vm_suspend($vmid, 1); };
+			warn $@ if $@;
 		    }
 
 		    # if we clone a disk for a new target vm, we don't switch the disk
@@ -7477,9 +7479,11 @@ sub qemu_drive_mirror_monitor {
 		    if ($agent_running) {
 			print "unfreeze filesystem\n";
 			eval { mon_cmd($vmid, "guest-fsfreeze-thaw"); };
+			warn $@ if $@;
 		    } else {
 			print "resume vm\n";
-			eval {  PVE::QemuServer::vm_resume($vmid, 1, 1); };
+			eval { PVE::QemuServer::vm_resume($vmid, 1, 1); };
+			warn $@ if $@;
 		    }
 
 		    last;
