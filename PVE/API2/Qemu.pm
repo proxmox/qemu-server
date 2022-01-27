@@ -3396,7 +3396,7 @@ __PACKAGE__->register_method({
 
 	my $storecfg = PVE::Storage::config();
 
-	my $move_updatefn =  sub {
+	my $load_and_check_move = sub {
 	    my $conf = PVE::QemuConfig->load_config($vmid);
 	    PVE::QemuConfig->check_lock($conf);
 
@@ -3416,8 +3416,8 @@ __PACKAGE__->register_method({
 		$oldfmt = $1;
 	    }
 
-	    die "you can't move to the same storage with same format\n" if $oldstoreid eq $storeid &&
-                (!$format || !$oldfmt || $oldfmt eq $format);
+	    die "you can't move to the same storage with same format\n"
+		if $oldstoreid eq $storeid && (!$format || !$oldfmt || $oldfmt eq $format);
 
 	    # this only checks snapshots because $disk is passed!
 	    my $snapshotted = PVE::QemuServer::Drive::is_volume_in_use(
@@ -3429,6 +3429,13 @@ __PACKAGE__->register_method({
 	    die "you can't move a disk with snapshots and delete the source\n"
 		if $snapshotted && $param->{delete};
 
+	    return ($conf, $drive, $oldstoreid, $snapshotted);
+	};
+
+	my $move_updatefn = sub {
+	    my ($conf, $drive, $oldstoreid, $snapshotted) = $load_and_check_move->();
+	    my $old_volid = $drive->{file};
+
 	    PVE::Cluster::log_msg(
 		'info',
 		$authuser,
@@ -3439,83 +3446,79 @@ __PACKAGE__->register_method({
 
 	    PVE::Storage::activate_volumes($storecfg, [ $drive->{file} ]);
 
-	    my $realcmd = sub {
-		my $newvollist = [];
+	    my $newvollist = [];
+
+	    eval {
+		local $SIG{INT} =
+		    local $SIG{TERM} =
+		    local $SIG{QUIT} =
+		    local $SIG{HUP} = sub { die "interrupted by signal\n"; };
+
+		warn "moving disk with snapshots, snapshots will not be moved!\n"
+		    if $snapshotted;
+
+		my $bwlimit = extract_param($param, 'bwlimit');
+		my $movelimit = PVE::Storage::get_bandwidth_limit(
+		    'move',
+		    [$oldstoreid, $storeid],
+		    $bwlimit
+		);
+
+		my $newdrive = PVE::QemuServer::clone_disk(
+		    $storecfg,
+		    $vmid,
+		    $running,
+		    $disk,
+		    $drive,
+		    undef,
+		    $vmid,
+		    $storeid,
+		    $format,
+		    1,
+		    $newvollist,
+		    undef,
+		    undef,
+		    undef,
+		    $movelimit,
+		    $conf,
+		);
+		$conf->{$disk} = PVE::QemuServer::print_drive($newdrive);
+
+		PVE::QemuConfig->add_unused_volume($conf, $old_volid) if !$param->{delete};
+
+		# convert moved disk to base if part of template
+		PVE::QemuServer::template_create($vmid, $conf, $disk)
+		    if PVE::QemuConfig->is_template($conf);
+
+		PVE::QemuConfig->write_config($vmid, $conf);
+
+		my $do_trim = PVE::QemuServer::get_qga_key($conf, 'fstrim_cloned_disks');
+		if ($running && $do_trim && PVE::QemuServer::qga_check_running($vmid)) {
+		    eval { mon_cmd($vmid, "guest-fstrim") };
+		}
 
 		eval {
-		    local $SIG{INT} =
-			local $SIG{TERM} =
-			local $SIG{QUIT} =
-			local $SIG{HUP} = sub { die "interrupted by signal\n"; };
-
-		    warn "moving disk with snapshots, snapshots will not be moved!\n"
-			if $snapshotted;
-
-		    my $bwlimit = extract_param($param, 'bwlimit');
-		    my $movelimit = PVE::Storage::get_bandwidth_limit(
-			'move',
-			[$oldstoreid, $storeid],
-			$bwlimit
-		    );
-
-		    my $newdrive = PVE::QemuServer::clone_disk(
-			$storecfg,
-			$vmid,
-			$running,
-			$disk,
-			$drive,
-			undef,
-			$vmid,
-			$storeid,
-			$format,
-			1,
-			$newvollist,
-			undef,
-			undef,
-			undef,
-			$movelimit,
-			$conf,
-		    );
-		    $conf->{$disk} = PVE::QemuServer::print_drive($newdrive);
-
-		    PVE::QemuConfig->add_unused_volume($conf, $old_volid) if !$param->{delete};
-
-		    # convert moved disk to base if part of template
-		    PVE::QemuServer::template_create($vmid, $conf, $disk)
-			if PVE::QemuConfig->is_template($conf);
-
-		    PVE::QemuConfig->write_config($vmid, $conf);
-
-		    my $do_trim = PVE::QemuServer::get_qga_key($conf, 'fstrim_cloned_disks');
-		    if ($running && $do_trim && PVE::QemuServer::qga_check_running($vmid)) {
-			eval { mon_cmd($vmid, "guest-fstrim") };
-		    }
-
-		    eval {
-			# try to deactivate volumes - avoid lvm LVs to be active on several nodes
-			PVE::Storage::deactivate_volumes($storecfg, [ $newdrive->{file} ])
-			    if !$running;
-		    };
-		    warn $@ if $@;
+		    # try to deactivate volumes - avoid lvm LVs to be active on several nodes
+		    PVE::Storage::deactivate_volumes($storecfg, [ $newdrive->{file} ])
+			if !$running;
 		};
-		if (my $err = $@) {
-		    foreach my $volid (@$newvollist) {
-			eval { PVE::Storage::vdisk_free($storecfg, $volid) };
-			warn $@ if $@;
-		    }
-		    die "storage migration failed: $err";
-                }
-
-		if ($param->{delete}) {
-		    eval {
-			PVE::Storage::deactivate_volumes($storecfg, [$old_volid]);
-			PVE::Storage::vdisk_free($storecfg, $old_volid);
-		    };
+		warn $@ if $@;
+	    };
+	    if (my $err = $@) {
+		foreach my $volid (@$newvollist) {
+		    eval { PVE::Storage::vdisk_free($storecfg, $volid) };
 		    warn $@ if $@;
 		}
-	    };
+		die "storage migration failed: $err";
+	    }
 
-            return $rpcenv->fork_worker('qmmove', $vmid, $authuser, $realcmd);
+	    if ($param->{delete}) {
+		eval {
+		    PVE::Storage::deactivate_volumes($storecfg, [$old_volid]);
+		    PVE::Storage::vdisk_free($storecfg, $old_volid);
+		};
+		warn $@ if $@;
+	    }
 	};
 
 	my $load_and_check_reassign_configs = sub {
@@ -3695,7 +3698,14 @@ __PACKAGE__->register_method({
 
 	    die "cannot move disk '$disk', only configured disks can be moved to another storage\n"
 		if $disk =~ m/^unused\d+$/;
-	    return PVE::QemuConfig->lock_config($vmid, $move_updatefn);
+
+	    $load_and_check_move->(); # early checks before forking/locking
+
+	    my $realcmd = sub {
+		PVE::QemuConfig->lock_config($vmid, $move_updatefn);
+	    };
+
+	    return $rpcenv->fork_worker('qmmove', $vmid, $authuser, $realcmd);
 	} else {
 	    my $msg = "both 'storage' and 'target-vmid' missing, either needs to be set";
 	    raise_param_exc({ 'target-vmid' => $msg, 'storage' => $msg });
