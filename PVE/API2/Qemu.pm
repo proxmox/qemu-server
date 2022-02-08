@@ -3046,7 +3046,6 @@ __PACKAGE__->register_method({
 	my $vmid = extract_param($param, 'vmid');
 	my $newid = extract_param($param, 'newid');
 	my $pool = extract_param($param, 'pool');
-	$rpcenv->check_pool_exist($pool) if defined($pool);
 
         my $snapname = extract_param($param, 'snapname');
 	my $storage = extract_param($param, 'storage');
@@ -3059,27 +3058,29 @@ __PACKAGE__->register_method({
 	    undef $target;
 	}
 
-	PVE::Cluster::check_node_exists($target) if $target;
-
-	my $storecfg = PVE::Storage::config();
-
-	if ($storage) {
-	    # check if storage is enabled on local node
-	    PVE::Storage::storage_check_enabled($storecfg, $storage);
-	    if ($target) {
-		# check if storage is available on target node
-		PVE::Storage::storage_check_enabled($storecfg, $storage, $target);
-		# clone only works if target storage is shared
-		my $scfg = PVE::Storage::storage_config($storecfg, $storage);
-		die "can't clone to non-shared storage '$storage'\n" if !$scfg->{shared};
-	    }
-	}
-
-	PVE::Cluster::check_cfs_quorum();
-
 	my $running = PVE::QemuServer::check_running($vmid) || 0;
 
 	my $load_and_check = sub {
+	    $rpcenv->check_pool_exist($pool) if defined($pool);
+	    PVE::Cluster::check_node_exists($target) if $target;
+
+	    my $storecfg = PVE::Storage::config();
+
+	    if ($storage) {
+		# check if storage is enabled on local node
+		PVE::Storage::storage_check_enabled($storecfg, $storage);
+		if ($target) {
+		    # check if storage is available on target node
+		    PVE::Storage::storage_check_enabled($storecfg, $storage, $target);
+		    # clone only works if target storage is shared
+		    my $scfg = PVE::Storage::storage_config($storecfg, $storage);
+		    die "can't clone to non-shared storage '$storage'\n"
+			if !$scfg->{shared};
+		}
+	    }
+
+	    PVE::Cluster::check_cfs_quorum();
+
 	    my $conf = PVE::QemuConfig->load_config($vmid);
 	    PVE::QemuConfig->check_lock($conf);
 
@@ -3159,6 +3160,7 @@ __PACKAGE__->register_method({
 
 	my $clonefn = sub {
 	    my ($conffile, $newconf, $oldconf, $vollist, $drives, $fullclone) = $load_and_check->();
+	    my $storecfg = PVE::Storage::config();
 
 	    # auto generate a new uuid
 	    my $smbios1 = PVE::QemuServer::parse_smbios1($newconf->{smbios1} || '');
