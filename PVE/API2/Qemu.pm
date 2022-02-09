@@ -1411,7 +1411,7 @@ my $update_vm_api  = sub {
 			if ($new_bootcfg->{order}) {
 			    my @devs = PVE::Tools::split_list($new_bootcfg->{order});
 			    for my $dev (@devs) {
-				my $exists = $conf->{$dev} || $conf->{pending}->{$dev};
+				my $exists = $conf->{$dev} || $conf->{pending}->{$dev} || $param->{$dev};
 				my $deleted = grep {$_ eq $dev} @delete;
 				die "invalid bootorder: device '$dev' does not exist'\n"
 				    if !$exists || $deleted;
