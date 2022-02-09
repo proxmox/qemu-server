@@ -5254,11 +5254,9 @@ sub vm_migrate_get_nbd_disks {
 sub vm_migrate_alloc_nbd_disks {
     my ($storecfg, $vmid, $source_volumes, $storagemap) = @_;
 
-    my $format = undef;
-
     my $nbd = {};
     foreach my $opt (sort keys %$source_volumes) {
-	my ($volid, $storeid, $volname, $drive, $use_existing) = @{$source_volumes->{$opt}};
+	my ($volid, $storeid, $volname, $drive, $use_existing, $format) = @{$source_volumes->{$opt}};
 
 	if ($use_existing) {
 	    $nbd->{$opt}->{drivestr} = print_drive($drive);
@@ -5267,16 +5265,26 @@ sub vm_migrate_alloc_nbd_disks {
 	    next;
 	}
 
-	# If a remote storage is specified and the format of the original
-	# volume is not available there, fall back to the default format.
-	# Otherwise use the same format as the original.
+	# storage mapping + volname = regular migration
+	# storage mapping + format = remote migration
+	# order of precedence, filtered by whether storage supports it:
+	# 1. explicit requested format
+	# 2. format of current volume
+	# 3. default format of storage
 	if (!$storagemap->{identity}) {
 	    $storeid = PVE::JSONSchema::map_id($storagemap, $storeid);
 	    my ($defFormat, $validFormats) = PVE::Storage::storage_default_format($storecfg, $storeid);
-	    my $scfg = PVE::Storage::storage_config($storecfg, $storeid);
-	    my $fileFormat = qemu_img_format($scfg, $volname);
-	    $format = (grep {$fileFormat eq $_} @{$validFormats}) ? $fileFormat : $defFormat;
+	    if (!$format || !grep { $format eq $_ } @$validFormats) {
+		if ($volname) {
+		    my $scfg = PVE::Storage::storage_config($storecfg, $storeid);
+		    my $fileFormat = qemu_img_format($scfg, $volname);
+		    $format = $fileFormat
+			if grep { $fileFormat eq $_ } @$validFormats;
+		}
+		$format //= $defFormat;
+	    }
 	} else {
+	    # can't happen for remote migration, so $volname is always defined
 	    my $scfg = PVE::Storage::storage_config($storecfg, $storeid);
 	    $format = qemu_img_format($scfg, $volname);
 	}
