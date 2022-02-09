@@ -150,7 +150,8 @@ sub register_command {
 	properties => {
 	    node => get_standard_option('pve-node'),
 	    vmid => get_standard_option('pve-vmid', {
-		    completion => \&PVE::QemuServer::complete_vmid_running }),
+		completion => \&PVE::QemuServer::complete_vmid_running,
+	    }),
 	    command => {
 		type => 'string',
 		description => "The QGA command.",
