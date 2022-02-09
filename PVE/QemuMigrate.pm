@@ -342,7 +342,7 @@ sub prepare {
 	my $targetsid = $sid;
 	# NOTE: we currently ignore shared source storages in mappings so skip here too for now
 	if (!$scfg->{shared}) {
-	    $targetsid = PVE::QemuServer::map_storage($self->{opts}->{storagemap}, $sid);
+	    $targetsid = PVE::JSONSchema::map_id($self->{opts}->{storagemap}, $sid);
 	}
 
 	my $target_scfg = PVE::Storage::storage_check_enabled($storecfg, $targetsid, $self->{node});
@@ -408,7 +408,7 @@ sub scan_local_volumes {
 
 	    next if @{$dl->{$storeid}} == 0;
 
-	    my $targetsid = PVE::QemuServer::map_storage($self->{opts}->{storagemap}, $storeid);
+	    my $targetsid = PVE::JSONSchema::map_id($self->{opts}->{storagemap}, $storeid);
 	    # check if storage is available on target node
 	    my $target_scfg = PVE::Storage::storage_check_enabled(
 		$storecfg,
@@ -479,7 +479,7 @@ sub scan_local_volumes {
 	    my $targetsid = $sid;
 	    # NOTE: we currently ignore shared source storages in mappings so skip here too for now
 	    if (!$scfg->{shared}) {
-		$targetsid = PVE::QemuServer::map_storage($self->{opts}->{storagemap}, $sid);
+		$targetsid = PVE::JSONSchema::map_id($self->{opts}->{storagemap}, $sid);
 	    }
 
 	    PVE::Storage::storage_check_enabled($storecfg, $targetsid, $self->{node});

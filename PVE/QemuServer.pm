@@ -119,21 +119,6 @@ PVE::JSONSchema::register_standard_option('pve-qemu-machine', {
 	optional => 1,
 });
 
-
-sub map_storage {
-    my ($map, $source) = @_;
-
-    return $source if !defined($map);
-
-    return $map->{entries}->{$source}
-	if $map->{entries} && defined($map->{entries}->{$source});
-
-    return $map->{default} if $map->{default};
-
-    # identity (fallback)
-    return $source;
-}
-
 PVE::JSONSchema::register_standard_option('pve-targetstorage', {
     description => "Mapping from source to target storages. Providing only a single storage ID maps all source storages to that storage. Providing the special value '1' will map each source storage to itself.",
     type => 'string',
@@ -5279,7 +5264,7 @@ sub vm_migrate_alloc_nbd_disks {
 	# volume is not available there, fall back to the default format.
 	# Otherwise use the same format as the original.
 	if (!$storagemap->{identity}) {
-	    $storeid = map_storage($storagemap, $storeid);
+	    $storeid = PVE::JSONSchema::map_id($storagemap, $storeid);
 	    my ($defFormat, $validFormats) = PVE::Storage::storage_default_format($storecfg, $storeid);
 	    my $scfg = PVE::Storage::storage_config($storecfg, $storeid);
 	    my $fileFormat = qemu_img_format($scfg, $volname);
