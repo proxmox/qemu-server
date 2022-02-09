@@ -914,13 +914,10 @@ my $net_fmt = {
         default_key => 1,
     },
     (map { $_ => { keyAlias => 'model', alias => 'macaddr' }} @$nic_model_list),
-    bridge => {
-	type => 'string',
+    bridge => get_standard_option('pve-bridge-id', {
 	description => $net_fmt_bridge_descr,
-	format_description => 'bridge',
-	pattern => '[-_.\w\d]+',
 	optional => 1,
-    },
+    }),
     queues => {
 	type => 'integer',
 	minimum => 0, maximum => 16,
