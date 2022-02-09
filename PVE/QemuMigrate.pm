@@ -18,6 +18,7 @@ use PVE::ReplicationConfig;
 use PVE::ReplicationState;
 use PVE::Storage;
 use PVE::Tools;
+use PVE::Tunnel;
 
 use PVE::QemuConfig;
 use PVE::QemuServer::CPUConfig;
@@ -30,180 +31,16 @@ use PVE::QemuServer;
 use PVE::AbstractMigrate;
 use base qw(PVE::AbstractMigrate);
 
-sub fork_command_pipe {
-    my ($self, $cmd) = @_;
-
-    my $reader = IO::File->new();
-    my $writer = IO::File->new();
-
-    my $orig_pid = $$;
-
-    my $cpid;
-
-    eval { $cpid = open2($reader, $writer, @$cmd); };
-
-    my $err = $@;
-
-    # catch exec errors
-    if ($orig_pid != $$) {
-	$self->log('err', "can't fork command pipe\n");
-	POSIX::_exit(1);
-	kill('KILL', $$);
-    }
-
-    die $err if $err;
-
-    return { writer => $writer, reader => $reader, pid => $cpid };
-}
-
-sub finish_command_pipe {
-    my ($self, $cmdpipe, $timeout) = @_;
-
-    my $cpid = $cmdpipe->{pid};
-    return if !defined($cpid);
-
-    my $writer = $cmdpipe->{writer};
-    my $reader = $cmdpipe->{reader};
-
-    $writer->close();
-    $reader->close();
-
-    my $collect_child_process = sub {
-	my $res = waitpid($cpid, WNOHANG);
-	if (defined($res) && ($res == $cpid)) {
-	    delete $cmdpipe->{cpid};
-	    return 1;
-	} else {
-	    return 0;
-	}
-     };
-
-    if ($timeout) {
-	for (my $i = 0; $i < $timeout; $i++) {
-	    return if &$collect_child_process();
-	    sleep(1);
-	}
-    }
-
-    $self->log('info', "ssh tunnel still running - terminating now with SIGTERM\n");
-    kill(15, $cpid);
-
-    # wait again
-    for (my $i = 0; $i < 10; $i++) {
-	return if &$collect_child_process();
-	sleep(1);
-    }
-
-    $self->log('info', "ssh tunnel still running - terminating now with SIGKILL\n");
-    kill 9, $cpid;
-    sleep 1;
-
-    $self->log('err', "ssh tunnel child process (PID $cpid) couldn't be collected\n")
-	if !&$collect_child_process();
-}
-
-sub read_tunnel {
-    my ($self, $tunnel, $timeout) = @_;
-
-    $timeout = 60 if !defined($timeout);
-
-    my $reader = $tunnel->{reader};
-
-    my $output;
-    eval {
-	PVE::Tools::run_with_timeout($timeout, sub { $output = <$reader>; });
-    };
-    die "reading from tunnel failed: $@\n" if $@;
-
-    chomp $output;
-
-    return $output;
-}
-
-sub write_tunnel {
-    my ($self, $tunnel, $timeout, $command) = @_;
-
-    $timeout = 60 if !defined($timeout);
-
-    my $writer = $tunnel->{writer};
-
-    eval {
-	PVE::Tools::run_with_timeout($timeout, sub {
-	    print $writer "$command\n";
-	    $writer->flush();
-	});
-    };
-    die "writing to tunnel failed: $@\n" if $@;
-
-    if ($tunnel->{version} && $tunnel->{version} >= 1) {
-	my $res = eval { $self->read_tunnel($tunnel, 10); };
-	die "no reply to command '$command': $@\n" if $@;
-
-	if ($res eq 'OK') {
-	    return;
-	} else {
-	    die "tunnel replied '$res' to command '$command'\n";
-	}
-    }
-}
-
 sub fork_tunnel {
     my ($self, $ssh_forward_info) = @_;
 
-    my @localtunnelinfo = ();
-    foreach my $addr (@$ssh_forward_info) {
-	push @localtunnelinfo, '-L', $addr;
-    }
-
-    my $cmd = [@{$self->{rem_ssh}}, '-o ExitOnForwardFailure=yes', @localtunnelinfo, '/usr/sbin/qm', 'mtunnel' ];
-
-    my $tunnel = $self->fork_command_pipe($cmd);
-
-    eval {
-	my $helo = $self->read_tunnel($tunnel, 60);
-	die "no reply\n" if !$helo;
-	die "no quorum on target node\n" if $helo =~ m/^no quorum$/;
-	die "got strange reply from mtunnel ('$helo')\n"
-	    if $helo !~ m/^tunnel online$/;
-    };
-    my $err = $@;
-
-    eval {
-	my $ver = $self->read_tunnel($tunnel, 10);
-	if ($ver =~ /^ver (\d+)$/) {
-	    $tunnel->{version} = $1;
-	    $self->log('info', "ssh tunnel $ver\n");
-	} else {
-	    $err = "received invalid tunnel version string '$ver'\n" if !$err;
-	}
+    my $cmd = ['/usr/sbin/qm', 'mtunnel'];
+    my $log = sub {
+	my ($level, $msg) = @_;
+	$self->log($level, $msg);
     };
 
-    if ($err) {
-	$self->finish_command_pipe($tunnel);
-	die "can't open migration tunnel - $err";
-    }
-    return $tunnel;
-}
-
-sub finish_tunnel {
-    my ($self, $tunnel) = @_;
-
-    eval { $self->write_tunnel($tunnel, 30, 'quit'); };
-    my $err = $@;
-
-    $self->finish_command_pipe($tunnel, 30);
-
-    if (my $unix_sockets = $tunnel->{unix_sockets}) {
-	# ssh does not clean up on local host
-	my $cmd = ['rm', '-f', @$unix_sockets];
-	PVE::Tools::run_command($cmd);
-
-	# .. and just to be sure check on remote side
-	unshift @{$cmd}, @{$self->{rem_ssh}};
-	PVE::Tools::run_command($cmd);
-    }
-
-    die $err if $err;
+    return PVE::Tunnel::fork_ssh_tunnel($self->{rem_ssh}, $cmd, $ssh_forward_info, $log);
 }
 
 sub start_remote_tunnel {
@@ -244,7 +81,7 @@ sub start_remote_tunnel {
 	    }
 	    if ($unix_socket_try > 100) {
 		$self->{errors} = 1;
-		$self->finish_tunnel($self->{tunnel});
+		PVE::Tunnel::finish_tunnel($self->{tunnel});
 		die "Timeout, migration socket $ruri did not get ready";
 	    }
 	    $self->{tunnel}->{unix_sockets} = $unix_sockets if (@$unix_sockets);
@@ -1254,7 +1091,7 @@ sub phase2_cleanup {
 
 
     if ($self->{tunnel}) {
-	eval { finish_tunnel($self, $self->{tunnel});  };
+	eval { PVE::Tunnel::finish_tunnel($self->{tunnel});  };
 	if (my $err = $@) {
 	    $self->log('err', $err);
 	    $self->{errors} = 1;
@@ -1312,7 +1149,7 @@ sub phase3_cleanup {
 	# config moved and nbd server stopped - now we can resume vm on target
 	if ($tunnel && $tunnel->{version} && $tunnel->{version} >= 1) {
 	    eval {
-		$self->write_tunnel($tunnel, 30, "resume $vmid");
+		PVE::Tunnel::write_tunnel($tunnel, 30, "resume $vmid");
 	    };
 	    if (my $err = $@) {
 		$self->log('err', $err);
@@ -1339,7 +1176,7 @@ sub phase3_cleanup {
 
     # close tunnel on successful migration, on error phase2_cleanup closed it
     if ($tunnel) {
-	eval { finish_tunnel($self, $tunnel);  };
+	eval { PVE::Tunnel::finish_tunnel($tunnel); };
 	if (my $err = $@) {
 	    $self->log('err', $err);
 	    $self->{errors} = 1;

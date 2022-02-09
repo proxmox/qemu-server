@@ -51,12 +51,26 @@ $MigrationTest::Shared::qemu_config_module->mock(
     },
 );
 
-my $qemu_migrate_module = Test::MockModule->new("PVE::QemuMigrate");
-$qemu_migrate_module->mock(
+my $tunnel_module = Test::MockModule->new("PVE::Tunnel");
+$tunnel_module->mock(
     finish_tunnel => sub {
 	delete $expected_calls->{'finish_tunnel'};
 	return;
     },
+    write_tunnel => sub {
+	my ($tunnel, $timeout, $command) = @_;
+
+	if ($command =~ m/^resume (\d+)$/) {
+	    my $vmid = $1;
+	    die "resuming wrong VM '$vmid'\n" if $vmid ne $test_vmid;
+	    return;
+	}
+	die "write_tunnel (mocked) - implement me: $command\n";
+    },
+);
+
+my $qemu_migrate_module = Test::MockModule->new("PVE::QemuMigrate");
+$qemu_migrate_module->mock(
     fork_tunnel => sub {
 	die "fork_tunnel (mocked) - implement me\n"; # currently no call should lead here
     },
@@ -72,16 +86,6 @@ $qemu_migrate_module->mock(
 	    pid => 123456,
 	    version => 1,
 	};
-    },
-    write_tunnel => sub {
-	my ($self, $tunnel, $timeout, $command) = @_;
-
-	if ($command =~ m/^resume (\d+)$/) {
-	    my $vmid = $1;
-	    die "resuming wrong VM '$vmid'\n" if $vmid ne $test_vmid;
-	    return;
-	}
-	die "write_tunnel (mocked) - implement me: $command\n";
     },
     log => sub {
 	my ($self, $level, $message) = @_;
