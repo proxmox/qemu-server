@@ -2312,7 +2312,7 @@ sub destroy_vm {
 }
 
 sub parse_vm_config {
-    my ($filename, $raw) = @_;
+    my ($filename, $raw, $strict) = @_;
 
     return if !defined($raw);
 
@@ -2320,6 +2320,16 @@ sub parse_vm_config {
 	digest => Digest::SHA::sha1_hex($raw),
 	snapshots => {},
 	pending => {},
+    };
+
+    my $handle_error = sub {
+	my ($msg) = @_;
+
+	if ($strict) {
+	    die $msg;
+	} else {
+	    warn $msg;
+	}
     };
 
     $filename =~ m|/qemu-server/(\d+)\.conf$|
@@ -2376,14 +2386,14 @@ sub parse_vm_config {
 	    if ($section eq 'pending') {
 		$conf->{delete} = $value; # we parse this later
 	    } else {
-		warn "vm $vmid - propertry 'delete' is only allowed in [PENDING]\n";
+		$handle_error->("vm $vmid - property 'delete' is only allowed in [PENDING]\n");
 	    }
 	} elsif ($line =~ m/^([a-z][a-z_]*\d*):\s*(.+?)\s*$/) {
 	    my $key = $1;
 	    my $value = $2;
 	    eval { $value = check_type($key, $value); };
 	    if ($@) {
-		warn "vm $vmid - unable to parse value of '$key' - $@";
+		$handle_error->("vm $vmid - unable to parse value of '$key' - $@");
 	    } else {
 		$key = 'ide2' if $key eq 'cdrom';
 		my $fmt = $confdesc->{$key}->{format};
@@ -2393,7 +2403,7 @@ sub parse_vm_config {
 			$v->{file} = $volid;
 			$value = print_drive($v);
 		    } else {
-			warn "vm $vmid - unable to parse value of '$key'\n";
+			$handle_error->("vm $vmid - unable to parse value of '$key'\n");
 			next;
 		    }
 		}
@@ -2401,7 +2411,7 @@ sub parse_vm_config {
 		$conf->{$key} = $value;
 	    }
 	} else {
-	    warn "vm $vmid - unable to parse config: $line\n";
+	    $handle_error->("vm $vmid - unable to parse config: $line\n");
 	}
     }
 
