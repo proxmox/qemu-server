@@ -471,14 +471,13 @@ __PACKAGE__->register_method({
 	    },
 	    content => {
 		type => 'string',
-		maxLength => 60*1024, # 60k, smaller than our 64k POST limit
+		maxLength => 60 * 1024, # 60k, smaller than our 64k POST limit
 		description => "The content to write into the file."
 	    },
 	    encode => {
 		type => 'boolean',
-		description => "If set the content will be encoded as base64"
-		    ." (required by QEMU). Otherwise the content needs to be encoded"
-		    ." beforehand. (Default is true)",
+		description => "If set, the content will be encoded as base64 (required by QEMU)."
+		    ."Otherwise the content needs to be encoded beforehand - defaults to true.",
 		optional => 1,
 		default => 1,
 	    },
@@ -490,14 +489,10 @@ __PACKAGE__->register_method({
 
 	my $vmid = $param->{vmid};
 	my $encode = $param->{encode} // 1;
-	my $buf;
-	if ($encode) {
-	    $buf = encode_base64($param->{content});
-	} else {
-	    die "content is not base64 encoded\n"
-		if $param->{content} !~ m@^(?:[A-Z0-9+/]{4})*(?:[A-Z0-9+/]{2}==|[A-Z0-9+/]{3}=)?$@mi;
-	    $buf = $param->{content};
-	}
+
+	my $buf = $encode ? encode_base64($param->{content}) : $param->{content};
+	die "content is not base64 encoded\n"
+	    if !$encode && $buf !~ m@^(?:[A-Z0-9+/]{4})*(?:[A-Z0-9+/]{2}==|[A-Z0-9+/]{3}=)?$@mi;
 
 	my $qgafh = agent_cmd($vmid, "file-open",  { path => $param->{file}, mode => 'wb' }, "can't open file");
 	my $write = agent_cmd($vmid, "file-write", { handle => $qgafh, 'buf-b64' => $buf }, "can't write to file");
