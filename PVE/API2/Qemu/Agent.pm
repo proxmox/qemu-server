@@ -488,11 +488,8 @@ __PACKAGE__->register_method({
 	my ($param) = @_;
 
 	my $vmid = $param->{vmid};
-	my $encode = $param->{encode} // 1;
 
-	my $buf = $encode ? encode_base64($param->{content}) : $param->{content};
-	die "content is not base64 encoded\n"
-	    if !$encode && $buf !~ m@^(?:[A-Z0-9+/]{4})*(?:[A-Z0-9+/]{2}==|[A-Z0-9+/]{3}=)?$@mi;
+	my $buf = ($param->{encode} // 1) ? encode_base64($param->{content}) : $param->{content};
 
 	my $qgafh = agent_cmd($vmid, "file-open",  { path => $param->{file}, mode => 'wb' }, "can't open file");
 	my $write = agent_cmd($vmid, "file-write", { handle => $qgafh, 'buf-b64' => $buf }, "can't write to file");
