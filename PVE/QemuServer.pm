@@ -3393,7 +3393,15 @@ sub query_understood_cpu_flags {
 
 my sub get_cpuunits {
     my ($conf) = @_;
-    return $conf->{cpuunits} // (PVE::CGroup::cgroup_mode() == 2 ? 100 : 1024);
+    my $is_cgroupv2 = PVE::CGroup::cgroup_mode() == 2;
+
+    my $cpuunits = $conf->{cpuunits};
+    return $is_cgroupv2 ? 100 : 1024 if !defined($cpuunits);
+
+    if ($is_cgroupv2) {
+	$cpuunits = 10000 if $cpuunits >= 10000; # v1 can be higher, so clamp v2 there
+    }
+    return $cpuunits;
 }
 
 # Since commit 277d33454f77ec1d1e0bc04e37621e4dd2424b67 in pve-qemu, smm is not off by default
@@ -5567,7 +5575,6 @@ sub vm_start_nolock {
     );
 
     if (PVE::CGroup::cgroup_mode() == 2) {
-	$cpuunits = 10000 if $cpuunits >= 10000; # else we get an error
 	$systemd_properties{CPUWeight} = $cpuunits;
     } else {
 	$systemd_properties{CPUShares} = $cpuunits;
