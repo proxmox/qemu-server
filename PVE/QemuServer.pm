@@ -3481,8 +3481,6 @@ sub config_to_command {
     my $use_old_bios_files = undef;
     ($use_old_bios_files, $machine_type) = qemu_use_old_bios_files($machine_type);
 
-    my $cpuunits = get_cpuunits($conf);
-
     push @$cmd, $kvm_binary;
 
     push @$cmd, '-id', $vmid;
