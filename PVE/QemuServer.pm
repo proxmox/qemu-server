@@ -336,7 +336,7 @@ my $confdesc = {
 	verbose_description => "CPU weight for a VM. Argument is used in the kernel fair scheduler."
 	    ." The larger the number is, the more CPU time this VM gets. Number is relative to"
 	    ." weights of all the other running VMs.",
-	minimum => 2,
+	minimum => 1,
 	maximum => 262144,
 	default => 'cgroup v1: 1024, cgroup v2: 100',
     },
@@ -3400,6 +3400,8 @@ my sub get_cpuunits {
 
     if ($is_cgroupv2) {
 	$cpuunits = 10000 if $cpuunits >= 10000; # v1 can be higher, so clamp v2 there
+    } else {
+	$cpuunits = 2 if $cpuunits < 2; # v2 can be lower, so clamp v1 there
     }
     return $cpuunits;
 }
