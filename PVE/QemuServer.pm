@@ -7593,6 +7593,7 @@ sub clone_disk {
 	} elsif ($drivename eq 'efidisk0') {
 	    $size = get_efivars_size($conf);
 	} elsif ($drivename eq 'tpmstate0') {
+	    $dst_format = 'raw';
 	    $size = PVE::QemuServer::Drive::TPMSTATE_DISK_SIZE;
 	} else {
 	    ($size) = PVE::Storage::volume_size_info($storecfg, $drive->{file}, 10);
