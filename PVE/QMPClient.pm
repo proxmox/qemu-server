@@ -127,9 +127,10 @@ sub cmd {
 		 $cmd->{execute} eq 'delete-drive-snapshot' ||
 		 $cmd->{execute} eq 'guest-shutdown' ||
 		 $cmd->{execute} eq 'blockdev-snapshot-internal-sync' ||
-		 $cmd->{execute} eq 'blockdev-snapshot-delete-internal-sync' ||
 		 $cmd->{execute} eq 'snapshot-drive'  ) {
-	    $timeout = 10*60; # 10 mins ?
+	    $timeout = 20*60; # 10 mins ?
+	} elsif ($cmd->{execute} eq 'blockdev-snapshot-delete-internal-sync') {
+		$timeout = 20*60; # 20 mins, needed for +100GB files
 	} else {
 	    $timeout = 3; # default
 	}
