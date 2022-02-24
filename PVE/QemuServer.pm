@@ -1,4 +1,4 @@
-package PVE::QemuServer;
+rpackage PVE::QemuServer;
 
 use strict;
 use warnings;
@@ -2410,7 +2410,7 @@ sub parse_vm_config {
 	    next;
 	}
 
-	if ($line =~ m/^\#(.*)\s*$/) {
+	if ($line =~ m/^\#(.*)$/) {
 	    $descr = '' if !defined($descr);
 	    $descr .= PVE::Tools::decode_text($1) . "\n";
 	    next;
