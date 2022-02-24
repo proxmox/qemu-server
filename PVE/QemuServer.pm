@@ -6249,6 +6249,10 @@ my $parse_backup_hints = sub {
 	    $devinfo->{$devname}->{format} = $format;
 	    $devinfo->{$devname}->{storeid} = $storeid;
 
+	    my $scfg = PVE::Storage::storage_config($storecfg, $storeid);
+	    die "Content type 'images' is not available on storage '$storeid'\n"
+		if !$scfg->{content}->{images};
+
 	    # check permission on storage
 	    my $pool = $options->{pool}; # todo: do we need that?
 	    if ($user ne 'root@pam') {
@@ -6264,6 +6268,9 @@ my $parse_backup_hints = sub {
 		$storeid = $options->{storage} if defined ($options->{storage});
 		my $scfg = PVE::Storage::storage_config($storecfg, $storeid);
 		my $format = qemu_img_format($scfg, $volname); # has 'raw' fallback
+
+		die "Content type 'images' is not available on storage '$storeid'\n"
+		    if !$scfg->{content}->{images};
 
 		$virtdev_hash->{$virtdev} = {
 		    format => $format,
