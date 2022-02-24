@@ -6272,6 +6272,9 @@ my $parse_backup_hints = sub {
 		die "Content type 'images' is not available on storage '$storeid'\n"
 		    if !$scfg->{content}->{images};
 
+		$rpcenv->check($user, "/storage/$storeid", ['Datastore.AllocateSpace'])
+		    if $user ne 'root@pam';
+
 		$virtdev_hash->{$virtdev} = {
 		    format => $format,
 		    storeid => $storeid,
