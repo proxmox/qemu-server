@@ -6230,8 +6230,15 @@ my $restore_cleanup_oldconf = sub {
 my $parse_backup_hints = sub {
     my ($rpcenv, $user, $storecfg, $fh, $devinfo, $options) = @_;
 
-    my $virtdev_hash = {};
+    my $check_storage = sub { # assert if an image can be allocate
+	my ($storeid, $scfg) = @_;
+	die "Content type 'images' is not available on storage '$storeid'\n"
+	    if !$scfg->{content}->{images};
+	$rpcenv->check($user, "/storage/$storeid", ['Datastore.AllocateSpace'])
+	    if $user ne 'root@pam';
+    };
 
+    my $virtdev_hash = {};
     while (defined(my $line = <$fh>)) {
 	if ($line =~ m/^\#qmdump\#map:(\S+):(\S+):(\S*):(\S*):$/) {
 	    my ($virtdev, $devname, $storeid, $format) = ($1, $2, $3, $4);
@@ -6253,27 +6260,20 @@ my $parse_backup_hints = sub {
 	    die "Content type 'images' is not available on storage '$storeid'\n"
 		if !$scfg->{content}->{images};
 
-	    # check permission on storage
-	    my $pool = $options->{pool}; # todo: do we need that?
-	    if ($user ne 'root@pam') {
-		$rpcenv->check($user, "/storage/$storeid", ['Datastore.AllocateSpace']);
-	    }
+	    $check_storage->($storeid, $scfg); # permission and content type check
 
 	    $virtdev_hash->{$virtdev} = $devinfo->{$devname};
 	} elsif ($line =~ m/^((?:ide|sata|scsi)\d+):\s*(.*)\s*$/) {
 	    my $virtdev = $1;
 	    my $drive = parse_drive($virtdev, $2);
+
 	    if (drive_is_cloudinit($drive)) {
 		my ($storeid, $volname) = PVE::Storage::parse_volume_id($drive->{file});
 		$storeid = $options->{storage} if defined ($options->{storage});
 		my $scfg = PVE::Storage::storage_config($storecfg, $storeid);
 		my $format = qemu_img_format($scfg, $volname); # has 'raw' fallback
 
-		die "Content type 'images' is not available on storage '$storeid'\n"
-		    if !$scfg->{content}->{images};
-
-		$rpcenv->check($user, "/storage/$storeid", ['Datastore.AllocateSpace'])
-		    if $user ne 'root@pam';
+		$check_storage->($storeid, $scfg); # permission and content type check
 
 		$virtdev_hash->{$virtdev} = {
 		    format => $format,
