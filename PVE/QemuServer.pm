@@ -6257,9 +6257,6 @@ my $parse_backup_hints = sub {
 	    $devinfo->{$devname}->{storeid} = $storeid;
 
 	    my $scfg = PVE::Storage::storage_config($storecfg, $storeid);
-	    die "Content type 'images' is not available on storage '$storeid'\n"
-		if !$scfg->{content}->{images};
-
 	    $check_storage->($storeid, $scfg); # permission and content type check
 
 	    $virtdev_hash->{$virtdev} = $devinfo->{$devname};
