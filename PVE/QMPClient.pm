@@ -113,9 +113,10 @@ sub cmd {
 	    # locked state with high probability, so use an generous timeout
 	    $timeout = 60*60; # 1 hour
 	} elsif ($cmd->{execute} eq 'guest-fsfreeze-thaw') {
-	    # thaw has no possible long blocking actions, either it returns
-	    # instantly or never (dead locked)
-	    $timeout = 10;
+	    # While it should return instantly or never (dead locked) for Linux guests,
+	    # the variance for Windows guests can be big. And there might be hook scripts
+	    # that are executed upon thaw, so use 3 minutes to be on the safe side.
+	    $timeout = 3 * 60;
 	} elsif ($cmd->{execute} eq 'savevm-start' ||
 		 $cmd->{execute} eq 'savevm-end' ||
 		 $cmd->{execute} eq 'query-backup' ||
