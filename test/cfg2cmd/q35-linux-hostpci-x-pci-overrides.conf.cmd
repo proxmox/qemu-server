@@ -28,7 +28,7 @@
   -device 'vfio-pci,host=0000:00:ff.1,id=hostpci0,bus=pci.0,addr=0x10,x-pci-vendor-id=0x1234,x-pci-device-id=0x5678,x-pci-sub-vendor-id=0x2233,x-pci-sub-device-id=0x0000' \
   -device 'vfio-pci,host=0000:d0:13.0,id=hostpci1,bus=ich9-pcie-port-2,addr=0x0,x-pci-vendor-id=0x1234,x-pci-device-id=0x5678' \
   -device 'VGA,id=vga,bus=pcie.0,addr=0x1' \
-  -device 'virtio-balloon-pci,id=balloon0,bus=pci.0,addr=0x3' \
+  -device 'virtio-balloon-pci,id=balloon0,bus=pci.0,addr=0x3,free-page-reporting=on' \
   -iscsi 'initiator-name=iqn.1993-08.org.debian:01:aabbccddeeff' \
   -netdev 'type=tap,id=net0,ifname=tap8006i0,script=/var/lib/qemu-server/pve-bridge,downscript=/var/lib/qemu-server/pve-bridgedown,vhost=on' \
   -device 'virtio-net-pci,mac=2E:01:68:F9:9C:87,netdev=net0,bus=pci.0,addr=0x12,id=net0,bootindex=300' \

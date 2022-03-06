@@ -3893,7 +3893,9 @@ sub config_to_command {
     # enable balloon by default, unless explicitly disabled
     if (!defined($conf->{balloon}) || $conf->{balloon}) {
 	my $pciaddr = print_pci_addr("balloon0", $bridges, $arch, $machine_type);
-	push @$devices, '-device', "virtio-balloon-pci,id=balloon0$pciaddr";
+	my $ballooncmd = "virtio-balloon-pci,id=balloon0$pciaddr";
+	$ballooncmd .= ",free-page-reporting=on" if min_version($machine_version, 6, 2);
+	push @$devices, '-device', $ballooncmd;
     }
 
     if ($conf->{watchdog}) {

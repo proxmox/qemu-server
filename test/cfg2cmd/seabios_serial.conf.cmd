@@ -21,7 +21,7 @@
   -device 'piix3-usb-uhci,id=uhci,bus=pci.0,addr=0x1.0x2' \
   -chardev 'socket,id=serial0,path=/var/run/qemu-server/8006.serial0,server=on,wait=off' \
   -device 'isa-serial,chardev=serial0' \
-  -device 'virtio-balloon-pci,id=balloon0,bus=pci.0,addr=0x3' \
+  -device 'virtio-balloon-pci,id=balloon0,bus=pci.0,addr=0x3,free-page-reporting=on' \
   -iscsi 'initiator-name=iqn.1993-08.org.debian:01:aabbccddeeff' \
   -drive 'if=none,id=drive-ide2,media=cdrom,aio=io_uring' \
   -device 'ide-cd,bus=ide.1,unit=0,drive=drive-ide2,id=ide2,bootindex=200' \
