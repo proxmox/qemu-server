@@ -2287,9 +2287,7 @@ __PACKAGE__->register_method({
 	my $node = extract_param($param, 'node');
 	my $vmid = extract_param($param, 'vmid');
 	my $timeout = extract_param($param, 'timeout');
-
 	my $machine = extract_param($param, 'machine');
-	my $force_cpu = extract_param($param, 'force-cpu');
 
 	my $get_root_param = sub {
 	    my $value = extract_param($param, $_[0]);
@@ -2304,6 +2302,7 @@ __PACKAGE__->register_method({
 	my $migration_type = $get_root_param->('migration_type');
 	my $migration_network = $get_root_param->('migration_network');
 	my $targetstorage = $get_root_param->('targetstorage');
+	my $force_cpu = $get_root_param->('force-cpu');
 
 	my $storagemap;
 
