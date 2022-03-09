@@ -7642,14 +7642,7 @@ sub clone_disk {
 		qemu_img_convert($drive->{file}, $newvolid, $size, $snapname, $sparseinit);
 	    }
 	} else {
-
 	    die "cannot move TPM state while VM is running\n" if $drivename eq 'tpmstate0';
-
-	    my $kvmver = get_running_qemu_version ($vmid);
-	    if (!min_version($kvmver, 2, 7)) {
-		die "drive-mirror with iothread requires qemu version 2.7 or higher\n"
-		    if $drive->{iothread};
-	    }
 
 	    qemu_drive_mirror($vmid, $drivename, $newvolid, $newvmid, $sparseinit, $jobs,
 	        $completion, $qga, $bwlimit);
