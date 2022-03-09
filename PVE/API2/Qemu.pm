@@ -213,26 +213,13 @@ my $create_disks = sub {
 	    delete $disk->{format}; # no longer needed
 	    $res->{$ds} = PVE::QemuServer::print_drive($disk);
 	} else {
-
 	    PVE::Storage::check_volume_access($rpcenv, $authuser, $storecfg, $vmid, $volid);
 
-	    my $volid_is_new = 1;
+	    PVE::Storage::activate_volumes($storecfg, [ $volid ]) if $storeid;
 
-	    if ($conf->{$ds}) {
-		my $olddrive = PVE::QemuServer::parse_drive($ds, $conf->{$ds});
-		$volid_is_new = undef if $olddrive->{file} && $olddrive->{file} eq $volid;
-	    }
-
-	    if ($volid_is_new) {
-
-		PVE::Storage::activate_volumes($storecfg, [ $volid ]) if $storeid;
-
-		my $size = PVE::Storage::volume_size_info($storecfg, $volid);
-
-		die "volume $volid does not exist\n" if !$size;
-
-		$disk->{size} = $size;
-	    }
+	    my $size = PVE::Storage::volume_size_info($storecfg, $volid);
+	    die "volume $volid does not exist\n" if !$size;
+	    $disk->{size} = $size;
 
 	    $res->{$ds} = PVE::QemuServer::print_drive($disk);
 	}
