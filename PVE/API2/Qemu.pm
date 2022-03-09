@@ -63,6 +63,23 @@ my $resolve_cdrom_alias = sub {
     }
 };
 
+my $check_drive_param = sub {
+    my ($param, $storecfg, $extra_checks) = @_;
+
+    for my $opt (sort keys $param->%*) {
+	next if !PVE::QemuServer::is_valid_drivename($opt);
+
+	my $drive = PVE::QemuServer::parse_drive($opt, $param->{$opt});
+	raise_param_exc({ $opt => "unable to parse drive options" }) if !$drive;
+
+	PVE::QemuServer::cleanup_drive_path($opt, $storecfg, $drive);
+
+	$extra_checks->($drive) if $extra_checks;
+
+	$param->{$opt} = PVE::QemuServer::print_drive($drive);
+    }
+};
+
 my $NEW_DISK_RE = qr!^(([^/:\s]+):)?(\d+(\.\d+)?)$!;
 my $check_storage_access = sub {
    my ($rpcenv, $authuser, $storecfg, $vmid, $settings, $default_storage) = @_;
@@ -617,15 +634,7 @@ __PACKAGE__->register_method({
 
 	    &$check_cpu_model_access($rpcenv, $authuser, $param);
 
-	    foreach my $opt (keys %$param) {
-		if (PVE::QemuServer::is_valid_drivename($opt)) {
-		    my $drive = PVE::QemuServer::parse_drive($opt, $param->{$opt});
-		    raise_param_exc({ $opt => "unable to parse drive options" }) if !$drive;
-
-		    PVE::QemuServer::cleanup_drive_path($opt, $storecfg, $drive);
-		    $param->{$opt} = PVE::QemuServer::print_drive($drive);
-		}
-	    }
+	    $check_drive_param->($param, $storecfg);
 
 	    PVE::QemuServer::add_random_macs($param);
 	} else {
@@ -1195,15 +1204,10 @@ my $update_vm_api  = sub {
 	die "cannot add non-replicatable volume to a replicated VM\n";
     };
 
+    $check_drive_param->($param, $storecfg, $check_replication);
+
     foreach my $opt (keys %$param) {
-	if (PVE::QemuServer::is_valid_drivename($opt)) {
-	    # cleanup drive path
-	    my $drive = PVE::QemuServer::parse_drive($opt, $param->{$opt});
-	    raise_param_exc({ $opt => "unable to parse drive options" }) if !$drive;
-	    PVE::QemuServer::cleanup_drive_path($opt, $storecfg, $drive);
-	    $check_replication->($drive);
-	    $param->{$opt} = PVE::QemuServer::print_drive($drive);
-	} elsif ($opt =~ m/^net(\d+)$/) {
+	if ($opt =~ m/^net(\d+)$/) {
 	    # add macaddr
 	    my $net = PVE::QemuServer::parse_net($param->{$opt});
 	    $param->{$opt} = PVE::QemuServer::print_net($net);
