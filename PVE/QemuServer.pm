@@ -7280,7 +7280,7 @@ sub qemu_img_convert {
 	$src_path = PVE::Storage::path($storecfg, $src_volid, $snapname);
 	$src_is_iscsi = ($src_path =~ m|^iscsi://|);
 	$cachemode = 'none' if $src_scfg->{type} eq 'zfspool';
-    } elsif (-f $src_volid) {
+    } elsif (-f $src_volid || -b $src_volid) {
 	$src_path = $src_volid;
 	if ($src_path =~ m/\.($PVE::QemuServer::Drive::QEMU_FORMAT_RE)$/) {
 	    $src_format = $1;
