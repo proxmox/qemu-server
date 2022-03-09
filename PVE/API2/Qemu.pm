@@ -3227,6 +3227,7 @@ __PACKAGE__->register_method({
 
 		    my $dest_info = {
 			vmid => $newid,
+			drivename => $opt,
 			storage => $storage,
 			format => $format,
 		    };
@@ -3488,6 +3489,7 @@ __PACKAGE__->register_method({
 
 		my $dest_info = {
 		    vmid => $vmid,
+		    drivename => $disk,
 		    storage => $storeid,
 		    format => $format,
 		};

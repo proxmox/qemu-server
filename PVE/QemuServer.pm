@@ -7574,15 +7574,25 @@ sub clone_disk {
     my ($storecfg, $source, $dest, $full, $newvollist, $jobs, $completion, $qga, $bwlimit) = @_;
 
     my ($vmid, $running) = $source->@{qw(vmid running)};
-    my ($drivename, $drive, $snapname) = $source->@{qw(drivename drive snapname)};
+    my ($src_drivename, $drive, $snapname) = $source->@{qw(drivename drive snapname)};
 
-    my ($newvmid, $efisize) = $dest->@{qw(vmid efisize)};
+    my ($newvmid, $dst_drivename, $efisize) = $dest->@{qw(vmid drivename efisize)};
     my ($storage, $format) = $dest->@{qw(storage format)};
+
+    if ($src_drivename && $dst_drivename && $src_drivename ne $dst_drivename) {
+	die "cloning from/to EFI disk requires EFI disk\n"
+	    if $src_drivename eq 'efidisk0' || $dst_drivename eq 'efidisk0';
+	die "cloning from/to TPM state requires TPM state\n"
+	    if $src_drivename eq 'tpmstate0' || $dst_drivename eq 'tpmstate0';
+    }
 
     my $newvolid;
 
+    print "create " . ($full ? 'full' : 'linked') . " clone of drive ";
+    print "$src_drivename " if $src_drivename;
+    print "($drive->{file})\n";
+
     if (!$full) {
-	print "create linked clone of drive $drivename ($drive->{file})\n";
 	$newvolid = PVE::Storage::vdisk_clone($storecfg,  $drive->{file}, $newvmid, $snapname);
 	push @$newvollist, $newvolid;
     } else {
@@ -7592,7 +7602,6 @@ sub clone_disk {
 
 	my $dst_format = resolve_dst_disk_format($storecfg, $storeid, $volname, $format);
 
-	print "create full clone of drive $drivename ($drive->{file})\n";
 	my $name = undef;
 	my $size = undef;
 	if (drive_is_cloudinit($drive)) {
@@ -7603,9 +7612,9 @@ sub clone_disk {
 	    }
 	    $snapname = undef;
 	    $size = PVE::QemuServer::Cloudinit::CLOUDINIT_DISK_SIZE;
-	} elsif ($drivename eq 'efidisk0') {
+	} elsif ($dst_drivename eq 'efidisk0') {
 	    $size = $efisize or die "internal error - need to specify EFI disk size\n";
-	} elsif ($drivename eq 'tpmstate0') {
+	} elsif ($dst_drivename eq 'tpmstate0') {
 	    $dst_format = 'raw';
 	    $size = PVE::QemuServer::Drive::TPMSTATE_DISK_SIZE;
 	} else {
@@ -7629,9 +7638,9 @@ sub clone_disk {
 	}
 
 	my $sparseinit = PVE::Storage::volume_has_feature($storecfg, 'sparseinit', $newvolid);
-	if (!$running || $snapname) {
+	if (!$running || !$src_drivename || $snapname) {
 	    # TODO: handle bwlimits
-	    if ($drivename eq 'efidisk0') {
+	    if ($dst_drivename eq 'efidisk0') {
 		# the relevant data on the efidisk may be smaller than the source
 		# e.g. on RBD/ZFS, so we use dd to copy only the amount
 		# that is given by the OVMF_VARS.fd
@@ -7647,9 +7656,9 @@ sub clone_disk {
 		qemu_img_convert($drive->{file}, $newvolid, $size, $snapname, $sparseinit);
 	    }
 	} else {
-	    die "cannot move TPM state while VM is running\n" if $drivename eq 'tpmstate0';
+	    die "cannot move TPM state while VM is running\n" if $src_drivename eq 'tpmstate0';
 
-	    qemu_drive_mirror($vmid, $drivename, $newvolid, $newvmid, $sparseinit, $jobs,
+	    qemu_drive_mirror($vmid, $src_drivename, $newvolid, $newvmid, $sparseinit, $jobs,
 	        $completion, $qga, $bwlimit);
 	}
     }
