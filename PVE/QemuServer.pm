@@ -7576,7 +7576,7 @@ sub clone_disk {
     my ($vmid, $running) = $source->@{qw(vmid running)};
     my ($drivename, $drive, $snapname) = $source->@{qw(drivename drive snapname)};
 
-    my ($newvmid, $conf) = $dest->@{qw(vmid conf)};
+    my ($newvmid, $efisize) = $dest->@{qw(vmid efisize)};
     my ($storage, $format) = $dest->@{qw(storage format)};
 
     my $newvolid;
@@ -7604,7 +7604,7 @@ sub clone_disk {
 	    $snapname = undef;
 	    $size = PVE::QemuServer::Cloudinit::CLOUDINIT_DISK_SIZE;
 	} elsif ($drivename eq 'efidisk0') {
-	    $size = get_efivars_size($conf);
+	    $size = $efisize or die "internal error - need to specify EFI disk size\n";
 	} elsif ($drivename eq 'tpmstate0') {
 	    $dst_format = 'raw';
 	    $size = PVE::QemuServer::Drive::TPMSTATE_DISK_SIZE;

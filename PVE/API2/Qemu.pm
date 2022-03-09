@@ -3227,10 +3227,12 @@ __PACKAGE__->register_method({
 
 		    my $dest_info = {
 			vmid => $newid,
-			conf => $oldconf, # because it's a clone
 			storage => $storage,
 			format => $format,
 		    };
+
+		    $dest_info->{efisize} = PVE::QemuServer::get_efivars_size($oldconf)
+			if $opt eq 'efidisk0';
 
 		    my $newdrive = PVE::QemuServer::clone_disk(
 			$storecfg,
@@ -3486,10 +3488,12 @@ __PACKAGE__->register_method({
 
 		my $dest_info = {
 		    vmid => $vmid,
-		    conf => $conf,
 		    storage => $storeid,
 		    format => $format,
 		};
+
+		$dest_info->{efisize} = PVE::QemuServer::get_efivars_size($conf)
+		    if $disk eq 'efidisk0';
 
 		my $newdrive = PVE::QemuServer::clone_disk(
 		    $storecfg,
