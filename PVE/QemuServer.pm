@@ -4249,6 +4249,7 @@ sub vm_deviceunplug {
 	my $device = parse_drive($deviceid, $conf->{$deviceid});
 
 	qemu_devicedel($vmid, $deviceid);
+	qemu_devicedelverify($vmid, $deviceid);
 	qemu_drivedel($vmid, $deviceid);
 	qemu_deletescsihw($conf, $vmid, $deviceid);
 
