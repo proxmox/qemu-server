@@ -237,12 +237,7 @@ my $create_disks = sub {
 	die $err;
     }
 
-    # modify vm config if everything went well
-    foreach my $ds (keys %$res) {
-	$conf->{$ds} = $res->{$ds};
-    }
-
-    return $vollist;
+    return ($vollist, $res);
 };
 
 my $check_cpu_model_access = sub {
@@ -712,7 +707,18 @@ __PACKAGE__->register_method({
 
 		my $vollist = [];
 		eval {
-		    $vollist = &$create_disks($rpcenv, $authuser, $conf, $arch, $storecfg, $vmid, $pool, $param, $storage);
+		    ($vollist, my $created_opts) = $create_disks->(
+			$rpcenv,
+			$authuser,
+			$conf,
+			$arch,
+			$storecfg,
+			$vmid,
+			$pool,
+			$param,
+			$storage,
+		    );
+		    $conf->{$_} = $created_opts->{$_} for keys $created_opts->%*;
 
 		    if (!$conf->{boot}) {
 			my $devs = PVE::QemuServer::get_default_bootdevices($conf);
@@ -1364,7 +1370,17 @@ my $update_vm_api  = sub {
 		    PVE::QemuServer::vmconfig_register_unused_drive($storecfg, $vmid, $conf, PVE::QemuServer::parse_drive($opt, $conf->{pending}->{$opt}))
 			if defined($conf->{pending}->{$opt});
 
-		    &$create_disks($rpcenv, $authuser, $conf->{pending}, $arch, $storecfg, $vmid, undef, {$opt => $param->{$opt}});
+		    my (undef, $created_opts) = $create_disks->(
+			$rpcenv,
+			$authuser,
+			$conf,
+			$arch,
+			$storecfg,
+			$vmid,
+			undef,
+			{$opt => $param->{$opt}},
+		    );
+		    $conf->{pending}->{$_} = $created_opts->{$_} for keys $created_opts->%*;
 
 		    # default legacy boot order implies all cdroms anyway
 		    if (@bootorder) {
