@@ -7703,9 +7703,10 @@ sub qemu_use_old_bios_files {
 }
 
 sub get_efivars_size {
-    my ($conf) = @_;
+    my ($conf, $efidisk) = @_;
+
     my $arch = get_vm_arch($conf);
-    my $efidisk = $conf->{efidisk0} ? parse_drive('efidisk0', $conf->{efidisk0}) : undef;
+    $efidisk //= $conf->{efidisk0} ? parse_drive('efidisk0', $conf->{efidisk0}) : undef;
     my $smm = PVE::QemuServer::Machine::machine_type_is_q35($conf);
     my (undef, $ovmf_vars) = get_ovmf_files($arch, $efidisk, $smm);
     die "uefi vars image '$ovmf_vars' not found\n" if ! -f $ovmf_vars;
