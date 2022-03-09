@@ -3217,23 +3217,31 @@ __PACKAGE__->register_method({
 		    push @$storage_list, $storage if defined($storage);
 		    my $clonelimit = PVE::Storage::get_bandwidth_limit('clone', $storage_list, $bwlimit);
 
+		    my $source_info = {
+			vmid => $vmid,
+			running => $running,
+			drivename => $opt,
+			drive => $drive,
+			snapname => $snapname,
+		    };
+
+		    my $dest_info = {
+			vmid => $newid,
+			conf => $oldconf, # because it's a clone
+			storage => $storage,
+			format => $format,
+		    };
+
 		    my $newdrive = PVE::QemuServer::clone_disk(
 			$storecfg,
-			$vmid,
-			$running,
-			$opt,
-			$drive,
-			$snapname,
-			$newid,
-			$storage,
-			$format,
+			$source_info,
+			$dest_info,
 			$fullclone->{$opt},
 			$newvollist,
 			$jobs,
 			$completion,
 			$oldconf->{agent},
 			$clonelimit,
-			$oldconf
 		    );
 
 		    $newconf->{$opt} = PVE::QemuServer::print_drive($newdrive);
@@ -3468,23 +3476,31 @@ __PACKAGE__->register_method({
 		    $bwlimit
 		);
 
+		my $source_info = {
+		    vmid => $vmid,
+		    running => $running,
+		    drivename => $disk,
+		    drive => $drive,
+		    snapname => undef,
+		};
+
+		my $dest_info = {
+		    vmid => $vmid,
+		    conf => $conf,
+		    storage => $storeid,
+		    format => $format,
+		};
+
 		my $newdrive = PVE::QemuServer::clone_disk(
 		    $storecfg,
-		    $vmid,
-		    $running,
-		    $disk,
-		    $drive,
-		    undef,
-		    $vmid,
-		    $storeid,
-		    $format,
+		    $source_info,
+		    $dest_info,
 		    1,
 		    $newvollist,
 		    undef,
 		    undef,
 		    undef,
 		    $movelimit,
-		    $conf,
 		);
 		$conf->{$disk} = PVE::QemuServer::print_drive($newdrive);
 

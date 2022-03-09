@@ -7571,8 +7571,13 @@ sub qemu_blockjobs_cancel {
 }
 
 sub clone_disk {
-    my ($storecfg, $vmid, $running, $drivename, $drive, $snapname,
-	$newvmid, $storage, $format, $full, $newvollist, $jobs, $completion, $qga, $bwlimit, $conf) = @_;
+    my ($storecfg, $source, $dest, $full, $newvollist, $jobs, $completion, $qga, $bwlimit) = @_;
+
+    my ($vmid, $running) = $source->@{qw(vmid running)};
+    my ($drivename, $drive, $snapname) = $source->@{qw(drivename drive snapname)};
+
+    my ($newvmid, $conf) = $dest->@{qw(vmid conf)};
+    my ($storage, $format) = $dest->@{qw(storage format)};
 
     my $newvolid;
 
