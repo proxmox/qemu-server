@@ -4580,7 +4580,9 @@ __PACKAGE__->register_method({
 
 	my $snapname = extract_param($param, 'snapname');
 
+	my $lock_obtained;
 	my $do_delete = sub {
+	    $lock_obtained = 1;
 	    PVE::Cluster::log_msg('info', $authuser, "delete snapshot VM $vmid: $snapname");
 	    PVE::QemuConfig->snapshot_delete($vmid, $snapname, $param->{force});
 	};
@@ -4589,7 +4591,11 @@ __PACKAGE__->register_method({
 	    if ($param->{force}) {
 		$do_delete->();
 	    } else {
-		PVE::GuestHelpers::guest_migration_lock($vmid, 10, $do_delete);
+		eval { PVE::GuestHelpers::guest_migration_lock($vmid, 10, $do_delete); };
+		if (my $err = $@) {
+		    die $err if $lock_obtained;
+		    die "Failed to obtain guest migration lock - replication running?\n";
+		}
 	    }
 	};
 
