@@ -120,7 +120,7 @@ my $cpu_fmt = {
     },
     'reported-model' => {
 	description => "CPU model and vendor to report to the guest. Must be a QEMU/KVM supported model."
-		     . " Only valid for custom CPU model definitions, default models will always report themselves to the guest OS.",
+	    ." Only valid for custom CPU model definitions, default models will always report themselves to the guest OS.",
 	type => 'string',
 	enum => [ sort { lc("$a") cmp lc("$b") } keys %$cpu_vendor_list ],
 	default => 'kvm64',
@@ -140,11 +140,10 @@ my $cpu_fmt = {
 	optional => 1,
     },
     flags => {
-	description => "List of additional CPU flags separated by ';'."
-		     . " Use '+FLAG' to enable, '-FLAG' to disable a flag."
-		     . " Custom CPU models can specify any flag supported by"
-		     . " QEMU/KVM, VM-specific flags must be from the following"
-		     . " set for security reasons: @{[join(', ', @supported_cpu_flags)]}.",
+	description => "List of additional CPU flags separated by ';'. Use '+FLAG' to enable,"
+	    ." '-FLAG' to disable a flag. Custom CPU models can specify any flag supported by"
+	    ." QEMU/KVM, VM-specific flags must be from the following set for security reasons: "
+	    . join(', ', @supported_cpu_flags),
 	format_description => '+FLAG[;-FLAG...]',
 	type => 'string',
 	pattern => qr/$cpu_flag_any_re(;$cpu_flag_any_re)*/,
@@ -154,10 +153,9 @@ my $cpu_fmt = {
 	type => 'string',
 	format => 'pve-phys-bits',
 	format_description => '8-64|host',
-	description => "The physical memory address bits that are reported to"
-		     . " the guest OS. Should be smaller or equal to the host's."
-		     . " Set to 'host' to use value from host CPU, but note that"
-		     . " doing so will break live migration to CPUs with other values.",
+	description => "The physical memory address bits that are reported to the guest OS. Should"
+	    ." be smaller or equal to the host's. Set to 'host' to use value from host CPU, but"
+	    ." note that doing so will break live migration to CPUs with other values.",
 	optional => 1,
     },
 };
@@ -497,11 +495,11 @@ sub get_cpu_options {
 	)
 	: undef;
 
-    my $custom_cputype_flags = parse_cpuflag_list($cpu_flag_any_re,
-	"set by custom CPU model", $custom_cpu->{flags});
+    my $custom_cputype_flags = parse_cpuflag_list(
+	$cpu_flag_any_re, "set by custom CPU model", $custom_cpu->{flags});
 
-    my $vm_flags = parse_cpuflag_list($cpu_flag_supported_re,
-	"manually set for VM", $cpu->{flags});
+    my $vm_flags = parse_cpuflag_list(
+	$cpu_flag_supported_re, "manually set for VM", $cpu->{flags});
 
     my $pve_forced_flags = {};
     $pve_forced_flags->{'enforce'} = {
@@ -526,8 +524,8 @@ sub get_cpu_options {
     my $cpu_str = $cputype;
 
     # will be resolved in parameter order
-    $cpu_str .= resolve_cpu_flags($pve_flags, $hv_flags, $custom_cputype_flags,
-			      $vm_flags, $pve_forced_flags);
+    $cpu_str .= resolve_cpu_flags(
+	$pve_flags, $hv_flags, $custom_cputype_flags, $vm_flags, $pve_forced_flags);
 
     my $phys_bits = '';
     foreach my $conf ($custom_cpu, $cpu) {
