@@ -63,28 +63,43 @@ my $resolve_cdrom_alias = sub {
     }
 };
 
+# Used in import-enabled API endpoints. Parses drives using the extended '_with_alloc' schema.
+my $foreach_volume_with_alloc = sub {
+    my ($param, $func) = @_;
+
+    for my $opt (sort keys $param->%*) {
+	next if !PVE::QemuServer::is_valid_drivename($opt);
+
+	my $drive = PVE::QemuServer::Drive::parse_drive($opt, $param->{$opt}, 1);
+	next if !$drive;
+
+	$func->($opt, $drive);
+    }
+};
+
+my $NEW_DISK_RE = qr!^(([^/:\s]+):)?(\d+(\.\d+)?)$!;
+
 my $check_drive_param = sub {
     my ($param, $storecfg, $extra_checks) = @_;
 
     for my $opt (sort keys $param->%*) {
 	next if !PVE::QemuServer::is_valid_drivename($opt);
 
-	my $drive = PVE::QemuServer::parse_drive($opt, $param->{$opt});
+	my $drive = PVE::QemuServer::parse_drive($opt, $param->{$opt}, 1);
 	raise_param_exc({ $opt => "unable to parse drive options" }) if !$drive;
 
 	PVE::QemuServer::cleanup_drive_path($opt, $storecfg, $drive);
 
 	$extra_checks->($drive) if $extra_checks;
 
-	$param->{$opt} = PVE::QemuServer::print_drive($drive);
+	$param->{$opt} = PVE::QemuServer::print_drive($drive, 1);
     }
 };
 
-my $NEW_DISK_RE = qr!^(([^/:\s]+):)?(\d+(\.\d+)?)$!;
 my $check_storage_access = sub {
    my ($rpcenv, $authuser, $storecfg, $vmid, $settings, $default_storage) = @_;
 
-   PVE::QemuConfig->foreach_volume($settings, sub {
+   $foreach_volume_with_alloc->($settings, sub {
 	my ($ds, $drive) = @_;
 
 	my $isCDROM = PVE::QemuServer::drive_is_cdrom($drive);
@@ -256,7 +271,7 @@ my $create_disks = sub {
 	}
     };
 
-    eval { PVE::QemuConfig->foreach_volume($settings, $code); };
+    eval { $foreach_volume_with_alloc->($settings, $code); };
 
     # free allocated images on error
     if (my $err = $@) {
@@ -583,7 +598,9 @@ __PACKAGE__->register_method({
 		    default => 0,
 		    description => "Start VM after it was created successfully.",
 		},
-	    }),
+	    },
+	    1, # with_disk_alloc
+	),
     },
     returns => {
 	type => 'string',
@@ -1304,7 +1321,7 @@ my $update_vm_api  = sub {
 
 	    my $check_drive_perms = sub {
 		my ($opt, $val) = @_;
-		my $drive = PVE::QemuServer::parse_drive($opt, $val);
+		my $drive = PVE::QemuServer::parse_drive($opt, $val, 1);
 		# FIXME: cloudinit: CDROM or Disk?
 		if (PVE::QemuServer::drive_is_cdrom($drive)) { # CDROM
 		    $rpcenv->check_vm_perm($authuser, $vmid, undef, ['VM.Config.CDROM']);
@@ -1410,7 +1427,7 @@ my $update_vm_api  = sub {
 		    # default legacy boot order implies all cdroms anyway
 		    if (@bootorder) {
 			# append new CD drives to bootorder to mark them bootable
-			my $drive = PVE::QemuServer::parse_drive($opt, $param->{$opt});
+			my $drive = PVE::QemuServer::parse_drive($opt, $param->{$opt}, 1);
 			if (PVE::QemuServer::drive_is_cdrom($drive, 1) && !grep(/^$opt$/, @bootorder)) {
 			    push @bootorder, $opt;
 			    $conf->{pending}->{boot} = PVE::QemuServer::print_bootorder(\@bootorder);
@@ -1573,7 +1590,9 @@ __PACKAGE__->register_method({
 		    maximum => 30,
 		    optional => 1,
 		},
-	    }),
+	    },
+	    1, # with_disk_alloc
+	),
     },
     returns => {
 	type => 'string',
@@ -1621,7 +1640,9 @@ __PACKAGE__->register_method({
 		    maxLength => 40,
 		    optional => 1,
 		},
-	    }),
+	    },
+	    1, # with_disk_alloc
+	),
     },
     returns => { type => 'null' },
     code => sub {

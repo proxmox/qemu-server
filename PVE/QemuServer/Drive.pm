@@ -3,6 +3,8 @@ package PVE::QemuServer::Drive;
 use strict;
 use warnings;
 
+use Storable qw(dclone);
+
 use PVE::Storage;
 use PVE::JSONSchema qw(get_standard_option);
 
@@ -33,6 +35,8 @@ our $MAX_SATA_DISKS = 6;
 our $MAX_UNUSED_DISKS = 256;
 
 our $drivedesc_hash;
+# Schema when disk allocation is possible.
+our $drivedesc_hash_with_alloc = {};
 
 my %drivedesc_base = (
     volume => { alias => 'file' },
@@ -262,14 +266,10 @@ my $ide_fmt = {
 };
 PVE::JSONSchema::register_format("pve-qm-ide", $ide_fmt);
 
-my $ALLOCATION_SYNTAX_DESC =
-    "Use the special syntax STORAGE_ID:SIZE_IN_GiB to allocate a new volume.";
-
 my $idedesc = {
     optional => 1,
     type => 'string', format => $ide_fmt,
-    description => "Use volume as IDE hard disk or CD-ROM (n is 0 to " .($MAX_IDE_DISKS -1) . "). " .
-	$ALLOCATION_SYNTAX_DESC,
+    description => "Use volume as IDE hard disk or CD-ROM (n is 0 to " .($MAX_IDE_DISKS - 1) . ").",
 };
 PVE::JSONSchema::register_standard_option("pve-qm-ide", $idedesc);
 
@@ -285,8 +285,7 @@ my $scsi_fmt = {
 my $scsidesc = {
     optional => 1,
     type => 'string', format => $scsi_fmt,
-    description => "Use volume as SCSI hard disk or CD-ROM (n is 0 to " . ($MAX_SCSI_DISKS - 1) . "). " .
-	$ALLOCATION_SYNTAX_DESC,
+    description => "Use volume as SCSI hard disk or CD-ROM (n is 0 to " . ($MAX_SCSI_DISKS - 1) . ").",
 };
 PVE::JSONSchema::register_standard_option("pve-qm-scsi", $scsidesc);
 
@@ -298,8 +297,7 @@ my $sata_fmt = {
 my $satadesc = {
     optional => 1,
     type => 'string', format => $sata_fmt,
-    description => "Use volume as SATA hard disk or CD-ROM (n is 0 to " . ($MAX_SATA_DISKS - 1). "). " .
-	$ALLOCATION_SYNTAX_DESC,
+    description => "Use volume as SATA hard disk or CD-ROM (n is 0 to " . ($MAX_SATA_DISKS - 1). ").",
 };
 PVE::JSONSchema::register_standard_option("pve-qm-sata", $satadesc);
 
@@ -311,8 +309,7 @@ my $virtio_fmt = {
 my $virtiodesc = {
     optional => 1,
     type => 'string', format => $virtio_fmt,
-    description => "Use volume as VIRTIO hard disk (n is 0 to " . ($MAX_VIRTIO_DISKS - 1) . "). " .
-	$ALLOCATION_SYNTAX_DESC,
+    description => "Use volume as VIRTIO hard disk (n is 0 to " . ($MAX_VIRTIO_DISKS - 1) . ").",
 };
 PVE::JSONSchema::register_standard_option("pve-qm-virtio", $virtiodesc);
 
@@ -359,9 +356,7 @@ my $efidisk_fmt = {
 my $efidisk_desc = {
     optional => 1,
     type => 'string', format => $efidisk_fmt,
-    description => "Configure a Disk for storing EFI vars. " .
-	$ALLOCATION_SYNTAX_DESC . " Note that SIZE_IN_GiB is ignored here " .
-	"and that the default EFI vars are copied to the volume instead.",
+    description => "Configure a Disk for storing EFI vars.",
 };
 
 PVE::JSONSchema::register_standard_option("pve-qm-efidisk", $efidisk_desc);
@@ -397,10 +392,7 @@ my $tpmstate_fmt = {
 my $tpmstate_desc = {
     optional => 1,
     type => 'string', format => $tpmstate_fmt,
-    description => "Configure a Disk for storing TPM state. " .
-	$ALLOCATION_SYNTAX_DESC . " Note that SIZE_IN_GiB is ignored here " .
-	"and that the default size of 4 MiB will always be used instead. The " .
-	"format is also fixed to 'raw'.",
+    description => "Configure a Disk for storing TPM state. The format is fixed to 'raw'.",
 };
 use constant TPMSTATE_DISK_SIZE => 4 * 1024 * 1024;
 
@@ -415,6 +407,10 @@ my $alldrive_fmt = {
     %wwn_fmt,
     %tpmversion_fmt,
     %efitype_fmt,
+};
+
+my $alldrive_fmt_with_alloc = {
+    %$alldrive_fmt,
 };
 
 my $unused_fmt = {
@@ -434,27 +430,61 @@ my $unuseddesc = {
     description => "Reference to unused volumes. This is used internally, and should not be modified manually.",
 };
 
+my $with_alloc_desc_cache = {
+    unused => $unuseddesc, # Allocation for unused is not supported currently.
+};
+my $desc_with_alloc = sub {
+    my ($type, $desc) = @_;
+
+    return $with_alloc_desc_cache->{$type} if $with_alloc_desc_cache->{$type};
+
+    my $new_desc = dclone($desc);
+
+    my $extra_note = '';
+    if ($type eq 'efidisk') {
+	$extra_note = " Note that SIZE_IN_GiB is ignored here and that the default EFI vars are ".
+	    "copied to the volume instead.";
+    } elsif ($type eq 'tpmstate') {
+	$extra_note = " Note that SIZE_IN_GiB is ignored here and 4 MiB will be used instead.";
+    }
+
+    $new_desc->{description} .= " Use the special syntax STORAGE_ID:SIZE_IN_GiB to allocate a new ".
+	"volume.${extra_note}";
+
+    $with_alloc_desc_cache->{$type} = $new_desc;
+
+    return $new_desc;
+};
+
 for (my $i = 0; $i < $MAX_IDE_DISKS; $i++)  {
     $drivedesc_hash->{"ide$i"} = $idedesc;
+    $drivedesc_hash_with_alloc->{"ide$i"} = $desc_with_alloc->('ide', $idedesc);
 }
 
 for (my $i = 0; $i < $MAX_SATA_DISKS; $i++)  {
     $drivedesc_hash->{"sata$i"} = $satadesc;
+    $drivedesc_hash_with_alloc->{"sata$i"} = $desc_with_alloc->('sata', $satadesc);
 }
 
 for (my $i = 0; $i < $MAX_SCSI_DISKS; $i++)  {
     $drivedesc_hash->{"scsi$i"} = $scsidesc;
+    $drivedesc_hash_with_alloc->{"scsi$i"} = $desc_with_alloc->('scsi', $scsidesc);
 }
 
 for (my $i = 0; $i < $MAX_VIRTIO_DISKS; $i++)  {
     $drivedesc_hash->{"virtio$i"} = $virtiodesc;
+    $drivedesc_hash_with_alloc->{"virtio$i"} = $desc_with_alloc->('virtio', $virtiodesc);
 }
 
 $drivedesc_hash->{efidisk0} = $efidisk_desc;
+$drivedesc_hash_with_alloc->{efidisk0} = $desc_with_alloc->('efidisk', $efidisk_desc);
+
 $drivedesc_hash->{tpmstate0} = $tpmstate_desc;
+$drivedesc_hash_with_alloc->{tpmstate0} = $desc_with_alloc->('tpmstate', $tpmstate_desc);
 
 for (my $i = 0; $i < $MAX_UNUSED_DISKS; $i++) {
     $drivedesc_hash->{"unused$i"} = $unuseddesc;
+    $drivedesc_hash_with_alloc->{"unused$i"} = $desc_with_alloc->('unused', $unuseddesc);
 }
 
 sub valid_drive_names_for_boot {
@@ -521,7 +551,7 @@ sub drive_is_read_only {
 #        [,iothread=on][,serial=serial][,model=model]
 
 sub parse_drive {
-    my ($key, $data) = @_;
+    my ($key, $data, $with_alloc) = @_;
 
     my ($interface, $index);
 
@@ -532,12 +562,14 @@ sub parse_drive {
 	return;
     }
 
-    if (!defined($drivedesc_hash->{$key})) {
+    my $desc_hash = $with_alloc ? $drivedesc_hash_with_alloc : $drivedesc_hash;
+
+    if (!defined($desc_hash->{$key})) {
 	warn "invalid drive key: $key\n";
 	return;
     }
 
-    my $desc = $drivedesc_hash->{$key}->{format};
+    my $desc = $desc_hash->{$key}->{format};
     my $res = eval { PVE::JSONSchema::parse_property_string($desc, $data) };
     return if !$res;
     $res->{interface} = $interface;
@@ -597,9 +629,10 @@ sub parse_drive {
 }
 
 sub print_drive {
-    my ($drive) = @_;
+    my ($drive, $with_alloc) = @_;
     my $skip = [ 'index', 'interface' ];
-    return PVE::JSONSchema::print_property_string($drive, $alldrive_fmt, $skip);
+    my $fmt = $with_alloc ? $alldrive_fmt_with_alloc : $alldrive_fmt;
+    return PVE::JSONSchema::print_property_string($drive, $fmt, $skip);
 }
 
 sub get_bootdisks {

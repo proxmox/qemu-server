@@ -2184,7 +2184,7 @@ sub verify_usb_device {
 
 # add JSON properties for create and set function
 sub json_config_properties {
-    my $prop = shift;
+    my ($prop, $with_disk_alloc) = @_;
 
     my $skip_json_config_opts = {
 	parent => 1,
@@ -2197,7 +2197,12 @@ sub json_config_properties {
 
     foreach my $opt (keys %$confdesc) {
 	next if $skip_json_config_opts->{$opt};
-	$prop->{$opt} = $confdesc->{$opt};
+
+	if ($with_disk_alloc && is_valid_drivename($opt)) {
+	    $prop->{$opt} = $PVE::QemuServer::Drive::drivedesc_hash_with_alloc->{$opt};
+	} else {
+	    $prop->{$opt} = $confdesc->{$opt};
+	}
     }
 
     return $prop;
