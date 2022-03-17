@@ -3151,6 +3151,9 @@ __PACKAGE__->register_method({
 		# no need to copy unused images, because VMID(owner) changes anyways
 		next if $opt =~ m/^unused\d+$/;
 
+		die "cannot clone TPM state while VM is running\n"
+		    if $full && $running && !$snapname && $opt eq 'tpmstate0';
+
 		# always change MAC! address
 		if ($opt =~ m/^net(\d+)$/) {
 		    my $net = PVE::QemuServer::parse_net($value);
