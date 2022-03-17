@@ -2203,6 +2203,38 @@ sub json_config_properties {
     return $prop;
 }
 
+# Properties that we can read from an OVF file
+sub json_ovf_properties {
+    my $prop = {};
+
+    for my $device (PVE::QemuServer::Drive::valid_drive_names()) {
+	$prop->{$device} = {
+	    type => 'string',
+	    format => 'pve-volume-id-or-absolute-path',
+	    description => "Disk image that gets imported to $device",
+	    optional => 1,
+	};
+    }
+
+    $prop->{cores} = {
+	type => 'integer',
+	description => "The number of CPU cores.",
+	optional => 1,
+    };
+    $prop->{memory} = {
+	type => 'integer',
+	description => "Amount of RAM for the VM in MB.",
+	optional => 1,
+    };
+    $prop->{name} = {
+	type => 'string',
+	description => "Name of the VM.",
+	optional => 1,
+    };
+
+    return $prop;
+}
+
 # return copy of $confdesc_cloudinit to generate documentation
 sub cloudinit_config_properties {
 
