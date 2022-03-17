@@ -7598,6 +7598,9 @@ sub clone_disk {
 	    if $use_drive_mirror && $vmid == $newvmid;
     }
 
+    die "cannot move TPM state while VM is running\n"
+	if $use_drive_mirror && $src_drivename eq 'tpmstate0';
+
     my $newvolid;
 
     print "create " . ($full ? 'full' : 'linked') . " clone of drive ";
@@ -7651,8 +7654,6 @@ sub clone_disk {
 
 	my $sparseinit = PVE::Storage::volume_has_feature($storecfg, 'sparseinit', $newvolid);
 	if ($use_drive_mirror) {
-	    die "cannot move TPM state while VM is running\n" if $src_drivename eq 'tpmstate0';
-
 	    qemu_drive_mirror($vmid, $src_drivename, $newvolid, $newvmid, $sparseinit, $jobs,
 	        $completion, $qga, $bwlimit);
 	} else {
