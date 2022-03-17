@@ -7662,14 +7662,18 @@ sub clone_disk {
 		# the relevant data on the efidisk may be smaller than the source
 		# e.g. on RBD/ZFS, so we use dd to copy only the amount
 		# that is given by the OVMF_VARS.fd
-		my $src_path = PVE::Storage::path($storecfg, $drive->{file});
+		my $src_path = PVE::Storage::path($storecfg, $drive->{file}, $snapname);
 		my $dst_path = PVE::Storage::path($storecfg, $newvolid);
+
+		my $src_format = (PVE::Storage::parse_volname($storecfg, $drive->{file}))[6];
 
 		# better for Ceph if block size is not too small, see bug #3324
 		my $bs = 1024*1024;
 
-		run_command(['qemu-img', 'dd', '-n', '-O', $dst_format, "bs=$bs", "osize=$size",
-		    "if=$src_path", "of=$dst_path"]);
+		my $cmd = ['qemu-img', 'dd', '-n', '-O', $dst_format];
+		push $cmd->@*, '-l', $snapname if $src_format eq 'qcow2' && $snapname;
+		push $cmd->@*, "bs=$bs", "osize=$size", "if=$src_path", "of=$dst_path";
+		run_command($cmd);
 	    } else {
 		qemu_img_convert($drive->{file}, $newvolid, $size, $snapname, $sparseinit);
 	    }
