@@ -21,8 +21,9 @@ use PVE::ReplicationConfig;
 use PVE::GuestHelpers;
 use PVE::QemuConfig;
 use PVE::QemuServer;
-use PVE::QemuServer::Drive;
 use PVE::QemuServer::CPUConfig;
+use PVE::QemuServer::Drive;
+use PVE::QemuServer::ImportDisk;
 use PVE::QemuServer::Monitor qw(mon_cmd);
 use PVE::QemuServer::Machine;
 use PVE::QemuMigrate;
@@ -88,6 +89,28 @@ my $check_drive_param = sub {
 	my $drive = PVE::QemuServer::parse_drive($opt, $param->{$opt}, 1);
 	raise_param_exc({ $opt => "unable to parse drive options" }) if !$drive;
 
+	if ($drive->{'import-from'}) {
+	    if ($drive->{file} !~ $NEW_DISK_RE || $3 != 0) {
+		raise_param_exc({
+		    $opt => "'import-from' requires special syntax - ".
+			"use <storage ID>:0,import-from=<source>",
+		});
+	    }
+
+	    if ($opt eq 'efidisk0') {
+		for my $required (qw(efitype pre-enrolled-keys)) {
+		    if (!defined($drive->{$required})) {
+			raise_param_exc({
+			    $opt => "need to specify '$required' when using 'import-from'",
+			});
+		    }
+		}
+	    } elsif ($opt eq 'tpmstate0') {
+		raise_param_exc({ $opt => "need to specify 'version' when using 'import-from'" })
+		    if !defined($drive->{version});
+	    }
+	}
+
 	PVE::QemuServer::cleanup_drive_path($opt, $storecfg, $drive);
 
 	$extra_checks->($drive) if $extra_checks;
@@ -127,6 +150,21 @@ my $check_storage_access = sub {
 		$volid,
 		'images',
 	    );
+	}
+
+	if (my $src_image = $drive->{'import-from'}) {
+	    my $src_vmid;
+	    if (PVE::Storage::parse_volume_id($src_image, 1)) { # PVE-managed volume
+		(my $vtype, undef, $src_vmid) = PVE::Storage::parse_volname($storecfg, $src_image);
+		raise_param_exc({ $ds => "$src_image has wrong type '$vtype' - not an image" })
+		    if $vtype ne 'images';
+	    }
+
+	    if ($src_vmid) { # might be actively used by VM and will be copied via clone_disk()
+		$rpcenv->check($authuser, "/vms/${src_vmid}", ['VM.Clone']);
+	    } else {
+		PVE::Storage::check_volume_access($rpcenv, $authuser, $storecfg, $vmid, $src_image);
+	    }
 	}
     });
 
@@ -186,6 +224,91 @@ my $check_storage_access_migrate = sub {
 	if !$scfg->{content}->{images};
 };
 
+my $import_from_volid = sub {
+    my ($storecfg, $src_volid, $dest_info, $vollist) = @_;
+
+    die "could not get size of $src_volid\n"
+	if !PVE::Storage::volume_size_info($storecfg, $src_volid, 10);
+
+    die "cannot import from cloudinit disk\n"
+	if PVE::QemuServer::Drive::drive_is_cloudinit({ file => $src_volid });
+
+    my $src_vmid = (PVE::Storage::parse_volname($storecfg, $src_volid))[2];
+
+    my $src_vm_state = sub {
+	my $exists = $src_vmid && PVE::Cluster::get_vmlist()->{ids}->{$src_vmid} ? 1 : 0;
+
+	my $runs = 0;
+	if ($exists) {
+	    eval { PVE::QemuConfig::assert_config_exists_on_node($src_vmid); };
+	    die "owner VM $src_vmid not on local node\n" if $@;
+	    $runs = PVE::QemuServer::Helpers::vm_running_locally($src_vmid) || 0;
+	}
+
+	return ($exists, $runs);
+    };
+
+    my ($src_vm_exists, $running) = $src_vm_state->();
+
+    die "cannot import from '$src_volid' - full clone feature is not supported\n"
+	if !PVE::Storage::volume_has_feature($storecfg, 'copy', $src_volid, undef, $running);
+
+    my $clonefn = sub {
+	my ($src_vm_exists_now, $running_now) = $src_vm_state->();
+
+	die "owner VM $src_vmid changed state unexpectedly\n"
+	    if $src_vm_exists_now != $src_vm_exists || $running_now != $running;
+
+	my $src_conf = $src_vm_exists_now ? PVE::QemuConfig->load_config($src_vmid) : {};
+
+	my $src_drive = { file => $src_volid };
+	my $src_drivename;
+	PVE::QemuConfig->foreach_volume($src_conf, sub {
+	    my ($ds, $drive) = @_;
+
+	    return if $src_drivename;
+
+	    if ($drive->{file} eq $src_volid) {
+		$src_drive = $drive;
+		$src_drivename = $ds;
+	    }
+	});
+
+	my $source_info = {
+	    vmid => $src_vmid,
+	    running => $running_now,
+	    drivename => $src_drivename,
+	    drive => $src_drive,
+	    snapname => undef,
+	};
+
+	my ($src_storeid) = PVE::Storage::parse_volume_id($src_volid);
+
+	return PVE::QemuServer::clone_disk(
+	    $storecfg,
+	    $source_info,
+	    $dest_info,
+	    1,
+	    $vollist,
+	    undef,
+	    undef,
+	    $src_conf->{agent},
+	    PVE::Storage::get_bandwidth_limit('clone', [$src_storeid, $dest_info->{storage}]),
+	);
+    };
+
+    my $cloned;
+    if ($running) {
+	$cloned = PVE::QemuConfig->lock_config_full($src_vmid, 30, $clonefn);
+    } elsif ($src_vmid) {
+	$cloned = PVE::QemuConfig->lock_config_shared($src_vmid, 30, $clonefn);
+    } else {
+	$cloned = $clonefn->();
+    }
+
+    return $cloned->@{qw(file size)};
+};
+
 # Note: $pool is only needed when creating a VM, because pool permissions
 # are automatically inherited if VM already exists inside a pool.
 my $create_disks = sub {
@@ -229,28 +352,71 @@ my $create_disks = sub {
 	} elsif ($volid =~ $NEW_DISK_RE) {
 	    my ($storeid, $size) = ($2 || $default_storage, $3);
 	    die "no storage ID specified (and no default storage)\n" if !$storeid;
-	    my $defformat = PVE::Storage::storage_default_format($storecfg, $storeid);
-	    my $fmt = $disk->{format} || $defformat;
 
-	    $size = PVE::Tools::convert_size($size, 'gb' => 'kb'); # vdisk_alloc uses kb
+	    if (my $source = delete $disk->{'import-from'}) {
+		my $dst_volid;
 
-	    my $volid;
-	    if ($ds eq 'efidisk0') {
-		my $smm = PVE::QemuServer::Machine::machine_type_is_q35($conf);
-		($volid, $size) = PVE::QemuServer::create_efidisk(
-		    $storecfg, $storeid, $vmid, $fmt, $arch, $disk, $smm);
-	    } elsif ($ds eq 'tpmstate0') {
-		# swtpm can only use raw volumes, and uses a fixed size
-		$size = PVE::Tools::convert_size(PVE::QemuServer::Drive::TPMSTATE_DISK_SIZE, 'b' => 'kb');
-		$volid = PVE::Storage::vdisk_alloc($storecfg, $storeid, $vmid, "raw", undef, $size);
+		if (PVE::Storage::parse_volume_id($source, 1)) { # PVE-managed volume
+		    my $dest_info = {
+			vmid => $vmid,
+			drivename => $ds,
+			storage => $storeid,
+			format => $disk->{format},
+		    };
+
+		    $dest_info->{efisize} = PVE::QemuServer::get_efivars_size($conf, $disk)
+			if $ds eq 'efidisk0';
+
+		    ($dst_volid, $size) = eval {
+			$import_from_volid->($storecfg, $source, $dest_info, $vollist);
+		    };
+		    die "cannot import from '$source' - $@" if $@;
+		} else {
+		    $source = PVE::Storage::abs_filesystem_path($storecfg, $source, 1);
+		    $size = PVE::Storage::file_size_info($source);
+		    die "could not get file size of $source\n" if !$size;
+
+		    (undef, $dst_volid) = PVE::QemuServer::ImportDisk::do_import(
+			$source,
+			$vmid,
+			$storeid,
+			{
+			    drive_name => $ds,
+			    format => $disk->{format},
+			    'skip-config-update' => 1,
+			},
+		    );
+		    push @$vollist, $dst_volid;
+		}
+
+		$disk->{file} = $dst_volid;
+		$disk->{size} = $size;
+		delete $disk->{format}; # no longer needed
+		$res->{$ds} = PVE::QemuServer::print_drive($disk);
 	    } else {
-		$volid = PVE::Storage::vdisk_alloc($storecfg, $storeid, $vmid, $fmt, undef, $size);
+		my $defformat = PVE::Storage::storage_default_format($storecfg, $storeid);
+		my $fmt = $disk->{format} || $defformat;
+
+		$size = PVE::Tools::convert_size($size, 'gb' => 'kb'); # vdisk_alloc uses kb
+
+		my $volid;
+		if ($ds eq 'efidisk0') {
+		    my $smm = PVE::QemuServer::Machine::machine_type_is_q35($conf);
+		    ($volid, $size) = PVE::QemuServer::create_efidisk(
+			$storecfg, $storeid, $vmid, $fmt, $arch, $disk, $smm);
+		} elsif ($ds eq 'tpmstate0') {
+		    # swtpm can only use raw volumes, and uses a fixed size
+		    $size = PVE::Tools::convert_size(PVE::QemuServer::Drive::TPMSTATE_DISK_SIZE, 'b' => 'kb');
+		    $volid = PVE::Storage::vdisk_alloc($storecfg, $storeid, $vmid, "raw", undef, $size);
+		} else {
+		    $volid = PVE::Storage::vdisk_alloc($storecfg, $storeid, $vmid, $fmt, undef, $size);
+		}
+		push @$vollist, $volid;
+		$disk->{file} = $volid;
+		$disk->{size} = PVE::Tools::convert_size($size, 'kb' => 'b');
+		delete $disk->{format}; # no longer needed
+		$res->{$ds} = PVE::QemuServer::print_drive($disk);
 	    }
-	    push @$vollist, $volid;
-	    $disk->{file} = $volid;
-	    $disk->{size} = PVE::Tools::convert_size($size, 'kb' => 'b');
-	    delete $disk->{format}; # no longer needed
-	    $res->{$ds} = PVE::QemuServer::print_drive($disk);
 	} else {
 	    PVE::Storage::check_volume_access(
 		$rpcenv,

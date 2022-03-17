@@ -11,6 +11,8 @@ use PVE::Tools qw(run_command extract_param);
 # and creates by default a drive entry unused[n] pointing to the created volume
 # $params->{drive_name} may be used to specify ide0, scsi1, etc ...
 # $params->{format} may be used to specify qcow2, raw, etc ...
+# $params->{skiplock} may be used to skip checking for a lock in the VM config
+# $params->{'skip-config-update'} may be used to import the disk without updating the VM config
 sub do_import {
     my ($src_path, $vmid, $storage_id, $params) = @_;
 
@@ -71,7 +73,7 @@ sub do_import {
 	PVE::Storage::activate_volumes($storecfg, [$dst_volid]);
 	PVE::QemuServer::qemu_img_convert($src_path, $dst_volid, $src_size, undef, $zeroinit);
 	PVE::Storage::deactivate_volumes($storecfg, [$dst_volid]);
-	PVE::QemuConfig->lock_config($vmid, $create_drive);
+	PVE::QemuConfig->lock_config($vmid, $create_drive) if !$params->{'skip-config-update'};
     };
     if (my $err = $@) {
 	eval { PVE::Storage::vdisk_free($storecfg, $dst_volid) };

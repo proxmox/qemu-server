@@ -409,8 +409,21 @@ my $alldrive_fmt = {
     %efitype_fmt,
 };
 
+my %import_from_fmt = (
+    'import-from' => {
+	type => 'string',
+	format => 'pve-volume-id-or-absolute-path',
+	format_description => 'source volume',
+	description => "Create a new disk, importing from this source (volume ID or absolute ".
+	    "path). When an absolute path is specified, it's up to you to ensure that the source ".
+	    "is not actively used by another process during the import!",
+	optional => 1,
+    },
+);
+
 my $alldrive_fmt_with_alloc = {
     %$alldrive_fmt,
+    %import_from_fmt,
 };
 
 my $unused_fmt = {
@@ -440,6 +453,8 @@ my $desc_with_alloc = sub {
 
     my $new_desc = dclone($desc);
 
+    $new_desc->{format}->{'import-from'} = $import_from_fmt{'import-from'};
+
     my $extra_note = '';
     if ($type eq 'efidisk') {
 	$extra_note = " Note that SIZE_IN_GiB is ignored here and that the default EFI vars are ".
@@ -449,7 +464,8 @@ my $desc_with_alloc = sub {
     }
 
     $new_desc->{description} .= " Use the special syntax STORAGE_ID:SIZE_IN_GiB to allocate a new ".
-	"volume.${extra_note}";
+	"volume.${extra_note} Use STORAGE_ID:0 and the 'import-from' parameter to import from an ".
+	"existing volume.";
 
     $with_alloc_desc_cache->{$type} = $new_desc;
 
