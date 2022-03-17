@@ -349,6 +349,7 @@ my $create_disks = sub {
 	    push @$vollist, $volid;
 	    delete $disk->{format}; # no longer needed
 	    $res->{$ds} = PVE::QemuServer::print_drive($disk);
+	    print "$ds: successfully created disk '$res->{$ds}'\n";
 	} elsif ($volid =~ $NEW_DISK_RE) {
 	    my ($storeid, $size) = ($2 || $default_storage, $3);
 	    die "no storage ID specified (and no default storage)\n" if !$storeid;
@@ -417,6 +418,8 @@ my $create_disks = sub {
 		delete $disk->{format}; # no longer needed
 		$res->{$ds} = PVE::QemuServer::print_drive($disk);
 	    }
+
+	    print "$ds: successfully created disk '$res->{$ds}'\n";
 	} else {
 	    PVE::Storage::check_volume_access(
 		$rpcenv,
