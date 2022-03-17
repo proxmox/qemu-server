@@ -7585,11 +7585,17 @@ sub clone_disk {
     my ($newvmid, $dst_drivename, $efisize) = $dest->@{qw(vmid drivename efisize)};
     my ($storage, $format) = $dest->@{qw(storage format)};
 
+    my $use_drive_mirror = $full && $running && $src_drivename && !$snapname;
+
     if ($src_drivename && $dst_drivename && $src_drivename ne $dst_drivename) {
 	die "cloning from/to EFI disk requires EFI disk\n"
 	    if $src_drivename eq 'efidisk0' || $dst_drivename eq 'efidisk0';
 	die "cloning from/to TPM state requires TPM state\n"
 	    if $src_drivename eq 'tpmstate0' || $dst_drivename eq 'tpmstate0';
+
+	# This would lead to two device nodes in QEMU pointing to the same backing image!
+	die "cannot change drive name when cloning disk from/to the same VM\n"
+	    if $use_drive_mirror && $vmid == $newvmid;
     }
 
     my $newvolid;
@@ -7644,7 +7650,12 @@ sub clone_disk {
 	}
 
 	my $sparseinit = PVE::Storage::volume_has_feature($storecfg, 'sparseinit', $newvolid);
-	if (!$running || !$src_drivename || $snapname) {
+	if ($use_drive_mirror) {
+	    die "cannot move TPM state while VM is running\n" if $src_drivename eq 'tpmstate0';
+
+	    qemu_drive_mirror($vmid, $src_drivename, $newvolid, $newvmid, $sparseinit, $jobs,
+	        $completion, $qga, $bwlimit);
+	} else {
 	    # TODO: handle bwlimits
 	    if ($dst_drivename eq 'efidisk0') {
 		# the relevant data on the efidisk may be smaller than the source
@@ -7661,11 +7672,6 @@ sub clone_disk {
 	    } else {
 		qemu_img_convert($drive->{file}, $newvolid, $size, $snapname, $sparseinit);
 	    }
-	} else {
-	    die "cannot move TPM state while VM is running\n" if $src_drivename eq 'tpmstate0';
-
-	    qemu_drive_mirror($vmid, $src_drivename, $newvolid, $newvmid, $sparseinit, $jobs,
-	        $completion, $qga, $bwlimit);
 	}
     }
 
