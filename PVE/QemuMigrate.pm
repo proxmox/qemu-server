@@ -158,6 +158,8 @@ sub prepare {
 		$self->{forcecpu} = PVE::QemuServer::CPUConfig::get_cpu_from_running_vm($pid);
 	    }
 	}
+
+	$self->{vm_was_paused} = 1 if PVE::QemuServer::vm_is_paused($vmid);
     }
 
     my $loc_res = PVE::QemuServer::check_local_resources($conf, 1);
@@ -1146,31 +1148,37 @@ sub phase3_cleanup {
 	    }
 	}
 
-	# config moved and nbd server stopped - now we can resume vm on target
-	if ($tunnel && $tunnel->{version} && $tunnel->{version} >= 1) {
-	    eval {
-		PVE::Tunnel::write_tunnel($tunnel, 30, "resume $vmid");
-	    };
-	    if (my $err = $@) {
-		$self->log('err', $err);
-		$self->{errors} = 1;
+	if (!$self->{vm_was_paused}) {
+	    # config moved and nbd server stopped - now we can resume vm on target
+	    if ($tunnel && $tunnel->{version} && $tunnel->{version} >= 1) {
+		eval {
+		    PVE::Tunnel::write_tunnel($tunnel, 30, "resume $vmid");
+		};
+		if (my $err = $@) {
+		    $self->log('err', $err);
+		    $self->{errors} = 1;
+		}
+	    } else {
+		my $cmd = [@{$self->{rem_ssh}}, 'qm', 'resume', $vmid, '--skiplock', '--nocheck'];
+		my $logf = sub {
+		    my $line = shift;
+		    $self->log('err', $line);
+		};
+		eval { PVE::Tools::run_command($cmd, outfunc => sub {}, errfunc => $logf); };
+		if (my $err = $@) {
+		    $self->log('err', $err);
+		    $self->{errors} = 1;
+		}
 	    }
-	} else {
-	    my $cmd = [@{$self->{rem_ssh}}, 'qm', 'resume', $vmid, '--skiplock', '--nocheck'];
-	    my $logf = sub {
-		my $line = shift;
-		$self->log('err', $line);
-	    };
-	    eval { PVE::Tools::run_command($cmd, outfunc => sub {}, errfunc => $logf); };
-	    if (my $err = $@) {
-		$self->log('err', $err);
-		$self->{errors} = 1;
-	    }
-	}
 
-	if ($self->{storage_migration} && PVE::QemuServer::parse_guest_agent($conf)->{fstrim_cloned_disks} && $self->{running}) {
-	    my $cmd = [@{$self->{rem_ssh}}, 'qm', 'guest', 'cmd', $vmid, 'fstrim'];
-	    eval{ PVE::Tools::run_command($cmd, outfunc => sub {}, errfunc => sub {}) };
+	    if (
+		$self->{storage_migration}
+		&& PVE::QemuServer::parse_guest_agent($conf)->{fstrim_cloned_disks}
+		&& $self->{running}
+	    ) {
+		my $cmd = [@{$self->{rem_ssh}}, 'qm', 'guest', 'cmd', $vmid, 'fstrim'];
+		eval{ PVE::Tools::run_command($cmd, outfunc => sub {}, errfunc => sub {}) };
+	    }
 	}
     }
 
