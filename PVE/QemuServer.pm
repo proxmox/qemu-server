@@ -6837,7 +6837,7 @@ sub pbs_live_restore {
     my $err = $@;
 
     if ($err) {
-	warn "An error occured during live-restore: $err\n";
+	warn "An error occurred during live-restore: $err\n";
 	_do_vm_stop($storecfg, $vmid, 1, 1, 10, 0, 1);
 	die "live-restore failed\n";
     }
