@@ -104,7 +104,14 @@ my $check_storage_access = sub {
 	    raise_param_exc({ storage => "storage '$storeid' does not support vm images"})
 		if !$scfg->{content}->{images};
 	} else {
-	    PVE::Storage::check_volume_access($rpcenv, $authuser, $storecfg, $vmid, $volid);
+	    PVE::Storage::check_volume_access(
+		$rpcenv,
+		$authuser,
+		$storecfg,
+		$vmid,
+		$volid,
+		'images',
+	    );
 	}
     });
 
@@ -230,7 +237,14 @@ my $create_disks = sub {
 	    delete $disk->{format}; # no longer needed
 	    $res->{$ds} = PVE::QemuServer::print_drive($disk);
 	} else {
-	    PVE::Storage::check_volume_access($rpcenv, $authuser, $storecfg, $vmid, $volid);
+	    PVE::Storage::check_volume_access(
+		$rpcenv,
+		$authuser,
+		$storecfg,
+		$vmid,
+		$volid,
+		'images',
+	    );
 
 	    PVE::Storage::activate_volumes($storecfg, [ $volid ]) if $storeid;
 
@@ -645,7 +659,14 @@ __PACKAGE__->register_method({
 		die "pipe requires cli environment\n" if $rpcenv->{type} ne 'cli';
 		$archive = { type => 'pipe' };
 	    } else {
-		PVE::Storage::check_volume_access($rpcenv, $authuser, $storecfg, $vmid, $archive);
+		PVE::Storage::check_volume_access(
+		    $rpcenv,
+		    $authuser,
+		    $storecfg,
+		    $vmid,
+		    $archive,
+		    'backup',
+		);
 
 		$archive = $parse_restore_archive->($storecfg, $archive);
 	    }
