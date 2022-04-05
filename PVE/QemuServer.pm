@@ -7708,7 +7708,12 @@ sub clone_disk {
 		my $bs = 1024*1024;
 
 		my $cmd = ['qemu-img', 'dd', '-n', '-O', $dst_format];
-		push $cmd->@*, '-l', $snapname if $src_format eq 'qcow2' && $snapname;
+
+		if ($src_format eq 'qcow2' && $snapname) {
+		    die "cannot clone qcow2 EFI disk snapshot - requires QEMU >= 6.2\n"
+			if !min_version(kvm_user_version(), 6, 2);
+		    push $cmd->@*, '-l', $snapname;
+		}
 		push $cmd->@*, "bs=$bs", "osize=$size", "if=$src_path", "of=$dst_path";
 		run_command($cmd);
 	    } else {
