@@ -6670,7 +6670,6 @@ sub restore_proxmox_backup_archive {
 	my $index = PVE::Tools::file_get_contents($index_fn);
 	$index = decode_json($index);
 
-	# print Dumper($index);
 	foreach my $info (@{$index->{files}}) {
 	    if ($info->{filename} =~ m/^(drive-\S+).img.fidx$/) {
 		my $devname = $1;
