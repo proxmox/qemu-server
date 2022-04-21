@@ -6474,11 +6474,7 @@ my $restore_destroy_volumes = sub {
 	my $volid = $devinfo->{$devname}->{volid};
 	next if !$volid;
 	eval {
-	    if ($volid =~ m|^/|) {
-		unlink $volid || die 'unlink failed\n';
-	    } else {
-		PVE::Storage::vdisk_free($storecfg, $volid);
-	    }
+	    PVE::Storage::vdisk_free($storecfg, $volid);
 	    print STDERR "temporary volume '$volid' sucessfuly removed\n";
 	};
 	print STDERR "unable to cleanup '$volid' - $@" if $@;
