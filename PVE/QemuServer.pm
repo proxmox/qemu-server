@@ -6464,7 +6464,8 @@ my $restore_deactivate_volumes = sub {
 	push @$vollist, $volid if $volid;
     }
 
-    PVE::Storage::deactivate_volumes($storecfg, $vollist);
+    eval { PVE::Storage::deactivate_volumes($storecfg, $vollist); };
+    print STDERR $@ if $@;
 };
 
 my $restore_destroy_volumes = sub {
