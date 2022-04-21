@@ -6232,6 +6232,8 @@ sub restore_file_archive {
 my $restore_cleanup_oldconf = sub {
     my ($storecfg, $vmid, $oldconf, $virtdev_hash) = @_;
 
+    my $kept_disks = {};
+
     PVE::QemuConfig->foreach_volume($oldconf, sub {
 	my ($ds, $drive) = @_;
 
@@ -6250,17 +6252,24 @@ my $restore_cleanup_oldconf = sub {
 	    if (my $err = $@) {
 		warn $err;
 	    }
+	} else {
+	    $kept_disks->{$volid} = 1;
 	}
     });
 
-    # delete vmstate files, after the restore we have no snapshots anymore
-    foreach my $snapname (keys %{$oldconf->{snapshots}}) {
+    # after the restore we have no snapshots anymore
+    for my $snapname (keys $oldconf->{snapshots}->%*) {
 	my $snap = $oldconf->{snapshots}->{$snapname};
 	if ($snap->{vmstate}) {
 	    eval { PVE::Storage::vdisk_free($storecfg, $snap->{vmstate}); };
 	    if (my $err = $@) {
 		warn $err;
 	    }
+	}
+
+	for my $volid (keys $kept_disks->%*) {
+	    eval { PVE::Storage::volume_snapshot_delete($storecfg, $volid, $snapname); };
+	    warn $@ if $@;
 	}
     }
 };
