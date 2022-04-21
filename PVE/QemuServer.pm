@@ -6456,12 +6456,11 @@ sub restore_update_config_line {
 }
 
 my $restore_deactivate_volumes = sub {
-    my ($storecfg, $devinfo) = @_;
+    my ($storecfg, $virtdev_hash) = @_;
 
     my $vollist = [];
-    foreach my $devname (keys %$devinfo) {
-	my $volid = $devinfo->{$devname}->{volid};
-	push @$vollist, $volid if $volid;
+    for my $dev (values $virtdev_hash->%*) {
+	push $vollist->@*, $dev->{volid} if $dev->{volid};
     }
 
     eval { PVE::Storage::deactivate_volumes($storecfg, $vollist); };
@@ -6469,11 +6468,10 @@ my $restore_deactivate_volumes = sub {
 };
 
 my $restore_destroy_volumes = sub {
-    my ($storecfg, $devinfo) = @_;
+    my ($storecfg, $virtdev_hash) = @_;
 
-    foreach my $devname (keys %$devinfo) {
-	my $volid = $devinfo->{$devname}->{volid};
-	next if !$volid;
+    for my $dev (values $virtdev_hash->%*) {
+	my $volid = $dev->{volid} or next;
 	eval {
 	    PVE::Storage::vdisk_free($storecfg, $volid);
 	    print STDERR "temporary volume '$volid' sucessfuly removed\n";
@@ -6659,7 +6657,8 @@ sub restore_proxmox_backup_archive {
     my $new_conf_raw = '';
 
     my $rpcenv = PVE::RPCEnvironment::get();
-    my $devinfo = {};
+    my $devinfo = {}; # info about drives included in backup
+    my $virtdev_hash = {}; # info about allocated drives
 
     eval {
 	# enable interrupts
@@ -6714,7 +6713,7 @@ sub restore_proxmox_backup_archive {
 	my $fh = IO::File->new($cfgfn, "r") ||
 	    die "unable to read qemu-server.conf - $!\n";
 
-	my $virtdev_hash = $parse_backup_hints->($rpcenv, $user, $storecfg, $fh, $devinfo, $options);
+	$virtdev_hash = $parse_backup_hints->($rpcenv, $user, $storecfg, $fh, $devinfo, $options);
 
 	# fixme: rate limit?
 
@@ -6775,13 +6774,13 @@ sub restore_proxmox_backup_archive {
     my $err = $@;
 
     if ($err || !$options->{live}) {
-	$restore_deactivate_volumes->($storecfg, $devinfo);
+	$restore_deactivate_volumes->($storecfg, $virtdev_hash);
     }
 
     rmtree $tmpdir;
 
     if ($err) {
-	$restore_destroy_volumes->($storecfg, $devinfo);
+	$restore_destroy_volumes->($storecfg, $virtdev_hash);
 	die $err;
     }
 
@@ -6951,7 +6950,8 @@ sub restore_vma_archive {
     my $oldtimeout;
     my $timeout = 5;
 
-    my $devinfo = {};
+    my $devinfo = {}; # info about drives included in backup
+    my $virtdev_hash = {}; # info about allocated drives
 
     my $rpcenv = PVE::RPCEnvironment::get();
 
@@ -6978,7 +6978,7 @@ sub restore_vma_archive {
 	    PVE::Tools::file_copy($fwcfgfn, "${pve_firewall_dir}/$vmid.fw");
 	}
 
-	my $virtdev_hash = $parse_backup_hints->($rpcenv, $user, $cfg, $fh, $devinfo, $opts);
+	$virtdev_hash = $parse_backup_hints->($rpcenv, $user, $cfg, $fh, $devinfo, $opts);
 
 	foreach my $info (values %{$virtdev_hash}) {
 	    my $storeid = $info->{storeid};
@@ -7084,14 +7084,14 @@ sub restore_vma_archive {
 
     alarm($oldtimeout) if $oldtimeout;
 
-    $restore_deactivate_volumes->($cfg, $devinfo);
+    $restore_deactivate_volumes->($cfg, $virtdev_hash);
 
     close($fifofh) if $fifofh;
     unlink $mapfifo;
     rmtree $tmpdir;
 
     if ($err) {
-	$restore_destroy_volumes->($cfg, $devinfo);
+	$restore_destroy_volumes->($cfg, $virtdev_hash);
 	die $err;
     }
 
