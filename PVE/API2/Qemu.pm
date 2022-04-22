@@ -142,14 +142,12 @@ my $check_storage_access = sub {
 	    raise_param_exc({ storage => "storage '$storeid' does not support vm images"})
 		if !$scfg->{content}->{images};
 	} else {
-	    PVE::Storage::check_volume_access(
-		$rpcenv,
-		$authuser,
-		$storecfg,
-		$vmid,
-		$volid,
-		'images',
-	    );
+	    PVE::Storage::check_volume_access($rpcenv, $authuser, $storecfg, $vmid, $volid);
+	    if ($storeid) {
+		my ($vtype) = PVE::Storage::parse_volname($storecfg, $volid);
+		raise_param_exc({ $ds => "content type needs to be 'images' or 'iso'" })
+		    if $vtype ne 'images' && $vtype ne 'iso';
+	    }
 	}
 
 	if (my $src_image = $drive->{'import-from'}) {
@@ -421,14 +419,12 @@ my $create_disks = sub {
 
 	    print "$ds: successfully created disk '$res->{$ds}'\n";
 	} else {
-	    PVE::Storage::check_volume_access(
-		$rpcenv,
-		$authuser,
-		$storecfg,
-		$vmid,
-		$volid,
-		'images',
-	    );
+	    PVE::Storage::check_volume_access($rpcenv, $authuser, $storecfg, $vmid, $volid);
+	    if ($storeid) {
+		my ($vtype) = PVE::Storage::parse_volname($storecfg, $volid);
+		die "cannot use volume $volid - content type needs to be 'images' or 'iso'"
+		    if $vtype ne 'images' && $vtype ne 'iso';
+	    }
 
 	    PVE::Storage::activate_volumes($storecfg, [ $volid ]) if $storeid;
 
