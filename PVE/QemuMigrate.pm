@@ -1056,6 +1056,22 @@ sub phase2_cleanup {
     };
     $self->log('info', "migrate_cancel error: $@") if $@;
 
+    my $vm_status = eval {
+	mon_cmd($vmid, 'query-status')->{status} or die "no 'status' in result\n";
+    };
+    $self->log('err', "query-status error: $@") if $@;
+
+    # Can end up in POSTMIGRATE state if failure occurred after convergence. Try going back to
+    # original state. Unfortunately, direct transition from POSTMIGRATE to PAUSED is not possible.
+    if ($vm_status && $vm_status eq 'postmigrate') {
+	if (!$self->{vm_was_paused}) {
+	    eval { mon_cmd($vmid, 'cont'); };
+	    $self->log('err', "resuming VM failed: $@") if $@;
+	} else {
+	    $self->log('err', "VM was paused, but ended in postmigrate state");
+	}
+    }
+
     my $conf = $self->{vmconf};
     delete $conf->{lock};
     eval { PVE::QemuConfig->write_config($vmid, $conf) };
