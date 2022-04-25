@@ -1170,14 +1170,23 @@ sub phase3_cleanup {
 		    $self->{errors} = 1;
 		}
 	    }
+	}
 
-	    if (
-		$self->{storage_migration}
-		&& PVE::QemuServer::parse_guest_agent($conf)->{fstrim_cloned_disks}
-		&& $self->{running}
-	    ) {
+	if (
+	    $self->{storage_migration}
+	    && PVE::QemuServer::parse_guest_agent($conf)->{fstrim_cloned_disks}
+	    && $self->{running}
+	) {
+	    if (!$self->{vm_was_paused}) {
+		$self->log('info', "issuing guest fstrim");
 		my $cmd = [@{$self->{rem_ssh}}, 'qm', 'guest', 'cmd', $vmid, 'fstrim'];
-		eval{ PVE::Tools::run_command($cmd, outfunc => sub {}, errfunc => sub {}) };
+		eval { PVE::Tools::run_command($cmd, outfunc => sub {}, errfunc => sub {}) };
+		if (my $err = $@) {
+		    $self->log('err', "fstrim failed - $err");
+		    $self->{errors} = 1;
+		}
+	    } else {
+		$self->log('info', "skipping guest fstrim, because VM is paused");
 	    }
 	}
     }
