@@ -1,3 +1,72 @@
+qemu-server (7.1-5) bullseye; urgency=medium
+
+  * avoid writing the config if there are no pending changes to apply
+
+  * fix #3792: cloudinit: use of uninitialized value
+
+  * pci: allow override of PCI vendor/device ids
+
+  * drive mirror monitor: warn when suspend/resume/freeze/thaw calls fail
+
+  * update config: allow setting boot-order and dev in one go
+
+  * migrate: move tunnel-helpers to pve-guest-common
+
+  * fix #3683: agent file-write: enable user to encode the content themselves
+
+  * cpu units: lower minimum for accessing full cgroupv2 range
+
+  * fix #3845: also clamp cpu units to cgroup dependent valid range on hotplug
+
+  * clone disk: force raw format for TPM state
+
+  * fix #3886: QEMU restore: verify storage allows images before writing
+
+  * fix #3733: bump the timeout used to wait that a for backup started VM is
+    fully stopped (i.e., it's "$vmid.scope vanished) to 20 seconds after the
+    backup has finished to
+
+  * qmp client: increase timeout for thaw to better accommodate the QGA running
+    in Windows VMs
+
+  * api: vm start: 'force-cpu' is for internal migration use only, mark as
+    such
+
+  * device unplug: verify that unplugging SCSI disk completed before
+    continuing with remaining unplug work.
+
+  * clone disk: remove ancient check for min QEMU version 2.7
+
+  * clone disk: pass in efi vars size rather than config
+
+  * clone disk: allow cloning from an unused or unreferenced disk
+
+  * parse ovf: untaint path when getting the file's size info
+
+  * image convert: allow block device as source
+
+  * fix #3424: api: snapshot delete: wait for active replication
+
+  * PCI: allow longer pci domains
+
+  * fix #3957: spell 'occurred' correctly
+
+  * clone disk: also clone EFI disk from snapshot
+
+  * api: add endpoint for parsing .ovf files
+
+  * api: support VM disk import
+
+  * migrate: keep VM paused after migration if it was before
+
+  * vga: add virtio-gl display type for VIRGL
+
+  * restore: cleanup oldconf: also clean up snapshots from kept volumes
+
+  * restore: also deactivate/destroy cloud-init disk upon error
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 25 Apr 2022 20:15:59 +0200
+
 qemu-server (7.1-4) bullseye; urgency=medium
 
   * migrate: send updated TPM state volume ID to target node on local-storage
