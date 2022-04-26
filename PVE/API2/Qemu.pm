@@ -819,8 +819,11 @@ __PACKAGE__->register_method({
 	}
 
 	if ($archive) {
-	    my $keystr = join(' ', keys %$param);
-	    raise_param_exc({ archive => "option conflicts with other options ($keystr)"}) if $keystr;
+	    for my $opt (sort keys $param->%*) {
+		if (PVE::QemuServer::Drive::is_valid_drivename($opt)) {
+		    raise_param_exc({ $opt => "option conflicts with option 'archive'" });
+		}
+	    }
 
 	    if ($archive eq '-') {
 		die "pipe requires cli environment\n" if $rpcenv->{type} ne 'cli';
@@ -876,6 +879,7 @@ __PACKAGE__->register_method({
 		    unique => $unique,
 		    bwlimit => $bwlimit,
 		    live => $live_restore,
+		    override_conf => $param,
 		};
 		if ($archive->{type} eq 'file' || $archive->{type} eq 'pipe') {
 		    die "live-restore is only compatible with backup images from a Proxmox Backup Server\n"

@@ -6482,6 +6482,17 @@ my $restore_destroy_volumes = sub {
     }
 };
 
+my $restore_merge_config = sub {
+    my ($filename, $backup_conf_raw, $override_conf) = @_;
+
+    my $backup_conf = parse_vm_config($filename, $backup_conf_raw);
+    for my $key (keys $override_conf->%*) {
+	$backup_conf->{$key} = $override_conf->{$key};
+    }
+
+    return $backup_conf;
+};
+
 sub scan_volids {
     my ($cfg, $vmid) = @_;
 
@@ -6791,9 +6802,8 @@ sub restore_proxmox_backup_archive {
 	$new_conf_raw .= "\nlock: create";
     }
 
-    PVE::Tools::file_set_contents($conffile, $new_conf_raw);
-
-    PVE::Cluster::cfs_update(); # make sure we read new file
+    my $new_conf = $restore_merge_config->($conffile, $new_conf_raw, $options->{override_conf});
+    PVE::QemuConfig->write_config($vmid, $new_conf);
 
     eval { rescan($vmid, 1); };
     warn $@ if $@;
@@ -7097,9 +7107,8 @@ sub restore_vma_archive {
 	die $err;
     }
 
-    PVE::Tools::file_set_contents($conffile, $new_conf_raw);
-
-    PVE::Cluster::cfs_update(); # make sure we read new file
+    my $new_conf = $restore_merge_config->($conffile, $new_conf_raw, $opts->{override_conf});
+    PVE::QemuConfig->write_config($vmid, $new_conf);
 
     eval { rescan($vmid, 1); };
     warn $@ if $@;
@@ -7109,6 +7118,11 @@ sub restore_vma_archive {
 
 sub restore_tar_archive {
     my ($archive, $vmid, $user, $opts) = @_;
+
+    if (scalar(keys $opts->{override_conf}->%*) > 0) {
+	my $keystring = join(' ', keys $opts->{override_conf}->%*);
+	die "cannot pass along options ($keystring) when restoring from tar archive\n";
+    }
 
     if ($archive ne '-') {
 	my $firstfile = tar_archive_read_firstfile($archive);
