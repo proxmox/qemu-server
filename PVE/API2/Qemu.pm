@@ -818,22 +818,7 @@ __PACKAGE__->register_method({
 	    raise_perm_exc();
 	}
 
-	if (!$archive) {
-	    &$resolve_cdrom_alias($param);
-
-	    &$check_storage_access($rpcenv, $authuser, $storecfg, $vmid, $param, $storage);
-
-	    &$check_vm_modify_config_perm($rpcenv, $authuser, $vmid, $pool, [ keys %$param]);
-
-	    &$check_vm_create_serial_perm($rpcenv, $authuser, $vmid, $pool, $param);
-	    &$check_vm_create_usb_perm($rpcenv, $authuser, $vmid, $pool, $param);
-
-	    &$check_cpu_model_access($rpcenv, $authuser, $param);
-
-	    $check_drive_param->($param, $storecfg);
-
-	    PVE::QemuServer::add_random_macs($param);
-	} else {
+	if ($archive) {
 	    my $keystr = join(' ', keys %$param);
 	    raise_param_exc({ archive => "option conflicts with other options ($keystr)"}) if $keystr;
 
@@ -852,6 +837,23 @@ __PACKAGE__->register_method({
 
 		$archive = $parse_restore_archive->($storecfg, $archive);
 	    }
+	}
+
+	if (scalar(keys $param->%*) > 0) {
+	    &$resolve_cdrom_alias($param);
+
+	    &$check_storage_access($rpcenv, $authuser, $storecfg, $vmid, $param, $storage);
+
+	    &$check_vm_modify_config_perm($rpcenv, $authuser, $vmid, $pool, [ keys %$param]);
+
+	    &$check_vm_create_serial_perm($rpcenv, $authuser, $vmid, $pool, $param);
+	    &$check_vm_create_usb_perm($rpcenv, $authuser, $vmid, $pool, $param);
+
+	    &$check_cpu_model_access($rpcenv, $authuser, $param);
+
+	    $check_drive_param->($param, $storecfg);
+
+	    PVE::QemuServer::add_random_macs($param);
 	}
 
 	my $emsg = $is_restore ? "unable to restore VM $vmid -" : "unable to create VM $vmid -";
