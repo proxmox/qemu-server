@@ -1,4 +1,4 @@
-rpackage PVE::QemuServer;
+package PVE::QemuServer;
 
 use strict;
 use warnings;
