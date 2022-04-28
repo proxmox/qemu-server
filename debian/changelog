@@ -1,3 +1,22 @@
+qemu-server (7.2-1) bullseye; urgency=medium
+
+  * migrate: add log for guest fstrim and make a failure noticable
+
+  * migrate: resume initially running VM when failing after convergence
+
+  * parse vm config: remove "\s*" from multi-line comment regex
+
+  * memory: enable balloon free-page-reporting for auto-memory reclaim
+
+  * enable spice also for virtio-gl and virtio-gpu displays and report so in
+    status API
+
+  * api: create: allow overriding non-disk options during restore
+
+  * fix #3861: migrate: fix live migration when cloud-init changes storage
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 28 Apr 2022 18:35:22 +0200
+
 qemu-server (7.1-5) bullseye; urgency=medium
 
   * avoid writing the config if there are no pending changes to apply
