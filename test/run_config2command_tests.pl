@@ -50,6 +50,7 @@ my $base_env = {
 	    },
 	    'rbd-store' => {
 		monhost => '127.0.0.42,127.0.0.21,::1',
+		fsid => 'fc4181a6-56eb-4f68-b452-8ba1f381ca2a',
 		content => {
 		    images => 1
 		},
