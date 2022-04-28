@@ -3844,7 +3844,7 @@ sub config_to_command {
 
     my $spice_port;
 
-    if ($qxlnum) {
+    if ($qxlnum || $vga->{type} eq 'virtio-gl') {
 	if ($qxlnum > 1) {
 	    if ($winversion){
 		for (my $i = 1; $i < $qxlnum; $i++){
