@@ -710,11 +710,20 @@ sub phase2 {
     my $nbd_protocol_version = 1;
     my $input = "nbd_protocol_version: $nbd_protocol_version\n";
 
-    if ($conf->{tpmstate0}) {
-	my $tpmdrive = PVE::QemuServer::parse_drive('tpmstate0', $conf->{tpmstate0});
-	my $tpmvol = $tpmdrive->{file};
-	$input .= "tpmstate0: $self->{volume_map}->{$tpmvol}"
-	    if $self->{volume_map}->{$tpmvol} && $tpmvol ne $self->{volume_map}->{$tpmvol};
+    my @offline_local_volumes = $self->filter_local_volumes('offline');
+    for my $volid (@offline_local_volumes) {
+	my $drivename = $local_volumes->{$volid}->{drivename};
+	next if !$drivename || !$conf->{$drivename};
+
+	my $new_volid = $self->{volume_map}->{$volid};
+	next if !$new_volid || $volid eq $new_volid;
+
+	# FIXME PVE 8.x only use offline_volume variant once all targets can handle it
+	if ($drivename eq 'tpmstate0') {
+	    $input .= "$drivename: $new_volid\n"
+	} else {
+	    $input .= "offline_volume: $drivename: $new_volid\n"
+	}
     }
 
     $input .= "spice_ticket: $spice_ticket\n" if $spice_ticket;
