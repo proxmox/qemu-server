@@ -1880,6 +1880,17 @@ sub print_vga_device {
 	$pciaddr = print_pci_addr($vgaid, $bridges, $arch, $machine);
     }
 
+    if ($vga->{type} eq 'virtio-gl') {
+	if ( ! -e '/usr/lib/x86_64-linux-gnu/libEGL.so.1' ||
+	    ! -e '/usr/lib/x86_64-linux-gnu/libGL.so.1') {
+	    die "missing libraries for '$vga->{type}' detected (install libgl1 and libegl1)\n";
+	}
+
+	if ( ! PVE::Tools::dir_glob_regex('/dev/dri/', "renderD.*")) {
+	    die "no drm render node detected (/dev/dri/renderD*) - needed for '$vga->{type}' display\n";
+	}
+    }
+
     return "$type,id=${vgaid}${memory}${max_outputs}${pciaddr}${edidoff}";
 }
 
