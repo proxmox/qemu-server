@@ -3879,6 +3879,13 @@ __PACKAGE__->register_method({
 
 		    $drive->{file} = $new_volid;
 
+		    my $boot_order = PVE::QemuServer::device_bootorder($source_conf);
+		    if (defined(delete $boot_order->{$disk})) {
+			print "removing disk '$disk' from boot order config\n";
+			my $boot_devs = [ sort { $boot_order->{$a} <=> $boot_order->{$b} } keys %$boot_order ];
+			$source_conf->{boot} = PVE::QemuServer::print_bootorder($boot_devs);
+		    }
+
 		    delete $source_conf->{$disk};
 		    print "removing disk '${disk}' from VM '${vmid}' config\n";
 		    PVE::QemuConfig->write_config($vmid, $source_conf);
