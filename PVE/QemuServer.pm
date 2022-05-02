@@ -1881,14 +1881,12 @@ sub print_vga_device {
     }
 
     if ($vga->{type} eq 'virtio-gl') {
-	if ( ! -e '/usr/lib/x86_64-linux-gnu/libEGL.so.1' ||
-	    ! -e '/usr/lib/x86_64-linux-gnu/libGL.so.1') {
-	    die "missing libraries for '$vga->{type}' detected (install libgl1 and libegl1)\n";
-	}
+	my $base = '/usr/lib/x86_64-linux-gnu/lib';
+	die "missing libraries for '$vga->{type}' detected! Please install 'libgl1' and 'libegl1'\n"
+	    if !-e "${base}EGL.so.1" || !-e "${base}GL.so.1";
 
-	if ( ! PVE::Tools::dir_glob_regex('/dev/dri/', "renderD.*")) {
-	    die "no drm render node detected (/dev/dri/renderD*) - needed for '$vga->{type}' display\n";
-	}
+	die "no DRM render node detected (/dev/dri/renderD*), no GPU? - needed for '$vga->{type}' display\n"
+	    if !PVE::Tools::dir_glob_regex('/dev/dri/', "renderD.*");
     }
 
     return "$type,id=${vgaid}${memory}${max_outputs}${pciaddr}${edidoff}";
