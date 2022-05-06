@@ -521,4 +521,19 @@ sub __snapshot_rollback_get_unused {
 
 # END implemented abstract methods from PVE::AbstractConfig
 
+sub has_cloudinit {
+    my ($class, $conf, $skip) = @_;
+
+    my $found;
+
+    $class->foreach_volume($conf, sub {
+	my ($key, $volume) = @_;
+
+	return if ($skip && $skip eq $key) || $found;
+	$found = $key if PVE::QemuServer::Drive::drive_is_cloudinit($volume);
+    });
+
+    return $found;
+}
+
 1;

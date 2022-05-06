@@ -328,6 +328,15 @@ my $create_disks = sub {
 	} elsif (defined($volname) && $volname eq 'cloudinit') {
 	    $storeid = $storeid // $default_storage;
 	    die "no storage ID specified (and no default storage)\n" if !$storeid;
+
+	    if (
+		my $ci_key = PVE::QemuConfig->has_cloudinit($conf, $ds)
+		|| PVE::QemuConfig->has_cloudinit($conf->{pending} || {}, $ds)
+		|| PVE::QemuConfig->has_cloudinit($res, $ds)
+	    ) {
+		die "$ds - cloud-init drive is already attached at '$ci_key'\n";
+	    }
+
 	    my $scfg = PVE::Storage::storage_config($storecfg, $storeid);
 	    my $name = "vm-$vmid-cloudinit";
 
@@ -424,6 +433,16 @@ my $create_disks = sub {
 		my ($vtype) = PVE::Storage::parse_volname($storecfg, $volid);
 		die "cannot use volume $volid - content type needs to be 'images' or 'iso'"
 		    if $vtype ne 'images' && $vtype ne 'iso';
+
+		if (PVE::QemuServer::Drive::drive_is_cloudinit($disk)) {
+		    if (
+			my $ci_key = PVE::QemuConfig->has_cloudinit($conf, $ds)
+			|| PVE::QemuConfig->has_cloudinit($conf->{pending} || {}, $ds)
+			|| PVE::QemuConfig->has_cloudinit($res, $ds)
+		    ) {
+			die "$ds - cloud-init drive is already attached at '$ci_key'\n";
+		    }
+		}
 	    }
 
 	    PVE::Storage::activate_volumes($storecfg, [ $volid ]) if $storeid;
