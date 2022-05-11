@@ -857,7 +857,7 @@ my $print_agent_result = sub {
 	return;
     }
 
-    print to_json($result, { pretty => 1, canonical => 1});
+    print to_json($result, { pretty => 1, canonical => 1, utf8 => 1});
 };
 
 sub param_mapping {
