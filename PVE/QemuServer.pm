@@ -6761,9 +6761,15 @@ sub restore_proxmox_backup_archive {
 	    # for live-restore we only want to preload the efidisk and TPM state
 	    next if $options->{live} && $virtdev ne 'efidisk0' && $virtdev ne 'tpmstate0';
 
+	    my @ns_arg;
+	    if (defined(my $ns = $scfg->{namespace})) {
+		@ns_arg = ('--ns', $ns);
+	    }
+
 	    my $pbs_restore_cmd = [
 		'/usr/bin/pbs-restore',
 		'--repository', $repo,
+		@ns_arg,
 		$pbs_backup_name,
 		"$d->{devname}.img.fidx",
 		$path,

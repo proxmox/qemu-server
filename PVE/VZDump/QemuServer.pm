@@ -486,6 +486,9 @@ sub archive_pbs {
 	    '--backup-id', "$vmid",
 	    '--backup-time', $task->{backup_time},
 	];
+	if (defined(my $ns = $scfg->{namespace})) {
+	    push @$cmd, '--ns', $ns;
+	}
 
 	push @$cmd, "qemu-server.conf:$conffile";
 	push @$cmd, "fw.conf:$firewall" if -e $firewall;
@@ -541,6 +544,9 @@ sub archive_pbs {
 	    devlist => $devlist,
 	    'config-file' => $conffile,
 	};
+	if (defined(my $ns = $scfg->{namespace})) {
+	    $params->{'backup-ns'} = $ns;
+	}
 	$params->{speed} = $opts->{bwlimit}*1024 if $opts->{bwlimit};
 	$params->{fingerprint} = $fingerprint if defined($fingerprint);
 	$params->{'firewall-file'} = $firewall if -e $firewall;
