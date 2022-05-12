@@ -53,6 +53,7 @@ Depends: dbus,
          ${misc:Depends},
          ${perl:Depends},
          ${shlibs:Depends},
+Recommends: proxmox-backup-file-restore (>= 2.1.9-2)
 Breaks: pve-ha-manager (<= 3.0-4), pve-manager (<= 6.0-13)
 Description: Qemu Server Tools
  This package contains the Qemu Server tools used by Proxmox VE
