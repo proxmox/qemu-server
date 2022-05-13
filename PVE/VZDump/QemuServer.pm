@@ -545,7 +545,7 @@ sub archive_pbs {
 	    'config-file' => $conffile,
 	};
 	if (defined(my $ns = $scfg->{namespace})) {
-	    $params->{'ns'} = $ns;
+	    $params->{'backup-ns'} = $ns;
 	}
 	$params->{speed} = $opts->{bwlimit}*1024 if $opts->{bwlimit};
 	$params->{fingerprint} = $fingerprint if defined($fingerprint);
