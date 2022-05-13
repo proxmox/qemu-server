@@ -1,11 +1,3 @@
-qemu-server (7.2-4) bullseye; urgency=medium
-
-  * fix #3754: encode JSON as utf8 for CLI
-
-  * pbs: backup-ns parameter was renamed to ns
-
- -- Proxmox Support Team <support@proxmox.com>  Fri, 13 May 2022 14:51:19 +0200
-
 qemu-server (7.2-3) bullseye; urgency=medium
 
   * support pbs namespaces
