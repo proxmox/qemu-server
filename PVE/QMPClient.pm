@@ -117,19 +117,21 @@ sub cmd {
 	    # the variance for Windows guests can be big. And there might be hook scripts
 	    # that are executed upon thaw, so use 3 minutes to be on the safe side.
 	    $timeout = 3 * 60;
-	} elsif ($cmd->{execute} eq 'savevm-start' ||
-		 $cmd->{execute} eq 'savevm-end' ||
-		 $cmd->{execute} eq 'query-backup' ||
-		 $cmd->{execute} eq 'query-block-jobs' ||
-		 $cmd->{execute} eq 'block-job-cancel' ||
-		 $cmd->{execute} eq 'block-job-complete' ||
-		 $cmd->{execute} eq 'backup-cancel' ||
-		 $cmd->{execute} eq 'query-savevm' ||
-		 $cmd->{execute} eq 'delete-drive-snapshot' ||
-		 $cmd->{execute} eq 'guest-shutdown' ||
-		 $cmd->{execute} eq 'blockdev-snapshot-internal-sync' ||
-		 $cmd->{execute} eq 'blockdev-snapshot-delete-internal-sync' ||
-		 $cmd->{execute} eq 'snapshot-drive'  ) {
+	} elsif (
+	    $cmd->{execute} eq 'savevm-start' ||
+	    $cmd->{execute} eq 'savevm-end' ||
+	    $cmd->{execute} eq 'query-backup' ||
+	    $cmd->{execute} eq 'query-block-jobs' ||
+	    $cmd->{execute} eq 'block-job-cancel' ||
+	    $cmd->{execute} eq 'block-job-complete' ||
+	    $cmd->{execute} eq 'backup-cancel' ||
+	    $cmd->{execute} eq 'query-savevm' ||
+	    $cmd->{execute} eq 'delete-drive-snapshot' ||
+	    $cmd->{execute} eq 'guest-shutdown' ||
+	    $cmd->{execute} eq 'blockdev-snapshot-internal-sync' ||
+	    $cmd->{execute} eq 'blockdev-snapshot-delete-internal-sync' ||
+	    $cmd->{execute} eq 'snapshot-drive'
+	 ) {
 	    $timeout = 10*60; # 10 mins ?
 	} else {
 	    $timeout = 3; # default
