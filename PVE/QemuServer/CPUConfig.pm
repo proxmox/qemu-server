@@ -80,6 +80,7 @@ my $cpu_vendor_list = {
     EPYC => 'AuthenticAMD',
     'EPYC-IBPB' => 'AuthenticAMD',
     'EPYC-Rome' => 'AuthenticAMD',
+    'EPYC-Milan' => 'AuthenticAMD',
 
     # generic types, use vendor from host node
     host => 'default',
