@@ -2443,8 +2443,9 @@ __PACKAGE__->register_method({
 
 	if ($conf->{vga}) {
 	    my $vga = PVE::QemuServer::parse_vga($conf->{vga});
-	    $status->{spice} = 1
-		if $vga->{type} =~ /^virtio/ || PVE::QemuServer::vga_conf_has_spice($conf->{vga});
+	    my $spice = defined($vga->{type}) && $vga->{type} =~ /^virtio/;
+	    $spice ||= PVE::QemuServer::vga_conf_has_spice($conf->{vga});
+	    $status->{spice} = 1 if $spice;
 	}
 	$status->{agent} = 1 if PVE::QemuServer::get_qga_key($conf, 'enabled');
 
