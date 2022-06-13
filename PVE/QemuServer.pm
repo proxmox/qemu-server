@@ -3959,7 +3959,9 @@ sub config_to_command {
 		$iothread .= ",iothread=iothread-$controller_prefix$controller";
 		push @$cmd, '-object', "iothread,id=iothread-$controller_prefix$controller";
 	    } elsif ($drive->{iothread}) {
-		warn "iothread is only valid with virtio disk or virtio-scsi-single controller, ignoring\n";
+		log_warn(
+		    "iothread is only valid with virtio disk or virtio-scsi-single controller, ignoring\n"
+		);
 	    }
 
 	    my $queues = '';
