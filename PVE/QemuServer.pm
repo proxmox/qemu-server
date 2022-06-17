@@ -3540,7 +3540,7 @@ sub config_to_command {
 
     my $vmname = $conf->{name} || "vm$vmid";
 
-    push @$cmd, '-name', $vmname;
+    push @$cmd, '-name', "$vmname,debug-threads=on";
 
     push @$cmd, '-no-shutdown';
 
