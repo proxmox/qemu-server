@@ -2977,10 +2977,17 @@ __PACKAGE__->register_method({
 	# early check for storage permission, for better user feedback
 	if ($todisk) {
 	    $rpcenv->check_vm_perm($authuser, $vmid, undef, ['VM.Config.Disk']);
+	    my $conf = PVE::QemuConfig->load_config($vmid);
+
+	    # check for hostpci devices (suspend will maybe work, resume won't),
+	    # so prevent users from suspending in the first place
+	    for my $key (keys %$conf) {
+		next if $key !~ /^hostpci\d+/;
+		die "Cannot suspend VM to disk with assigned PCI devices\n";
+	    }
 
 	    if (!$statestorage) {
 		# get statestorage from config if none is given
-		my $conf = PVE::QemuConfig->load_config($vmid);
 		my $storecfg = PVE::Storage::config();
 		$statestorage = PVE::QemuServer::find_vmstate_storage($conf, $storecfg);
 	    }
