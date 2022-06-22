@@ -5277,6 +5277,34 @@ sub vmconfig_update_disk {
     vm_deviceplug($storecfg, $conf, $vmid, $opt, $drive, $arch, $machine_type);
 }
 
+sub vmconfig_update_cloudinit_drive {
+    my ($storecfg, $conf, $vmid) = @_;
+
+    my $cloudinit_ds = undef;
+    my $cloudinit_drive = undef;
+
+    PVE::QemuConfig->foreach_volume($conf, sub {
+	my ($ds, $drive) = @_;
+	if (PVE::QemuServer::drive_is_cloudinit($drive)) {
+	    $cloudinit_ds = $ds;
+	    $cloudinit_drive = $drive;
+	}
+    });
+
+    return if !$cloudinit_drive;
+
+    PVE::QemuServer::Cloudinit::generate_cloudinitconfig($conf, $vmid);
+    my $running = PVE::QemuServer::check_running($vmid);
+
+    if ($running) {
+	my $path = PVE::Storage::path($storecfg, $cloudinit_drive->{file});
+	if ($path) {
+	    mon_cmd($vmid, "eject", force => JSON::true, id => "$cloudinit_ds");
+	    mon_cmd($vmid, "blockdev-change-medium", id => "$cloudinit_ds", filename => "$path");
+	}
+    }
+}
+
 # called in locked context by incoming migration
 sub vm_migrate_get_nbd_disks {
     my ($storecfg, $conf, $replicated_volumes) = @_;

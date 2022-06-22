@@ -984,7 +984,8 @@ our $cmddef = {
 
     cloudinit => {
 	dump => [ "PVE::API2::Qemu", 'cloudinit_generated_config_dump', ['vmid', 'type'], { %node }, sub { print "$_[0]\n"; }],
-	pending => [ "PVE::API2::Qemu", 'cloudinit_pending', ['vmid'], { %node }, \&PVE::GuestHelpers::format_pending ]
+	pending => [ "PVE::API2::Qemu", 'cloudinit_pending', ['vmid'], { %node }, \&PVE::GuestHelpers::format_pending ],
+	update => [ "PVE::API2::Qemu", 'cloudinit_update', ['vmid'], { node => $nodename }],
     },
 
 };

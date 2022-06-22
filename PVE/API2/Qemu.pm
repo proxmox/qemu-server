@@ -1379,6 +1379,49 @@ __PACKAGE__->register_method({
 	return $res;
    }});
 
+__PACKAGE__->register_method({
+    name => 'cloudinit_update',
+    path => '{vmid}/cloudinit',
+    method => 'PUT',
+    protected => 1,
+    proxyto => 'node',
+    description => "Regenerate and change cloudinit config drive.",
+    permissions => {
+	check => ['perm', '/vms/{vmid}', 'VM.Config.Cloudinit'],
+    },
+    parameters => {
+	additionalProperties => 0,
+	properties => {
+	    node => get_standard_option('pve-node'),
+	    vmid => get_standard_option('pve-vmid'),
+	},
+    },
+    returns => { type => 'null' },
+    code => sub {
+	my ($param) = @_;
+
+	my $rpcenv = PVE::RPCEnvironment::get();
+
+	my $authuser = $rpcenv->get_user();
+
+	my $vmid = extract_param($param, 'vmid');
+
+	my $updatefn =  sub {
+
+	    my $conf = PVE::QemuConfig->load_config($vmid);
+
+	    PVE::QemuConfig->check_lock($conf);
+
+	    my $storecfg = PVE::Storage::config();
+
+	    PVE::QemuServer::vmconfig_update_cloudinit_drive($storecfg, $conf, $vmid);
+	};
+
+	PVE::QemuConfig->lock_config($vmid, $updatefn);
+
+	return;
+    }});
+
 # POST/PUT {vmid}/config implementation
 #
 # The original API used PUT (idempotent) an we assumed that all operations
