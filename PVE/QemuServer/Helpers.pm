@@ -4,6 +4,7 @@ use strict;
 use warnings;
 
 use File::stat;
+use JSON;
 
 use PVE::INotify;
 use PVE::ProcFSTools;
@@ -159,6 +160,29 @@ sub config_aware_timeout {
     }
 
     return $timeout;
+}
+
+sub get_node_pvecfg_version {
+    my ($node) = @_;
+
+    my $nodes_version_info = PVE::Cluster::get_node_kv('version-info', $node);
+    return if !$nodes_version_info->{$node};
+
+    my $version_info = decode_json($nodes_version_info->{$node});
+    return $version_info->{version};
+}
+
+sub pvecfg_min_version {
+    my ($verstr, $major, $minor, $release) = @_;
+
+    return 0 if !$verstr;
+
+    if ($verstr =~ m/^(\d+)\.(\d+)-(\d+)/) {
+	return 1 if version_cmp($1, $major, $2, $minor, $3, $release) >= 0;
+	return 0;
+    }
+
+    die "internal error: cannot check version of invalid string '$verstr'";
 }
 
 1;
