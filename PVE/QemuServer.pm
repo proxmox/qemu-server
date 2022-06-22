@@ -2002,6 +2002,7 @@ sub vmconfig_register_unused_drive {
     if (drive_is_cloudinit($drive)) {
 	eval { PVE::Storage::vdisk_free($storecfg, $drive->{file}) };
 	warn $@ if $@;
+	delete $conf->{cloudinit};
     } elsif (!drive_is_cdrom($drive)) {
 	my $volid = $drive->{file};
 	if (vm_is_volid_owner($storecfg, $vmid, $volid)) {
@@ -2372,6 +2373,7 @@ sub parse_vm_config {
 	digest => Digest::SHA::sha1_hex($raw),
 	snapshots => {},
 	pending => {},
+	cloudinit => {},
     };
 
     my $handle_error = sub {
@@ -2403,6 +2405,11 @@ sub parse_vm_config {
 		$descr =~ s/\s+$//;
 		$conf->{description} = $descr;
 	    }
+	    $descr = undef;
+	    $conf = $res->{$section} = {};
+	    next;
+	} elsif ($line =~ m/^\[special:cloudinit\]\s*$/i) {
+	    $section = 'cloudinit';
 	    $descr = undef;
 	    $conf = $res->{$section} = {};
 	    next;
@@ -2503,7 +2510,7 @@ sub write_vm_config {
 
 	foreach my $key (keys %$cref) {
 	    next if $key eq 'digest' || $key eq 'description' || $key eq 'snapshots' ||
-		$key eq 'snapstate' || $key eq 'pending';
+		$key eq 'snapstate' || $key eq 'pending' || $key eq 'cloudinit';
 	    my $value = $cref->{$key};
 	    if ($key eq 'delete') {
 		die "propertry 'delete' is only allowed in [PENDING]\n"
@@ -2526,6 +2533,8 @@ sub write_vm_config {
     &$cleanup_config($conf);
 
     &$cleanup_config($conf->{pending}, 1);
+
+    &$cleanup_config($conf->{cloudinit});
 
     foreach my $snapname (keys %{$conf->{snapshots}}) {
 	die "internal error: snapshot name '$snapname' is forbidden" if lc($snapname) eq 'pending';
@@ -2557,7 +2566,7 @@ sub write_vm_config {
 	}
 
 	foreach my $key (sort keys %$conf) {
-	    next if $key =~ /^(digest|description|pending|snapshots)$/;
+	    next if $key =~ /^(digest|description|pending|cloudinit|snapshots)$/;
 	    $raw .= "$key: $conf->{$key}\n";
 	}
 	return $raw;
@@ -2568,6 +2577,11 @@ sub write_vm_config {
     if (scalar(keys %{$conf->{pending}})){
 	$raw .= "\n[PENDING]\n";
 	$raw .= &$generate_raw_config($conf->{pending}, 1);
+    }
+
+    if (scalar(keys %{$conf->{cloudinit}})){
+	$raw .= "\n[special:cloudinit]\n";
+	$raw .= &$generate_raw_config($conf->{cloudinit});
     }
 
     foreach my $snapname (sort keys %{$conf->{snapshots}}) {
