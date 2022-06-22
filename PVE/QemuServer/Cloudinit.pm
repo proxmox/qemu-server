@@ -7,6 +7,7 @@ use File::Path;
 use Digest::SHA;
 use URI::Escape;
 use MIME::Base64 qw(encode_base64);
+use Storable qw(dclone);
 
 use PVE::Tools qw(run_command file_set_contents);
 use PVE::Storage;
@@ -630,6 +631,84 @@ sub dump_cloudinit_config {
 	    return configdrive2_gen_metadata($user, $network);
 	}
     }
+}
+
+sub get_pending_config {
+    my ($conf, $vmid) = @_;
+
+    my $newconf = dclone($conf);
+
+    my $cloudinit_current = $newconf->{cloudinit};
+    my @cloudinit_opts = keys %{PVE::QemuServer::cloudinit_config_properties()};
+    push @cloudinit_opts, 'name';
+
+    #add cloud-init drive
+    my $drives = {};
+    PVE::QemuConfig->foreach_volume($newconf, sub {
+	my ($ds, $drive) = @_;
+	$drives->{$ds} = 1 if PVE::QemuServer::drive_is_cloudinit($drive);
+    });
+
+    PVE::QemuConfig->foreach_volume($cloudinit_current, sub {
+	my ($ds, $drive) = @_;
+	$drives->{$ds} = 1 if PVE::QemuServer::drive_is_cloudinit($drive);
+    });
+    for my $ds (keys %{$drives}) {
+	push @cloudinit_opts, $ds;
+    }
+
+    $newconf->{name} = "VM$vmid" if !$newconf->{name};
+    $cloudinit_current->{name} = "VM$vmid" if !$cloudinit_current->{name};
+
+    #only mac-address is used in cloud-init config.
+    #We don't want to display other pending net changes.
+    my $print_cloudinit_net = sub {
+	my ($conf, $opt) = @_;
+
+	if (defined($conf->{$opt})) {
+	    my $net = PVE::QemuServer::parse_net($conf->{$opt});
+	    $conf->{$opt} = "macaddr=".$net->{macaddr} if $net->{macaddr};
+	}
+    };
+
+    my $cloudinit_options = {};
+    for my $opt (@cloudinit_opts) {
+	if ($opt =~ m/^ipconfig(\d+)/) {
+	    my $netid = "net$1";
+
+	    next if !defined($newconf->{$netid}) && !defined($cloudinit_current->{$netid}) &&
+		    !defined($newconf->{$opt}) && !defined($cloudinit_current->{$opt});
+
+	    &$print_cloudinit_net($newconf, $netid);
+	    &$print_cloudinit_net($cloudinit_current, $netid);
+	    $cloudinit_options->{$netid} = 1;
+	}
+	$cloudinit_options->{$opt} = 1;
+    }
+
+    my $res = [];
+
+    for my $opt (keys %{$cloudinit_options}) {
+
+	my $item = {
+	    key => $opt,
+	};
+	if ($cloudinit_current->{$opt}) {
+	    $item->{value} = $cloudinit_current->{$opt};
+	    if (defined($newconf->{$opt})) {
+		$item->{pending} = $newconf->{$opt} 
+		    if $newconf->{$opt} ne $cloudinit_current->{$opt};
+	    } else {
+		$item->{delete} = 1;
+	    }
+	} else {
+	    $item->{pending} = $newconf->{$opt} if $newconf->{$opt}
+	}
+
+	push @$res, $item;
+   }
+
+   return $res;
 }
 
 1;

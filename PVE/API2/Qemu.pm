@@ -21,6 +21,7 @@ use PVE::ReplicationConfig;
 use PVE::GuestHelpers;
 use PVE::QemuConfig;
 use PVE::QemuServer;
+use PVE::QemuServer::Cloudinit;
 use PVE::QemuServer::CPUConfig;
 use PVE::QemuServer::Drive;
 use PVE::QemuServer::ImportDisk;
@@ -1309,6 +1310,73 @@ __PACKAGE__->register_method({
 	$conf->{pending}->{cipassword} = '********** ' if defined($conf->{pending}->{cipassword});
 
 	return PVE::GuestHelpers::config_with_pending_array($conf, $pending_delete_hash);
+   }});
+
+__PACKAGE__->register_method({
+    name => 'cloudinit_pending',
+    path => '{vmid}/cloudinit',
+    method => 'GET',
+    proxyto => 'node',
+    description => "Get the cloudinit configuration with both current and pending values.",
+    permissions => {
+	check => ['perm', '/vms/{vmid}', [ 'VM.Audit' ]],
+    },
+    parameters => {
+	additionalProperties => 0,
+	properties => {
+	    node => get_standard_option('pve-node'),
+	    vmid => get_standard_option('pve-vmid', { completion => \&PVE::QemuServer::complete_vmid }),
+	},
+    },
+    returns => {
+	type => "array",
+	items => {
+	    type => "object",
+	    properties => {
+		key => {
+		    description => "Configuration option name.",
+		    type => 'string',
+		},
+		value => {
+		    description => "Current value.",
+		    type => 'string',
+		    optional => 1,
+		},
+		pending => {
+		    description => "Pending value.",
+		    type => 'string',
+		    optional => 1,
+		},
+		delete => {
+		    description => "Indicates a pending delete request if present and not 0. " .
+		                   "The value 2 indicates a force-delete request.",
+		    type => 'integer',
+		    minimum => 0,
+		    maximum => 2,
+		    optional => 1,
+		},
+	    },
+	},
+    },
+    code => sub {
+	my ($param) = @_;
+
+	my $vmid = $param->{vmid};
+	my $conf = PVE::QemuConfig->load_config($vmid);
+
+	if (defined($conf->{cipassword}) &&
+	    defined($conf->{cloudinit}->{cipassword}) &&
+	    $conf->{cipassword} ne $conf->{cloudinit}->{cipassword}) {
+	    $conf->{cipassword} = '********** ';
+	} elsif (defined($conf->{cipassword})) {
+	    $conf->{cipassword} = '**********';
+	}
+
+	$conf->{cloudinit}->{cipassword} = '**********' if defined($conf->{cloudinit}->{cipassword});
+
+	my $res = PVE::QemuServer::Cloudinit::get_pending_config($conf, $vmid);
+
+	return $res;
    }});
 
 # POST/PUT {vmid}/config implementation
