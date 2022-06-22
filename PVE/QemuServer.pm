@@ -4816,6 +4816,10 @@ my $fast_plug_option = {
     'tags' => 1,
 };
 
+for my $opt (keys %$confdesc_cloudinit) {
+    $fast_plug_option->{$opt} = 1;
+};
+
 # hotplug changes in [PENDING]
 # $selection hash can be used to only apply specified options, for
 # example: { cores => 1 } (only apply changed 'cores')
@@ -4911,31 +4915,6 @@ sub vmconfig_hotplug_pending {
 	}
     }
 
-    my ($apply_pending_cloudinit, $apply_pending_cloudinit_done);
-    $apply_pending_cloudinit = sub {
-	return if $apply_pending_cloudinit_done; # once is enough
-	$apply_pending_cloudinit_done = 1; # once is enough
-
-	my ($key, $value) = @_;
-
-	my @cloudinit_opts = keys %$confdesc_cloudinit;
-	foreach my $opt (keys %{$conf->{pending}}) {
-	    next if !grep { $_ eq $opt } @cloudinit_opts;
-	    $conf->{$opt} = delete $conf->{pending}->{$opt};
-	}
-
-	my $pending_delete_hash = PVE::QemuConfig->parse_pending_delete($conf->{pending}->{delete});
-	foreach my $opt (sort keys %$pending_delete_hash) {
-	    next if !grep { $_ eq $opt } @cloudinit_opts;
-	    PVE::QemuConfig->remove_from_pending_delete($conf, $opt);
-	    delete $conf->{$opt};
-	}
-
-	my $new_conf = { %$conf };
-	$new_conf->{$key} = $value;
-	PVE::QemuServer::Cloudinit::generate_cloudinitconfig($new_conf, $vmid);
-    };
-
     foreach my $opt (keys %{$conf->{pending}}) {
 	next if $selection && !$selection->{$opt};
 	my $value = $conf->{pending}->{$opt};
@@ -4982,7 +4961,7 @@ sub vmconfig_hotplug_pending {
 		# some changes can be done without hotplug
 		my $drive = parse_drive($opt, $value);
 		if (drive_is_cloudinit($drive)) {
-		    &$apply_pending_cloudinit($opt, $value);
+		    PVE::QemuServer::Cloudinit::generate_cloudinitconfig($conf, $vmid);
 		}
 		vmconfig_update_disk($storecfg, $conf, $hotplug_features->{disk},
 				     $vmid, $opt, $value, $arch, $machine_type);
