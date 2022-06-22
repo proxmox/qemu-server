@@ -215,17 +215,20 @@ sub assemble {
 
     my $found_snapshot;
     my $found_pending;
+    my $found_cloudinit;
     while (defined (my $line = <$conffd>)) {
 	next if $line =~ m/^\#vzdump\#/; # just to be sure
 	next if $line =~ m/^\#qmdump\#/; # just to be sure
 	if ($line =~ m/^\[(.*)\]\s*$/) {
 	    if ($1 =~ m/PENDING/i) {
 		$found_pending = 1;
+	    } elsif ($1 =~ m/special:cloudinit/) {
+		$found_cloudinit = 1;
 	    } else {
 		$found_snapshot = 1;
 	    }
 	}
-	next if $found_snapshot || $found_pending; # skip all snapshots and pending changes config data
+	next if $found_snapshot || $found_pending || $found_cloudinit; # skip all snapshots,pending changes and cloudinit config data
 
 	if ($line =~ m/^unused\d+:\s*(\S+)\s*/) {
 	    $self->loginfo("skip unused drive '$1' (not included into backup)");
