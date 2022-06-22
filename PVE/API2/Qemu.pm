@@ -2979,8 +2979,7 @@ __PACKAGE__->register_method({
 	    $rpcenv->check_vm_perm($authuser, $vmid, undef, ['VM.Config.Disk']);
 	    my $conf = PVE::QemuConfig->load_config($vmid);
 
-	    # check for hostpci devices (suspend will maybe work, resume won't),
-	    # so prevent users from suspending in the first place
+	    # cannot save the state of a non-virtualized PCIe device, so resume cannot really work
 	    for my $key (keys %$conf) {
 		next if $key !~ /^hostpci\d+/;
 		die "Cannot suspend VM to disk with assigned PCI devices\n";
