@@ -519,6 +519,14 @@ sub __snapshot_rollback_get_unused {
     return $unused;
 }
 
+sub load_current_config {
+    my ($class, $vmid, $current) = @_;
+
+    my $conf = $class->SUPER::load_current_config($vmid, $current);
+    delete $conf->{cloudinit};
+    return $conf;
+}
+
 # END implemented abstract methods from PVE::AbstractConfig
 
 sub has_cloudinit {
