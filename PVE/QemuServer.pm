@@ -297,7 +297,7 @@ my $confdesc = {
 	optional => 1,
 	type => 'string', format => 'pve-hotplug-features',
 	description => "Selectively enable hotplug features. This is a comma separated list of"
-	    ." hotplug features: 'network', 'disk', 'cpu', 'memory' and 'usb'. Use '0' to disable"
+	    ." hotplug features: 'network', 'disk', 'cpu', 'memory', 'usb' and 'cloudinit'. Use '0' to disable"
 	    ." hotplug completely. Using '1' as value is an alias for the default `network,disk,usb`.",
         default => 'network,disk,usb',
     },
@@ -1350,7 +1350,7 @@ sub parse_hotplug_features {
     $data = $confdesc->{hotplug}->{default} if $data eq '1';
 
     foreach my $feature (PVE::Tools::split_list($data)) {
-	if ($feature =~ m/^(network|disk|cpu|memory|usb)$/) {
+	if ($feature =~ m/^(network|disk|cpu|memory|usb|cloudinit)$/) {
 	    $res->{$1} = 1;
 	} else {
 	    die "invalid hotplug feature '$feature'\n";
@@ -4987,8 +4987,16 @@ sub vmconfig_hotplug_pending {
 	    delete $conf->{pending}->{$opt};
 	}
     }
-
     PVE::QemuConfig->write_config($vmid, $conf);
+
+    if($hotplug_features->{cloudinit}) {
+	my $pending = PVE::QemuServer::Cloudinit::get_pending_config($conf, $vmid);
+	my $regenerate = undef;
+	for my $item (@$pending) {
+	    $regenerate = 1 if defined($item->{delete}) or defined($item->{pending});
+	}
+	PVE::QemuServer::vmconfig_update_cloudinit_drive($storecfg, $conf, $vmid) if $regenerate;
+    }
 }
 
 sub try_deallocate_drive {
