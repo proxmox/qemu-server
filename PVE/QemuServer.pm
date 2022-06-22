@@ -1717,6 +1717,7 @@ sub print_pbs_blockdev {
     my ($pbs_conf, $pbs_name) = @_;
     my $blockdev = "driver=pbs,node-name=$pbs_name,read-only=on";
     $blockdev .= ",repository=$pbs_conf->{repository}";
+    $blockdev .= ",namespace=$pbs_conf->{namespace}" if $pbs_conf->{namespace};
     $blockdev .= ",snapshot=$pbs_conf->{snapshot}";
     $blockdev .= ",archive=$pbs_conf->{archive}";
     $blockdev .= ",keyfile=$pbs_conf->{keyfile}" if $pbs_conf->{keyfile};
@@ -6652,6 +6653,7 @@ sub restore_proxmox_backup_archive {
     my $keyfile = PVE::Storage::PBSPlugin::pbs_encryption_key_file_name($storecfg, $storeid);
 
     my $repo = PVE::PBSClient::get_repository($scfg);
+    my $namespace = $scfg->{namespace};
 
     # This is only used for `pbs-restore` and the QEMU PBS driver (live-restore)
     my $password = PVE::Storage::PBSPlugin::pbs_get_password($scfg, $storeid);
@@ -6842,28 +6844,36 @@ sub restore_proxmox_backup_archive {
 	# these special drives are already restored before start
 	delete $devinfo->{'drive-efidisk0'};
 	delete $devinfo->{'drive-tpmstate0-backup'};
-	pbs_live_restore($vmid, $conf, $storecfg, $devinfo, $repo, $keyfile, $pbs_backup_name);
+
+	my $pbs_opts = {
+	    repo => $repo,
+	    keyfile => $keyfile,
+	    snapshot => $pbs_backup_name,
+	    namespace => $namespace,
+	};
+	pbs_live_restore($vmid, $conf, $storecfg, $devinfo, $pbs_opts);
 
 	PVE::QemuConfig->remove_lock($vmid, "create");
     }
 }
 
 sub pbs_live_restore {
-    my ($vmid, $conf, $storecfg, $restored_disks, $repo, $keyfile, $snap) = @_;
+    my ($vmid, $conf, $storecfg, $restored_disks, $opts) = @_;
 
     print "starting VM for live-restore\n";
-    print "repository: '$repo', snapshot: '$snap'\n";
+    print "repository: '$opts->{repo}', snapshot: '$opts->{snapshot}'\n";
 
     my $pbs_backing = {};
     for my $ds (keys %$restored_disks) {
 	$ds =~ m/^drive-(.*)$/;
 	my $confname = $1;
 	$pbs_backing->{$confname} = {
-	    repository => $repo,
-	    snapshot => $snap,
+	    repository => $opts->{repo},
+	    snapshot => $opts->{snapshot},
 	    archive => "$ds.img.fidx",
 	};
-	$pbs_backing->{$confname}->{keyfile} = $keyfile if -e $keyfile;
+	$pbs_backing->{$confname}->{keyfile} = $opts->{keyfile} if -e $opts->{keyfile};
+	$pbs_backing->{$confname}->{namespace} = $opts->{namespace} if defined($opts->{namespace});
 
 	my $drive = parse_drive($confname, $conf->{$confname});
 	print "restoring '$ds' to '$drive->{file}'\n";
