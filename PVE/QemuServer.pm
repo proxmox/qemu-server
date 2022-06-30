@@ -783,16 +783,16 @@ my $confdesc_cloudinit = {
     searchdomain => {
 	optional => 1,
 	type => 'string',
-	description => "cloud-init: Sets DNS search domains for a container. Create will'
+	description => 'cloud-init: Sets DNS search domains for a container. Create will'
 	    .' automatically use the setting from the host if neither searchdomain nor nameserver'
-	    .' are set.",
+	    .' are set.',
     },
     nameserver => {
 	optional => 1,
 	type => 'string', format => 'address-list',
-	description => "cloud-init: Sets DNS server IP address for a container. Create will'
+	description => 'cloud-init: Sets DNS server IP address for a container. Create will'
 	    .' automatically use the setting from the host if neither searchdomain nor nameserver'
-	    .' are set.",
+	    .' are set.',
     },
     sshkeys => {
 	optional => 1,
