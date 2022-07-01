@@ -28,6 +28,7 @@ use UUID;
 
 use PVE::Cluster qw(cfs_register_file cfs_read_file cfs_write_file);
 use PVE::CGroup;
+use PVE::CpuSet;
 use PVE::DataCenterConfig;
 use PVE::Exception qw(raise raise_param_exc);
 use PVE::Format qw(render_duration render_bytes);
@@ -707,6 +708,11 @@ EODESCR
 	description => "Some (read-only) meta-information about this guest.",
 	optional => 1,
     },
+    affinity => {
+	type => 'string', format => 'pve-cpuset',
+	description => "List of host cores used to execute guest processes.",
+	optional => 1,
+    },
 };
 
 my $cicustom_fmt = {
@@ -1024,6 +1030,20 @@ for (my $i = 0; $i < $MAX_NETS; $i++)  {
 
 foreach my $key (keys %$confdesc_cloudinit) {
     $confdesc->{$key} = $confdesc_cloudinit->{$key};
+}
+
+PVE::JSONSchema::register_format('pve-cpuset', \&pve_verify_cpuset);
+sub pve_verify_cpuset {
+    my ($set_text, $noerr) = @_;
+
+    my ($count, $members) = eval { PVE::CpuSet::parse_cpuset($set_text) };
+
+    if ($@) {
+	return if $noerr;
+	die "unable to parse cpuset option\n";
+    }
+
+    return PVE::CpuSet->new($members)->short_string();
 }
 
 PVE::JSONSchema::register_format('pve-volume-id-or-qm-path', \&verify_volume_id_or_qm_path);
@@ -3531,6 +3551,13 @@ sub config_to_command {
     my $hotplug_features = parse_hotplug_features(defined($conf->{hotplug}) ? $conf->{hotplug} : '1');
     my $use_old_bios_files = undef;
     ($use_old_bios_files, $machine_type) = qemu_use_old_bios_files($machine_type);
+
+    if ($conf->{affinity}) {
+	push @$cmd, "taskset";
+	push @$cmd, "--cpu-list";
+	push @$cmd, "--all-tasks";
+	push @$cmd, $conf->{affinity};
+    }
 
     push @$cmd, $kvm_binary;
 
