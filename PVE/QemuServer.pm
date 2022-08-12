@@ -5594,12 +5594,19 @@ sub vm_start_nolock {
     PVE::QemuServer::PCI::reserve_pci_usage($pci_id_list, $vmid, $start_timeout);
 
     eval {
+	my $uuid;
 	for my $id (sort keys %$pci_devices) {
 	    my $d = $pci_devices->{$id};
 	    for my $dev ($d->{pciid}->@*) {
-		PVE::QemuServer::PCI::prepare_pci_device($vmid, $dev->{id}, $id, $d->{mdev});
+		my $info = PVE::QemuServer::PCI::prepare_pci_device($vmid, $dev->{id}, $id, $d->{mdev});
+
+		# nvidia grid needs the uuid of the mdev as qemu parameter
+		if ($d->{mdev} && !defined($uuid) && $info->{vendor} eq '10de') {
+		    $uuid = PVE::QemuServer::PCI::generate_mdev_uuid($vmid, $id);
+		}
 	    }
 	}
+	push @$cmd, '-uuid', $uuid if defined($uuid);
     };
     if (my $err = $@) {
 	eval { PVE::QemuServer::PCI::remove_pci_reservation($pci_id_list) };

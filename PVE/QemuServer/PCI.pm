@@ -253,7 +253,7 @@ sub get_pci_addr_map {
     return $pci_addr_map;
 }
 
-my sub generate_mdev_uuid {
+sub generate_mdev_uuid {
     my ($vmid, $index) = @_;
     return sprintf("%08d-0000-0000-0000-%012d", $index, $vmid);
 }
@@ -514,6 +514,8 @@ sub prepare_pci_device {
 	die "can't reset PCI device '$pciid'\n"
 	    if $info->{has_fl_reset} && !PVE::SysFSTools::pci_dev_reset($info);
     }
+
+    return $info;
 }
 
 my $RUNDIR = '/run/qemu-server';
