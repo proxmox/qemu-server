@@ -1,3 +1,21 @@
+qemu-server (7.2-4) bullseye; urgency=medium
+
+  * fix #3754: encode JSON as utf8 for CLI
+
+  * cpuconfig: add amd epyc milan model
+
+  * fix #4115: enable option to name QEMU threads after their main purpose
+
+  * fix #4119: give namespace parameter to live-restore
+
+  * automatically add 'uuid' parameter when passing through NVIDIA vGPU
+
+  * vzdump/pbs: die with missing, but configured encryption key
+
+  * vzdump/pbs: die with missing, but configured master key
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 16 Aug 2022 13:59:20 +0200
+
 qemu-server (7.2-3) bullseye; urgency=medium
 
   * support pbs namespaces
