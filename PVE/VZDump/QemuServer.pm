@@ -554,9 +554,13 @@ sub archive_pbs {
 	    $self->loginfo("enabling encryption");
 	    $params->{keyfile} = $keyfile;
 	    $params->{encrypt} = JSON::true;
-	    if (defined($master_keyfile) && -e $master_keyfile) {
-		$self->loginfo("enabling master key feature");
-		$params->{"master-keyfile"} = $master_keyfile;
+	    if (defined($master_keyfile)) {
+		if (-e $master_keyfile) {
+		    $self->loginfo("enabling master key feature");
+		    $params->{"master-keyfile"} = $master_keyfile;
+		} elsif ($scfg->{'master-pubkey'}) {
+		    die "master public key configured but no key file found\n";
+		}
 	    }
 	} else {
 	    my $encryption_fp = $scfg->{'encryption-key'};
