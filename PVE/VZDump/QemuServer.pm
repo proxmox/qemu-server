@@ -559,6 +559,9 @@ sub archive_pbs {
 		$params->{"master-keyfile"} = $master_keyfile;
 	    }
 	} else {
+	    my $encryption_fp = $scfg->{'encryption-key'};
+	    die "encryption configured ('$encryption_fp') but no encryption key file found!\n"
+		if $encryption_fp;
 	    $self->loginfo("WARNING: backup target is configured with master key, but this backup is not encrypted - master key settings will be ignored!")
 		if defined($master_keyfile) && -e $master_keyfile;
 	    $params->{encrypt} = JSON::false;
