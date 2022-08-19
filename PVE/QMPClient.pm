@@ -127,6 +127,7 @@ sub cmd {
 	    $cmd->{execute} eq 'backup-cancel' ||
 	    $cmd->{execute} eq 'query-savevm' ||
 	    $cmd->{execute} eq 'delete-drive-snapshot' ||
+	    $cmd->{execute} eq 'guest-fstrim' ||
 	    $cmd->{execute} eq 'guest-shutdown' ||
 	    $cmd->{execute} eq 'blockdev-snapshot-internal-sync' ||
 	    $cmd->{execute} eq 'blockdev-snapshot-delete-internal-sync' ||
