@@ -158,6 +158,7 @@ $MigrationTest::Shared::qemu_server_module->mock(
 	$vm_stop_executed = 1;
 	delete $expected_calls->{'vm_stop'};
     },
+    del_nets_bridge_fdb => sub { return; },
 );
 
 my $qemu_server_cpuconfig_module = Test::MockModule->new("PVE::QemuServer::CPUConfig");

@@ -8338,4 +8338,22 @@ sub add_nets_bridge_fdb {
     }
 }
 
+sub del_nets_bridge_fdb {
+    my ($conf, $vmid) = @_;
+
+    for my $opt (keys %$conf) {
+	next if $opt !~ m/^net(\d+)$/;
+	my $iface = "tap${vmid}i$1";
+
+	my $net = parse_net($conf->{$opt}) or next;
+	my $mac = $net->{macaddr} or next;
+
+	if ($have_sdn) {
+	    PVE::Network::SDN::Zones::del_bridge_fdb($iface, $mac, $net->{bridge}, $net->{firewall});
+	} else {
+	    PVE::Network::del_bridge_fdb($iface, $mac, $net->{firewall});
+	}
+    }
+}
+
 1;

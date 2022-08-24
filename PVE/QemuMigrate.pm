@@ -1181,6 +1181,9 @@ sub phase3_cleanup {
 	    }
 	}
 
+	# deletes local FDB entries if learning is disabled, they'll be re-added on target on resume
+	PVE::QemuServer::del_nets_bridge_fdb($conf, $vmid);
+
 	if (!$self->{vm_was_paused}) {
 	    # config moved and nbd server stopped - now we can resume vm on target
 	    if ($tunnel && $tunnel->{version} && $tunnel->{version} >= 1) {
