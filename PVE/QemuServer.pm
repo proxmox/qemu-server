@@ -5883,6 +5883,7 @@ sub vm_start_nolock {
 	    my $nicconf = parse_net($conf->{$opt});
 	    qemu_set_link_status($vmid, $opt, 0) if $nicconf->{link_down};
 	}
+	add_nets_bridge_fdb($conf, $vmid);
     }
 
     mon_cmd($vmid, 'qom-set',
@@ -6246,6 +6247,7 @@ sub vm_resume {
 	my $res = mon_cmd($vmid, 'query-status');
 	my $resume_cmd = 'cont';
 	my $reset = 0;
+	my $conf = PVE::QemuConfig->load_config($vmid);
 
 	if ($res->{status}) {
 	    return if $res->{status} eq 'running'; # job done, go home
@@ -6254,8 +6256,6 @@ sub vm_resume {
 	}
 
 	if (!$nocheck) {
-
-	    my $conf = PVE::QemuConfig->load_config($vmid);
 
 	    PVE::QemuConfig->check_lock($conf)
 		if !($skiplock || PVE::QemuConfig->has_lock($conf, 'backup'));
@@ -6266,6 +6266,9 @@ sub vm_resume {
 	    # request before the backup finishes for example
 	    mon_cmd($vmid, "system_reset");
 	}
+
+	add_nets_bridge_fdb($conf, $vmid) if $resume_cmd eq 'cont';
+
 	mon_cmd($vmid, $resume_cmd);
     });
 }
@@ -8310,4 +8313,22 @@ sub check_volume_storage_type {
     return 1;
 }
 
+sub add_nets_bridge_fdb {
+    my ($conf, $vmid) = @_;
+
+    foreach my $opt (keys %$conf) {
+	if ($opt =~  m/^net(\d+)$/) {
+	    my $net = parse_net($conf->{$opt});
+	    next if !$net;
+	    next if !$net->{macaddr};
+
+	    my $iface = "tap${vmid}i$1";
+	    if ($have_sdn) {
+		PVE::Network::SDN::Zones::add_bridge_fdb($iface, $net->{macaddr}, $net->{bridge}, $net->{firewall});
+	    } else {
+		PVE::Network::add_bridge_fdb($iface, $net->{macaddr}, $net->{firewall});
+	    }
+	}
+    }
+}
 1;
