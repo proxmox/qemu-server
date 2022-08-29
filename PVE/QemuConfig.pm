@@ -327,6 +327,9 @@ sub __snapshot_create_vol_snapshots_hook {
 			my ($b, $t) = $render_state->($stat);
 			print "completed saving the VM state in $t, saved $b\n";
 			last;
+		    } elsif ($stat->{status} eq 'failed') {
+			my $err = $stat->{error} || 'unknown error';
+			die "unable to save VM state and RAM - $err\n";
 		    } else {
 			die "query-savevm returned unexpected status '$stat->{status}'\n";
 		    }
