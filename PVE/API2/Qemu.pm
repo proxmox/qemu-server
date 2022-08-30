@@ -2982,7 +2982,8 @@ __PACKAGE__->register_method({
 	    # cannot save the state of a non-virtualized PCIe device, so resume cannot really work
 	    for my $key (keys %$conf) {
 		next if $key !~ /^hostpci\d+/;
-		die "Cannot suspend VM to disk with assigned PCI devices\n";
+		die "cannot suspend VM to disk due to passed-through PCI device(s), which lack the"
+		    ." possibility to save/restore their internal state\n";
 	    }
 
 	    if (!$statestorage) {
