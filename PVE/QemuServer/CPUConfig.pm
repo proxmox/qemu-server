@@ -364,7 +364,8 @@ sub print_cpu_device {
 	    my $custom_cpu = get_custom_model($cpu);
 
 	    $cpu = $custom_cpu->{'reported-model'} // $cpu_fmt->{'reported-model'}->{default};
-	} elsif (my $replacement_type = $depreacated_cpu_map->{$cpu}) {
+	}
+	if (my $replacement_type = $depreacated_cpu_map->{$cpu}) {
 	    $cpu = $replacement_type;
 	}
     }
