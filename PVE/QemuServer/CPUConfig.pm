@@ -357,8 +357,7 @@ sub print_cpu_device {
 	if (is_custom_model($cpu)) {
 	    my $custom_cpu = get_custom_model($cpu);
 
-	    $cpu = $custom_cpu->{'reported-model'} //
-		$cpu_fmt->{'reported-model'}->{default};
+	    $cpu = $custom_cpu->{'reported-model'} // $cpu_fmt->{'reported-model'}->{default};
 	}
     }
 
@@ -367,6 +366,7 @@ sub print_cpu_device {
     my $current_core = ($id - 1) % $cores;
     my $current_socket = int(($id - 1 - $current_core)/$cores);
 
+    # FIXME: hot plugging other architectures like our unofficial arch64 support?
     return "$cpu-x86_64-cpu,id=cpu$id,socket-id=$current_socket,core-id=$current_core,thread-id=0";
 }
 
@@ -470,18 +470,14 @@ sub get_cpu_options {
 	if (is_custom_model($cputype)) {
 	    $custom_cpu = get_custom_model($cputype);
 
-	    $cputype = $custom_cpu->{'reported-model'} //
-		$cpu_fmt->{'reported-model'}->{default};
-	    $kvm_off = $custom_cpu->{hidden}
-		if defined($custom_cpu->{hidden});
+	    $cputype = $custom_cpu->{'reported-model'} // $cpu_fmt->{'reported-model'}->{default};
+	    $kvm_off = $custom_cpu->{hidden} if defined($custom_cpu->{hidden});
 	    $hv_vendor_id = $custom_cpu->{'hv-vendor-id'};
 	}
 
 	# VM-specific settings override custom CPU config
-	$kvm_off = $cpu->{hidden}
-	    if defined($cpu->{hidden});
-	$hv_vendor_id = $cpu->{'hv-vendor-id'}
-	    if defined($cpu->{'hv-vendor-id'});
+	$kvm_off = $cpu->{hidden} if defined($cpu->{hidden});
+	$hv_vendor_id = $cpu->{'hv-vendor-id'} if defined($cpu->{'hv-vendor-id'});
     }
 
     my $pve_flags = get_pve_cpu_flags($conf, $kvm, $cputype, $arch, $machine_version);
