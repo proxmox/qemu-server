@@ -29,6 +29,12 @@ sub load_custom_model_conf {
     return cfs_read_file($default_filename);
 }
 
+my $depreacated_cpu_map = {
+    # there never was such a client CPU, so map it to the server one for backward compat
+    'Icelake-Client' => 'Icelake-Server',
+    'Icelake-Client-noTSX' => 'Icelake-Server-noTSX',
+};
+
 my $cpu_vendor_list = {
     # Intel CPUs
     486 => 'GenuineIntel',
@@ -64,8 +70,8 @@ my $cpu_vendor_list = {
     'Cascadelake-Server' => 'GenuineIntel',
     'Cascadelake-Server-noTSX' => 'GenuineIntel',
     KnightsMill => 'GenuineIntel',
-    'Icelake-Client' => 'GenuineIntel',
-    'Icelake-Client-noTSX' => 'GenuineIntel',
+    'Icelake-Client' => 'GenuineIntel', # depreacated, removed with QEMU 7.1
+    'Icelake-Client-noTSX' => 'GenuineIntel', # depreacated, removed with QEMU 7.1
     'Icelake-Server' => 'GenuineIntel',
     'Icelake-Server-noTSX' => 'GenuineIntel',
 
@@ -358,6 +364,8 @@ sub print_cpu_device {
 	    my $custom_cpu = get_custom_model($cpu);
 
 	    $cpu = $custom_cpu->{'reported-model'} // $cpu_fmt->{'reported-model'}->{default};
+	} elsif (my $replacement_type = $depreacated_cpu_map->{$cpu}) {
+	    $cpu = $replacement_type;
 	}
     }
 
@@ -473,6 +481,10 @@ sub get_cpu_options {
 	    $cputype = $custom_cpu->{'reported-model'} // $cpu_fmt->{'reported-model'}->{default};
 	    $kvm_off = $custom_cpu->{hidden} if defined($custom_cpu->{hidden});
 	    $hv_vendor_id = $custom_cpu->{'hv-vendor-id'};
+	}
+
+	if (my $replacement_type = $depreacated_cpu_map->{$cputype}) {
+	    $cputype = $replacement_type;
 	}
 
 	# VM-specific settings override custom CPU config
