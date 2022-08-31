@@ -36,6 +36,7 @@ use PVE::INotify;
 use PVE::JSONSchema qw(get_standard_option parse_property_string);
 use PVE::ProcFSTools;
 use PVE::PBSClient;
+use PVE::RESTEnvironment qw(log_warn);
 use PVE::RPCEnvironment;
 use PVE::Storage;
 use PVE::SysFSTools;
@@ -3611,7 +3612,7 @@ sub config_to_command {
 
 	    $read_only_str = ',readonly=on' if drive_is_read_only($conf, $d);
 	} else {
-	    warn "no efidisk configured! Using temporary efivars disk.\n";
+	    log_warn("no efidisk configured! Using temporary efivars disk.");
 	    $path = "/tmp/$vmid-ovmf.fd";
 	    PVE::Tools::file_copy($ovmf_vars, $path, -s $ovmf_vars);
 	    $format = 'raw';
