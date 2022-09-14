@@ -442,6 +442,7 @@ my $attach_tpmstate_drive = sub {
     $self->loginfo('attaching TPM drive to QEMU for backup');
 
     my $drive = "file=$task->{tpmpath},if=none,read-only=on,id=drive-tpmstate0-backup";
+    $drive =~ s/\\/\\\\/g;
     my $ret = PVE::QemuServer::Monitor::hmp_cmd($vmid, "drive_add auto \"$drive\"");
     die "attaching TPM drive failed\n" if $ret !~ m/OK/s;
 };
