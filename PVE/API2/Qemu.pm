@@ -4875,6 +4875,12 @@ __PACKAGE__->register_method({
 	    node => get_standard_option('pve-node'),
 	    vmid => get_standard_option('pve-vmid', { completion => \&PVE::QemuServer::complete_vmid }),
 	    snapname => get_standard_option('pve-snapshot-name'),
+	    start => {
+		type => 'boolean',
+		description => "Whether the VM should get started after rolling back successfully",
+		optional => 1,
+		default => 0,
+	    },
 	},
     },
     returns => {
@@ -4897,6 +4903,10 @@ __PACKAGE__->register_method({
 	my $realcmd = sub {
 	    PVE::Cluster::log_msg('info', $authuser, "rollback snapshot VM $vmid: $snapname");
 	    PVE::QemuConfig->snapshot_rollback($vmid, $snapname);
+
+	    if ($param->{start}) {
+		PVE::API2::Qemu->vm_start({ vmid => $vmid, node => $node });
+	    }
 	};
 
 	my $worker = sub {
