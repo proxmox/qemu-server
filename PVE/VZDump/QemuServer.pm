@@ -444,7 +444,7 @@ my $attach_tpmstate_drive = sub {
     my $drive = "file=$task->{tpmpath},if=none,read-only=on,id=drive-tpmstate0-backup";
     $drive =~ s/\\/\\\\/g;
     my $ret = PVE::QemuServer::Monitor::hmp_cmd($vmid, "drive_add auto \"$drive\"");
-    die "attaching TPM drive failed\n" if $ret !~ m/OK/s;
+    die "attaching TPM drive failed - $ret\n" if $ret !~ m/OK/s;
 };
 
 my $detach_tpmstate_drive = sub {
