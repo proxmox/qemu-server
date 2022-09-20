@@ -459,9 +459,8 @@ sub print_hostpci_devices {
 
 	my $sysfspath;
 	if ($d->{mdev} && scalar(@$pcidevices) == 1) {
-	    my $pci_id = $pcidevices->[0]->{id};
 	    my $uuid = generate_mdev_uuid($vmid, $i);
-	    $sysfspath = "/sys/bus/pci/devices/$pci_id/$uuid";
+	    $sysfspath = "/sys/bus/mdev/devices/$uuid";
 	} elsif ($d->{mdev}) {
 	    warn "ignoring mediated device '$id' with multifunction device\n";
 	}
