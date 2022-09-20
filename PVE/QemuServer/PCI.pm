@@ -552,15 +552,17 @@ my $write_pci_reservation_unlocked = sub {
     PVE::Tools::file_set_contents($PCIID_RESERVATION_FILE, $data);
 };
 
+# removes all pci reservations of the given vmid
 sub remove_pci_reservation {
-    my ($dropped_ids) = @_;
-
-    $dropped_ids = [ $dropped_ids ] if !ref($dropped_ids);
-    return if !scalar(@$dropped_ids); # do nothing for empty list
+    my ($vmid) = @_;
 
     PVE::Tools::lock_file($PCIID_RESERVATION_LOCK, 2, sub {
 	my $reservation_list = $parse_pci_reservation_unlocked->();
-	delete $reservation_list->@{$dropped_ids->@*};
+	for my $id (keys %$reservation_list) {
+	    my $reservation = $reservation_list->{$id};
+	    next if $reservation->{vmid} != $vmid;
+	    delete $reservation_list->{$id};
+	}
 	$write_pci_reservation_unlocked->($reservation_list);
     });
     die $@ if $@;
