@@ -5609,7 +5609,7 @@ sub vm_start_nolock {
 	push @$cmd, '-uuid', $uuid if defined($uuid);
     };
     if (my $err = $@) {
-	eval { cleanup_pci_devices($vmid, $conf) };
+	eval { PVE::QemuServer::PCI::remove_pci_reservation($pci_id_list) };
 	warn $@ if $@;
 	die $err;
     }
@@ -5705,9 +5705,7 @@ sub vm_start_nolock {
     if (my $err = $@) {
 	# deactivate volumes if start fails
 	eval { PVE::Storage::deactivate_volumes($storecfg, $vollist); };
-	warn $@ if $@;
-	eval { cleanup_pci_devices($vmid, $conf) };
-	warn $@ if $@;
+	eval { PVE::QemuServer::PCI::remove_pci_reservation($pci_id_list) };
 
 	die "start failed: $err";
     }
@@ -5872,25 +5870,6 @@ sub get_vm_volumes {
     return $vollist;
 }
 
-sub cleanup_pci_devices {
-    my ($vmid, $conf) = @_;
-
-    my $ids = [];
-    foreach my $key (keys %$conf) {
-	next if $key !~ m/^hostpci(\d+)$/;
-	my $hostpciindex = $1;
-	my $d = parse_hostpci($conf->{$key});
-	my $uuid = PVE::SysFSTools::generate_mdev_uuid($vmid, $hostpciindex);
-
-	foreach my $pci (@{$d->{pciid}}) {
-	    my $pciid = $pci->{id};
-	    push @$ids, $pci->{id};
-	    PVE::SysFSTools::pci_cleanup_mdev_device($pciid, $uuid);
-	}
-    }
-    PVE::QemuServer::PCI::remove_pci_reservation($ids);
-}
-
 sub vm_stop_cleanup {
     my ($storecfg, $vmid, $conf, $keepActive, $apply_pending_changes) = @_;
 
@@ -5922,7 +5901,20 @@ sub vm_stop_cleanup {
 	    unlink '/dev/shm/pve-shm-' . ($ivshmem->{name} // $vmid);
 	}
 
-	cleanup_pci_devices($vmid, $conf);
+	my $ids = [];
+	foreach my $key (keys %$conf) {
+	    next if $key !~ m/^hostpci(\d+)$/;
+	    my $hostpciindex = $1;
+	    my $d = parse_hostpci($conf->{$key});
+	    my $uuid = PVE::SysFSTools::generate_mdev_uuid($vmid, $hostpciindex);
+
+	    foreach my $pci (@{$d->{pciid}}) {
+		my $pciid = $pci->{id};
+		push @$ids, $pci->{id};
+		PVE::SysFSTools::pci_cleanup_mdev_device($pciid, $uuid);
+	    }
+	}
+	PVE::QemuServer::PCI::remove_pci_reservation($ids);
 
 	vmconfig_apply_pending($vmid, $conf, $storecfg) if $apply_pending_changes;
     };
