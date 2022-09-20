@@ -809,7 +809,7 @@ __PACKAGE__->register_method({
 		# we have to cleanup the tap devices after a crash
 
 		foreach my $opt (keys %$conf) {
-		    next if $opt !~  m/^net(\d)+$/;
+		    next if $opt !~  m/^net(\d+)$/;
 		    my $interface = $1;
 		    PVE::Network::tap_unplug("tap${vmid}i${interface}");
 		}
