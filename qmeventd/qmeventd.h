@@ -7,6 +7,7 @@
 */
 
 #include <sys/syscall.h>
+#include <time.h>
 
 #ifndef __NR_pidfd_open
 #define __NR_pidfd_open 434
@@ -63,6 +64,8 @@ struct Client {
 
     int fd;
     pid_t pid;
+    int pidfd;
+    time_t timeout;
 
     ClientType type;
     ClientState state;
@@ -81,11 +84,6 @@ struct Client {
         // vmid of referenced backup
         char vmid[16];
     } vzdump;
-};
-
-struct CleanupData {
-    pid_t pid;
-    int pidfd;
 };
 
 void handle_qmp_handshake(struct Client *client);
