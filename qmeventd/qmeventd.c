@@ -287,8 +287,10 @@ handle_qmp_return(struct Client *client, struct json_object *data, bool error)
 	    VERBOSE_PRINT("%s: QMP handshake complete\n", client->qemu.vmid);
 	    break;
 
-	case STATE_IDLE:
+	// we expect an empty return object after sending quit
 	case STATE_TERMINATING:
+	    break;
+	case STATE_IDLE:
 	    VERBOSE_PRINT("%s: spurious return value received\n",
 			  client->qemu.vmid);
 	    break;
@@ -477,8 +479,14 @@ terminate_client(struct Client *client)
 	}
     }
 
-    int err = kill(client->pid, SIGTERM);
-    log_neg(err, "kill");
+    // try to send a 'quit' command first, fallback to SIGTERM of the pid
+    static const char qmp_quit_command[] = "{\"execute\":\"quit\"}\n";
+    VERBOSE_PRINT("%s: sending 'quit' via QMP\n", client->qemu.vmid);
+    if (!must_write(client->fd, qmp_quit_command, sizeof(qmp_quit_command) - 1)) {
+	VERBOSE_PRINT("%s: sending 'SIGTERM' to pid %d\n", client->qemu.vmid, client->pid);
+	int err = kill(client->pid, SIGTERM);
+	log_neg(err, "kill");
+    }
 
     time_t timeout = time(NULL) + kill_timeout;
 
