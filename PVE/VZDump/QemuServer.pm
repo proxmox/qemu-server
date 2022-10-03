@@ -15,6 +15,7 @@ use PVE::INotify;
 use PVE::IPCC;
 use PVE::JSONSchema;
 use PVE::PBSClient;
+use PVE::RESTEnvironment qw(log_warn);
 use PVE::QMPClient;
 use PVE::Storage::Plugin;
 use PVE::Storage::PBSPlugin;
@@ -453,6 +454,26 @@ my $detach_tpmstate_drive = sub {
     eval { PVE::QemuServer::qemu_drivedel($vmid, "tpmstate0-backup"); };
 };
 
+my sub add_backup_performance_options {
+    my ($qmp_param, $perf, $qemu_support) = @_;
+
+    return if !$perf || scalar(keys $perf->%*) == 0;
+
+    if (!$qemu_support) {
+	my $settings_string = join(', ', sort keys $perf->%*);
+	log_warn("ignoring setting(s): $settings_string - issue checking if supported");
+	return;
+    }
+
+    if (defined($perf->{'max-workers'})) {
+	if ($qemu_support->{'backup-max-workers'}) {
+	    $qmp_param->{'max-workers'} = int($perf->{'max-workers'});
+	} else {
+	    log_warn("ignoring 'max-workers' setting - not supported by running QEMU");
+	}
+    }
+}
+
 sub archive_pbs {
     my ($self, $task, $vmid) = @_;
 
@@ -548,7 +569,10 @@ sub archive_pbs {
 	if (defined(my $ns = $scfg->{namespace})) {
 	    $params->{'backup-ns'} = $ns;
 	}
+
 	$params->{speed} = $opts->{bwlimit}*1024 if $opts->{bwlimit};
+	add_backup_performance_options($params, $opts->{performance}, $qemu_support);
+
 	$params->{fingerprint} = $fingerprint if defined($fingerprint);
 	$params->{'firewall-file'} = $firewall if -e $firewall;
 	if (-e $keyfile) {
@@ -716,6 +740,11 @@ sub archive_vma {
 	    die "interrupted by signal\n";
 	};
 
+	# Currently, failing to determine Proxmox support is not critical here, because it's only
+	# used for performance settings like 'max-workers'.
+	my $qemu_support = eval { mon_cmd($vmid, "query-proxmox-support") };
+	log_warn($@) if $@;
+
 	$attach_tpmstate_drive->($self, $task, $vmid);
 
 	my $outfh;
@@ -746,6 +775,7 @@ sub archive_vma {
 		devlist => $devlist
 	    };
 	    $params->{'firewall-file'} = $firewall if -e $firewall;
+	    add_backup_performance_options($params, $opts->{performance}, $qemu_support);
 
 	    $qmpclient->queue_cmd($vmid, $backup_cb, 'backup', %$params);
 	};
