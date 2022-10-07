@@ -3443,21 +3443,6 @@ sub query_understood_cpu_flags {
     return \@flags;
 }
 
-my sub get_cpuunits {
-    my ($conf) = @_;
-    my $is_cgroupv2 = PVE::CGroup::cgroup_mode() == 2;
-
-    my $cpuunits = $conf->{cpuunits};
-    return $is_cgroupv2 ? 100 : 1024 if !defined($cpuunits);
-
-    if ($is_cgroupv2) {
-	$cpuunits = 10000 if $cpuunits >= 10000; # v1 can be higher, so clamp v2 there
-    } else {
-	$cpuunits = 2 if $cpuunits < 2; # v2 can be lower, so clamp v1 there
-    }
-    return $cpuunits;
-}
-
 # Since commit 277d33454f77ec1d1e0bc04e37621e4dd2424b67 in pve-qemu, smm is not off by default
 # anymore. But smm=off seems to be required when using SeaBIOS and serial display.
 my sub should_disable_smm {
@@ -4991,7 +4976,7 @@ sub vmconfig_hotplug_pending {
 		die "skip\n" if !$hotplug_features->{memory};
 		$value = PVE::QemuServer::Memory::qemu_memory_hotplug($vmid, $conf, $defaults, $opt, $value);
 	    } elsif ($opt eq 'cpuunits') {
-		my $new_cpuunits = get_cpuunits({ $opt => $conf->{pending}->{$opt} }); # to clamp
+		my $new_cpuunits = PVE::CGroup::clamp_cpu_shares($conf->{pending}->{$opt}); #clamp
 		$cgroup->change_cpu_shares($new_cpuunits, 1024);
 	    } elsif ($opt eq 'cpulimit') {
 		my $cpulimit = $conf->{pending}->{$opt} == 0 ? -1 : int($conf->{pending}->{$opt} * 100000);
@@ -5621,7 +5606,7 @@ sub vm_start_nolock {
     # timeout should be more than enough here...
     PVE::Systemd::wait_for_unit_removed("$vmid.scope", 20);
 
-    my $cpuunits = get_cpuunits($conf);
+    my $cpuunits = PVE::CGroup::clamp_cpu_shares($conf->{cpuunits});
 
     my %run_params = (
 	timeout => $statefile ? undef : $start_timeout,
