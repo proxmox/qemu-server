@@ -5280,7 +5280,8 @@ sub vmconfig_update_disk {
 		    safe_string_ne($drive->{iothread}, $old_drive->{iothread}) ||
 		    safe_string_ne($drive->{queues}, $old_drive->{queues}) ||
 		    safe_string_ne($drive->{cache}, $old_drive->{cache}) ||
-		    safe_string_ne($drive->{ssd}, $old_drive->{ssd})) {
+		    safe_string_ne($drive->{ssd}, $old_drive->{ssd}) ||
+		    safe_string_ne($drive->{ro}, $old_drive->{ro})) {
 		    die "skip\n";
 		}
 
