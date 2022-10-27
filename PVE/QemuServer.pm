@@ -1665,8 +1665,12 @@ sub print_drive_commandline_full {
     # sometimes, just plain disable...
     my $lvm_no_io_uring = $scfg && $scfg->{type} eq 'lvm';
 
+    # io_uring causes problems when used with CIFS since kernel 5.15
+    # Some discussion: https://www.spinics.net/lists/linux-cifs/msg26734.html
+    my $cifs_no_io_uring = $scfg && $scfg->{type} eq 'cifs';
+
     if (!$drive->{aio}) {
-	if ($io_uring && !$rbd_no_io_uring && !$lvm_no_io_uring) {
+	if ($io_uring && !$rbd_no_io_uring && !$lvm_no_io_uring && !$cifs_no_io_uring) {
 	    # io_uring supports all cache modes
 	    $opts .= ",aio=io_uring";
 	} else {
