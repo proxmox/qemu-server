@@ -46,6 +46,7 @@ my $upid_exit = sub {
 };
 
 my $nodename = PVE::INotify::nodename();
+my %node = (node => $nodename);
 
 sub setup_environment {
     PVE::RPCEnvironment->setup_default_cli_env();
@@ -831,7 +832,7 @@ __PACKAGE__->register_method({
 	    warn "Restarting VM $vmid\n";
 	    PVE::API2::Qemu->vm_start({
 		vmid => $vmid,
-		node => $nodename,
+		%node,
 	    });
 	}
 
@@ -878,9 +879,8 @@ sub param_mapping {
 }
 
 our $cmddef = {
-    list=> [ "PVE::API2::Qemu", 'vmlist', [], { node => $nodename }, sub {
+    list=> [ "PVE::API2::Qemu", 'vmlist', [], { %node }, sub {
 	my $vmlist = shift;
-
 	exit 0 if (!scalar(@$vmlist));
 
 	printf "%10s %-20s %-10s %-10s %12s %-10s\n",
@@ -895,22 +895,21 @@ our $cmddef = {
 	}
     }],
 
-    create => [ "PVE::API2::Qemu", 'create_vm', ['vmid'], { node => $nodename }, $upid_exit ],
-    destroy => [ "PVE::API2::Qemu", 'destroy_vm', ['vmid'], { node => $nodename }, $upid_exit ],
-    clone => [ "PVE::API2::Qemu", 'clone_vm', ['vmid', 'newid'], { node => $nodename }, $upid_exit ],
+    create => [ "PVE::API2::Qemu", 'create_vm', ['vmid'], { %node }, $upid_exit ],
+    destroy => [ "PVE::API2::Qemu", 'destroy_vm', ['vmid'], { %node }, $upid_exit ],
+    clone => [ "PVE::API2::Qemu", 'clone_vm', ['vmid', 'newid'], { %node }, $upid_exit ],
 
-    migrate => [ "PVE::API2::Qemu", 'migrate_vm', ['vmid', 'target'], { node => $nodename }, $upid_exit ],
+    migrate => [ "PVE::API2::Qemu", 'migrate_vm', ['vmid', 'target'], { %node }, $upid_exit ],
 
-    set => [ "PVE::API2::Qemu", 'update_vm', ['vmid'], { node => $nodename } ],
+    set => [ "PVE::API2::Qemu", 'update_vm', ['vmid'], { %node } ],
 
-    resize => [ "PVE::API2::Qemu", 'resize_vm', ['vmid', 'disk', 'size'], { node => $nodename } ],
-
-    'move-disk' => [ "PVE::API2::Qemu", 'move_vm_disk', ['vmid', 'disk', 'storage'], { node => $nodename }, $upid_exit ],
+    resize => [ "PVE::API2::Qemu", 'resize_vm', ['vmid', 'disk', 'size'], { %node } ],
+    'move-disk' => [ "PVE::API2::Qemu", 'move_vm_disk', ['vmid', 'disk', 'storage'], { %node }, $upid_exit ],
     move_disk => { alias => 'move-disk' },
 
-    unlink => [ "PVE::API2::Qemu", 'unlink', ['vmid'], { node => $nodename } ],
+    unlink => [ "PVE::API2::Qemu", 'unlink', ['vmid'], { %node } ],
 
-    config => [ "PVE::API2::Qemu", 'vm_config', ['vmid'], { node => $nodename }, sub {
+    config => [ "PVE::API2::Qemu", 'vm_config', ['vmid'], { %node }, sub {
 	my $config = shift;
 	foreach my $k (sort (keys %$config)) {
 	    next if $k eq 'digest';
@@ -922,32 +921,32 @@ our $cmddef = {
 	}
     }],
 
-    pending => [ "PVE::API2::Qemu", 'vm_pending', ['vmid'], { node => $nodename }, \&PVE::GuestHelpers::format_pending ],
+    pending => [ "PVE::API2::Qemu", 'vm_pending', ['vmid'], { %node }, \&PVE::GuestHelpers::format_pending ],
     showcmd => [ __PACKAGE__, 'showcmd', ['vmid']],
 
     status => [ __PACKAGE__, 'status', ['vmid']],
 
     # FIXME: for 8.0 move to command group snapshot { create, list, destroy, rollback }
-    snapshot => [ "PVE::API2::Qemu", 'snapshot', ['vmid', 'snapname'], { node => $nodename } , $upid_exit ],
+    snapshot => [ "PVE::API2::Qemu", 'snapshot', ['vmid', 'snapname'], { %node } , $upid_exit ],
 
-    delsnapshot => [ "PVE::API2::Qemu", 'delsnapshot', ['vmid', 'snapname'], { node => $nodename } , $upid_exit ],
+    delsnapshot => [ "PVE::API2::Qemu", 'delsnapshot', ['vmid', 'snapname'], { %node } , $upid_exit ],
 
-    listsnapshot => [ "PVE::API2::Qemu", 'snapshot_list', ['vmid'], { node => $nodename }, \&PVE::GuestHelpers::print_snapshot_tree],
+    listsnapshot => [ "PVE::API2::Qemu", 'snapshot_list', ['vmid'], { %node }, \&PVE::GuestHelpers::print_snapshot_tree],
 
-    rollback => [ "PVE::API2::Qemu", 'rollback', ['vmid', 'snapname'], { node => $nodename } , $upid_exit ],
+    rollback => [ "PVE::API2::Qemu", 'rollback', ['vmid', 'snapname'], { %node } , $upid_exit ],
 
-    template => [ "PVE::API2::Qemu", 'template', ['vmid'], { node => $nodename }],
+    template => [ "PVE::API2::Qemu", 'template', ['vmid'], { %node }],
 
     # FIXME: should be in a power command group?
-    start => [ "PVE::API2::Qemu", 'vm_start', ['vmid'], { node => $nodename } , $upid_exit ],
-    stop => [ "PVE::API2::Qemu", 'vm_stop', ['vmid'], { node => $nodename }, $upid_exit ],
-    reset => [ "PVE::API2::Qemu", 'vm_reset', ['vmid'], { node => $nodename }, $upid_exit ],
-    shutdown => [ "PVE::API2::Qemu", 'vm_shutdown', ['vmid'], { node => $nodename }, $upid_exit ],
-    reboot => [ "PVE::API2::Qemu", 'vm_reboot', ['vmid'], { node => $nodename }, $upid_exit ],
-    suspend => [ "PVE::API2::Qemu", 'vm_suspend', ['vmid'], { node => $nodename }, $upid_exit ],
-    resume => [ "PVE::API2::Qemu", 'vm_resume', ['vmid'], { node => $nodename }, $upid_exit ],
+    start => [ "PVE::API2::Qemu", 'vm_start', ['vmid'], { %node } , $upid_exit ],
+    stop => [ "PVE::API2::Qemu", 'vm_stop', ['vmid'], { %node }, $upid_exit ],
+    reset => [ "PVE::API2::Qemu", 'vm_reset', ['vmid'], { %node }, $upid_exit ],
+    shutdown => [ "PVE::API2::Qemu", 'vm_shutdown', ['vmid'], { %node }, $upid_exit ],
+    reboot => [ "PVE::API2::Qemu", 'vm_reboot', ['vmid'], { %node }, $upid_exit ],
+    suspend => [ "PVE::API2::Qemu", 'vm_suspend', ['vmid'], { %node }, $upid_exit ],
+    resume => [ "PVE::API2::Qemu", 'vm_resume', ['vmid'], { %node }, $upid_exit ],
 
-    sendkey => [ "PVE::API2::Qemu", 'vm_sendkey', ['vmid', 'key'], { node => $nodename } ],
+    sendkey => [ "PVE::API2::Qemu", 'vm_sendkey', ['vmid', 'key'], { %node } ],
 
     vncproxy => [ __PACKAGE__, 'vncproxy', ['vmid']],
 
@@ -960,13 +959,13 @@ our $cmddef = {
 
     monitor  => [ __PACKAGE__, 'monitor', ['vmid']],
 
-    agent  => { alias => 'guest cmd' },
+    agent  => { alias => 'guest cmd' }, # FIXME: remove with PVE 8.0
 
     guest => {
-	cmd  => [ "PVE::API2::Qemu::Agent", 'agent', ['vmid', 'command'], { node => $nodename }, $print_agent_result ],
-	passwd => [ "PVE::API2::Qemu::Agent", 'set-user-password', [ 'vmid', 'username' ], { node => $nodename }],
-	exec => [ __PACKAGE__, 'exec', [ 'vmid', 'extra-args' ], { node => $nodename }, $print_agent_result],
-	'exec-status' => [ "PVE::API2::Qemu::Agent", 'exec-status', [ 'vmid', 'pid' ], { node => $nodename }, $print_agent_result],
+	cmd  => [ "PVE::API2::Qemu::Agent", 'agent', ['vmid', 'command'], { %node }, $print_agent_result ],
+	passwd => [ "PVE::API2::Qemu::Agent", 'set-user-password', [ 'vmid', 'username' ], { %node }],
+	exec => [ __PACKAGE__, 'exec', [ 'vmid', 'extra-args' ], { %node }, $print_agent_result],
+	'exec-status' => [ "PVE::API2::Qemu::Agent", 'exec-status', [ 'vmid', 'pid' ], { %node }, $print_agent_result],
     },
 
     mtunnel => [ __PACKAGE__, 'mtunnel', []],
@@ -979,13 +978,10 @@ our $cmddef = {
 
     importovf => [ __PACKAGE__, 'importovf', ['vmid', 'manifest', 'storage']],
 
-    cleanup => [ __PACKAGE__, 'cleanup', ['vmid', 'clean-shutdown', 'guest-requested'], { node => $nodename }],
+    cleanup => [ __PACKAGE__, 'cleanup', ['vmid', 'clean-shutdown', 'guest-requested'], { %node }],
 
     cloudinit => {
-	dump => [ "PVE::API2::Qemu", 'cloudinit_generated_config_dump', ['vmid', 'type'], { node => $nodename }, sub {
-		my $data = shift;
-		print "$data\n";
-	    }],
+	dump => [ "PVE::API2::Qemu", 'cloudinit_generated_config_dump', ['vmid', 'type'], { %node }, sub { print "$_[0]\n"; }],
     },
 
 };
