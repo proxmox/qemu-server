@@ -903,10 +903,6 @@ our $cmddef = {
 
     set => [ "PVE::API2::Qemu", 'update_vm', ['vmid'], { %node } ],
 
-    resize => [ "PVE::API2::Qemu", 'resize_vm', ['vmid', 'disk', 'size'], { %node } ],
-    'move-disk' => [ "PVE::API2::Qemu", 'move_vm_disk', ['vmid', 'disk', 'storage'], { %node }, $upid_exit ],
-    move_disk => { alias => 'move-disk' },
-
     unlink => [ "PVE::API2::Qemu", 'unlink', ['vmid'], { %node } ],
 
     config => [ "PVE::API2::Qemu", 'vm_config', ['vmid'], { %node }, sub {
@@ -954,8 +950,19 @@ our $cmddef = {
 
     unlock => [ __PACKAGE__, 'unlock', ['vmid']],
 
-    # FIXME: should this be in a 'disk' command group with move and resize and import?
-    rescan  => [ __PACKAGE__, 'rescan', []],
+    # TODO: evluate dropping below aliases for 8.0, if no usage is left
+    importdisk => { alias => 'disk import' },
+    'move-disk' => { alias => 'disk move' },
+    move_disk => { alias => 'disk move' },
+    rescan => { alias => 'disk rescan' },
+    resize => { alias => 'disk resize' },
+
+    disk => {
+	import => [ __PACKAGE__, 'importdisk', ['vmid', 'source', 'storage']],
+	'move' => [ "PVE::API2::Qemu", 'move_vm_disk', ['vmid', 'disk', 'storage'], { %node }, $upid_exit ],
+	rescan => [ __PACKAGE__, 'rescan', []],
+	resize => [ "PVE::API2::Qemu", 'resize_vm', ['vmid', 'disk', 'size'], { %node } ],
+    },
 
     monitor  => [ __PACKAGE__, 'monitor', ['vmid']],
 
@@ -973,8 +980,6 @@ our $cmddef = {
     nbdstop => [ __PACKAGE__, 'nbdstop', ['vmid']],
 
     terminal => [ __PACKAGE__, 'terminal', ['vmid']],
-
-    importdisk => [ __PACKAGE__, 'importdisk', ['vmid', 'source', 'storage']],
 
     importovf => [ __PACKAGE__, 'importovf', ['vmid', 'manifest', 'storage']],
 
