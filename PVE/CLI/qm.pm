@@ -903,8 +903,6 @@ our $cmddef = {
 
     set => [ "PVE::API2::Qemu", 'update_vm', ['vmid'], { %node } ],
 
-    unlink => [ "PVE::API2::Qemu", 'unlink', ['vmid'], { %node } ],
-
     config => [ "PVE::API2::Qemu", 'vm_config', ['vmid'], { %node }, sub {
 	my $config = shift;
 	foreach my $k (sort (keys %$config)) {
@@ -924,11 +922,8 @@ our $cmddef = {
 
     # FIXME: for 8.0 move to command group snapshot { create, list, destroy, rollback }
     snapshot => [ "PVE::API2::Qemu", 'snapshot', ['vmid', 'snapname'], { %node } , $upid_exit ],
-
     delsnapshot => [ "PVE::API2::Qemu", 'delsnapshot', ['vmid', 'snapname'], { %node } , $upid_exit ],
-
     listsnapshot => [ "PVE::API2::Qemu", 'snapshot_list', ['vmid'], { %node }, \&PVE::GuestHelpers::print_snapshot_tree],
-
     rollback => [ "PVE::API2::Qemu", 'rollback', ['vmid', 'snapname'], { %node } , $upid_exit ],
 
     template => [ "PVE::API2::Qemu", 'template', ['vmid'], { %node }],
@@ -956,12 +951,14 @@ our $cmddef = {
     move_disk => { alias => 'disk move' },
     rescan => { alias => 'disk rescan' },
     resize => { alias => 'disk resize' },
+    unlink => { alias => 'disk unlink' },
 
     disk => {
 	import => [ __PACKAGE__, 'importdisk', ['vmid', 'source', 'storage']],
 	'move' => [ "PVE::API2::Qemu", 'move_vm_disk', ['vmid', 'disk', 'storage'], { %node }, $upid_exit ],
 	rescan => [ __PACKAGE__, 'rescan', []],
 	resize => [ "PVE::API2::Qemu", 'resize_vm', ['vmid', 'disk', 'size'], { %node } ],
+	unlink => [ "PVE::API2::Qemu", 'unlink', ['vmid'], { %node } ],
     },
 
     monitor  => [ __PACKAGE__, 'monitor', ['vmid']],
