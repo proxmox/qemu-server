@@ -1,3 +1,35 @@
+qemu-server (7.2-5) bullseye; urgency=medium
+
+  * qmp client: increase guest fstrim timeout to 10 minutes
+
+  * fix #3577: prevent suspension for VMs with pci passthrough
+
+  * cpu config: map deprecated IceLake-Client CPU type to IceLake-Server
+
+  * snapshot: save VM state: propagate error from QEMU
+
+  * api: create disks: avoid adding secondary cloud-init drives
+
+  * vzdump: TPM state: escape drive string
+
+  * qmp client: increase default fallback timeout to 5s
+
+  * fix regex matching network devices in qm cleanup so that vNICs with double
+    digit IDs are covered too
+
+  * qmeventd: rework 'forced_cleanup' handling and set timeout to 60s
+
+  * qmeventd: send QMP 'quit' command instead of SIGTERM
+
+  * vzdump: set max-workers QMP option when specified and supported
+
+  * fix #4099: disable io_uring for virtual disks on CIFS storages for now
+
+  * qm: move VM-disk related commands to own command group, keep old ones
+    around for backward compatibility
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 07 Nov 2022 16:15:16 +0100
+
 qemu-server (7.2-4) bullseye; urgency=medium
 
   * fix #3754: encode JSON as utf8 for CLI
