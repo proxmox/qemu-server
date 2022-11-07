@@ -1,3 +1,9 @@
+qemu-server (7.2-6) bullseye; urgency=medium
+
+  * schema: move 'pve-targetstorage' to pve-common
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 07 Nov 2022 16:22:50 +0100
+
 qemu-server (7.2-5) bullseye; urgency=medium
 
   * qmp client: increase guest fstrim timeout to 10 minutes
