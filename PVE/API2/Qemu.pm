@@ -1075,6 +1075,7 @@ __PACKAGE__->register_method({
 
 	my $res = [
 	    { subdir => 'config' },
+	    { subdir => 'cloudinit' },
 	    { subdir => 'pending' },
 	    { subdir => 'status' },
 	    { subdir => 'unlink' },
