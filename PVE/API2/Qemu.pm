@@ -1402,24 +1402,17 @@ __PACKAGE__->register_method({
 	my ($param) = @_;
 
 	my $rpcenv = PVE::RPCEnvironment::get();
-
 	my $authuser = $rpcenv->get_user();
 
 	my $vmid = extract_param($param, 'vmid');
 
-	my $updatefn =  sub {
-
+	PVE::QemuConfig->lock_config($vmid, sub {
 	    my $conf = PVE::QemuConfig->load_config($vmid);
-
 	    PVE::QemuConfig->check_lock($conf);
 
 	    my $storecfg = PVE::Storage::config();
-
 	    PVE::QemuServer::vmconfig_update_cloudinit_drive($storecfg, $conf, $vmid);
-	};
-
-	PVE::QemuConfig->lock_config($vmid, $updatefn);
-
+	});
 	return;
     }});
 
