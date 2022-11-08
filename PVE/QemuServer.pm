@@ -4882,7 +4882,7 @@ sub vmconfig_hotplug_pending {
 		die "skip\n" if !$hotplug_features->{memory};
 		PVE::QemuServer::Memory::qemu_memory_hotplug($vmid, $conf, $defaults, $opt);
 	    } elsif ($opt eq 'cpuunits') {
-		$cgroup->change_cpu_shares(undef, 1024);
+		$cgroup->change_cpu_shares(undef);
 	    } elsif ($opt eq 'cpulimit') {
 		$cgroup->change_cpu_quota(undef, undef); # reset, cgroup module can better decide values
 	    } else {
@@ -4977,7 +4977,7 @@ sub vmconfig_hotplug_pending {
 		$value = PVE::QemuServer::Memory::qemu_memory_hotplug($vmid, $conf, $defaults, $opt, $value);
 	    } elsif ($opt eq 'cpuunits') {
 		my $new_cpuunits = PVE::CGroup::clamp_cpu_shares($conf->{pending}->{$opt}); #clamp
-		$cgroup->change_cpu_shares($new_cpuunits, 1024);
+		$cgroup->change_cpu_shares($new_cpuunits);
 	    } elsif ($opt eq 'cpulimit') {
 		my $cpulimit = $conf->{pending}->{$opt} == 0 ? -1 : int($conf->{pending}->{$opt} * 100000);
 		$cgroup->change_cpu_quota($cpulimit, 100000);
