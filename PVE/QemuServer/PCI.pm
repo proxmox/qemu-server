@@ -522,6 +522,9 @@ my $RUNDIR = '/run/qemu-server';
 my $PCIID_RESERVATION_FILE = "${RUNDIR}/pci-id-reservations";
 my $PCIID_RESERVATION_LOCK = "${PCIID_RESERVATION_FILE}.lock";
 
+# a list of PCI ID to VMID reservations, the validity is protected against leakage by either a PID,
+# for succesfully started VM processes, or a expiration time for the initial time window between
+# reservation and actual VM process start-up.
 my $parse_pci_reservation_unlocked = sub {
     my $pciids = {};
     if (my $fh = IO::File->new($PCIID_RESERVATION_FILE, "r")) {
@@ -552,7 +555,7 @@ my $write_pci_reservation_unlocked = sub {
     PVE::Tools::file_set_contents($PCIID_RESERVATION_FILE, $data);
 };
 
-# removes all pci reservations of the given vmid
+# removes all PCI device reservations held by the `vmid`
 sub remove_pci_reservation {
     my ($vmid) = @_;
 
