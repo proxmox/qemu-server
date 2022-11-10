@@ -1,3 +1,33 @@
+qemu-server (7.2-7) bullseye; urgency=medium
+
+  * api: create/update vm: automatically clamp cpuunit value depending of
+    cgroup version
+
+  * improve cloud init support and add cloudinit hotplug
+
+  * vzdump: skip `special:cloudinit` section
+
+  * fix #3890 - GUI: warn for unlikely iothread config clashes
+
+  * fix #4228: add `start` parameter to snapshot rollback API so that one can
+    automatocally start the VM after rollback finished.
+
+  * vm start/stop: cleanup passed-through pci devices in more situations
+
+  * fix #3593: allow one to configure task set affinity for VMs
+
+  * fix #4324: USB: use qemu-xhci for machine versions >= 7.1
+
+  * usb: increase max USB devices from 5 to 14 for modern 7.1 machine
+    and OS versions (Linux 2.6+ annd Windows 8+)
+
+  * fix #4201: delete cloud-init disk on rollback
+
+  * net devs: register vNIC MAC-Address manually to FDB on start/resume if
+    bridge has learning disabled
+
+ -- Proxmox Support Team <support@proxmox.com>  Sun, 13 Nov 2022 15:46:18 +0100
+
 qemu-server (7.2-6) bullseye; urgency=medium
 
   * schema: move 'pve-targetstorage' to pve-common
