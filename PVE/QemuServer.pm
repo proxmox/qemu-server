@@ -823,7 +823,7 @@ while (my ($k, $v) = each %$confdesc) {
     PVE::JSONSchema::register_standard_option("pve-qm-$k", $v);
 }
 
-my $MAX_USB_DEVICES = 5;
+my $MAX_USB_DEVICES = 14;
 my $MAX_NETS = 32;
 my $MAX_SERIAL_PORTS = 4;
 my $MAX_PARALLEL_PORTS = 3;
@@ -1102,7 +1102,8 @@ EODESCR
 my $usbdesc = {
     optional => 1,
     type => 'string', format => $usb_fmt,
-    description => "Configure an USB device (n is 0 to 4).",
+    description => "Configure an USB device (n is 0 to 4, for machine version >= 7.1 and ostype"
+	." l26 or windows > 7, n can be up to 14).",
 };
 PVE::JSONSchema::register_standard_option("pve-qm-usb", $usbdesc);
 
