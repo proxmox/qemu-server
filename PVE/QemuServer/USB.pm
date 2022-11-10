@@ -3,6 +3,7 @@ package PVE::QemuServer::USB;
 use strict;
 use warnings;
 use PVE::QemuServer::PCI qw(print_pci_addr);
+use PVE::QemuServer::Machine;
 use PVE::JSONSchema;
 use base 'Exporter';
 
@@ -42,7 +43,7 @@ sub get_usb_controllers {
     if ($arch eq 'aarch64') {
         $pciaddr = print_pci_addr('ehci', $bridges, $arch, $machine);
         push @$devices, '-device', "usb-ehci,id=ehci$pciaddr";
-    } elsif ($machine !~ /q35/) { # FIXME: combine this and machine_type_is_q35
+    } elsif (!PVE::QemuServer::Machine::machine_type_is_q35($conf)) {
         $pciaddr = print_pci_addr("piix3", $bridges, $arch, $machine);
         push @$devices, '-device', "piix3-usb-uhci,id=uhci$pciaddr.0x2";
 
