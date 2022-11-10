@@ -1092,7 +1092,9 @@ EODESCR
     usb3 => {
 	optional => 1,
 	type => 'boolean',
-	description => "Specifies whether if given host option is a USB3 device or port.",
+	description => "Specifies whether if given host option is a USB3 device or port."
+	    ." For modern guests (machine version >= 7.1 and ostype l26 and windows > 7), this flag"
+	    ." is irrelevant (all devices are plugged into a xhci controller).",
         default => 0,
     },
 };
@@ -3677,7 +3679,7 @@ sub config_to_command {
 
     # add usb controllers
     my @usbcontrollers = PVE::QemuServer::USB::get_usb_controllers(
-        $conf, $bridges, $arch, $machine_type, $usbdesc->{format}, $MAX_USB_DEVICES);
+	$conf, $bridges, $arch, $machine_type, $usbdesc->{format}, $MAX_USB_DEVICES, $machine_version);
     push @$devices, @usbcontrollers if @usbcontrollers;
     my $vga = parse_vga($conf->{vga});
 
@@ -3719,7 +3721,7 @@ sub config_to_command {
     $usb_dev_features->{spice_usb3} = 1 if min_version($machine_version, 4, 0);
 
     my @usbdevices = PVE::QemuServer::USB::get_usb_devices(
-        $conf, $usbdesc->{format}, $MAX_USB_DEVICES, $usb_dev_features, $bootorder);
+	$conf, $usbdesc->{format}, $MAX_USB_DEVICES, $usb_dev_features, $bootorder, $machine_version);
     push @$devices, @usbdevices if @usbdevices;
 
     # serial devices
