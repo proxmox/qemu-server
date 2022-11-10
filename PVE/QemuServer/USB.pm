@@ -37,7 +37,7 @@ sub parse_usb_device {
     return $res;
 }
 
-my sub check_usb_index {
+my sub assert_usb_index_is_useable {
     my ($index, $use_qemu_xhci) = @_;
 
     die "using usb$index is only possible with machine type >= 7.1 and ostype l26 or windows > 7\n"
@@ -83,7 +83,7 @@ sub get_usb_controllers {
     my $use_usb = 0;
     for (my $i = 0; $i < $max_usb_devices; $i++)  {
 	next if !$conf->{"usb$i"};
-	check_usb_index($i, $use_qemu_xhci);
+	assert_usb_index_is_useable($i, $use_qemu_xhci);
 	my $d = eval { PVE::JSONSchema::parse_property_string($format,$conf->{"usb$i"}) };
 	next if !$d;
 	$use_usb = 1;
@@ -112,7 +112,7 @@ sub get_usb_devices {
     for (my $i = 0; $i < $max_usb_devices; $i++)  {
 	my $devname = "usb$i";
 	next if !$conf->{$devname};
-	check_usb_index($i, $use_qemu_xhci);
+	assert_usb_index_is_useable($i, $use_qemu_xhci);
 	my $d = eval { PVE::JSONSchema::parse_property_string($format,$conf->{$devname}) };
 	next if !$d;
 
