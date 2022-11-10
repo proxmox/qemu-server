@@ -63,38 +63,29 @@ sub get_usb_controllers {
     } elsif (!PVE::QemuServer::Machine::machine_type_is_q35($conf)) {
         $pciaddr = print_pci_addr("piix3", $bridges, $arch, $machine);
         push @$devices, '-device', "piix3-usb-uhci,id=uhci$pciaddr.0x2";
-
-	if (!$use_qemu_xhci) {
-	    my $use_usb2 = 0;
-	    for (my $i = 0; $i < $max_usb_devices; $i++)  {
-		next if !$conf->{"usb$i"};
-		my $d = eval { PVE::JSONSchema::parse_property_string($format,$conf->{"usb$i"}) };
-		next if !$d || $d->{usb3}; # do not add usb2 controller if we have only usb3 devices
-		$use_usb2 = 1;
-	    }
-	    # include usb device config
-	    push @$devices, '-readconfig', '/usr/share/qemu-server/pve-usb.cfg' if $use_usb2;
-	}
     }
 
-    # add usb3 controller if needed
-
-    my $use_usb3 = 0;
-    my $use_usb = 0;
+    my ($use_usb2, $use_usb3) = 0;
+    my $any_usb = 0;
     for (my $i = 0; $i < $max_usb_devices; $i++)  {
 	next if !$conf->{"usb$i"};
 	assert_usb_index_is_useable($i, $use_qemu_xhci);
-	my $d = eval { PVE::JSONSchema::parse_property_string($format,$conf->{"usb$i"}) };
-	next if !$d;
-	$use_usb = 1;
+	my $d = eval { PVE::JSONSchema::parse_property_string($format,$conf->{"usb$i"}) } or next;
+	$any_usb = 1;
 	$use_usb3 = 1 if $d->{usb3};
+	$use_usb2 = 1 if !$d->{usb3};
+    }
+
+    if (!$use_qemu_xhci && $use_usb2 && $arch ne 'aarch64') {
+	# include usb device config if still on x86 before-xhci machines and if USB 3 is not used
+	push @$devices, '-readconfig', '/usr/share/qemu-server/pve-usb.cfg';
     }
 
     $pciaddr = print_pci_addr("xhci", $bridges, $arch, $machine);
-    if ($use_qemu_xhci && $use_usb) {
+    if ($use_qemu_xhci && $any_usb) {
 	push @$devices, '-device', print_qemu_xhci_controller($pciaddr);
-    } else {
-	push @$devices, '-device', "nec-usb-xhci,id=xhci$pciaddr" if $use_usb3;
+    } elsif ($use_usb3) {
+	push @$devices, '-device', "nec-usb-xhci,id=xhci$pciaddr";
     }
 
     return @$devices;
