@@ -3553,7 +3553,7 @@ sub config_to_command {
     ($use_old_bios_files, $machine_type) = qemu_use_old_bios_files($machine_type);
 
     if ($conf->{affinity}) {
-	push @$cmd, "taskset";
+	push @$cmd, "/usr/bin/taskset";
 	push @$cmd, "--cpu-list";
 	push @$cmd, "--all-tasks";
 	push @$cmd, $conf->{affinity};
