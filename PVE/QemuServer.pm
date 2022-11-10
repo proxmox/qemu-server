@@ -299,7 +299,9 @@ my $confdesc = {
 	type => 'string', format => 'pve-hotplug-features',
 	description => "Selectively enable hotplug features. This is a comma separated list of"
 	    ." hotplug features: 'network', 'disk', 'cpu', 'memory', 'usb' and 'cloudinit'. Use '0' to disable"
-	    ." hotplug completely. Using '1' as value is an alias for the default `network,disk,usb`.",
+	    ." hotplug completely. Using '1' as value is an alias for the default `network,disk,usb`."
+	    ." USB hotplugging is possible for guests with machine version >= 7.1 and ostype l26 or"
+	    ." windows > 7.",
         default => 'network,disk,usb',
     },
     reboot => {
@@ -4202,7 +4204,7 @@ sub vm_devices_list {
     # qom-list path=/machine/peripheral
     my $resperipheral = mon_cmd($vmid, 'qom-list', path => '/machine/peripheral');
     foreach my $per (@$resperipheral) {
-	if ($per->{name} =~ m/^usb\d+$/) {
+	if ($per->{name} =~ m/^usb(?:redirdev)?\d+$/) {
 	    $devices->{$per->{name}} = 1;
 	}
     }
@@ -4225,11 +4227,12 @@ sub vm_deviceplug {
 	qemu_deviceadd($vmid, print_tabletdevice_full($conf, $arch));
     } elsif ($deviceid eq 'keyboard') {
 	qemu_deviceadd($vmid, print_keyboarddevice_full($conf, $arch));
+    } elsif ($deviceid =~ m/^usbredirdev(\d+)$/) {
+	my $id = $1;
+	qemu_spice_usbredir_chardev_add($vmid, "usbredirchardev$id");
+	qemu_deviceadd($vmid, PVE::QemuServer::USB::print_spice_usbdevice($id, "xhci", $id + 1));
     } elsif ($deviceid =~ m/^usb(\d+)$/) {
-	die "usb hotplug currently not reliable\n";
-	# since we can't reliably hot unplug all added usb devices and usb
-	# passthrough breaks live migration we disable usb hotplugging for now
-	#qemu_deviceadd($vmid, PVE::QemuServer::USB::print_usbdevice_full($conf, $deviceid, $device));
+	qemu_deviceadd($vmid, PVE::QemuServer::USB::print_usbdevice_full($conf, $deviceid, $device, {}, $1 + 1));
     } elsif ($deviceid =~ m/^(virtio)(\d+)$/) {
 	qemu_iothread_add($vmid, $deviceid, $device);
 
@@ -4315,14 +4318,14 @@ sub vm_deviceunplug {
     my $bootdisks = PVE::QemuServer::Drive::get_bootdisks($conf);
     die "can't unplug bootdisk '$deviceid'\n" if grep {$_ eq $deviceid} @$bootdisks;
 
-    if ($deviceid eq 'tablet' || $deviceid eq 'keyboard') {
+    if ($deviceid eq 'tablet' || $deviceid eq 'keyboard' || $deviceid eq 'xhci') {
 	qemu_devicedel($vmid, $deviceid);
+    } elsif ($deviceid =~ m/^usbredirdev\d+$/) {
+	qemu_devicedel($vmid, $deviceid);
+	qemu_devicedelverify($vmid, $deviceid);
     } elsif ($deviceid =~ m/^usb\d+$/) {
-	die "usb hotplug currently not reliable\n";
-	# when unplugging usb devices this way, there may be remaining usb
-	# controllers/hubs so we disable it for now
-	#qemu_devicedel($vmid, $deviceid);
-	#qemu_devicedelverify($vmid, $deviceid);
+	qemu_devicedel($vmid, $deviceid);
+	qemu_devicedelverify($vmid, $deviceid);
     } elsif ($deviceid =~ m/^(virtio)(\d+)$/) {
 	my $device = parse_drive($deviceid, $conf->{$deviceid});
 
@@ -4352,6 +4355,20 @@ sub vm_deviceunplug {
     }
 
     return 1;
+}
+
+sub qemu_spice_usbredir_chardev_add {
+    my ($vmid, $id) = @_;
+
+    mon_cmd($vmid, "chardev-add" , (
+	id => $id,
+	backend => {
+	    type => 'spicevmc',
+	    data => {
+		type => "usbredir",
+	    },
+	},
+    ));
 }
 
 sub qemu_deviceadd {
@@ -4568,15 +4585,14 @@ sub qemu_usb_hotplug {
     vm_deviceunplug($vmid, $conf, $deviceid);
 
     # check if xhci controller is necessary and available
-    if ($device->{usb3}) {
+    my $devicelist = vm_devices_list($vmid);
 
-	my $devicelist = vm_devices_list($vmid);
-
-	if (!$devicelist->{xhci}) {
-	    my $pciaddr = print_pci_addr("xhci", undef, $arch, $machine_type);
-	    qemu_deviceadd($vmid, "nec-usb-xhci,id=xhci$pciaddr");
-	}
+    if (!$devicelist->{xhci}) {
+	my $pciaddr = print_pci_addr("xhci", undef, $arch, $machine_type);
+	qemu_deviceadd($vmid, PVE::QemuServer::USB::print_qemu_xhci_controller($pciaddr));
     }
+
+    # print_usbdevice_full expects the parsed device
     my $d = parse_usb_device($device->{host});
     $d->{usb3} = $device->{usb3};
 
@@ -4885,7 +4901,12 @@ sub vmconfig_hotplug_pending {
 	PVE::QemuConfig->write_config($vmid, $conf);
     }
 
+    my $ostype = $conf->{ostype};
+    my $version = extract_version($machine_type, get_running_qemu_version($vmid));
     my $hotplug_features = parse_hotplug_features(defined($conf->{hotplug}) ? $conf->{hotplug} : '1');
+    my $usb_hotplug = $hotplug_features->{usb}
+	&& min_version($version, 7, 1)
+	&& defined($ostype) && ($ostype eq 'l26' || windows_version($ostype) > 7);
 
     my $cgroup = PVE::QemuServer::CGroup->new($vmid);
     my $pending_delete_hash = PVE::QemuConfig->parse_pending_delete($conf->{pending}->{delete});
@@ -4905,11 +4926,11 @@ sub vmconfig_hotplug_pending {
 		    vm_deviceunplug($vmid, $conf, 'tablet');
 		    vm_deviceunplug($vmid, $conf, 'keyboard') if $arch eq 'aarch64';
 		}
-	    } elsif ($opt =~ m/^usb\d+/) {
-		die "skip\n";
-		# since we cannot reliably hot unplug usb devices we are disabling it
-		#die "skip\n" if !$hotplug_features->{usb} || $conf->{$opt} =~ m/spice/i;
-		#vm_deviceunplug($vmid, $conf, $opt);
+	    } elsif ($opt =~ m/^usb(\d+)$/) {
+		my $index = $1;
+		die "skip\n" if !$usb_hotplug;
+		vm_deviceunplug($vmid, $conf, "usbredirdev$index"); # if it's a spice port
+		vm_deviceunplug($vmid, $conf, $opt);
 	    } elsif ($opt eq 'vcpus') {
 		die "skip\n" if !$hotplug_features->{cpu};
 		qemu_cpu_hotplug($vmid, $conf, undef);
@@ -4963,13 +4984,15 @@ sub vmconfig_hotplug_pending {
 		    vm_deviceunplug($vmid, $conf, 'tablet');
 		    vm_deviceunplug($vmid, $conf, 'keyboard') if $arch eq 'aarch64';
 		}
-	    } elsif ($opt =~ m/^usb\d+$/) {
-		die "skip\n";
-		# since we cannot reliably hot unplug usb devices we disable it for now
-		#die "skip\n" if !$hotplug_features->{usb} || $value =~ m/spice/i;
-		#my $d = eval { parse_property_string($usbdesc->{format}, $value) };
-		#die "skip\n" if !$d;
-		#qemu_usb_hotplug($storecfg, $conf, $vmid, $opt, $d, $arch, $machine_type);
+	    } elsif ($opt =~ m/^usb(\d+)$/) {
+		my $index = $1;
+		die "skip\n" if !$usb_hotplug;
+		my $d = eval { parse_property_string($usbdesc->{format}, $value) };
+		my $id = $opt;
+		if ($d->{host} eq 'spice')  {
+		    $id = "usbredirdev$index";
+		}
+		qemu_usb_hotplug($storecfg, $conf, $vmid, $id, $d, $arch, $machine_type);
 	    } elsif ($opt eq 'vcpus') {
 		die "skip\n" if !$hotplug_features->{cpu};
 		qemu_cpu_hotplug($vmid, $conf, $value);
@@ -5019,6 +5042,20 @@ sub vmconfig_hotplug_pending {
 	    delete $conf->{pending}->{$opt};
 	}
     }
+
+    # unplug xhci controller if no usb device is left
+    if ($usb_hotplug) {
+	my $has_usb = 0;
+	for (my $i = 0; $i < $MAX_USB_DEVICES; $i++) {
+	    next if !defined($conf->{"usb$i"});
+	    $has_usb = 1;
+	    last;
+	}
+	if (!$has_usb) {
+	    vm_deviceunplug($vmid, $conf, 'xhci');
+	}
+    }
+
     PVE::QemuConfig->write_config($vmid, $conf);
 
     if($hotplug_features->{cloudinit}) {
