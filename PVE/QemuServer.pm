@@ -1457,7 +1457,7 @@ sub print_tabletdevice_full {
 
     # we use uhci for old VMs because tablet driver was buggy in older qemu
     my $usbbus;
-    if (PVE::QemuServer::Machine::machine_type_is_q35($conf) || $arch eq 'aarch64') {
+    if ($q35 || $arch eq 'aarch64') {
 	$usbbus = 'ehci';
     } else {
 	$usbbus = 'uhci';
