@@ -120,6 +120,8 @@ sub print_usbdevice_full {
 	$usbdevice .= ",vendorid=0x$device->{vendorid},productid=0x$device->{productid}";
     } elsif (defined($device->{hostbus}) && defined($device->{hostport})) {
 	$usbdevice .= ",hostbus=$device->{hostbus},hostport=$device->{hostport}";
+    } else {
+	die "no usb id or path given\n";
     }
 
     $usbdevice .= ",id=$deviceid";
