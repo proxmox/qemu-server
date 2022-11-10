@@ -5930,7 +5930,12 @@ sub cleanup_pci_devices {
 	my $hostpciindex = $1;
 	my $uuid = PVE::SysFSTools::generate_mdev_uuid($vmid, $hostpciindex);
 	my $d = parse_hostpci($conf->{$key});
-	PVE::SysFSTools::pci_cleanup_mdev_device($uuid) if $d->{mdev};
+	if ($d->{mdev}) {
+	    # NOTE: avoid PVE::SysFSTools::pci_cleanup_mdev_device as it requires PCI ID and we
+	    # don't want to break ABI just for this two liner
+	    my $dev_sysfs_dir = "/sys/bus/mdev/devices/$uuid";
+	    PVE::SysFSTools::file_write("$dev_sysfs_dir/remove", "1") if -e $dev_sysfs_dir;
+	}
     }
     PVE::QemuServer::PCI::remove_pci_reservation($vmid);
 }
