@@ -107,10 +107,7 @@ sub get_usb_devices {
 	my $d = eval { PVE::JSONSchema::parse_property_string($format,$conf->{$devname}) };
 	next if !$d;
 
-	my $port;
-	if ($use_qemu_xhci) {
-	    $port = $i + 1;
-	}
+	my $port = $use_qemu_xhci ? $i + 1 : undef;
 
 	if (defined($d->{host})) {
 	    my $hostdevice = parse_usb_device($d->{host});
@@ -154,7 +151,7 @@ sub print_usbdevice_full {
     my $usbdevice = "usb-host";
 
     # if it is a usb3 device or with newer qemu, attach it to the xhci controller, else omit the bus option
-    if($device->{usb3} || defined($port)) {
+    if ($device->{usb3} || defined($port)) {
 	$usbdevice .= ",bus=xhci.0";
 	$usbdevice .= ",port=$port" if defined($port);
     }
