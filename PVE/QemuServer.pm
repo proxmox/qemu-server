@@ -46,7 +46,7 @@ use PVE::Tools qw(run_command file_read_firstline file_get_contents dir_glob_for
 
 use PVE::QMPClient;
 use PVE::QemuConfig;
-use PVE::QemuServer::Helpers qw(min_version config_aware_timeout);
+use PVE::QemuServer::Helpers qw(min_version config_aware_timeout windows_version);
 use PVE::QemuServer::Cloudinit;
 use PVE::QemuServer::CGroup;
 use PVE::QemuServer::CPUConfig qw(print_cpu_device get_cpu_options);
@@ -7958,24 +7958,6 @@ sub scsihw_infos {
 	: "scsihw";
 
     return ($maxdev, $controller, $controller_prefix);
-}
-
-sub windows_version {
-    my ($ostype) = @_;
-
-    return 0 if !$ostype;
-
-    my $winversion = 0;
-
-    if($ostype eq 'wxp' || $ostype eq 'w2k3' || $ostype eq 'w2k') {
-        $winversion = 5;
-    } elsif($ostype eq 'w2k8' || $ostype eq 'wvista') {
-        $winversion = 6;
-    } elsif ($ostype =~ m/^win(\d+)$/) {
-        $winversion = $1;
-    }
-
-    return $winversion;
 }
 
 sub resolve_dst_disk_format {

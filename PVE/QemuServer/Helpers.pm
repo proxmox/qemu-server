@@ -13,6 +13,7 @@ use base 'Exporter';
 our @EXPORT_OK = qw(
 min_version
 config_aware_timeout
+windows_version
 );
 
 my $nodename = PVE::INotify::nodename();
@@ -183,6 +184,24 @@ sub pvecfg_min_version {
     }
 
     die "internal error: cannot check version of invalid string '$verstr'";
+}
+
+sub windows_version {
+    my ($ostype) = @_;
+
+    return 0 if !$ostype;
+
+    my $winversion = 0;
+
+    if($ostype eq 'wxp' || $ostype eq 'w2k3' || $ostype eq 'w2k') {
+        $winversion = 5;
+    } elsif($ostype eq 'w2k8' || $ostype eq 'wvista') {
+        $winversion = 6;
+    } elsif ($ostype =~ m/^win(\d+)$/) {
+        $winversion = $1;
+    }
+
+    return $winversion;
 }
 
 1;
