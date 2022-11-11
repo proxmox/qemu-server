@@ -56,11 +56,12 @@ sub get_usb_controllers {
 
     my $use_qemu_xhci = min_version($machine_version, 7, 1)
 	&& defined($ostype) && ($ostype eq 'l26' || windows_version($ostype) > 7);
+    my $is_q35 = PVE::QemuServer::Machine::machine_type_is_q35($conf);
 
     if ($arch eq 'aarch64') {
         $pciaddr = print_pci_addr('ehci', $bridges, $arch, $machine);
         push @$devices, '-device', "usb-ehci,id=ehci$pciaddr";
-    } elsif (!PVE::QemuServer::Machine::machine_type_is_q35($conf)) {
+    } elsif (!$is_q35) {
         $pciaddr = print_pci_addr("piix3", $bridges, $arch, $machine);
         push @$devices, '-device', "piix3-usb-uhci,id=uhci$pciaddr.0x2";
     }
@@ -76,7 +77,7 @@ sub get_usb_controllers {
 	$use_usb2 = 1 if !$d->{usb3};
     }
 
-    if (!$use_qemu_xhci && $use_usb2 && $arch ne 'aarch64') {
+    if (!$use_qemu_xhci && !$is_q35 && $use_usb2 && $arch ne 'aarch64') {
 	# include usb device config if still on x86 before-xhci machines and if USB 3 is not used
 	push @$devices, '-readconfig', '/usr/share/qemu-server/pve-usb.cfg';
     }
