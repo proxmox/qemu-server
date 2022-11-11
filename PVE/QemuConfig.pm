@@ -498,7 +498,7 @@ sub __snapshot_rollback_get_unused {
     $class->foreach_volume($conf, sub {
 	my ($vs, $volume) = @_;
 
-	return if PVE::QemuServer::drive_is_cdrom($volume);
+	return if PVE::QemuServer::drive_is_cdrom($volume, 1);
 
 	my $found = 0;
 	my $volid = $volume->{file};
@@ -507,7 +507,7 @@ sub __snapshot_rollback_get_unused {
 	    my ($ds, $drive) = @_;
 
 	    return if $found;
-	    return if PVE::QemuServer::drive_is_cdrom($drive);
+	    return if PVE::QemuServer::drive_is_cdrom($drive, 1);
 
 	    $found = 1
 		if ($drive->{file} && $drive->{file} eq $volid);
@@ -517,6 +517,19 @@ sub __snapshot_rollback_get_unused {
     });
 
     return $unused;
+}
+
+sub add_unused_volume {
+    my ($class, $config, $volid) = @_;
+
+    if ($volid =~ m/vm-\d+-cloudinit/) {
+	print "found unused cloudinit disk '$volid', removing it\n";
+	my $storecfg = PVE::Storage::config();
+	PVE::Storage::vdisk_free($storecfg, $volid);
+	return undef;
+    } else {
+        return $class->SUPER::add_unused_volume($config, $volid);
+    }
 }
 
 sub load_current_config {
