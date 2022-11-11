@@ -22,6 +22,9 @@
   -device 'qemu-xhci,p2=15,p3=15,id=xhci,bus=pci.1,addr=0x1b' \
   -chardev 'spicevmc,id=usbredirchardev1,name=usbredir' \
   -device 'usb-redir,chardev=usbredirchardev1,id=usbredirdev1,bus=xhci.0,port=2' \
+  -chardev 'spicevmc,id=usbredirchardev5,name=usbredir' \
+  -device 'usb-redir,chardev=usbredirchardev5,id=usbredirdev5,bus=xhci.0,port=6' \
+  -device 'usb-host,bus=xhci.0,port=14,hostbus=1,hostport=14,id=usb13' \
   -device 'qxl-vga,id=vga,max_outputs=4,bus=pci.0,addr=0x2' \
   -device 'virtio-serial,id=spice,bus=pci.0,addr=0x9' \
   -chardev 'spicevmc,id=vdagent,name=vdagent' \
