@@ -1941,14 +1941,14 @@ sub parse_numa {
 
 # netX: e1000=XX:XX:XX:XX:XX:XX,bridge=vmbr0,rate=<mbps>
 sub parse_net {
-    my ($data) = @_;
+    my ($data, $disable_mac_autogen) = @_;
 
     my $res = eval { parse_property_string($net_fmt, $data) };
     if ($@) {
 	warn $@;
 	return;
     }
-    if (!defined($res->{macaddr})) {
+    if (!defined($res->{macaddr}) && !$disable_mac_autogen) {
 	my $dc = PVE::Cluster::cfs_read_file('datacenter.cfg');
 	$res->{macaddr} = PVE::Tools::random_ether_addr($dc->{mac_prefix});
     }
@@ -4038,6 +4038,7 @@ sub config_to_command {
 	next if !$conf->{$netname};
 	my $d = parse_net($conf->{$netname});
 	next if !$d;
+	# save the MAC addr here (could be auto-gen. in some odd setups) for FDB registering later?
 
 	$use_virtio = 1 if $d->{model} eq 'virtio';
 
@@ -8319,8 +8320,15 @@ sub add_nets_bridge_fdb {
     for my $opt (keys %$conf) {
 	next if $opt !~ m/^net(\d+)$/;
 	my $iface = "tap${vmid}i$1";
-	my $net = parse_net($conf->{$opt}) or next;
-	my $mac = $net->{macaddr} or next;
+	# NOTE: expect setups with learning off to *not* use auto-random-generation of MAC on start
+	my $net = parse_net($conf->{$opt}, 1) or next;
+
+	my $mac = $net->{macaddr};
+	if (!$mac) {
+	    log_warn("MAC learning disabled, but vNIC '$iface' has no static MAC to add to forwarding DB!")
+		if !file_read_firstline("/sys/class/net/$iface/brport/learning");
+	    next;
+	}
 
 	if ($have_sdn) {
 	    PVE::Network::SDN::Zones::add_bridge_fdb($iface, $mac, $net->{bridge}, $net->{firewall});
