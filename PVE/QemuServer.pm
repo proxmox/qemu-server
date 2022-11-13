@@ -1748,7 +1748,7 @@ sub print_pbs_blockdev {
 }
 
 sub print_netdevice_full {
-    my ($vmid, $conf, $net, $netid, $bridges, $use_old_bios_files, $arch, $machine_type) = @_;
+    my ($vmid, $conf, $net, $netid, $bridges, $use_old_bios_files, $arch, $machine_type, $machine_version) = @_;
 
     my $device = $net->{model};
     if ($net->{model} eq 'virtio') {
@@ -1762,6 +1762,9 @@ sub print_netdevice_full {
 	# and out of each queue plus one config interrupt and control vector queue
 	my $vectors = $net->{queues} * 2 + 2;
 	$tmpstr .= ",vectors=$vectors,mq=on";
+	if (min_version($machine_version, 7, 1)) {
+	    $tmpstr .= ",packed=on";
+	}
     }
     $tmpstr .= ",bootindex=$net->{bootindex}" if $net->{bootindex} ;
 
@@ -4048,7 +4051,7 @@ sub config_to_command {
 	push @$devices, '-netdev', $netdevfull;
 
 	my $netdevicefull = print_netdevice_full(
-	    $vmid, $conf, $d, $netname, $bridges, $use_old_bios_files, $arch, $machine_type);
+	    $vmid, $conf, $d, $netname, $bridges, $use_old_bios_files, $arch, $machine_type, $machine_version);
 
 	push @$devices, '-device', $netdevicefull;
     }
@@ -4280,11 +4283,12 @@ sub vm_deviceplug {
 	return if !qemu_netdevadd($vmid, $conf, $arch, $device, $deviceid);
 
 	my $machine_type = PVE::QemuServer::Machine::qemu_machine_pxe($vmid, $conf);
+	my $machine_version = PVE::QemuServer::Machine::extract_version($machine_type);
 	my $use_old_bios_files = undef;
 	($use_old_bios_files, $machine_type) = qemu_use_old_bios_files($machine_type);
 
 	my $netdevicefull = print_netdevice_full(
-	    $vmid, $conf, $device, $deviceid, undef, $use_old_bios_files, $arch, $machine_type);
+	    $vmid, $conf, $device, $deviceid, undef, $use_old_bios_files, $arch, $machine_type, $machine_version);
 	qemu_deviceadd($vmid, $netdevicefull);
 	eval {
 	    qemu_deviceaddverify($vmid, $deviceid);
