@@ -8316,19 +8316,18 @@ sub check_volume_storage_type {
 sub add_nets_bridge_fdb {
     my ($conf, $vmid) = @_;
 
-    foreach my $opt (keys %$conf) {
-	if ($opt =~  m/^net(\d+)$/) {
-	    my $net = parse_net($conf->{$opt});
-	    next if !$net;
-	    next if !$net->{macaddr};
+    for my $opt (keys %$conf) {
+	next if $opt !~ m/^net(\d+)$/;
+	my $iface = "tap${vmid}i$1";
+	my $net = parse_net($conf->{$opt}) or next;
+	my $mac = $net->{macaddr} or next;
 
-	    my $iface = "tap${vmid}i$1";
-	    if ($have_sdn) {
-		PVE::Network::SDN::Zones::add_bridge_fdb($iface, $net->{macaddr}, $net->{bridge}, $net->{firewall});
-	    } else {
-		PVE::Network::add_bridge_fdb($iface, $net->{macaddr}, $net->{firewall});
-	    }
+	if ($have_sdn) {
+	    PVE::Network::SDN::Zones::add_bridge_fdb($iface, $mac, $net->{bridge}, $net->{firewall});
+	} else {
+	    PVE::Network::add_bridge_fdb($iface, $mac, $net->{firewall});
 	}
     }
 }
+
 1;
