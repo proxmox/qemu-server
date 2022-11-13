@@ -1766,6 +1766,11 @@ sub print_netdevice_full {
 	    $tmpstr .= ",packed=on";
 	}
     }
+
+    if (min_version($machine_version, 7, 1) && $net->{model} eq 'virtio'){
+	$tmpstr .= ",rx_queue_size=1024,tx_queue_size=1024";
+    }
+
     $tmpstr .= ",bootindex=$net->{bootindex}" if $net->{bootindex} ;
 
     if (my $mtu = $net->{mtu}) {
