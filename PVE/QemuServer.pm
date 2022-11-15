@@ -121,8 +121,7 @@ PVE::JSONSchema::register_standard_option('pve-qemu-machine', {
 	optional => 1,
 });
 
-#no warnings 'redefine';
-
+# FIXME: remove in favor of just using the INotify one, it's cached there exactly the same way
 my $nodename_cache;
 sub nodename {
     $nodename_cache //= PVE::INotify::nodename();
