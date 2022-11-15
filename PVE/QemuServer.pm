@@ -3502,7 +3502,6 @@ sub config_to_command {
     my ($storecfg, $vmid, $conf, $defaults, $forcemachine, $forcecpu,
         $pbs_backing) = @_;
 
-    my $cmd = [];
     my ($globalFlags, $machineFlags, $rtcFlags) = ([], [], []);
     my $devices = [];
     my $bridges = {};
@@ -3564,11 +3563,9 @@ sub config_to_command {
     my $use_old_bios_files = undef;
     ($use_old_bios_files, $machine_type) = qemu_use_old_bios_files($machine_type);
 
+    my $cmd = [];
     if ($conf->{affinity}) {
-	push @$cmd, "/usr/bin/taskset";
-	push @$cmd, "--cpu-list";
-	push @$cmd, "--all-tasks";
-	push @$cmd, $conf->{affinity};
+	push @$cmd, '/usr/bin/taskset', '--cpu-list', '--all-tasks', $conf->{affinity};
     }
 
     push @$cmd, $kvm_binary;
