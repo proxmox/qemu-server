@@ -711,7 +711,7 @@ EODESCR
     },
     affinity => {
 	type => 'string', format => 'pve-cpuset',
-	description => "List of host cores used to execute guest processes.",
+	description => "List of host cores used to execute guest processes, for example: 0,5,8-11",
 	optional => 1,
     },
 };
