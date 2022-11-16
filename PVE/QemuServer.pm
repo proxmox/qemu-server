@@ -2609,7 +2609,7 @@ sub write_vm_config {
 	$raw .= &$generate_raw_config($conf->{pending}, 1);
     }
 
-    if (scalar(keys %{$conf->{cloudinit}})){
+    if (scalar(keys %{$conf->{cloudinit}}) && PVE::QemuConfig->has_cloudinit($conf)){
 	$raw .= "\n[special:cloudinit]\n";
 	$raw .= &$generate_raw_config($conf->{cloudinit});
     }
