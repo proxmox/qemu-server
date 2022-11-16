@@ -102,9 +102,11 @@ my $cpuinfo = PVE::ProcFSTools::read_cpuinfo();
 # 'backup', 'snapshot' or 'rollback'. Most actions are not allowed when such lock is set.
 # But you can ignore this kind of lock with the --skiplock flag.
 
-cfs_register_file('/qemu-server/',
-		  \&parse_vm_config,
-		  \&write_vm_config);
+cfs_register_file(
+    '/qemu-server/',
+    \&parse_vm_config,
+    \&write_vm_config
+);
 
 PVE::JSONSchema::register_standard_option('pve-qm-stateuri', {
     description => "Some command save/restore state from this location.",
