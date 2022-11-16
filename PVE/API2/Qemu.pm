@@ -1338,22 +1338,14 @@ __PACKAGE__->register_method({
 		    description => "Configuration option name.",
 		    type => 'string',
 		},
-		value => {
-		    description => "Current value.",
+		old => {
+		    description => "Value as it was used to generate the current cloudinit image.",
 		    type => 'string',
 		    optional => 1,
 		},
-		pending => {
-		    description => "Pending value.",
+		new => {
+		    description => "The new pending value.",
 		    type => 'string',
-		    optional => 1,
-		},
-		delete => {
-		    description => "Indicates a pending delete request if present and not 0. " .
-		                   "The value 2 indicates a force-delete request.",
-		    type => 'integer',
-		    minimum => 0,
-		    maximum => 2,
 		    optional => 1,
 		},
 	    },
@@ -1365,17 +1357,29 @@ __PACKAGE__->register_method({
 	my $vmid = $param->{vmid};
 	my $conf = PVE::QemuConfig->load_config($vmid);
 
-	if (defined($conf->{cipassword}) &&
-	    defined($conf->{cloudinit}->{cipassword}) &&
-	    $conf->{cipassword} ne $conf->{cloudinit}->{cipassword}) {
-	    $conf->{cipassword} = '********** ';
-	} elsif (defined($conf->{cipassword})) {
-	    $conf->{cipassword} = '**********';
+	my $ci = $conf->{cloudinit};
+
+	my $res = {};
+	my $added = delete($ci->{added}) // '';
+	for my $key (PVE::Tools::split_list($added)) {
+	    $res->{$key} = { new => $conf->{$key} };
 	}
 
-	$conf->{cloudinit}->{cipassword} = '**********' if defined($conf->{cloudinit}->{cipassword});
+	for my $key (keys %$ci) {
+	    if (!exists($conf->{$key})) {
+		$res->{$key} = { old => $ci->{$key} };
+	    } else {
+		$res->{$key} = {
+		    old => $ci->{$key},
+		    new => $conf->{$key},
+		};
+	    }
+	}
 
-	my $res = PVE::QemuServer::Cloudinit::get_pending_config($conf, $vmid);
+	if (defined(my $pw = $res->{cipassword})) {
+	    $pw->{old} = '**********' if exists $pw->{old};
+	    $pw->{new} = '**********' if exists $pw->{new};
+	}
 
 	return $res;
    }});
