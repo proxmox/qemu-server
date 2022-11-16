@@ -1,3 +1,24 @@
+qemu-server (7.2-8) UNRELEASED; urgency=medium
+
+  * fix #4296: virtio-net: enable packed queues for qemu 7.1
+
+  * virtio-net: increase defaults rx- and tx-queue-size to 1024
+
+  * fix #4296: virtio-net: enable packed queues for QEMU machines using 7.1 or
+    newer
+
+  * net: increase max queues to 64
+
+  * fix #4284: add read-only to non-hotpluggable disk options
+
+  * delay cloudinit generation in hotplug
+
+  * record cloud-init changes in the cloudinit section
+
+  * rework cloudint config pending handling
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 16 Nov 2022 18:23:39 +0100
+
 qemu-server (7.2-7) bullseye; urgency=medium
 
   * api: create/update vm: automatically clamp cpuunit value depending of
