@@ -559,10 +559,18 @@ my $cloudinit_methods = {
     opennebula => \&generate_opennebula,
 };
 
-sub generate_cloudinitconfig {
+sub has_changes {
+    my ($conf) = @_;
+
+    return !!$conf->{cloudinit}->%*;
+}
+
+sub generate_cloudinit_config {
     my ($conf, $vmid) = @_;
 
     my $format = get_cloudinit_format($conf);
+
+    my $has_changes = has_changes($conf);
 
     PVE::QemuConfig->foreach_volume($conf, sub {
         my ($ds, $drive) = @_;
@@ -576,6 +584,22 @@ sub generate_cloudinitconfig {
 
 	$generator->($conf, $vmid, $drive, $volname, $storeid);
     });
+
+    return $has_changes;
+}
+
+sub apply_cloudinit_config {
+    my ($conf, $vmid) = @_;
+
+    my $has_changes = generate_cloudinit_config($conf, $vmid);
+
+    if ($has_changes) {
+	delete $conf->{cloudinit};
+	PVE::QemuConfig->write_config($vmid, $conf);
+	return 1;
+    }
+
+    return $has_changes;
 }
 
 sub dump_cloudinit_config {

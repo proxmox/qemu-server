@@ -4972,6 +4972,7 @@ sub vmconfig_hotplug_pending {
 	}
     }
 
+    my $cloudinit_opt;
     foreach my $opt (keys %{$conf->{pending}}) {
 	next if $selection && !$selection->{$opt};
 	my $value = $conf->{pending}->{$opt};
@@ -5020,7 +5021,9 @@ sub vmconfig_hotplug_pending {
 		# some changes can be done without hotplug
 		my $drive = parse_drive($opt, $value);
 		if (drive_is_cloudinit($drive)) {
-		    PVE::QemuServer::Cloudinit::generate_cloudinitconfig($conf, $vmid);
+		    $cloudinit_opt = [$opt, $drive];
+		    # apply all the other changes first, then generate the cloudinit disk
+		    die "skip\n";
 		}
 		vmconfig_update_disk($storecfg, $conf, $hotplug_features->{disk},
 				     $vmid, $opt, $value, $arch, $machine_type);
@@ -5038,6 +5041,23 @@ sub vmconfig_hotplug_pending {
 	    } else {
 		die "skip\n";  # skip non-hot-pluggable options
 	    }
+	};
+	if (my $err = $@) {
+	    &$add_error($opt, $err) if $err ne "skip\n";
+	} else {
+	    $cloudinit_record_changed->($conf, $opt, $conf->{$opt}, $value);
+	    $conf->{$opt} = $value;
+	    delete $conf->{pending}->{$opt};
+	}
+    }
+
+    if (defined($cloudinit_opt)) {
+	my ($opt, $drive) = @$cloudinit_opt;
+	my $value = $conf->{pending}->{$opt};
+	eval {
+	    PVE::QemuServer::Cloudinit::apply_cloudinit_config($conf, $vmid);
+	    vmconfig_update_disk($storecfg, $conf, $hotplug_features->{disk},
+				 $vmid, $opt, $value, $arch, $machine_type);
 	};
 	if (my $err = $@) {
 	    &$add_error($opt, $err) if $err ne "skip\n";
@@ -5062,13 +5082,8 @@ sub vmconfig_hotplug_pending {
 
     PVE::QemuConfig->write_config($vmid, $conf);
 
-    if($hotplug_features->{cloudinit}) {
-	my $pending = PVE::QemuServer::Cloudinit::get_pending_config($conf, $vmid);
-	my $regenerate = undef;
-	for my $item (@$pending) {
-	    $regenerate = 1 if defined($item->{delete}) or defined($item->{pending});
-	}
-	PVE::QemuServer::vmconfig_update_cloudinit_drive($storecfg, $conf, $vmid) if $regenerate;
+    if ($hotplug_features->{cloudinit} && PVE::QemuServer::Cloudinit::has_changes($conf)) {
+	PVE::QemuServer::vmconfig_update_cloudinit_drive($storecfg, $conf, $vmid);
     }
 }
 
@@ -5171,7 +5186,13 @@ sub vmconfig_apply_pending {
 
     # write all changes at once to avoid unnecessary i/o
     PVE::QemuConfig->write_config($vmid, $conf);
-    PVE::QemuServer::Cloudinit::generate_cloudinitconfig($conf, $vmid) if $generate_cloudnit;
+    if ($generate_cloudnit) {
+	if (PVE::QemuServer::Cloudinit::apply_cloudinit_config($conf, $vmid)) {
+	    # After successful generation and if there were changes to be applied, update the
+	    # config to drop the {cloudinit} entry.
+	    PVE::QemuConfig->write_config($vmid, $conf);
+	}
+    }
 }
 
 sub vmconfig_update_net {
@@ -5375,7 +5396,10 @@ sub vmconfig_update_cloudinit_drive {
 
     return if !$cloudinit_drive;
 
-    PVE::QemuServer::Cloudinit::generate_cloudinitconfig($conf, $vmid);
+    if (PVE::QemuServer::Cloudinit::apply_cloudinit_config($conf, $vmid)) {
+	PVE::QemuConfig->write_config($vmid, $conf);
+    }
+
     my $running = PVE::QemuServer::check_running($vmid);
 
     if ($running) {
@@ -5561,7 +5585,14 @@ sub vm_start_nolock {
 
     # don't regenerate the ISO if the VM is started as part of a live migration
     # this way we can reuse the old ISO with the correct config
-    PVE::QemuServer::Cloudinit::generate_cloudinitconfig($conf, $vmid) if !$migratedfrom;
+    if (!$migratedfrom) {
+	if (PVE::QemuServer::Cloudinit::apply_cloudinit_config($conf, $vmid)) {
+	    # FIXME: apply_cloudinit_config updates $conf in this case, and it would only drop
+	    # $conf->{cloudinit}, so we could just not do this?
+	    # But we do it above, so for now let's be consistent.
+	    $conf = PVE::QemuConfig->load_config($vmid); # update/reload
+	}
+    }
 
     # override offline migrated volumes, conf is out of date still
     if (my $offline_volumes = $migrate_opts->{offline_volumes}) {
