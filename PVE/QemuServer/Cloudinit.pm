@@ -566,7 +566,6 @@ sub generate_cloudinitconfig {
 
     PVE::QemuConfig->foreach_volume($conf, sub {
         my ($ds, $drive) = @_;
-
 	my ($storeid, $volname) = PVE::Storage::parse_volume_id($drive->{file}, 1);
 
 	return if !$volname || $volname !~ m/vm-$vmid-cloudinit/;
@@ -577,36 +576,34 @@ sub generate_cloudinitconfig {
 	$generator->($conf, $vmid, $drive, $volname, $storeid);
     });
 
-    my $cloudinitconf = delete $conf->{cloudinit};
-    $cloudinitconf = {};
+    my $cloudinit_conf = {};
 
     my @cloudinit_opts = keys %{PVE::QemuServer::cloudinit_config_properties()};
     push @cloudinit_opts, 'name';
 
     for my $opt (@cloudinit_opts) {
-
 	if ($opt =~ m/^ipconfig(\d+)/) {
 	    my $netid = "net$1";
 	    next if !defined($conf->{$netid});
-	    $conf->{cloudinit}->{$netid} = $conf->{$netid};
+	    $cloudinit_conf->{$netid} = $conf->{$netid};
 	}
 
-	$conf->{cloudinit}->{$opt} = $conf->{$opt} if $conf->{$opt};
+	$cloudinit_conf->{$opt} = $conf->{$opt} if $conf->{$opt};
     }
 
-    $conf->{cloudinit}->{name} = "VM$vmid" if !$conf->{cloudinit}->{name};
-
+    my $has_cloudinit_drive = 0;
     for my $opt (keys %{$conf}) {
 	if (PVE::QemuServer::is_valid_drivename($opt)) {
 	    my $drive = PVE::QemuServer::parse_drive($opt, $conf->{$opt});
 	    if (PVE::QemuServer::drive_is_cloudinit($drive)) {
-		$conf->{cloudinit}->{$opt} = $conf->{$opt};
+		$has_cloudinit_drive = 1;
+		$cloudinit_conf->{$opt} = $conf->{$opt};
 	    }
 	}
     }
+    $cloudinit_conf->{name} //= "VM$vmid" if $has_cloudinit_drive;
 
-    PVE::QemuConfig->write_config($vmid, $conf);
-
+    return $cloudinit_conf;
 }
 
 sub dump_cloudinit_config {

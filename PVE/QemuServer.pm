@@ -5018,7 +5018,7 @@ sub vmconfig_hotplug_pending {
 		# some changes can be done without hotplug
 		my $drive = parse_drive($opt, $value);
 		if (drive_is_cloudinit($drive)) {
-		    PVE::QemuServer::Cloudinit::generate_cloudinitconfig($conf, $vmid);
+		    $conf->{cloudinit} = PVE::QemuServer::Cloudinit::generate_cloudinitconfig($conf, $vmid);
 		}
 		vmconfig_update_disk($storecfg, $conf, $hotplug_features->{disk},
 				     $vmid, $opt, $value, $arch, $machine_type);
@@ -5060,7 +5060,7 @@ sub vmconfig_hotplug_pending {
 
     PVE::QemuConfig->write_config($vmid, $conf);
 
-    if($hotplug_features->{cloudinit}) {
+    if ($hotplug_features->{cloudinit}) {
 	my $pending = PVE::QemuServer::Cloudinit::get_pending_config($conf, $vmid);
 	my $regenerate = undef;
 	for my $item (@$pending) {
@@ -5167,9 +5167,11 @@ sub vmconfig_apply_pending {
 	}
     }
 
+    $conf->{cloudinit} = PVE::QemuServer::Cloudinit::generate_cloudinitconfig($conf, $vmid)
+	if $generate_cloudnit;
+
     # write all changes at once to avoid unnecessary i/o
     PVE::QemuConfig->write_config($vmid, $conf);
-    PVE::QemuServer::Cloudinit::generate_cloudinitconfig($conf, $vmid) if $generate_cloudnit;
 }
 
 sub vmconfig_update_net {
@@ -5372,7 +5374,8 @@ sub vmconfig_update_cloudinit_drive {
 
     return if !$cloudinit_drive;
 
-    PVE::QemuServer::Cloudinit::generate_cloudinitconfig($conf, $vmid);
+    $conf->{cloudinit} = PVE::QemuServer::Cloudinit::generate_cloudinitconfig($conf, $vmid);
+    # FIXME: write out changed config here? needs to be sure that config is locked though!
     my $running = PVE::QemuServer::check_running($vmid);
 
     if ($running) {
@@ -5554,11 +5557,12 @@ sub vm_start_nolock {
     if (!$statefile && scalar(keys %{$conf->{pending}})) {
 	vmconfig_apply_pending($vmid, $conf, $storecfg);
 	$conf = PVE::QemuConfig->load_config($vmid); # update/reload
+    } elsif (!$migratedfrom) {
+	# don't regenerate the ISO if the VM is started as part of a live migration
+	# this way we can reuse the old ISO with the correct config
+	$conf->{cloudinit} = PVE::QemuServer::Cloudinit::generate_cloudinitconfig($conf, $vmid);
+	# FIXME: write out changed config here? if any changes
     }
-
-    # don't regenerate the ISO if the VM is started as part of a live migration
-    # this way we can reuse the old ISO with the correct config
-    PVE::QemuServer::Cloudinit::generate_cloudinitconfig($conf, $vmid) if !$migratedfrom;
 
     # override offline migrated volumes, conf is out of date still
     if (my $offline_volumes = $migrate_opts->{offline_volumes}) {
