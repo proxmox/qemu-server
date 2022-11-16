@@ -540,7 +540,7 @@ sub verify_bootdisk {
 
 sub drive_is_cloudinit {
     my ($drive) = @_;
-    return $drive->{file} =~ m@[:/]vm-\d+-cloudinit(?:\.$QEMU_FORMAT_RE)?$@;
+    return $drive->{file} =~ m@[:/](?:vm-\d+-)?cloudinit(?:\.$QEMU_FORMAT_RE)?$@;
 }
 
 sub drive_is_cdrom {

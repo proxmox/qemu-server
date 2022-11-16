@@ -1627,11 +1627,13 @@ my $update_vm_api  = sub {
 	    my $check_drive_perms = sub {
 		my ($opt, $val) = @_;
 		my $drive = PVE::QemuServer::parse_drive($opt, $val, 1);
-		# FIXME: cloudinit: CDROM or Disk?
-		if (PVE::QemuServer::drive_is_cdrom($drive)) { # CDROM
+		if (PVE::QemuServer::drive_is_cloudinit($drive)) {
+		    $rpcenv->check_vm_perm($authuser, $vmid, undef, ['VM.Config.Cloudinit', 'VM.Config.CDROM']);
+		} elsif (PVE::QemuServer::drive_is_cdrom($drive, 1)) { # CDROM
 		    $rpcenv->check_vm_perm($authuser, $vmid, undef, ['VM.Config.CDROM']);
 		} else {
 		    $rpcenv->check_vm_perm($authuser, $vmid, undef, ['VM.Config.Disk']);
+
 		}
 	    };
 
