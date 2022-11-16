@@ -2290,6 +2290,15 @@ sub cloudinit_config_properties {
     return dclone($confdesc_cloudinit);
 }
 
+sub cloudinit_pending_properties {
+    my $p = {
+	map { $_ => 1 } keys $confdesc_cloudinit->%*,
+	name => 1,
+    };
+    $p->{"net$_"} = 1 for 0..($MAX_NETS-1);
+    return $p;
+}
+
 sub check_type {
     my ($key, $value) = @_;
 
@@ -4892,11 +4901,61 @@ sub vmconfig_hotplug_pending {
 	$errors->{$opt} = "hotplug problem - $msg";
     };
 
+    my $cloudinit_pending_properties = PVE::QemuServer::cloudinit_pending_properties();
+
+    my $cloudinit_record_changed = sub {
+	my ($conf, $opt, $old, $new) = @_;
+	return if !$cloudinit_pending_properties->{$opt};
+
+	my $ci = ($conf->{cloudinit} //= {});
+
+	my $recorded = $ci->{$opt};
+
+	my $remove_added = sub {
+	    my @added = grep { $_ ne $opt } PVE::Tools::split_list(delete($ci->{added}) // '');
+	    my $added = join(',', @added);
+	    $ci->{added} = $added if length($added);
+	};
+
+	my $record_added = sub {
+	    my %added = map { $_ => 1 } PVE::Tools::split_list(delete($ci->{added}) // '');
+	    $added{$opt} = 1;
+	    $ci->{added} = join(',', keys %added);
+	};
+
+	if (defined($recorded)) {
+	    # cloud-init already had a version of this key
+	    if (!defined($new)) {
+		# the option existed temporarily and was now removed:
+		$remove_added->();
+	    } elsif ($new eq $recorded) {
+		# it was reverted to the state in cloud-init
+		delete $ci->{$opt};
+	    } else {
+		# $old was newer than $recorded, do nothing
+	    }
+	} else {
+	    # the key was not present the last time we generated the cloud-init image:
+	    if (!defined($new)) {
+		# it is being deleted, which means we're back to the cloud-init sate:
+		delete $ci->{$opt};
+		$remove_added->();
+	    } elsif (defined($old)) {
+		# the key was modified
+		$ci->{$opt} = $old;
+	    } else {
+		# the key was added, no old value exists
+		$record_added->();
+	    }
+	}
+    };
+
     my $changes = 0;
     foreach my $opt (keys %{$conf->{pending}}) { # add/change
 	if ($fast_plug_option->{$opt}) {
-	    $conf->{$opt} = $conf->{pending}->{$opt};
-	    delete $conf->{pending}->{$opt};
+	    my $new = delete $conf->{pending}->{$opt};
+	    $cloudinit_record_changed->($conf, $opt, $conf->{$opt}, $new);
+	    $conf->{$opt} = $new;
 	    $changes = 1;
 	}
     }
@@ -4914,6 +4973,7 @@ sub vmconfig_hotplug_pending {
 
     my $cgroup = PVE::QemuServer::CGroup->new($vmid);
     my $pending_delete_hash = PVE::QemuConfig->parse_pending_delete($conf->{pending}->{delete});
+
     foreach my $opt (sort keys %$pending_delete_hash) {
 	next if $selection && !$selection->{$opt};
 	my $force = $pending_delete_hash->{$opt}->{force};
@@ -4967,7 +5027,8 @@ sub vmconfig_hotplug_pending {
 	if (my $err = $@) {
 	    &$add_error($opt, $err) if $err ne "skip\n";
 	} else {
-	    delete $conf->{$opt};
+	    my $old = delete $conf->{$opt};
+	    $cloudinit_record_changed->($conf, $opt, $old, undef);
 	    PVE::QemuConfig->remove_from_pending_delete($conf, $opt);
 	}
     }
