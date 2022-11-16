@@ -2425,6 +2425,13 @@ sub parse_vm_config {
 
     my $conf = $res;
     my $descr;
+    my $finish_description = sub {
+	if (defined($descr)) {
+	    $descr =~ s/\s+$//;
+	    $conf->{description} = $descr;
+	}
+	$descr = undef;
+    };
     my $section = '';
 
     my @lines = split(/\n/, $raw);
@@ -2433,11 +2440,7 @@ sub parse_vm_config {
 
 	if ($line =~ m/^\[PENDING\]\s*$/i) {
 	    $section = 'pending';
-	    if (defined($descr)) {
-		$descr =~ s/\s+$//;
-		$conf->{description} = $descr;
-	    }
-	    $descr = undef;
+	    $finish_description->();
 	    $conf = $res->{$section} = {};
 	    next;
 	} elsif ($line =~ m/^\[special:cloudinit\]\s*$/i) {
@@ -2448,11 +2451,7 @@ sub parse_vm_config {
 
 	} elsif ($line =~ m/^\[([a-z][a-z0-9_\-]+)\]\s*$/i) {
 	    $section = $1;
-	    if (defined($descr)) {
-		$descr =~ s/\s+$//;
-		$conf->{description} = $descr;
-	    }
-	    $descr = undef;
+	    $finish_description->();
 	    $conf = $res->{snapshots}->{$section} = {};
 	    next;
 	}
@@ -2506,10 +2505,7 @@ sub parse_vm_config {
 	}
     }
 
-    if (defined($descr)) {
-	$descr =~ s/\s+$//;
-	$conf->{description} = $descr;
-    }
+    $finish_description->();
     delete $res->{snapstate}; # just to be sure
 
     return $res;
