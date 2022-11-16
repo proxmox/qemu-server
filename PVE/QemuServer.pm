@@ -923,7 +923,7 @@ my $net_fmt = {
     }),
     queues => {
 	type => 'integer',
-	minimum => 0, maximum => 16,
+	minimum => 0, maximum => 64,
 	description => 'Number of packet queues to be used on the device.',
 	optional => 1,
     },
