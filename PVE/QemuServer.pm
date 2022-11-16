@@ -2445,7 +2445,7 @@ sub parse_vm_config {
 	    next;
 	} elsif ($line =~ m/^\[special:cloudinit\]\s*$/i) {
 	    $section = 'cloudinit';
-	    $descr = undef;
+	    $finish_description->();
 	    $conf = $res->{$section} = {};
 	    next;
 
