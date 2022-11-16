@@ -2573,8 +2573,6 @@ sub write_vm_config {
 
     &$cleanup_config($conf->{pending}, 1);
 
-    &$cleanup_config($conf->{cloudinit});
-
     foreach my $snapname (keys %{$conf->{snapshots}}) {
 	die "internal error: snapshot name '$snapname' is forbidden" if lc($snapname) eq 'pending';
 	&$cleanup_config($conf->{snapshots}->{$snapname}, undef, $snapname);
