@@ -18,7 +18,7 @@ use PVE::Storage;
 use PVE::JSONSchema qw(get_standard_option);
 use PVE::RESTHandler;
 use PVE::ReplicationConfig;
-use PVE::GuestHelpers;
+use PVE::GuestHelpers qw(assert_tag_permissions);
 use PVE::QemuConfig;
 use PVE::QemuServer;
 use PVE::QemuServer::Cloudinit;
@@ -539,7 +539,6 @@ my $generaloptions = {
     'startup' => 1,
     'tdf' => 1,
     'template' => 1,
-    'tags' => 1,
 };
 
 my $vmpoweroptions = {
@@ -609,6 +608,7 @@ my $check_vm_modify_config_perm = sub {
 	next if PVE::QemuServer::is_valid_drivename($opt);
 	next if $opt eq 'cdrom';
 	next if $opt =~ m/^(?:unused|serial|usb)\d+$/;
+	next if $opt eq 'tags';
 
 
 	if ($cpuoptions->{$opt} || $opt =~ m/^numa\d+$/) {
@@ -1695,6 +1695,10 @@ my $update_vm_api  = sub {
 		    }
 		    PVE::QemuConfig->add_to_pending_delete($conf, $opt, $force);
 		    PVE::QemuConfig->write_config($vmid, $conf);
+		} elsif ($opt eq 'tags') {
+		    assert_tag_permissions($vmid, $val, '', $rpcenv, $authuser);
+		    delete $conf->{$opt};
+		    PVE::QemuConfig->write_config($vmid, $conf);
 		} else {
 		    PVE::QemuConfig->add_to_pending_delete($conf, $opt, $force);
 		    PVE::QemuConfig->write_config($vmid, $conf);
@@ -1754,6 +1758,9 @@ my $update_vm_api  = sub {
 		    } elsif ($authuser ne 'root@pam') {
 			die "only root can modify '$opt' config for real devices\n";
 		    }
+		    $conf->{pending}->{$opt} = $param->{$opt};
+		} elsif ($opt eq 'tags') {
+		    assert_tag_permissions($vmid, $conf->{$opt}, $param->{$opt}, $rpcenv, $authuser);
 		    $conf->{pending}->{$opt} = $param->{$opt};
 		} else {
 		    $conf->{pending}->{$opt} = $param->{$opt};
