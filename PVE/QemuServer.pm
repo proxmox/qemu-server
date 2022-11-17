@@ -5735,10 +5735,10 @@ sub vm_start_nolock {
 	return $migration_ip;
     };
 
-    my $migrate_uri;
     if ($statefile) {
 	if ($statefile eq 'tcp') {
-	    my $localip = "localhost";
+	    my $migrate = $res->{migrate} = { proto => 'tcp' };
+	    $migrate->{addr} = "localhost";
 	    my $datacenterconf = PVE::Cluster::cfs_read_file('datacenter.cfg');
 	    my $nodename = nodename();
 
@@ -5751,26 +5751,26 @@ sub vm_start_nolock {
 	    }
 
 	    if ($migration_type eq 'insecure') {
-		$localip = $get_migration_ip->($nodename);
-		$localip = "[$localip]" if Net::IP::ip_is_ipv6($localip);
+		$migrate->{addr} = $get_migration_ip->($nodename);
+		$migrate->{addr} = "[$migrate->{addr}]" if Net::IP::ip_is_ipv6($migrate->{addr});
 	    }
 
 	    my $pfamily = PVE::Tools::get_host_address_family($nodename);
-	    my $migrate_port = PVE::Tools::next_migrate_port($pfamily);
-	    $migrate_uri = "tcp:${localip}:${migrate_port}";
-	    push @$cmd, '-incoming', $migrate_uri;
+	    $migrate->{port} = PVE::Tools::next_migrate_port($pfamily);
+	    $migrate->{uri} = "tcp:$migrate->{addr}:$migrate->{port}";
+	    push @$cmd, '-incoming', $migrate->{uri};
 	    push @$cmd, '-S';
 
 	} elsif ($statefile eq 'unix') {
 	    # should be default for secure migrations as a ssh TCP forward
 	    # tunnel is not deterministic reliable ready and fails regurarly
 	    # to set up in time, so use UNIX socket forwards
-	    my $socket_addr = "/run/qemu-server/$vmid.migrate";
-	    unlink $socket_addr;
+	    my $migrate = $res->{migrate} = { proto => 'unix' };
+	    $migrate->{addr} = "/run/qemu-server/$vmid.migrate";
+	    unlink $migrate->{addr};
 
-	    $migrate_uri = "unix:$socket_addr";
-
-	    push @$cmd, '-incoming', $migrate_uri;
+	    $migrate->{uri} = "unix:$migrate->{addr}";
+	    push @$cmd, '-incoming', $migrate->{uri};
 	    push @$cmd, '-S';
 
 	} elsif (-e $statefile) {
@@ -5925,10 +5925,9 @@ sub vm_start_nolock {
     eval { PVE::QemuServer::PCI::reserve_pci_usage($pci_id_list, $vmid, undef, $pid) };
     warn $@ if $@;
 
-    print "migration listens on $migrate_uri\n" if $migrate_uri;
-    $res->{migrate_uri} = $migrate_uri;
-
-    if ($statefile && $statefile ne 'tcp' && $statefile ne 'unix')  {
+    if (defined($res->{migrate})) {
+	print "migration listens on $res->{migrate}->{uri}\n";
+    } elsif ($statefile) {
 	eval { mon_cmd($vmid, "cont"); };
 	warn $@ if $@;
     }
@@ -5943,6 +5942,7 @@ sub vm_start_nolock {
 	    my $socket_path = "/run/qemu-server/$vmid\_nbd.migrate";
 	    mon_cmd($vmid, "nbd-server-start", addr => { type => 'unix', data => { path => $socket_path } } );
 	    $migrate_storage_uri = "nbd:unix:$socket_path";
+	    $res->{migrate}->{unix_sockets} = [$socket_path];
 	} else {
 	    my $nodename = nodename();
 	    my $localip = $get_migration_ip->($nodename);
@@ -5959,8 +5959,6 @@ sub vm_start_nolock {
 	    $localip = "[$localip]" if Net::IP::ip_is_ipv6($localip);
 	    $migrate_storage_uri = "nbd:${localip}:${storage_migrate_port}";
 	}
-
-	$res->{migrate_storage_uri} = $migrate_storage_uri;
 
 	foreach my $opt (sort keys %$nbd) {
 	    my $drivestr = $nbd->{$opt}->{drivestr};

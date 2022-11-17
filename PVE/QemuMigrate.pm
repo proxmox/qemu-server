@@ -43,19 +43,24 @@ sub fork_tunnel {
     return PVE::Tunnel::fork_ssh_tunnel($self->{rem_ssh}, $cmd, $ssh_forward_info, $log);
 }
 
+# tunnel_info:
+#   proto: unix (secure) or tcp (insecure/legacy compat)
+#   addr: IP or UNIX socket path
+#   port: optional TCP port
+#   unix_sockets: additional UNIX socket paths to forward
 sub start_remote_tunnel {
-    my ($self, $raddr, $rport, $ruri, $unix_socket_info) = @_;
+    my ($self, $tunnel_info) = @_;
 
     my $nodename = PVE::INotify::nodename();
     my $migration_type = $self->{opts}->{migration_type};
 
     if ($migration_type eq 'secure') {
 
-	if ($ruri =~ /^unix:/) {
-	    my $ssh_forward_info = ["$raddr:$raddr"];
-	    $unix_socket_info->{$raddr} = 1;
+	if ($tunnel_info->{proto} eq 'unix') {
+	    my $ssh_forward_info = [];
 
-	    my $unix_sockets = [ keys %$unix_socket_info ];
+	    my $unix_sockets = [ keys %{$tunnel_info->{unix_sockets}} ];
+	    push @$unix_sockets, $tunnel_info->{addr};
 	    for my $sock (@$unix_sockets) {
 		push @$ssh_forward_info, "$sock:$sock";
 		unlink $sock;
@@ -82,23 +87,23 @@ sub start_remote_tunnel {
 	    if ($unix_socket_try > 100) {
 		$self->{errors} = 1;
 		PVE::Tunnel::finish_tunnel($self->{tunnel});
-		die "Timeout, migration socket $ruri did not get ready";
+		die "Timeout, migration socket $tunnel_info->{addr} did not get ready";
 	    }
 	    $self->{tunnel}->{unix_sockets} = $unix_sockets if (@$unix_sockets);
 
-	} elsif ($ruri =~ /^tcp:/) {
+	} elsif ($tunnel_info->{proto} eq 'tcp') {
 	    my $ssh_forward_info = [];
-	    if ($raddr eq "localhost") {
+	    if ($tunnel_info->{addr} eq "localhost") {
 		# for backwards compatibility with older qemu-server versions
 		my $pfamily = PVE::Tools::get_host_address_family($nodename);
 		my $lport = PVE::Tools::next_migrate_port($pfamily);
-		push @$ssh_forward_info, "$lport:localhost:$rport";
+		push @$ssh_forward_info, "$lport:localhost:$tunnel_info->{port}";
 	    }
 
 	    $self->{tunnel} = $self->fork_tunnel($ssh_forward_info);
 
 	} else {
-	    die "unsupported protocol in migration URI: $ruri\n";
+	    die "unsupported protocol in migration URI: $tunnel_info->{proto}\n";
 	}
     } else {
 	#fork tunnel for insecure migration, to send faster commands like resume
@@ -663,52 +668,45 @@ sub phase1_cleanup {
     }
 }
 
-sub phase2 {
-    my ($self, $vmid) = @_;
+sub phase2_start_local_cluster {
+    my ($self, $vmid, $params) = @_;
 
     my $conf = $self->{vmconf};
     my $local_volumes = $self->{local_volumes};
     my @online_local_volumes = $self->filter_local_volumes('online');
 
     $self->{storage_migration} = 1 if scalar(@online_local_volumes);
+    my $start = $params->{start_params};
+    my $migrate = $params->{migrate_opts};
 
     $self->log('info', "starting VM $vmid on remote node '$self->{node}'");
 
-    my $raddr;
-    my $rport;
-    my $ruri; # the whole migration dst. URI (protocol:address[:port])
-    my $nodename = PVE::INotify::nodename();
+    my $tunnel_info = {};
 
     ## start on remote node
     my $cmd = [@{$self->{rem_ssh}}];
 
-    my $spice_ticket;
-    if (PVE::QemuServer::vga_conf_has_spice($conf->{vga})) {
-	my $res = mon_cmd($vmid, 'query-spice');
-	$spice_ticket = $res->{ticket};
+    push @$cmd, 'qm', 'start', $vmid;
+
+    if ($start->{skiplock}) {
+	push @$cmd, '--skiplock';
     }
 
-    push @$cmd , 'qm', 'start', $vmid, '--skiplock', '--migratedfrom', $nodename;
+    push @$cmd, '--migratedfrom', $migrate->{migratedfrom};
 
-    my $migration_type = $self->{opts}->{migration_type};
+    push @$cmd, '--migration_type', $migrate->{type};
 
-    push @$cmd, '--migration_type', $migration_type;
+    push @$cmd, '--migration_network', $migrate->{network}
+      if $migrate->{network};
 
-    push @$cmd, '--migration_network', $self->{opts}->{migration_network}
-      if $self->{opts}->{migration_network};
+    push @$cmd, '--stateuri', $start->{statefile};
 
-    if ($migration_type eq 'insecure') {
-	push @$cmd, '--stateuri', 'tcp';
-    } else {
-	push @$cmd, '--stateuri', 'unix';
+    if ($start->{forcemachine}) {
+	push @$cmd, '--machine', $start->{forcemachine};
     }
 
-    if ($self->{forcemachine}) {
-	push @$cmd, '--machine', $self->{forcemachine};
-    }
-
-    if ($self->{forcecpu}) {
-	push @$cmd, '--force-cpu', $self->{forcecpu};
+    if ($start->{forcecpu}) {
+	push @$cmd, '--force-cpu', $start->{forcecpu};
     }
 
     if ($self->{storage_migration}) {
@@ -716,10 +714,7 @@ sub phase2 {
     }
 
     my $spice_port;
-    my $unix_socket_info = {};
-    # version > 0 for unix socket support
-    my $nbd_protocol_version = 1;
-    my $input = "nbd_protocol_version: $nbd_protocol_version\n";
+    my $input = "nbd_protocol_version: $migrate->{nbd_proto_version}\n";
 
     my @offline_local_volumes = $self->filter_local_volumes('offline');
     for my $volid (@offline_local_volumes) {
@@ -737,7 +732,7 @@ sub phase2 {
 	}
     }
 
-    $input .= "spice_ticket: $spice_ticket\n" if $spice_ticket;
+    $input .= "spice_ticket: $migrate->{spice_ticket}\n" if $migrate->{spice_ticket};
 
     my @online_replicated_volumes = $self->filter_local_volumes('online', 1);
     foreach my $volid (@online_replicated_volumes) {
@@ -767,20 +762,20 @@ sub phase2 {
     my $exitcode = PVE::Tools::run_command($cmd, input => $input, outfunc => sub {
 	my $line = shift;
 
-	if ($line =~ m/^migration listens on tcp:(localhost|[\d\.]+|\[[\d\.:a-fA-F]+\]):(\d+)$/) {
-	    $raddr = $1;
-	    $rport = int($2);
-	    $ruri = "tcp:$raddr:$rport";
+	if ($line =~ m/^migration listens on (tcp):(localhost|[\d\.]+|\[[\d\.:a-fA-F]+\]):(\d+)$/) {
+	    $tunnel_info->{addr} = $2;
+	    $tunnel_info->{port} = int($3);
+	    $tunnel_info->{proto} = $1;
 	}
-	elsif ($line =~ m!^migration listens on unix:(/run/qemu-server/(\d+)\.migrate)$!) {
-	    $raddr = $1;
-	    die "Destination UNIX sockets VMID does not match source VMID" if $vmid ne $2;
-	    $ruri = "unix:$raddr";
+	elsif ($line =~ m!^migration listens on (unix):(/run/qemu-server/(\d+)\.migrate)$!) {
+	    $tunnel_info->{addr} = $2;
+	    die "Destination UNIX sockets VMID does not match source VMID" if $vmid ne $3;
+	    $tunnel_info->{proto} = $1;
 	}
 	elsif ($line =~ m/^migration listens on port (\d+)$/) {
-	    $raddr = "localhost";
-	    $rport = int($1);
-	    $ruri = "tcp:$raddr:$rport";
+	    $tunnel_info->{addr} = "localhost";
+	    $tunnel_info->{port} = int($1);
+	    $tunnel_info->{proto} = "tcp";
 	}
 	elsif ($line =~ m/^spice listens on port (\d+)$/) {
 	    $spice_port = int($1);
@@ -801,7 +796,7 @@ sub phase2 {
 	    $targetdrive =~ s/drive-//g;
 
 	    $handle_storage_migration_listens->($targetdrive, $drivestr, $nbd_uri);
-	    $unix_socket_info->{$nbd_unix_addr} = 1;
+	    $tunnel_info->{unix_sockets}->{$nbd_unix_addr} = 1;
 	} elsif ($line =~ m/^re-using replicated volume: (\S+) - (.*)$/) {
 	    my $drive = $1;
 	    my $volid = $2;
@@ -816,18 +811,64 @@ sub phase2 {
 
     die "remote command failed with exit code $exitcode\n" if $exitcode;
 
-    die "unable to detect remote migration address\n" if !$raddr;
+    die "unable to detect remote migration address\n" if !$tunnel_info->{addr} || !$tunnel_info->{proto};
 
     if (scalar(keys %$target_replicated_volumes) != scalar(@online_replicated_volumes)) {
 	die "number of replicated disks on source and target node do not match - target node too old?\n"
     }
 
+    return ($tunnel_info, $spice_port);
+}
+
+sub phase2 {
+    my ($self, $vmid) = @_;
+
+    my $conf = $self->{vmconf};
+
+    # version > 0 for unix socket support
+    my $nbd_protocol_version = 1;
+
+    my $spice_ticket;
+    if (PVE::QemuServer::vga_conf_has_spice($conf->{vga})) {
+	my $res = mon_cmd($vmid, 'query-spice');
+	$spice_ticket = $res->{ticket};
+    }
+
+    my $migration_type = $self->{opts}->{migration_type};
+    my $state_uri = $migration_type eq 'insecure' ? 'tcp' : 'unix';
+
+    my $params = {
+	start_params => {
+	    statefile => $state_uri,
+	    forcemachine => $self->{forcemachine},
+	    forcecpu => $self->{forcecpu},
+	    skiplock => 1,
+	},
+	migrate_opts => {
+	    spice_ticket => $spice_ticket,
+	    type => $migration_type,
+	    network => $self->{opts}->{migration_network},
+	    storagemap => $self->{opts}->{storagemap},
+	    migratedfrom => PVE::INotify::nodename(),
+	    nbd_proto_version => $nbd_protocol_version,
+	    nbd => $self->{nbd},
+	},
+    };
+
+    my ($tunnel_info, $spice_port) = $self->phase2_start_local_cluster($vmid, $params);
+
     $self->log('info', "start remote tunnel");
-    $self->start_remote_tunnel($raddr, $rport, $ruri, $unix_socket_info);
+    $self->start_remote_tunnel($tunnel_info);
+
+    my $migrate_uri = "$tunnel_info->{proto}:$tunnel_info->{addr}";
+    $migrate_uri .= ":$tunnel_info->{port}"
+	if defined($tunnel_info->{port});
 
     if ($self->{storage_migration}) {
 	$self->{storage_migration_jobs} = {};
 	$self->log('info', "starting storage migration");
+
+	my @online_local_volumes = $self->filter_local_volumes('online');
 
 	die "The number of local disks does not match between the source and the destination.\n"
 	    if (scalar(keys %{$self->{target_drive}}) != scalar(@online_local_volumes));
@@ -838,7 +879,7 @@ sub phase2 {
 	    my $source_drive = PVE::QemuServer::parse_drive($drive, $conf->{$drive});
 	    my $source_volid = $source_drive->{file};
 
-	    my $bwlimit = $local_volumes->{$source_volid}->{bwlimit};
+	    my $bwlimit = $self->{local_volumes}->{$source_volid}->{bwlimit};
 	    my $bitmap = $target->{bitmap};
 
 	    $self->log('info', "$drive: start migration to $nbd_uri");
@@ -846,7 +887,7 @@ sub phase2 {
 	}
     }
 
-    $self->log('info', "starting online/live migration on $ruri");
+    $self->log('info', "starting online/live migration on $migrate_uri");
     $self->{livemigration} = 1;
 
     # load_defaults
@@ -923,12 +964,12 @@ sub phase2 {
 
     my $start = time();
 
-    $self->log('info', "start migrate command to $ruri");
+    $self->log('info', "start migrate command to $migrate_uri");
     eval {
-	mon_cmd($vmid, "migrate", uri => $ruri);
+	mon_cmd($vmid, "migrate", uri => $migrate_uri);
     };
     my $merr = $@;
-    $self->log('info', "migrate uri => $ruri failed: $merr") if $merr;
+    $self->log('info', "migrate uri => $migrate_uri failed: $merr") if $merr;
 
     my $last_mem_transferred = 0;
     my $usleep = 1000000;
