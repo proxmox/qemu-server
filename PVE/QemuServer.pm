@@ -7661,7 +7661,7 @@ sub convert_iscsi_path {
 }
 
 sub qemu_img_convert {
-    my ($src_volid, $dst_volid, $size, $snapname, $is_zero_initialized) = @_;
+    my ($src_volid, $dst_volid, $size, $snapname, $is_zero_initialized, $bwlimit) = @_;
 
     my $storecfg = PVE::Storage::config();
     my ($src_storeid, $src_volname) = PVE::Storage::parse_volume_id($src_volid, 1);
@@ -7701,6 +7701,7 @@ sub qemu_img_convert {
 	if $snapname && $src_format && $src_format eq "qcow2";
     push @$cmd, '-t', 'none' if $dst_scfg->{type} eq 'zfspool';
     push @$cmd, '-T', $cachemode if defined($cachemode);
+    push @$cmd, '-r', "${bwlimit}K" if defined($bwlimit);
 
     if ($src_is_iscsi) {
 	push @$cmd, '--image-opts';
@@ -8109,7 +8110,7 @@ sub clone_disk {
 		push $cmd->@*, "bs=$bs", "osize=$size", "if=$src_path", "of=$dst_path";
 		run_command($cmd);
 	    } else {
-		qemu_img_convert($drive->{file}, $newvolid, $size, $snapname, $sparseinit);
+		qemu_img_convert($drive->{file}, $newvolid, $size, $snapname, $sparseinit, $bwlimit);
 	    }
 	}
     }
