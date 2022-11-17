@@ -1,3 +1,34 @@
+qemu-server (7.2-9) bullseye; urgency=medium
+
+  * fix #4321: properly check cloud-init drive permissions, require both
+    VM.Config.CDROM and VM.Config.Cloudinit, and not VM.Config.Disk, for being
+    able to add a cloud init drive in the first place.
+
+  * api: config update: enforce new tag permission system when setting or
+    removing tags from a guest
+
+
+  * parse config: do not validate informative values in cloud init section
+
+  * fix edge-cases on new cloudinit pending/active recording
+
+  * mtunnel: add API endpoints
+
+  * migrate: add foundation for remote (external cluster) migration, add
+    respective endpoints and qm `remote-migrate` CLI command
+
+  * memory hotplug: make max-memory dynamically calculated from the physicall
+    address bits the VM will use, that is the actual one from the config, if
+    set, the one from the host for CPU type host and 40 bits as fallback for
+    everything else. Calculate the addressable memory (e.g., 40 bits = 1 TiB)
+    and half that for the possible max-memory a VM can use, using the previous
+    hard-coded 4 TiB as overall maximum for backward compat.
+    Admins with inhomogeneous CPUs and thus possible different bit-widths need
+    to take special care themselves to ensure that a VM with memory hot-plug
+    configured can run on other nodes, for example for live-migration.
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 17 Nov 2022 17:04:58 +0100
+
 qemu-server (7.2-8) bullseye; urgency=medium
 
   * fix #4296: virtio-net: enable packed queues for qemu 7.1
