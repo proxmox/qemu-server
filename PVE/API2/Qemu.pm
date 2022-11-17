@@ -12,6 +12,7 @@ use URI::Escape;
 use Crypt::OpenSSL::Random;
 use Socket qw(SOCK_STREAM);
 
+use PVE::APIClient::LWP;
 use PVE::Cluster qw (cfs_read_file cfs_write_file);;
 use PVE::RRD;
 use PVE::SafeSyslog;
@@ -52,8 +53,6 @@ BEGIN {
 	import PVE::HA::Config;
     }
 }
-
-use Data::Dumper; # fixme: remove
 
 use base qw(PVE::RESTHandler);
 
@@ -1097,7 +1096,8 @@ __PACKAGE__->register_method({
 	    { subdir => 'sendkey' },
 	    { subdir => 'firewall' },
 	    { subdir => 'mtunnel' },
-	    ];
+	    { subdir => 'remote_migrate' },
+	];
 
 	return $res;
     }});
@@ -4428,6 +4428,202 @@ __PACKAGE__->register_method({
     }});
 
 __PACKAGE__->register_method({
+    name => 'remote_migrate_vm',
+    path => '{vmid}/remote_migrate',
+    method => 'POST',
+    protected => 1,
+    proxyto => 'node',
+    description => "Migrate virtual machine to a remote cluster. Creates a new migration task. EXPERIMENTAL feature!",
+    permissions => {
+	check => ['perm', '/vms/{vmid}', [ 'VM.Migrate' ]],
+    },
+    parameters => {
+	additionalProperties => 0,
+	properties => {
+	    node => get_standard_option('pve-node'),
+	    vmid => get_standard_option('pve-vmid', { completion => \&PVE::QemuServer::complete_vmid }),
+	    'target-vmid' => get_standard_option('pve-vmid', { optional => 1 }),
+	    'target-endpoint' => get_standard_option('proxmox-remote', {
+		description => "Remote target endpoint",
+	    }),
+	    online => {
+		type => 'boolean',
+		description => "Use online/live migration if VM is running. Ignored if VM is stopped.",
+		optional => 1,
+	    },
+	    delete => {
+		type => 'boolean',
+		description => "Delete the original VM and related data after successful migration. By default the original VM is kept on the source cluster in a stopped state.",
+		optional => 1,
+		default => 0,
+	    },
+	    'target-storage' => get_standard_option('pve-targetstorage', {
+		completion => \&PVE::QemuServer::complete_migration_storage,
+		optional => 0,
+	    }),
+	    'target-bridge' => {
+		type => 'string',
+		description => "Mapping from source to target bridges. Providing only a single bridge ID maps all source bridges to that bridge. Providing the special value '1' will map each source bridge to itself.",
+		format => 'bridge-pair-list',
+	    },
+	    bwlimit => {
+		description => "Override I/O bandwidth limit (in KiB/s).",
+		optional => 1,
+		type => 'integer',
+		minimum => '0',
+		default => 'migrate limit from datacenter or storage config',
+	    },
+	},
+    },
+    returns => {
+	type => 'string',
+	description => "the task ID.",
+    },
+    code => sub {
+	my ($param) = @_;
+
+	my $rpcenv = PVE::RPCEnvironment::get();
+	my $authuser = $rpcenv->get_user();
+
+	my $source_vmid = extract_param($param, 'vmid');
+	my $target_endpoint = extract_param($param, 'target-endpoint');
+	my $target_vmid = extract_param($param, 'target-vmid') // $source_vmid;
+
+	my $delete = extract_param($param, 'delete') // 0;
+
+	PVE::Cluster::check_cfs_quorum();
+
+	# test if VM exists
+	my $conf = PVE::QemuConfig->load_config($source_vmid);
+
+	PVE::QemuConfig->check_lock($conf);
+
+	raise_param_exc({ vmid => "cannot migrate HA-managed VM to remote cluster" })
+	    if PVE::HA::Config::vm_is_ha_managed($source_vmid);
+
+	my $remote = PVE::JSONSchema::parse_property_string('proxmox-remote', $target_endpoint);
+
+	# TODO: move this as helper somewhere appropriate?
+	my $conn_args = {
+	    protocol => 'https',
+	    host => $remote->{host},
+	    port => $remote->{port} // 8006,
+	    apitoken => $remote->{apitoken},
+	};
+
+	my $fp;
+	if ($fp = $remote->{fingerprint}) {
+	    $conn_args->{cached_fingerprints} = { uc($fp) => 1 };
+	}
+
+	print "Establishing API connection with remote at '$remote->{host}'\n";
+
+	my $api_client = PVE::APIClient::LWP->new(%$conn_args);
+
+	if (!defined($fp)) {
+	    my $cert_info = $api_client->get("/nodes/localhost/certificates/info");
+	    foreach my $cert (@$cert_info) {
+		my $filename = $cert->{filename};
+		next if $filename ne 'pveproxy-ssl.pem' && $filename ne 'pve-ssl.pem';
+		$fp = $cert->{fingerprint} if !$fp || $filename eq 'pveproxy-ssl.pem';
+	    }
+	    $conn_args->{cached_fingerprints} = { uc($fp) => 1 }
+		if defined($fp);
+	}
+
+	my $repl_conf = PVE::ReplicationConfig->new();
+	my $is_replicated = $repl_conf->check_for_existing_jobs($source_vmid, 1);
+	die "cannot remote-migrate replicated VM\n" if $is_replicated;
+
+	if (PVE::QemuServer::check_running($source_vmid)) {
+	    die "can't migrate running VM without --online\n" if !$param->{online};
+
+	} else {
+	    warn "VM isn't running. Doing offline migration instead.\n" if $param->{online};
+	    $param->{online} = 0;
+	}
+
+	# FIXME: fork worker hear to avoid timeout? or poll these periodically
+	# in pvestatd and access cached info here? all of the below is actually
+	# checked at the remote end anyway once we call the mtunnel endpoint,
+	# we could also punt it to the client and not do it here at all..
+	my $resources = $api_client->get("/cluster/resources", { type => 'vm' });
+	if (grep { defined($_->{vmid}) && $_->{vmid} eq $target_vmid } @$resources) {
+	    raise_param_exc({ target_vmid => "Guest with ID '$target_vmid' already exists on remote cluster" });
+	}
+
+	my $storages = $api_client->get("/nodes/localhost/storage", { enabled => 1 });
+
+	my $storecfg = PVE::Storage::config();
+	my $target_storage = extract_param($param, 'target-storage');
+	my $storagemap = eval { PVE::JSONSchema::parse_idmap($target_storage, 'pve-storage-id') };
+	raise_param_exc({ 'target-storage' => "failed to parse storage map: $@" })
+	    if $@;
+
+	my $target_bridge = extract_param($param, 'target-bridge');
+	my $bridgemap = eval { PVE::JSONSchema::parse_idmap($target_bridge, 'pve-bridge-id') };
+	raise_param_exc({ 'target-bridge' => "failed to parse bridge map: $@" })
+	    if $@;
+
+	my $check_remote_storage = sub {
+	    my ($storage) = @_;
+	    my $found = [ grep { $_->{storage} eq $storage } @$storages ];
+	    die "remote: storage '$storage' does not exist!\n"
+		if !@$found;
+
+	    $found = @$found[0];
+
+	    my $content_types = [ PVE::Tools::split_list($found->{content}) ];
+	    die "remote: storage '$storage' cannot store images\n"
+		if !grep { $_ eq 'images' } @$content_types;
+	};
+
+	foreach my $target_sid (values %{$storagemap->{entries}}) {
+	    $check_remote_storage->($target_sid);
+	}
+
+	$check_remote_storage->($storagemap->{default})
+	    if $storagemap->{default};
+
+	die "remote migration requires explicit storage mapping!\n"
+	    if $storagemap->{identity};
+
+	$param->{storagemap} = $storagemap;
+	$param->{bridgemap} = $bridgemap;
+	$param->{remote} = {
+	    conn => $conn_args, # re-use fingerprint for tunnel
+	    client => $api_client,
+	    vmid => $target_vmid,
+	};
+	$param->{migration_type} = 'websocket';
+	$param->{'with-local-disks'} = 1;
+	$param->{delete} = $delete if $delete;
+
+	my $cluster_status = $api_client->get("/cluster/status");
+	my $target_node;
+	foreach my $entry (@$cluster_status) {
+	    next if $entry->{type} ne 'node';
+	    if ($entry->{local}) {
+		$target_node = $entry->{name};
+		last;
+	    }
+	}
+
+	die "couldn't determine endpoint's node name\n"
+	    if !defined($target_node);
+
+	my $realcmd = sub {
+	    PVE::QemuMigrate->migrate($target_node, $remote->{host}, $source_vmid, $param);
+	};
+
+	my $worker = sub {
+	    return PVE::GuestHelpers::guest_migration_lock($source_vmid, 10, $realcmd);
+	};
+
+	return $rpcenv->fork_worker('qmigrate', $source_vmid, $authuser, $worker);
+    }});
+
+__PACKAGE__->register_method({
     name => 'monitor',
     path => '{vmid}/monitor',
     method => 'POST',
@@ -5133,6 +5329,12 @@ __PACKAGE__->register_method({
 		optional => 1,
 		description => 'List of storages to check permission and availability. Will be checked again for all actually used storages during migration.',
 	    },
+	    bridges => {
+		type => 'string',
+		format => 'pve-bridge-id-list',
+		optional => 1,
+		description => 'List of network bridges to check availability. Will be checked again for actually used bridges during migration.',
+	    },
 	},
     },
     returns => {
@@ -5153,6 +5355,7 @@ __PACKAGE__->register_method({
 	my $vmid = extract_param($param, 'vmid');
 
 	my $storages = extract_param($param, 'storages');
+	my $bridges = extract_param($param, 'bridges');
 
 	my $nodename = PVE::INotify::nodename();
 
@@ -5164,6 +5367,10 @@ __PACKAGE__->register_method({
 	my $storecfg = PVE::Storage::config();
 	foreach my $storeid (PVE::Tools::split_list($storages)) {
 	    $check_storage_access_migrate->($rpcenv, $authuser, $storecfg, $storeid, $node);
+	}
+
+	foreach my $bridge (PVE::Tools::split_list($bridges)) {
+	    PVE::Network::read_bridge_mtu($bridge);
 	}
 
 	PVE::Cluster::check_cfs_quorum();
