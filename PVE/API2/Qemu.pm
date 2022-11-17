@@ -4,10 +4,13 @@ use strict;
 use warnings;
 use Cwd 'abs_path';
 use Net::SSLeay;
-use POSIX;
 use IO::Socket::IP;
+use IO::Socket::UNIX;
+use IPC::Open3;
+use JSON;
 use URI::Escape;
 use Crypt::OpenSSL::Random;
+use Socket qw(SOCK_STREAM);
 
 use PVE::Cluster qw (cfs_read_file cfs_write_file);;
 use PVE::RRD;
@@ -39,6 +42,7 @@ use PVE::VZDump::Plugin;
 use PVE::DataCenterConfig;
 use PVE::SSHInfo;
 use PVE::Replication;
+use PVE::StorageTunnel;
 
 BEGIN {
     if (!$ENV{PVE_GENERATING_DOCS}) {
@@ -1092,6 +1096,7 @@ __PACKAGE__->register_method({
 	    { subdir => 'spiceproxy' },
 	    { subdir => 'sendkey' },
 	    { subdir => 'firewall' },
+	    { subdir => 'mtunnel' },
 	    ];
 
 	return $res;
@@ -1446,6 +1451,8 @@ my $update_vm_api  = sub {
     my $digest = extract_param($param, 'digest');
 
     my $background_delay = extract_param($param, 'background_delay');
+
+    my $skip_cloud_init = extract_param($param, 'skip_cloud_init');
 
     if (defined(my $cipassword = $param->{cipassword})) {
 	# Same logic as in cloud-init (but with the regex fixed...)
@@ -1804,7 +1811,8 @@ my $update_vm_api  = sub {
 	    if ($running) {
 		PVE::QemuServer::vmconfig_hotplug_pending($vmid, $conf, $storecfg, $modified, $errors);
 	    } else {
-		PVE::QemuServer::vmconfig_apply_pending($vmid, $conf, $storecfg, $errors);
+		# cloud_init must be skipped if we are in an incoming, remote live migration
+		PVE::QemuServer::vmconfig_apply_pending($vmid, $conf, $storecfg, $errors, $skip_cloud_init);
 	    }
 	    raise_param_exc($errors) if scalar(keys %$errors);
 
@@ -5097,6 +5105,529 @@ __PACKAGE__->register_method({
 	my $conf = PVE::QemuConfig->load_config($param->{vmid});
 
 	return PVE::QemuServer::Cloudinit::dump_cloudinit_config($conf, $param->{vmid}, $param->{type});
+    }});
+
+__PACKAGE__->register_method({
+    name => 'mtunnel',
+    path => '{vmid}/mtunnel',
+    method => 'POST',
+    protected => 1,
+    description => 'Migration tunnel endpoint - only for internal use by VM migration.',
+    permissions => {
+	check =>
+	[ 'and',
+	  ['perm', '/vms/{vmid}', [ 'VM.Allocate' ]],
+	  ['perm', '/', [ 'Sys.Incoming' ]],
+	],
+	description => "You need 'VM.Allocate' permissions on '/vms/{vmid}' and Sys.Incoming" .
+	               " on '/'. Further permission checks happen during the actual migration.",
+    },
+    parameters => {
+	additionalProperties => 0,
+	properties => {
+	    node => get_standard_option('pve-node'),
+	    vmid => get_standard_option('pve-vmid'),
+	    storages => {
+		type => 'string',
+		format => 'pve-storage-id-list',
+		optional => 1,
+		description => 'List of storages to check permission and availability. Will be checked again for all actually used storages during migration.',
+	    },
+	},
+    },
+    returns => {
+	additionalProperties => 0,
+	properties => {
+	    upid => { type => 'string' },
+	    ticket => { type => 'string' },
+	    socket => { type => 'string' },
+	},
+    },
+    code => sub {
+	my ($param) = @_;
+
+	my $rpcenv = PVE::RPCEnvironment::get();
+	my $authuser = $rpcenv->get_user();
+
+	my $node = extract_param($param, 'node');
+	my $vmid = extract_param($param, 'vmid');
+
+	my $storages = extract_param($param, 'storages');
+
+	my $nodename = PVE::INotify::nodename();
+
+	raise_param_exc({ node => "node needs to be 'localhost' or local hostname '$nodename'" })
+	    if $node ne 'localhost' && $node ne $nodename;
+
+	$node = $nodename;
+
+	my $storecfg = PVE::Storage::config();
+	foreach my $storeid (PVE::Tools::split_list($storages)) {
+	    $check_storage_access_migrate->($rpcenv, $authuser, $storecfg, $storeid, $node);
+	}
+
+	PVE::Cluster::check_cfs_quorum();
+
+	my $lock = 'create';
+	eval { PVE::QemuConfig->create_and_lock_config($vmid, 0, $lock); };
+
+	raise_param_exc({ vmid => "unable to create empty VM config - $@"})
+	    if $@;
+
+	my $realcmd = sub {
+	    my $state = {
+		storecfg => PVE::Storage::config(),
+		lock => $lock,
+		vmid => $vmid,
+	    };
+
+	    my $run_locked = sub {
+		my ($code, $params) = @_;
+		return PVE::QemuConfig->lock_config($state->{vmid}, sub {
+		    my $conf = PVE::QemuConfig->load_config($state->{vmid});
+
+		    $state->{conf} = $conf;
+
+		    die "Encountered wrong lock - aborting mtunnel command handling.\n"
+			if $state->{lock} && !PVE::QemuConfig->has_lock($conf, $state->{lock});
+
+		    return $code->($params);
+		});
+	    };
+
+	    my $cmd_desc = {
+		config => {
+		    conf => {
+			type => 'string',
+			description => 'Full VM config, adapted for target cluster/node',
+		    },
+		    'firewall-config' => {
+			type => 'string',
+			description => 'VM firewall config',
+			optional => 1,
+		    },
+		},
+		disk => {
+		    format => PVE::JSONSchema::get_standard_option('pve-qm-image-format'),
+		    storage => {
+			type => 'string',
+			format => 'pve-storage-id',
+		    },
+		    drive => {
+			type => 'object',
+			description => 'parsed drive information without volid and format',
+		    },
+		},
+		start => {
+		    start_params => {
+			type => 'object',
+			description => 'params passed to vm_start_nolock',
+		    },
+		    migrate_opts => {
+			type => 'object',
+			description => 'migrate_opts passed to vm_start_nolock',
+		    },
+		},
+		ticket => {
+		    path => {
+			type => 'string',
+			description => 'socket path for which the ticket should be valid. must be known to current mtunnel instance.',
+		    },
+		},
+		quit => {
+		    cleanup => {
+			type => 'boolean',
+			description => 'remove VM config and disks, aborting migration',
+			default => 0,
+		    },
+		},
+		'disk-import' => $PVE::StorageTunnel::cmd_schema->{'disk-import'},
+		'query-disk-import' => $PVE::StorageTunnel::cmd_schema->{'query-disk-import'},
+		bwlimit => $PVE::StorageTunnel::cmd_schema->{bwlimit},
+	    };
+
+	    my $cmd_handlers = {
+		'version' => sub {
+		    # compared against other end's version
+		    # bump/reset for breaking changes
+		    # bump/bump for opt-in changes
+		    return {
+			api => 2,
+			age => 0,
+		    };
+		},
+		'config' => sub {
+		    my ($params) = @_;
+
+		    # parse and write out VM FW config if given
+		    if (my $fw_conf = $params->{'firewall-config'}) {
+			my ($path, $fh) = PVE::Tools::tempfile_contents($fw_conf, 700);
+
+			my $empty_conf = {
+			    rules => [],
+			    options => {},
+			    aliases => {},
+			    ipset => {} ,
+			    ipset_comments => {},
+			};
+			my $cluster_fw_conf = PVE::Firewall::load_clusterfw_conf();
+
+			# TODO: add flag for strict parsing?
+			# TODO: add import sub that does all this given raw content?
+			my $vmfw_conf = PVE::Firewall::generic_fw_config_parser($path, $cluster_fw_conf, $empty_conf, 'vm');
+			$vmfw_conf->{vmid} = $state->{vmid};
+			PVE::Firewall::save_vmfw_conf($state->{vmid}, $vmfw_conf);
+
+			$state->{cleanup}->{fw} = 1;
+		    }
+
+		    my $conf_fn = "incoming/qemu-server/$state->{vmid}.conf";
+		    my $new_conf = PVE::QemuServer::parse_vm_config($conf_fn, $params->{conf}, 1);
+		    delete $new_conf->{lock};
+		    delete $new_conf->{digest};
+
+		    # TODO handle properly?
+		    delete $new_conf->{snapshots};
+		    delete $new_conf->{parent};
+		    delete $new_conf->{pending};
+
+		    # not handled by update_vm_api
+		    my $vmgenid = delete $new_conf->{vmgenid};
+		    my $meta = delete $new_conf->{meta};
+		    my $cloudinit = delete $new_conf->{cloudinit}; # this is informational only
+		    $new_conf->{skip_cloud_init} = 1; # re-use image from source side
+
+		    $new_conf->{vmid} = $state->{vmid};
+		    $new_conf->{node} = $node;
+
+		    PVE::QemuConfig->remove_lock($state->{vmid}, 'create');
+
+		    eval {
+			$update_vm_api->($new_conf, 1);
+		    };
+		    if (my $err = $@) {
+			# revert to locked previous config
+			my $conf = PVE::QemuConfig->load_config($state->{vmid});
+			$conf->{lock} = 'create';
+			PVE::QemuConfig->write_config($state->{vmid}, $conf);
+
+			die $err;
+		    }
+
+		    my $conf = PVE::QemuConfig->load_config($state->{vmid});
+		    $conf->{lock} = 'migrate';
+		    $conf->{vmgenid} = $vmgenid if defined($vmgenid);
+		    $conf->{meta} = $meta if defined($meta);
+		    $conf->{cloudinit} = $cloudinit if defined($cloudinit);
+		    PVE::QemuConfig->write_config($state->{vmid}, $conf);
+
+		    $state->{lock} = 'migrate';
+
+		    return;
+		},
+		'bwlimit' => sub {
+		    my ($params) = @_;
+		    return PVE::StorageTunnel::handle_bwlimit($params);
+		},
+		'disk' => sub {
+		    my ($params) = @_;
+
+		    my $format = $params->{format};
+		    my $storeid = $params->{storage};
+		    my $drive = $params->{drive};
+
+		    $check_storage_access_migrate->($rpcenv, $authuser, $state->{storecfg}, $storeid, $node);
+
+		    my $storagemap = {
+			default => $storeid,
+		    };
+
+		    my $source_volumes = {
+			'disk' => [
+			    undef,
+			    $storeid,
+			    undef,
+			    $drive,
+			    0,
+			    $format,
+			],
+		    };
+
+		    my $res = PVE::QemuServer::vm_migrate_alloc_nbd_disks($state->{storecfg}, $state->{vmid}, $source_volumes, $storagemap);
+		    if (defined($res->{disk})) {
+			$state->{cleanup}->{volumes}->{$res->{disk}->{volid}} = 1;
+			return $res->{disk};
+		    } else {
+			die "failed to allocate NBD disk..\n";
+		    }
+		},
+		'disk-import' => sub {
+		    my ($params) = @_;
+
+		    $check_storage_access_migrate->(
+			$rpcenv,
+			$authuser,
+			$state->{storecfg},
+			$params->{storage},
+			$node
+		    );
+
+		    $params->{unix} = "/run/qemu-server/$state->{vmid}.storage";
+
+		    return PVE::StorageTunnel::handle_disk_import($state, $params);
+		},
+		'query-disk-import' => sub {
+		    my ($params) = @_;
+
+		    return PVE::StorageTunnel::handle_query_disk_import($state, $params);
+		},
+		'start' => sub {
+		    my ($params) = @_;
+
+		    my $info = PVE::QemuServer::vm_start_nolock(
+			$state->{storecfg},
+			$state->{vmid},
+			$state->{conf},
+			$params->{start_params},
+			$params->{migrate_opts},
+		    );
+
+
+		    if ($info->{migrate}->{proto} ne 'unix') {
+			PVE::QemuServer::vm_stop(undef, $state->{vmid}, 1, 1);
+			die "migration over non-UNIX sockets not possible\n";
+		    }
+
+		    my $socket = $info->{migrate}->{addr};
+		    chown $state->{socket_uid}, -1, $socket;
+		    $state->{sockets}->{$socket} = 1;
+
+		    my $unix_sockets = $info->{migrate}->{unix_sockets};
+		    foreach my $socket (@$unix_sockets) {
+			chown $state->{socket_uid}, -1, $socket;
+			$state->{sockets}->{$socket} = 1;
+		    }
+		    return $info;
+		},
+		'fstrim' => sub {
+		    if (PVE::QemuServer::qga_check_running($state->{vmid})) {
+			eval { mon_cmd($state->{vmid}, "guest-fstrim") };
+			warn "fstrim failed: $@\n" if $@;
+		    }
+		    return;
+		},
+		'stop' => sub {
+		    PVE::QemuServer::vm_stop(undef, $state->{vmid}, 1, 1);
+		    return;
+		},
+		'nbdstop' => sub {
+		    PVE::QemuServer::nbd_stop($state->{vmid});
+		    return;
+		},
+		'resume' => sub {
+		    if (PVE::QemuServer::Helpers::vm_running_locally($state->{vmid})) {
+			PVE::QemuServer::vm_resume($state->{vmid}, 1, 1);
+		    } else {
+			die "VM $state->{vmid} not running\n";
+		    }
+		    return;
+		},
+		'unlock' => sub {
+		    PVE::QemuConfig->remove_lock($state->{vmid}, $state->{lock});
+		    delete $state->{lock};
+		    return;
+		},
+		'ticket' => sub {
+		    my ($params) = @_;
+
+		    my $path = $params->{path};
+
+		    die "Not allowed to generate ticket for unknown socket '$path'\n"
+			if !defined($state->{sockets}->{$path});
+
+		    return { ticket => PVE::AccessControl::assemble_tunnel_ticket($authuser, "/socket/$path") };
+		},
+		'quit' => sub {
+		    my ($params) = @_;
+
+		    if ($params->{cleanup}) {
+			if ($state->{cleanup}->{fw}) {
+			    PVE::Firewall::remove_vmfw_conf($state->{vmid});
+			}
+
+			for my $volid (keys $state->{cleanup}->{volumes}->%*) {
+			    print "freeing volume '$volid' as part of cleanup\n";
+			    eval { PVE::Storage::vdisk_free($state->{storecfg}, $volid) };
+			    warn $@ if $@;
+			}
+
+			PVE::QemuServer::destroy_vm($state->{storecfg}, $state->{vmid}, 1);
+		    }
+
+		    print "switching to exit-mode, waiting for client to disconnect\n";
+		    $state->{exit} = 1;
+		    return;
+		},
+	    };
+
+	    $run_locked->(sub {
+		my $socket_addr = "/run/qemu-server/$state->{vmid}.mtunnel";
+		unlink $socket_addr;
+
+		$state->{socket} = IO::Socket::UNIX->new(
+	            Type => SOCK_STREAM(),
+		    Local => $socket_addr,
+		    Listen => 1,
+		);
+
+		$state->{socket_uid} = getpwnam('www-data')
+		    or die "Failed to resolve user 'www-data' to numeric UID\n";
+		chown $state->{socket_uid}, -1, $socket_addr;
+	    });
+
+	    print "mtunnel started\n";
+
+	    my $conn = eval { PVE::Tools::run_with_timeout(300, sub { $state->{socket}->accept() }) };
+	    if ($@) {
+		warn "Failed to accept tunnel connection - $@\n";
+
+		warn "Removing tunnel socket..\n";
+		unlink $state->{socket};
+
+		warn "Removing temporary VM config..\n";
+		$run_locked->(sub {
+		    PVE::QemuServer::destroy_vm($state->{storecfg}, $state->{vmid}, 1);
+		});
+
+		die "Exiting mtunnel\n";
+	    }
+
+	    $state->{conn} = $conn;
+
+	    my $reply_err = sub {
+		my ($msg) = @_;
+
+		my $reply = JSON::encode_json({
+		    success => JSON::false,
+		    msg => $msg,
+		});
+		$conn->print("$reply\n");
+		$conn->flush();
+	    };
+
+	    my $reply_ok = sub {
+		my ($res) = @_;
+
+		$res->{success} = JSON::true;
+		my $reply = JSON::encode_json($res);
+		$conn->print("$reply\n");
+		$conn->flush();
+	    };
+
+	    while (my $line = <$conn>) {
+		chomp $line;
+
+		# untaint, we validate below if needed
+		($line) = $line =~ /^(.*)$/;
+		my $parsed = eval { JSON::decode_json($line) };
+		if ($@) {
+		    $reply_err->("failed to parse command - $@");
+		    next;
+		}
+
+		my $cmd = delete $parsed->{cmd};
+		if (!defined($cmd)) {
+		    $reply_err->("'cmd' missing");
+		} elsif ($state->{exit}) {
+		    $reply_err->("tunnel is in exit-mode, processing '$cmd' cmd not possible");
+		    next;
+		} elsif (my $handler = $cmd_handlers->{$cmd}) {
+		    print "received command '$cmd'\n";
+		    eval {
+			if ($cmd_desc->{$cmd}) {
+			    PVE::JSONSchema::validate($parsed, $cmd_desc->{$cmd});
+			} else {
+			    $parsed = {};
+			}
+			my $res = $run_locked->($handler, $parsed);
+			$reply_ok->($res);
+		    };
+		    $reply_err->("failed to handle '$cmd' command - $@")
+			if $@;
+		} else {
+		    $reply_err->("unknown command '$cmd' given");
+		}
+	    }
+
+	    if ($state->{exit}) {
+		print "mtunnel exited\n";
+	    } else {
+		die "mtunnel exited unexpectedly\n";
+	    }
+	};
+
+	my $socket_addr = "/run/qemu-server/$vmid.mtunnel";
+	my $ticket = PVE::AccessControl::assemble_tunnel_ticket($authuser, "/socket/$socket_addr");
+	my $upid = $rpcenv->fork_worker('qmtunnel', $vmid, $authuser, $realcmd);
+
+	return {
+	    ticket => $ticket,
+	    upid => $upid,
+	    socket => $socket_addr,
+	};
+    }});
+
+__PACKAGE__->register_method({
+    name => 'mtunnelwebsocket',
+    path => '{vmid}/mtunnelwebsocket',
+    method => 'GET',
+    permissions => {
+	description => "You need to pass a ticket valid for the selected socket. Tickets can be created via the mtunnel API call, which will check permissions accordingly.",
+        user => 'all', # check inside
+    },
+    description => 'Migration tunnel endpoint for websocket upgrade - only for internal use by VM migration.',
+    parameters => {
+	additionalProperties => 0,
+	properties => {
+	    node => get_standard_option('pve-node'),
+	    vmid => get_standard_option('pve-vmid'),
+	    socket => {
+		type => "string",
+		description => "unix socket to forward to",
+	    },
+	    ticket => {
+		type => "string",
+		description => "ticket return by initial 'mtunnel' API call, or retrieved via 'ticket' tunnel command",
+	    },
+	},
+    },
+    returns => {
+	type => "object",
+	properties => {
+	    port => { type => 'string', optional => 1 },
+	    socket => { type => 'string', optional => 1 },
+	},
+    },
+    code => sub {
+	my ($param) = @_;
+
+	my $rpcenv = PVE::RPCEnvironment::get();
+	my $authuser = $rpcenv->get_user();
+
+	my $nodename = PVE::INotify::nodename();
+	my $node = extract_param($param, 'node');
+
+	raise_param_exc({ node => "node needs to be 'localhost' or local hostname '$nodename'" })
+	    if $node ne 'localhost' && $node ne $nodename;
+
+	my $vmid = $param->{vmid};
+	# check VM exists
+	PVE::QemuConfig->load_config($vmid);
+
+	my $socket = $param->{socket};
+	PVE::AccessControl::verify_tunnel_ticket($param->{ticket}, $authuser, "/socket/$socket");
+
+	return { socket => $socket };
     }});
 
 1;
