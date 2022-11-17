@@ -4913,44 +4913,61 @@ sub vmconfig_hotplug_pending {
 	my $ci = ($conf->{cloudinit} //= {});
 
 	my $recorded = $ci->{$opt};
+	my %added = map { $_ => 1 } PVE::Tools::split_list(delete($ci->{added}) // '');
 
-	my $remove_added = sub {
-	    my @added = grep { $_ ne $opt } PVE::Tools::split_list(delete($ci->{added}) // '');
-	    my $added = join(',', @added);
-	    $ci->{added} = $added if length($added);
-	};
-
-	my $record_added = sub {
-	    my %added = map { $_ => 1 } PVE::Tools::split_list(delete($ci->{added}) // '');
-	    $added{$opt} = 1;
-	    $ci->{added} = join(',', keys %added);
-	};
-
-	if (defined($recorded)) {
-	    # cloud-init already had a version of this key
-	    if (!defined($new)) {
-		# the option existed temporarily and was now removed:
-		$remove_added->();
-	    } elsif ($new eq $recorded) {
-		# it was reverted to the state in cloud-init
-		delete $ci->{$opt};
+	if (defined($new)) {
+	    if (defined($old)) {
+		# an existing value is being modified
+		if (defined($recorded)) {
+		    # the value was already not in sync
+		    if ($new eq $recorded) {
+			# a value is being reverted to the cloud-init state:
+			delete $ci->{$opt};
+			delete $added{$opt};
+		    } else {
+			# the value was changed multiple times, do nothing
+		    }
+		} elsif ($added{$opt}) {
+		    # the value had been marked as added and is being changed, do nothing
+		} else {
+		    # the value is new, record it:
+		    $ci->{$opt} = $old;
+		}
 	    } else {
-		# $old was newer than $recorded, do nothing
+		# a new value is being added
+		if (defined($recorded)) {
+		    # it was already not in sync
+		    if ($new eq $recorded) {
+			# a value is being reverted to the cloud-init state:
+			delete $ci->{$opt};
+			delete $added{$opt};
+		    } else {
+			# the value had temporarily been removed, do nothing
+		    }
+		} elsif ($added{$opt}) {
+		    # the value had been marked as added already, do nothing
+		} else {
+		    # the value is new, add it
+		    $added{$opt} = 1;
+		}
 	    }
+	} elsif (!defined($old)) {
+	    # a non-existent value is being removed? ignore...
 	} else {
-	    # the key was not present the last time we generated the cloud-init image:
-	    if (!defined($new)) {
-		# it is being deleted, which means we're back to the cloud-init sate:
-		delete $ci->{$opt};
-		$remove_added->();
-	    } elsif (defined($old)) {
-		# the key was modified
-		$ci->{$opt} = $old;
+	    # a value is being deleted
+	    if (defined($recorded)) {
+		# a value was already recorded, just keep it
+	    } elsif ($added{$opt}) {
+		# the value was marked as added, remove it
+		delete $added{$opt};
 	    } else {
-		# the key was added, no old value exists
-		$record_added->();
+		# a previously unrecorded value is being removed, record the old value:
+		$ci->{$opt} = $old;
 	    }
 	}
+
+	my $added = join(',', sort keys %added);
+	$ci->{added} = $added if length($added);
     };
 
     my $changes = 0;
