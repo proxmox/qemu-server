@@ -1,4 +1,4 @@
-qemu-server (7.2-8) UNRELEASED; urgency=medium
+qemu-server (7.2-8) bullseye; urgency=medium
 
   * fix #4296: virtio-net: enable packed queues for qemu 7.1
 
