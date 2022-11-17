@@ -2492,6 +2492,11 @@ sub parse_vm_config {
 	} elsif ($line =~ m/^([a-z][a-z_]*\d*):\s*(.+?)\s*$/) {
 	    my $key = $1;
 	    my $value = $2;
+	    if ($section eq 'cloudinit') {
+		# ignore validation only used for informative purpose
+		$conf->{$key} = $value;
+		next;
+	    }
 	    eval { $value = check_type($key, $value); };
 	    if ($@) {
 		$handle_error->("vm $vmid - unable to parse value of '$key' - $@");
