@@ -5688,7 +5688,10 @@ sub vm_start_nolock {
     my $defaults = load_defaults();
 
     # set environment variable useful inside network script
-    $ENV{PVE_MIGRATED_FROM} = $migratedfrom if $migratedfrom;
+    # for remote migration the config is available on the target node!
+    if (!$migrate_opts->{remote_node}) {
+	$ENV{PVE_MIGRATED_FROM} = $migratedfrom;
+    }
 
     PVE::GuestHelpers::exec_hookscript($conf, $vmid, 'pre-start', 1);
 
@@ -5938,7 +5941,7 @@ sub vm_start_nolock {
 
 	my $migrate_storage_uri;
 	# nbd_protocol_version > 0 for unix socket support
-	if ($nbd_protocol_version > 0 && $migration_type eq 'secure') {
+	if ($nbd_protocol_version > 0 && ($migration_type eq 'secure' || $migration_type eq 'websocket')) {
 	    my $socket_path = "/run/qemu-server/$vmid\_nbd.migrate";
 	    mon_cmd($vmid, "nbd-server-start", addr => { type => 'unix', data => { path => $socket_path } } );
 	    $migrate_storage_uri = "nbd:unix:$socket_path";

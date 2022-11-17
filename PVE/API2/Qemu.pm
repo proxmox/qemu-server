@@ -5252,7 +5252,7 @@ __PACKAGE__->register_method({
 		    # bump/reset for breaking changes
 		    # bump/bump for opt-in changes
 		    return {
-			api => 2,
+			api => $PVE::QemuMigrate::WS_TUNNEL_VERSION,
 			age => 0,
 		    };
 		},
