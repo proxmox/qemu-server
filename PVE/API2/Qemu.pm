@@ -4543,17 +4543,6 @@ __PACKAGE__->register_method({
 	    $param->{online} = 0;
 	}
 
-	# FIXME: fork worker hear to avoid timeout? or poll these periodically
-	# in pvestatd and access cached info here? all of the below is actually
-	# checked at the remote end anyway once we call the mtunnel endpoint,
-	# we could also punt it to the client and not do it here at all..
-	my $resources = $api_client->get("/cluster/resources", { type => 'vm' });
-	if (grep { defined($_->{vmid}) && $_->{vmid} eq $target_vmid } @$resources) {
-	    raise_param_exc({ target_vmid => "Guest with ID '$target_vmid' already exists on remote cluster" });
-	}
-
-	my $storages = $api_client->get("/nodes/localhost/storage", { enabled => 1 });
-
 	my $storecfg = PVE::Storage::config();
 	my $target_storage = extract_param($param, 'target-storage');
 	my $storagemap = eval { PVE::JSONSchema::parse_idmap($target_storage, 'pve-storage-id') };
@@ -4564,26 +4553,6 @@ __PACKAGE__->register_method({
 	my $bridgemap = eval { PVE::JSONSchema::parse_idmap($target_bridge, 'pve-bridge-id') };
 	raise_param_exc({ 'target-bridge' => "failed to parse bridge map: $@" })
 	    if $@;
-
-	my $check_remote_storage = sub {
-	    my ($storage) = @_;
-	    my $found = [ grep { $_->{storage} eq $storage } @$storages ];
-	    die "remote: storage '$storage' does not exist!\n"
-		if !@$found;
-
-	    $found = @$found[0];
-
-	    my $content_types = [ PVE::Tools::split_list($found->{content}) ];
-	    die "remote: storage '$storage' cannot store images\n"
-		if !grep { $_ eq 'images' } @$content_types;
-	};
-
-	foreach my $target_sid (values %{$storagemap->{entries}}) {
-	    $check_remote_storage->($target_sid);
-	}
-
-	$check_remote_storage->($storagemap->{default})
-	    if $storagemap->{default};
 
 	die "remote migration requires explicit storage mapping!\n"
 	    if $storagemap->{identity};
