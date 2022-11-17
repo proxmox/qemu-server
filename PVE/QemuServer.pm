@@ -5244,7 +5244,7 @@ sub vmconfig_apply_pending {
 
     PVE::QemuConfig->cleanup_pending($conf);
 
-    my $generate_cloudnit = $skip_cloud_init ? 0 : undef;
+    my $generate_cloudinit = $skip_cloud_init ? 0 : undef;
 
     foreach my $opt (keys %{$conf->{pending}}) { # add/change
 	next if $opt eq 'delete'; # just to be sure
@@ -5259,7 +5259,7 @@ sub vmconfig_apply_pending {
 
 	    if (is_valid_drivename($opt)) {
 		my $drive = parse_drive($opt, $conf->{pending}->{$opt});
-		$generate_cloudnit //= 1 if drive_is_cloudinit($drive);
+		$generate_cloudinit //= 1 if drive_is_cloudinit($drive);
 	    }
 
 	    $conf->{$opt} = delete $conf->{pending}->{$opt};
@@ -5268,7 +5268,7 @@ sub vmconfig_apply_pending {
 
     # write all changes at once to avoid unnecessary i/o
     PVE::QemuConfig->write_config($vmid, $conf);
-    if ($generate_cloudnit) {
+    if ($generate_cloudinit) {
 	if (PVE::QemuServer::Cloudinit::apply_cloudinit_config($conf, $vmid)) {
 	    # After successful generation and if there were changes to be applied, update the
 	    # config to drop the {cloudinit} entry.
