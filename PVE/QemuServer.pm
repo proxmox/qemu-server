@@ -5136,7 +5136,8 @@ sub vmconfig_hotplug_pending {
 	my ($opt, $drive) = @$cloudinit_opt;
 	my $value = $conf->{pending}->{$opt};
 	eval {
-	    PVE::QemuServer::Cloudinit::apply_cloudinit_config($conf, $vmid);
+	    my $temp = {%$conf, $opt => $value};
+	    PVE::QemuServer::Cloudinit::apply_cloudinit_config($temp, $vmid);
 	    vmconfig_update_disk($storecfg, $conf, $hotplug_features->{disk},
 				 $vmid, $opt, $value, $arch, $machine_type);
 	};
