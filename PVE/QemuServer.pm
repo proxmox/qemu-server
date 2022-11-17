@@ -5211,7 +5211,7 @@ sub vmconfig_delete_or_detach_drive {
 
 
 sub vmconfig_apply_pending {
-    my ($vmid, $conf, $storecfg, $errors) = @_;
+    my ($vmid, $conf, $storecfg, $errors, $skip_cloud_init) = @_;
 
     return if !scalar(keys %{$conf->{pending}});
 
@@ -5244,7 +5244,7 @@ sub vmconfig_apply_pending {
 
     PVE::QemuConfig->cleanup_pending($conf);
 
-    my $generate_cloudnit = undef;
+    my $generate_cloudnit = $skip_cloud_init ? 0 : undef;
 
     foreach my $opt (keys %{$conf->{pending}}) { # add/change
 	next if $opt eq 'delete'; # just to be sure
@@ -5259,7 +5259,7 @@ sub vmconfig_apply_pending {
 
 	    if (is_valid_drivename($opt)) {
 		my $drive = parse_drive($opt, $conf->{pending}->{$opt});
-		$generate_cloudnit = 1 if drive_is_cloudinit($drive);
+		$generate_cloudnit //= 1 if drive_is_cloudinit($drive);
 	    }
 
 	    $conf->{$opt} = delete $conf->{pending}->{$opt};
