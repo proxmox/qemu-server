@@ -21,9 +21,11 @@ if (PVE::Cluster::check_cfs_is_mounted(1)) {
 }
 
 my $default_filename = "virtual-guest/cpu-models.conf";
-cfs_register_file($default_filename,
-		  sub { PVE::QemuServer::CPUConfig->parse_config(@_); },
-		  sub { PVE::QemuServer::CPUConfig->write_config(@_); });
+cfs_register_file(
+    $default_filename,
+    sub { PVE::QemuServer::CPUConfig->parse_config(@_); },
+    sub { PVE::QemuServer::CPUConfig->write_config(@_); },
+);
 
 sub load_custom_model_conf {
     return cfs_read_file($default_filename);
