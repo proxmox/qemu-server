@@ -1,4 +1,4 @@
-qemu-server (7.2-9) bullseye; urgency=medium
+qemu-server (7.2-10) bullseye; urgency=medium
 
   * fix #4321: properly check cloud-init drive permissions, require both
     VM.Config.CDROM and VM.Config.Cloudinit, and not VM.Config.Disk, for being
@@ -27,7 +27,7 @@ qemu-server (7.2-9) bullseye; urgency=medium
     to take special care themselves to ensure that a VM with memory hot-plug
     configured can run on other nodes, for example for live-migration.
 
- -- Proxmox Support Team <support@proxmox.com>  Thu, 17 Nov 2022 17:04:58 +0100
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 17 Nov 2022 17:48:03 +0100
 
 qemu-server (7.2-8) bullseye; urgency=medium
 
