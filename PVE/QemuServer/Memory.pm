@@ -10,8 +10,56 @@ use PVE::QemuServer;
 use PVE::QemuServer::Monitor qw(mon_cmd);
 
 my $MAX_NUMA = 8;
-my $MAX_MEM = 4194304;
 my $STATICMEM = 1024;
+
+my $_host_bits;
+my sub get_host_phys_address_bits {
+    return $_host_bits if defined($_host_bits);
+
+    my $fh = IO::File->new ('/proc/cpuinfo', "r") or return;
+    while (defined(my $line = <$fh>)) {
+	# hopefully we never need to care about mixed (big.LITTLE) archs
+	if ($line =~ m/^address sizes\s*:\s*(\d+)\s*bits physical/i) {
+	    $_host_bits = int($1);
+	    $fh->close();
+	    return $_host_bits;
+	}
+    }
+    $fh->close();
+    return; # undef, cannot really do anything..
+}
+
+my sub get_max_mem {
+    my ($conf) = @_;
+
+    my $cpu = {};
+    if (my $cpu_prop_str = $conf->{cpu}) {
+	$cpu = PVE::JSONSchema::parse_property_string('pve-vm-cpu-conf', $cpu_prop_str)
+	    or die "Cannot parse cpu description: $cpu_prop_str\n";
+    }
+    my $bits;
+    if (my $phys_bits = $cpu->{'phys-bits'}) {
+	if ($phys_bits eq 'host') {
+	    $bits = get_host_phys_address_bits();
+	} elsif ($phys_bits =~ /^(\d+)$/) {
+	    $bits = int($phys_bits);
+	}
+    }
+
+    if (!defined($bits)) {
+	my $host_bits = get_host_phys_address_bits() // 36; # fixme: what fallback?
+	if ($cpu->{cputype} && $cpu->{cputype} =~ /^(host|max)$/) {
+	    $bits = $host_bits;
+	} else {
+	    $bits = $host_bits > 40 ? 40 : $host_bits; # take the smaller one
+	}
+    }
+
+    # remove 20 bits to get MB and half that as QEMU needs some overhead
+    my $bits_to_max_mem = int(1 << ($bits - 21));
+
+    return $bits_to_max_mem > 4*1024*1024 ? 4*1024*1024 : $bits_to_max_mem;
+}
 
 sub get_numa_node_list {
     my ($conf) = @_;
@@ -120,9 +168,10 @@ sub qemu_memory_hotplug {
     $static_memory = $static_memory * $sockets if ($conf->{hugepages} && $conf->{hugepages} == 1024);
 
     die "memory can't be lower than $static_memory MB" if $value < $static_memory;
-    die "you cannot add more memory than $MAX_MEM MB!\n" if $memory > $MAX_MEM;
+    my $MAX_MEM = get_max_mem($conf);
+    die "you cannot add more memory than max mem $MAX_MEM MB!\n" if $memory > $MAX_MEM;
 
-    if($value > $memory) {
+    if ($value > $memory) {
 
 	my $numa_hostmap;
 
@@ -224,6 +273,7 @@ sub config {
 
     if ($hotplug_features->{memory}) {
 	die "NUMA needs to be enabled for memory hotplug\n" if !$conf->{numa};
+	my $MAX_MEM = get_max_mem($conf);
 	die "Total memory is bigger than ${MAX_MEM}MB\n" if $memory > $MAX_MEM;
 
 	for (my $i = 0; $i < $MAX_NUMA; $i++) {
