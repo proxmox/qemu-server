@@ -1,3 +1,9 @@
+qemu-server (7.2-11) bullseye; urgency=medium
+
+  * fdb: only manage FDB entries for Linux bridges, ignore OVS for now
+
+ -- Proxmox Support Team <support@proxmox.com>  Sun, 20 Nov 2022 16:30:28 +0100
+
 qemu-server (7.2-10) bullseye; urgency=medium
 
   * fix #4321: properly check cloud-init drive permissions, require both
