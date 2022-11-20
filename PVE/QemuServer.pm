@@ -8448,8 +8448,9 @@ sub add_nets_bridge_fdb {
 	    next;
 	}
 
+	my $bridge = $net->{bridge};
 	if ($have_sdn) {
-	    PVE::Network::SDN::Zones::add_bridge_fdb($iface, $mac, $net->{bridge}, $net->{firewall});
+	    PVE::Network::SDN::Zones::add_bridge_fdb($iface, $mac, $bridge, $net->{firewall});
 	} else {
 	    PVE::Network::add_bridge_fdb($iface, $mac, $net->{firewall});
 	}
@@ -8466,8 +8467,9 @@ sub del_nets_bridge_fdb {
 	my $net = parse_net($conf->{$opt}) or next;
 	my $mac = $net->{macaddr} or next;
 
+	my $bridge = $net->{bridge};
 	if ($have_sdn) {
-	    PVE::Network::SDN::Zones::del_bridge_fdb($iface, $mac, $net->{bridge}, $net->{firewall});
+	    PVE::Network::SDN::Zones::del_bridge_fdb($iface, $mac, $bridge, $net->{firewall});
 	} else {
 	    PVE::Network::del_bridge_fdb($iface, $mac, $net->{firewall});
 	}
