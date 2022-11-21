@@ -1768,7 +1768,7 @@ my $update_vm_api  = sub {
 		    $conf->{pending}->{$opt} = $param->{$opt};
 		} elsif ($opt eq 'tags') {
 		    assert_tag_permissions($vmid, $conf->{$opt}, $param->{$opt}, $rpcenv, $authuser);
-		    $conf->{pending}->{$opt} = $param->{$opt};
+		    $conf->{pending}->{$opt} = PVE::GuestHelpers::get_unique_tags($param->{$opt});
 		} else {
 		    $conf->{pending}->{$opt} = $param->{$opt};
 
