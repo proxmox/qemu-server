@@ -1500,6 +1500,7 @@ sub phase3_cleanup {
 		    $self->{errors} = 1;
 		}
 	    } else {
+		# nocheck in case target node hasn't processed the config move/rename yet
 		my $cmd = [@{$self->{rem_ssh}}, 'qm', 'resume', $vmid, '--skiplock', '--nocheck'];
 		my $logf = sub {
 		    my $line = shift;
@@ -1561,7 +1562,7 @@ sub phase3_cleanup {
 	}
     };
 
-    # always stop local VM
+    # always stop local VM with nocheck, since config is moved already
     eval { PVE::QemuServer::vm_stop($self->{storecfg}, $vmid, 1, 1); };
     if (my $err = $@) {
 	$self->log('err', "stopping vm failed - $err");

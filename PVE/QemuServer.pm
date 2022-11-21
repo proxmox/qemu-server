@@ -2788,6 +2788,12 @@ sub check_local_storage_availability {
 sub check_running {
     my ($vmid, $nocheck, $node) = @_;
 
+    # $nocheck is set when called during a migration, in which case the config
+    # file might still or already reside on the *other* node
+    # - because rename has already happened, and current node is source
+    # - because rename hasn't happened yet, and current node is target
+    # - because rename has happened, current node is target, but hasn't yet
+    # processed it yet
     PVE::QemuConfig::assert_config_exists_on_node($vmid, $node) if !$nocheck;
     return PVE::QemuServer::Helpers::vm_running_locally($vmid);
 }
@@ -6359,6 +6365,9 @@ sub vm_suspend {
     }
 }
 
+# $nocheck is set when called as part of a migration - in this context the
+# location of the config file (source or target node) is not deterministic,
+# since migration cannot wait for pmxcfs to process the rename
 sub vm_resume {
     my ($vmid, $skiplock, $nocheck) = @_;
 

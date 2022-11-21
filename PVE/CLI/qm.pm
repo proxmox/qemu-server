@@ -426,6 +426,8 @@ __PACKAGE__->register_method ({
 		last;
 	    } elsif ($line =~ /^resume (\d+)$/) {
 		my $vmid = $1;
+		# check_running and vm_resume with nocheck, since local node
+		# might not have processed config move/rename yet
 		if (PVE::QemuServer::check_running($vmid, 1)) {
 		    eval { PVE::QemuServer::vm_resume($vmid, 1, 1); };
 		    if ($@) {

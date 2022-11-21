@@ -3200,6 +3200,8 @@ __PACKAGE__->register_method({
 	raise_param_exc({ skiplock => "Only root may use this option." })
 	    if $skiplock && $authuser ne 'root@pam';
 
+	# nocheck is used as part of migration when config file might be still
+	# be on source node
 	my $nocheck = extract_param($param, 'nocheck');
 	raise_param_exc({ nocheck => "Only root may use this option." })
 	    if $nocheck && $authuser ne 'root@pam';
