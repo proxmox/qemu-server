@@ -6366,7 +6366,17 @@ sub vm_resume {
 	my $res = mon_cmd($vmid, 'query-status');
 	my $resume_cmd = 'cont';
 	my $reset = 0;
-	my $conf = PVE::QemuConfig->load_config($vmid);
+	my $conf;
+	if ($nocheck) {
+	    my $vmlist = PVE::Cluster::get_vmlist();
+	    my $node;
+	    if (exists($vmlist->{ids}->{$vmid})) {
+		$node = $vmlist->{ids}->{$vmid}->{node};
+	    }
+	    $conf = PVE::QemuConfig->load_config($vmid, $node);
+	} else {
+	    $conf = PVE::QemuConfig->load_config($vmid);
+	}
 
 	if ($res->{status}) {
 	    return if $res->{status} eq 'running'; # job done, go home
@@ -6375,7 +6385,6 @@ sub vm_resume {
 	}
 
 	if (!$nocheck) {
-
 	    PVE::QemuConfig->check_lock($conf)
 		if !($skiplock || PVE::QemuConfig->has_lock($conf, 'backup'));
 	}
