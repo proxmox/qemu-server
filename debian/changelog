@@ -1,3 +1,11 @@
+qemu-server (7.2-12) bullseye; urgency=medium
+
+  * config: only save unique tags when updating them via the API
+
+  * api: create/update vm: fix clamping CPU units function calls
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 21 Nov 2022 08:36:06 +0100
+
 qemu-server (7.2-11) bullseye; urgency=medium
 
   * fdb: only manage FDB entries for Linux bridges, ignore OVS for now
