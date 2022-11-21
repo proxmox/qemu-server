@@ -13,6 +13,7 @@ use Crypt::OpenSSL::Random;
 use Socket qw(SOCK_STREAM);
 
 use PVE::APIClient::LWP;
+use PVE::CGroup;
 use PVE::Cluster qw (cfs_read_file cfs_write_file);;
 use PVE::RRD;
 use PVE::SafeSyslog;
@@ -818,7 +819,7 @@ __PACKAGE__->register_method({
 		PVE::Tools::validate_ssh_public_keys($ssh_keys);
 	}
 
-	$param->{cpuunits} = PVE::GuestHelpers::get_cpuunits($param->{cpuunits})
+	$param->{cpuunits} = PVE::CGroup::clamp_cpu_shares($param->{cpuunits})
 	    if defined($param->{cpuunits}); # clamp value depending on cgroup version
 
 	PVE::Cluster::check_cfs_quorum();
@@ -1481,7 +1482,7 @@ my $update_vm_api  = sub {
 	PVE::Tools::validate_ssh_public_keys($ssh_keys);
     }
 
-    $param->{cpuunits} = PVE::GuestHelpers::get_cpuunits($param->{cpuunits})
+    $param->{cpuunits} = PVE::CGroup::clamp_cpu_shares($param->{cpuunits})
 	if defined($param->{cpuunits}); # clamp value depending on cgroup version
 
     die "no options specified\n" if !$delete_str && !$revert_str && !scalar(keys %$param);
