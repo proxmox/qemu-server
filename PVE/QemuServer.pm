@@ -5326,6 +5326,7 @@ sub vmconfig_update_net {
 	if (safe_string_ne($oldnet->{model}, $newnet->{model}) ||
 	    safe_string_ne($oldnet->{macaddr}, $newnet->{macaddr}) ||
 	    safe_num_ne($oldnet->{queues}, $newnet->{queues}) ||
+	    safe_num_ne($oldnet->{mtu}, $newnet->{mtu}) ||
 	    !($newnet->{bridge} && $oldnet->{bridge})) { # bridge/nat mode change
 
             # for non online change, we try to hot-unplug
