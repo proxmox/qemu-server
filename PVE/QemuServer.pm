@@ -6377,12 +6377,18 @@ sub vm_resume {
 	my $reset = 0;
 	my $conf;
 	if ($nocheck) {
-	    my $vmlist = PVE::Cluster::get_vmlist();
-	    my $node;
-	    if (exists($vmlist->{ids}->{$vmid})) {
-		$node = $vmlist->{ids}->{$vmid}->{node};
+	    $conf = eval { PVE::QemuConfig->load_config($vmid) }; # try on target node
+	    if ($@) {
+		my $vmlist = PVE::Cluster::get_vmlist();
+		if (exists($vmlist->{ids}->{$vmid})) {
+		    my $node = $vmlist->{ids}->{$vmid}->{node};
+		    $conf = eval { PVE::QemuConfig->load_config($vmid, $node) }; # try on source node
+		}
+		if (!$conf) {
+		    PVE::Cluster::cfs_update(); # vmlist was wrong, invalidate cache
+		    $conf = PVE::QemuConfig->load_config($vmid); # last try on target node again
+		}
 	    }
-	    $conf = PVE::QemuConfig->load_config($vmid, $node);
 	} else {
 	    $conf = PVE::QemuConfig->load_config($vmid);
 	}
