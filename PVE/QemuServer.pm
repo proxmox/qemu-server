@@ -5974,10 +5974,25 @@ sub vm_start_nolock {
 	    $migrate_storage_uri = "nbd:${localip}:${storage_migrate_port}";
 	}
 
+	my $block_info = mon_cmd($vmid, "query-block");
+	$block_info = { map { $_->{device} => $_ } $block_info->@* };
+
 	foreach my $opt (sort keys %$nbd) {
 	    my $drivestr = $nbd->{$opt}->{drivestr};
 	    my $volid = $nbd->{$opt}->{volid};
-	    mon_cmd($vmid, "nbd-server-add", device => "drive-$opt", writable => JSON::true );
+
+	    my $block_node = $block_info->{"drive-$opt"}->{inserted}->{'node-name'};
+
+	    mon_cmd(
+		$vmid,
+		"block-export-add",
+		id => "drive-$opt",
+		'node-name' => $block_node,
+		writable => JSON::true,
+		type => "nbd",
+		name => "drive-$opt", # NBD export name
+	    );
+
 	    my $nbd_uri = "$migrate_storage_uri:exportname=drive-$opt";
 	    print "storage migration listens on $nbd_uri volume:$drivestr\n";
 	    print "re-using replicated volume: $opt - $volid\n"

@@ -103,8 +103,10 @@ $MigrationTest::Shared::qemu_server_module->mock(
 
 	if ($command eq 'nbd-server-start') {
 	    return;
-	} elsif ($command eq 'nbd-server-add') {
+	} elsif ($command eq 'block-export-add') {
 	    return;
+	} elsif ($command eq 'query-block') {
+	    return [];
 	} elsif ($command eq 'qom-set') {
 	    return;
 	}
