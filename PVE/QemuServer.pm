@@ -3517,63 +3517,42 @@ my sub should_disable_smm {
 my sub print_ovmf_drive_commandlines {
     my ($conf, $storecfg, $vmid, $arch, $q35, $version_guard) = @_;
 
-    my $d;
-    if (my $efidisk = $conf->{efidisk0}) {
-	$d = parse_drive('efidisk0', $efidisk);
-    }
+    my $d = $conf->{efidisk0} ? parse_drive('efidisk0', $conf->{efidisk0}) : undef;
 
     my ($ovmf_code, $ovmf_vars) = get_ovmf_files($arch, $d, $q35);
     die "uefi base image '$ovmf_code' not found\n" if ! -f $ovmf_code;
 
-    my ($path, $format);
-    my $read_only_str = '';
+    my $var_drive_str = "if=pflash,unit=1,id=drive-efidisk0";
     if ($d) {
 	my ($storeid, $volname) = PVE::Storage::parse_volume_id($d->{file}, 1);
-	$format = $d->{format};
+	my ($path, $format) = $d->@{'file', 'format'};
 	if ($storeid) {
 	    $path = PVE::Storage::path($storecfg, $d->{file});
 	    if (!defined($format)) {
 		my $scfg = PVE::Storage::storage_config($storecfg, $storeid);
 		$format = qemu_img_format($scfg, $volname);
 	    }
-	} else {
-	    $path = $d->{file};
-	    die "efidisk format must be specified\n"
-		if !defined($format);
+	} elsif (!defined($format)) {
+	    die "efidisk format must be specified\n";
 	}
+	# SPI flash does lots of read-modify-write OPs, without writeback this gets really slow #3329
+	if ($path =~ m/^rbd:/) {
+	    $var_drive_str .= ',cache=writeback';
+	    $path .= ':rbd_cache_policy=writeback'; # avoid write-around, we *need* to cache writes too
+	}
+	$var_drive_str .= ",format=$format,file=$path";
 
-	$read_only_str = ',readonly=on' if drive_is_read_only($conf, $d);
+	$var_drive_str .= ",size=" . (-s $ovmf_vars) if $format eq 'raw' && $version_guard->(4, 1, 2);
+	$var_drive_str .= ',readonly=on' if drive_is_read_only($conf, $d);
     } else {
 	log_warn("no efidisk configured! Using temporary efivars disk.");
-	$path = "/tmp/$vmid-ovmf.fd";
+	my $path = "/tmp/$vmid-ovmf.fd";
 	PVE::Tools::file_copy($ovmf_vars, $path, -s $ovmf_vars);
-	$format = 'raw';
+	$var_drive_str .= ",format=raw,file=$path";
+	$var_drive_str .= ",size=" . (-s $ovmf_vars) if $version_guard->(4, 1, 2);
     }
 
-    my $size_str = "";
-
-    if ($format eq 'raw' && $version_guard->(4, 1, 2)) {
-	$size_str = ",size=" . (-s $ovmf_vars);
-    }
-
-    # SPI flash does lots of read-modify-write OPs, without writeback this gets really slow #3329
-    my $cache = "";
-    if ($path =~ m/^rbd:/) {
-	$cache = ',cache=writeback';
-	$path .= ':rbd_cache_policy=writeback'; # avoid write-around, we *need* to cache writes too
-    }
-
-    my $code_drive_str = "if=pflash,unit=0,format=raw,readonly=on,file=$ovmf_code";
-    my $var_drive_str = "if=pflash"
-	. ",unit=1"
-	. ",id=drive-efidisk0"
-	. "$cache"
-	. ",format=$format"
-	. ",file=$path"
-	. "$size_str"
-	. "$read_only_str";
-
-    return ($code_drive_str, $var_drive_str);
+    return ("if=pflash,unit=0,format=raw,readonly=on,file=$ovmf_code", $var_drive_str);
 }
 
 sub config_to_command {
