@@ -10,7 +10,7 @@
   -daemonize \
   -smbios 'type=1,uuid=3dd750ce-d910-44d0-9493-525c0be4e687' \
   -drive 'if=pflash,unit=0,format=raw,readonly=on,file=/usr/share/pve-edk2-firmware//OVMF_CODE.fd' \
-  -drive 'if=pflash,unit=1,format=qcow2,id=drive-efidisk0,file=/var/lib/vz/images/100/vm-100-disk-1.qcow2' \
+  -drive 'if=pflash,unit=1,id=drive-efidisk0,format=qcow2,file=/var/lib/vz/images/100/vm-100-disk-1.qcow2' \
   -global 'ICH9-LPC.acpi-pci-hotplug-with-bridge-support=off' \
   -smp '2,sockets=1,cores=2,maxcpus=2' \
   -nodefaults \

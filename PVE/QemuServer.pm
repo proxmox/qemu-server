@@ -3566,11 +3566,11 @@ my sub print_ovmf_drive_commandlines {
     my $code_drive_str = "if=pflash,unit=0,format=raw,readonly=on,file=$ovmf_code";
     my $var_drive_str = "if=pflash"
 	. ",unit=1"
+	. ",id=drive-efidisk0"
 	. "$cache"
 	. ",format=$format"
-	. ",id=drive-efidisk0"
-	. "$size_str"
 	. ",file=$path"
+	. "$size_str"
 	. "$read_only_str";
 
     return ($code_drive_str, $var_drive_str);
