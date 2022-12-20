@@ -1289,12 +1289,16 @@ sub get_cdrom_path {
 
     return $cdrom_path if defined($cdrom_path);
 
-    return $cdrom_path = "/dev/cdrom" if -l "/dev/cdrom";
-    return $cdrom_path = "/dev/cdrom1" if -l "/dev/cdrom1";
-    return $cdrom_path = "/dev/cdrom2" if -l "/dev/cdrom2";
-
-    log_warn("no physical CD-ROM available, ignoring");
-    $cdrom_path = '';
+    if (-l "/dev/cdrom") {
+	$cdrom_path = "/dev/cdrom";
+    } elsif (-l "/dev/cdrom1") {
+	$cdrom_path = "/dev/cdrom1";
+    } elsif (-l "/dev/cdrom2") {
+	$cdrom_path = "/dev/cdrom2";
+    } else {
+	log_warn("no physical CD-ROM available, ignoring");
+	$cdrom_path = '';
+    }
 
     return $cdrom_path;
 }
