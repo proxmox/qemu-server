@@ -2571,12 +2571,12 @@ __PACKAGE__->register_method({
 		type => 'object',
 	    },
 	    spice => {
-		description => "Qemu VGA configuration supports spice.",
+		description => "QEMU VGA configuration supports spice.",
 		type => 'boolean',
 		optional => 1,
 	    },
 	    agent => {
-		description => "Qemu GuestAgent enabled in config.",
+		description => "QEMU Guest Agent is enabled in config.",
 		type => 'boolean',
 		optional => 1,
 	    },
@@ -4601,7 +4601,7 @@ __PACKAGE__->register_method({
     method => 'POST',
     protected => 1,
     proxyto => 'node',
-    description => "Execute Qemu monitor commands.",
+    description => "Execute QEMU monitor commands.",
     permissions => {
 	description => "Sys.Modify is required for (sub)commands which are not read-only ('info *' and 'help')",
         check => ['perm', '/vms/{vmid}', [ 'VM.Monitor' ]],

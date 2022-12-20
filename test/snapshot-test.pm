@@ -559,7 +559,7 @@ printf("Expected error for snapshot_create when volume snapshot is not possible 
 testcase_create("202", "test", 0, "test comment", "volume snapshot disabled\n\n", { "local:snapshotable-disk-1" => "test" }, { "local:snapshotable-disk-1" => "test" });
 
 $vm_mon->{savevm_start} = 0;
-printf("Expected error for snapshot_create when Qemu mon command 'savevm-start' fails\n");
+printf("Expected error for snapshot_create when QEMU mon command 'savevm-start' fails\n");
 testcase_create("203", "test", 0, "test comment", "savevm-start disabled\n\n");
 $vm_mon->{savevm_start} = 1;
 

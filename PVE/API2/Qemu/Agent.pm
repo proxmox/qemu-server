@@ -88,7 +88,7 @@ __PACKAGE__->register_method({
     path => '',
     proxyto => 'node',
     method => 'GET',
-    description => "Qemu Agent command index.",
+    description => "QEMU Guest Agent command index.",
     permissions => {
 	user => 'all',
     },
@@ -107,7 +107,7 @@ __PACKAGE__->register_method({
 	    properties => {},
 	},
 	links => [ { rel => 'child', href => '{name}' } ],
-	description => "Returns the list of Qemu Agent commands",
+	description => "Returns the list of QEMU Guest Agent commands",
     },
     code => sub {
 	my ($param) = @_;
@@ -160,7 +160,7 @@ sub register_command {
 	},
     };
 
-    my $description = "Execute Qemu Guest Agent commands.";
+    my $description = "Execute QEMU Guest Agent commands.";
     my $name = 'agent';
 
     if ($command ne '') {

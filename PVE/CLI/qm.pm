@@ -488,7 +488,7 @@ __PACKAGE__->register_method ({
     name => 'monitor',
     path => 'monitor',
     method => 'POST',
-    description => "Enter Qemu Monitor interface.",
+    description => "Enter QEMU Monitor interface.",
     parameters => {
 	additionalProperties => 0,
 	properties => {
@@ -503,7 +503,7 @@ __PACKAGE__->register_method ({
 
 	my $conf = PVE::QemuConfig->load_config ($vmid); # check if VM exists
 
-	print "Entering Qemu Monitor for VM $vmid - type 'help' for help\n";
+	print "Entering QEMU Monitor for VM $vmid - type 'help' for help\n";
 
 	my $term = Term::ReadLine->new('qm');
 

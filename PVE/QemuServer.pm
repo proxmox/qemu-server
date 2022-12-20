@@ -116,7 +116,7 @@ PVE::JSONSchema::register_standard_option('pve-qm-stateuri', {
 });
 
 PVE::JSONSchema::register_standard_option('pve-qemu-machine', {
-	description => "Specifies the Qemu machine type.",
+	description => "Specifies the QEMU machine type.",
 	type => 'string',
 	pattern => '(pc|pc(-i440fx)?-\d+(\.\d+)+(\+pve\d+)?(\.pxe)?|q35|pc-q35-\d+(\.\d+)+(\+pve\d+)?(\.pxe)?|virt(?:-\d+(\.\d+)+)?(\+pve\d+)?)',
 	maxLength => 40,
@@ -150,7 +150,7 @@ PVE::JSONSchema::register_format('pve-qm-watchdog', $watchdog_fmt);
 
 my $agent_fmt = {
     enabled => {
-	description => "Enable/disable communication with a Qemu Guest Agent (QGA) running in the VM.",
+	description => "Enable/disable communication with a QEMU Guest Agent (QGA) running in the VM.",
 	type => 'boolean',
 	default => 0,
 	default_key => 1,
@@ -481,7 +481,7 @@ EODESC
     },
     agent => {
 	optional => 1,
-	description => "Enable/disable communication with the Qemu Guest Agent and its properties.",
+	description => "Enable/disable communication with the QEMU Guest Agent and its properties.",
 	type => 'string',
 	format => $agent_fmt,
     },
@@ -2819,7 +2819,7 @@ sub vzlist {
 our $vmstatus_return_properties = {
     vmid => get_standard_option('pve-vmid'),
     status => {
-	description => "Qemu process status.",
+	description => "QEMU process status.",
 	type => 'string',
 	enum => ['stopped', 'running'],
     },
@@ -2841,7 +2841,7 @@ our $vmstatus_return_properties = {
 	optional => 1,
     },
     qmpstatus => {
-	description => "Qemu QMP agent status.",
+	description => "QEMU QMP agent status.",
 	type => 'string',
 	optional => 1,
     },
@@ -3750,7 +3750,7 @@ sub config_to_command {
 	if ($path eq 'socket') {
 	    my $socket = "/var/run/qemu-server/${vmid}.serial$i";
 	    push @$devices, '-chardev', "socket,id=serial$i,path=$socket,server=on,wait=off";
-	    # On aarch64, serial0 is the UART device. Qemu only allows
+	    # On aarch64, serial0 is the UART device. QEMU only allows
 	    # connecting UART devices via the '-serial' command line, as
 	    # the device has a fixed slot on the hardware...
 	    if ($arch eq 'aarch64' && $i == 0) {
@@ -5624,7 +5624,7 @@ sub vm_start {
 #   statefile => 'tcp', 'unix' for migration or path/volid for RAM state
 #   skiplock => 0/1, skip checking for config lock
 #   skiptemplate => 0/1, skip checking whether VM is template
-#   forcemachine => to force Qemu machine (rollback/migration)
+#   forcemachine => to force QEMU machine (rollback/migration)
 #   forcecpu => a QEMU '-cpu' argument string to override get_cpu_options
 #   timeout => in seconds
 #   paused => start VM in paused state (backup)
@@ -7552,7 +7552,7 @@ sub qga_check_running {
 
     eval { mon_cmd($vmid, "guest-ping", timeout => 3); };
     if ($@) {
-	warn "Qemu Guest Agent is not running - $@" if !$nowarn;
+	warn "QEMU Guest Agent is not running - $@" if !$nowarn;
 	return 0;
     }
     return 1;

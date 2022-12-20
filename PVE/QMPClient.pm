@@ -12,7 +12,7 @@ use Time::HiRes qw(usleep gettimeofday tv_interval);
 use PVE::IPCC;
 use PVE::QemuServer::Helpers;
 
-# Qemu Monitor Protocol (QMP) client.
+# QEMU Monitor Protocol (QMP) client.
 #
 # This implementation uses IO::Multiplex (libio-multiplex-perl) and
 # allows you to issue qmp and qga commands to different VMs in parallel.
