@@ -1287,11 +1287,16 @@ sub option_exists {
 my $cdrom_path;
 sub get_cdrom_path {
 
-    return  $cdrom_path if $cdrom_path;
+    return $cdrom_path if defined($cdrom_path);
 
     return $cdrom_path = "/dev/cdrom" if -l "/dev/cdrom";
     return $cdrom_path = "/dev/cdrom1" if -l "/dev/cdrom1";
     return $cdrom_path = "/dev/cdrom2" if -l "/dev/cdrom2";
+
+    log_warn("no physical CD-ROM available, ignoring");
+    $cdrom_path = '';
+
+    return $cdrom_path;
 }
 
 sub get_iso_path {
