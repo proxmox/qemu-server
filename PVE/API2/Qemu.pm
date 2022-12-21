@@ -5066,7 +5066,8 @@ __PACKAGE__->register_method({
 	    snapname => get_standard_option('pve-snapshot-name'),
 	    start => {
 		type => 'boolean',
-		description => "Whether the VM should get started after rolling back successfully",
+		description => "Whether the VM should get started after rolling back successfully."
+		    . " (Note: VMs will be automatically started if the snapshot includes RAM.)",
 		optional => 1,
 		default => 0,
 	    },
@@ -5093,7 +5094,7 @@ __PACKAGE__->register_method({
 	    PVE::Cluster::log_msg('info', $authuser, "rollback snapshot VM $vmid: $snapname");
 	    PVE::QemuConfig->snapshot_rollback($vmid, $snapname);
 
-	    if ($param->{start}) {
+	    if ($param->{start} && !PVE::QemuServer::Helpers::vm_running_locally($vmid)) {
 		PVE::API2::Qemu->vm_start({ vmid => $vmid, node => $node });
 	    }
 	};
