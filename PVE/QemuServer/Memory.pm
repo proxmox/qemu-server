@@ -171,7 +171,7 @@ sub qemu_memory_hotplug {
 
     die "memory can't be lower than $static_memory MB" if $value < $static_memory;
     my $MAX_MEM = get_max_mem($conf);
-    die "you cannot add more memory than max mem $MAX_MEM MB!\n" if $memory > $MAX_MEM;
+    die "you cannot add more memory than max mem $MAX_MEM MB!\n" if $value > $MAX_MEM;
 
     if ($value > $memory) {
 
