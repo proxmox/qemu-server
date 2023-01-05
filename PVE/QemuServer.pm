@@ -2341,7 +2341,9 @@ sub destroy_vm {
 
     my $conf = PVE::QemuConfig->load_config($vmid);
 
-    PVE::QemuConfig->check_lock($conf) if !$skiplock;
+    if (!$skiplock && !PVE::QemuConfig->has_lock($conf, 'suspended')) {
+	PVE::QemuConfig->check_lock($conf);
+    }
 
     if ($conf->{template}) {
 	# check if any base image is still used by a linked clone
