@@ -4194,7 +4194,7 @@ sub vm_devices_list {
 	my $to_check = [];
 	for my $d (@$devices_to_check) {
 	    $devices->{$d->{'qdev_id'}} = 1 if $d->{'qdev_id'};
-	    next if !$d->{'pci_bridge'};
+	    next if !$d->{'pci_bridge'} || !$d->{'pci_bridge'}->{devices};
 
 	    $devices->{$d->{'qdev_id'}} += scalar(@{$d->{'pci_bridge'}->{devices}});
 	    push @$to_check, @{$d->{'pci_bridge'}->{devices}};
