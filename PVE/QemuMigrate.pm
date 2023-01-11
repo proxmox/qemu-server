@@ -1271,7 +1271,8 @@ sub phase2 {
 	}
 
 	if ($status eq 'failed' || $status eq 'cancelled') {
-	    $self->log('info', "migration status error: $status");
+	    my $message = $stat->{'error-desc'} ? "$status - $stat->{'error-desc'}" : $status;
+	    $self->log('info', "migration status error: $message");
 	    die "aborting\n"
 	}
 
