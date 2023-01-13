@@ -19,6 +19,7 @@ use IO::Select;
 use IO::Socket::UNIX;
 use IPC::Open3;
 use JSON;
+use List::Util qw(first);
 use MIME::Base64;
 use POSIX;
 use Storable qw(dclone);
@@ -1289,13 +1290,9 @@ sub get_cdrom_path {
 
     return $cdrom_path if defined($cdrom_path);
 
-    if (-l "/dev/cdrom") {
-	$cdrom_path = "/dev/cdrom";
-    } elsif (-l "/dev/cdrom1") {
-	$cdrom_path = "/dev/cdrom1";
-    } elsif (-l "/dev/cdrom2") {
-	$cdrom_path = "/dev/cdrom2";
-    } else {
+    $cdrom_path = first { -l $_ } map { "/dev/cdrom$_" } ('', '1', '2');
+
+    if (!defined($cdrom_path)) {
 	log_warn("no physical CD-ROM available, ignoring");
 	$cdrom_path = '';
     }
