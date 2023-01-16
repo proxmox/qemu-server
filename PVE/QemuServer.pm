@@ -6031,10 +6031,15 @@ sub vm_start_nolock {
 	add_nets_bridge_fdb($conf, $vmid);
     }
 
-    mon_cmd($vmid, 'qom-set',
-		path => "machine/peripheral/balloon0",
-		property => "guest-stats-polling-interval",
-		value => 2) if (!defined($conf->{balloon}) || $conf->{balloon});
+   if (!defined($conf->{balloon}) || $conf->{balloon}) {
+	mon_cmd(
+	    $vmid,
+	    'qom-set',
+	    path => "machine/peripheral/balloon0",
+	    property => "guest-stats-polling-interval",
+	    value => 2
+	);
+    }
 
     if ($resume) {
 	print "Resumed VM, removing state\n";
