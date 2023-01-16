@@ -3379,7 +3379,11 @@ sub get_ovmf_files($$$) {
 	$type .= '-ms' if $efidisk->{'pre-enrolled-keys'};
     }
 
-    return $types->{$type}->@*;
+    my ($ovmf_code, $ovmf_vars) = $types->{$type}->@*;
+    die "EFI base image '$ovmf_code' not found\n" if ! -f $ovmf_code;
+    die "EFI vars image '$ovmf_vars' not found\n" if ! -f $ovmf_vars;
+
+    return ($ovmf_code, $ovmf_vars);
 }
 
 my $Arch2Qemu = {
@@ -3528,7 +3532,6 @@ my sub print_ovmf_drive_commandlines {
     my $d = $conf->{efidisk0} ? parse_drive('efidisk0', $conf->{efidisk0}) : undef;
 
     my ($ovmf_code, $ovmf_vars) = get_ovmf_files($arch, $d, $q35);
-    die "uefi base image '$ovmf_code' not found\n" if ! -f $ovmf_code;
 
     my $var_drive_str = "if=pflash,unit=1,id=drive-efidisk0";
     if ($d) {
@@ -8096,7 +8099,6 @@ sub get_efivars_size {
     $efidisk //= $conf->{efidisk0} ? parse_drive('efidisk0', $conf->{efidisk0}) : undef;
     my $smm = PVE::QemuServer::Machine::machine_type_is_q35($conf);
     my (undef, $ovmf_vars) = get_ovmf_files($arch, $efidisk, $smm);
-    die "uefi vars image '$ovmf_vars' not found\n" if ! -f $ovmf_vars;
     return -s $ovmf_vars;
 }
 
@@ -8124,7 +8126,6 @@ sub create_efidisk($$$$$$$) {
     my ($storecfg, $storeid, $vmid, $fmt, $arch, $efidisk, $smm) = @_;
 
     my (undef, $ovmf_vars) = get_ovmf_files($arch, $efidisk, $smm);
-    die "EFI vars default image not found\n" if ! -f $ovmf_vars;
 
     my $vars_size_b = -s $ovmf_vars;
     my $vars_size = PVE::Tools::convert_size($vars_size_b, 'b' => 'kb');
