@@ -433,7 +433,9 @@ sub scan_local_volumes {
 		# we cannot migrate shapshots on local storage
 		# exceptions: 'zfspool' or 'qcow2' files (on directory storage)
 
-		die "online storage migration not possible if snapshot exists\n" if $self->{running};
+		die "online storage migration not possible if non-replicated snapshot exists\n"
+		    if $self->{running} && !$local_volumes->{$volid}->{replicated};
+
 		die "remote migration with snapshots not supported yet\n" if $self->{opts}->{remote};
 
 		if (!($scfg->{type} eq 'zfspool'

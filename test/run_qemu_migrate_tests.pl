@@ -678,7 +678,7 @@ my $tests = [
 	    'with-local-disks' => 1,
 	},
 	expected_calls => {},
-	expect_die => 'online storage migration not possible if snapshot exists',
+	expect_die => 'online storage migration not possible if non-replicated snapshot exists',
 	expected => {
 	    source_volids => local_volids_for_vm(4567),
 	    target_volids => {},
@@ -1237,8 +1237,11 @@ my $tests = [
 	    'with-local-disks' => 1,
 	},
 	target_volids => local_volids_for_vm(105),
-	expected_calls => {},
-	expect_die => "online storage migration not possible if snapshot exists",
+	expected_calls => {
+	    %{$replicated_expected_calls_online},
+	    'block-dirty-bitmap-add-drive-scsi0' => 1,
+	    'block-dirty-bitmap-add-drive-ide0' => 1,
+	},
 	expected => {
 	    source_volids => local_volids_for_vm(105),
 	    target_volids => local_volids_for_vm(105),
