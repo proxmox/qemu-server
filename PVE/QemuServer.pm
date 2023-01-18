@@ -3275,6 +3275,8 @@ sub start_swtpm {
 	"file=$paths->{pid}",
 	"--terminate", # terminate on QEMU disconnect
 	"--daemon",
+	"--log",
+	"file=/run/qemu-server/$vmid-swtpm.log,level=1",
     ];
     push @$emulator_cmd, "--tpm2" if $tpm->{version} eq 'v2.0';
     run_command($emulator_cmd, outfunc => sub { print $1; });
