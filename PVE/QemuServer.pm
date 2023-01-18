@@ -3264,6 +3264,9 @@ sub start_swtpm {
 	});
     }
 
+    # Used to distinguish different invocations in the log.
+    my $log_prefix = "[id=" . int(time()) . "] ";
+
     my $emulator_cmd = [
 	"swtpm",
 	"socket",
@@ -3276,7 +3279,7 @@ sub start_swtpm {
 	"--terminate", # terminate on QEMU disconnect
 	"--daemon",
 	"--log",
-	"file=/run/qemu-server/$vmid-swtpm.log,level=1",
+	"file=/run/qemu-server/$vmid-swtpm.log,level=1,prefix=$log_prefix",
     ];
     push @$emulator_cmd, "--tpm2" if $tpm->{version} eq 'v2.0';
     run_command($emulator_cmd, outfunc => sub { print $1; });
