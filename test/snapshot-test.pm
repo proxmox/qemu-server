@@ -305,7 +305,7 @@ sub __snapshot_save_vmstate {
 
     my $snap = $conf->{snapshots}->{$snapname};
     $snap->{vmstate} = "somestorage:state-volume";
-    $snap->{runningmachine} = "somemachine"
+    $snap->{runningmachine} = "q35"
 }
 
 sub assert_config_exists_on_node {
