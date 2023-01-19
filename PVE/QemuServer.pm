@@ -731,26 +731,23 @@ my $cicustom_fmt = {
     network => {
 	type => 'string',
 	optional => 1,
-	description => 'Specify a custom file containing all network data passed to the VM via'
-	    .' cloud-init.',
+	description => 'To pass a custom file containing all network data to the VM via cloud-init.',
 	format => 'pve-volume-id',
 	format_description => 'volume',
     },
     user => {
 	type => 'string',
 	optional => 1,
-	description => 'Specify a custom file containing all user data passed to the VM via'
-	    .' cloud-init.',
+	description => 'To pass a custom file containing all user data to the VM via cloud-init.',
 	format => 'pve-volume-id',
 	format_description => 'volume',
     },
     vendor => {
-    type => 'string',
-    optional => 1,
-    description => 'Specify a custom file containing all vendor data passed to the VM via'
-     .' cloud-init.',
-    format => 'pve-volume-id',
-    format_description => 'volume',
+	type => 'string',
+	optional => 1,
+	description => 'To pass a custom file containing all vendor data to the VM via cloud-init.',
+	format => 'pve-volume-id',
+	format_description => 'volume',
     },
 };
 PVE::JSONSchema::register_format('pve-qm-cicustom', $cicustom_fmt);
