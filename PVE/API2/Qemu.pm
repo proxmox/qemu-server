@@ -840,7 +840,7 @@ __PACKAGE__->register_method({
 	    # OK
 	} elsif ($archive && $force && (-f $filename) &&
 		 $rpcenv->check($authuser, "/vms/$vmid", ['VM.Backup'], 1)) {
-	    # OK: user has VM.Backup permissions, and want to restore an existing VM
+	    # OK: user has VM.Backup permissions and wants to restore an existing VM
 	} else {
 	    raise_perm_exc();
 	}
