@@ -342,7 +342,7 @@ my $confdesc = {
     memory => {
 	optional => 1,
 	type => 'integer',
-	description => "Amount of RAM for the VM in MB. This is the maximum available memory when"
+	description => "Amount of RAM for the VM in MiB. This is the maximum available memory when"
 	    ." you use the balloon device.",
 	minimum => 16,
 	default => 512,
@@ -350,7 +350,7 @@ my $confdesc = {
     balloon => {
 	optional => 1,
 	type => 'integer',
-	description => "Amount of target RAM for the VM in MB. Using zero disables the ballon driver.",
+	description => "Amount of target RAM for the VM in MiB. Using zero disables the ballon driver.",
 	minimum => 0,
     },
     shares => {
