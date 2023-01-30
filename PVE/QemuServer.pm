@@ -411,7 +411,7 @@ win8;; Microsoft Windows 8/2012/2012r2
 win10;; Microsoft Windows 10/2016/2019
 win11;; Microsoft Windows 11/2022
 l24;; Linux 2.4 Kernel
-l26;; Linux 2.6 - 5.X Kernel
+l26;; Linux 2.6 - 6.X Kernel
 solaris;; Solaris/OpenSolaris/OpenIndiania kernel
 EODESC
     },
