@@ -3391,7 +3391,7 @@ sub get_ovmf_files($$$) {
 	or die "no OVMF images known for architecture '$arch'\n";
 
     my $type = 'default';
-    if (defined($efidisk->{efitype}) && $efidisk->{efitype} eq '4m') {
+    if ($arch ne "aarch64" && defined($efidisk->{efitype}) && $efidisk->{efitype} eq '4m') {
 	$type = $smm ? "4m" : "4m-no-smm";
 	$type .= '-ms' if $efidisk->{'pre-enrolled-keys'};
     }

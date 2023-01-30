@@ -319,7 +319,7 @@ my %efitype_fmt = (
 	enum => [qw(2m 4m)],
 	description => "Size and type of the OVMF EFI vars. '4m' is newer and recommended,"
 	    . " and required for Secure Boot. For backwards compatibility, '2m' is used"
-	    . " if not otherwise specified.",
+	    . " if not otherwise specified. Ignored for VMs with arch=aarc64 (ARM).",
 	optional => 1,
 	default => '2m',
     },
@@ -356,7 +356,7 @@ my $efidisk_fmt = {
 my $efidisk_desc = {
     optional => 1,
     type => 'string', format => $efidisk_fmt,
-    description => "Configure a Disk for storing EFI vars.",
+    description => "Configure a disk for storing EFI vars.",
 };
 
 PVE::JSONSchema::register_standard_option("pve-qm-efidisk", $efidisk_desc);
