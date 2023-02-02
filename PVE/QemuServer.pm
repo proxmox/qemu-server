@@ -5046,7 +5046,7 @@ sub vmconfig_hotplug_pending {
 		vmconfig_delete_or_detach_drive($vmid, $storecfg, $conf, $opt, $force);
 	    } elsif ($opt =~ m/^memory$/) {
 		die "skip\n" if !$hotplug_features->{memory};
-		PVE::QemuServer::Memory::qemu_memory_hotplug($vmid, $conf, $defaults, $opt);
+		PVE::QemuServer::Memory::qemu_memory_hotplug($vmid, $conf, $defaults);
 	    } elsif ($opt eq 'cpuunits') {
 		$cgroup->change_cpu_shares(undef);
 	    } elsif ($opt eq 'cpulimit') {
@@ -5121,7 +5121,7 @@ sub vmconfig_hotplug_pending {
 				     $vmid, $opt, $value, $arch, $machine_type);
 	    } elsif ($opt =~ m/^memory$/) { #dimms
 		die "skip\n" if !$hotplug_features->{memory};
-		$value = PVE::QemuServer::Memory::qemu_memory_hotplug($vmid, $conf, $defaults, $opt, $value);
+		$value = PVE::QemuServer::Memory::qemu_memory_hotplug($vmid, $conf, $defaults, $value);
 	    } elsif ($opt eq 'cpuunits') {
 		my $new_cpuunits = PVE::CGroup::clamp_cpu_shares($conf->{pending}->{$opt}); #clamp
 		$cgroup->change_cpu_shares($new_cpuunits);

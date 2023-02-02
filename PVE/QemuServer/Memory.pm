@@ -155,7 +155,7 @@ sub foreach_reverse_dimm {
 }
 
 sub qemu_memory_hotplug {
-    my ($vmid, $conf, $defaults, $opt, $value) = @_;
+    my ($vmid, $conf, $defaults, $value) = @_;
 
     return $value if !PVE::QemuServer::check_running($vmid);
 
