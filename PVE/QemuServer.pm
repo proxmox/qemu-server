@@ -1615,6 +1615,20 @@ my sub storage_allows_io_uring_default {
     return 1;
 }
 
+my sub drive_uses_cache_direct {
+    my ($drive, $scfg) = @_;
+
+    my $cache_direct = 0;
+
+    if (my $cache = $drive->{cache}) {
+	$cache_direct = $cache =~ /^(?:off|none|directsync)$/;
+    } elsif (!drive_is_cdrom($drive) && !($scfg && $scfg->{type} eq 'btrfs' && !$scfg->{nocow})) {
+	$cache_direct = 1;
+    }
+
+    return $cache_direct;
+}
+
 sub print_drive_commandline_full {
     my ($storecfg, $vmid, $drive, $pbs_name, $io_uring) = @_;
 
@@ -1688,14 +1702,9 @@ sub print_drive_commandline_full {
 	$opts .= ",format=$format";
     }
 
-    my $cache_direct = 0;
+    my $cache_direct = drive_uses_cache_direct($drive, $scfg);
 
-    if (my $cache = $drive->{cache}) {
-	$cache_direct = $cache =~ /^(?:off|none|directsync)$/;
-    } elsif (!drive_is_cdrom($drive) && !($scfg && $scfg->{type} eq 'btrfs' && !$scfg->{nocow})) {
-	$opts .= ",cache=none";
-	$cache_direct = 1;
-    }
+    $opts .= ",cache=none" if !$drive->{cache} && $cache_direct;
 
     if (!$drive->{aio}) {
 	if ($io_uring && storage_allows_io_uring_default($scfg, $cache_direct)) {
