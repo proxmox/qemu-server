@@ -1598,6 +1598,23 @@ sub get_initiator_name {
     return $initiator;
 }
 
+my sub storage_allows_io_uring_default {
+    my ($scfg, $cache_direct) = @_;
+
+    # io_uring with cache mode writeback or writethrough on krbd will hang...
+    return if $scfg && $scfg->{type} eq 'rbd' && $scfg->{krbd} && !$cache_direct;
+
+    # io_uring with cache mode writeback or writethrough on LVM will hang, without cache only
+    # sometimes, just plain disable...
+    return if $scfg && $scfg->{type} eq 'lvm';
+
+    # io_uring causes problems when used with CIFS since kernel 5.15
+    # Some discussion: https://www.spinics.net/lists/linux-cifs/msg26734.html
+    return if $scfg && $scfg->{type} eq 'cifs';
+
+    return 1;
+}
+
 sub print_drive_commandline_full {
     my ($storecfg, $vmid, $drive, $pbs_name, $io_uring) = @_;
 
@@ -1680,19 +1697,8 @@ sub print_drive_commandline_full {
 	$cache_direct = 1;
     }
 
-    # io_uring with cache mode writeback or writethrough on krbd will hang...
-    my $rbd_no_io_uring = $scfg && $scfg->{type} eq 'rbd' && $scfg->{krbd} && !$cache_direct;
-
-    # io_uring with cache mode writeback or writethrough on LVM will hang, without cache only
-    # sometimes, just plain disable...
-    my $lvm_no_io_uring = $scfg && $scfg->{type} eq 'lvm';
-
-    # io_uring causes problems when used with CIFS since kernel 5.15
-    # Some discussion: https://www.spinics.net/lists/linux-cifs/msg26734.html
-    my $cifs_no_io_uring = $scfg && $scfg->{type} eq 'cifs';
-
     if (!$drive->{aio}) {
-	if ($io_uring && !$rbd_no_io_uring && !$lvm_no_io_uring && !$cifs_no_io_uring) {
+	if ($io_uring && storage_allows_io_uring_default($scfg, $cache_direct)) {
 	    # io_uring supports all cache modes
 	    $opts .= ",aio=io_uring";
 	} else {
