@@ -7957,6 +7957,33 @@ sub qemu_blockjobs_cancel {
     }
 }
 
+# Check for bug #4525: drive-mirror will open the target drive with the same aio setting as the
+# source, but some storages have problems with io_uring, sometimes even leading to crashes.
+my sub clone_disk_check_io_uring {
+    my ($src_drive, $storecfg, $src_storeid, $dst_storeid, $use_drive_mirror) = @_;
+
+    return if !$use_drive_mirror;
+
+    # Don't complain when not changing storage.
+    # Assume if it works for the source, it'll work for the target too.
+    return if $src_storeid eq $dst_storeid;
+
+    my $src_scfg = PVE::Storage::storage_config($storecfg, $src_storeid);
+    my $dst_scfg = PVE::Storage::storage_config($storecfg, $dst_storeid);
+
+    my $cache_direct = drive_uses_cache_direct($src_drive);
+
+    my $src_uses_io_uring;
+    if ($src_drive->{aio}) {
+	$src_uses_io_uring = $src_drive->{aio} eq 'io_uring';
+    } else {
+	$src_uses_io_uring = storage_allows_io_uring_default($src_scfg, $cache_direct);
+    }
+
+    die "target storage is known to cause issues with aio=io_uring (used by current drive)\n"
+	if $src_uses_io_uring && !storage_allows_io_uring_default($dst_scfg, $cache_direct);
+}
+
 sub clone_disk {
     my ($storecfg, $source, $dest, $full, $newvollist, $jobs, $completion, $qga, $bwlimit) = @_;
 
@@ -7992,9 +8019,8 @@ sub clone_disk {
 	$newvolid = PVE::Storage::vdisk_clone($storecfg,  $drive->{file}, $newvmid, $snapname);
 	push @$newvollist, $newvolid;
     } else {
-
-	my ($storeid, $volname) = PVE::Storage::parse_volume_id($drive->{file});
-	$storeid = $storage if $storage;
+	my ($src_storeid, $volname) = PVE::Storage::parse_volume_id($drive->{file});
+	my $storeid = $storage || $src_storeid;
 
 	my $dst_format = resolve_dst_disk_format($storecfg, $storeid, $volname, $format);
 
@@ -8014,6 +8040,8 @@ sub clone_disk {
 	    $dst_format = 'raw';
 	    $size = PVE::QemuServer::Drive::TPMSTATE_DISK_SIZE;
 	} else {
+	    clone_disk_check_io_uring($drive, $storecfg, $src_storeid, $storeid, $use_drive_mirror);
+
 	    ($size) = PVE::Storage::volume_size_info($storecfg, $drive->{file}, 10);
 	}
 	$newvolid = PVE::Storage::vdisk_alloc(
