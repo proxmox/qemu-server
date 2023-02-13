@@ -13,7 +13,7 @@ my $MAX_NUMA = 8;
 my $STATICMEM = 1024;
 
 my $_host_bits;
-my sub get_host_phys_address_bits {
+sub get_host_phys_address_bits {
     return $_host_bits if defined($_host_bits);
 
     my $fh = IO::File->new ('/proc/cpuinfo', "r") or return;
@@ -74,6 +74,12 @@ sub get_numa_node_list {
     return @numa_map if @numa_map;
     my $sockets = $conf->{sockets} || 1;
     return (0..($sockets-1));
+}
+
+sub host_numanode_exists {
+    my ($id) = @_;
+
+    return -d "/sys/devices/system/node/node$id/";
 }
 
 # only valid when numa nodes map to a single host node
@@ -348,7 +354,8 @@ sub config {
 	    my $numa_memory = ($static_memory / $sockets);
 
 	    for (my $i = 0; $i < $sockets; $i++)  {
-		die "host NUMA node$i doesn't exist\n" if ! -d "/sys/devices/system/node/node$i/" && $conf->{hugepages};
+		die "host NUMA node$i doesn't exist\n"
+		    if !host_numanode_exists($i) && $conf->{hugepages};
 
 		my $mem_object = print_mem_object($conf, "ram-node$i", $numa_memory);
 		push @$cmd, '-object', $mem_object;
@@ -402,7 +409,7 @@ sub print_numa_hostnodes {
 	$hostnodes .= "-$end" if defined($end);
 	$end //= $start;
 	for (my $i = $start; $i <= $end; ++$i ) {
-	    die "host NUMA node$i doesn't exist\n" if ! -d "/sys/devices/system/node/node$i/";
+	    die "host NUMA node$i doesn't exist\n" if !host_numanode_exists($i);
 	}
     }
     return $hostnodes;
@@ -445,21 +452,27 @@ sub hugepages_nr {
   return $size / $hugepages_size;
 }
 
+sub hugepages_chunk_size_supported {
+    my ($size) = @_;
+
+    return -d "/sys/kernel/mm/hugepages/hugepages-". ($size * 1024) ."kB";
+}
+
 sub hugepages_size {
     my ($conf, $size) = @_;
     die "hugepages option is not enabled" if !$conf->{hugepages};
     die "memory size '$size' is not a positive even integer; cannot use for hugepages\n"
 	if $size <= 0 || $size & 1;
 
-    my $page_chunk = sub { -d  "/sys/kernel/mm/hugepages/hugepages-". ($_[0] * 1024) ."kB" };
-    die "your system doesn't support hugepages\n" if !$page_chunk->(2) && !$page_chunk->(1024);
+    die "your system doesn't support hugepages\n"
+	if !hugepages_chunk_size_supported(2) && !hugepages_chunk_size_supported(1024);
 
     if ($conf->{hugepages} eq 'any') {
 
 	# try to use 1GB if available && memory size is matching
-	if ($page_chunk->(1024) && ($size & 1023) == 0) {
+	if (hugepages_chunk_size_supported(1024) && ($size & 1023) == 0) {
 	    return 1024;
-	} elsif ($page_chunk->(2)) {
+	} elsif (hugepages_chunk_size_supported(2)) {
 	    return 2;
 	} else {
 	    die "host only supports 1024 GB hugepages, but requested size '$size' is not a multiple of 1024 MB\n"
@@ -468,7 +481,7 @@ sub hugepages_size {
 
 	my $hugepagesize = $conf->{hugepages};
 
-	if (!$page_chunk->($hugepagesize)) {
+	if (!hugepages_chunk_size_supported($hugepagesize)) {
 	    die "your system doesn't support hugepages of $hugepagesize MB\n";
 	} elsif (($size % $hugepagesize) != 0) {
 	    die "Memory size $size is not a multiple of the requested hugepages size $hugepagesize\n";
