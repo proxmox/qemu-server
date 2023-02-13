@@ -165,8 +165,7 @@ sub qemu_memory_hotplug {
 
     return $value if !PVE::QemuServer::check_running($vmid);
 
-    my $sockets = 1;
-    $sockets = $conf->{sockets} if $conf->{sockets};
+    my $sockets = $conf->{sockets} || 1;
 
     my $memory = $conf->{memory} || $defaults->{memory};
     $value = $defaults->{memory} if !$value;
@@ -289,8 +288,7 @@ sub config {
 		if $conf->{"numa$i"};
 	}
 
-	my $sockets = 1;
-	$sockets = $conf->{sockets} if $conf->{sockets};
+	my $sockets = $conf->{sockets} || 1;
 
 	$static_memory = $STATICMEM;
 	$static_memory = $static_memory * $sockets if ($conf->{hugepages} && $conf->{hugepages} == 1024);
@@ -501,9 +499,7 @@ sub hugepages_topology {
     my $defaults = PVE::QemuServer::load_defaults();
     my $memory = $conf->{memory} || $defaults->{memory};
     my $static_memory = 0;
-    my $sockets = 1;
-    $sockets = $conf->{smp} if $conf->{smp}; # old style - no longer iused
-    $sockets = $conf->{sockets} if $conf->{sockets};
+    my $sockets = $conf->{sockets} || 1;
     my $numa_custom_topology = undef;
     my $hotplug_features = PVE::QemuServer::parse_hotplug_features(defined($conf->{hotplug}) ? $conf->{hotplug} : '1');
 
