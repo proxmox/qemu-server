@@ -178,6 +178,21 @@ $qemu_server_config->mock(
     },
 );
 
+my $qemu_server_memory;
+$qemu_server_memory = Test::MockModule->new('PVE::QemuServer::Memory');
+$qemu_server_memory->mock(
+    hugepages_chunk_size_supported => sub {
+	return 1;
+    },
+    host_numanode_exists => sub {
+	my ($id) = @_;
+	return 1;
+    },
+    get_host_phys_address_bits => sub {
+	return 46;
+    }
+);
+
 my $pve_common_tools;
 $pve_common_tools = Test::MockModule->new('PVE::Tools');
 $pve_common_tools->mock(
