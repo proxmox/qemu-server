@@ -3884,7 +3884,8 @@ sub config_to_command {
 	push @$cmd, get_cpu_options($conf, $arch, $kvm, $kvm_off, $machine_version, $winversion, $gpu_passthrough);
     }
 
-    PVE::QemuServer::Memory::config($conf, $vmid, $sockets, $cores, $defaults, $hotplug_features, $cmd);
+    PVE::QemuServer::Memory::config(
+	$conf, $vmid, $sockets, $cores, $defaults, $hotplug_features->{memory}, $cmd);
 
     push @$cmd, '-S' if $conf->{freeze};
 
@@ -5918,7 +5919,11 @@ sub vm_start_nolock {
     if ($conf->{hugepages}) {
 
 	my $code = sub {
-	    my $hugepages_topology = PVE::QemuServer::Memory::hugepages_topology($conf);
+	    my $hotplug_features =
+		parse_hotplug_features(defined($conf->{hotplug}) ? $conf->{hotplug} : '1');
+	    my $hugepages_topology =
+		PVE::QemuServer::Memory::hugepages_topology($conf, $hotplug_features->{memory});
+
 	    my $hugepages_host_topology = PVE::QemuServer::Memory::hugepages_host_topology();
 
 	    PVE::QemuServer::Memory::hugepages_mount();

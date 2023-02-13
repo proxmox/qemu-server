@@ -273,12 +273,12 @@ sub qemu_dimm_list {
 }
 
 sub config {
-    my ($conf, $vmid, $sockets, $cores, $defaults, $hotplug_features, $cmd) = @_;
+    my ($conf, $vmid, $sockets, $cores, $defaults, $hotplug, $cmd) = @_;
 
     my $memory = $conf->{memory} || $defaults->{memory};
     my $static_memory = 0;
 
-    if ($hotplug_features->{memory}) {
+    if ($hotplug) {
 	die "NUMA needs to be enabled for memory hotplug\n" if !$conf->{numa};
 	my $MAX_MEM = get_max_mem($conf);
 	die "Total memory is bigger than ${MAX_MEM}MB\n" if $memory > $MAX_MEM;
@@ -366,7 +366,7 @@ sub config {
 	}
     }
 
-    if ($hotplug_features->{memory}) {
+    if ($hotplug) {
 	foreach_dimm($conf, $vmid, $memory, $sockets, sub {
 	    my ($conf, $vmid, $name, $dimm_size, $numanode, $current_size, $memory) = @_;
 
@@ -490,7 +490,7 @@ sub hugepages_size {
 }
 
 sub hugepages_topology {
-    my ($conf) = @_;
+    my ($conf, $hotplug) = @_;
 
     my $hugepages_topology = {};
 
@@ -501,9 +501,8 @@ sub hugepages_topology {
     my $static_memory = 0;
     my $sockets = $conf->{sockets} || 1;
     my $numa_custom_topology = undef;
-    my $hotplug_features = PVE::QemuServer::parse_hotplug_features(defined($conf->{hotplug}) ? $conf->{hotplug} : '1');
 
-    if ($hotplug_features->{memory}) {
+    if ($hotplug) {
 	$static_memory = $STATICMEM;
 	$static_memory = $static_memory * $sockets if ($conf->{hugepages} && $conf->{hugepages} == 1024);
     } else {
@@ -539,7 +538,7 @@ sub hugepages_topology {
 	}
     }
 
-    if ($hotplug_features->{memory}) {
+    if ($hotplug) {
 	my $numa_hostmap = get_numa_guest_to_host_map($conf);
 
 	foreach_dimm($conf, undef, $memory, $sockets, sub {
