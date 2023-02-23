@@ -160,7 +160,13 @@ my $agent_fmt = {
 	description => "Run fstrim after moving a disk or migrating the VM.",
 	type => 'boolean',
 	optional => 1,
-	default => 0
+	default => 0,
+    },
+    'freeze-fs-on-backup' => {
+	description => "Freeze/thaw guest filesystems on backup for consistency.",
+	type => 'boolean',
+	optional => 1,
+	default => 1,
     },
     type => {
 	description => "Select the agent type",
