@@ -6053,13 +6053,16 @@ sub vm_start_nolock {
     }
 
    if (!defined($conf->{balloon}) || $conf->{balloon}) {
-	mon_cmd(
-	    $vmid,
-	    'qom-set',
-	    path => "machine/peripheral/balloon0",
-	    property => "guest-stats-polling-interval",
-	    value => 2
-	);
+	eval {
+	    mon_cmd(
+		$vmid,
+		'qom-set',
+		path => "machine/peripheral/balloon0",
+		property => "guest-stats-polling-interval",
+		value => 2
+	    );
+	};
+	log_warn("could not set polling interval for ballooning - $@") if $@;
     }
 
     if ($resume) {
