@@ -1,3 +1,34 @@
+qemu-server (7.3-4) bullseye; urgency=medium
+
+  * fix #4378: standardized error for missing OVMF files
+
+  * schema: memory: be precise that unit is binary prefix
+
+  * close #2792: allow online migration with replicated snapshots
+
+  * schema: OS type: note that the l26 type is also compatible with Linux 6.x
+
+  * hotplug: disk: mark the 'aio' (async IO) as non-hotpluggable to avoid
+    suggesting that it already changed
+
+  * fix #4525: clone disk: disallow mirror if it might cause problems with
+    io_uring using the same heuristics as for start-up
+
+  * start: make not being able to set polling interval for ballooning
+    non-critical
+
+  * swtpm: enable logging to `/run/qemu-server/$vmid-swtpm.log`
+
+  * fix #4140: vzdump: transform the previous hardcoded behavior of issuing a
+    fs-freeze and fs-thaw if QGA is enabled  into an overrideable option named
+    'fs-freeze-on-backup'
+
+  * update network dev: MTU is not hot-pluggable, avoid suggesting so
+
+  * fix #4249: make image clone or conversion respect bandwidth limit
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 23 Feb 2023 17:12:42 +0100
+
 qemu-server (7.3-3) bullseye; urgency=medium
 
   * rollback: ignore auto-start request if VM is already running
