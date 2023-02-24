@@ -8087,7 +8087,6 @@ sub clone_disk {
 	    qemu_drive_mirror($vmid, $src_drivename, $newvolid, $newvmid, $sparseinit, $jobs,
 	        $completion, $qga, $bwlimit);
 	} else {
-	    # TODO: handle bwlimits
 	    if ($dst_drivename eq 'efidisk0') {
 		# the relevant data on the efidisk may be smaller than the source
 		# e.g. on RBD/ZFS, so we use dd to copy only the amount
