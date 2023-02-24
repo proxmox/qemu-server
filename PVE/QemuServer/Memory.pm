@@ -240,7 +240,7 @@ sub qemu_memory_hotplug {
 		while (1) {
 		    eval { PVE::QemuServer::qemu_devicedel($vmid, $name) };
 		    sleep 3;
-		    my $dimm_list = qemu_dimm_list($vmid);
+		    my $dimm_list = qemu_memdevices_list($vmid, 'dimm');
 		    last if !$dimm_list->{$name};
 		    raise_param_exc({ $name => "error unplug memory module" }) if $retry > 5;
 		    $retry++;
@@ -255,14 +255,14 @@ sub qemu_memory_hotplug {
     }
 }
 
-sub qemu_dimm_list {
-    my ($vmid) = @_;
+sub qemu_memdevices_list {
+    my ($vmid, $type) = @_;
 
     my $dimmarray = mon_cmd($vmid, "query-memory-devices");
     my $dimms = {};
 
     foreach my $dimm (@$dimmarray) {
-
+        next if $type && $dimm->{data}->{id} !~ /^$type(\d+)$/;
         $dimms->{$dimm->{data}->{id}}->{id} = $dimm->{data}->{id};
         $dimms->{$dimm->{data}->{id}}->{node} = $dimm->{data}->{node};
         $dimms->{$dimm->{data}->{id}}->{addr} = $dimm->{data}->{addr};
