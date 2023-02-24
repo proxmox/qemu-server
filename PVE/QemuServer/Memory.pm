@@ -128,38 +128,6 @@ sub foreach_dimm{
     }
 }
 
-sub foreach_reverse_dimm {
-    my ($conf, $vmid, $memory, $sockets, $func) = @_;
-
-    my $dimm_id = 253;
-    my $current_size = 0;
-    my $dimm_size = 0;
-
-    if($conf->{hugepages} && $conf->{hugepages} == 1024) {
-	$current_size = 8355840;
-	$dimm_size = 131072;
-    } else {
-	$current_size = 4177920;
-	$dimm_size = 65536;
-    }
-
-    return if $current_size == $memory;
-
-    my @numa_map = get_numa_node_list($conf);
-
-    for (my $j = 0; $j < 8; $j++) {
-	for (my $i = 0; $i < 32; $i++) {
-	    my $name = "dimm${dimm_id}";
-	    $dimm_id--;
-	    my $numanode = $numa_map[(31-$i) % @numa_map];
-	    $current_size -= $dimm_size;
-	    &$func($conf, $vmid, $name, $dimm_size, $numanode, $current_size, $memory);
-	    return  $current_size if $current_size <= $memory;
-	}
-	$dimm_size /= 2;
-    }
-}
-
 sub qemu_memory_hotplug {
     my ($vmid, $conf, $defaults, $value) = @_;
 
@@ -230,29 +198,35 @@ sub qemu_memory_hotplug {
 
     } else {
 
-	foreach_reverse_dimm($conf, $vmid, $value, $sockets, sub {
-	    my ($conf, $vmid, $name, $dimm_size, $numanode, $current_size, $memory) = @_;
+	my $dimms = qemu_memdevices_list($vmid, 'dimm');
 
-		return if $current_size >= $conf->{memory};
-		print "try to unplug memory dimm $name\n";
+	my $current_size = $memory;
+	for my $name (sort { $dimms->{$b}->{slot} <=> $dimms->{$a}->{slot} } keys %$dimms) {
 
-		my $retry = 0;
-		while (1) {
-		    eval { PVE::QemuServer::qemu_devicedel($vmid, $name) };
-		    sleep 3;
-		    my $dimm_list = qemu_memdevices_list($vmid, 'dimm');
-		    last if !$dimm_list->{$name};
-		    raise_param_exc({ $name => "error unplug memory module" }) if $retry > 5;
-		    $retry++;
-		}
+	    my $dimm_size = $dimms->{$name}->{size} / 1024 / 1024;
 
-		#update conf after each succesful module unplug
-		$conf->{memory} = $current_size;
+	    last if $current_size <= $value;
 
-		eval { PVE::QemuServer::qemu_objectdel($vmid, "mem-$name"); };
-		PVE::QemuConfig->write_config($vmid, $conf);
-	});
+	    print "try to unplug memory dimm $name\n";
+
+	    my $retry = 0;
+	    while (1) {
+		eval { PVE::QemuServer::qemu_devicedel($vmid, $name) };
+		sleep 3;
+		my $dimm_list = qemu_memdevices_list($vmid, 'dimm');
+		last if !$dimm_list->{$name};
+		raise_param_exc({ $name => "error unplug memory module" }) if $retry > 5;
+		$retry++;
+	    }
+	    $current_size -= $dimm_size;
+	    #update conf after each succesful module unplug
+	    $conf->{memory} = $current_size;
+
+	    eval { PVE::QemuServer::qemu_objectdel($vmid, "mem-$name"); };
+	    PVE::QemuConfig->write_config($vmid, $conf);
+	}
     }
+    return $conf->{memory};
 }
 
 sub qemu_memdevices_list {
