@@ -6166,6 +6166,15 @@ sub cleanup_pci_devices {
 	    # NOTE: avoid PVE::SysFSTools::pci_cleanup_mdev_device as it requires PCI ID and we
 	    # don't want to break ABI just for this two liner
 	    my $dev_sysfs_dir = "/sys/bus/mdev/devices/$uuid";
+
+	    # some nvidia vgpu driver versions want to clean the mdevs up themselves, and error
+	    # out when we do it first. so wait for 10 seconds and then try it
+	    my $pciid = $d->{pciid}->[0]->{id};
+	    my $info = PVE::SysFSTools::pci_device_info("$pciid");
+	    if ($info->{vendor} eq '10de') {
+		sleep 10;
+	    }
+
 	    PVE::SysFSTools::file_write("$dev_sysfs_dir/remove", "1") if -e $dev_sysfs_dir;
 	}
     }
