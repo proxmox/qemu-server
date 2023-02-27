@@ -5851,9 +5851,14 @@ sub vm_start_nolock {
 	    for my $dev ($d->{pciid}->@*) {
 		my $info = PVE::QemuServer::PCI::prepare_pci_device($vmid, $dev->{id}, $id, $d->{mdev});
 
-		# nvidia grid needs the uuid of the mdev as qemu parameter
+		# nvidia grid needs the qemu parameter '-uuid' set
+		# use smbios uuid or mdev uuid as fallback for that
 		if ($d->{mdev} && !defined($uuid) && $info->{vendor} eq '10de') {
-		    $uuid = PVE::QemuServer::PCI::generate_mdev_uuid($vmid, $id);
+		    if (defined($conf->{smbios1})) {
+			my $smbios_conf = parse_smbios1($conf->{smbios1});
+			$uuid = $smbios_conf->{uuid} if defined($smbios_conf->{uuid});
+		    }
+		    $uuid = PVE::QemuServer::PCI::generate_mdev_uuid($vmid, $id) if !defined($uuid);
 		}
 	    }
 	}
