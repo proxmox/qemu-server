@@ -540,6 +540,22 @@ sub load_current_config {
     return $conf;
 }
 
+sub get_derived_property {
+    my ($class, $conf, $name) = @_;
+
+    my $defaults = PVE::QemuServer::load_defaults();
+
+    if ($name eq 'max-cpu') {
+	my $cpus =
+	    ($conf->{sockets} || $defaults->{sockets}) * ($conf->{cores} || $defaults->{cores});
+	return $conf->{vcpus} || $cpus;
+    } elsif ($name eq 'max-memory') {
+	return ($conf->{memory} || $defaults->{memory}) * 1024 * 1024;
+    } else {
+	die "unknown derived property - $name\n";
+    }
+}
+
 # END implemented abstract methods from PVE::AbstractConfig
 
 sub has_cloudinit {
