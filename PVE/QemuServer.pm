@@ -2872,7 +2872,7 @@ our $vmstatus_return_properties = {
 	optional => 1,
     },
     qmpstatus => {
-	description => "QEMU QMP agent status.",
+	description => "VM run state from the 'query-status' QMP monitor command.",
 	type => 'string',
 	optional => 1,
     },
