@@ -1398,7 +1398,7 @@ __PACKAGE__->register_method({
     proxyto => 'node',
     description => "Regenerate and change cloudinit config drive.",
     permissions => {
-	check => ['perm', '/vms/{vmid}', 'VM.Config.Cloudinit'],
+	check => ['perm', '/vms/{vmid}', ['VM.Config.Cloudinit']],
     },
     parameters => {
 	additionalProperties => 0,
