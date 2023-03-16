@@ -201,7 +201,7 @@ sub qemu_memory_hotplug {
 	my $dimms = qemu_memdevices_list($vmid, 'dimm');
 
 	my $current_size = $memory;
-	for my $name (sort { $dimms->{$b}->{slot} <=> $dimms->{$a}->{slot} } keys %$dimms) {
+	for my $name (sort { ($b =~ /^dimm(\d+)$/)[0] <=> ($a =~ /^dimm(\d+)$/)[0] } keys %$dimms) {
 
 	    my $dimm_size = $dimms->{$name}->{size} / 1024 / 1024;
 
