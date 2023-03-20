@@ -1,3 +1,15 @@
+qemu-server (7.4-1) bullseye; urgency=medium
+
+  * fix #4553: nvidia vgpu: reuse smbios uuid for '-uuid' parameter
+
+  * pci: workaround nvidia driver issue on mdev cleanup
+
+  * memory: hotplug: sort by numerical ID rather than slot when unplugging
+
+  * memory: use the DIMM list info from QEMU for unplug
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 20 Mar 2023 17:24:45 +0100
+
 qemu-server (7.3-4) bullseye; urgency=medium
 
   * fix #4378: standardized error for missing OVMF files
