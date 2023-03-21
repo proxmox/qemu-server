@@ -1,3 +1,10 @@
+qemu-server (7.4-2) bullseye; urgency=medium
+
+  * avoid list context for volume_size_info calls as otherwise we
+    unnecessarily take a slower code path
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 21 Mar 2023 16:51:01 +0100
+
 qemu-server (7.4-1) bullseye; urgency=medium
 
   * fix #4553: nvidia vgpu: reuse smbios uuid for '-uuid' parameter
