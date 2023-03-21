@@ -8077,7 +8077,7 @@ sub clone_disk {
 	} else {
 	    clone_disk_check_io_uring($drive, $storecfg, $src_storeid, $storeid, $use_drive_mirror);
 
-	    ($size) = PVE::Storage::volume_size_info($storecfg, $drive->{file}, 10);
+	    $size = PVE::Storage::volume_size_info($storecfg, $drive->{file}, 10);
 	}
 	$newvolid = PVE::Storage::vdisk_alloc(
 	    $storecfg, $storeid, $newvmid, $dst_format, $name, ($size/1024)
@@ -8129,7 +8129,7 @@ sub clone_disk {
     }
 
 no_data_clone:
-    my ($size) = eval { PVE::Storage::volume_size_info($storecfg, $newvolid, 10) };
+    my $size = eval { PVE::Storage::volume_size_info($storecfg, $newvolid, 10) };
 
     my $disk = dclone($drive);
     delete $disk->{format};
@@ -8208,7 +8208,7 @@ sub create_efidisk($$$$$$$) {
     PVE::Storage::activate_volumes($storecfg, [$volid]);
 
     qemu_img_convert($ovmf_vars, $volid, $vars_size_b, undef, 0);
-    my ($size) = PVE::Storage::volume_size_info($storecfg, $volid, 3);
+    my $size = PVE::Storage::volume_size_info($storecfg, $volid, 3);
 
     return ($volid, $size/1024);
 }

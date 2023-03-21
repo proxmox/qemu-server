@@ -119,8 +119,11 @@ sub prepare {
 	}
 	next if !$path;
 
-	my ($size, $format) = eval { PVE::Storage::volume_size_info($self->{storecfg}, $volid, 5) };
+	my $size = eval { PVE::Storage::volume_size_info($self->{storecfg}, $volid, 5) };
 	die "no such volume '$volid'\n" if $@;
+
+	my $scfg = PVE::Storage::storage_config($self->{storecfg}, $storeid);
+	my $format = PVE::QemuServer::qemu_img_format($scfg, $volname);
 
 	my $diskinfo = {
 	    path => $path,
