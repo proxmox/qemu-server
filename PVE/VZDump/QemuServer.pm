@@ -123,7 +123,7 @@ sub prepare {
 	if ($storeid) {
 	    # The call in list context can be expensive for certain plugins like RBD, just get size
 	    $size = eval { PVE::Storage::volume_size_info($self->{storecfg}, $volid, 5) };
-	    die "no such volume '$volid'\n" if $@;
+	    die "cannot determine size of volume '$volid' - $@\n" if $@;
 
 	    my $scfg = PVE::Storage::storage_config($self->{storecfg}, $storeid);
 	    $format = PVE::QemuServer::qemu_img_format($scfg, $volname);
@@ -131,7 +131,7 @@ sub prepare {
 	    ($size, $format) = eval {
 		PVE::Storage::volume_size_info($self->{storecfg}, $volid, 5);
 	    };
-	    die "no such volume '$volid'\n" if $@;
+	    die "cannot determine size and format of volume '$volid' - $@\n" if $@;
 	}
 
 	my $diskinfo = {
