@@ -119,11 +119,20 @@ sub prepare {
 	}
 	next if !$path;
 
-	my $size = eval { PVE::Storage::volume_size_info($self->{storecfg}, $volid, 5) };
-	die "no such volume '$volid'\n" if $@;
+	my ($size, $format);
+	if ($storeid) {
+	    # The call in list context can be expensive for certain plugins like RBD, just get size
+	    $size = eval { PVE::Storage::volume_size_info($self->{storecfg}, $volid, 5) };
+	    die "no such volume '$volid'\n" if $@;
 
-	my $scfg = PVE::Storage::storage_config($self->{storecfg}, $storeid);
-	my $format = PVE::QemuServer::qemu_img_format($scfg, $volname);
+	    my $scfg = PVE::Storage::storage_config($self->{storecfg}, $storeid);
+	    $format = PVE::QemuServer::qemu_img_format($scfg, $volname);
+	} else {
+	    ($size, $format) = eval {
+		PVE::Storage::volume_size_info($self->{storecfg}, $volid, 5);
+	    };
+	    die "no such volume '$volid'\n" if $@;
+	}
 
 	my $diskinfo = {
 	    path => $path,
