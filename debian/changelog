@@ -1,3 +1,11 @@
+qemu-server (7.4-3) bullseye; urgency=medium
+
+  * backup prepare: fix format detection for disks without storage ID
+
+  * backup prepare: improve error messages
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 27 Mar 2023 11:17:16 +0200
+
 qemu-server (7.4-2) bullseye; urgency=medium
 
   * avoid list context for volume_size_info calls as otherwise we
