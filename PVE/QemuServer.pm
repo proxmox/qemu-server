@@ -558,7 +558,7 @@ EODESC
 	verbose_description => <<EODESCR,
 Arbitrary arguments passed to kvm, for example:
 
-args: -no-reboot -no-hpet
+args: -no-reboot -smbios 'type=0,vendor=FOO'
 
 NOTE: this option is for experts only.
 EODESCR
