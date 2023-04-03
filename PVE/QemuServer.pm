@@ -3796,7 +3796,7 @@ sub config_to_command {
 	    }
 	} else {
 	    die "no such serial device\n" if ! -c $path;
-	    push @$devices, '-chardev', "tty,id=serial$i,path=$path";
+	    push @$devices, '-chardev', "serial,id=serial$i,path=$path";
 	    push @$devices, '-device', "isa-serial,chardev=serial$i";
 	}
     }
@@ -3805,7 +3805,7 @@ sub config_to_command {
     for (my $i = 0; $i < $MAX_PARALLEL_PORTS; $i++)  {
 	if (my $path = $conf->{"parallel$i"}) {
 	    die "no such parallel device\n" if ! -c $path;
-	    my $devtype = $path =~ m!^/dev/usb/lp! ? 'tty' : 'parport';
+	    my $devtype = $path =~ m!^/dev/usb/lp! ? 'serial' : 'parallel';
 	    push @$devices, '-chardev', "$devtype,id=parallel$i,path=$path";
 	    push @$devices, '-device', "isa-parallel,chardev=parallel$i";
 	}
