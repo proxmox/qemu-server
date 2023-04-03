@@ -15,7 +15,6 @@
   -nodefaults \
   -boot 'menu=on,strict=on,reboot-timeout=1000,splash=/usr/share/qemu-server/bootsplash.jpg' \
   -vnc 'unix:/var/run/qemu-server/8006.vnc,password=on' \
-  -no-hpet \
   -cpu 'kvm64,enforce,hv_ipi,hv_relaxed,hv_reset,hv_runtime,hv_spinlocks=0x1fff,hv_stimer,hv_synic,hv_time,hv_vapic,hv_vpindex,+kvm_pv_eoi,+kvm_pv_unhalt,+lahf_lm,+sep' \
   -m 512 \
   -object 'memory-backend-ram,id=ram-node0,size=256M' \
@@ -34,5 +33,5 @@
   -netdev 'type=tap,id=net0,ifname=tap8006i0,script=/var/lib/qemu-server/pve-bridge,downscript=/var/lib/qemu-server/pve-bridgedown,vhost=on' \
   -device 'virtio-net-pci,mac=2E:01:68:F9:9C:87,netdev=net0,bus=pci.0,addr=0x12,id=net0,bootindex=300' \
   -rtc 'driftfix=slew,base=localtime' \
-  -machine 'type=pc-i440fx-5.1+pve0' \
+  -machine 'hpet=off,type=pc-i440fx-5.1+pve0' \
   -global 'kvm-pit.lost_tick_policy=discard'

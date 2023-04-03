@@ -13,7 +13,6 @@
   -nodefaults \
   -boot 'menu=on,strict=on,reboot-timeout=1000,splash=/usr/share/qemu-server/bootsplash.jpg' \
   -vnc 'unix:/var/run/qemu-server/8006.vnc,password=on' \
-  -no-hpet \
   -cpu 'athlon,+aes,+avx,enforce,hv_ipi,hv_relaxed,hv_reset,hv_runtime,hv_spinlocks=0x1fff,hv_stimer,hv_synic,hv_time,hv_vapic,hv_vendor_id=testvend,hv_vpindex,+kvm_pv_eoi,-kvm_pv_unhalt,vendor=AuthenticAMD,+virt-ssbd,phys-bits=40' \
   -m 512 \
   -device 'pci-bridge,id=pci.1,chassis_nr=1,bus=pci.0,addr=0x1e' \
@@ -24,5 +23,5 @@
   -device 'virtio-balloon-pci,id=balloon0,bus=pci.0,addr=0x3' \
   -iscsi 'initiator-name=iqn.1993-08.org.debian:01:aabbccddeeff' \
   -rtc 'driftfix=slew,base=localtime' \
-  -machine 'type=pc-i440fx-5.1+pve0' \
+  -machine 'hpet=off,type=pc-i440fx-5.1+pve0' \
   -global 'kvm-pit.lost_tick_policy=discard'

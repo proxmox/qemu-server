@@ -163,7 +163,7 @@
   -device 'pc-dimm,id=dimm70,memdev=mem-dimm70,node=0' \
   -object 'memory-backend-ram,id=mem-dimm71,size=2048M' \
   -device 'pc-dimm,id=dimm71,memdev=mem-dimm71,node=1' \
-   -device 'pci-bridge,id=pci.1,chassis_nr=1,bus=pci.0,addr=0x1e' \
+  -device 'pci-bridge,id=pci.1,chassis_nr=1,bus=pci.0,addr=0x1e' \
   -device 'pci-bridge,id=pci.2,chassis_nr=2,bus=pci.0,addr=0x1f' \
   -device 'vmgenid,guid=c773c261-d800-4348-9f5d-167fadd53cf8' \
   -device 'piix3-usb-uhci,id=uhci,bus=pci.0,addr=0x1.0x2' \

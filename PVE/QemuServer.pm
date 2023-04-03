@@ -3880,7 +3880,7 @@ sub config_to_command {
 
     if ($winversion >= 6) {
 	push @$globalFlags, 'kvm-pit.lost_tick_policy=discard';
-	push @$cmd, '-no-hpet';
+	push @$machineFlags, 'hpet=off';
     }
 
     push @$rtcFlags, 'driftfix=slew' if $tdf;
