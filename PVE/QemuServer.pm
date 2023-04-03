@@ -3848,7 +3848,7 @@ sub config_to_command {
 
     push @$cmd, '-boot', "menu=on,strict=on,reboot-timeout=1000,splash=/usr/share/qemu-server/bootsplash.jpg";
 
-    push @$cmd, '-no-acpi' if defined($conf->{acpi}) && $conf->{acpi} == 0;
+    push $machineFlags->@*, 'acpi=off' if defined($conf->{acpi}) && $conf->{acpi} == 0;
 
     push @$cmd, '-no-reboot' if  defined($conf->{reboot}) && $conf->{reboot} == 0;
 
