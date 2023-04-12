@@ -8576,6 +8576,10 @@ sub add_nets_bridge_fdb {
 	}
 
 	my $bridge = $net->{bridge};
+	if (!$bridge) {
+	    log_warn("Interface '$iface' not attached to any bridge.");
+	    next;
+	}
 	if ($have_sdn) {
 	    PVE::Network::SDN::Zones::add_bridge_fdb($iface, $mac, $bridge, $net->{firewall});
 	} elsif (-d "/sys/class/net/$bridge/bridge") { # avoid fdb management with OVS for now
