@@ -4768,7 +4768,7 @@ sub qemu_block_resize {
 
     my $running = check_running($vmid);
 
-    $size = 0 if !PVE::Storage::volume_resize($storecfg, $volid, $size, $running);
+    PVE::Storage::volume_resize($storecfg, $volid, $size, $running);
 
     return if !$running;
 
