@@ -631,9 +631,9 @@ my $check_vm_modify_config_perm = sub {
 	    $rpcenv->check_vm_perm($authuser, $vmid, $pool, ['VM.PowerMgmt']);
 	} elsif ($diskoptions->{$opt}) {
 	    $rpcenv->check_vm_perm($authuser, $vmid, $pool, ['VM.Config.Disk']);
-	} elsif ($opt =~ m/^(?:net|ipconfig)\d+$/) {
+	} elsif ($opt =~ m/^net\d+$/) {
 	    $rpcenv->check_vm_perm($authuser, $vmid, $pool, ['VM.Config.Network']);
-	} elsif ($cloudinitoptions->{$opt}) {
+	} elsif ($cloudinitoptions->{$opt} || $opt =~ m/^ipconfig\d+$/) {
 	    $rpcenv->check_vm_perm($authuser, $vmid, $pool, ['VM.Config.Cloudinit', 'VM.Config.Network'], 1);
 	} elsif ($opt eq 'vmstate') {
 	    # the user needs Disk and PowerMgmt privileges to change the vmstate
