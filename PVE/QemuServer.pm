@@ -780,6 +780,11 @@ my $confdesc_cloudinit = {
 	    .' recommended. Use ssh keys instead. Also note that older cloud-init versions do not'
 	    .' support hashed passwords.',
     },
+    ciupgrade => {
+	optional => 1,
+	type => 'boolean',
+	description => 'cloud-init: do an automatic package upgrade after the first boot.'
+    },
     cicustom => {
 	optional => 1,
 	type => 'string',
