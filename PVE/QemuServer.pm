@@ -4913,16 +4913,16 @@ sub foreach_volid {
 }
 
 my $fast_plug_option = {
+    'description' => 1,
+    'hookscript' => 1,
     'lock' => 1,
     'name' => 1,
     'onboot' => 1,
+    'protection' => 1,
     'shares' => 1,
     'startup' => 1,
-    'description' => 1,
-    'protection' => 1,
-    'vmstatestorage' => 1,
-    'hookscript' => 1,
     'tags' => 1,
+    'vmstatestorage' => 1,
 };
 
 for my $opt (keys %$confdesc_cloudinit) {
