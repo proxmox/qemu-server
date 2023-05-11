@@ -1344,14 +1344,21 @@ __PACKAGE__->register_method({
 		    description => "Configuration option name.",
 		    type => 'string',
 		},
-		old => {
+		value => {
 		    description => "Value as it was used to generate the current cloudinit image.",
 		    type => 'string',
 		    optional => 1,
 		},
-		new => {
+		pending => {
 		    description => "The new pending value.",
 		    type => 'string',
+		    optional => 1,
+		},
+		delete => {
+		    description => "Indicates a pending delete request if present and not 0. ",
+		    type => 'integer',
+		    minimum => 0,
+		    maximum => 1,
 		    optional => 1,
 		},
 	    },
@@ -1365,26 +1372,39 @@ __PACKAGE__->register_method({
 
 	my $ci = $conf->{cloudinit};
 
-	my $res = {};
+	$conf->{cipassword} = '**********' if exists $conf->{cipassword};
+	$ci->{cipassword} = '**********' if exists $ci->{cipassword};
+
+	my $res = [];
+
+	# All the values that got added
 	my $added = delete($ci->{added}) // '';
 	for my $key (PVE::Tools::split_list($added)) {
-	    $res->{$key} = { new => $conf->{$key} };
+	    push @$res, { key => $key, pending => $conf->{$key} };
 	}
 
-	for my $key (keys %$ci) {
-	    if (!exists($conf->{$key})) {
-		$res->{$key} = { old => $ci->{$key} };
+	# All already existing values (+ their new value, if it exists)
+	for my $opt (keys %$cloudinitoptions) {
+	    next if !$conf->{$opt};
+	    next if $added =~ m/$opt/;
+	    my $item = {
+		key => $opt,
+	    };
+
+	    if (my $pending = $ci->{$opt}) {
+		$item->{value} = $pending;
+		$item->{pending} = $conf->{$opt};
 	    } else {
-		$res->{$key} = {
-		    old => $ci->{$key},
-		    new => $conf->{$key},
-		};
+		$item->{value} = $conf->{$opt},
 	    }
+
+	    push @$res, $item;
 	}
 
-	if (defined(my $pw = $res->{cipassword})) {
-	    $pw->{old} = '**********' if exists $pw->{old};
-	    $pw->{new} = '**********' if exists $pw->{new};
+	# Now, we'll find the deleted ones
+	for my $opt (keys %$ci) {
+	    next if $conf->{$opt};
+	    push @$res, { key => $opt, delete => 1 };
 	}
 
 	return $res;
