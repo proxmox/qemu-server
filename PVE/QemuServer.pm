@@ -3543,7 +3543,9 @@ sub query_understood_cpu_flags {
 # Since commit 277d33454f77ec1d1e0bc04e37621e4dd2424b67 in pve-qemu, smm is not off by default
 # anymore. But smm=off seems to be required when using SeaBIOS and serial display.
 my sub should_disable_smm {
-    my ($conf, $vga) = @_;
+    my ($conf, $vga, $machine) = @_;
+
+    return if $machine =~ m/^virt/; # there is no smm flag that could be disabled
 
     return (!defined($conf->{bios}) || $conf->{bios} eq 'seabios') &&
 	$vga->{type} && $vga->{type} =~ m/^(serial\d+|none)$/;
@@ -4155,7 +4157,7 @@ sub config_to_command {
 	push @$machineFlags, 'accel=tcg';
     }
 
-    push @$machineFlags, 'smm=off' if should_disable_smm($conf, $vga);
+    push @$machineFlags, 'smm=off' if should_disable_smm($conf, $vga, $machine_type);
 
     my $machine_type_min = $machine_type;
     if ($add_pve_version) {
