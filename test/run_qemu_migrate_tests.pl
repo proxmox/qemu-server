@@ -418,8 +418,9 @@ sub local_volids_for_vm {
 
 my $tests = [
 # each test consists of the following:
-# name           - unique name for the test which also serves as a dir name and
-#                  gets passed to make, so don't use whitespace or slash
+# name           - unique name for the test which also serves as a dir name.
+#                  NOTE: gets passed to make, so don't use whitespace or slash
+#                        and adapt buildsys (regex) on code structure changes
 # target         - hostname of target node
 # vmid           - ID of the VM to migrate
 # opts           - options for the migrate() call
@@ -1530,12 +1531,6 @@ my $tests = [
 ];
 
 my $single_test_name = shift;
-
-if (defined($single_test_name) && $single_test_name eq 'DUMP_NAMES') {
-    my $output = join(' ', map { $_->{name} } $tests->@*);
-    print "$output\n";
-    exit 0;
-}
 
 mkdir $RUN_DIR_PATH;
 

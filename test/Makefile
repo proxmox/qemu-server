@@ -1,6 +1,3 @@
-MIGRATION_TEST_NAMES := $(shell ./run_qemu_migrate_tests.pl DUMP_NAMES)
-MIGRATION_TEST_TARGETS := $(addprefix test_migration_,$(MIGRATION_TEST_NAMES))
-
 all: test
 
 test: test_snapshot test_ovf test_cfg_to_cmd test_pci_addr_conflicts test_qemu_img_convert test_migration test_restore_config
@@ -20,6 +17,8 @@ test_qemu_img_convert: run_qemu_img_convert_tests.pl
 
 test_pci_addr_conflicts: run_pci_addr_checks.pl
 	./run_pci_addr_checks.pl
+
+MIGRATION_TEST_TARGETS := $(addprefix test_migration_,$(shell perl -ne 'print "$1 " if /^\s*name\s*=>\s*["'\'']([^\s"'\'']+)["'\'']\s*,\s*$/; END { print "\n" }' run_qemu_migrate_tests.pl))
 
 test_migration: run_qemu_migrate_tests.pl MigrationTest/*.pm $(MIGRATION_TEST_TARGETS)
 
