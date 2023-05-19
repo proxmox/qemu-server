@@ -99,6 +99,9 @@ $(DSC): $(BUILDDIR)
 	cd $(BUILDDIR); dpkg-buildpackage -S -us -uc -d
 	lintian $(DSC)
 
+sbuild: $(DSC)
+	sbuild $(DSC)
+
 .PHONY: test
 test:
 	PVE_GENERATING_DOCS=1 perl -I. ./qm verifyapi
