@@ -1,3 +1,13 @@
+qemu-server (8.0.0) bookworm; urgency=medium
+
+  * never enable 'smm' flag for the 'virt' machine type (doesn't exist)
+
+  * test: mock calls that can fail in a chroot environment
+
+  * rebuild for Debian Bookworm based releases
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 19 May 2023 15:07:45 +0200
+
 qemu-server (7.4-3) bullseye; urgency=medium
 
   * backup prepare: fix format detection for disks without storage ID
