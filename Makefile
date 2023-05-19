@@ -81,9 +81,10 @@ install: $(PKGSOURCES)
 	cd $(DESTDIR)/$(MAN5DIR); ln -s -f qm.conf.5.gz vm.conf.5.gz
 
 $(BUILDDIR):
-	rm -rf $(BUILDDIR)
-	rsync -a * $(BUILDDIR)
-	echo "git clone git://git.proxmox.com/git/qemu-server.git\\ngit checkout $(GITVERSION)" > $(BUILDDIR)/debian/SOURCE
+	rm -rf $(BUILDDIR) $(BUILDDIR).tmp
+	rsync -a * $(BUILDDIR).tmp
+	echo "git clone git://git.proxmox.com/git/qemu-server.git\\ngit checkout $(GITVERSION)" > $(BUILDDIR).tmp/debian/SOURCE
+	mv $(BUILDDIR).tmp $(BUILDDIR)
 
 .PHONY: deb
 deb: $(DEBS)
