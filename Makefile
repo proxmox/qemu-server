@@ -25,9 +25,7 @@ DSC=$(PACKAGE)_$(DEB_VERSION_UPSTREAM_REVISION).dsc
 
 DEBS=$(DEB) $(DBG_DEB)
 
-# this requires package pve-doc-generator
-export NOVIEW=1
-include /usr/share/pve-doc-generator/pve-doc-generator.mk
+-include /usr/share/pve-doc-generator/pve-doc-generator.mk
 
 all:
 
