@@ -113,8 +113,7 @@ upload: $(DEB)
 clean:
 	$(MAKE) -C test $@
 	rm -rf $(PACKAGE)-*/ *.deb *.build *.buildinfo *.changes *.dsc $(PACKAGE)_*.tar.?z
-	$(MAKE) cleanup-docgen
-	find . -name '*~' -exec rm {} ';'
+	rm -f *.xml.tmp *.1 *.5 *.8 *{synopsis,opts}.adoc docinfo.xml
 
 
 .PHONY: distclean
