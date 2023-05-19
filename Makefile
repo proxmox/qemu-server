@@ -104,8 +104,9 @@ test:
 	$(MAKE) -C test
 
 .PHONY: upload
+upload: UPLOAD_DIST ?= $(DEB_DISTRIBUTION)
 upload: ${DEB}
-	tar cf - ${DEBS} | ssh -X repoman@repo.proxmox.com upload --product pve --dist bullseye
+	tar cf - ${DEBS} | ssh -X repoman@repo.proxmox.com upload --product pve --dist $(UPLOAD_DIST)
 
 .PHONY: clean
 clean:
