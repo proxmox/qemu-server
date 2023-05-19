@@ -1532,10 +1532,7 @@ my $tests = [
 my $single_test_name = shift;
 
 if (defined($single_test_name) && $single_test_name eq 'DUMP_NAMES') {
-    my $output = '';
-    foreach my $test (@{$tests}) {
-	$output .= $test->{name} . ' ';
-    }
+    my $output = join(' ', map { $_->{name} } $tests->@*);
     print "$output\n";
     exit 0;
 }
