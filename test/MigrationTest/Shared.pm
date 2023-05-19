@@ -61,6 +61,13 @@ my $mocked_cfs_read_file = sub {
 
 # mocked modules
 
+our $cgroup_module = Test::MockModule->new("PVE::CGroup");
+$cgroup_module->mock(
+    cgroup_mode => sub {
+	return 2;
+    },
+);
+
 our $cluster_module = Test::MockModule->new("PVE::Cluster");
 $cluster_module->mock(
     cfs_read_file => $mocked_cfs_read_file,
@@ -131,6 +138,12 @@ $replication_module->mock(
 our $replication_config_module = Test::MockModule->new("PVE::ReplicationConfig");
 $replication_config_module->mock(
     cfs_read_file => $mocked_cfs_read_file,
+);
+
+our $safe_syslog_module = Test::MockModule->new("PVE::SafeSyslog");
+$safe_syslog_module->mock(
+    initlog => sub {},
+    syslog => sub {},
 );
 
 our $storage_module = Test::MockModule->new("PVE::Storage");
