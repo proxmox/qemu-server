@@ -87,6 +87,8 @@ sub get_hostname_fqdn {
 	$hostname =~ s/\..*$//;
     } elsif (my $search = $conf->{searchdomain}) {
 	$fqdn = "$hostname.$search";
+    } else {
+	$fqdn = $hostname;
     }
     return ($hostname, $fqdn);
 }
@@ -120,7 +122,7 @@ sub cloudinit_userdata {
 
     $content .= "hostname: $hostname\n";
     $content .= "manage_etc_hosts: true\n";
-    $content .= "fqdn: $fqdn\n" if defined($fqdn);
+    $content .= "fqdn: $fqdn\n";
 
     my $username = $conf->{ciuser};
     my $password = $conf->{cipassword};
