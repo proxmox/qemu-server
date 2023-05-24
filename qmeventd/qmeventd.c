@@ -687,6 +687,9 @@ main(int argc, char *argv[])
 
     for(;;) {
 	nevents = epoll_wait(epoll_fd, events, 1, needs_cleanup ? 10*1000 : -1);
+	if (nevents < 0 && errno == EINTR) {
+	    continue;
+	}
 	bail_neg(nevents, "epoll_wait");
 
 	for (int n = 0; n < nevents; n++) {
