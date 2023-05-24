@@ -126,12 +126,10 @@ sub cmd {
 	    $cmd->{execute} eq 'block-job-complete' ||
 	    $cmd->{execute} eq 'backup-cancel' ||
 	    $cmd->{execute} eq 'query-savevm' ||
-	    $cmd->{execute} eq 'delete-drive-snapshot' ||
 	    $cmd->{execute} eq 'guest-fstrim' ||
 	    $cmd->{execute} eq 'guest-shutdown' ||
 	    $cmd->{execute} eq 'blockdev-snapshot-internal-sync' ||
-	    $cmd->{execute} eq 'blockdev-snapshot-delete-internal-sync' ||
-	    $cmd->{execute} eq 'snapshot-drive'
+	    $cmd->{execute} eq 'blockdev-snapshot-delete-internal-sync'
 	 ) {
 	    $timeout = 10*60; # 10 mins ?
 	} else {

@@ -328,9 +328,6 @@ sub qmp_cmd {
     my ($vmid, $cmd) = @_;
 
     my $exec = $cmd->{execute};
-    if ($exec eq "delete-drive-snapshot") {
-	return;
-    }
     if ($exec eq "guest-ping") {
 	die "guest-ping disabled\n"
 	    if !$vm_mon->{guest_ping};
