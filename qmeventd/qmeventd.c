@@ -75,14 +75,13 @@ get_pid_from_fd(int fd)
 }
 
 /*
- * reads the vmid from /proc/<pid>/cmdline
- * after the '-id' argument
+ * parses the vmid from the qemu.slice entry of /proc/<pid>/cgroup
  */
 static unsigned long
 get_vmid_from_pid(pid_t pid)
 {
     char filename[32] = { 0 };
-    int len = snprintf(filename, sizeof(filename), "/proc/%d/cmdline", pid);
+    int len = snprintf(filename, sizeof(filename), "/proc/%d/cgroup", pid);
     if (len < 0) {
 	fprintf(stderr, "error during snprintf for %d: %s\n", pid,
 		strerror(errno));
@@ -99,41 +98,52 @@ get_vmid_from_pid(pid_t pid)
     }
 
     unsigned long vmid = 0;
-    ssize_t rc = 0;
     char *buf = NULL;
     size_t buflen = 0;
-    while ((rc = getdelim(&buf, &buflen, '\0', fp)) >= 0) {
-	if (!strcmp(buf, "-id")) {
-	    break;
+
+    while (getline(&buf, &buflen, fp) >= 0) {
+	char *cgroup_path = strrchr(buf, ':');
+	if (!cgroup_path) {
+	    fprintf(stderr, "unexpected cgroup entry %s\n", buf);
+	    goto ret;
 	}
-    }
+	cgroup_path++;
 
-    if (rc < 0) {
-	goto err;
-    }
+	if (strncmp(cgroup_path, "/qemu.slice", 11)) {
+	    continue;
+	}
 
-    if (getdelim(&buf, &buflen, '\0', fp) >= 0) {
-	if (buf[0] == '-' || buf[0] == '\0') {
-	    fprintf(stderr, "invalid vmid %s\n", buf);
+	char *vmid_start = strrchr(buf, '/');
+	if (!vmid_start) {
+	    fprintf(stderr, "unexpected cgroup entry %s\n", buf);
+	    goto ret;
+	}
+	vmid_start++;
+
+	if (vmid_start[0] == '-' || vmid_start[0] == '\0') {
+	    fprintf(stderr, "invalid vmid in cgroup entry %s\n", buf);
 	    goto ret;
 	}
 
 	errno = 0;
 	char *endptr = NULL;
-	vmid = strtoul(buf, &endptr, 10);
+	vmid = strtoul(vmid_start, &endptr, 10);
 	if (errno != 0) {
+	    fprintf(stderr, "error parsing vmid for %d: %s\n", pid, strerror(errno));
 	    vmid = 0;
-	    goto err;
-	} else if (*endptr != '\0') {
-	    fprintf(stderr, "invalid vmid %s\n", buf);
+	} else if (*endptr != '.') {
+	    fprintf(stderr, "unexpected cgroup entry %s\n", buf);
 	    vmid = 0;
 	}
 
 	goto ret;
     }
 
-err:
-    fprintf(stderr, "error parsing vmid for %d: %s\n", pid, strerror(errno));
+    if (errno) {
+	fprintf(stderr, "error parsing vmid for %d: %s\n", pid, strerror(errno));
+    } else {
+	fprintf(stderr, "error parsing vmid for %d: no qemu.slice cgroup entry\n", pid);
+    }
 
 ret:
     free(buf);
