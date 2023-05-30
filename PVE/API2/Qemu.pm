@@ -4739,9 +4739,6 @@ __PACKAGE__->register_method({
 	    my (undef, undef, undef, undef, undef, undef, $format) =
 		PVE::Storage::parse_volname($storecfg, $drive->{file});
 
-	    die "can't resize volume: $disk if snapshot exists\n"
-		if %{$conf->{snapshots}} && $format eq 'qcow2';
-
 	    my $volid = $drive->{file};
 
 	    die "disk '$disk' has no associated volume\n" if !$volid;
