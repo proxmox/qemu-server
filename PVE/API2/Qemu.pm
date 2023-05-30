@@ -4700,7 +4700,10 @@ __PACKAGE__->register_method({
 	    },
 	},
     },
-    returns => { type => 'null'},
+    returns => {
+	type => 'string',
+	description => "the task ID.",
+    },
     code => sub {
         my ($param) = @_;
 
@@ -4784,8 +4787,11 @@ __PACKAGE__->register_method({
 	    PVE::QemuConfig->write_config($vmid, $conf);
 	};
 
-        PVE::QemuConfig->lock_config($vmid, $updatefn);
-        return;
+	my $worker = sub {
+	    PVE::QemuConfig->lock_config($vmid, $updatefn);
+	};
+
+	return $rpcenv->fork_worker('resize', $vmid, $authuser, $worker);
     }});
 
 __PACKAGE__->register_method({
