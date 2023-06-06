@@ -274,10 +274,12 @@ __PACKAGE__->register_method({
 	    vmid => get_standard_option('pve-vmid', {
 		    completion => \&PVE::QemuServer::complete_vmid_running }),
 	    command => {
-		type => 'string',
-		format => 'string-alist',
-		description => 'The command as a list of program + arguments',
-		optional => 1,
+		type => 'array',
+		description => 'The command as a list of program + arguments.',
+		items => {
+		    format => 'string',
+		    description => 'A single part of the program + arguments.',
+		}
 	    },
 	    'input-data' => {
 		type => 'string',
@@ -300,10 +302,7 @@ __PACKAGE__->register_method({
 	my ($param) = @_;
 
 	my $vmid = $param->{vmid};
-	my $cmd = undef;
-	if ($param->{command}) {
-	    $cmd = [PVE::Tools::split_list($param->{command})];
-	}
+	my $cmd = $param->{command};
 
 	my $res = PVE::QemuServer::Agent::qemu_exec($vmid, $param->{'input-data'}, $cmd);
 	return $res;
