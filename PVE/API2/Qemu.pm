@@ -23,7 +23,7 @@ use PVE::Storage;
 use PVE::JSONSchema qw(get_standard_option);
 use PVE::RESTHandler;
 use PVE::ReplicationConfig;
-use PVE::GuestHelpers qw(assert_tag_permissions);
+use PVE::GuestHelpers qw(assert_tag_permissions check_vnet_access);
 use PVE::QemuConfig;
 use PVE::QemuServer;
 use PVE::QemuServer::Cloudinit;
@@ -601,6 +601,22 @@ my $check_vm_create_usb_perm = sub {
     return 1;
 };
 
+my $check_bridge_access = sub {
+    my ($rpcenv, $authuser, $param) = @_;
+
+    return 1 if $authuser eq 'root@pam';
+
+    foreach my $opt (keys %{$param}) {
+	next if $opt !~ m/^net\d+$/;
+	my $net = PVE::QemuServer::parse_net($param->{$opt});
+	my $bridge = $net->{bridge};
+	my $tag = $net->{tag};
+	my $trunks = $net->{trunks};
+	check_vnet_access($rpcenv, $authuser, $bridge, $tag, $trunks);
+    }
+    return 1;
+};
+
 my $check_vm_modify_config_perm = sub {
     my ($rpcenv, $authuser, $vmid, $pool, $key_list) = @_;
 
@@ -728,7 +744,8 @@ __PACKAGE__->register_method({
     permissions => {
 	description => "You need 'VM.Allocate' permissions on /vms/{vmid} or on the VM pool /pool/{pool}. " .
 	    "For restore (option 'archive'), it is enough if the user has 'VM.Backup' permission and the VM already exists. " .
-	    "If you create disks you need 'Datastore.AllocateSpace' on any used storage.",
+	    "If you create disks you need 'Datastore.AllocateSpace' on any used storage." .
+	    "If you use a bridge/vlan, you need 'SDN.Use' on any used bridge/vlan.",
         user => 'all', # check inside
     },
     protected => 1,
@@ -865,6 +882,10 @@ __PACKAGE__->register_method({
 		    'backup',
 		);
 
+		my $vzdump_conf = PVE::Storage::extract_vzdump_config($storecfg, $archive);
+		my $backup_conf = PVE::QemuServer::parse_vm_config("restore/qemu-server/$vmid.conf", $vzdump_conf, 1);
+		&$check_bridge_access($rpcenv, $authuser, $backup_conf);
+
 		$archive = $parse_restore_archive->($storecfg, $archive);
 	    }
 	}
@@ -878,7 +899,7 @@ __PACKAGE__->register_method({
 
 	    &$check_vm_create_serial_perm($rpcenv, $authuser, $vmid, $pool, $param);
 	    &$check_vm_create_usb_perm($rpcenv, $authuser, $vmid, $pool, $param);
-
+	    &$check_bridge_access($rpcenv, $authuser, $param);
 	    &$check_cpu_model_access($rpcenv, $authuser, $param);
 
 	    $check_drive_param->($param, $storecfg);
@@ -1597,6 +1618,8 @@ my $update_vm_api  = sub {
     &$check_vm_modify_config_perm($rpcenv, $authuser, $vmid, undef, [keys %$param]);
 
     &$check_storage_access($rpcenv, $authuser, $storecfg, $vmid, $param);
+
+    &$check_bridge_access($rpcenv, $authuser, $param);
 
     my $updatefn =  sub {
 
@@ -3375,7 +3398,7 @@ __PACKAGE__->register_method({
     permissions => {
 	description => "You need 'VM.Clone' permissions on /vms/{vmid}, and 'VM.Allocate' permissions " .
 	    "on /vms/{newid} (or on the VM pool /pool/{pool}). You also need " .
-	    "'Datastore.AllocateSpace' on any used storage.",
+	    "'Datastore.AllocateSpace' on any used storage and 'SDN.Use' on any used bridge/vnet",
 	check =>
 	[ 'and',
 	  ['perm', '/vms/{vmid}', [ 'VM.Clone' ]],
@@ -3508,6 +3531,8 @@ __PACKAGE__->register_method({
 	    my $oldconf = $snapname ? $conf->{snapshots}->{$snapname} : $conf;
 
 	    my $sharedvm = &$check_storage_access_clone($rpcenv, $authuser, $storecfg, $oldconf, $storage);
+
+	    &$check_bridge_access($rpcenv, $authuser, $oldconf);
 
 	    die "can't clone VM to node '$target' (VM uses local storage)\n"
 		if $target && !$sharedvm;
