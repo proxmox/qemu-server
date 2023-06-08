@@ -866,10 +866,6 @@ __PACKAGE__->register_method({
 		    'backup',
 		);
 
-		my $vzdump_conf = PVE::Storage::extract_vzdump_config($storecfg, $archive);
-		my $backup_conf = PVE::QemuServer::parse_vm_config("restore/qemu-server/$vmid.conf", $vzdump_conf, 1);
-		PVE::QemuServer::check_bridge_access($rpcenv, $authuser, $backup_conf);
-
 		$archive = $parse_restore_archive->($storecfg, $archive);
 	    }
 	}

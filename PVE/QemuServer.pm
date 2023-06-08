@@ -7171,6 +7171,7 @@ sub restore_proxmox_backup_archive {
     }
 
     my $new_conf = $restore_merge_config->($conffile, $new_conf_raw, $options->{override_conf});
+    check_bridge_access($rpcenv, $user, $new_conf);
     PVE::QemuConfig->write_config($vmid, $new_conf);
 
     eval { rescan($vmid, 1); };
@@ -7484,6 +7485,7 @@ sub restore_vma_archive {
     }
 
     my $new_conf = $restore_merge_config->($conffile, $new_conf_raw, $opts->{override_conf});
+    check_bridge_access($rpcenv, $user, $new_conf);
     PVE::QemuConfig->write_config($vmid, $new_conf);
 
     eval { rescan($vmid, 1); };
