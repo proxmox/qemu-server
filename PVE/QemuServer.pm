@@ -6513,6 +6513,20 @@ sub vm_sendkey {
     });
 }
 
+sub check_bridge_access {
+    my ($rpcenv, $authuser, $conf) = @_;
+
+    return 1 if $authuser eq 'root@pam';
+
+    for my $opt (sort keys $conf->%*) {
+	next if $opt !~ m/^net\d+$/;
+	my $net = parse_net($conf->{$opt});
+	my ($bridge, $tag, $trunks) = $net->@{'bridge', 'tag', 'trunks'};
+	PVE::GuestHelpers::check_vnet_access($rpcenv, $authuser, $bridge, $tag, $trunks);
+    }
+    return 1;
+};
+
 # vzdump restore implementaion
 
 sub tar_archive_read_firstfile {
