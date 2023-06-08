@@ -31,6 +31,26 @@ sub load_custom_model_conf {
     return cfs_read_file($default_filename);
 }
 
+#builtin models : reported-model is mandatory
+my $builtin_models = {
+    'x86-64-v2' => {
+	'reported-model' => 'qemu64',
+	flags => "+popcnt;+pni;+sse4.1;+sse4.2;+ssse3",
+    },
+    'x86-64-v2-AES' => {
+	'reported-model' => 'qemu64',
+	flags => "+aes;+popcnt;+pni;+sse4.1;+sse4.2;+ssse3",
+    },
+    'x86-64-v3' => {
+	'reported-model' => 'qemu64',
+	flags => "+aes;+popcnt;+pni;+sse4.1;+sse4.2;+ssse3;+avx;+avx2;+bmi1;+bmi2;+f16c;+fma;+abm;+movbe;+xsave",
+    },
+    'x86-64-v4' => {
+	'reported-model' => 'qemu64',
+	flags => "+aes;+popcnt;+pni;+sse4.1;+sse4.2;+ssse3;+avx;+avx2;+bmi1;+bmi2;+f16c;+fma;+abm;+movbe;+xsave;+avx512f;+avx512bw;+avx512cd;+avx512dq;+avx512vl",
+    },
+};
+
 my $depreacated_cpu_map = {
     # there never was such a client CPU, so map it to the server one for backward compat
     'Icelake-Client' => 'Icelake-Server',
@@ -212,7 +232,7 @@ sub validate_vm_cpu_conf {
 	get_custom_model($cputype);
     } else {
 	die "Built-in cputype '$cputype' is not defined (missing 'custom-' prefix?)\n"
-	    if !defined($cpu_vendor_list->{$cputype});
+	    if !defined($cpu_vendor_list->{$cputype}) && !defined($builtin_models->{$cputype});
     }
 
     # in a VM-specific config, certain properties are limited/forbidden
@@ -302,6 +322,16 @@ sub get_cpu_models {
 	};
     }
 
+    for my $model (keys %{$builtin_models}) {
+	my $reported_model = $builtin_models->{$model}->{'reported-model'};
+	my $vendor = $cpu_vendor_list->{$reported_model};
+	push @$models, {
+	    name => $model,
+	    custom => 0,
+	    vendor => $vendor,
+	};
+    }
+
     return $models if !$include_custom;
 
     my $conf = load_custom_model_conf();
@@ -359,7 +389,9 @@ sub print_cpu_device {
 	    or die "Cannot parse cpu description: $cputype\n";
 	$cpu = $cpuconf->{cputype};
 
-	if (is_custom_model($cpu)) {
+	if (my $model = $builtin_models->{$cpu}) {
+	    $cpu = $model->{'reported-model'};
+	} elsif (is_custom_model($cputype)) {
 	    my $custom_cpu = get_custom_model($cpu);
 
 	    $cpu = $custom_cpu->{'reported-model'} // $cpu_fmt->{'reported-model'}->{default};
@@ -468,14 +500,17 @@ sub get_cpu_options {
 
     my $cpu = {};
     my $custom_cpu;
+    my $builtin_cpu;
     my $hv_vendor_id;
     if (my $cpu_prop_str = $conf->{cpu}) {
 	$cpu = PVE::JSONSchema::parse_property_string('pve-vm-cpu-conf', $cpu_prop_str)
 	    or die "Cannot parse cpu description: $cpu_prop_str\n";
 
 	$cputype = $cpu->{cputype};
-
-	if (is_custom_model($cputype)) {
+	if (my $model = $builtin_models->{$cputype}) {
+	    $cputype = $model->{'reported-model'};
+	    $builtin_cpu->{flags} = $model->{'flags'};
+	} elsif (is_custom_model($cputype)) {
 	    $custom_cpu = get_custom_model($cputype);
 
 	    $cputype = $custom_cpu->{'reported-model'} // $cpu_fmt->{'reported-model'}->{default};
@@ -503,6 +538,9 @@ sub get_cpu_options {
 	    $hv_vendor_id,
 	)
 	: undef;
+
+    my $builtin_cputype_flags = parse_cpuflag_list(
+	$cpu_flag_any_re, "set by builtin CPU model", $builtin_cpu->{flags});
 
     my $custom_cputype_flags = parse_cpuflag_list(
 	$cpu_flag_any_re, "set by custom CPU model", $custom_cpu->{flags});
@@ -534,7 +572,7 @@ sub get_cpu_options {
 
     # will be resolved in parameter order
     $cpu_str .= resolve_cpu_flags(
-	$pve_flags, $hv_flags, $custom_cputype_flags, $vm_flags, $pve_forced_flags);
+	$pve_flags, $hv_flags, $builtin_cputype_flags, $custom_cputype_flags, $vm_flags, $pve_forced_flags);
 
     my $phys_bits = '';
     foreach my $conf ($custom_cpu, $cpu) {
