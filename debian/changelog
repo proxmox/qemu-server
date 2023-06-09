@@ -1,3 +1,39 @@
+qemu-server (8.0.2) bookworm; urgency=medium
+
+  * cfg2cmd: use actual backend names instead of removed tty and paraport
+    aliases
+
+  * cfg2cmd: replace deprecated no-acpi option with acpi=off machine flag
+
+  * cfg2cmd: replace deprecated no-hpet option with hpet=off machine flag
+
+  * schema: avoid using deprecated -no-hpet in example for 'args' property,
+    instead pass thate via new machine option
+
+  * allow setting ipconfigX with VM.Config.Cloudinit
+
+  * fix #3428: cloudinit: add parameter for upgrade on boot
+
+  * cloudinit: fix 'pending' api endpoint
+
+  * fast plug options: add migrate_downtime and migrate_speed for convenience
+
+  * fix #517: api: allow resizing qcow2 disk with snapshots
+
+  * fix #2315: api: have resize endpoint spawn a worker task
+
+  * cloudinit: pass through hostname via fqdn field
+
+  * qmeventd: extract vmid from cgroup file instead of cmdline
+
+  * config: implement method to calculate derived properties from a config
+
+  * api: check bridge access for create, update, clone & restore
+
+  * qm: remote migration: improve error when storage cannot be found
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 09 Jun 2023 10:26:19 +0200
+
 qemu-server (8.0.1) bookworm; urgency=medium
 
   * fix #4737: qmeventd: gracefully handle interrupted epoll_wait call
