@@ -251,7 +251,7 @@ __PACKAGE__->register_method({
 	my $check_remote_storage = sub {
 	    my ($storage) = @_;
 	    my $found = [ grep { $_->{storage} eq $storage } @$storages ];
-	    die "remote: storage '$storage' does not exist!\n"
+	    die "remote: storage '$storage' does not exist (or missing permission)!\n"
 		if !@$found;
 
 	    $found = @$found[0];
