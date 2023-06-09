@@ -879,7 +879,7 @@ __PACKAGE__->register_method({
 
 	    &$check_vm_create_serial_perm($rpcenv, $authuser, $vmid, $pool, $param);
 	    &$check_vm_create_usb_perm($rpcenv, $authuser, $vmid, $pool, $param);
-	    PVE::QemuServer::check_bridge_access->($rpcenv, $authuser, $param);
+	    PVE::QemuServer::check_bridge_access($rpcenv, $authuser, $param);
 	    &$check_cpu_model_access($rpcenv, $authuser, $param);
 
 	    $check_drive_param->($param, $storecfg);
