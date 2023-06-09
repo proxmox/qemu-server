@@ -1,3 +1,9 @@
+qemu-server (8.0.3) bookworm; urgency=medium
+
+  * qemu: fix permission check call
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 09 Jun 2023 12:20:40 +0200
+
 qemu-server (8.0.2) bookworm; urgency=medium
 
   * cfg2cmd: use actual backend names instead of removed tty and paraport
