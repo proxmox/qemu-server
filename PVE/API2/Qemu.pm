@@ -32,6 +32,7 @@ use PVE::QemuServer::Drive;
 use PVE::QemuServer::ImportDisk;
 use PVE::QemuServer::Monitor qw(mon_cmd);
 use PVE::QemuServer::Machine;
+use PVE::QemuServer::USB qw(parse_usb_device);
 use PVE::QemuMigrate;
 use PVE::RPCEnvironment;
 use PVE::AccessControl;
@@ -588,11 +589,15 @@ my sub check_usb_perm {
 
     return 1 if $authuser eq 'root@pam';
 
+    $rpcenv->check_vm_perm($authuser, $vmid, $pool, ['VM.Config.HWType']);
+
     my $device = PVE::JSONSchema::parse_property_string('pve-qm-usb', $value);
-    if ($device->{host} =~ m/^spice$/i) {
-	$rpcenv->check_vm_perm($authuser, $vmid, $pool, ['VM.Config.HWType']);
-    } else {
+    if ($device->{host} && $device->{host} !~ m/^spice$/i) {
 	die "only root can set '$opt' config for real devices\n";
+    } elsif ($device->{mapping}) {
+	$rpcenv->check_full($authuser, "/mapping/usb/$device->{mapping}", ['Mapping.Use']);
+    } else {
+	die "either 'host' or 'mapping' must be set.\n";
     }
 
     return 1;
@@ -3517,6 +3522,7 @@ __PACKAGE__->register_method({
 	    my $oldconf = $snapname ? $conf->{snapshots}->{$snapname} : $conf;
 
 	    my $sharedvm = &$check_storage_access_clone($rpcenv, $authuser, $storecfg, $oldconf, $storage);
+	    PVE::QemuServer::check_mapping_access($rpcenv, $authuser, $oldconf);
 
 	    PVE::QemuServer::check_bridge_access($rpcenv, $authuser, $oldconf);
 

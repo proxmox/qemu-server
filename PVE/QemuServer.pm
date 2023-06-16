@@ -6473,6 +6473,31 @@ sub check_bridge_access {
     return 1;
 };
 
+sub check_mapping_access {
+    my ($rpcenv, $user, $conf) = @_;
+
+    for my $opt (keys $conf->%*) {
+	if ($opt =~ m/^usb\d+$/) {
+	    my $device = PVE::JSONSchema::parse_property_string('pve-qm-usb', $conf->{$opt});
+	    if (my $host = $device->{host}) {
+		die "only root can set '$opt' config for real devices\n"
+		    if $host !~ m/^spice$/i && $user ne 'root@pam';
+	    } elsif ($device->{mapping}) {
+		$rpcenv->check_full($user, "/mapping/usb/$device->{mapping}", ['Mapping.Use']);
+	    } else {
+		die "either 'host' or 'mapping' must be set.\n";
+	    }
+       }
+   }
+};
+
+# FIXME: improve checks on restore by checking before actually extracing and
+# merging the new config
+sub check_restore_permissions {
+    my ($rpcenv, $user, $conf) = @_;
+    check_bridge_access($rpcenv, $user, $conf);
+    check_mapping_access($rpcenv, $user, $conf);
+}
 # vzdump restore implementaion
 
 sub tar_archive_read_firstfile {
@@ -7117,7 +7142,7 @@ sub restore_proxmox_backup_archive {
     }
 
     my $new_conf = $restore_merge_config->($conffile, $new_conf_raw, $options->{override_conf});
-    check_bridge_access($rpcenv, $user, $new_conf);
+    check_restore_permissions($rpcenv, $user, $new_conf);
     PVE::QemuConfig->write_config($vmid, $new_conf);
 
     eval { rescan($vmid, 1); };
@@ -7431,7 +7456,7 @@ sub restore_vma_archive {
     }
 
     my $new_conf = $restore_merge_config->($conffile, $new_conf_raw, $opts->{override_conf});
-    check_bridge_access($rpcenv, $user, $new_conf);
+    check_restore_permissions($rpcenv, $user, $new_conf);
     PVE::QemuConfig->write_config($vmid, $new_conf);
 
     eval { rescan($vmid, 1); };

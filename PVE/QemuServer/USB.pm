@@ -6,6 +6,7 @@ use PVE::QemuServer::PCI qw(print_pci_addr);
 use PVE::QemuServer::Machine;
 use PVE::QemuServer::Helpers qw(min_version windows_version);
 use PVE::JSONSchema;
+use PVE::Mapping::USB;
 use base 'Exporter';
 
 our @EXPORT_OK = qw(
@@ -24,6 +25,7 @@ my $USB_PATH_RE = qr/(\d+)\-(\d+(\.\d+)*)/;
 my $usb_fmt = {
     host => {
 	default_key => 1,
+	optional => 1,
 	type => 'string',
 	pattern => qr/(?:(?:$USB_ID_RE)|(?:$USB_PATH_RE)|[Ss][Pp][Ii][Cc][Ee])/,
 	format_description => 'HOSTUSBDEVICE|spice',
@@ -40,7 +42,17 @@ NOTE: This option allows direct access to host hardware. So it is no longer poss
 machines - use with special care.
 
 The value 'spice' can be used to add a usb redirection devices for spice.
+
+Either this or the 'mapping' key must be set.
 EODESCR
+    },
+    mapping => {
+	optional => 1,
+	type => 'string',
+	format_description => 'mapping-id',
+	format => 'pve-configid',
+	description => "The ID of a cluster wide mapping. Either this or the default-key 'host'"
+	    ." must be set.",
     },
     usb3 => {
 	optional => 1,
@@ -63,21 +75,38 @@ our $usbdesc = {
 PVE::JSONSchema::register_standard_option("pve-qm-usb", $usbdesc);
 
 sub parse_usb_device {
-    my ($value) = @_;
+    my ($value, $mapping) = @_;
 
-    return if !$value;
+    return if $value && $mapping; # not a valid configuration
 
     my $res = {};
-    if ($value =~ m/^$USB_ID_RE$/) {
-	$res->{vendorid} = $2;
-	$res->{productid} = $4;
-    } elsif ($value =~ m/^$USB_PATH_RE$/) {
-	$res->{hostbus} = $1;
-	$res->{hostport} = $2;
-    } elsif ($value =~ m/^spice$/i) {
-	$res->{spice} = 1;
-    } else {
-	return;
+    if (defined($value)) {
+	if ($value =~ m/^$USB_ID_RE$/) {
+	    $res->{vendorid} = $2;
+	    $res->{productid} = $4;
+	} elsif ($value =~ m/^$USB_PATH_RE$/) {
+	    $res->{hostbus} = $1;
+	    $res->{hostport} = $2;
+	} elsif ($value =~ m/^spice$/i) {
+	    $res->{spice} = 1;
+	}
+    } elsif (defined($mapping)) {
+	my $devices = PVE::Mapping::USB::find_on_current_node($mapping);
+	die "USB device mapping not found for '$mapping'\n" if !$devices || !scalar($devices->@*);
+	die "More than one USB mapping per host not supported\n" if scalar($devices->@*) > 1;
+	eval {
+	    PVE::Mapping::USB::assert_valid($mapping, $devices->[0]);
+	};
+	if (my $err = $@) {
+	    die "USB Mapping invalid (hardware probably changed): $err\n";
+	}
+	my $device = $devices->[0];
+
+	if ($device->{path}) {
+	    $res = parse_usb_device($device->{path});
+	} else {
+	    $res = parse_usb_device($device->{id});
+	}
     }
 
     return $res;
@@ -199,7 +228,7 @@ sub print_usbdevice_full {
 	$usbdevice .= ",port=$port" if defined($port);
     }
 
-    my $parsed = parse_usb_device($device->{host});
+    my $parsed = parse_usb_device($device->{host}, $device->{mapping});
 
     if (defined($parsed->{vendorid}) && defined($parsed->{productid})) {
 	$usbdevice .= ",vendorid=0x$parsed->{vendorid},productid=0x$parsed->{productid}";
