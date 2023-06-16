@@ -76,6 +76,20 @@ $cluster_module->mock(
     },
 );
 
+our $mapping_usb_module = Test::MockModule->new("PVE::Mapping::USB");
+$mapping_usb_module->mock(
+    config => sub {
+	return {};
+    },
+);
+
+our $mapping_pci_module = Test::MockModule->new("PVE::Mapping::PCI");
+$mapping_pci_module->mock(
+    config => sub {
+	return {};
+    },
+);
+
 our $ha_config_module = Test::MockModule->new("PVE::HA::Config");
 $ha_config_module->mock(
     vm_is_ha_managed => sub {

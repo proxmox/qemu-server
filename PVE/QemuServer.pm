@@ -34,6 +34,8 @@ use PVE::DataCenterConfig;
 use PVE::Exception qw(raise raise_param_exc);
 use PVE::Format qw(render_duration render_bytes);
 use PVE::GuestHelpers qw(safe_string_ne safe_num_ne safe_boolean_ne);
+use PVE::Mapping::PCI;
+use PVE::Mapping::USB;
 use PVE::INotify;
 use PVE::JSONSchema qw(get_standard_option parse_property_string);
 use PVE::ProcFSTools;
@@ -2650,6 +2652,28 @@ sub check_local_resources {
     my ($conf, $noerr) = @_;
 
     my @loc_res = ();
+    my $mapped_res = [];
+
+    my $nodelist = PVE::Cluster::get_nodelist();
+    my $pci_map = PVE::Mapping::PCI::config();
+    my $usb_map = PVE::Mapping::USB::config();
+
+    my $missing_mappings_by_node = { map { $_ => [] } @$nodelist };
+
+    my $add_missing_mapping = sub {
+	my ($type, $key, $id) = @_;
+	for my $node (@$nodelist) {
+	    my $entry;
+	    if ($type eq 'pci') {
+		$entry = PVE::Mapping::PCI::get_node_mapping($pci_map, $id, $node);
+	    } elsif ($type eq 'usb') {
+		$entry = PVE::Mapping::USB::get_node_mapping($usb_map, $id, $node);
+	    }
+	    if (!scalar($entry->@*)) {
+		push @{$missing_mappings_by_node->{$node}}, $key;
+	    }
+	}
+    };
 
     push @loc_res, "hostusb" if $conf->{hostusb}; # old syntax
     push @loc_res, "hostpci" if $conf->{hostpci}; # old syntax
@@ -2657,7 +2681,21 @@ sub check_local_resources {
     push @loc_res, "ivshmem" if $conf->{ivshmem};
 
     foreach my $k (keys %$conf) {
-	next if $k =~ m/^usb/ && ($conf->{$k} =~ m/^spice(?![^,])/);
+	if ($k =~ m/^usb/) {
+	    my $entry = parse_property_string('pve-qm-usb', $conf->{$k});
+	    next if $entry->{host} =~ m/^spice$/i;
+	    if ($entry->{mapping}) {
+		$add_missing_mapping->('usb', $k, $entry->{mapping});
+		push @$mapped_res, $k;
+	    }
+	}
+	if ($k =~ m/^hostpci/) {
+	    my $entry = parse_property_string('pve-qm-hostpci', $conf->{$k});
+	    if ($entry->{mapping}) {
+		$add_missing_mapping->('pci', $k, $entry->{mapping});
+		push @$mapped_res, $k;
+	    }
+	}
 	# sockets are safe: they will recreated be on the target side post-migrate
 	next if $k =~ m/^serial/ && ($conf->{$k} eq 'socket');
 	push @loc_res, $k if $k =~ m/^(usb|hostpci|serial|parallel)\d+$/;
@@ -2665,7 +2703,7 @@ sub check_local_resources {
 
     die "VM uses local resources\n" if scalar @loc_res && !$noerr;
 
-    return \@loc_res;
+    return wantarray ? (\@loc_res, $mapped_res, $missing_mappings_by_node) : \@loc_res;
 }
 
 # check if used storages are available on all nodes (use by migrate)
