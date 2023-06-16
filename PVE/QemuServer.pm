@@ -56,7 +56,7 @@ use PVE::QemuServer::Machine;
 use PVE::QemuServer::Memory;
 use PVE::QemuServer::Monitor qw(mon_cmd);
 use PVE::QemuServer::PCI qw(print_pci_addr print_pcie_addr print_pcie_root_port parse_hostpci);
-use PVE::QemuServer::USB qw(parse_usb_device);
+use PVE::QemuServer::USB;
 
 my $have_sdn;
 eval {
@@ -835,7 +835,6 @@ while (my ($k, $v) = each %$confdesc) {
     PVE::JSONSchema::register_standard_option("pve-qm-$k", $v);
 }
 
-my $MAX_USB_DEVICES = 14;
 my $MAX_NETS = 32;
 my $MAX_SERIAL_PORTS = 4;
 my $MAX_PARALLEL_PORTS = 3;
@@ -1081,44 +1080,6 @@ sub verify_volume_id_or_absolute_path {
     return $volid;
 }
 
-my $usb_fmt = {
-    host => {
-	default_key => 1,
-	type => 'string', format => 'pve-qm-usb-device',
-	format_description => 'HOSTUSBDEVICE|spice',
-        description => <<EODESCR,
-The Host USB device or port or the value 'spice'. HOSTUSBDEVICE syntax is:
-
- 'bus-port(.port)*' (decimal numbers) or
- 'vendor_id:product_id' (hexadeciaml numbers) or
- 'spice'
-
-You can use the 'lsusb -t' command to list existing usb devices.
-
-NOTE: This option allows direct access to host hardware. So it is no longer possible to migrate such
-machines - use with special care.
-
-The value 'spice' can be used to add a usb redirection devices for spice.
-EODESCR
-    },
-    usb3 => {
-	optional => 1,
-	type => 'boolean',
-	description => "Specifies whether if given host option is a USB3 device or port."
-	    ." For modern guests (machine version >= 7.1 and ostype l26 and windows > 7), this flag"
-	    ." is irrelevant (all devices are plugged into a xhci controller).",
-        default => 0,
-    },
-};
-
-my $usbdesc = {
-    optional => 1,
-    type => 'string', format => $usb_fmt,
-    description => "Configure an USB device (n is 0 to 4, for machine version >= 7.1 and ostype"
-	." l26 or windows > 7, n can be up to 14).",
-};
-PVE::JSONSchema::register_standard_option("pve-qm-usb", $usbdesc);
-
 my $serialdesc = {
 	optional => 1,
 	type => 'string',
@@ -1167,8 +1128,8 @@ for my $key (keys %{$PVE::QemuServer::Drive::drivedesc_hash}) {
     $confdesc->{$key} = $PVE::QemuServer::Drive::drivedesc_hash->{$key};
 }
 
-for (my $i = 0; $i < $MAX_USB_DEVICES; $i++)  {
-    $confdesc->{"usb$i"} = $usbdesc;
+for (my $i = 0; $i < $PVE::QemuServer::USB::MAX_USB_DEVICES; $i++)  {
+    $confdesc->{"usb$i"} = $PVE::QemuServer::USB::usbdesc;
 }
 
 my $boot_fmt = {
@@ -2242,17 +2203,6 @@ sub qemu_created_version_fixups {
 	}
     }
     return;
-}
-
-PVE::JSONSchema::register_format('pve-qm-usb-device', \&verify_usb_device);
-sub verify_usb_device {
-    my ($value, $noerr) = @_;
-
-    return $value if parse_usb_device($value);
-
-    return if $noerr;
-
-    die "unable to parse usb device\n";
 }
 
 # add JSON properties for create and set function
@@ -3740,7 +3690,7 @@ sub config_to_command {
 
     # add usb controllers
     my @usbcontrollers = PVE::QemuServer::USB::get_usb_controllers(
-	$conf, $bridges, $arch, $machine_type, $usbdesc->{format}, $MAX_USB_DEVICES, $machine_version);
+	$conf, $bridges, $arch, $machine_type, $machine_version);
     push @$devices, @usbcontrollers if @usbcontrollers;
     my $vga = parse_vga($conf->{vga});
 
@@ -3782,7 +3732,7 @@ sub config_to_command {
     $usb_dev_features->{spice_usb3} = 1 if min_version($machine_version, 4, 0);
 
     my @usbdevices = PVE::QemuServer::USB::get_usb_devices(
-	$conf, $usbdesc->{format}, $MAX_USB_DEVICES, $usb_dev_features, $bootorder, $machine_version);
+	$conf, $usb_dev_features, $bootorder, $machine_version);
     push @$devices, @usbdevices if @usbdevices;
 
     # serial devices
@@ -4653,12 +4603,8 @@ sub qemu_usb_hotplug {
 	qemu_deviceadd($vmid, PVE::QemuServer::USB::print_qemu_xhci_controller($pciaddr));
     }
 
-    # print_usbdevice_full expects the parsed device
-    my $d = parse_usb_device($device->{host});
-    $d->{usb3} = $device->{usb3};
-
     # add the new one
-    vm_deviceplug($storecfg, $conf, $vmid, $deviceid, $d, $arch, $machine_type);
+    vm_deviceplug($storecfg, $conf, $vmid, $deviceid, $device, $arch, $machine_type);
 }
 
 sub qemu_cpu_hotplug {
@@ -5120,9 +5066,9 @@ sub vmconfig_hotplug_pending {
 	    } elsif ($opt =~ m/^usb(\d+)$/) {
 		my $index = $1;
 		die "skip\n" if !$usb_hotplug;
-		my $d = eval { parse_property_string($usbdesc->{format}, $value) };
+		my $d = eval { parse_property_string('pve-qm-usb', $value) };
 		my $id = $opt;
-		if ($d->{host} eq 'spice')  {
+		if ($d->{host} =~ m/^spice$/i)  {
 		    $id = "usbredirdev$index";
 		}
 		qemu_usb_hotplug($storecfg, $conf, $vmid, $id, $d, $arch, $machine_type);
@@ -5199,7 +5145,7 @@ sub vmconfig_hotplug_pending {
     # unplug xhci controller if no usb device is left
     if ($usb_hotplug) {
 	my $has_usb = 0;
-	for (my $i = 0; $i < $MAX_USB_DEVICES; $i++) {
+	for (my $i = 0; $i < $PVE::QemuServer::USB::MAX_USB_DEVICES; $i++) {
 	    next if !defined($conf->{"usb$i"});
 	    $has_usb = 1;
 	    last;

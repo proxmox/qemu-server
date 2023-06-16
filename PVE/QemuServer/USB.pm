@@ -15,6 +15,52 @@ get_usb_devices
 );
 
 my $OLD_MAX_USB = 5;
+our $MAX_USB_DEVICES = 14;
+
+
+my $USB_ID_RE = qr/(0x)?([0-9A-Fa-f]{4}):(0x)?([0-9A-Fa-f]{4})/;
+my $USB_PATH_RE = qr/(\d+)\-(\d+(\.\d+)*)/;
+
+my $usb_fmt = {
+    host => {
+	default_key => 1,
+	type => 'string',
+	pattern => qr/(?:(?:$USB_ID_RE)|(?:$USB_PATH_RE)|[Ss][Pp][Ii][Cc][Ee])/,
+	format_description => 'HOSTUSBDEVICE|spice',
+        description => <<EODESCR,
+The Host USB device or port or the value 'spice'. HOSTUSBDEVICE syntax is:
+
+ 'bus-port(.port)*' (decimal numbers) or
+ 'vendor_id:product_id' (hexadeciaml numbers) or
+ 'spice'
+
+You can use the 'lsusb -t' command to list existing usb devices.
+
+NOTE: This option allows direct access to host hardware. So it is no longer possible to migrate such
+machines - use with special care.
+
+The value 'spice' can be used to add a usb redirection devices for spice.
+EODESCR
+    },
+    usb3 => {
+	optional => 1,
+	type => 'boolean',
+	description => "Specifies whether if given host option is a USB3 device or port."
+	    ." For modern guests (machine version >= 7.1 and ostype l26 and windows > 7), this flag"
+	    ." is irrelevant (all devices are plugged into a xhci controller).",
+        default => 0,
+    },
+};
+
+PVE::JSONSchema::register_format('pve-qm-usb', $usb_fmt);
+
+our $usbdesc = {
+    optional => 1,
+    type => 'string', format => $usb_fmt,
+    description => "Configure an USB device (n is 0 to 4, for machine version >= 7.1 and ostype"
+	." l26 or windows > 7, n can be up to 14).",
+};
+PVE::JSONSchema::register_standard_option("pve-qm-usb", $usbdesc);
 
 sub parse_usb_device {
     my ($value) = @_;
@@ -22,10 +68,10 @@ sub parse_usb_device {
     return if !$value;
 
     my $res = {};
-    if ($value =~ m/^(0x)?([0-9A-Fa-f]{4}):(0x)?([0-9A-Fa-f]{4})$/) {
+    if ($value =~ m/^$USB_ID_RE$/) {
 	$res->{vendorid} = $2;
 	$res->{productid} = $4;
-    } elsif ($value =~ m/^(\d+)\-(\d+(\.\d+)*)$/) {
+    } elsif ($value =~ m/^$USB_PATH_RE$/) {
 	$res->{hostbus} = $1;
 	$res->{hostport} = $2;
     } elsif ($value =~ m/^spice$/i) {
@@ -47,7 +93,7 @@ my sub assert_usb_index_is_useable {
 }
 
 sub get_usb_controllers {
-    my ($conf, $bridges, $arch, $machine, $format, $max_usb_devices, $machine_version) = @_;
+    my ($conf, $bridges, $arch, $machine, $machine_version) = @_;
 
     my $devices = [];
     my $pciaddr = "";
@@ -68,10 +114,10 @@ sub get_usb_controllers {
 
     my ($use_usb2, $use_usb3) = 0;
     my $any_usb = 0;
-    for (my $i = 0; $i < $max_usb_devices; $i++)  {
+    for (my $i = 0; $i < $MAX_USB_DEVICES; $i++)  {
 	next if !$conf->{"usb$i"};
 	assert_usb_index_is_useable($i, $use_qemu_xhci);
-	my $d = eval { PVE::JSONSchema::parse_property_string($format,$conf->{"usb$i"}) } or next;
+	my $d = eval { PVE::JSONSchema::parse_property_string($usb_fmt, $conf->{"usb$i"}) } or next;
 	$any_usb = 1;
 	$use_usb3 = 1 if $d->{usb3};
 	$use_usb2 = 1 if !$d->{usb3};
@@ -93,7 +139,7 @@ sub get_usb_controllers {
 }
 
 sub get_usb_devices {
-    my ($conf, $format, $max_usb_devices, $features, $bootorder, $machine_version) = @_;
+    my ($conf, $features, $bootorder, $machine_version) = @_;
 
     my $devices = [];
 
@@ -101,30 +147,26 @@ sub get_usb_devices {
     my $use_qemu_xhci = min_version($machine_version, 7, 1)
 	&& defined($ostype) && ($ostype eq 'l26' || windows_version($ostype) > 7);
 
-    for (my $i = 0; $i < $max_usb_devices; $i++)  {
+    for (my $i = 0; $i < $MAX_USB_DEVICES; $i++)  {
 	my $devname = "usb$i";
 	next if !$conf->{$devname};
 	assert_usb_index_is_useable($i, $use_qemu_xhci);
-	my $d = eval { PVE::JSONSchema::parse_property_string($format,$conf->{$devname}) };
+	my $d = eval { PVE::JSONSchema::parse_property_string($usb_fmt, $conf->{$devname}) };
 	next if !$d;
 
 	my $port = $use_qemu_xhci ? $i + 1 : undef;
 
-	if (defined($d->{host})) {
-	    my $hostdevice = parse_usb_device($d->{host});
-	    $hostdevice->{usb3} = $d->{usb3};
-	    if ($hostdevice->{spice}) {
-		# usb redir support for spice
-		my $bus = 'ehci';
-		$bus = 'xhci' if ($hostdevice->{usb3} && $features->{spice_usb3}) || $use_qemu_xhci;
+	if ($d->{host} && $d->{host} =~ m/^spice$/) {
+	    # usb redir support for spice
+	    my $bus = 'ehci';
+	    $bus = 'xhci' if ($d->{usb3} && $features->{spice_usb3}) || $use_qemu_xhci;
 
-		push @$devices, '-chardev', "spicevmc,id=usbredirchardev$i,name=usbredir";
-		push @$devices, '-device', print_spice_usbdevice($i, $bus, $port);
+	    push @$devices, '-chardev', "spicevmc,id=usbredirchardev$i,name=usbredir";
+	    push @$devices, '-device', print_spice_usbdevice($i, $bus, $port);
 
-		warn "warning: spice usb port set as bootdevice, ignoring\n" if $bootorder->{$devname};
-	    } else {
-		push @$devices, '-device', print_usbdevice_full($conf, $devname, $hostdevice, $bootorder, $port);
-	    }
+	    warn "warning: spice usb port set as bootdevice, ignoring\n" if $bootorder->{$devname};
+	} else {
+	    push @$devices, '-device', print_usbdevice_full($conf, $devname, $d, $bootorder, $port);
 	}
     }
 
@@ -157,10 +199,12 @@ sub print_usbdevice_full {
 	$usbdevice .= ",port=$port" if defined($port);
     }
 
-    if (defined($device->{vendorid}) && defined($device->{productid})) {
-	$usbdevice .= ",vendorid=0x$device->{vendorid},productid=0x$device->{productid}";
-    } elsif (defined($device->{hostbus}) && defined($device->{hostport})) {
-	$usbdevice .= ",hostbus=$device->{hostbus},hostport=$device->{hostport}";
+    my $parsed = parse_usb_device($device->{host});
+
+    if (defined($parsed->{vendorid}) && defined($parsed->{productid})) {
+	$usbdevice .= ",vendorid=0x$parsed->{vendorid},productid=0x$parsed->{productid}";
+    } elsif (defined($parsed->{hostbus}) && defined($parsed->{hostport})) {
+	$usbdevice .= ",hostbus=$parsed->{hostbus},hostport=$parsed->{hostport}";
     } else {
 	die "no usb id or path given\n";
     }

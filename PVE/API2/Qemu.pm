@@ -583,19 +583,29 @@ my $check_vm_create_serial_perm = sub {
     return 1;
 };
 
-my $check_vm_create_usb_perm = sub {
+my sub check_usb_perm {
+    my ($rpcenv, $authuser, $vmid, $pool, $opt, $value) = @_;
+
+    return 1 if $authuser eq 'root@pam';
+
+    my $device = PVE::JSONSchema::parse_property_string('pve-qm-usb', $value);
+    if ($device->{host} =~ m/^spice$/i) {
+	$rpcenv->check_vm_perm($authuser, $vmid, $pool, ['VM.Config.HWType']);
+    } else {
+	die "only root can set '$opt' config for real devices\n";
+    }
+
+    return 1;
+}
+
+my sub check_vm_create_usb_perm {
     my ($rpcenv, $authuser, $vmid, $pool, $param) = @_;
 
     return 1 if $authuser eq 'root@pam';
 
     foreach my $opt (keys %{$param}) {
 	next if $opt !~ m/^usb\d+$/;
-
-	if ($param->{$opt} =~ m/spice/) {
-	    $rpcenv->check_vm_perm($authuser, $vmid, $pool, ['VM.Config.HWType']);
-	} else {
-	    die "only root can set '$opt' config for real devices\n";
-	}
+	check_usb_perm($rpcenv, $authuser, $vmid, $pool, $opt, $param->{$opt});
     }
 
     return 1;
@@ -878,7 +888,8 @@ __PACKAGE__->register_method({
 	    &$check_vm_modify_config_perm($rpcenv, $authuser, $vmid, $pool, [ keys %$param]);
 
 	    &$check_vm_create_serial_perm($rpcenv, $authuser, $vmid, $pool, $param);
-	    &$check_vm_create_usb_perm($rpcenv, $authuser, $vmid, $pool, $param);
+	    check_vm_create_usb_perm($rpcenv, $authuser, $vmid, $pool, $param);
+
 	    PVE::QemuServer::check_bridge_access($rpcenv, $authuser, $param);
 	    &$check_cpu_model_access($rpcenv, $authuser, $param);
 
@@ -1719,11 +1730,7 @@ my $update_vm_api  = sub {
 		    PVE::QemuConfig->add_to_pending_delete($conf, $opt, $force);
 		    PVE::QemuConfig->write_config($vmid, $conf);
 		} elsif ($opt =~ m/^usb\d+$/) {
-		    if ($val =~ m/spice/) {
-			$rpcenv->check_vm_perm($authuser, $vmid, undef, ['VM.Config.HWType']);
-		    } elsif ($authuser ne 'root@pam') {
-			die "only root can delete '$opt' config for real devices\n";
-		    }
+		    check_usb_perm($rpcenv, $authuser, $vmid, undef, $opt, $val);
 		    PVE::QemuConfig->add_to_pending_delete($conf, $opt, $force);
 		    PVE::QemuConfig->write_config($vmid, $conf);
 		} elsif ($opt eq 'tags') {
@@ -1784,11 +1791,10 @@ my $update_vm_api  = sub {
 		    }
 		    $conf->{pending}->{$opt} = $param->{$opt};
 		} elsif ($opt =~ m/^usb\d+/) {
-		    if ((!defined($conf->{$opt}) || $conf->{$opt} =~ m/spice/) && $param->{$opt} =~ m/spice/) {
-			$rpcenv->check_vm_perm($authuser, $vmid, undef, ['VM.Config.HWType']);
-		    } elsif ($authuser ne 'root@pam') {
-			die "only root can modify '$opt' config for real devices\n";
+		    if (my $olddevice = $conf->{$opt}) {
+			check_usb_perm($rpcenv, $authuser, $vmid, undef, $opt, $conf->{$opt});
 		    }
+		    check_usb_perm($rpcenv, $authuser, $vmid, undef, $opt, $param->{$opt});
 		    $conf->{pending}->{$opt} = $param->{$opt};
 		} elsif ($opt eq 'tags') {
 		    assert_tag_permissions($vmid, $conf->{$opt}, $param->{$opt}, $rpcenv, $authuser);
