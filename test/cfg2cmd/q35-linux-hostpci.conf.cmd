@@ -32,7 +32,7 @@
   -device 'pcie-root-port,id=ich9-pcie-port-5,addr=10.0,x-speed=16,x-width=32,multifunction=on,bus=pcie.0,port=5,chassis=5' \
   -device 'vfio-pci,host=0000:d0:17.0,id=hostpci4,bus=ich9-pcie-port-5,addr=0x0,rombar=0' \
   -device 'pcie-root-port,id=ich9-pcie-port-8,addr=10.3,x-speed=16,x-width=32,multifunction=on,bus=pcie.0,port=8,chassis=8' \
-  -device 'vfio-pci,host=0000:d0:15.1,id=hostpci7,bus=ich9-pcie-port-8,addr=0x0' \
+  -device 'vfio-pci,host=0000:d0:15.2,id=hostpci7,bus=ich9-pcie-port-8,addr=0x0' \
   -device 'VGA,id=vga,bus=pcie.0,addr=0x1' \
   -device 'virtio-balloon-pci,id=balloon0,bus=pci.0,addr=0x3,free-page-reporting=on' \
   -iscsi 'initiator-name=iqn.1993-08.org.debian:01:aabbccddeeff' \

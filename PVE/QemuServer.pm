@@ -3724,8 +3724,8 @@ sub config_to_command {
     my $bootorder = device_bootorder($conf);
 
     # host pci device passthrough
-    my ($kvm_off, $gpu_passthrough, $legacy_igd) = PVE::QemuServer::PCI::print_hostpci_devices(
-	$vmid, $conf, $devices, $vga, $winversion, $q35, $bridges, $arch, $machine_type, $bootorder);
+    my ($kvm_off, $gpu_passthrough, $legacy_igd, $pci_devices) = PVE::QemuServer::PCI::print_hostpci_devices(
+	$vmid, $conf, $devices, $vga, $winversion, $bridges, $arch, $machine_type, $bootorder);
 
     # usb devices
     my $usb_dev_features = {};
@@ -4144,7 +4144,7 @@ sub config_to_command {
 	push @$cmd, @$aa;
     }
 
-    return wantarray ? ($cmd, $vollist, $spice_port) : $cmd;
+    return wantarray ? ($cmd, $vollist, $spice_port, $pci_devices) : $cmd;
 }
 
 sub check_rng_source {
@@ -5699,7 +5699,7 @@ sub vm_start_nolock {
 	print "Resuming suspended VM\n";
     }
 
-    my ($cmd, $vollist, $spice_port) = config_to_command($storecfg, $vmid,
+    my ($cmd, $vollist, $spice_port, $pci_devices) = config_to_command($storecfg, $vmid,
 	$conf, $defaults, $forcemachine, $forcecpu, $params->{'pbs-backing'});
 
     my $migration_ip;
@@ -5784,37 +5784,43 @@ sub vm_start_nolock {
 
     my $start_timeout = $params->{timeout} // config_aware_timeout($conf, $resume);
 
-    my $pci_devices = {}; # host pci devices
-    for (my $i = 0; $i < $PVE::QemuServer::PCI::MAX_HOSTPCI_DEVICES; $i++)  {
-	my $dev = $conf->{"hostpci$i"} or next;
-	$pci_devices->{$i} = parse_hostpci($dev);
+    my $pci_reserve_list = [];
+    for my $device (values $pci_devices->%*) {
+	next if $device->{mdev}; # we don't reserve for mdev devices
+	push $pci_reserve_list->@*, map { $_->{id} } $device->{ids}->@*;
     }
 
-    # do not reserve pciid for mediated devices, sysfs will error out for duplicate assignment
-    my $real_pci_devices = [ grep { !(defined($_->{mdev}) && scalar($_->{pciid}->@*) == 1) } values $pci_devices->%* ];
-
-    # map to a flat list of pci ids
-    my $pci_id_list = [ map { $_->{id} } map { $_->{pciid}->@* } $real_pci_devices->@* ];
-
     # reserve all PCI IDs before actually doing anything with them
-    PVE::QemuServer::PCI::reserve_pci_usage($pci_id_list, $vmid, $start_timeout);
+    PVE::QemuServer::PCI::reserve_pci_usage($pci_reserve_list, $vmid, $start_timeout);
 
     eval {
 	my $uuid;
 	for my $id (sort keys %$pci_devices) {
 	    my $d = $pci_devices->{$id};
-	    for my $dev ($d->{pciid}->@*) {
-		my $info = PVE::QemuServer::PCI::prepare_pci_device($vmid, $dev->{id}, $id, $d->{mdev});
+	    my ($index) = ($id =~ m/^hostpci(\d+)$/);
 
-		# nvidia grid needs the qemu parameter '-uuid' set
-		# use smbios uuid or mdev uuid as fallback for that
-		if ($d->{mdev} && !defined($uuid) && $info->{vendor} eq '10de') {
-		    if (defined($conf->{smbios1})) {
-			my $smbios_conf = parse_smbios1($conf->{smbios1});
-			$uuid = $smbios_conf->{uuid} if defined($smbios_conf->{uuid});
-		    }
-		    $uuid = PVE::QemuServer::PCI::generate_mdev_uuid($vmid, $id) if !defined($uuid);
+	    my $chosen_mdev;
+	    for my $dev ($d->{ids}->@*) {
+		my $info = eval { PVE::QemuServer::PCI::prepare_pci_device($vmid, $dev->{id}, $index, $d->{mdev}) };
+		if ($d->{mdev}) {
+		    warn $@ if $@;
+		    $chosen_mdev = $info;
+		    last if $chosen_mdev; # if successful, we're done
+		} else {
+		    die $@ if $@;
 		}
+	    }
+
+	    next if !$d->{mdev};
+	    die "could not create mediated device\n" if !defined($chosen_mdev);
+
+	    # nvidia grid needs the uuid of the mdev as qemu parameter
+	    if (!defined($uuid) && $chosen_mdev->{vendor} =~ m/^(0x)?10de$/) {
+		if (defined($conf->{smbios1})) {
+		    my $smbios_conf = parse_smbios1($conf->{smbios1});
+		    $uuid = $smbios_conf->{uuid} if defined($smbios_conf->{uuid});
+		}
+		$uuid = PVE::QemuServer::PCI::generate_mdev_uuid($vmid, $index) if !defined($uuid);
 	    }
 	}
 	push @$cmd, '-uuid', $uuid if defined($uuid);
@@ -5929,7 +5935,7 @@ sub vm_start_nolock {
 
     # re-reserve all PCI IDs now that we can know the actual VM PID
     my $pid = PVE::QemuServer::Helpers::vm_running_locally($vmid);
-    eval { PVE::QemuServer::PCI::reserve_pci_usage($pci_id_list, $vmid, undef, $pid) };
+    eval { PVE::QemuServer::PCI::reserve_pci_usage($pci_reserve_list, $vmid, undef, $pid) };
     warn $@ if $@;
 
     if (defined($res->{migrate})) {
@@ -6124,9 +6130,7 @@ sub cleanup_pci_devices {
 
 	    # some nvidia vgpu driver versions want to clean the mdevs up themselves, and error
 	    # out when we do it first. so wait for 10 seconds and then try it
-	    my $pciid = $d->{pciid}->[0]->{id};
-	    my $info = PVE::SysFSTools::pci_device_info("$pciid");
-	    if ($info->{vendor} eq '10de') {
+	    if ($d->{ids}->[0]->[0]->{vendor} =~ m/^(0x)?10de$/) {
 		sleep 10;
 	    }
 
@@ -6484,6 +6488,15 @@ sub check_mapping_access {
 		    if $host !~ m/^spice$/i && $user ne 'root@pam';
 	    } elsif ($device->{mapping}) {
 		$rpcenv->check_full($user, "/mapping/usb/$device->{mapping}", ['Mapping.Use']);
+	    } else {
+		die "either 'host' or 'mapping' must be set.\n";
+	    }
+	} elsif ($opt =~ m/^hostpci\d+$/) {
+	    my $device = PVE::JSONSchema::parse_property_string('pve-qm-hostpci', $conf->{$opt});
+	    if ($device->{host}) {
+		die "only root can set '$opt' config for non-mapped devices\n" if $user ne 'root@pam';
+	    } elsif ($device->{mapping}) {
+		$rpcenv->check_full($user, "/mapping/pci/$device->{mapping}", ['Mapping.Use']);
 	    } else {
 		die "either 'host' or 'mapping' must be set.\n";
 	    }
