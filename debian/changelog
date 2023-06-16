@@ -1,3 +1,13 @@
+qemu-server (7.4-4) bullseye; urgency=medium
+
+  * disable SMM check: always return false for virt machine type
+
+  * fix #4737: qmeventd: gracefully handle interrupted epoll-wait call
+
+  * fix #4784: helpers: cope with native versions in manager version check
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 16 Jun 2023 14:07:37 +0200
+
 qemu-server (7.4-3) bullseye; urgency=medium
 
   * backup prepare: fix format detection for disks without storage ID
