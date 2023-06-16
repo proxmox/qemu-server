@@ -87,7 +87,36 @@ my $pci_devs = [
     "0000:f0:43.0",
     "0000:f0:43.1",
     "1234:f0:43.1",
+    "0000:01:00.4",
+    "0000:01:00.5",
+    "0000:01:00.6",
+    "0000:07:10.0",
+    "0000:07:10.1",
+    "0000:07:10.4",
 ];
+
+my $pci_map_config = {
+    ids => {
+	someGpu => {
+	    type => 'pci',
+	    map => [
+		'node=localhost,path=0000:01:00.4,id=10de:2231,iommugroup=1',
+		'node=localhost,path=0000:01:00.5,id=10de:2231,iommugroup=1',
+		'node=localhost,path=0000:01:00.6,id=10de:2231,iommugroup=1',
+	    ],
+	},
+	someNic => {
+	    type => 'pci',
+	    map => [
+		'node=localhost,path=0000:07:10.0,id=8086:1520,iommugroup=2',
+		'node=localhost,path=0000:07:10.1,id=8086:1520,iommugroup=2',
+		'node=localhost,path=0000:07:10.4,id=8086:1520,iommugroup=2',
+	    ],
+	},
+    },
+};
+
+my $usb_map_config = {},
 
 my $current_test; # = {
 #   description => 'Test description', # if available
@@ -275,6 +304,28 @@ $pve_common_sysfstools->mock(
 	    } sort @$pci_devs
 	];
     },
+    pci_device_info => sub {
+	my ($path, $noerr) = @_;
+
+	if ($path =~ m/^0000:01:00/) {
+	    return {
+		mdev => 1,
+		iommugroup => 1,
+		mdev => 1,
+		vendor => "0x10de",
+		device => "0x2231",
+	    };
+	} elsif ($path =~ m/^0000:07:10/) {
+	    return {
+		iommugroup => 2,
+		mdev => 0,
+		vendor => "0x8086",
+		device => "0x1520",
+	    };
+	} else {
+	    return {};
+	}
+    },
 );
 
 my $qemu_monitor_module;
@@ -302,6 +353,37 @@ $qemu_monitor_module->mock(
     },
 );
 $qemu_monitor_module->mock('qmp_cmd', \&qmp_cmd);
+
+my $mapping_usb_module = Test::MockModule->new("PVE::Mapping::USB");
+$mapping_usb_module->mock(
+    config => sub {
+	return $usb_map_config;
+    },
+);
+
+my $mapping_pci_module = Test::MockModule->new("PVE::Mapping::PCI");
+$mapping_pci_module->mock(
+    config => sub {
+	return $pci_map_config;
+    },
+);
+
+my $pci_module = Test::MockModule->new("PVE::QemuServer::PCI");
+$pci_module->mock(
+    reserve_pci_usage => sub {
+	my ($ids, $vmid, $timeout, $pid, $dryrun) = @_;
+
+	$ids = [$ids] if !ref($ids);
+
+	for my $id (@$ids) {
+	    if ($id eq "0000:07:10.1") {
+		die "reserved";
+	    }
+	}
+
+	return undef;
+    },
+);
 
 sub diff($$) {
     my ($a, $b) = @_;
