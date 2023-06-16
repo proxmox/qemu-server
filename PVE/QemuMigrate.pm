@@ -149,6 +149,22 @@ sub lock_vm {
     return PVE::QemuConfig->lock_config($vmid, $code, @param);
 }
 
+sub target_storage_check_available {
+    my ($self, $storecfg, $targetsid, $volid) = @_;
+
+    if (!$self->{opts}->{remote}) {
+	# check if storage is available on target node
+	my $target_scfg = PVE::Storage::storage_check_enabled(
+	    $storecfg,
+	    $targetsid,
+	    $self->{node},
+	);
+	my ($vtype) = PVE::Storage::parse_volname($storecfg, $volid);
+	die "$volid: content type '$vtype' is not available on storage '$targetsid'\n"
+	    if !$target_scfg->{content}->{$vtype};
+    }
+}
+
 sub prepare {
     my ($self, $vmid) = @_;
 
@@ -236,18 +252,7 @@ sub prepare {
 
 	$storages->{$targetsid} = 1;
 
-	if (!$self->{opts}->{remote}) {
-	    # check if storage is available on target node
-	    my $target_scfg = PVE::Storage::storage_check_enabled(
-		$storecfg,
-		$targetsid,
-		$self->{node},
-	    );
-	    my ($vtype) = PVE::Storage::parse_volname($storecfg, $volid);
-
-	    die "$volid: content type '$vtype' is not available on storage '$targetsid'\n"
-		if !$target_scfg->{content}->{$vtype};
-	}
+	$self->target_storage_check_available($storecfg, $targetsid, $volid);
 
 	if ($scfg->{shared}) {
 	    # PVE::Storage::activate_storage checks this for non-shared storages
@@ -396,12 +401,8 @@ sub scan_local_volumes {
 		$targetsid = PVE::JSONSchema::map_id($self->{opts}->{storagemap}, $sid);
 	    }
 
-	    # check target storage on target node if intra-cluster migration
-	    if (!$self->{opts}->{remote}) {
-		PVE::Storage::storage_check_enabled($storecfg, $targetsid, $self->{node});
-
-		return if $scfg->{shared};
-	    }
+	    $self->target_storage_check_available($storecfg, $targetsid, $volid);
+	    return if $scfg->{shared} && !$self->{opts}->{remote};
 
 	    $local_volumes->{$volid}->{ref} = $attr->{referenced_in_config} ? 'config' : 'snapshot';
 	    $local_volumes->{$volid}->{ref} = 'storage' if $attr->{is_unused};
