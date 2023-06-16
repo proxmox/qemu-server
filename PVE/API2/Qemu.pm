@@ -4287,7 +4287,11 @@ __PACKAGE__->register_method({
 	    local_resources => {
 		type => 'array',
 		description => "List local resources e.g. pci, usb"
-	    }
+	    },
+	    'mapped-resources' => {
+		type => 'array',
+		description => "List of mapped resources e.g. pci, usb"
+	    },
 	},
     },
     code => sub {
@@ -4316,7 +4320,11 @@ __PACKAGE__->register_method({
 
 	$res->{running} = PVE::QemuServer::check_running($vmid) ? 1:0;
 
-	# if vm is not running, return target nodes where local storage is available
+	my ($local_resources, $mapped_resources, $missing_mappings_by_node) =
+	    PVE::QemuServer::check_local_resources($vmconf, 1);
+	delete $missing_mappings_by_node->{$localnode};
+
+	# if vm is not running, return target nodes where local storage/mapped devices are available
 	# for offline migration
 	if (!$res->{running}) {
 	    $res->{allowed_nodes} = [];
@@ -4324,7 +4332,13 @@ __PACKAGE__->register_method({
 	    delete $checked_nodes->{$localnode};
 
 	    foreach my $node (keys %$checked_nodes) {
-		if (!defined $checked_nodes->{$node}->{unavailable_storages}) {
+		my $missing_mappings = $missing_mappings_by_node->{$node};
+		if (scalar($missing_mappings->@*)) {
+		    $checked_nodes->{$node}->{'unavailable-resources'} = $missing_mappings;
+		    next;
+		}
+
+		if (!defined($checked_nodes->{$node}->{unavailable_storages})) {
 		    push @{$res->{allowed_nodes}}, $node;
 		}
 
@@ -4332,13 +4346,11 @@ __PACKAGE__->register_method({
 	    $res->{not_allowed_nodes} = $checked_nodes;
 	}
 
-
 	my $local_disks = &$check_vm_disks_local($storecfg, $vmconf, $vmid);
 	$res->{local_disks} = [ values %$local_disks ];;
 
-	my $local_resources =  PVE::QemuServer::check_local_resources($vmconf, 1);
-
 	$res->{local_resources} = $local_resources;
+	$res->{'mapped-resources'} = $mapped_resources;
 
 	return $res;
 
