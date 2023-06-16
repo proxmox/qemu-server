@@ -178,7 +178,7 @@ sub pvecfg_min_version {
 
     return 0 if !$verstr;
 
-    if ($verstr =~ m/^(\d+)\.(\d+)-(\d+)/) {
+    if ($verstr =~ m/^(\d+)\.(\d+)[.-](\d+)/) {
 	return 1 if version_cmp($1, $major, $2, $minor, $3, $release) >= 0;
 	return 0;
     }
