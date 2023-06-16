@@ -226,12 +226,29 @@ sub prepare {
 	$self->{vm_was_paused} = 1 if PVE::QemuServer::vm_is_paused($vmid);
     }
 
-    my $loc_res = PVE::QemuServer::check_local_resources($conf, 1);
-    if (scalar @$loc_res) {
+    my ($loc_res, $mapped_res, $missing_mappings_by_node) = PVE::QemuServer::check_local_resources($conf, 1);
+    my $blocking_resources = [];
+    for my $res ($loc_res->@*) {
+	if (!grep($res, $mapped_res->@*)) {
+	    push $blocking_resources->@*, $res;
+	}
+    }
+    if (scalar($blocking_resources->@*)) {
 	if ($self->{running} || !$self->{opts}->{force}) {
-	    die "can't migrate VM which uses local devices: " . join(", ", @$loc_res) . "\n";
+	    die "can't migrate VM which uses local devices: " . join(", ", $blocking_resources->@*) . "\n";
 	} else {
 	    $self->log('info', "migrating VM which uses local devices");
+	}
+    }
+
+    if (scalar($mapped_res->@*)) {
+	my $missing_mappings = $missing_mappings_by_node->{$self->{node}};
+	if ($running) {
+	    die "can't migrate running VM which uses mapped devices: " . join(", ", $mapped_res->@*) . "\n";
+	} elsif (scalar($missing_mappings->@*)) {
+	    die "can't migrate to '$self->{node}': missing mapped devices " . join(", ", $missing_mappings->@*) . "\n";
+	} else {
+	    $self->log('info', "migrating VM which uses mapped local devices");
 	}
     }
 
