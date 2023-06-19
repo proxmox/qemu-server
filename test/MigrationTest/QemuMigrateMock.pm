@@ -240,6 +240,16 @@ $MigrationTest::Shared::storage_module->mock(
 
 	delete $source_volids->{$volid};
     },
+    volume_size_info => sub {
+	my ($scfg, $volid) = @_;
+	my ($storeid, $volname) = PVE::Storage::parse_volume_id($volid);
+
+	for my $v ($source_vdisks->{$storeid}->@*) {
+	    return wantarray ? ($v->{size}, $v->{format}, $v->{used}, $v->{parent}) : $v->{size}
+		if $v->{volid} eq $volid;
+	}
+	die "could not find '$volid' in mock 'source_vdisks'\n";
+    },
 );
 
 $MigrationTest::Shared::tools_module->mock(

@@ -708,7 +708,6 @@ my $tests = [
 	},
     },
     {
-	# FIXME: Maybe add orphaned drives as unused?
 	name => '149_running_orphaned_disk_targetstorage_zfs',
 	target => 'pve1',
 	vmid => 149,
@@ -729,10 +728,11 @@ my $tests = [
 	},
 	expected_calls => $default_expected_calls_online,
 	expected => {
-	    source_volids => {},
+	    source_volids => {
+		'local-dir:149/vm-149-disk-0.qcow2' => 1,
+	    },
 	    target_volids => {
 		'local-zfs:vm-149-disk-10' => 1,
-		'local-zfs:vm-149-disk-0' => 1,
 	    },
 	    vm_config => get_patched_config(149, {
 		scsi0 => 'local-zfs:vm-149-disk-10,format=raw,size=4G',
@@ -745,7 +745,6 @@ my $tests = [
 	},
     },
     {
-	# FIXME: Maybe add orphaned drives as unused?
 	name => '149_running_orphaned_disk',
 	target => 'pve1',
 	vmid => 149,
@@ -765,10 +764,11 @@ my $tests = [
 	},
 	expected_calls => $default_expected_calls_online,
 	expected => {
-	    source_volids => {},
+	    source_volids => {
+		'local-dir:149/vm-149-disk-0.qcow2' => 1,
+	    },
 	    target_volids => {
 		'local-lvm:vm-149-disk-10' => 1,
-		'local-dir:149/vm-149-disk-0.qcow2' => 1,
 	    },
 	    vm_config => get_patched_config(149, {
 		scsi0 => 'local-lvm:vm-149-disk-10,format=raw,size=4G',

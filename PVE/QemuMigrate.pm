@@ -334,49 +334,6 @@ sub scan_local_volumes {
 	    $abort = 1;
 	};
 
-	my @sids = PVE::Storage::storage_ids($storecfg);
-	foreach my $storeid (@sids) {
-	    my $scfg = PVE::Storage::storage_config($storecfg, $storeid);
-	    next if $scfg->{shared} && !$self->{opts}->{remote};
-	    next if !PVE::Storage::storage_check_enabled($storecfg, $storeid, undef, 1);
-
-	    # get list from PVE::Storage (for unused volumes)
-	    my $dl = PVE::Storage::vdisk_list($storecfg, $storeid, $vmid, undef, 'images');
-
-	    next if @{$dl->{$storeid}} == 0;
-
-	    my $targetsid = PVE::JSONSchema::map_id($self->{opts}->{storagemap}, $storeid);
-	    if (!$self->{opts}->{remote}) {
-		# check if storage is available on target node
-		my $target_scfg = PVE::Storage::storage_check_enabled(
-		    $storecfg,
-		    $targetsid,
-		    $self->{node},
-		);
-
-		die "content type 'images' is not available on storage '$targetsid'\n"
-		    if !$target_scfg->{content}->{images};
-
-	    }
-
-	    my $bwlimit = $self->get_bwlimit($storeid, $targetsid);
-
-	    PVE::Storage::foreach_volid($dl, sub {
-		my ($volid, $sid, $volinfo) = @_;
-
-		$local_volumes->{$volid}->{ref} = 'storage';
-		$local_volumes->{$volid}->{size} = $volinfo->{size};
-		$local_volumes->{$volid}->{targetsid} = $targetsid;
-		$local_volumes->{$volid}->{bwlimit} = $bwlimit;
-
-		# If with_snapshots is not set for storage migrate, it tries to use
-		# a raw+size stream, but on-the-fly conversion from qcow2 to raw+size
-		# back to qcow2 is currently not possible.
-		$local_volumes->{$volid}->{snapshots} = ($volinfo->{format} =~ /^(?:qcow2|vmdk)$/);
-		$local_volumes->{$volid}->{format} = $volinfo->{format};
-	    });
-	}
-
 	my $replicatable_volumes = !$self->{replication_jobcfg} ? {}
 	    : PVE::QemuConfig->get_replicatable_volumes($storecfg, $vmid, $conf, 0, 1);
 	foreach my $volid (keys %{$replicatable_volumes}) {
@@ -425,6 +382,11 @@ sub scan_local_volumes {
 	    $local_volumes->{$volid}->{ref} = 'storage' if $attr->{is_unused};
 	    $local_volumes->{$volid}->{ref} = 'generated' if $attr->{is_tpmstate};
 
+	    $local_volumes->{$volid}->{bwlimit} = $self->get_bwlimit($sid, $targetsid);
+	    $local_volumes->{$volid}->{targetsid} = $targetsid;
+
+	    $local_volumes->{$volid}->@{qw(size format)} = PVE::Storage::volume_size_info($storecfg, $volid);
+
 	    $local_volumes->{$volid}->{is_vmstate} = $attr->{is_vmstate} ? 1 : 0;
 
 	    $local_volumes->{$volid}->{drivename} = $attr->{drivename}
@@ -437,6 +399,10 @@ sub scan_local_volumes {
 		}
 		die "local cdrom image\n";
 	    }
+	    # If with_snapshots is not set for storage migrate, it tries to use
+	    # a raw+size stream, but on-the-fly conversion from qcow2 to raw+size
+	    # back to qcow2 is currently not possible.
+	    $local_volumes->{$volid}->{snapshots} = ($local_volumes->{$volid}->{format} =~ /^(?:qcow2|vmdk)$/);
 
 	    my ($path, $owner) = PVE::Storage::path($storecfg, $volid);
 
