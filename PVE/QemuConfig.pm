@@ -161,7 +161,7 @@ sub get_replicatable_volumes {
 	$volhash->{$volid} = 1;
     };
 
-    PVE::QemuServer::foreach_volid($conf, undef, $test_volid);
+    PVE::QemuServer::foreach_volid($conf, $test_volid);
 
     return $volhash;
 }

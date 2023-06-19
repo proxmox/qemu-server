@@ -4232,7 +4232,7 @@ my $check_vm_disks_local = sub {
     my $local_disks = {};
 
     # add some more information to the disks e.g. cdrom
-    PVE::QemuServer::foreach_volid($vmconf, 1, sub {
+    PVE::QemuServer::foreach_volid($vmconf, sub {
 	my ($volid, $attr) = @_;
 
 	my ($storeid, $volname) = PVE::Storage::parse_volume_id($volid, 1);

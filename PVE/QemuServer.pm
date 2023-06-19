@@ -4840,7 +4840,7 @@ sub set_migration_caps {
 }
 
 sub foreach_volid {
-    my ($conf, $include_pending, $func, @param) = @_;
+    my ($conf, $func, @param) = @_;
 
     my $volhash = {};
 
@@ -4890,9 +4890,8 @@ sub foreach_volid {
 
     PVE::QemuConfig->foreach_volume_full($conf, $include_opts, $test_volid);
 
-    if ($include_pending && defined($conf->{pending}) && $conf->{pending}->%*) {
-	PVE::QemuConfig->foreach_volume_full($conf->{pending}, $include_opts, $test_volid, undef, 1);
-    }
+    PVE::QemuConfig->foreach_volume_full($conf->{pending}, $include_opts, $test_volid, undef, 1)
+	if defined($conf->{pending}) && $conf->{pending}->%*;
 
     foreach my $snapname (keys %{$conf->{snapshots}}) {
 	my $snap = $conf->{snapshots}->{$snapname};
@@ -6148,7 +6147,7 @@ sub get_vm_volumes {
     my ($conf) = @_;
 
     my $vollist = [];
-    foreach_volid($conf, 1, sub {
+    foreach_volid($conf, sub {
 	my ($volid, $attr) = @_;
 
 	return if $volid =~ m|^/|;
