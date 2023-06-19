@@ -354,7 +354,7 @@ sub scan_local_volumes {
 	    if ($attr->{cdrom}) {
 		if ($volid eq 'cdrom') {
 		    my $msg = "can't migrate local cdrom drive";
-		    if (defined($snaprefs) && !$attr->{referenced_in_config}) {
+		    if (defined($snaprefs) && !$attr->{is_attached}) {
 			my $snapnames = join(', ', sort keys %$snaprefs);
 			$msg .= " (referenced in snapshot - $snapnames)";
 		    }
@@ -378,8 +378,10 @@ sub scan_local_volumes {
 	    $self->target_storage_check_available($storecfg, $targetsid, $volid);
 	    return if $scfg->{shared} && !$self->{opts}->{remote};
 
-	    $local_volumes->{$volid}->{ref} = $attr->{referenced_in_config} ? 'config' : 'snapshot';
-	    $local_volumes->{$volid}->{ref} = 'storage' if $attr->{is_unused};
+	    $local_volumes->{$volid}->{ref} = 'pending' if $attr->{referenced_in_pending};
+	    $local_volumes->{$volid}->{ref} = 'snapshot' if $attr->{referenced_in_snapshot};
+	    $local_volumes->{$volid}->{ref} = 'unused' if $attr->{is_unused};
+	    $local_volumes->{$volid}->{ref} = 'attached' if $attr->{is_attached};
 	    $local_volumes->{$volid}->{ref} = 'generated' if $attr->{is_tpmstate};
 
 	    $local_volumes->{$volid}->{bwlimit} = $self->get_bwlimit($sid, $targetsid);
@@ -445,14 +447,16 @@ sub scan_local_volumes {
 	foreach my $vol (sort keys %$local_volumes) {
 	    my $type = $replicatable_volumes->{$vol} ? 'local, replicated' : 'local';
 	    my $ref = $local_volumes->{$vol}->{ref};
-	    if ($ref eq 'storage') {
-		$self->log('info', "found $type disk '$vol' (via storage)\n");
-	    } elsif ($ref eq 'config') {
+	    if ($ref eq 'attached') {
 		&$log_error("can't live migrate attached local disks without with-local-disks option\n", $vol)
 		    if $self->{running} && !$self->{opts}->{"with-local-disks"};
-		$self->log('info', "found $type disk '$vol' (in current VM config)\n");
+		$self->log('info', "found $type disk '$vol' (attached)\n");
+	    } elsif ($ref eq 'unused') {
+		$self->log('info', "found $type disk '$vol' (unused)\n");
 	    } elsif ($ref eq 'snapshot') {
 		$self->log('info', "found $type disk '$vol' (referenced by snapshot(s))\n");
+	    } elsif ($ref eq 'pending') {
+		$self->log('info', "found $type disk '$vol' (pending change)\n");
 	    } elsif ($ref eq 'generated') {
 		$self->log('info', "found generated disk '$vol' (in current VM config)\n");
 	    } else {
@@ -492,7 +496,7 @@ sub scan_local_volumes {
 
 	foreach my $volid (sort keys %$local_volumes) {
 	    my $ref = $local_volumes->{$volid}->{ref};
-	    if ($self->{running} && $ref eq 'config') {
+	    if ($self->{running} && $ref eq 'attached') {
 		$local_volumes->{$volid}->{migration_mode} = 'online';
 	    } elsif ($self->{running} && $ref eq 'generated') {
 		# offline migrate the cloud-init ISO and don't regenerate on VM start

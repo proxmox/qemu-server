@@ -4860,8 +4860,12 @@ sub foreach_volid {
 	$volhash->{$volid}->{shared} //= 0;
 	$volhash->{$volid}->{shared} = 1 if $drive->{shared};
 
-	$volhash->{$volid}->{referenced_in_config} //= 0;
-	$volhash->{$volid}->{referenced_in_config} = 1 if !defined($snapname) && !defined($pending);
+	$volhash->{$volid}->{is_unused} //= 0;
+	$volhash->{$volid}->{is_unused} = 1 if $key =~ /^unused\d+$/;
+
+	$volhash->{$volid}->{is_attached} //= 0;
+	$volhash->{$volid}->{is_attached} = 1
+	    if !$volhash->{$volid}->{is_unused} && !defined($snapname) && !defined($pending);
 
 	$volhash->{$volid}->{referenced_in_snapshot}->{$snapname} = 1
 	    if defined($snapname);
@@ -4876,9 +4880,6 @@ sub foreach_volid {
 
 	$volhash->{$volid}->{is_tpmstate} //= 0;
 	$volhash->{$volid}->{is_tpmstate} = 1 if $key eq 'tpmstate0';
-
-	$volhash->{$volid}->{is_unused} //= 0;
-	$volhash->{$volid}->{is_unused} = 1 if $key =~ /^unused\d+$/;
 
 	$volhash->{$volid}->{drivename} = $key if is_valid_drivename($key);
     };
