@@ -316,12 +316,12 @@ sub scan_local_volumes {
 
     my $storecfg = $self->{storecfg};
     eval {
-
 	# found local volumes and their origin
 	my $local_volumes = $self->{local_volumes};
 	my $local_volumes_errors = {};
 	my $other_errors = [];
 	my $abort = 0;
+	my $path_to_volid = {};
 
 	my $log_error = sub {
 	    my ($msg, $volid) = @_;
@@ -411,6 +411,8 @@ sub scan_local_volumes {
 	    die "owned by other VM (owner = VM $owner)\n"
 		if !$owner || ($owner != $vmid);
 
+	    $path_to_volid->{$path}->{$volid} = 1;
+
 	    return if $attr->{is_vmstate};
 
 	    if (defined($snaprefs)) {
@@ -443,6 +445,12 @@ sub scan_local_volumes {
 		&$log_error($err, $volid);
 	    }
         });
+
+	for my $path (keys %$path_to_volid) {
+	    my @volids = keys $path_to_volid->{$path}->%*;
+	    die "detected not supported aliased volumes: '" . join("', '", @volids) . "'"
+		if (scalar(@volids) > 1);
+	}
 
 	foreach my $vol (sort keys %$local_volumes) {
 	    my $type = $replicatable_volumes->{$vol} ? 'local, replicated' : 'local';
