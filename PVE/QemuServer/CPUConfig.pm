@@ -86,16 +86,29 @@ my $cpu_vendor_list = {
     'Skylake-Client' => 'GenuineIntel',
     'Skylake-Client-IBRS' => 'GenuineIntel',
     'Skylake-Client-noTSX-IBRS' => 'GenuineIntel',
+    'Skylake-Client-v4' => 'GenuineIntel',
     'Skylake-Server' => 'GenuineIntel',
     'Skylake-Server-IBRS' => 'GenuineIntel',
     'Skylake-Server-noTSX-IBRS' => 'GenuineIntel',
+    'Skylake-Server-v4' => 'GenuineIntel',
+    'Skylake-Server-v5' => 'GenuineIntel',
     'Cascadelake-Server' => 'GenuineIntel',
+    'Cascadelake-Server-v2' => 'GenuineIntel',
     'Cascadelake-Server-noTSX' => 'GenuineIntel',
+    'Cascadelake-Server-v4' => 'GenuineIntel',
+    'Cascadelake-Server-v5' => 'GenuineIntel',
+    'Cooperlake' => 'GenuineIntel',
+    'Cooperlake-v2' => 'GenuineIntel',
     KnightsMill => 'GenuineIntel',
     'Icelake-Client' => 'GenuineIntel', # depreacated, removed with QEMU 7.1
     'Icelake-Client-noTSX' => 'GenuineIntel', # depreacated, removed with QEMU 7.1
     'Icelake-Server' => 'GenuineIntel',
     'Icelake-Server-noTSX' => 'GenuineIntel',
+    'Icelake-Server-v3' => 'GenuineIntel',
+    'Icelake-Server-v4' => 'GenuineIntel',
+    'Icelake-Server-v5' => 'GenuineIntel',
+    'Icelake-Server-v6' => 'GenuineIntel',
+    'SapphireRapids' => 'GenuineIntel',
 
     # AMD CPUs
     athlon => 'AuthenticAMD',
@@ -107,7 +120,9 @@ my $cpu_vendor_list = {
     Opteron_G5 => 'AuthenticAMD',
     EPYC => 'AuthenticAMD',
     'EPYC-IBPB' => 'AuthenticAMD',
+    'EPYC-v3' => 'AuthenticAMD',
     'EPYC-Rome' => 'AuthenticAMD',
+    'EPYC-Rome-v2' => 'AuthenticAMD',
     'EPYC-Milan' => 'AuthenticAMD',
 
     # generic types, use vendor from host node
