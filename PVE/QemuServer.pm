@@ -4840,12 +4840,12 @@ sub set_migration_caps {
 }
 
 sub foreach_volid {
-    my ($conf, $func, @param) = @_;
+    my ($conf, $include_pending, $func, @param) = @_;
 
     my $volhash = {};
 
     my $test_volid = sub {
-	my ($key, $drive, $snapname) = @_;
+	my ($key, $drive, $snapname, $pending) = @_;
 
 	my $volid = $drive->{file};
 	return if !$volid;
@@ -4861,10 +4861,12 @@ sub foreach_volid {
 	$volhash->{$volid}->{shared} = 1 if $drive->{shared};
 
 	$volhash->{$volid}->{referenced_in_config} //= 0;
-	$volhash->{$volid}->{referenced_in_config} = 1 if !defined($snapname);
+	$volhash->{$volid}->{referenced_in_config} = 1 if !defined($snapname) && !defined($pending);
 
 	$volhash->{$volid}->{referenced_in_snapshot}->{$snapname} = 1
 	    if defined($snapname);
+
+	$volhash->{$volid}->{referenced_in_pending} = 1 if defined($pending);
 
 	my $size = $drive->{size};
 	$volhash->{$volid}->{size} //= $size if $size;
@@ -4887,6 +4889,11 @@ sub foreach_volid {
     };
 
     PVE::QemuConfig->foreach_volume_full($conf, $include_opts, $test_volid);
+
+    if ($include_pending && defined($conf->{pending}) && $conf->{pending}->%*) {
+	PVE::QemuConfig->foreach_volume_full($conf->{pending}, $include_opts, $test_volid, undef, 1);
+    }
+
     foreach my $snapname (keys %{$conf->{snapshots}}) {
 	my $snap = $conf->{snapshots}->{$snapname};
 	PVE::QemuConfig->foreach_volume_full($snap, $include_opts, $test_volid, $snapname);
@@ -6141,7 +6148,7 @@ sub get_vm_volumes {
     my ($conf) = @_;
 
     my $vollist = [];
-    foreach_volid($conf, sub {
+    foreach_volid($conf, 1, sub {
 	my ($volid, $attr) = @_;
 
 	return if $volid =~ m|^/|;

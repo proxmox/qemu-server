@@ -468,7 +468,7 @@ sub scan_local_volumes {
 		if PVE::Storage::volume_is_base_and_used($storecfg, $volid);
 	};
 
-	PVE::QemuServer::foreach_volid($conf, sub {
+	PVE::QemuServer::foreach_volid($conf, 1, sub {
 	    my ($volid, $attr) = @_;
 	    eval { $test_volid->($volid, $attr); };
 	    if (my $err = $@) {
