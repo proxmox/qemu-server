@@ -130,6 +130,25 @@ my $vm_configs = {
 	'startup' => 'order=2',
 	'vmgenid' => '4eb1d535-9381-4ddc-a8aa-af50c4d9177b',
     },
+    111 => {
+	'bootdisk' => 'scsi0',
+	'cores' => 1,
+	'ide0' => 'local-lvm:vm-111-disk-0,size=4096M',
+	'ide2' => 'none,media=cdrom',
+	'memory' => 512,
+	'name' => 'pending-test',
+	'net0' => 'virtio=4A:A3:E4:4C:CF:F0,bridge=vmbr0,firewall=1',
+	'numa' => 0,
+	'ostype' => 'l26',
+	'pending' => {
+		'scsi0' => 'local-zfs:vm-111-disk-0,size=103M',
+	},
+	'scsihw' => 'virtio-scsi-pci',
+	'snapshots' => {},
+	'smbios1' => 'uuid=5ad71d4d-8f73-4377-853e-2d22c10c96a5',
+	'sockets' => 1,
+	'vmgenid' => '2c00c030-0b5b-4988-a371-6ab259893f22',
+    },
     149 => {
 	'agent' => '0',
 	'bootdisk' => 'scsi0',
@@ -306,6 +325,13 @@ my $source_vdisks = {
 	    'vmid' => '341',
 	    'volid' => 'local-lvm:vm-341-disk-0',
 	},
+	{
+	    'ctime' => '1589277334',
+	    'format' => 'raw',
+	    'size' =>  4294967296,
+	    'vmid' => '111',
+	    'volid' => 'local-lvm:vm-111-disk-0',
+	},
     ],
     'local-zfs' => [
 	{
@@ -321,6 +347,13 @@ my $source_vdisks = {
 	    'size' => 108003328,
 	    'vmid' => '105',
 	    'volid' => 'local-zfs:vm-105-disk-1',
+	},
+	{
+	    'ctime' => '1589277334',
+	    'format' => 'raw',
+	    'size' => 108003328,
+	    'vmid' => '111',
+	    'volid' => 'local-zfs:vm-111-disk-0',
 	},
 	{
 	    'format' => 'raw',
@@ -1525,6 +1558,37 @@ my $tests = [
 	    vm_config => $vm_configs->{149},
 	    vm_status => {
 		running => 0,
+	    },
+	},
+    },
+    {
+	name => '111_running_pending',
+	target => 'pve1',
+	vmid => 111,
+	vm_status => {
+	    running => 1,
+	    runningmachine => 'pc-q35-5.0+pve0',
+	},
+	opts => {
+	    online => 1,
+	    'with-local-disks' => 1,
+	},
+	expected_calls => $default_expected_calls_online,
+	expected => {
+	    source_volids => {},
+	    target_volids => {
+		'local-zfs:vm-111-disk-0' => 1,
+		'local-lvm:vm-111-disk-10' => 1,
+	    },
+	    vm_config => get_patched_config(111, {
+		ide0 => 'local-lvm:vm-111-disk-10,format=raw,size=4G',
+		pending => {
+		    scsi0 => 'local-zfs:vm-111-disk-0,size=103M',
+		},
+	    }),
+	    vm_status => {
+		running => 1,
+		runningmachine => 'pc-q35-5.0+pve0',
 	    },
 	},
     },
