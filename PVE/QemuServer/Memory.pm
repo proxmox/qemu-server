@@ -97,17 +97,15 @@ sub get_numa_guest_to_host_map {
 }
 
 sub foreach_dimm{
-    my ($conf, $vmid, $memory, $sockets, $func) = @_;
+    my ($conf, $vmid, $memory, $static_memory, $func) = @_;
 
     my $dimm_id = 0;
-    my $current_size = 0;
+    my $current_size = $static_memory;
     my $dimm_size = 0;
 
     if($conf->{hugepages} && $conf->{hugepages} == 1024) {
-	$current_size = 1024 * $sockets;
 	$dimm_size = 1024;
     } else {
-	$current_size = 1024;
 	$dimm_size = 512;
     }
 
@@ -150,7 +148,7 @@ sub qemu_memory_hotplug {
 
 	my $numa_hostmap;
 
-	foreach_dimm($conf, $vmid, $value, $sockets, sub {
+	foreach_dimm($conf, $vmid, $value, $static_memory, sub {
 	    my ($conf, $vmid, $name, $dimm_size, $numanode, $current_size, $memory) = @_;
 
 		return if $current_size <= $conf->{memory};
@@ -341,7 +339,7 @@ sub config {
     }
 
     if ($hotplug) {
-	foreach_dimm($conf, $vmid, $memory, $sockets, sub {
+	foreach_dimm($conf, $vmid, $memory, $static_memory, sub {
 	    my ($conf, $vmid, $name, $dimm_size, $numanode, $current_size, $memory) = @_;
 
 	    my $mem_object = print_mem_object($conf, "mem-$name", $dimm_size);
@@ -515,7 +513,7 @@ sub hugepages_topology {
     if ($hotplug) {
 	my $numa_hostmap = get_numa_guest_to_host_map($conf);
 
-	foreach_dimm($conf, undef, $memory, $sockets, sub {
+	foreach_dimm($conf, undef, $memory, $static_memory, sub {
 	    my ($conf, undef, $name, $dimm_size, $numanode, $current_size, $memory) = @_;
 
 	    $numanode = $numa_hostmap->{$numanode};
