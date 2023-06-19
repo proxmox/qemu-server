@@ -88,6 +88,24 @@ my $storage_config = {
 	    path => "/some/other/dir/",
 	    type => "dir",
 	},
+	"zfs-alias-1" => {
+	    content => {
+		images => 1,
+		rootdir => 1,
+	    },
+	    pool => "aliaspool",
+	    sparse => 1,
+	    type => "zfspool",
+	},
+	"zfs-alias-2" => {
+	    content => {
+		images => 1,
+		rootdir => 1,
+	    },
+	    pool => "aliaspool",
+	    sparse => 1,
+	    type => "zfspool",
+	},
     },
 };
 
@@ -143,6 +161,24 @@ my $vm_configs = {
 	'pending' => {
 		'scsi0' => 'local-zfs:vm-111-disk-0,size=103M',
 	},
+	'scsihw' => 'virtio-scsi-pci',
+	'snapshots' => {},
+	'smbios1' => 'uuid=5ad71d4d-8f73-4377-853e-2d22c10c96a5',
+	'sockets' => 1,
+	'vmgenid' => '2c00c030-0b5b-4988-a371-6ab259893f22',
+    },
+    123 => {
+	'bootdisk' => 'scsi0',
+	'cores' => 1,
+	'scsi0' => 'zfs-alias-1:vm-123-disk-0,size=4096M',
+	'scsi1' => 'zfs-alias-2:vm-123-disk-0,size=4096M',
+	'ide2' => 'none,media=cdrom',
+	'memory' => 512,
+	'name' => 'alias-test',
+	'net0' => 'virtio=4A:A3:E4:4C:CF:F0,bridge=vmbr0,firewall=1',
+	'numa' => 0,
+	'ostype' => 'l26',
+	'pending' => {},
 	'scsihw' => 'virtio-scsi-pci',
 	'snapshots' => {},
 	'smbios1' => 'uuid=5ad71d4d-8f73-4377-853e-2d22c10c96a5',
@@ -378,6 +414,24 @@ my $source_vdisks = {
 	    'size' => 1073741824,
 	    'vmid' => '1033',
 	    'volid' => 'rbd-store:vm-1033-cloudinit',
+	},
+    ],
+    'zfs-alias-1' => [
+	{
+	    'ctime' => '1589277334',
+	    'format' => 'raw',
+	    'size' => 4294967296,
+	    'vmid' => '123',
+	    'volid' => 'zfs-alias-1:vm-123-disk-0',
+	},
+    ],
+    'zfs-alias-2' => [
+	{
+	    'ctime' => '1589277334',
+	    'format' => 'raw',
+	    'size' => 4294967296,
+	    'vmid' => '123',
+	    'volid' => 'zfs-alias-2:vm-123-disk-0',
 	},
     ],
 };
@@ -1589,6 +1643,27 @@ my $tests = [
 	    vm_status => {
 		running => 1,
 		runningmachine => 'pc-q35-5.0+pve0',
+	    },
+	},
+    },
+    {
+	name => '123_alias_fail',
+	target => 'pve1',
+	vmid => 123,
+	vm_status => {
+	    running => 0,
+	},
+	opts => {
+	    'with-local-disks' => 1,
+	},
+	expected_calls => {},
+	expect_die => "detected not supported aliased volumes",
+	expected => {
+	    source_volids => local_volids_for_vm(123),
+	    target_volids => {},
+	    vm_config => $vm_configs->{123},
+	    vm_status => {
+		running => 0,
 	    },
 	},
     },
