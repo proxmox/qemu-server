@@ -1,3 +1,15 @@
+qemu-server (8.0.4) bookworm; urgency=medium
+
+  * vCPU config: add new x86-64-v2, x86-64-v3 and x86-64-v4 models
+
+  * fix #4784: helpers: cope with native versions in manager version check
+
+  * enable cluster mapped USB devices for guests
+
+  * enable cluster mapped PCI devices for guests
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 19 Jun 2023 07:24:11 +0200
+
 qemu-server (8.0.3) bookworm; urgency=medium
 
   * qemu: fix permission check call
