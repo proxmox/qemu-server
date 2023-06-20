@@ -6542,10 +6542,9 @@ sub check_mapping_access {
    }
 };
 
-# FIXME: improve checks on restore by checking before actually extracing and
-# merging the new config
 sub check_restore_permissions {
     my ($rpcenv, $user, $conf) = @_;
+
     check_bridge_access($rpcenv, $user, $conf);
     check_mapping_access($rpcenv, $user, $conf);
 }
@@ -6865,7 +6864,7 @@ my $restore_destroy_volumes = sub {
     }
 };
 
-my $restore_merge_config = sub {
+sub restore_merge_config {
     my ($filename, $backup_conf_raw, $override_conf) = @_;
 
     my $backup_conf = parse_vm_config($filename, $backup_conf_raw);
@@ -6874,7 +6873,7 @@ my $restore_merge_config = sub {
     }
 
     return $backup_conf;
-};
+}
 
 sub scan_volids {
     my ($cfg, $vmid) = @_;
@@ -7192,7 +7191,7 @@ sub restore_proxmox_backup_archive {
 	$new_conf_raw .= "\nlock: create";
     }
 
-    my $new_conf = $restore_merge_config->($conffile, $new_conf_raw, $options->{override_conf});
+    my $new_conf = restore_merge_config($conffile, $new_conf_raw, $options->{override_conf});
     check_restore_permissions($rpcenv, $user, $new_conf);
     PVE::QemuConfig->write_config($vmid, $new_conf);
 
@@ -7506,7 +7505,7 @@ sub restore_vma_archive {
 	die $err;
     }
 
-    my $new_conf = $restore_merge_config->($conffile, $new_conf_raw, $opts->{override_conf});
+    my $new_conf = restore_merge_config($conffile, $new_conf_raw, $opts->{override_conf});
     check_restore_permissions($rpcenv, $user, $new_conf);
     PVE::QemuConfig->write_config($vmid, $new_conf);
 

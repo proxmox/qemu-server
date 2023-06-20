@@ -958,6 +958,19 @@ __PACKAGE__->register_method({
 		    live => $live_restore,
 		    override_conf => $param,
 		};
+		if (my $volid = $archive->{volid}) {
+		    # best effort, real check is after restoring!
+		    my $merged = eval {
+			my $old_conf = PVE::Storage::extract_vzdump_config($storecfg, $volid);
+			PVE::QemuServer::restore_merge_config("backup/qemu-server/$vmid.conf", $old_conf, $param);
+		    };
+		    if ($@) {
+			warn "Could not extract backed up config: $@\n";
+			warn "Skipping early checks!\n";
+		    } else {
+			PVE::QemuServer::check_restore_permissions($rpcenv, $authuser, $merged);
+		    }
+		}
 		if ($archive->{type} eq 'file' || $archive->{type} eq 'pipe') {
 		    die "live-restore is only compatible with backup images from a Proxmox Backup Server\n"
 			if $live_restore;
