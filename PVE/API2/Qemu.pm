@@ -750,20 +750,20 @@ my $parse_restore_archive = sub {
 
     my ($archive_storeid, $archive_volname) = PVE::Storage::parse_volume_id($archive, 1);
 
+    my $res = {};
+
     if (defined($archive_storeid)) {
 	my $scfg =  PVE::Storage::storage_config($storecfg, $archive_storeid);
+	$res->{volid} = $archive;
 	if ($scfg->{type} eq 'pbs') {
-	    return {
-		type => 'pbs',
-		volid => $archive,
-	    };
+	    $res->{type} = 'pbs';
+	    return $res;
 	}
     }
     my $path = PVE::Storage::abs_filesystem_path($storecfg, $archive);
-    return {
-	type => 'file',
-	path => $path,
-    };
+    $res->{type} = 'file';
+    $res->{path} = $path;
+    return $res;
 };
 
 
