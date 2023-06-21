@@ -785,7 +785,8 @@ my $confdesc_cloudinit = {
     ciupgrade => {
 	optional => 1,
 	type => 'boolean',
-	description => 'cloud-init: do an automatic package upgrade after the first boot.'
+	description => 'cloud-init: do an automatic package upgrade after the first boot.',
+	default => 0,
     },
     cicustom => {
 	optional => 1,
