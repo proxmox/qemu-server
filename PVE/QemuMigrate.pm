@@ -394,6 +394,11 @@ sub scan_local_volumes {
 	    $local_volumes->{$volid}->{drivename} = $attr->{drivename}
 		if $attr->{drivename};
 
+	    # If with_snapshots is not set for storage migrate, it tries to use
+	    # a raw+size stream, but on-the-fly conversion from qcow2 to raw+size
+	    # back to qcow2 is currently not possible.
+	    $local_volumes->{$volid}->{snapshots} = ($local_volumes->{$volid}->{format} =~ /^(?:qcow2|vmdk)$/);
+
 	    if ($attr->{cdrom}) {
 		if ($volid =~ /vm-\d+-cloudinit/) {
 		    $local_volumes->{$volid}->{ref} = 'generated';
@@ -401,10 +406,6 @@ sub scan_local_volumes {
 		}
 		die "local cdrom image\n";
 	    }
-	    # If with_snapshots is not set for storage migrate, it tries to use
-	    # a raw+size stream, but on-the-fly conversion from qcow2 to raw+size
-	    # back to qcow2 is currently not possible.
-	    $local_volumes->{$volid}->{snapshots} = ($local_volumes->{$volid}->{format} =~ /^(?:qcow2|vmdk)$/);
 
 	    my ($path, $owner) = PVE::Storage::path($storecfg, $volid);
 
