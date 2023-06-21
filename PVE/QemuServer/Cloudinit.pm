@@ -148,7 +148,7 @@ sub cloudinit_userdata {
 	$content .= "  - default\n";
     }
 
-    $content .= "package_upgrade: true\n" if $conf->{ciupgrade};
+    $content .= "package_upgrade: true\n" if !defined($conf->{ciupgrade}) || $conf->{ciupgrade};
 
     return $content;
 }
