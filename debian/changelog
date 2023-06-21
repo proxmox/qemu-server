@@ -1,3 +1,17 @@
+qemu-server (8.0.6) bookworm; urgency=medium
+
+  * cloudinit: restore previous default for package upgrades
+
+  * migration: only migrate disks used by the guest, not also those that are
+    owned by them (VMID in name) but not referenced in the config
+
+  * migration: fail when aliased volume are detected, as referencing the same
+    volume multiple times can lead to unexpected behavior in a migration.
+
+  * migration: fix issue with qcow2 cloudinit disk live migration
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 21 Jun 2023 13:03:01 +0200
+
 qemu-server (8.0.5) bookworm; urgency=medium
 
   * restore: extend permissions checks
