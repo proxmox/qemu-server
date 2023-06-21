@@ -1,3 +1,12 @@
+qemu-server (8.0.5) bookworm; urgency=medium
+
+  * restore: extend permissions checks
+
+  * vm start: always reset any failed-state of the VM systemd scope to avoid
+    failing a re-start after, e.g., a OOM kill.
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 21 Jun 2023 09:17:41 +0200
+
 qemu-server (8.0.4) bookworm; urgency=medium
 
   * vCPU config: add new x86-64-v2, x86-64-v3 and x86-64-v4 models
