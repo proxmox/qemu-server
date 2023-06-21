@@ -448,7 +448,7 @@ sub scan_local_volumes {
 
 	for my $path (keys %$path_to_volid) {
 	    my @volids = keys $path_to_volid->{$path}->%*;
-	    die "detected not supported aliased volumes: '" . join("', '", @volids) . "'"
+	    die "detected not supported aliased volumes: '" . join("', '", @volids) . "'\n"
 		if (scalar(@volids) > 1);
 	}
 
