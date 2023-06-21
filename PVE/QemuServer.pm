@@ -5873,6 +5873,7 @@ sub vm_start_nolock {
 
 
     my %silence_std_outs = (outfunc => sub {}, errfunc => sub {});
+    eval { run_command(['/bin/systemctl', 'reset-failed', "$vmid.scope"], %silence_std_outs) };
     eval { run_command(['/bin/systemctl', 'stop', "$vmid.scope"], %silence_std_outs) };
     # Issues with the above 'stop' not being fully completed are extremely rare, a very low
     # timeout should be more than enough here...
