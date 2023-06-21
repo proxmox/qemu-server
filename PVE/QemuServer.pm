@@ -4865,12 +4865,12 @@ sub foreach_volid {
 
 	$volhash->{$volid}->{is_attached} //= 0;
 	$volhash->{$volid}->{is_attached} = 1
-	    if !$volhash->{$volid}->{is_unused} && !defined($snapname) && !defined($pending);
+	    if !$volhash->{$volid}->{is_unused} && !defined($snapname) && !$pending;
 
 	$volhash->{$volid}->{referenced_in_snapshot}->{$snapname} = 1
 	    if defined($snapname);
 
-	$volhash->{$volid}->{referenced_in_pending} = 1 if defined($pending);
+	$volhash->{$volid}->{referenced_in_pending} = 1 if $pending;
 
 	my $size = $drive->{size};
 	$volhash->{$volid}->{size} //= $size if $size;
