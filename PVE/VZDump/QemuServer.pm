@@ -526,6 +526,24 @@ sub archive_pbs {
 	if (defined(my $ns = $scfg->{namespace})) {
 	    push @$cmd, '--ns', $ns;
 	}
+	if (-e $keyfile) {
+	    $self->loginfo("enabling encryption");
+	    push @$cmd, '--keyfile', $keyfile;
+	    if (defined($master_keyfile)) {
+		if (-e $master_keyfile) {
+		    $self->loginfo("enabling master key feature");
+		    push @$cmd, '--master-pubkey-file', $master_keyfile;
+		} elsif ($scfg->{'master-pubkey'}) {
+		    die "master public key configured but no key file found\n";
+		}
+	    }
+	} else {
+	    my $encryption_fp = $scfg->{'encryption-key'};
+	    die "encryption configured ('$encryption_fp') but no encryption key file found!\n"
+		if $encryption_fp;
+	    $self->loginfo("WARNING: backup target is configured with master key, but this backup is not encrypted - master key settings will be ignored!")
+		if defined($master_keyfile) && -e $master_keyfile;
+	}
 
 	push @$cmd, "qemu-server.conf:$conffile";
 	push @$cmd, "fw.conf:$firewall" if -e $firewall;
