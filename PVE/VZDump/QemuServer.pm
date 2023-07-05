@@ -507,8 +507,8 @@ sub archive_pbs {
     my $master_keyfile = PVE::Storage::PBSPlugin::pbs_master_pubkey_file_name($scfg, $opts->{storage});
 
     my $diskcount = scalar(@{$task->{disks}});
-    # proxmox-backup-client can only handle raw files and block devs
-    # only use it (directly) for disk-less VMs
+    # proxmox-backup-client can only handle raw files and block devs, so only use it (directly) for
+    # disk-less VMs
     if (!$diskcount) {
 	$self->loginfo("backup contains no disks");
 
@@ -526,15 +526,14 @@ sub archive_pbs {
 	    push @$cmd, '--ns', $ns;
 	}
 	if (-e $keyfile) {
-	    $self->loginfo("enabling encryption");
 	    push @$cmd, '--keyfile', $keyfile;
-	    if (defined($master_keyfile)) {
-		if (-e $master_keyfile) {
-		    $self->loginfo("enabling master key feature");
-		    push @$cmd, '--master-pubkey-file', $master_keyfile;
-		} elsif ($scfg->{'master-pubkey'}) {
-		    die "master public key configured but no key file found\n";
-		}
+	    if (-e $master_keyfile) {
+		$self->loginfo("enabling encryption with master key feature");
+		push @$cmd, '--master-pubkey-file', $master_keyfile;
+	    } elsif ($scfg->{'master-pubkey'}) {
+		die "master public key configured but no key file found\n";
+	    } else {
+		$self->loginfo("enabling client-side encryption");
 	    }
 	} else {
 	    my $encryption_fp = $scfg->{'encryption-key'};
@@ -606,16 +605,15 @@ sub archive_pbs {
 	$params->{fingerprint} = $fingerprint if defined($fingerprint);
 	$params->{'firewall-file'} = $firewall if -e $firewall;
 	if (-e $keyfile) {
-	    $self->loginfo("enabling encryption");
 	    $params->{keyfile} = $keyfile;
 	    $params->{encrypt} = JSON::true;
-	    if (defined($master_keyfile)) {
-		if (-e $master_keyfile) {
-		    $self->loginfo("enabling master key feature");
-		    $params->{"master-keyfile"} = $master_keyfile;
-		} elsif ($scfg->{'master-pubkey'}) {
-		    die "master public key configured but no key file found\n";
-		}
+	    if (-e $master_keyfile) {
+		$self->loginfo("enabling encryption with master key feature");
+		$params->{"master-keyfile"} = $master_keyfile;
+	    } elsif ($scfg->{'master-pubkey'}) {
+		die "master public key configured but no key file found\n";
+	    } else {
+		$self->loginfo("enabling encryption");
 	    }
 	} else {
 	    my $encryption_fp = $scfg->{'encryption-key'};
