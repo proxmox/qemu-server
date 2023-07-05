@@ -510,7 +510,6 @@ sub archive_pbs {
     # proxmox-backup-client can only handle raw files and block devs
     # only use it (directly) for disk-less VMs
     if (!$diskcount) {
-	my @pathlist;
 	$self->loginfo("backup contains no disks");
 
 	local $ENV{PBS_PASSWORD} = $password;
