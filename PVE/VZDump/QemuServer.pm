@@ -539,8 +539,14 @@ sub archive_pbs {
 	    my $encryption_fp = $scfg->{'encryption-key'};
 	    die "encryption configured ('$encryption_fp') but no encryption key file found!\n"
 		if $encryption_fp;
-	    $self->loginfo("WARNING: backup target is configured with master key, but this backup is not encrypted - master key settings will be ignored!")
-		if defined($master_keyfile) && -e $master_keyfile;
+
+	    if (-e $master_keyfile) {
+		$self->log(
+		    'warn',
+		    "backup target storage is configured with master-key, but no encryption key set!"
+		    ." Ignoring master key settings and creating unencrypted backup."
+		);
+	    }
 	}
 
 	push @$cmd, "qemu-server.conf:$conffile";
@@ -619,8 +625,13 @@ sub archive_pbs {
 	    my $encryption_fp = $scfg->{'encryption-key'};
 	    die "encryption configured ('$encryption_fp') but no encryption key file found!\n"
 		if $encryption_fp;
-	    $self->loginfo("WARNING: backup target is configured with master key, but this backup is not encrypted - master key settings will be ignored!")
-		if defined($master_keyfile) && -e $master_keyfile;
+	    if (-e $master_keyfile) {
+		$self->log(
+		    'warn',
+		    "backup target storage is configured with master-key, but no encryption key set!"
+		    ." Ignoring master key settings and creating unencrypted backup."
+		);
+	    }
 	    $params->{encrypt} = JSON::false;
 	}
 
