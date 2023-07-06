@@ -579,11 +579,9 @@ sub archive_pbs {
 	    }
 	}
 
-	if (!defined($qemu_support->{"pbs-masterkey"}) && -e $master_keyfile) {
-	    $self->loginfo("WARNING: backup target is configured with master key, but running QEMU version does not support master keys.");
-	    $self->loginfo("Please make sure you've installed the latest version and the VM has been restarted to use master key feature.");
-	    $master_keyfile = undef; # skip rest of master key handling below
-	}
+	# pve-qemu supports it since 5.2.0-1 (PVE 6.4), so safe to die since PVE 8
+	die "master key configured but running QEMU version does not support master keys\n"
+	    if !defined($qemu_support->{'pbs-masterkey'}) && -e $master_keyfile;
 
 	$attach_tpmstate_drive->($self, $task, $vmid);
 
