@@ -489,6 +489,41 @@ my sub add_backup_performance_options {
     }
 }
 
+sub get_and_check_pbs_encryption_config {
+    my ($self) = @_;
+
+    my $opts = $self->{vzdump}->{opts};
+    my $scfg = $opts->{scfg};
+
+    my $keyfile = PVE::Storage::PBSPlugin::pbs_encryption_key_file_name($scfg, $opts->{storage});
+    my $master_keyfile = PVE::Storage::PBSPlugin::pbs_master_pubkey_file_name($scfg, $opts->{storage});
+
+    if (-e $keyfile) {
+	if (-e $master_keyfile) {
+	    $self->loginfo("enabling encryption with master key feature");
+	    return ($keyfile, $master_keyfile);
+	} elsif ($scfg->{'master-pubkey'}) {
+	    die "master public key configured but no key file found\n";
+	} else {
+	    $self->loginfo("enabling encryption");
+	    return ($keyfile, undef);
+	}
+    } else {
+	my $encryption_fp = $scfg->{'encryption-key'};
+	die "encryption configured ('$encryption_fp') but no encryption key file found!\n"
+	    if $encryption_fp;
+	if (-e $master_keyfile) {
+	    $self->log(
+		'warn',
+		"backup target storage is configured with master-key, but no encryption key set!"
+		." Ignoring master key settings and creating unencrypted backup."
+	    );
+	}
+	return (undef, undef);
+    }
+    die "internal error - unhandled case for getting & checking PBS encryption ($keyfile, $master_keyfile)!";
+}
+
 sub archive_pbs {
     my ($self, $task, $vmid) = @_;
 
@@ -503,8 +538,7 @@ sub archive_pbs {
     my $fingerprint = $scfg->{fingerprint};
     my $repo = PVE::PBSClient::get_repository($scfg);
     my $password = PVE::Storage::PBSPlugin::pbs_get_password($scfg, $opts->{storage});
-    my $keyfile = PVE::Storage::PBSPlugin::pbs_encryption_key_file_name($scfg, $opts->{storage});
-    my $master_keyfile = PVE::Storage::PBSPlugin::pbs_master_pubkey_file_name($scfg, $opts->{storage});
+    my ($keyfile, $master_keyfile) = $self->get_and_check_pbs_encryption_config();
 
     my $diskcount = scalar(@{$task->{disks}});
     # proxmox-backup-client can only handle raw files and block devs, so only use it (directly) for
@@ -525,28 +559,9 @@ sub archive_pbs {
 	if (defined(my $ns = $scfg->{namespace})) {
 	    push @$cmd, '--ns', $ns;
 	}
-	if (-e $keyfile) {
+	if (defined($keyfile)) {
 	    push @$cmd, '--keyfile', $keyfile;
-	    if (-e $master_keyfile) {
-		$self->loginfo("enabling encryption with master key feature");
-		push @$cmd, '--master-pubkey-file', $master_keyfile;
-	    } elsif ($scfg->{'master-pubkey'}) {
-		die "master public key configured but no key file found\n";
-	    } else {
-		$self->loginfo("enabling client-side encryption");
-	    }
-	} else {
-	    my $encryption_fp = $scfg->{'encryption-key'};
-	    die "encryption configured ('$encryption_fp') but no encryption key file found!\n"
-		if $encryption_fp;
-
-	    if (-e $master_keyfile) {
-		$self->log(
-		    'warn',
-		    "backup target storage is configured with master-key, but no encryption key set!"
-		    ." Ignoring master key settings and creating unencrypted backup."
-		);
-	    }
+	    push @$cmd, '--master-pubkey-file', $master_keyfile if defined($master_keyfile);
 	}
 
 	push @$cmd, "qemu-server.conf:$conffile";
@@ -586,7 +601,7 @@ sub archive_pbs {
 
 	# pve-qemu supports it since 5.2.0-1 (PVE 6.4), so safe to die since PVE 8
 	die "master key configured but running QEMU version does not support master keys\n"
-	    if !defined($qemu_support->{'pbs-masterkey'}) && -e $master_keyfile;
+	    if !defined($qemu_support->{'pbs-masterkey'}) && defined($master_keyfile);
 
 	$attach_tpmstate_drive->($self, $task, $vmid);
 
@@ -610,29 +625,11 @@ sub archive_pbs {
 
 	$params->{fingerprint} = $fingerprint if defined($fingerprint);
 	$params->{'firewall-file'} = $firewall if -e $firewall;
-	if (-e $keyfile) {
+
+	$params->{encrypt} = defined($keyfile) ? JSON::true : JSON::false;
+	if (defined($keyfile)) {
 	    $params->{keyfile} = $keyfile;
-	    $params->{encrypt} = JSON::true;
-	    if (-e $master_keyfile) {
-		$self->loginfo("enabling encryption with master key feature");
-		$params->{"master-keyfile"} = $master_keyfile;
-	    } elsif ($scfg->{'master-pubkey'}) {
-		die "master public key configured but no key file found\n";
-	    } else {
-		$self->loginfo("enabling encryption");
-	    }
-	} else {
-	    my $encryption_fp = $scfg->{'encryption-key'};
-	    die "encryption configured ('$encryption_fp') but no encryption key file found!\n"
-		if $encryption_fp;
-	    if (-e $master_keyfile) {
-		$self->log(
-		    'warn',
-		    "backup target storage is configured with master-key, but no encryption key set!"
-		    ." Ignoring master key settings and creating unencrypted backup."
-		);
-	    }
-	    $params->{encrypt} = JSON::false;
+	    $params->{"master-keyfile"} = $master_keyfile if defined($master_keyfile);
 	}
 
 	my $is_template = PVE::QemuConfig->is_template($self->{vmlist}->{$vmid});
