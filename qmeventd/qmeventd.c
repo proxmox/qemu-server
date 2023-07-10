@@ -128,11 +128,13 @@ get_vmid_from_pid(pid_t pid)
 	errno = 0;
 	char *endptr = NULL;
 	vmid = strtoul(vmid_start, &endptr, 10);
+	if (!endptr || strncmp(endptr, ".scope", 6)) {
+	    fprintf(stderr, "unexpected cgroup entry %s\n", buf);
+	    vmid = 0;
+	    continue;
+	}
 	if (errno != 0) {
 	    fprintf(stderr, "error parsing vmid for %d: %s\n", pid, strerror(errno));
-	    vmid = 0;
-	} else if (*endptr != '.') {
-	    fprintf(stderr, "unexpected cgroup entry %s\n", buf);
 	    vmid = 0;
 	}
 
