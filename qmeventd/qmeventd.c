@@ -134,20 +134,18 @@ get_vmid_from_pid(pid_t pid)
 	    continue;
 	}
 	if (errno != 0) {
-	    fprintf(stderr, "error parsing vmid for %d: %s\n", pid, strerror(errno));
 	    vmid = 0;
 	}
 
-	goto ret;
+	break;
     }
 
     if (errno) {
 	fprintf(stderr, "error parsing vmid for %d: %s\n", pid, strerror(errno));
-    } else {
+    } else if (!vmid) {
 	fprintf(stderr, "error parsing vmid for %d: no matching qemu.slice cgroup entry\n", pid);
     }
 
-ret:
     free(buf);
     fclose(fp);
     return vmid;
