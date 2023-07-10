@@ -105,7 +105,7 @@ get_vmid_from_pid(pid_t pid)
 	char *cgroup_path = strrchr(buf, ':');
 	if (!cgroup_path) {
 	    fprintf(stderr, "unexpected cgroup entry %s\n", buf);
-	    goto ret;
+	    continue;
 	}
 	cgroup_path++;
 
@@ -116,13 +116,13 @@ get_vmid_from_pid(pid_t pid)
 	char *vmid_start = strrchr(buf, '/');
 	if (!vmid_start) {
 	    fprintf(stderr, "unexpected cgroup entry %s\n", buf);
-	    goto ret;
+	    continue;
 	}
 	vmid_start++;
 
 	if (vmid_start[0] == '-' || vmid_start[0] == '\0') {
 	    fprintf(stderr, "invalid vmid in cgroup entry %s\n", buf);
-	    goto ret;
+	    continue;
 	}
 
 	errno = 0;
