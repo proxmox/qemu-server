@@ -109,7 +109,7 @@ get_vmid_from_pid(pid_t pid)
 	}
 	cgroup_path++;
 
-	if (strncmp(cgroup_path, "/qemu.slice", 11)) {
+	if (strncmp(cgroup_path, "/qemu.slice/", 12)) {
 	    continue;
 	}
 
@@ -142,7 +142,7 @@ get_vmid_from_pid(pid_t pid)
     if (errno) {
 	fprintf(stderr, "error parsing vmid for %d: %s\n", pid, strerror(errno));
     } else {
-	fprintf(stderr, "error parsing vmid for %d: no qemu.slice cgroup entry\n", pid);
+	fprintf(stderr, "error parsing vmid for %d: no matching qemu.slice cgroup entry\n", pid);
     }
 
 ret:
