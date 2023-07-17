@@ -5566,9 +5566,11 @@ sub vm_migrate_get_nbd_disks {
 	my $scfg = PVE::Storage::storage_config($storecfg, $storeid);
 	return if $scfg->{shared};
 
+	my $format = qemu_img_format($scfg, $volname);
+
 	# replicated disks re-use existing state via bitmap
 	my $use_existing = $replicated_volumes->{$volid} ? 1 : 0;
-	$local_volumes->{$ds} = [$volid, $storeid, $volname, $drive, $use_existing];
+	$local_volumes->{$ds} = [$volid, $storeid, $drive, $use_existing, $format];
     });
     return $local_volumes;
 }
@@ -5579,7 +5581,7 @@ sub vm_migrate_alloc_nbd_disks {
 
     my $nbd = {};
     foreach my $opt (sort keys %$source_volumes) {
-	my ($volid, $storeid, $volname, $drive, $use_existing, $format) = @{$source_volumes->{$opt}};
+	my ($volid, $storeid, $drive, $use_existing, $format) = @{$source_volumes->{$opt}};
 
 	if ($use_existing) {
 	    $nbd->{$opt}->{drivestr} = print_drive($drive);
@@ -5588,29 +5590,13 @@ sub vm_migrate_alloc_nbd_disks {
 	    next;
 	}
 
-	# storage mapping + volname = regular migration
-	# storage mapping + format = remote migration
+	$storeid = PVE::JSONSchema::map_id($storagemap, $storeid);
+
 	# order of precedence, filtered by whether storage supports it:
 	# 1. explicit requested format
-	# 2. format of current volume
-	# 3. default format of storage
-	if (!$storagemap->{identity}) {
-	    my $source_scfg = PVE::Storage::storage_config($storecfg, $storeid);
-	    $storeid = PVE::JSONSchema::map_id($storagemap, $storeid);
-	    my ($defFormat, $validFormats) = PVE::Storage::storage_default_format($storecfg, $storeid);
-	    if (!$format || !grep { $format eq $_ } @$validFormats) {
-		if ($volname) {
-		    my $fileFormat = qemu_img_format($source_scfg, $volname);
-		    $format = $fileFormat
-			if grep { $fileFormat eq $_ } @$validFormats;
-		}
-		$format //= $defFormat;
-	    }
-	} else {
-	    # can't happen for remote migration, so $volname is always defined
-	    my $scfg = PVE::Storage::storage_config($storecfg, $storeid);
-	    $format = qemu_img_format($scfg, $volname);
-	}
+	# 2. default format of storage
+	my ($defFormat, $validFormats) = PVE::Storage::storage_default_format($storecfg, $storeid);
+	$format = $defFormat if !$format || !grep { $format eq $_ } $validFormats->@*;
 
 	my $size = $drive->{size} / 1024;
 	my $newvolid = PVE::Storage::vdisk_alloc($storecfg, $storeid, $vmid, $format, undef, $size);

@@ -5654,7 +5654,6 @@ __PACKAGE__->register_method({
 			'disk' => [
 			    undef,
 			    $storeid,
-			    undef,
 			    $drive,
 			    0,
 			    $format,
