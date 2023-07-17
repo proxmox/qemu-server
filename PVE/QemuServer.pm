@@ -5595,12 +5595,12 @@ sub vm_migrate_alloc_nbd_disks {
 	# 2. format of current volume
 	# 3. default format of storage
 	if (!$storagemap->{identity}) {
+	    my $source_scfg = PVE::Storage::storage_config($storecfg, $storeid);
 	    $storeid = PVE::JSONSchema::map_id($storagemap, $storeid);
 	    my ($defFormat, $validFormats) = PVE::Storage::storage_default_format($storecfg, $storeid);
 	    if (!$format || !grep { $format eq $_ } @$validFormats) {
 		if ($volname) {
-		    my $scfg = PVE::Storage::storage_config($storecfg, $storeid);
-		    my $fileFormat = qemu_img_format($scfg, $volname);
+		    my $fileFormat = qemu_img_format($source_scfg, $volname);
 		    $format = $fileFormat
 			if grep { $fileFormat eq $_ } @$validFormats;
 		}
