@@ -1795,7 +1795,10 @@ my $update_vm_api  = sub {
 		} elsif ($opt =~ m/^net\d+$/) {
 		    if ($conf->{$opt}) {
 			PVE::QemuServer::check_bridge_access(
-			    $rpcenv, $authuser, { $opt => $conf->{$opt} });
+			    $rpcenv,
+			    $authuser,
+			    { $opt => $conf->{$opt} },
+			);
 		    }
 		    PVE::QemuConfig->add_to_pending_delete($conf, $opt, $force);
 		    PVE::QemuConfig->write_config($vmid, $conf);
@@ -1870,7 +1873,10 @@ my $update_vm_api  = sub {
 		} elsif ($opt =~ m/^net\d+$/) {
 		    if ($conf->{$opt}) {
 			PVE::QemuServer::check_bridge_access(
-			    $rpcenv, $authuser, { $opt => $conf->{$opt} });
+			    $rpcenv,
+			    $authuser,
+			    { $opt => $conf->{$opt} },
+			);
 		    }
 		    $conf->{pending}->{$opt} = $param->{$opt};
 		} else {
