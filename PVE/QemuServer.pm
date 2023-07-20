@@ -1521,6 +1521,17 @@ sub print_drivedevice_full {
 	my $maxdev = ($drive->{interface} eq 'sata') ? $PVE::QemuServer::Drive::MAX_SATA_DISKS : 2;
 	my $controller = int($drive->{index} / $maxdev);
 	my $unit = $drive->{index} % $maxdev;
+
+	# machine type q35 only supports unit=0 for IDE rather than 2 units. This wasn't handled
+	# correctly before, so e.g. index=2 was mapped to controller=1,unit=0 rather than
+	# controller=2,unit=0. Note that odd indices never worked, as they would be mapped to
+	# unit=1, so to keep backwards compat for migration, it suffices to keep even ones as they
+	# were before. Move odd ones up by 2 where they don't clash.
+	if (PVE::QemuServer::Machine::machine_type_is_q35($conf) && $drive->{interface} eq 'ide') {
+	    $controller += 2 * ($unit % 2);
+	    $unit = 0;
+	}
+
 	my $devicetype = ($drive->{media} && $drive->{media} eq 'cdrom') ? "cd" : "hd";
 
 	$device = "ide-$devicetype";

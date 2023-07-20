@@ -25,11 +25,11 @@
   -drive 'file=/mnt/pve/cifs-store/template/iso/zero.iso,if=none,id=drive-ide0,media=cdrom,aio=threads' \
   -device 'ide-cd,bus=ide.0,unit=0,drive=drive-ide0,id=ide0,bootindex=200' \
   -drive 'file=/mnt/pve/cifs-store/template/iso/one.iso,if=none,id=drive-ide1,media=cdrom,aio=threads' \
-  -device 'ide-cd,bus=ide.0,unit=1,drive=drive-ide1,id=ide1,bootindex=201' \
+  -device 'ide-cd,bus=ide.2,unit=0,drive=drive-ide1,id=ide1,bootindex=201' \
   -drive 'file=/mnt/pve/cifs-store/template/iso/two.iso,if=none,id=drive-ide2,media=cdrom,aio=threads' \
   -device 'ide-cd,bus=ide.1,unit=0,drive=drive-ide2,id=ide2,bootindex=202' \
   -drive 'file=/mnt/pve/cifs-store/template/iso/three.iso,if=none,id=drive-ide3,media=cdrom,aio=threads' \
-  -device 'ide-cd,bus=ide.1,unit=1,drive=drive-ide3,id=ide3,bootindex=203' \
+  -device 'ide-cd,bus=ide.3,unit=0,drive=drive-ide3,id=ide3,bootindex=203' \
   -device 'virtio-scsi-pci,id=scsihw0,bus=pci.0,addr=0x5' \
   -drive 'file=/var/lib/vz/images/100/vm-100-disk-2.qcow2,if=none,id=drive-scsi0,format=qcow2,cache=none,aio=io_uring,detect-zeroes=on' \
   -device 'scsi-hd,bus=scsihw0.0,channel=0,scsi-id=0,lun=0,drive=drive-scsi0,id=scsi0,bootindex=100' \
