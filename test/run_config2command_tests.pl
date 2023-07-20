@@ -45,7 +45,8 @@ my $base_env = {
 		type => 'cifs',
 		share => 'CIFShare',
 		content => {
-		    images => 1
+		    images => 1,
+		    iso => 1,
 		},
 	    },
 	    'rbd-store' => {
