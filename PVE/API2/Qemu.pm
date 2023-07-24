@@ -562,6 +562,7 @@ my $cloudinitoptions = {
     cipassword => 1,
     citype => 1,
     ciuser => 1,
+    ciupgrade => 1,
     nameserver => 1,
     searchdomain => 1,
     sshkeys => 1,

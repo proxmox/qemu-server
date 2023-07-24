@@ -760,6 +760,7 @@ my $cicustom_fmt = {
 };
 PVE::JSONSchema::register_format('pve-qm-cicustom', $cicustom_fmt);
 
+# any new option might need to be added to $cloudinitoptions in PVE::API2::Qemu
 my $confdesc_cloudinit = {
     citype => {
 	optional => 1,
