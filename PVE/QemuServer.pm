@@ -1774,7 +1774,7 @@ sub print_netdevice_full {
     }
 
     if (min_version($machine_version, 7, 1) && $net->{model} eq 'virtio'){
-	$tmpstr .= ",rx_queue_size=1024,tx_queue_size=1024";
+	$tmpstr .= ",rx_queue_size=1024,tx_queue_size=256";
     }
 
     $tmpstr .= ",bootindex=$net->{bootindex}" if $net->{bootindex} ;
