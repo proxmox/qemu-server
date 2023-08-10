@@ -3823,7 +3823,9 @@ sub config_to_command {
 	push @$devices, @$audio_devs;
     }
 
-    add_tpm_device($vmid, $devices, $conf);
+    # Add a TPM only if the VM is not a template,
+    # to support backing up template VMs even if the TPM disk is write-protected.
+    add_tpm_device($vmid, $devices, $conf) if (!PVE::QemuConfig->is_template($conf));
 
     my $sockets = 1;
     $sockets = $conf->{smp} if $conf->{smp}; # old style - no longer iused
@@ -5923,7 +5925,7 @@ sub vm_start_nolock {
 	    PVE::Systemd::enter_systemd_scope($vmid, "Proxmox VE VM $vmid", %systemd_properties);
 
 	    my $tpmpid;
-	    if (my $tpm = $conf->{tpmstate0}) {
+	    if ((my $tpm = $conf->{tpmstate0}) && !PVE::QemuConfig->is_template($conf)) {
 		# start the TPM emulator so QEMU can connect on start
 		$tpmpid = start_swtpm($storecfg, $vmid, $tpm, $migratedfrom);
 	    }
