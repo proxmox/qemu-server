@@ -1,3 +1,26 @@
+qemu-server (8.0.7) bookworm; urgency=medium
+
+  * fix #4822: vzdump: fix PBS encryption for guests without disks
+
+  * qmeventd: fix parsing of VMID in presence of legacy cgroup entries
+
+  * api: check access for already configured bridge when updating vNIC
+
+  * fix #4620: make 'ide1' and 'ide3' drive keys work for machine type q35
+
+  * cloudinit: fix two checks that were mistakenly restricted to root only,
+    one for setting the ciupgrade option and one for updating the cloudinit
+    drive
+
+  * migration: improve format hint when allocating live-migrated disk on the
+    target to make e.g. remote-migration with qcow2 and LVM-thin target work
+
+  * net: fix setting value for tx_queue_size
+
+  * fix #3963: allow backup of template VM with immutable TPM drive
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 21 Aug 2023 11:30:45 +0200
+
 qemu-server (8.0.6) bookworm; urgency=medium
 
   * cloudinit: restore previous default for package upgrades
