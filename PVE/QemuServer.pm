@@ -58,6 +58,7 @@ use PVE::QemuServer::Machine;
 use PVE::QemuServer::Memory;
 use PVE::QemuServer::Monitor qw(mon_cmd);
 use PVE::QemuServer::PCI qw(print_pci_addr print_pcie_addr print_pcie_root_port parse_hostpci);
+use PVE::QemuServer::QMPHelpers qw(qemu_deviceadd qemu_devicedel qemu_objectadd qemu_objectdel);
 use PVE::QemuServer::USB;
 
 my $have_sdn;
@@ -4377,21 +4378,6 @@ sub qemu_spice_usbredir_chardev_add {
     ));
 }
 
-sub qemu_deviceadd {
-    my ($vmid, $devicefull) = @_;
-
-    $devicefull = "driver=".$devicefull;
-    my %options =  split(/[=,]/, $devicefull);
-
-    mon_cmd($vmid, "device_add" , %options);
-}
-
-sub qemu_devicedel {
-    my ($vmid, $deviceid) = @_;
-
-    my $ret = mon_cmd($vmid, "device_del", id => $deviceid);
-}
-
 sub qemu_iothread_add {
     my ($vmid, $deviceid, $device) = @_;
 
@@ -4408,22 +4394,6 @@ sub qemu_iothread_del {
 	my $iothreads = vm_iothreads_list($vmid);
 	qemu_objectdel($vmid, "iothread-$deviceid") if $iothreads->{"iothread-$deviceid"};
     }
-}
-
-sub qemu_objectadd {
-    my ($vmid, $objectid, $qomtype) = @_;
-
-    mon_cmd($vmid, "object-add", id => $objectid, "qom-type" => $qomtype);
-
-    return 1;
-}
-
-sub qemu_objectdel {
-    my ($vmid, $objectid) = @_;
-
-    mon_cmd($vmid, "object-del", id => $objectid);
-
-    return 1;
 }
 
 sub qemu_driveadd {

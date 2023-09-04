@@ -11,6 +11,7 @@ SOURCES=PCI.pm		\
 	CPUConfig.pm	\
 	CGroup.pm	\
 	Drive.pm	\
+	QMPHelpers.pm
 
 .PHONY: install
 install: ${SOURCES}

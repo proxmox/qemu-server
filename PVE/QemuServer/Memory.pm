@@ -10,6 +10,7 @@ use PVE::Exception qw(raise raise_param_exc);
 use PVE::QemuServer;
 use PVE::QemuServer::Helpers qw(parse_number_sets);
 use PVE::QemuServer::Monitor qw(mon_cmd);
+use PVE::QemuServer::QMPHelpers qw(qemu_devicedel qemu_objectdel);
 
 our $MAX_NUMA = 8;
 
@@ -226,13 +227,13 @@ sub qemu_memory_hotplug {
 		}
 
 		if (my $err = $@) {
-		    eval { PVE::QemuServer::qemu_objectdel($vmid, "mem-$name"); };
+		    eval { qemu_objectdel($vmid, "mem-$name"); };
 		    die $err;
 		}
 
 		eval { mon_cmd($vmid, "device_add", driver => "pc-dimm", id => "$name", memdev => "mem-$name", node => $numanode) };
 		if (my $err = $@) {
-		    eval { PVE::QemuServer::qemu_objectdel($vmid, "mem-$name"); };
+		    eval { qemu_objectdel($vmid, "mem-$name"); };
 		    die $err;
 		}
 		#update conf after each succesful module hotplug
@@ -255,7 +256,7 @@ sub qemu_memory_hotplug {
 
 	    my $retry = 0;
 	    while (1) {
-		eval { PVE::QemuServer::qemu_devicedel($vmid, $name) };
+		eval { qemu_devicedel($vmid, $name) };
 		sleep 3;
 		my $dimm_list = qemu_memdevices_list($vmid, 'dimm');
 		last if !$dimm_list->{$name};
@@ -266,7 +267,7 @@ sub qemu_memory_hotplug {
 	    #update conf after each succesful module unplug
 	    $conf->{memory} = $current_size;
 
-	    eval { PVE::QemuServer::qemu_objectdel($vmid, "mem-$name"); };
+	    eval { qemu_objectdel($vmid, "mem-$name"); };
 	    PVE::QemuConfig->write_config($vmid, $conf);
 	}
     }
