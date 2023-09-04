@@ -13,6 +13,7 @@ use base 'Exporter';
 our @EXPORT_OK = qw(
 min_version
 config_aware_timeout
+parse_number_sets
 windows_version
 );
 
@@ -184,6 +185,20 @@ sub pvecfg_min_version {
     }
 
     die "internal error: cannot check version of invalid string '$verstr'";
+}
+
+sub parse_number_sets {
+    my ($set) = @_;
+    my $res = [];
+    foreach my $part (split(/;/, $set)) {
+	if ($part =~ /^\s*(\d+)(?:-(\d+))?\s*$/) {
+	    die "invalid range: $part ($2 < $1)\n" if defined($2) && $2 < $1;
+	    push @$res, [ $1, $2 ];
+	} else {
+	    die "invalid range: $part\n";
+	}
+    }
+    return $res;
 }
 
 sub windows_version {

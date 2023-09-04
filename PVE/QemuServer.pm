@@ -49,7 +49,7 @@ use PVE::Tools qw(run_command file_read_firstline file_get_contents dir_glob_for
 
 use PVE::QMPClient;
 use PVE::QemuConfig;
-use PVE::QemuServer::Helpers qw(min_version config_aware_timeout windows_version);
+use PVE::QemuServer::Helpers qw(config_aware_timeout min_version parse_number_sets windows_version);
 use PVE::QemuServer::Cloudinit;
 use PVE::QemuServer::CGroup;
 use PVE::QemuServer::CPUConfig qw(print_cpu_device get_cpu_options);
@@ -1928,20 +1928,6 @@ sub print_vga_device {
     }
 
     return "$type,id=${vgaid}${memory}${max_outputs}${pciaddr}${edidoff}";
-}
-
-sub parse_number_sets {
-    my ($set) = @_;
-    my $res = [];
-    foreach my $part (split(/;/, $set)) {
-	if ($part =~ /^\s*(\d+)(?:-(\d+))?\s*$/) {
-	    die "invalid range: $part ($2 < $1)\n" if defined($2) && $2 < $1;
-	    push @$res, [ $1, $2 ];
-	} else {
-	    die "invalid range: $part\n";
-	}
-    }
-    return $res;
 }
 
 sub parse_numa {
