@@ -32,6 +32,7 @@ use PVE::QemuServer::Drive;
 use PVE::QemuServer::ImportDisk;
 use PVE::QemuServer::Monitor qw(mon_cmd);
 use PVE::QemuServer::Machine;
+use PVE::QemuServer::Memory qw(get_current_memory);
 use PVE::QemuServer::PCI;
 use PVE::QemuServer::USB;
 use PVE::QemuMigrate;
@@ -1573,8 +1574,6 @@ my $update_vm_api  = sub {
 
     my $storecfg = PVE::Storage::config();
 
-    my $defaults = PVE::QemuServer::load_defaults();
-
     &$resolve_cdrom_alias($param);
 
     # now try to verify all parameters
@@ -1694,7 +1693,9 @@ my $update_vm_api  = sub {
 	}
 
 	if ($param->{memory} || defined($param->{balloon})) {
-	    my $maxmem = $param->{memory} || $conf->{pending}->{memory} || $conf->{memory} || $defaults->{memory};
+
+	    my $memory = $param->{memory} || $conf->{pending}->{memory} || $conf->{memory};
+	    my $maxmem = get_current_memory($memory);
 	    my $balloon = defined($param->{balloon}) ? $param->{balloon} : $conf->{pending}->{balloon} || $conf->{balloon};
 
 	    die "balloon value too large (must be smaller than assigned memory)\n"

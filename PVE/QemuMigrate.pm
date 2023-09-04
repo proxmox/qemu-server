@@ -26,6 +26,7 @@ use PVE::QemuServer::Drive;
 use PVE::QemuServer::Helpers qw(min_version);
 use PVE::QemuServer::Machine;
 use PVE::QemuServer::Monitor qw(mon_cmd);
+use PVE::QemuServer::Memory qw(get_current_memory);
 use PVE::QemuServer;
 
 use PVE::AbstractMigrate;
@@ -1023,7 +1024,8 @@ sub phase2_start_remote_cluster {
     my $remote_vmid = $self->{opts}->{remote}->{vmid};
 
     # like regular start but with some overhead accounted for
-    my $timeout = PVE::QemuServer::Helpers::config_aware_timeout($self->{vmconf}) + 10;
+    my $memory = get_current_memory($self->{vmconf}->{memory});
+    my $timeout = PVE::QemuServer::Helpers::config_aware_timeout($self->{vmconf}, $memory) + 10;
 
     my $res = PVE::Tunnel::write_tunnel($self->{tunnel}, $timeout, "start", $params);
 
@@ -1178,7 +1180,7 @@ sub phase2 {
     $qemu_migrate_params->{'downtime-limit'} = int($migrate_downtime);
 
     # set cachesize to 10% of the total memory
-    my $memory =  $conf->{memory} || $defaults->{memory};
+    my $memory = get_current_memory($conf->{memory});
     my $cachesize = int($memory * 1048576 / 10);
     $cachesize = round_powerof2($cachesize);
 

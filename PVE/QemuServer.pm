@@ -55,7 +55,7 @@ use PVE::QemuServer::CGroup;
 use PVE::QemuServer::CPUConfig qw(print_cpu_device get_cpu_options);
 use PVE::QemuServer::Drive qw(is_valid_drivename drive_is_cloudinit drive_is_cdrom drive_is_read_only parse_drive print_drive);
 use PVE::QemuServer::Machine;
-use PVE::QemuServer::Memory;
+use PVE::QemuServer::Memory qw(get_current_memory);
 use PVE::QemuServer::Monitor qw(mon_cmd);
 use PVE::QemuServer::PCI qw(print_pci_addr print_pcie_addr print_pcie_root_port parse_hostpci);
 use PVE::QemuServer::QMPHelpers qw(qemu_deviceadd qemu_devicedel qemu_objectadd qemu_objectdel);
@@ -350,11 +350,9 @@ my $confdesc = {
     },
     memory => {
 	optional => 1,
-	type => 'integer',
-	description => "Amount of RAM for the VM in MiB. This is the maximum available memory when"
-	    ." you use the balloon device.",
-	minimum => 16,
-	default => 512,
+	type => 'string',
+	description => "Memory properties.",
+	format => $PVE::QemuServer::Memory::memory_fmt
     },
     balloon => {
 	optional => 1,
@@ -2903,8 +2901,7 @@ sub vmstatus {
 	$d->{cpus} = $conf->{vcpus} if $conf->{vcpus};
 
 	$d->{name} = $conf->{name} || "VM $vmid";
-	$d->{maxmem} = $conf->{memory} ? $conf->{memory}*(1024*1024)
-	    : $defaults->{memory}*(1024*1024);
+	$d->{maxmem} = get_current_memory($conf->{memory})*(1024*1024);
 
 	if ($conf->{balloon}) {
 	    $d->{balloon_min} = $conf->{balloon}*(1024*1024);
@@ -3849,7 +3846,7 @@ sub config_to_command {
     }
 
     PVE::QemuServer::Memory::config(
-	$conf, $vmid, $sockets, $cores, $defaults, $hotplug_features->{memory}, $cmd);
+	$conf, $vmid, $sockets, $cores, $hotplug_features->{memory}, $cmd);
 
     push @$cmd, '-S' if $conf->{freeze};
 
@@ -4987,7 +4984,7 @@ sub vmconfig_hotplug_pending {
 		# enable balloon device is not hotpluggable
 		die "skip\n" if defined($conf->{balloon}) && $conf->{balloon} == 0;
 		# here we reset the ballooning value to memory
-		my $balloon = $conf->{memory} || $defaults->{memory};
+		my $balloon = get_current_memory($conf->{memory});
 		mon_cmd($vmid, "balloon", value => $balloon*1024*1024);
 	    } elsif ($fast_plug_option->{$opt}) {
 		# do nothing
@@ -5000,7 +4997,7 @@ sub vmconfig_hotplug_pending {
 		vmconfig_delete_or_detach_drive($vmid, $storecfg, $conf, $opt, $force);
 	    } elsif ($opt =~ m/^memory$/) {
 		die "skip\n" if !$hotplug_features->{memory};
-		PVE::QemuServer::Memory::qemu_memory_hotplug($vmid, $conf, $defaults);
+		PVE::QemuServer::Memory::qemu_memory_hotplug($vmid, $conf);
 	    } elsif ($opt eq 'cpuunits') {
 		$cgroup->change_cpu_shares(undef);
 	    } elsif ($opt eq 'cpulimit') {
@@ -5055,7 +5052,8 @@ sub vmconfig_hotplug_pending {
 
 		# allow manual ballooning if shares is set to zero
 		if ((defined($conf->{shares}) && ($conf->{shares} == 0))) {
-		    my $balloon = $conf->{pending}->{balloon} || $conf->{memory} || $defaults->{memory};
+		    my $memory = get_current_memory($conf->{memory});
+		    my $balloon = $conf->{pending}->{balloon} || $memory;
 		    mon_cmd($vmid, "balloon", value => $balloon*1024*1024);
 		}
 	    } elsif ($opt =~ m/^net(\d+)$/) {
@@ -5075,7 +5073,7 @@ sub vmconfig_hotplug_pending {
 				     $vmid, $opt, $value, $arch, $machine_type);
 	    } elsif ($opt =~ m/^memory$/) { #dimms
 		die "skip\n" if !$hotplug_features->{memory};
-		$value = PVE::QemuServer::Memory::qemu_memory_hotplug($vmid, $conf, $defaults, $value);
+		$value = PVE::QemuServer::Memory::qemu_memory_hotplug($vmid, $conf, $value);
 	    } elsif ($opt eq 'cpuunits') {
 		my $new_cpuunits = PVE::CGroup::clamp_cpu_shares($conf->{pending}->{$opt}); #clamp
 		$cgroup->change_cpu_shares($new_cpuunits);
@@ -5740,7 +5738,8 @@ sub vm_start_nolock {
 	push @$cmd, '-S';
     }
 
-    my $start_timeout = $params->{timeout} // config_aware_timeout($conf, $resume);
+    my $memory = get_current_memory($conf->{memory});
+    my $start_timeout = $params->{timeout} // config_aware_timeout($conf, $memory, $resume);
 
     my $pci_reserve_list = [];
     for my $device (values $pci_devices->%*) {

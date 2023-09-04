@@ -144,8 +144,7 @@ sub version_cmp {
 }
 
 sub config_aware_timeout {
-    my ($config, $is_suspended) = @_;
-    my $memory = $config->{memory};
+    my ($config, $memory, $is_suspended) = @_;
     my $timeout = 30;
 
     # Based on user reported startup time for vm with 512GiB @ 4-5 minutes

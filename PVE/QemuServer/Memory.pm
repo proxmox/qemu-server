@@ -7,10 +7,15 @@ use PVE::JSONSchema qw(parse_property_string);
 use PVE::Tools qw(run_command lock_file lock_file_full file_read_firstline dir_glob_foreach);
 use PVE::Exception qw(raise raise_param_exc);
 
-use PVE::QemuServer;
 use PVE::QemuServer::Helpers qw(parse_number_sets);
 use PVE::QemuServer::Monitor qw(mon_cmd);
 use PVE::QemuServer::QMPHelpers qw(qemu_devicedel qemu_objectdel);
+
+use base qw(Exporter);
+
+our @EXPORT_OK = qw(
+get_current_memory
+);
 
 our $MAX_NUMA = 8;
 
@@ -58,6 +63,33 @@ sub parse_numa {
 }
 
 my $STATICMEM = 1024;
+
+our $memory_fmt = {
+    current => {
+	description => "Current amount of online RAM for the VM in MiB. This is the maximum available memory when"
+	    ." you use the balloon device.",
+	type => 'integer',
+	default_key => 1,
+	minimum => 16,
+	default => 512,
+    },
+};
+
+sub print_memory {
+    my $memory = shift;
+
+    return PVE::JSONSchema::print_property_string($memory, $memory_fmt);
+}
+
+sub parse_memory {
+    my ($value) = @_;
+
+    return { current => $memory_fmt->{current}->{default} } if !defined($value);
+
+    my $res = PVE::JSONSchema::parse_property_string($memory_fmt, $value);
+
+    return $res;
+}
 
 my $_host_bits;
 sub get_host_phys_address_bits {
@@ -108,6 +140,13 @@ my sub get_max_mem {
     my $bits_to_max_mem = int(1<<($bits - 21));
 
     return $bits_to_max_mem > 4*1024*1024 ? 4*1024*1024 : $bits_to_max_mem;
+}
+
+sub get_current_memory {
+    my ($value) = @_;
+
+    my $memory = parse_memory($value);
+    return $memory->{current};
 }
 
 sub get_numa_node_list {
@@ -174,16 +213,19 @@ sub foreach_dimm{
 }
 
 sub qemu_memory_hotplug {
-    my ($vmid, $conf, $defaults, $value) = @_;
+    my ($vmid, $conf, $value) = @_;
 
     return $value if !PVE::QemuServer::Helpers::vm_running_locally($vmid);
 
+    my $oldmem = parse_memory($conf->{memory});
+    my $newmem = parse_memory($value);
+
+    return $value if $newmem->{current} == $oldmem->{current};
+
+    my $memory = $oldmem->{current};
+    $value = $newmem->{current};
+
     my $sockets = $conf->{sockets} || 1;
-
-    my $memory = $conf->{memory} || $defaults->{memory};
-    $value = $defaults->{memory} if !$value;
-    return $value if $value == $memory;
-
     my $static_memory = $STATICMEM;
     $static_memory = $static_memory * $sockets if ($conf->{hugepages} && $conf->{hugepages} == 1024);
 
@@ -198,7 +240,7 @@ sub qemu_memory_hotplug {
 	foreach_dimm($conf, $vmid, $value, $static_memory, sub {
 	    my ($conf, $vmid, $name, $dimm_size, $numanode, $current_size, $memory) = @_;
 
-		return if $current_size <= $conf->{memory};
+		return if $current_size <= get_current_memory($conf->{memory});
 
 		if ($conf->{hugepages}) {
 		    $numa_hostmap = get_numa_guest_to_host_map($conf) if !$numa_hostmap;
@@ -237,7 +279,8 @@ sub qemu_memory_hotplug {
 		    die $err;
 		}
 		#update conf after each succesful module hotplug
-		$conf->{memory} = $current_size;
+		$newmem->{current} = $current_size;
+		$conf->{memory} = print_memory($newmem);
 		PVE::QemuConfig->write_config($vmid, $conf);
 	});
 
@@ -265,7 +308,8 @@ sub qemu_memory_hotplug {
 	    }
 	    $current_size -= $dimm_size;
 	    #update conf after each succesful module unplug
-	    $conf->{memory} = $current_size;
+            $newmem->{current} = $current_size;
+            $conf->{memory} = print_memory($newmem);
 
 	    eval { qemu_objectdel($vmid, "mem-$name"); };
 	    PVE::QemuConfig->write_config($vmid, $conf);
@@ -292,9 +336,9 @@ sub qemu_memdevices_list {
 }
 
 sub config {
-    my ($conf, $vmid, $sockets, $cores, $defaults, $hotplug, $cmd) = @_;
+    my ($conf, $vmid, $sockets, $cores, $hotplug, $cmd) = @_;
 
-    my $memory = $conf->{memory} || $defaults->{memory};
+    my $memory = get_current_memory($conf->{memory});
     my $static_memory = 0;
 
     if ($hotplug) {
@@ -515,8 +559,7 @@ sub hugepages_topology {
 
     return if !$conf->{numa};
 
-    my $defaults = PVE::QemuServer::load_defaults();
-    my $memory = $conf->{memory} || $defaults->{memory};
+    my $memory = get_current_memory($conf->{memory});
     my $static_memory = 0;
     my $sockets = $conf->{sockets} || 1;
     my $numa_custom_topology = undef;

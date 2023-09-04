@@ -12,6 +12,7 @@ use PVE::QemuServer::Helpers;
 use PVE::QemuServer::Monitor qw(mon_cmd);
 use PVE::QemuServer;
 use PVE::QemuServer::Machine;
+use PVE::QemuServer::Memory qw(get_current_memory);
 use PVE::Storage;
 use PVE::Tools;
 use PVE::Format qw(render_bytes render_duration);
@@ -208,8 +209,7 @@ sub __snapshot_save_vmstate {
 	$target = PVE::QemuServer::find_vmstate_storage($conf, $storecfg);
     }
 
-    my $defaults = PVE::QemuServer::load_defaults();
-    my $mem_size = $conf->{memory} // $defaults->{memory};
+    my $mem_size = get_current_memory($conf->{memory});
     my $driver_state_size = 500; # assume 500MB is enough to safe all driver state;
     # our savevm-start does live-save of the memory until the space left in the
     # volume is just enough for the remaining memory content + internal state
@@ -549,8 +549,8 @@ sub get_derived_property {
 	my $cpus =
 	    ($conf->{sockets} || $defaults->{sockets}) * ($conf->{cores} || $defaults->{cores});
 	return $conf->{vcpus} || $cpus;
-    } elsif ($name eq 'max-memory') {
-	return ($conf->{memory} || $defaults->{memory}) * 1024 * 1024;
+    } elsif ($name eq 'max-memory') { # current usage maximum, not maximum hotpluggable
+	return get_current_memory($conf->{memory}) * 1024 * 1024;
     } else {
 	die "unknown derived property - $name\n";
     }
