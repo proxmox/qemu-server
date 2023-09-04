@@ -49,7 +49,7 @@ use PVE::Tools qw(run_command file_read_firstline file_get_contents dir_glob_for
 
 use PVE::QMPClient;
 use PVE::QemuConfig;
-use PVE::QemuServer::Helpers qw(config_aware_timeout min_version parse_number_sets windows_version);
+use PVE::QemuServer::Helpers qw(config_aware_timeout min_version windows_version);
 use PVE::QemuServer::Cloudinit;
 use PVE::QemuServer::CGroup;
 use PVE::QemuServer::CPUConfig qw(print_cpu_device get_cpu_options);
@@ -842,44 +842,9 @@ while (my ($k, $v) = each %$confdesc) {
 my $MAX_NETS = 32;
 my $MAX_SERIAL_PORTS = 4;
 my $MAX_PARALLEL_PORTS = 3;
-my $MAX_NUMA = 8;
 
-my $numa_fmt = {
-    cpus => {
-	type => "string",
-	pattern => qr/\d+(?:-\d+)?(?:;\d+(?:-\d+)?)*/,
-	description => "CPUs accessing this NUMA node.",
-	format_description => "id[-id];...",
-    },
-    memory => {
-	type => "number",
-	description => "Amount of memory this NUMA node provides.",
-	optional => 1,
-    },
-    hostnodes => {
-	type => "string",
-	pattern => qr/\d+(?:-\d+)?(?:;\d+(?:-\d+)?)*/,
-	description => "Host NUMA nodes to use.",
-	format_description => "id[-id];...",
-	optional => 1,
-    },
-    policy => {
-	type => 'string',
-	enum => [qw(preferred bind interleave)],
-	description => "NUMA allocation policy.",
-	optional => 1,
-    },
-};
-PVE::JSONSchema::register_format('pve-qm-numanode', $numa_fmt);
-my $numadesc = {
-    optional => 1,
-    type => 'string', format => $numa_fmt,
-    description => "NUMA topology.",
-};
-PVE::JSONSchema::register_standard_option("pve-qm-numanode", $numadesc);
-
-for (my $i = 0; $i < $MAX_NUMA; $i++)  {
-    $confdesc->{"numa$i"} = $numadesc;
+for (my $i = 0; $i < $PVE::QemuServer::Memory::MAX_NUMA; $i++)  {
+    $confdesc->{"numa$i"} = $PVE::QemuServer::Memory::numadesc;
 }
 
 my $nic_model_list = [
@@ -1928,15 +1893,6 @@ sub print_vga_device {
     }
 
     return "$type,id=${vgaid}${memory}${max_outputs}${pciaddr}${edidoff}";
-}
-
-sub parse_numa {
-    my ($data) = @_;
-
-    my $res = parse_property_string($numa_fmt, $data);
-    $res->{cpus} = parse_number_sets($res->{cpus}) if defined($res->{cpus});
-    $res->{hostnodes} = parse_number_sets($res->{hostnodes}) if defined($res->{hostnodes});
-    return $res;
 }
 
 # netX: e1000=XX:XX:XX:XX:XX:XX,bridge=vmbr0,rate=<mbps>

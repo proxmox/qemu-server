@@ -3,13 +3,59 @@ package PVE::QemuServer::Memory;
 use strict;
 use warnings;
 
+use PVE::JSONSchema qw(parse_property_string);
 use PVE::Tools qw(run_command lock_file lock_file_full file_read_firstline dir_glob_foreach);
 use PVE::Exception qw(raise raise_param_exc);
 
 use PVE::QemuServer;
+use PVE::QemuServer::Helpers qw(parse_number_sets);
 use PVE::QemuServer::Monitor qw(mon_cmd);
 
-my $MAX_NUMA = 8;
+our $MAX_NUMA = 8;
+
+my $numa_fmt = {
+    cpus => {
+	type => "string",
+	pattern => qr/\d+(?:-\d+)?(?:;\d+(?:-\d+)?)*/,
+	description => "CPUs accessing this NUMA node.",
+	format_description => "id[-id];...",
+    },
+    memory => {
+	type => "number",
+	description => "Amount of memory this NUMA node provides.",
+	optional => 1,
+    },
+    hostnodes => {
+	type => "string",
+	pattern => qr/\d+(?:-\d+)?(?:;\d+(?:-\d+)?)*/,
+	description => "Host NUMA nodes to use.",
+	format_description => "id[-id];...",
+	optional => 1,
+    },
+    policy => {
+	type => 'string',
+	enum => [qw(preferred bind interleave)],
+	description => "NUMA allocation policy.",
+	optional => 1,
+    },
+};
+PVE::JSONSchema::register_format('pve-qm-numanode', $numa_fmt);
+our $numadesc = {
+    optional => 1,
+    type => 'string', format => $numa_fmt,
+    description => "NUMA topology.",
+};
+PVE::JSONSchema::register_standard_option("pve-qm-numanode", $numadesc);
+
+sub parse_numa {
+    my ($data) = @_;
+
+    my $res = parse_property_string($numa_fmt, $data);
+    $res->{cpus} = parse_number_sets($res->{cpus}) if defined($res->{cpus});
+    $res->{hostnodes} = parse_number_sets($res->{hostnodes}) if defined($res->{hostnodes});
+    return $res;
+}
+
 my $STATICMEM = 1024;
 
 my $_host_bits;
@@ -68,7 +114,7 @@ sub get_numa_node_list {
     my @numa_map;
     for (my $i = 0; $i < $MAX_NUMA; $i++) {
 	my $entry = $conf->{"numa$i"} or next;
-	my $numa = PVE::QemuServer::parse_numa($entry) or next;
+	my $numa = parse_numa($entry) or next;
 	push @numa_map, $i;
     }
     return @numa_map if @numa_map;
@@ -88,7 +134,7 @@ sub get_numa_guest_to_host_map {
     my $map = {};
     for (my $i = 0; $i < $MAX_NUMA; $i++) {
 	my $entry = $conf->{"numa$i"} or next;
-	my $numa = PVE::QemuServer::parse_numa($entry) or next;
+	my $numa = parse_numa($entry) or next;
 	$map->{$i} = print_numa_hostnodes($numa->{hostnodes});
     }
     return $map if %$map;
@@ -281,7 +327,7 @@ sub config {
 	my $numa_totalmemory = undef;
 	for (my $i = 0; $i < $MAX_NUMA; $i++) {
 	    next if !$conf->{"numa$i"};
-	    my $numa = PVE::QemuServer::parse_numa($conf->{"numa$i"});
+	    my $numa = parse_numa($conf->{"numa$i"});
 	    next if !$numa;
 	    # memory
 	    die "missing NUMA node$i memory value\n" if !$numa->{memory};
@@ -484,7 +530,7 @@ sub hugepages_topology {
     #custom numa topology
     for (my $i = 0; $i < $MAX_NUMA; $i++) {
 	next if !$conf->{"numa$i"};
-	my $numa = PVE::QemuServer::parse_numa($conf->{"numa$i"});
+	my $numa = parse_numa($conf->{"numa$i"});
 	next if !$numa;
 
 	$numa_custom_topology = 1;
