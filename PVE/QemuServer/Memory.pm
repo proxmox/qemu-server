@@ -175,7 +175,7 @@ sub foreach_dimm{
 sub qemu_memory_hotplug {
     my ($vmid, $conf, $defaults, $value) = @_;
 
-    return $value if !PVE::QemuServer::check_running($vmid);
+    return $value if !PVE::QemuServer::Helpers::vm_running_locally($vmid);
 
     my $sockets = $conf->{sockets} || 1;
 
