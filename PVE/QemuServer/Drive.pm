@@ -319,7 +319,7 @@ my %efitype_fmt = (
 	enum => [qw(2m 4m)],
 	description => "Size and type of the OVMF EFI vars. '4m' is newer and recommended,"
 	    . " and required for Secure Boot. For backwards compatibility, '2m' is used"
-	    . " if not otherwise specified. Ignored for VMs with arch=aarc64 (ARM).",
+	    . " if not otherwise specified. Ignored for VMs with arch=aarch64 (ARM).",
 	optional => 1,
 	default => '2m',
     },
