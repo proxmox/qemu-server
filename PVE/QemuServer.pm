@@ -7366,9 +7366,6 @@ sub restore_vma_archive {
 
     $add_pipe->(['vma', 'extract', '-v', '-r', $mapfifo, $readfrom, $tmpdir]);
 
-    my $oldtimeout;
-    my $timeout = 5; # for reading the VMA header - might hang with a corrupted one
-
     my $devinfo = {}; # info about drives included in backup
     my $virtdev_hash = {}; # info about allocated drives
 
@@ -7462,6 +7459,8 @@ sub restore_vma_archive {
 	$fh->close();
     };
 
+    my $oldtimeout;
+
     eval {
 	# enable interrupts
 	local $SIG{INT} =
@@ -7471,7 +7470,7 @@ sub restore_vma_archive {
 	    local $SIG{PIPE} = sub { die "interrupted by signal\n"; };
 	local $SIG{ALRM} = sub { die "got timeout\n"; };
 
-	$oldtimeout = alarm($timeout);
+	$oldtimeout = alarm(5); # for reading the VMA header - might hang with a corrupted one
 
 	my $parser = sub {
 	    my $line = shift;
