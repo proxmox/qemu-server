@@ -7367,7 +7367,7 @@ sub restore_vma_archive {
     $add_pipe->(['vma', 'extract', '-v', '-r', $mapfifo, $readfrom, $tmpdir]);
 
     my $oldtimeout;
-    my $timeout = 5;
+    my $timeout = 5; # for reading the VMA header - might hang with a corrupted one
 
     my $devinfo = {}; # info about drives included in backup
     my $virtdev_hash = {}; # info about allocated drives
