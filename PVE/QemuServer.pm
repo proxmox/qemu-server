@@ -7483,14 +7483,11 @@ sub restore_vma_archive {
 		$devinfo->{$devname} = { size => $size, dev_id => $dev_id };
 	    } elsif ($line =~ m/^CTIME: /) {
 		# we correctly received the vma config, so we can disable
-		# the timeout now for disk allocation (set to 10 minutes, so
-		# that we always timeout if something goes wrong)
-		alarm(600);
+		# the timeout now for disk allocation
+		alarm($oldtimeout || 0);
+		$oldtimeout = undef;
 		&$print_devmap();
 		print $fifofh "done\n";
-		my $tmp = $oldtimeout || 0;
-		$oldtimeout = undef;
-		alarm($tmp);
 		close($fifofh);
 		$fifofh = undef;
 	    }
