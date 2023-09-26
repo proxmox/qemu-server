@@ -8546,9 +8546,9 @@ sub add_nets_bridge_fdb {
 	    next;
 	}
 	if ($have_sdn) {
-	    PVE::Network::SDN::Zones::add_bridge_fdb($iface, $mac, $bridge, $net->{firewall});
+	    PVE::Network::SDN::Zones::add_bridge_fdb($iface, $mac, $bridge);
 	} elsif (-d "/sys/class/net/$bridge/bridge") { # avoid fdb management with OVS for now
-	    PVE::Network::add_bridge_fdb($iface, $mac, $net->{firewall});
+	    PVE::Network::add_bridge_fdb($iface, $mac);
 	}
     }
 }
@@ -8565,9 +8565,9 @@ sub del_nets_bridge_fdb {
 
 	my $bridge = $net->{bridge};
 	if ($have_sdn) {
-	    PVE::Network::SDN::Zones::del_bridge_fdb($iface, $mac, $bridge, $net->{firewall});
+	    PVE::Network::SDN::Zones::del_bridge_fdb($iface, $mac, $bridge);
 	} elsif (-d "/sys/class/net/$bridge/bridge") { # avoid fdb management with OVS for now
-	    PVE::Network::del_bridge_fdb($iface, $mac, $net->{firewall});
+	    PVE::Network::del_bridge_fdb($iface, $mac);
 	}
     }
 }
