@@ -1477,7 +1477,13 @@ sub phase3_cleanup {
 	    $self->log('info', "stopping NBD storage migration server on target.");
 	    # stop nbd server on remote vm - requirement for resume since 2.9
 	    if ($tunnel && $tunnel->{version} && $tunnel->{version} >= 2) {
-		PVE::Tunnel::write_tunnel($tunnel, 30, 'nbdstop');
+		eval {
+		    PVE::Tunnel::write_tunnel($tunnel, 30, 'nbdstop');
+		};
+		if (my $err = $@) {
+		    $self->log('err', $err);
+		    $self->{errors} = 1;
+		}
 	    } else {
 		my $cmd = [@{$self->{rem_ssh}}, 'qm', 'nbdstop', $vmid];
 
