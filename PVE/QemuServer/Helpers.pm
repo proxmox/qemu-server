@@ -152,6 +152,13 @@ sub config_aware_timeout {
 	$timeout = int($memory/1024);
     }
 
+    # When using PCI passthrough, users reported much higher startup times,
+    # growing with the amount of memory configured. Constant factor chosen
+    # based on user reports.
+    if (grep(/^hostpci[0-9]+$/, keys %$config)) {
+	$timeout *= 4;
+    }
+
     if ($is_suspended && $timeout < 300) {
 	$timeout = 300;
     }
