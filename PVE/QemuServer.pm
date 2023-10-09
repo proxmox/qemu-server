@@ -8503,7 +8503,11 @@ sub vm_is_paused {
 	mon_cmd($vmid, "query-status");
     };
     warn "$@\n" if $@;
-    return $qmpstatus && $qmpstatus->{status} eq "paused";
+    return $qmpstatus && (
+	$qmpstatus->{status} eq "paused" ||
+	$qmpstatus->{status} eq "suspended" ||
+	$qmpstatus->{status} eq "prelaunch"
+    );
 }
 
 sub check_volume_storage_type {
