@@ -3081,12 +3081,8 @@ __PACKAGE__->register_method({
 
 	my $shutdown = 1;
 
-	# if vm is paused, do not shutdown (but stop if forceStop = 1)
-	# otherwise, we will infer a shutdown command, but run into the timeout,
-	# then when the vm is resumed, it will instantly shutdown
-	#
-	# checking the qmp status here to get feedback to the gui/cli/api
-	# and the status query should not take too long
+	# sending a graceful shutdown command to paused VMs runs into timeouts, and even worse, when
+	# the VM gets resumed later, it still gets the request delivered and powers off
 	if (PVE::QemuServer::vm_is_paused($vmid)) {
 	    if ($param->{forceStop}) {
 		warn "VM is paused - stop instead of shutdown\n";
