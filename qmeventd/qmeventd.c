@@ -272,8 +272,12 @@ handle_qmp_return(struct Client *client, struct json_object *data, bool error)
     bool active = false;
     if (has_status) {
 	const char *status_str = json_object_get_string(status);
-	active = status_str &&
-	    (!strcmp(status_str, "running") || !strcmp(status_str, "paused"));
+	active = status_str && (
+	    !strcmp(status_str, "running")
+	    || !strcmp(status_str, "paused")
+	    || !strcmp(status_str, "suspended")
+	    || !strcmp(status_str, "prelaunch")
+	);
     }
 
     switch (client->state) {
