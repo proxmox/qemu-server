@@ -5046,7 +5046,7 @@ sub vmconfig_hotplug_pending {
 	my $force = $pending_delete_hash->{$opt}->{force};
 	eval {
 	    if ($opt eq 'hotplug') {
-		die "skip\n" if ($conf->{hotplug} =~ /memory/);
+		die "skip\n" if ($conf->{hotplug} =~ /(cpu|memory)/);
 	    } elsif ($opt eq 'tablet') {
 		die "skip\n" if !$hotplug_features->{usb};
 		if ($defaults->{tablet}) {
@@ -5107,6 +5107,7 @@ sub vmconfig_hotplug_pending {
 	eval {
 	    if ($opt eq 'hotplug') {
 		die "skip\n" if ($value =~ /memory/) || ($value !~ /memory/ && $conf->{hotplug} =~ /memory/);
+		die "skip\n" if ($value =~ /cpu/) || ($value !~ /cpu/ && $conf->{hotplug} =~ /cpu/);
 	    } elsif ($opt eq 'tablet') {
 		die "skip\n" if !$hotplug_features->{usb};
 		if ($value == 1) {
