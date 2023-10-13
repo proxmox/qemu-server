@@ -224,7 +224,9 @@ sub prepare {
 	    }
 	}
 
-	$self->{vm_was_paused} = 1 if PVE::QemuServer::vm_is_paused($vmid);
+	# Do not treat a suspended VM as paused, as it might wake up
+	# during migration and remain paused after migration finishes.
+	$self->{vm_was_paused} = 1 if PVE::QemuServer::vm_is_paused($vmid, 0);
     }
 
     my ($loc_res, $mapped_res, $missing_mappings_by_node) = PVE::QemuServer::check_local_resources($conf, 1);

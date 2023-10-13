@@ -8497,7 +8497,7 @@ sub complete_migration_storage {
 }
 
 sub vm_is_paused {
-    my ($vmid) = @_;
+    my ($vmid, $include_suspended) = @_;
     my $qmpstatus = eval {
 	PVE::QemuConfig::assert_config_exists_on_node($vmid);
 	mon_cmd($vmid, "query-status");
@@ -8505,8 +8505,8 @@ sub vm_is_paused {
     warn "$@\n" if $@;
     return $qmpstatus && (
 	$qmpstatus->{status} eq "paused" ||
-	$qmpstatus->{status} eq "suspended" ||
-	$qmpstatus->{status} eq "prelaunch"
+	$qmpstatus->{status} eq "prelaunch" ||
+	($include_suspended && $qmpstatus->{status} eq "suspended")
     );
 }
 

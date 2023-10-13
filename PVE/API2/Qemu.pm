@@ -3084,7 +3084,7 @@ __PACKAGE__->register_method({
 
 	# sending a graceful shutdown command to paused VMs runs into timeouts, and even worse, when
 	# the VM gets resumed later, it still gets the request delivered and powers off
-	if (PVE::QemuServer::vm_is_paused($vmid)) {
+	if (PVE::QemuServer::vm_is_paused($vmid, 1)) {
 	    if ($param->{forceStop}) {
 		warn "VM is paused - stop instead of shutdown\n";
 		$shutdown = 0;
@@ -3160,7 +3160,7 @@ __PACKAGE__->register_method({
 	my $node = extract_param($param, 'node');
 	my $vmid = extract_param($param, 'vmid');
 
-	die "VM is paused - cannot shutdown\n" if PVE::QemuServer::vm_is_paused($vmid);
+	die "VM is paused - cannot shutdown\n" if PVE::QemuServer::vm_is_paused($vmid, 1);
 
 	die "VM $vmid not running\n" if !PVE::QemuServer::check_running($vmid);
 
