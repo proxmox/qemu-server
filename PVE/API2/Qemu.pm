@@ -2157,7 +2157,7 @@ __PACKAGE__->register_method({
 	    websocket => {
 		optional => 1,
 		type => 'boolean',
-		description => "starts websockify instead of vncproxy",
+		description => "Prepare for websocket upgrade.",
 	    },
 	    'generate-password' => {
 		optional => 1,
