@@ -2267,7 +2267,8 @@ __PACKAGE__->register_method({
 	    websocket => {
 		optional => 1,
 		type => 'boolean',
-		description => "Prepare for websocket upgrade.",
+		description => "Prepare for websocket upgrade (only required when using "
+		    ."serial terminal, otherwise upgrade is always possible).",
 	    },
 	    'generate-password' => {
 		optional => 1,
@@ -2365,7 +2366,7 @@ __PACKAGE__->register_method({
 
 	    } else {
 
-		$ENV{LC_PVE_TICKET} = $password if $websocket; # set ticket with "qm vncproxy"
+		$ENV{LC_PVE_TICKET} = $password; # set ticket with "qm vncproxy"
 
 		$cmd = [@$remcmd, "/usr/sbin/qm", 'vncproxy', $vmid];
 
