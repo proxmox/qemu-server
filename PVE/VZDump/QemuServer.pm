@@ -222,10 +222,8 @@ sub assemble {
     my $firewall_src = "/etc/pve/firewall/$vmid.fw";
     my $firewall_dest = "$task->{tmpdir}/qemu-server.fw";
 
-    my $outfd = IO::File->new (">$outfile") ||
-	die "unable to open '$outfile'";
-    my $conffd = IO::File->new ($conffile, 'r') ||
-	die "unable open '$conffile'";
+    my $outfd = IO::File->new(">$outfile") or die "unable to open '$outfile' - $!\n";
+    my $conffd = IO::File->new($conffile, 'r') or die "unable to open '$conffile' - $!\n";
 
     my $found_snapshot;
     my $found_pending;
