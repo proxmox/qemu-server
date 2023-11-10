@@ -29,11 +29,12 @@ sub current_from_query_machines {
 	    $current = $machine->{name};
 	    # pve-version only exists for the current machine
 	    $current .= "+$machine->{'pve-version'}" if $machine->{'pve-version'};
+	    return $current;
 	}
     }
 
     # fallback to the default machine if current is not supported by qemu
-    return $current || $default || 'pc';
+    return $default || 'pc';
 }
 
 # this only works if VM is running
