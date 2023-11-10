@@ -19,13 +19,13 @@ sub machine_type_is_q35 {
 }
 
 sub current_from_query_machines {
-    my ($res) = @_;
+    my ($machines) = @_;
 
     my ($current, $pve_version, $default);
-    foreach my $e (@$res) {
-	$default = $e->{name} if $e->{'is-default'};
-	$current = $e->{name} if $e->{'is-current'};
-	$pve_version = $e->{'pve-version'} if $e->{'pve-version'};
+    for my $machine ($machines->@*) {
+	$default = $machine->{name} if $machine->{'is-default'};
+	$current = $machine->{name} if $machine->{'is-current'};
+	$pve_version = $machine->{'pve-version'} if $machine->{'pve-version'};
     }
 
     $current .= "+$pve_version" if $current && $pve_version;
