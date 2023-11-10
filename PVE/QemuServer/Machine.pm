@@ -21,14 +21,16 @@ sub machine_type_is_q35 {
 sub current_from_query_machines {
     my ($machines) = @_;
 
-    my ($current, $pve_version, $default);
+    my ($current, $default);
     for my $machine ($machines->@*) {
 	$default = $machine->{name} if $machine->{'is-default'};
-	$current = $machine->{name} if $machine->{'is-current'};
-	$pve_version = $machine->{'pve-version'} if $machine->{'pve-version'};
-    }
 
-    $current .= "+$pve_version" if $current && $pve_version;
+	if ($machine->{'is-current'}) {
+	    $current = $machine->{name};
+	    # pve-version only exists for the current machine
+	    $current .= "+$machine->{'pve-version'}" if $machine->{'pve-version'};
+	}
+    }
 
     # fallback to the default machine if current is not supported by qemu
     return $current || $default || 'pc';
