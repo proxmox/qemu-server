@@ -6021,6 +6021,15 @@ sub vm_start_nolock {
 
     PVE::GuestHelpers::exec_hookscript($conf, $vmid, 'post-start');
 
+    my ($current_machine, $is_deprecated) =
+	PVE::QemuServer::Machine::get_current_qemu_machine($vmid);
+    if ($is_deprecated) {
+	log_warn(
+	    "current machine version '$current_machine' is deprecated - see the documentation and ".
+	    "change to a newer one",
+	);
+    }
+
     return $res;
 }
 
