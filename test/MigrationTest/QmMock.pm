@@ -23,6 +23,7 @@ my $migrate_params = decode_json(file_get_contents("${RUN_DIR_PATH}/migrate_para
 my $nodename = $migrate_params->{target};
 
 my $kvm_exectued = 0;
+my $forcemachine;
 
 sub setup_environment {
     my $rpcenv = PVE::RPCEnvironment::init('MigrationTest::QmMock', 'cli');
@@ -56,12 +57,25 @@ $MigrationTest::Shared::qemu_server_module->mock(
     config_to_command => sub {
 	return [ 'mocked_kvm_command' ];
     },
+    vm_start_nolock => sub {
+	my ($storecfg, $vmid, $conf, $params, $migrate_opts) = @_;
+	$forcemachine = $params->{forcemachine}
+	    or die "mocked vm_start_nolock - expected 'forcemachine' parameter\n";
+	$MigrationTest::Shared::qemu_server_module->original('vm_start_nolock')->(@_);
+    },
 );
 
 my $qemu_server_helpers_module = Test::MockModule->new("PVE::QemuServer::Helpers");
 $qemu_server_helpers_module->mock(
     vm_running_locally => sub {
 	return $kvm_exectued;
+    },
+);
+
+our $qemu_server_machine_module = Test::MockModule->new("PVE::QemuServer::Machine");
+$qemu_server_machine_module->mock(
+    get_current_qemu_machine => sub {
+	return wantarray ? ($forcemachine, 0) : $forcemachine;
     },
 );
 
