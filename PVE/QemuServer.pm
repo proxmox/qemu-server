@@ -86,6 +86,9 @@ my $OVMF = {
 	    "$EDK2_FW_BASE/OVMF_CODE_4M.secboot.fd",
 	    "$EDK2_FW_BASE/OVMF_VARS_4M.ms.fd",
 	],
+	# FIXME: These are legacy 2MB-sized images that modern OVMF doesn't supports to build
+	# anymore. how can we deperacate this sanely without breaking existing instances, or using
+	# older backups and snapshot?
 	default => [
 	    "$EDK2_FW_BASE/OVMF_CODE.fd",
 	    "$EDK2_FW_BASE/OVMF_VARS.fd",
@@ -3343,9 +3346,13 @@ sub get_ovmf_files($$$) {
 	or die "no OVMF images known for architecture '$arch'\n";
 
     my $type = 'default';
-    if ($arch ne "aarch64" && defined($efidisk->{efitype}) && $efidisk->{efitype} eq '4m') {
-	$type = $smm ? "4m" : "4m-no-smm";
-	$type .= '-ms' if $efidisk->{'pre-enrolled-keys'};
+    if ($arch eq 'x86_64') {
+	if (defined($efidisk->{efitype}) && $efidisk->{efitype} eq '4m') {
+	    $type = $smm ? "4m" : "4m-no-smm";
+	    $type .= '-ms' if $efidisk->{'pre-enrolled-keys'};
+	} else {
+	    # TODO: log_warn about use of legacy images for x86_64 with Promxox VE 9
+	}
     }
 
     my ($ovmf_code, $ovmf_vars) = $types->{$type}->@*;
