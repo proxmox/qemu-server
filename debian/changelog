@@ -1,3 +1,22 @@
+qemu-server (8.0.8) bookworm; urgency=medium
+
+  * fix #2816: restore: remove timeout when allocating disks
+
+  * start: increase maximal timeout if using PCI passthrough
+
+  * fix #4522: api: vncproxy: also set environment variable for the ticket
+    if the websocket option is not set
+
+  * backup, migrate: fix races with suspended VMs that can wake up
+
+  * cpu hotplug: cannot change feature online, so keep these as pending change
+
+  * nbd-stop: increase timeout to 25s
+
+  * start: add warning if a deprecated machine version is configured
+
+ -- Proxmox Support Team <support@proxmox.com>  Sun, 12 Nov 2023 18:54:37 +0100
+
 qemu-server (8.0.7) bookworm; urgency=medium
 
   * fix #4822: vzdump: fix PBS encryption for guests without disks
