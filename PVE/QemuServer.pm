@@ -199,6 +199,13 @@ my $vga_fmt = {
 	minimum => 4,
 	maximum => 512,
     },
+    clipboard => {
+	description => 'Enable a specific clipboard. If not set, depending on'
+	    .' the display type the SPICE one will be added.',
+	type => 'string',
+	enum => ['vnc'],
+	optional => 1,
+    },
 };
 
 my $ivshmem_fmt = {
@@ -1340,6 +1347,21 @@ sub pve_verify_hotplug_features {
     return if $noerr;
 
     die "unable to parse hotplug option\n";
+}
+
+sub assert_clipboard_config {
+    my ($vga) = @_;
+
+    my $clipboard_regex = qr/^(std|cirrus|vmware|virtio|qxl)/;
+
+    if (
+	$vga->{'clipboard'}
+	&& $vga->{'clipboard'} eq 'vnc'
+	&& $vga->{type}
+	&& $vga->{type} !~ $clipboard_regex
+    ) {
+	die "vga type $vga->{type} is not compatible with VNC clipboard\n";
+    }
 }
 
 sub scsi_inquiry {
@@ -3892,7 +3914,10 @@ sub config_to_command {
 
     my $spice_port;
 
-    if ($qxlnum || $vga->{type} =~ /^virtio/) {
+    assert_clipboard_config($vga);
+    my $is_spice = $qxlnum || $vga->{type} =~ /^virtio/;
+
+    if ($is_spice || ($vga->{'clipboard'} && $vga->{'clipboard'} eq 'vnc')) {
 	if ($qxlnum > 1) {
 	    if ($winversion){
 		for (my $i = 1; $i < $qxlnum; $i++){
@@ -3913,29 +3938,34 @@ sub config_to_command {
 
 	my $pciaddr = print_pci_addr("spice", $bridges, $arch, $machine_type);
 
-	my $pfamily = PVE::Tools::get_host_address_family($nodename);
-	my @nodeaddrs = PVE::Tools::getaddrinfo_all('localhost', family => $pfamily);
-	die "failed to get an ip address of type $pfamily for 'localhost'\n" if !@nodeaddrs;
-
 	push @$devices, '-device', "virtio-serial,id=spice$pciaddr";
-	push @$devices, '-chardev', "spicevmc,id=vdagent,name=vdagent";
+	if ($vga->{'clipboard'} && $vga->{'clipboard'} eq 'vnc') {
+	    push @$devices, '-chardev', 'qemu-vdagent,id=vdagent,name=vdagent,clipboard=on';
+	} else {
+	    push @$devices, '-chardev', 'spicevmc,id=vdagent,name=vdagent';
+	}
 	push @$devices, '-device', "virtserialport,chardev=vdagent,name=com.redhat.spice.0";
 
-	my $localhost = PVE::Network::addr_to_ip($nodeaddrs[0]->{addr});
-	$spice_port = PVE::Tools::next_spice_port($pfamily, $localhost);
+	if ($is_spice) {
+	    my $pfamily = PVE::Tools::get_host_address_family($nodename);
+	    my @nodeaddrs = PVE::Tools::getaddrinfo_all('localhost', family => $pfamily);
+	    die "failed to get an ip address of type $pfamily for 'localhost'\n" if !@nodeaddrs;
 
-	my $spice_enhancement_str = $conf->{spice_enhancements} // '';
-	my $spice_enhancement = parse_property_string($spice_enhancements_fmt, $spice_enhancement_str);
-	if ($spice_enhancement->{foldersharing}) {
-	    push @$devices, '-chardev', "spiceport,id=foldershare,name=org.spice-space.webdav.0";
-	    push @$devices, '-device', "virtserialport,chardev=foldershare,name=org.spice-space.webdav.0";
+	    my $localhost = PVE::Network::addr_to_ip($nodeaddrs[0]->{addr});
+	    $spice_port = PVE::Tools::next_spice_port($pfamily, $localhost);
+
+	    my $spice_enhancement_str = $conf->{spice_enhancements} // '';
+	    my $spice_enhancement = parse_property_string($spice_enhancements_fmt, $spice_enhancement_str);
+	    if ($spice_enhancement->{foldersharing}) {
+		push @$devices, '-chardev', "spiceport,id=foldershare,name=org.spice-space.webdav.0";
+		push @$devices, '-device', "virtserialport,chardev=foldershare,name=org.spice-space.webdav.0";
+	    }
+
+	    my $spice_opts = "tls-port=${spice_port},addr=$localhost,tls-ciphers=HIGH,seamless-migration=on";
+	    $spice_opts .= ",streaming-video=$spice_enhancement->{videostreaming}"
+		if $spice_enhancement->{videostreaming};
+	    push @$devices, '-spice', "$spice_opts";
 	}
-
-	my $spice_opts = "tls-port=${spice_port},addr=$localhost,tls-ciphers=HIGH,seamless-migration=on";
-	$spice_opts .= ",streaming-video=$spice_enhancement->{videostreaming}"
-	    if $spice_enhancement->{videostreaming};
-
-	push @$devices, '-spice', "$spice_opts";
     }
 
     # enable balloon by default, unless explicitly disabled

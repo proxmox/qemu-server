@@ -1035,6 +1035,9 @@ __PACKAGE__->register_method({
 			$conf->{boot} = PVE::QemuServer::print_bootorder($devs);
 		    }
 
+		    my $vga = PVE::QemuServer::parse_vga($conf->{vga});
+		    PVE::QemuServer::assert_clipboard_config($vga);
+
 		    # auto generate uuid if user did not specify smbios1 option
 		    if (!$conf->{smbios1}) {
 			$conf->{smbios1} = PVE::QemuServer::generate_smbios1_uuid();
@@ -1856,6 +1859,10 @@ my $update_vm_api  = sub {
 		    } elsif ($authuser ne 'root@pam') {
 			die "only root can modify '$opt' config for real devices\n";
 		    }
+		    $conf->{pending}->{$opt} = $param->{$opt};
+		} elsif ($opt eq 'vga') {
+		    my $vga = PVE::QemuServer::parse_vga($param->{$opt});
+		    PVE::QemuServer::assert_clipboard_config($vga);
 		    $conf->{pending}->{$opt} = $param->{$opt};
 		} elsif ($opt =~ m/^usb\d+/) {
 		    if (my $olddevice = $conf->{$opt}) {
