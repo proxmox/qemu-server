@@ -2699,6 +2699,13 @@ __PACKAGE__->register_method({
 		type => 'boolean',
 		optional => 1,
 	    },
+	    clipboard => {
+		description => 'Enable a specific clipboard. If not set, depending on'
+		    .' the display type the SPICE one will be added.',
+		type => 'string',
+		enum => ['vnc'],
+		optional => 1,
+	    },
 	},
     },
     code => sub {
@@ -2717,6 +2724,7 @@ __PACKAGE__->register_method({
 	    my $spice = defined($vga->{type}) && $vga->{type} =~ /^virtio/;
 	    $spice ||= PVE::QemuServer::vga_conf_has_spice($conf->{vga});
 	    $status->{spice} = 1 if $spice;
+	    $status->{clipboard} = $vga->{clipboard};
 	}
 	$status->{agent} = 1 if PVE::QemuServer::get_qga_key($conf, 'enabled');
 
