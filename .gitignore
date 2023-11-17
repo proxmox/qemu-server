@@ -9,3 +9,5 @@ sparsecp
 vmtar
 build
 qm.bash-completion
+/.vscode/
+/qemu-server-[0-9]*/
