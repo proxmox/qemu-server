@@ -2363,6 +2363,9 @@ sub destroy_vm {
 	});
     }
 
+    eval { delete_ifaces_ipams_ips($conf, $vmid)};
+    warn $@ if $@;
+
     if (defined $replacement_conf) {
 	PVE::QemuConfig->write_config($vmid, $replacement_conf);
     } else {
@@ -8670,6 +8673,20 @@ sub create_ifaces_ipams_ips {
             eval { PVE::Network::SDN::Vnets::add_next_free_cidr($net->{bridge}, $conf->{name}, $net->{macaddr}, $vmid, undef, 1) };
             warn $@ if $@;
         }
+    }
+}
+
+sub delete_ifaces_ipams_ips {
+    my ($conf, $vmid) = @_;
+
+    return if !$have_sdn;
+
+    foreach my $opt (keys %$conf) {
+	if ($opt =~ m/^net(\d+)$/) {
+	    my $net = PVE::QemuServer::parse_net($conf->{$opt});
+	    eval { PVE::Network::SDN::Vnets::del_ips_from_mac($net->{bridge}, $net->{macaddr}, $conf->{name}) };
+	    warn $@ if $@;
+	}
     }
 }
 
