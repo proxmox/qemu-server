@@ -8658,4 +8658,19 @@ sub del_nets_bridge_fdb {
     }
 }
 
+sub create_ifaces_ipams_ips {
+    my ($conf, $vmid) = @_;
+
+    return if !$have_sdn;
+
+    foreach my $opt (keys %$conf) {
+        if ($opt =~ m/^net(\d+)$/) {
+            my $value = $conf->{$opt};
+            my $net = PVE::QemuServer::parse_net($value);
+            eval { PVE::Network::SDN::Vnets::add_next_free_cidr($net->{bridge}, $conf->{name}, $net->{macaddr}, $vmid, undef, 1) };
+            warn $@ if $@;
+        }
+    }
+}
+
 1;

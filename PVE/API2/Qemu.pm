@@ -991,6 +991,8 @@ __PACKAGE__->register_method({
 		    eval { PVE::QemuServer::template_create($vmid, $restored_conf) };
 		    warn $@ if $@;
 		}
+
+		PVE::QemuServer::create_ifaces_ipams_ips($restored_conf, $vmid) if $unique;
 	    };
 
 	    # ensure no old replication state are exists
@@ -1069,6 +1071,8 @@ __PACKAGE__->register_method({
 		}
 
 		PVE::AccessControl::add_vm_to_pool($vmid, $pool) if $pool;
+
+		PVE::QemuServer::create_ifaces_ipams_ips($conf, $vmid);
 	    };
 
 	    PVE::QemuConfig->lock_config_full($vmid, 1, $realcmd);
@@ -3777,6 +3781,8 @@ __PACKAGE__->register_method({
 		}
 
 		PVE::QemuConfig->write_config($newid, $newconf);
+
+		PVE::QemuServer::create_ifaces_ipams_ips($newconf, $newid);
 
 		if ($target) {
 		    # always deactivate volumes - avoid lvm LVs to be active on several nodes
