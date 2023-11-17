@@ -10,6 +10,7 @@ use PVE::Network;
 my $have_sdn;
 eval {
     require PVE::Network::SDN::Zones;
+    require PVE::Network::SDN::Vnets;
     $have_sdn = 1;
 };
 
@@ -44,6 +45,7 @@ my $net = PVE::QemuServer::parse_net($netconf);
 die "unable to parse network config '$netid'\n" if !$net;
 
 if ($have_sdn) {
+    PVE::Network::SDN::Vnets::add_dhcp_mapping($net->{bridge}, $net->{macaddr});
     PVE::Network::SDN::Zones::tap_create($iface, $net->{bridge});
     PVE::Network::SDN::Zones::tap_plug($iface, $net->{bridge}, $net->{tag}, $net->{firewall}, $net->{trunks}, $net->{rate});
 } else {
