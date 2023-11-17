@@ -5339,6 +5339,12 @@ sub vmconfig_update_net {
 		safe_num_ne($oldnet->{firewall}, $newnet->{firewall})) {
 		PVE::Network::tap_unplug($iface);
 
+		#set link_down in guest if bridge or vlan change to notify guest (dhcp renew for example)
+		if (safe_string_ne($oldnet->{bridge}, $newnet->{bridge}) ||
+		    safe_num_ne($oldnet->{tag}, $newnet->{tag})) {
+		    qemu_set_link_status($vmid, $opt, 0);
+		}
+
 		if (safe_string_ne($oldnet->{bridge}, $newnet->{bridge})) {
 		    if ($have_sdn) {
 			PVE::Network::SDN::Vnets::del_ips_from_mac($oldnet->{bridge}, $oldnet->{macaddr}, $conf->{name});
@@ -5351,6 +5357,13 @@ sub vmconfig_update_net {
 		} else {
 		    PVE::Network::tap_plug($iface, $newnet->{bridge}, $newnet->{tag}, $newnet->{firewall}, $newnet->{trunks}, $newnet->{rate});
 		}
+
+		#set link_up in guest if bridge or vlan change to notify guest (dhcp renew for example)
+		if (safe_string_ne($oldnet->{bridge}, $newnet->{bridge}) ||
+		    safe_num_ne($oldnet->{tag}, $newnet->{tag})) {
+		    qemu_set_link_status($vmid, $opt, 1);
+		}
+
 	    } elsif (safe_num_ne($oldnet->{rate}, $newnet->{rate})) {
 		# Rate can be applied on its own but any change above needs to
 		# include the rate in tap_plug since OVS resets everything.
