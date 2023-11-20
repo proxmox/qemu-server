@@ -46,7 +46,9 @@ Depends: dbus,
          perl (>= 5.10.0-19),
          proxmox-websocket-tunnel,
          pve-cluster,
-         pve-edk2-firmware (>= 3.20210831-1),
+# TODO: make legacy edk2 optional (suggests) for PVE 9 and warn explicitly about it
+         pve-edk2-firmware-legacy | pve-edk2-firmware (<< 4~),
+         pve-edk2-firmware-ovmf | pve-edk2-firmware (>= 3.20210831-1),
          pve-firewall,
          pve-ha-manager (>= 3.0-9),
          pve-qemu-kvm (>= 7.1~),
@@ -57,6 +59,7 @@ Depends: dbus,
          ${perl:Depends},
          ${shlibs:Depends},
 Recommends: proxmox-backup-file-restore (>= 2.1.9-2)
+Suggests: pve-edk2-firmware-aarch64, pve-edk2-firmware-riscv,
 Breaks: pve-ha-manager (<< 4.0.1), pve-manager (<= 6.0-13)
 Description: Qemu Server Tools
  This package contains the Qemu Server tools used by Proxmox VE
