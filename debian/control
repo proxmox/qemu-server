@@ -59,6 +59,7 @@ Depends: dbus,
          ${perl:Depends},
          ${shlibs:Depends},
 Recommends: proxmox-backup-file-restore (>= 2.1.9-2),
+            libpve-network-perl (>= 0.8.3),
 Suggests: pve-edk2-firmware-aarch64, pve-edk2-firmware-riscv,
 Breaks: pve-ha-manager (<< 4.0.1), pve-manager (<= 6.0-13),
 Description: Qemu Server Tools
