@@ -5381,7 +5381,7 @@ sub vmconfig_update_net {
     if ($hotplug) {
 	if ($have_sdn) {
 	    PVE::Network::SDN::Vnets::add_next_free_cidr($newnet->{bridge}, $conf->{name}, $newnet->{macaddr}, $vmid, undef, 1);
-	    PVE::Network::SDN::Vnets::add_dhcp_mapping($newnet->{bridge}, $newnet->{macaddr});
+	    PVE::Network::SDN::Vnets::add_dhcp_mapping($newnet->{bridge}, $newnet->{macaddr}, $vmid, $conf->{name});
 	}
 	vm_deviceplug($storecfg, $conf, $vmid, $opt, $newnet, $arch, $machine_type);
     } else {
