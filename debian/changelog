@@ -1,3 +1,15 @@
+qemu-server (8.0.9) bookworm; urgency=medium
+
+  * add clipboard option to to vga config entry
+
+  * api: add clipboard variable to return at status/current
+
+  * recommend libpve-network-perl for SDN support
+
+  * initial support for dhcp ip allocation in dhcp-enabled SDN zones
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 21 Nov 2023 15:40:27 +0100
+
 qemu-server (8.0.8) bookworm; urgency=medium
 
   * fix #2816: restore: remove timeout when allocating disks
