@@ -1,3 +1,9 @@
+qemu-server (8.0.10) bookworm; urgency=medium
+
+  * sdn: pass vmid and hostname to allow requesting a new mapping
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 22 Nov 2023 14:12:46 +0100
+
 qemu-server (8.0.9) bookworm; urgency=medium
 
   * add clipboard option to to vga config entry
