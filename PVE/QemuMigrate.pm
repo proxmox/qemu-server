@@ -255,6 +255,11 @@ sub prepare {
 	}
     }
 
+    my $vga = PVE::QemuServer::parse_vga($conf->{vga});
+    if ($running && $vga->{'clipboard'} && $vga->{'clipboard'} eq 'vnc') {
+	die "VMs with 'clipboard' set to 'vnc' are not live migratable!\n";
+    }
+
     my $vollist = PVE::QemuServer::get_vm_volumes($conf);
 
     my $storages = {};

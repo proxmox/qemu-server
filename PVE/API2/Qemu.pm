@@ -4376,6 +4376,11 @@ __PACKAGE__->register_method({
 	    PVE::QemuServer::check_local_resources($vmconf, 1);
 	delete $missing_mappings_by_node->{$localnode};
 
+	my $vga = PVE::QemuServer::parse_vga($vmconf->{vga});
+	if ($res->{running} && $vga->{'clipboard'} && $vga->{'clipboard'} eq 'vnc') {
+	    push $local_resources->@*, "clipboard=vnc";
+	}
+
 	# if vm is not running, return target nodes where local storage/mapped devices are available
 	# for offline migration
 	if (!$res->{running}) {
