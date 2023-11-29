@@ -201,8 +201,8 @@ my $vga_fmt = {
 	maximum => 512,
     },
     clipboard => {
-	description => 'Enable a specific clipboard. If not set, depending on'
-	    .' the display type the SPICE one will be added.',
+	description => 'Enable a specific clipboard. If not set, depending on the display type the'
+	    .' SPICE one will be added. Migration with VNC clipboard is not yet supported!',
 	type => 'string',
 	enum => ['vnc'],
 	optional => 1,
