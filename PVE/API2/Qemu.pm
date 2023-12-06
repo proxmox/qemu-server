@@ -86,8 +86,6 @@ my $foreach_volume_with_alloc = sub {
     }
 };
 
-my $NEW_DISK_RE = qr!^(([^/:\s]+):)?(\d+(\.\d+)?)$!;
-
 my $check_drive_param = sub {
     my ($param, $storecfg, $extra_checks) = @_;
 
@@ -98,7 +96,7 @@ my $check_drive_param = sub {
 	raise_param_exc({ $opt => "unable to parse drive options" }) if !$drive;
 
 	if ($drive->{'import-from'}) {
-	    if ($drive->{file} !~ $NEW_DISK_RE || $3 != 0) {
+	    if ($drive->{file} !~ $PVE::QemuServer::Drive::NEW_DISK_RE || $3 != 0) {
 		raise_param_exc({
 		    $opt => "'import-from' requires special syntax - ".
 			"use <storage ID>:0,import-from=<source>",
@@ -142,7 +140,7 @@ my $check_storage_access = sub {
 	    # nothing to check
 	} elsif ($isCDROM && ($volid eq 'cdrom')) {
 	    $rpcenv->check($authuser, "/", ['Sys.Console']);
-	} elsif (!$isCDROM && ($volid =~ $NEW_DISK_RE)) {
+	} elsif (!$isCDROM && ($volid =~ $PVE::QemuServer::Drive::NEW_DISK_RE)) {
 	    my ($storeid, $size) = ($2 || $default_storage, $3);
 	    die "no storage ID specified (and no default storage)\n" if !$storeid;
 	    $rpcenv->check($authuser, "/storage/$storeid", ['Datastore.AllocateSpace']);
@@ -365,7 +363,7 @@ my $create_disks = sub {
 	    delete $disk->{format}; # no longer needed
 	    $res->{$ds} = PVE::QemuServer::print_drive($disk);
 	    print "$ds: successfully created disk '$res->{$ds}'\n";
-	} elsif ($volid =~ $NEW_DISK_RE) {
+	} elsif ($volid =~ $PVE::QemuServer::Drive::NEW_DISK_RE) {
 	    my ($storeid, $size) = ($2 || $default_storage, $3);
 	    die "no storage ID specified (and no default storage)\n" if !$storeid;
 
@@ -1633,7 +1631,7 @@ my $update_vm_api  = sub {
 	return if defined($volname) && $volname eq 'cloudinit';
 
 	my $format;
-	if ($volid =~ $NEW_DISK_RE) {
+	if ($volid =~ $PVE::QemuServer::Drive::NEW_DISK_RE) {
 	    $storeid = $2;
 	    $format = $drive->{format} || PVE::Storage::storage_default_format($storecfg, $storeid);
 	} else {

@@ -36,6 +36,7 @@ my $MAX_SCSI_DISKS = 31;
 my $MAX_VIRTIO_DISKS = 16;
 our $MAX_SATA_DISKS = 6;
 our $MAX_UNUSED_DISKS = 256;
+our $NEW_DISK_RE = qr!^(([^/:\s]+):)?(\d+(\.\d+)?)$!;
 
 our $drivedesc_hash;
 # Schema when disk allocation is possible.
