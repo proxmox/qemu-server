@@ -17,9 +17,9 @@ is_valid_drivename
 drive_is_cloudinit
 drive_is_cdrom
 drive_is_read_only
+get_scsi_devicetype
 parse_drive
 print_drive
-path_is_scsi
 );
 
 our $QEMU_FORMAT_RE = qr/raw|cow|qcow|qcow2|qed|vmdk|cloop/;
@@ -824,4 +824,37 @@ sub path_is_scsi {
     return $res;
 }
 
+sub get_scsi_devicetype {
+    my ($drive, $storecfg, $machine_version) = @_;
+
+    my $devicetype = 'hd';
+    my $path = '';
+    if (drive_is_cdrom($drive)) {
+	$devicetype = 'cd';
+    } else {
+	if ($drive->{file} =~ m|^/|) {
+	    $path = $drive->{file};
+	    if (my $info = path_is_scsi($path)) {
+		if ($info->{type} == 0 && $drive->{scsiblock}) {
+		    $devicetype = 'block';
+		} elsif ($info->{type} == 1) { # tape
+		    $devicetype = 'generic';
+		}
+	    }
+	} elsif ($drive->{file} =~ $NEW_DISK_RE){
+	    # special syntax cannot be parsed to path
+	    return $devicetype;
+	} else {
+	    $path = PVE::Storage::path($storecfg, $drive->{file});
+	}
+
+	# for compatibility only, we prefer scsi-hd (#2408, #2355, #2380)
+	if ($path =~ m/^iscsi\:\/\// &&
+	    !PVE::QemuServer::Helpers::min_version($machine_version, 4, 1)) {
+	    $devicetype = 'generic';
+	}
+    }
+
+    return $devicetype;
+}
 1;

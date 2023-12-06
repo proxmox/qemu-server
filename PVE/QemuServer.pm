@@ -53,7 +53,7 @@ use PVE::QemuServer::Helpers qw(config_aware_timeout min_version windows_version
 use PVE::QemuServer::Cloudinit;
 use PVE::QemuServer::CGroup;
 use PVE::QemuServer::CPUConfig qw(print_cpu_device get_cpu_options);
-use PVE::QemuServer::Drive qw(is_valid_drivename drive_is_cloudinit drive_is_cdrom drive_is_read_only parse_drive print_drive path_is_scsi);
+use PVE::QemuServer::Drive qw(is_valid_drivename drive_is_cloudinit drive_is_cdrom drive_is_read_only parse_drive print_drive);
 use PVE::QemuServer::Machine;
 use PVE::QemuServer::Memory qw(get_current_memory);
 use PVE::QemuServer::Monitor qw(mon_cmd);
@@ -1409,31 +1409,10 @@ sub print_drivedevice_full {
 
 	my ($maxdev, $controller, $controller_prefix) = scsihw_infos($conf, $drive);
 	my $unit = $drive->{index} % $maxdev;
-	my $devicetype = 'hd';
-	my $path = '';
-	if (drive_is_cdrom($drive)) {
-	    $devicetype = 'cd';
-	} else {
-	    if ($drive->{file} =~ m|^/|) {
-		$path = $drive->{file};
-		if (my $info = path_is_scsi($path)) {
-		    if ($info->{type} == 0 && $drive->{scsiblock}) {
-			$devicetype = 'block';
-		    } elsif ($info->{type} == 1) { # tape
-			$devicetype = 'generic';
-		    }
-		}
-	    } else {
-		 $path = PVE::Storage::path($storecfg, $drive->{file});
-	    }
 
-	    # for compatibility only, we prefer scsi-hd (#2408, #2355, #2380)
-	    my $version = extract_version($machine_type, kvm_user_version());
-	    if ($path =~ m/^iscsi\:\/\// &&
-	       !min_version($version, 4, 1)) {
-		$devicetype = 'generic';
-	    }
-	}
+	my $machine_version = extract_version($machine_type, kvm_user_version());
+	my $devicetype  = PVE::QemuServer::Drive::get_scsi_devicetype(
+	    $drive, $storecfg, $machine_version);
 
 	if (!$conf->{scsihw} || $conf->{scsihw} =~ m/^lsi/ || $conf->{scsihw} eq 'pvscsi') {
 	    $device = "scsi-$devicetype,bus=$controller_prefix$controller.0,scsi-id=$unit";
