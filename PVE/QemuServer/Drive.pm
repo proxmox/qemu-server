@@ -5,6 +5,8 @@ use warnings;
 
 use Storable qw(dclone);
 
+use IO::File;
+
 use PVE::Storage;
 use PVE::JSONSchema qw(get_standard_option);
 
@@ -17,6 +19,7 @@ drive_is_cdrom
 drive_is_read_only
 parse_drive
 print_drive
+path_is_scsi
 );
 
 our $QEMU_FORMAT_RE = qr/raw|cow|qcow|qcow2|qed|vmdk|cloop/;
@@ -758,6 +761,66 @@ sub resolve_first_disk {
 	return $ds;
     }
     return;
+}
+
+sub scsi_inquiry {
+    my($fh, $noerr) = @_;
+
+    my $SG_IO = 0x2285;
+    my $SG_GET_VERSION_NUM = 0x2282;
+
+    my $versionbuf = "\x00" x 8;
+    my $ret = ioctl($fh, $SG_GET_VERSION_NUM, $versionbuf);
+    if (!$ret) {
+	die "scsi ioctl SG_GET_VERSION_NUM failoed - $!\n" if !$noerr;
+	return;
+    }
+    my $version = unpack("I", $versionbuf);
+    if ($version < 30000) {
+	die "scsi generic interface too old\n"  if !$noerr;
+	return;
+    }
+
+    my $buf = "\x00" x 36;
+    my $sensebuf = "\x00" x 8;
+    my $cmd = pack("C x3 C x1", 0x12, 36);
+
+    # see /usr/include/scsi/sg.h
+    my $sg_io_hdr_t = "i i C C s I P P P I I i P C C C C S S i I I";
+
+    my $packet = pack(
+	$sg_io_hdr_t, ord('S'), -3, length($cmd), length($sensebuf), 0, length($buf), $buf, $cmd, $sensebuf, 6000
+    );
+
+    $ret = ioctl($fh, $SG_IO, $packet);
+    if (!$ret) {
+	die "scsi ioctl SG_IO failed - $!\n" if !$noerr;
+	return;
+    }
+
+    my @res = unpack($sg_io_hdr_t, $packet);
+    if ($res[17] || $res[18]) {
+	die "scsi ioctl SG_IO status error - $!\n" if !$noerr;
+	return;
+    }
+
+    my $res = {};
+    $res->@{qw(type removable vendor product revision)} = unpack("C C x6 A8 A16 A4", $buf);
+
+    $res->{removable} = $res->{removable} & 128 ? 1 : 0;
+    $res->{type} &= 0x1F;
+
+    return $res;
+}
+
+sub path_is_scsi {
+    my ($path) = @_;
+
+    my $fh = IO::File->new("+<$path") || return;
+    my $res = scsi_inquiry($fh, 1);
+    close($fh);
+
+    return $res;
 }
 
 1;
