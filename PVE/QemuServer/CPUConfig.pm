@@ -109,6 +109,8 @@ my $cpu_vendor_list = {
     'Icelake-Server-v5' => 'GenuineIntel',
     'Icelake-Server-v6' => 'GenuineIntel',
     'SapphireRapids' => 'GenuineIntel',
+    'SapphireRapids-v2' => 'GenuineIntel',
+    'GraniteRapids' => 'GenuineIntel',
 
     # AMD CPUs
     athlon => 'AuthenticAMD',
@@ -121,9 +123,14 @@ my $cpu_vendor_list = {
     EPYC => 'AuthenticAMD',
     'EPYC-IBPB' => 'AuthenticAMD',
     'EPYC-v3' => 'AuthenticAMD',
+    'EPYC-v4' => 'AuthenticAMD',
     'EPYC-Rome' => 'AuthenticAMD',
     'EPYC-Rome-v2' => 'AuthenticAMD',
+    'EPYC-Rome-v3' => 'AuthenticAMD',
+    'EPYC-Rome-v4' => 'AuthenticAMD',
     'EPYC-Milan' => 'AuthenticAMD',
+    'EPYC-Milan-v2' => 'AuthenticAMD',
+    'EPYC-Genoa' => 'AuthenticAMD',
 
     # generic types, use vendor from host node
     host => 'default',
