@@ -5804,10 +5804,9 @@ sub vm_start_nolock {
 		$migrate->{addr} = "[$migrate->{addr}]" if Net::IP::ip_is_ipv6($migrate->{addr});
 	    }
 
-	    my $pfamily = PVE::Tools::get_host_address_family($nodename);
-	    $migrate->{port} = PVE::Tools::next_migrate_port($pfamily);
-	    $migrate->{uri} = "tcp:$migrate->{addr}:$migrate->{port}";
-	    push @$cmd, '-incoming', $migrate->{uri};
+	    # see #4501: port reservation should be done close to usage - tell QEMU where to listen
+	    # via QMP later
+	    push @$cmd, '-incoming', 'defer';
 	    push @$cmd, '-S';
 
 	} elsif ($statefile eq 'unix') {
@@ -5991,8 +5990,15 @@ sub vm_start_nolock {
     eval { PVE::QemuServer::PCI::reserve_pci_usage($pci_reserve_list, $vmid, undef, $pid) };
     warn $@ if $@;
 
-    if (defined($res->{migrate})) {
-	print "migration listens on $res->{migrate}->{uri}\n";
+    if (defined(my $migrate = $res->{migrate})) {
+	if ($migrate->{proto} eq 'tcp') {
+	    my $nodename = nodename();
+	    my $pfamily = PVE::Tools::get_host_address_family($nodename);
+	    $migrate->{port} = PVE::Tools::next_migrate_port($pfamily);
+	    $migrate->{uri} = "tcp:$migrate->{addr}:$migrate->{port}";
+	    mon_cmd($vmid, "migrate-incoming", uri => $migrate->{uri});
+	}
+	print "migration listens on $migrate->{uri}\n";
     } elsif ($statefile) {
 	eval { mon_cmd($vmid, "cont"); };
 	warn $@ if $@;
