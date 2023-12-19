@@ -1449,6 +1449,8 @@ sub phase3_cleanup {
 
     my $tunnel = $self->{tunnel};
 
+    my $sourcevollist = PVE::QemuServer::get_vm_volumes($conf);
+
     if ($self->{volume_map} && !$self->{opts}->{remote}) {
 	my $target_drives = $self->{target_drive};
 
@@ -1574,8 +1576,7 @@ sub phase3_cleanup {
 
     # always deactivate volumes - avoid lvm LVs to be active on several nodes
     eval {
-	my $vollist = PVE::QemuServer::get_vm_volumes($conf);
-	PVE::Storage::deactivate_volumes($self->{storecfg}, $vollist);
+	PVE::Storage::deactivate_volumes($self->{storecfg}, $sourcevollist);
     };
     if (my $err = $@) {
 	$self->log('err', $err);
