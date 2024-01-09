@@ -406,9 +406,8 @@ sub __snapshot_delete_vol_snapshot {
     return if PVE::QemuServer::drive_is_cdrom($drive);
     my $storecfg = PVE::Storage::config();
     my $volid = $drive->{file};
-    my $device = "drive-$ds";
 
-    PVE::QemuServer::qemu_volume_snapshot_delete($vmid, $device, $storecfg, $volid, $snapname);
+    PVE::QemuServer::qemu_volume_snapshot_delete($vmid, $storecfg, $volid, $snapname);
 
     push @$unused, $volid;
 }

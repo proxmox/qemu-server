@@ -4670,7 +4670,7 @@ sub qemu_volume_snapshot {
 }
 
 sub qemu_volume_snapshot_delete {
-    my ($vmid, $deviceid, $storecfg, $volid, $snap) = @_;
+    my ($vmid, $storecfg, $volid, $snap) = @_;
 
     my $running = check_running($vmid);
     my $attached_deviceid;
