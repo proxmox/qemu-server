@@ -1427,6 +1427,16 @@ sub print_drivedevice_full {
 	}
 	$device .= ",wwn=$drive->{wwn}" if $drive->{wwn};
 
+	# only scsi-hd and scsi-cd support passing vendor and product information
+	if ($devicetype eq 'hd' || $devicetype eq 'cd') {
+	    if (my $vendor = $drive->{vendor}) {
+		$device .= ",vendor=$vendor";
+	    }
+	    if (my $product = $drive->{product}) {
+		$device .= ",product=$product";
+	    }
+	}
+
     } elsif ($drive->{interface} eq 'ide' || $drive->{interface} eq 'sata') {
 	my $maxdev = ($drive->{interface} eq 'sata') ? $PVE::QemuServer::Drive::MAX_SATA_DISKS : 2;
 	my $controller = int($drive->{index} / $maxdev);
@@ -5364,8 +5374,10 @@ sub vmconfig_update_disk {
 		    safe_string_ne($drive->{discard}, $old_drive->{discard}) ||
 		    safe_string_ne($drive->{iothread}, $old_drive->{iothread}) ||
 		    safe_string_ne($drive->{queues}, $old_drive->{queues}) ||
+		    safe_string_ne($drive->{product}, $old_drive->{product}) ||
 		    safe_string_ne($drive->{cache}, $old_drive->{cache}) ||
 		    safe_string_ne($drive->{ssd}, $old_drive->{ssd}) ||
+		    safe_string_ne($drive->{vendor}, $old_drive->{vendor}) ||
 		    safe_string_ne($drive->{ro}, $old_drive->{ro})) {
 		    die "skip\n";
 		}

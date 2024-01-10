@@ -696,6 +696,33 @@ my $check_vm_modify_config_perm = sub {
     return 1;
 };
 
+sub assert_scsi_feature_compatibility {
+    my ($opt, $conf, $storecfg, $drive_attributes) = @_;
+
+    my $drive = PVE::QemuServer::Drive::parse_drive($opt, $drive_attributes);
+
+    my $machine_type = PVE::QemuServer::get_vm_machine($conf, undef, $conf->{arch});
+    my $machine_version = PVE::QemuServer::Machine::extract_version(
+	$machine_type, PVE::QemuServer::kvm_user_version());
+    my $drivetype = PVE::QemuServer::Drive::get_scsi_devicetype(
+	$drive, $storecfg, $machine_version);
+
+    if ($drivetype ne 'hd' && $drivetype ne 'cd') {
+	if ($drive->{product}) {
+	    raise_param_exc({
+		$opt => "Passing of product information is only supported for 'scsi-hd' and "
+		    ."'scsi-cd' devices (e.g. not pass-through).",
+	    });
+	}
+	if ($drive->{vendor}) {
+	    raise_param_exc({
+		$opt => "Passing of vendor information is only supported for 'scsi-hd' and "
+		    ."'scsi-cd' devices (e.g. not pass-through).",
+	    });
+	}
+    }
+}
+
 __PACKAGE__->register_method({
     name => 'vmlist',
     path => '',
@@ -1012,6 +1039,12 @@ __PACKAGE__->register_method({
 	    my $realcmd = sub {
 		my $conf = $param;
 		my $arch = PVE::QemuServer::get_vm_arch($conf);
+
+
+		for my $opt (sort keys $param->%*) {
+		    next if $opt !~ m/^scsi\d+$/;
+		    assert_scsi_feature_compatibility($opt, $conf, $storecfg, $param->{$opt});
+		}
 
 		$conf->{meta} = PVE::QemuServer::new_meta_info_string();
 
@@ -1832,6 +1865,9 @@ my $update_vm_api  = sub {
 		    $check_drive_perms->($opt, $param->{$opt});
 		    PVE::QemuServer::vmconfig_register_unused_drive($storecfg, $vmid, $conf, PVE::QemuServer::parse_drive($opt, $conf->{pending}->{$opt}))
 			if defined($conf->{pending}->{$opt});
+
+		    assert_scsi_feature_compatibility($opt, $conf, $storecfg, $param->{$opt})
+			if $opt =~ m/^scsi\d+$/;
 
 		    my (undef, $created_opts) = $create_disks->(
 			$rpcenv,

@@ -163,6 +163,26 @@ my %iothread_fmt = ( iothread => {
 	optional => 1,
 });
 
+my %product_fmt = (
+    product => {
+	type => 'string',
+	pattern => '[A-Za-z0-9\-_\s]{,16}',
+	format_description => 'product',
+	description => "The drive's product name, up to 16 bytes long.",
+	optional => 1,
+    },
+);
+
+my %vendor_fmt = (
+    vendor => {
+	type => 'string',
+	pattern => '[A-Za-z0-9\-_\s]{,8}',
+	format_description => 'vendor',
+	description => "The drive's vendor name, up to 8 bytes long.",
+	optional => 1,
+    },
+);
+
 my %model_fmt = (
     model => {
 	type => 'string',
@@ -280,10 +300,12 @@ PVE::JSONSchema::register_standard_option("pve-qm-ide", $idedesc);
 my $scsi_fmt = {
     %drivedesc_base,
     %iothread_fmt,
+    %product_fmt,
     %queues_fmt,
     %readonly_fmt,
     %scsiblock_fmt,
     %ssd_fmt,
+    %vendor_fmt,
     %wwn_fmt,
 };
 my $scsidesc = {
@@ -404,10 +426,12 @@ my $alldrive_fmt = {
     %drivedesc_base,
     %iothread_fmt,
     %model_fmt,
+    %product_fmt,
     %queues_fmt,
     %readonly_fmt,
     %scsiblock_fmt,
     %ssd_fmt,
+    %vendor_fmt,
     %wwn_fmt,
     %tpmversion_fmt,
     %efitype_fmt,
