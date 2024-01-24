@@ -124,14 +124,6 @@ PVE::JSONSchema::register_standard_option('pve-qm-stateuri', {
     optional => 1,
 });
 
-PVE::JSONSchema::register_standard_option('pve-qemu-machine', {
-	description => "Specifies the QEMU machine type.",
-	type => 'string',
-	pattern => '(pc|pc(-i440fx)?-\d+(\.\d+)+(\+pve\d+)?(\.pxe)?|q35|pc-q35-\d+(\.\d+)+(\+pve\d+)?(\.pxe)?|virt(?:-\d+(\.\d+)+)?(\+pve\d+)?)',
-	maxLength => 40,
-	optional => 1,
-});
-
 # FIXME: remove in favor of just using the INotify one, it's cached there exactly the same way
 my $nodename_cache;
 sub nodename {
@@ -2102,8 +2094,9 @@ sub qemu_created_version_fixups {
     # check if we need to apply some handling for VMs that always use the latest machine version but
     # had a machine version transition happen that affected HW such that, e.g., an OS config change
     # would be required (we do not want to pin machine version for non-windows OS type)
+    my $machine_conf = PVE::QemuServer::Machine::parse_machine($conf->{machine});
     if (
-	(!defined($conf->{machine}) || $conf->{machine} =~ m/^(?:pc|q35|virt)$/) # non-versioned machine
+	(!defined($machine_conf->{type}) || $machine_conf->{type} =~ m/^(?:pc|q35|virt)$/) # non-versioned machine
 	&& (!defined($meta->{'creation-qemu'}) || !min_version($meta->{'creation-qemu'}, 6, 1)) # created before 6.1
 	&& (!$forced_vers || min_version($forced_vers, 6, 1)) # handle snapshot-rollback/migrations
 	&& min_version($kvmver, 6, 1) # only need to apply the change since 6.1
@@ -3259,7 +3252,8 @@ sub windows_get_pinned_machine_version {
 sub get_vm_machine {
     my ($conf, $forcemachine, $arch, $add_pve_version, $kvmversion) = @_;
 
-    my $machine = $forcemachine || $conf->{machine};
+    my $machine_conf = PVE::QemuServer::Machine::parse_machine($conf->{machine});
+    my $machine = $forcemachine || $machine_conf->{type};
 
     if (!$machine || $machine =~ m/^(?:pc|q35|virt)$/) {
 	$kvmversion //= kvm_user_version();
@@ -3507,6 +3501,8 @@ sub config_to_command {
     my $winversion = windows_version($ostype);
     my $kvm = $conf->{kvm};
     my $nodename = nodename();
+
+    my $machine_conf = PVE::QemuServer::Machine::parse_machine($conf->{machine});
 
     my $arch = get_vm_arch($conf);
     my $kvm_binary = get_command_for_arch($arch);

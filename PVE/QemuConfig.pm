@@ -432,7 +432,8 @@ sub __snapshot_rollback_hook {
 	} else {
 	    # Note: old code did not store 'machine', so we try to be smart
 	    # and guess the snapshot was generated with kvm 1.4 (pc-i440fx-1.4).
-	    $data->{forcemachine} = $conf->{machine} || 'pc-i440fx-1.4';
+	    my $machine_conf = PVE::QemuServer::Machine::parse_machine($conf->{machine});
+	    $data->{forcemachine} = $machine_conf->{type} || 'pc-i440fx-1.4';
 
 	    # we remove the 'machine' configuration if not explicitly specified
 	    # in the original config.

@@ -1127,11 +1127,13 @@ __PACKAGE__->register_method({
 			$conf->{vmgenid} = PVE::QemuServer::generate_uuid();
 		    }
 
-		    my $machine = $conf->{machine};
+		    my $machine_conf = PVE::QemuServer::Machine::parse_machine($conf->{machine});
+		    my $machine = $machine_conf->{type};
 		    if (!$machine || $machine =~ m/^(?:pc|q35|virt)$/) {
 			# always pin Windows' machine version on create, they get to easily confused
 			if (PVE::QemuServer::Helpers::windows_version($conf->{ostype})) {
-			    $conf->{machine} = PVE::QemuServer::windows_get_pinned_machine_version($machine);
+			    $machine_conf->{type} = PVE::QemuServer::windows_get_pinned_machine_version($machine);
+			    $conf->{machine} = PVE::QemuServer::Machine::print_machine($machine_conf);
 			}
 		    }
 
@@ -1995,6 +1997,9 @@ my $update_vm_api  = sub {
 			    { $opt => $conf->{$opt} },
 			);
 		    }
+		    $conf->{pending}->{$opt} = $param->{$opt};
+		} elsif ($opt eq 'machine') {
+		    my $machine_conf = PVE::QemuServer::Machine::parse_machine($param->{$opt});
 		    $conf->{pending}->{$opt} = $param->{$opt};
 		} else {
 		    $conf->{pending}->{$opt} = $param->{$opt};
