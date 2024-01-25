@@ -550,8 +550,11 @@ sub get_custom_cloudinit_files {
 sub read_cloudinit_snippets_file {
     my ($storage_conf, $volid) = @_;
 
-    my ($full_path, undef, $type) = PVE::Storage::path($storage_conf, $volid);
-    die "$volid is not in the snippets directory\n" if $type ne 'snippets';
+    my ($vtype, undef) = PVE::Storage::parse_volname($storage_conf, $volid);
+
+    die "$volid is not in the snippets directory\n" if $vtype ne 'snippets';
+
+    my $full_path = PVE::Storage::abs_filesystem_path($storage_conf, $volid, 1);
     return PVE::Tools::file_get_contents($full_path, 1 * 1024 * 1024);
 }
 
