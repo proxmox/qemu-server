@@ -166,7 +166,7 @@ my %iothread_fmt = ( iothread => {
 my %product_fmt = (
     product => {
 	type => 'string',
-	pattern => '[A-Za-z0-9\-_\s]{,16}',
+	pattern => '[A-Za-z0-9\-_\s]{,16}', # QEMU (8.1) will quietly only use 16 bytes
 	format_description => 'product',
 	description => "The drive's product name, up to 16 bytes long.",
 	optional => 1,
@@ -176,7 +176,7 @@ my %product_fmt = (
 my %vendor_fmt = (
     vendor => {
 	type => 'string',
-	pattern => '[A-Za-z0-9\-_\s]{,8}',
+	pattern => '[A-Za-z0-9\-_\s]{,8}', # QEMU (8.1) will quietly only use 8 bytes
 	format_description => 'vendor',
 	description => "The drive's vendor name, up to 8 bytes long.",
 	optional => 1,
