@@ -699,7 +699,7 @@ my $check_vm_modify_config_perm = sub {
 sub assert_scsi_feature_compatibility {
     my ($opt, $conf, $storecfg, $drive_attributes) = @_;
 
-    my $drive = PVE::QemuServer::Drive::parse_drive($opt, $drive_attributes);
+    my $drive = PVE::QemuServer::Drive::parse_drive($opt, $drive_attributes, 1);
 
     my $machine_type = PVE::QemuServer::get_vm_machine($conf, undef, $conf->{arch});
     my $machine_version = PVE::QemuServer::Machine::extract_version(
