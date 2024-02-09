@@ -132,7 +132,7 @@ sub cmd {
 	    $cmd->{execute} eq 'blockdev-snapshot-internal-sync' ||
 	    $cmd->{execute} eq 'blockdev-snapshot-delete-internal-sync'
 	 ) {
-	    $timeout = 10*60; # 10 mins ?
+	    $timeout = 10*60; # 10 mins
 	} else {
 	    #  NOTE: if you came here as user and want to change this, try using IO-Threads first
 	    # which move out quite some processing of the main thread, leaving more time for QMP
