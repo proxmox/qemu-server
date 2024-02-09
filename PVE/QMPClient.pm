@@ -121,6 +121,7 @@ sub cmd {
 	    $cmd->{execute} eq 'savevm-start' ||
 	    $cmd->{execute} eq 'savevm-end' ||
 	    $cmd->{execute} eq 'query-backup' ||
+	    $cmd->{execute} eq 'drive-mirror' ||
 	    $cmd->{execute} eq 'query-block-jobs' ||
 	    $cmd->{execute} eq 'block-job-cancel' ||
 	    $cmd->{execute} eq 'block-job-complete' ||
