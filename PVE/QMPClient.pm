@@ -4,6 +4,7 @@ use strict;
 use warnings;
 
 use IO::Multiplex;
+use IO::Socket::UNIX;
 use JSON;
 use POSIX qw(EINTR EAGAIN);
 use Scalar::Util qw(weaken);
