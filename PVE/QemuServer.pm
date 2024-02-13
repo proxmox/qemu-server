@@ -1537,7 +1537,7 @@ my sub drive_uses_cache_direct {
 }
 
 sub print_drive_commandline_full {
-    my ($storecfg, $vmid, $drive, $pbs_name, $io_uring) = @_;
+    my ($storecfg, $vmid, $drive, $live_restore_name, $io_uring) = @_;
 
     my $path;
     my $volid = $drive->{file};
@@ -1549,7 +1549,7 @@ sub print_drive_commandline_full {
 
     if (drive_is_cdrom($drive)) {
 	$path = get_iso_path($storecfg, $vmid, $volid);
-        die "$drive_id: cannot back cdrom drive with PBS snapshot\n" if $pbs_name;
+        die "$drive_id: cannot back cdrom drive with a live restore image\n" if $live_restore_name;
     } else {
 	if ($storeid) {
 	    $path = PVE::Storage::path($storecfg, $volid);
@@ -1600,7 +1600,7 @@ sub print_drive_commandline_full {
 	}
     }
 
-    if ($pbs_name) {
+    if ($live_restore_name) {
 	$format = "rbd" if $is_rbd;
 	die "$drive_id: Proxmox Backup Server backed drive cannot auto-detect the format\n"
 	    if !$format;
@@ -1640,18 +1640,18 @@ sub print_drive_commandline_full {
 
 	# note: 'detect-zeroes' works per blockdev and we want it to persist
 	# after the alloc-track is removed, so put it on 'file' directly
-	my $dz_param = $pbs_name ? "file.detect-zeroes" : "detect-zeroes";
+	my $dz_param = $live_restore_name ? "file.detect-zeroes" : "detect-zeroes";
 	$opts .= ",$dz_param=$detectzeroes" if $detectzeroes;
     }
 
-    if ($pbs_name) {
-	$opts .= ",backing=$pbs_name";
+    if ($live_restore_name) {
+	$opts .= ",backing=$live_restore_name";
 	$opts .= ",auto-remove=on";
     }
 
-    # my $file_param = $pbs_name ? "file.file.filename" : "file";
+    # my $file_param = $live_restore_name ? "file.file.filename" : "file";
     my $file_param = "file";
-    if ($pbs_name) {
+    if ($live_restore_name) {
 	# non-rbd drivers require the underlying file to be a seperate block
 	# node, so add a second .file indirection
 	$file_param .= ".file" if !$is_rbd;
@@ -3497,7 +3497,7 @@ my sub print_ovmf_drive_commandlines {
 
 sub config_to_command {
     my ($storecfg, $vmid, $conf, $defaults, $forcemachine, $forcecpu,
-        $pbs_backing) = @_;
+        $live_restore_backing) = @_;
 
     my ($globalFlags, $machineFlags, $rtcFlags) = ([], [], []);
     my $devices = [];
@@ -3985,15 +3985,15 @@ sub config_to_command {
 	    $ahcicontroller->{$controller}=1;
         }
 
-	my $pbs_conf = $pbs_backing->{$ds};
-	my $pbs_name = undef;
-	if ($pbs_conf) {
-	    $pbs_name = "drive-$ds-pbs";
-	    push @$devices, '-blockdev', print_pbs_blockdev($pbs_conf, $pbs_name);
+	my $live_restore = $live_restore_backing->{$ds};
+	my $live_blockdev_name = undef;
+	if ($live_restore) {
+	    $live_blockdev_name = $live_restore->{name};
+	    push @$devices, '-blockdev', $live_restore->{blockdev};
 	}
 
 	my $drive_cmd = print_drive_commandline_full(
-	    $storecfg, $vmid, $drive, $pbs_name, min_version($kvmver, 6, 0));
+	    $storecfg, $vmid, $drive, $live_blockdev_name, min_version($kvmver, 6, 0));
 
 	# extra protection for templates, but SATA and IDE don't support it..
 	$drive_cmd .= ',readonly=on' if drive_is_read_only($conf, $drive);
@@ -5614,12 +5614,10 @@ sub vm_start {
 #   timeout => in seconds
 #   paused => start VM in paused state (backup)
 #   resume => resume from hibernation
-#   pbs-backing => {
+#   live-restore-backing => {
 #      sata0 => {
-#         repository
-#         snapshot
-#         keyfile
-#         archive
+#          name => blockdev-name,
+#          blockdev => "arg to the -blockdev command instantiating device named 'name'",
 #      },
 #      virtio2 => ...
 #   }
@@ -5693,7 +5691,7 @@ sub vm_start_nolock {
     }
 
     my ($cmd, $vollist, $spice_port, $pci_devices) = config_to_command($storecfg, $vmid,
-	$conf, $defaults, $forcemachine, $forcecpu, $params->{'pbs-backing'});
+	$conf, $defaults, $forcemachine, $forcecpu, $params->{'live-restore-backing'});
 
     my $migration_ip;
     my $get_migration_ip = sub {
@@ -7213,20 +7211,27 @@ sub pbs_live_restore {
     print "starting VM for live-restore\n";
     print "repository: '$opts->{repo}', snapshot: '$opts->{snapshot}'\n";
 
-    my $pbs_backing = {};
+    my $live_restore_backing = {};
     for my $ds (keys %$restored_disks) {
 	$ds =~ m/^drive-(.*)$/;
 	my $confname = $1;
-	$pbs_backing->{$confname} = {
+	my $pbs_conf = {};
+	$pbs_conf = {
 	    repository => $opts->{repo},
 	    snapshot => $opts->{snapshot},
 	    archive => "$ds.img.fidx",
 	};
-	$pbs_backing->{$confname}->{keyfile} = $opts->{keyfile} if -e $opts->{keyfile};
-	$pbs_backing->{$confname}->{namespace} = $opts->{namespace} if defined($opts->{namespace});
+	$pbs_conf->{keyfile} = $opts->{keyfile} if -e $opts->{keyfile};
+	$pbs_conf->{namespace} = $opts->{namespace} if defined($opts->{namespace});
 
 	my $drive = parse_drive($confname, $conf->{$confname});
 	print "restoring '$ds' to '$drive->{file}'\n";
+
+	my $pbs_name = "drive-${confname}-pbs";
+	$live_restore_backing->{$confname} = {
+	    name => $pbs_name,
+	    blockdev => print_pbs_blockdev($pbs_conf, $pbs_name),
+	};
     }
 
     my $drives_streamed = 0;
@@ -7238,7 +7243,7 @@ sub pbs_live_restore {
 
 	# start VM with backing chain pointing to PBS backup, environment vars for PBS driver
 	# in QEMU (PBS_PASSWORD and PBS_FINGERPRINT) are already set by our caller
-	vm_start_nolock($storecfg, $vmid, $conf, {paused => 1, 'pbs-backing' => $pbs_backing}, {});
+	vm_start_nolock($storecfg, $vmid, $conf, {paused => 1, 'live-restore-backing' => $live_restore_backing}, {});
 
 	my $qmeventd_fd = register_qmeventd_handle($vmid);
 
