@@ -412,6 +412,7 @@ my $confdesc = {
     ostype => {
 	optional => 1,
 	type => 'string',
+	# NOTE: When extending, also consider extending `%guest_types` in `Import/ESXi.pm`.
 	enum => [qw(other wxp w2k w2k3 w2k8 wvista win7 win8 win10 win11 l24 l26 solaris)],
 	description => "Specify guest operating system.",
 	verbose_description => <<EODESC,
@@ -7283,6 +7284,96 @@ sub pbs_live_restore {
     }
 }
 
+# Inspired by pbs live-restore, this restores with the disks being available as files.
+# Theoretically this can also be used to quick-start a full-clone vm if the
+# disks are all available as files.
+#
+# The mapping should provide a path by config entry, such as
+# `{ scsi0 => { format => <qcow2|raw|...>, path => "/path/to/file", sata1 => ... } }`
+#
+# This is used when doing a `create` call with the `--live-import` parameter,
+# where the disks get an `import-from=` property. The non-live part is
+# therefore already handled in the `$create_disks()` call happening in the
+# `create` api call
+sub live_import_from_files {
+    my ($mapping, $vmid, $conf, $restore_options) = @_;
+
+    die "only live-restore is implemented for restirng from files\n"
+	if !$restore_options->{live};
+
+    my $live_restore_backing = {};
+    for my $dev (keys %$mapping) {
+	die "disk not support for live-restoring: '$dev'\n"
+	    if !is_valid_drivename($dev) || $dev =~ /^(?:efidisk|tpmstate)/;
+
+	die "mapping contains disk '$dev' which does not exist in the config\n"
+	    if !exists($conf->{$dev});
+
+	my $info = $mapping->{$dev};
+	my ($format, $path) = $info->@{qw(format path)};
+	die "missing path for '$dev' mapping\n" if !$path;
+	die "missing format for '$dev' mapping\n" if !$format;
+	die "invalid format '$format' for '$dev' mapping\n"
+	    if !grep { $format eq $_ } qw(raw qcow2 vmdk);
+
+	$live_restore_backing->{$dev} = {
+	    name => "drive-$dev-restore",
+	    blockdev => "driver=$format,node-name=drive-$dev-restore"
+	    . ",read-only=on"
+	    . ",file.driver=file,file.filename=$path"
+	};
+    };
+
+    my $storecfg = PVE::Storage::config();
+    eval {
+
+	# make sure HA doesn't interrupt our restore by stopping the VM
+	if (PVE::HA::Config::vm_is_ha_managed($vmid)) {
+	    run_command(['ha-manager', 'set',  "vm:$vmid", '--state', 'started']);
+	}
+
+	vm_start_nolock($storecfg, $vmid, $conf, {paused => 1, 'live-restore-backing' => $live_restore_backing}, {});
+
+	# prevent shutdowns from qmeventd when the VM powers off from the inside
+	my $qmeventd_fd = register_qmeventd_handle($vmid);
+
+	# begin streaming, i.e. data copy from PBS to target disk for every vol,
+	# this will effectively collapse the backing image chain consisting of
+	# [target <- alloc-track -> PBS snapshot] to just [target] (alloc-track
+	# removes itself once all backing images vanish with 'auto-remove=on')
+	my $jobs = {};
+	for my $ds (sort keys %$live_restore_backing) {
+	    my $job_id = "restore-$ds";
+	    mon_cmd($vmid, 'block-stream',
+		'job-id' => $job_id,
+		device => "drive-$ds",
+	    );
+	    $jobs->{$job_id} = {};
+	}
+
+	mon_cmd($vmid, 'cont');
+	qemu_drive_mirror_monitor($vmid, undef, $jobs, 'auto', 0, 'stream');
+
+	print "restore-drive jobs finished successfully, removing all tracking block devices\n";
+
+	for my $ds (sort keys %$live_restore_backing) {
+	    mon_cmd($vmid, 'blockdev-del', 'node-name' => "drive-$ds-restore");
+	}
+
+	close($qmeventd_fd);
+    };
+
+    my $err = $@;
+
+    if ($err) {
+	warn "An error occurred during live-restore: $err\n";
+	_do_vm_stop($storecfg, $vmid, 1, 1, 10, 0, 1);
+	die "live-restore failed\n";
+    }
+
+    PVE::QemuConfig->remove_lock($vmid, "import");
+}
+
 sub restore_vma_archive {
     my ($archive, $vmid, $user, $opts, $comp) = @_;
 
@@ -7787,7 +7878,11 @@ sub qemu_img_convert {
 sub qemu_img_format {
     my ($scfg, $volname) = @_;
 
-    if ($scfg->{path} && $volname =~ m/\.($PVE::QemuServer::Drive::QEMU_FORMAT_RE)$/) {
+    # FIXME: this entire function is kind of weird given that `parse_volname`
+    # also already gives us a format?
+    my $is_path_storage = $scfg->{path} || $scfg->{type} eq 'esxi';
+
+    if ($is_path_storage && $volname =~ m/\.($PVE::QemuServer::Drive::QEMU_FORMAT_RE)$/) {
 	return $1;
     } else {
 	return "raw";
