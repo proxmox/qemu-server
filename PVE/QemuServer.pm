@@ -34,6 +34,7 @@ use PVE::DataCenterConfig;
 use PVE::Exception qw(raise raise_param_exc);
 use PVE::Format qw(render_duration render_bytes);
 use PVE::GuestHelpers qw(safe_string_ne safe_num_ne safe_boolean_ne);
+use PVE::HA::Config;
 use PVE::Mapping::PCI;
 use PVE::Mapping::USB;
 use PVE::INotify;
