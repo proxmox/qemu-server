@@ -4365,9 +4365,6 @@ __PACKAGE__->register_method({
 	} elsif ($storeid) {
 	    $rpcenv->check($authuser, "/storage/$storeid", ['Datastore.AllocateSpace']);
 
-	    die "cannot move disk '$disk', only configured disks can be moved to another storage\n"
-		if $disk =~ m/^unused\d+$/;
-
 	    $load_and_check_move->(); # early checks before forking/locking
 
 	    my $realcmd = sub {

@@ -8154,7 +8154,8 @@ sub clone_disk {
     my ($newvmid, $dst_drivename, $efisize) = $dest->@{qw(vmid drivename efisize)};
     my ($storage, $format) = $dest->@{qw(storage format)};
 
-    my $use_drive_mirror = $full && $running && $src_drivename && !$snapname;
+    my $unused = $src_drivename =~ /^unused/;
+    my $use_drive_mirror = $full && $running && $src_drivename && !$snapname && !$unused;
 
     if ($src_drivename && $dst_drivename && $src_drivename ne $dst_drivename) {
 	die "cloning from/to EFI disk requires EFI disk\n"
@@ -8260,7 +8261,7 @@ no_data_clone:
     my $disk = dclone($drive);
     delete $disk->{format};
     $disk->{file} = $newvolid;
-    $disk->{size} = $size if defined($size);
+    $disk->{size} = $size if defined($size) && !$unused;
 
     return $disk;
 }
