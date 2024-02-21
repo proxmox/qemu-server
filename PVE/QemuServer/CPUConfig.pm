@@ -5,6 +5,7 @@ use warnings;
 
 use PVE::JSONSchema;
 use PVE::Cluster qw(cfs_register_file cfs_read_file);
+use PVE::Tools qw(is_native_arch);
 use PVE::QemuServer::Helpers qw(min_version);
 
 use base qw(PVE::SectionConfig Exporter);
@@ -414,9 +415,9 @@ sub get_custom_model {
 
 # Print a QEMU device node for a given VM configuration for hotplugging CPUs
 sub print_cpu_device {
-    my ($conf, $id) = @_;
+    my ($conf, $arch, $id) = @_;
 
-    my $kvm = $conf->{kvm} // 1;
+    my $kvm = $conf->{kvm} // is_native_arch($arch);
     my $cpu = get_default_cpu_type('x86_64', $kvm);
     if (my $cputype = $conf->{cpu}) {
 	my $cpuconf = PVE::JSONSchema::parse_property_string('pve-vm-cpu-conf', $cputype)

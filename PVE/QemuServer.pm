@@ -3744,7 +3744,7 @@ sub config_to_command {
     if ($hotplug_features->{cpu} && min_version($machine_version, 2, 7)) {
 	push @$cmd, '-smp', "1,sockets=$sockets,cores=$cores,maxcpus=$maxcpus";
         for (my $i = 2; $i <= $vcpus; $i++)  {
-	    my $cpustr = print_cpu_device($conf,$i);
+	    my $cpustr = print_cpu_device($conf, $arch, $i);
 	    push @$cmd, '-device', $cpustr;
 	}
 
@@ -4586,9 +4586,10 @@ sub qemu_cpu_hotplug {
 	if scalar(@{$currentrunningvcpus}) != $currentvcpus;
 
     if (PVE::QemuServer::Machine::machine_version($machine_type, 2, 7)) {
+	my $arch = get_vm_arch($conf);
 
 	for (my $i = $currentvcpus+1; $i <= $vcpus; $i++) {
-	    my $cpustr = print_cpu_device($conf, $i);
+	    my $cpustr = print_cpu_device($conf, $arch, $i);
 	    qemu_deviceadd($vmid, $cpustr);
 
 	    my $retry = 0;
