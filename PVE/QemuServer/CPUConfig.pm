@@ -405,7 +405,7 @@ sub print_cpu_device {
     my ($conf, $id) = @_;
 
     my $kvm = $conf->{kvm} // 1;
-    my $cpu = $kvm ? "kvm64" : "qemu64";
+    my $cpu = get_default_cpu_type('x86_64', $kvm);
     if (my $cputype = $conf->{cpu}) {
 	my $cpuconf = PVE::JSONSchema::parse_property_string('pve-vm-cpu-conf', $cputype)
 	    or die "Cannot parse cpu description: $cputype\n";
@@ -515,10 +515,7 @@ sub parse_cpuflag_list {
 sub get_cpu_options {
     my ($conf, $arch, $kvm, $kvm_off, $machine_version, $winversion, $gpu_passthrough) = @_;
 
-    my $cputype = $kvm ? "kvm64" : "qemu64";
-    if ($arch eq 'aarch64') {
-	$cputype = 'cortex-a57';
-    }
+    my $cputype = get_default_cpu_type($arch, $kvm);
 
     my $cpu = {};
     my $custom_cpu;
@@ -717,6 +714,15 @@ sub get_cpu_from_running_vm {
     # sanitize and untaint value
     $cmdline->{cpu}->{value} =~ $qemu_cmdline_cpu_re;
     return $1;
+}
+
+sub get_default_cpu_type {
+    my ($arch, $kvm) = @_;
+
+    my $cputype = $kvm ? 'kvm64' : 'qemu64';
+    $cputype = 'cortex-a57' if $arch eq 'aarch64';
+
+    return $cputype;
 }
 
 __PACKAGE__->register();
