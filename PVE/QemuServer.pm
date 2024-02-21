@@ -45,7 +45,7 @@ use PVE::RPCEnvironment;
 use PVE::Storage;
 use PVE::SysFSTools;
 use PVE::Systemd;
-use PVE::Tools qw(run_command file_read_firstline file_get_contents dir_glob_foreach get_host_arch $IPV6RE);
+use PVE::Tools qw(run_command file_read_firstline file_get_contents dir_glob_foreach get_host_arch is_native_arch $IPV6RE);
 
 use PVE::QMPClient;
 use PVE::QemuConfig;
@@ -1752,7 +1752,7 @@ sub print_netdev_full {
         if length($ifname) >= 16;
 
     my $vhostparam = '';
-    if (is_native($arch)) {
+    if (is_native_arch($arch)) {
 	$vhostparam = ',vhost=on' if kernel_has_vhost_net() && $net->{model} eq 'virtio';
     }
 
@@ -3215,11 +3215,6 @@ sub vga_conf_has_spice {
     return $1 || 1;
 }
 
-sub is_native($) {
-    my ($arch) = @_;
-    return get_host_arch() eq $arch;
-}
-
 sub get_vm_arch {
     my ($conf) = @_;
     return $conf->{arch} // get_host_arch();
@@ -3323,7 +3318,7 @@ my $Arch2Qemu = {
 };
 sub get_command_for_arch($) {
     my ($arch) = @_;
-    return '/usr/bin/kvm' if is_native($arch);
+    return '/usr/bin/kvm' if is_native_arch($arch);
 
     my $cmd = $Arch2Qemu->{$arch}
 	or die "don't know how to emulate architecture '$arch'\n";
@@ -3524,7 +3519,7 @@ sub config_to_command {
 
     my $machine_type = get_vm_machine($conf, $forcemachine, $arch, $add_pve_version);
     my $machine_version = extract_version($machine_type, $kvmver);
-    $kvm //= 1 if is_native($arch);
+    $kvm //= 1 if is_native_arch($arch);
 
     $machine_version =~ m/(\d+)\.(\d+)/;
     my ($machine_major, $machine_minor) = ($1, $2);
