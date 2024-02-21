@@ -52,7 +52,7 @@ use PVE::QemuConfig;
 use PVE::QemuServer::Helpers qw(config_aware_timeout min_version windows_version);
 use PVE::QemuServer::Cloudinit;
 use PVE::QemuServer::CGroup;
-use PVE::QemuServer::CPUConfig qw(print_cpu_device get_cpu_options);
+use PVE::QemuServer::CPUConfig qw(print_cpu_device get_cpu_options get_cpu_bitness);
 use PVE::QemuServer::Drive qw(is_valid_drivename drive_is_cloudinit drive_is_cdrom drive_is_read_only parse_drive print_drive);
 use PVE::QemuServer::Machine;
 use PVE::QemuServer::Memory qw(get_current_memory);
@@ -3618,6 +3618,9 @@ sub config_to_command {
     }
 
     if ($conf->{bios} && $conf->{bios} eq 'ovmf') {
+	die "OVMF (UEFI) BIOS is not supported on 32-bit CPU types\n"
+	    if !$forcecpu && get_cpu_bitness($conf->{cpu}, $arch) == 32;
+
 	my ($code_drive_str, $var_drive_str) =
 	    print_ovmf_drive_commandlines($conf, $storecfg, $vmid, $arch, $q35, $version_guard);
 	push $cmd->@*, '-drive', $code_drive_str;

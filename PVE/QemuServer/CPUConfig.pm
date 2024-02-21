@@ -12,6 +12,7 @@ use base qw(PVE::SectionConfig Exporter);
 our @EXPORT_OK = qw(
 print_cpu_device
 get_cpu_options
+get_cpu_bitness
 );
 
 # under certain race-conditions, this module might be loaded before pve-cluster
@@ -55,6 +56,17 @@ my $depreacated_cpu_map = {
     # there never was such a client CPU, so map it to the server one for backward compat
     'Icelake-Client' => 'Icelake-Server',
     'Icelake-Client-noTSX' => 'Icelake-Server-noTSX',
+};
+
+my $cputypes_32bit = {
+    '486' => 1,
+    'pentium' => 1,
+    'pentium2' => 1,
+    'pentium3' => 1,
+    'coreduo' => 1,
+    'athlon' => 1,
+    'kvm32' => 1,
+    'qemu32' => 1,
 };
 
 my $cpu_vendor_list = {
@@ -723,6 +735,33 @@ sub get_default_cpu_type {
     $cputype = 'cortex-a57' if $arch eq 'aarch64';
 
     return $cputype;
+}
+
+sub get_cpu_bitness {
+    my ($cpu_prop_str, $arch) = @_;
+
+    $arch //= get_host_arch();
+
+    my $cputype = get_default_cpu_type($arch, 0);
+
+    if ($cpu_prop_str) {
+	my $cpu = PVE::JSONSchema::parse_property_string('pve-vm-cpu-conf', $cpu_prop_str)
+	    or die "Cannot parse cpu description: $cpu_prop_str\n";
+
+	my $cputype = $cpu->{cputype};
+
+	if (my $model = $builtin_models->{$cputype}) {
+	    $cputype = $model->{'reported-model'};
+	} elsif (is_custom_model($cputype)) {
+	    my $custom_cpu = get_custom_model($cputype);
+	    $cputype = $custom_cpu->{'reported-model'} // $cpu_fmt->{'reported-model'}->{default};
+	}
+    }
+
+    return $cputypes_32bit->{$cputype} ? 32 : 64 if $arch eq 'x86_64';
+    return 64 if $arch eq 'aarch64';
+
+    die "unsupported architecture '$arch'\n";
 }
 
 __PACKAGE__->register();
