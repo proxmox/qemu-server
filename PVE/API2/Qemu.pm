@@ -45,6 +45,7 @@ use PVE::DataCenterConfig;
 use PVE::SSHInfo;
 use PVE::Replication;
 use PVE::StorageTunnel;
+use PVE::RESTEnvironment qw(log_warn);
 
 BEGIN {
     if (!$ENV{PVE_GENERATING_DOCS}) {
@@ -3654,7 +3655,11 @@ __PACKAGE__->register_method({
 
 		if ($target) {
 		    # always deactivate volumes - avoid lvm LVs to be active on several nodes
-		    PVE::Storage::deactivate_volumes($storecfg, $vollist, $snapname) if !$running;
+		    eval {
+			PVE::Storage::deactivate_volumes($storecfg, $vollist, $snapname) if !$running;
+		    };
+		    log_warn($@) if ($@);
+
 		    PVE::Storage::deactivate_volumes($storecfg, $newvollist);
 
 		    my $newconffile = PVE::QemuConfig->config_file($newid, $target);
