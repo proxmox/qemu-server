@@ -6133,12 +6133,20 @@ sub cleanup_pci_devices {
 	    my $dev_sysfs_dir = "/sys/bus/mdev/devices/$uuid";
 
 	    # some nvidia vgpu driver versions want to clean the mdevs up themselves, and error
-	    # out when we do it first. so wait for 10 seconds and then try it
-	    if ($d->{ids}->[0]->[0]->{vendor} =~ m/^(0x)?10de$/) {
-		sleep 10;
+	    # out when we do it first. so wait for up to 10 seconds and then try it manually
+	    if ($d->{ids}->[0]->[0]->{vendor} =~ m/^(0x)?10de$/ && -e $dev_sysfs_dir) {
+		my $count = 0;
+		while (-e $dev_sysfs_dir && $count < 10) {
+		    sleep 1;
+		    $count++;
+		}
+		print "waited $count seconds for mediated device driver finishing clean up\n";
 	    }
 
-	    PVE::SysFSTools::file_write("$dev_sysfs_dir/remove", "1") if -e $dev_sysfs_dir;
+	    if (-e $dev_sysfs_dir) {
+		print "actively clean up mediated device with UUID $uuid\n";
+		PVE::SysFSTools::file_write("$dev_sysfs_dir/remove", "1");
+	    }
 	}
     }
     PVE::QemuServer::PCI::remove_pci_reservation($vmid);

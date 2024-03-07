@@ -915,7 +915,8 @@ __PACKAGE__->register_method({
 	my $storecfg = PVE::Storage::config();
 	warn "Starting cleanup for $vmid\n";
 
-	PVE::QemuConfig->lock_config($vmid, sub {
+	# mdev cleanup can take a while, so wait up to 60 seconds
+	PVE::QemuConfig->lock_config_full($vmid, 60, sub {
 	    my $conf = PVE::QemuConfig->load_config ($vmid);
 	    my $pid = PVE::QemuServer::check_running ($vmid);
 	    die "vm still running\n" if $pid;
