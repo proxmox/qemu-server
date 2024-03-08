@@ -1,3 +1,42 @@
+qemu-server (8.1.0) bookworm; urgency=medium
+
+  * migration: do not allow live-migration with VNC clipboard, it's not yet
+    supported by QEMU's vdagent device, which gets used for this feature.
+
+  * cpu config: add QEMU 8.1 cpu models
+
+  * fix #4501: TCP migration: start vm: move port reservation and usage closer
+    together
+
+  * fix #2258: select correct device when removing drive snapshot via QEMU, as
+    the device where the disk is currently attached needs to be targeted, not
+    the one where the disk was attached at the time the snapshot was taken
+
+  * fix #4957: allow one to set the vendor and product information for
+    SCSI-Disks explicitly
+
+  * migration: remember original volume names from the source so that they can
+    get deactivated even if the volume name has to change due to being already
+    in use on the target storage.
+
+  * fix #4085: properly activate the storage(s) of custom cloud-init snippets
+
+  * api: fix using import-from with SCSI disks
+
+  * fix #1734: clone VM: if deactivation of source volume fails demote error
+    to warning. Deactivation can fail if the source is still, or again, in
+    use, e.g., due to parallel clones of the same template.
+
+  * mediated device pass-through: avoid race condition for cleaning up on VM
+    reboot
+
+  * prevent starting a 32-bit VM using a 64-bit OVMF BIOS
+
+  * QMP client: increase default timeout for drive-mirror to 10 minutes like
+    for other block operations.
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 08 Mar 2024 15:00:25 +0100
+
 qemu-server (8.0.10) bookworm; urgency=medium
 
   * sdn: pass vmid and hostname to allow requesting a new mapping
