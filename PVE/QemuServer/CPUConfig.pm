@@ -5,7 +5,7 @@ use warnings;
 
 use PVE::JSONSchema;
 use PVE::Cluster qw(cfs_register_file cfs_read_file);
-use PVE::Tools qw(is_native_arch);
+use PVE::Tools qw(get_host_arch);
 use PVE::QemuServer::Helpers qw(min_version);
 
 use base qw(PVE::SectionConfig Exporter);
@@ -14,6 +14,7 @@ our @EXPORT_OK = qw(
 print_cpu_device
 get_cpu_options
 get_cpu_bitness
+is_native_arch
 );
 
 # under certain race-conditions, this module might be loaded before pve-cluster
@@ -736,6 +737,11 @@ sub get_default_cpu_type {
     $cputype = 'cortex-a57' if $arch eq 'aarch64';
 
     return $cputype;
+}
+
+sub is_native_arch($) {
+    my ($arch) = @_;
+    return get_host_arch() eq $arch;
 }
 
 sub get_cpu_bitness {

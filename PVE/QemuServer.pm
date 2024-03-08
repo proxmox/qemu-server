@@ -45,14 +45,14 @@ use PVE::RPCEnvironment;
 use PVE::Storage;
 use PVE::SysFSTools;
 use PVE::Systemd;
-use PVE::Tools qw(run_command file_read_firstline file_get_contents dir_glob_foreach get_host_arch is_native_arch $IPV6RE);
+use PVE::Tools qw(run_command file_read_firstline file_get_contents dir_glob_foreach get_host_arch $IPV6RE);
 
 use PVE::QMPClient;
 use PVE::QemuConfig;
 use PVE::QemuServer::Helpers qw(config_aware_timeout min_version windows_version);
 use PVE::QemuServer::Cloudinit;
 use PVE::QemuServer::CGroup;
-use PVE::QemuServer::CPUConfig qw(print_cpu_device get_cpu_options get_cpu_bitness);
+use PVE::QemuServer::CPUConfig qw(print_cpu_device get_cpu_options get_cpu_bitness is_native_arch);
 use PVE::QemuServer::Drive qw(is_valid_drivename drive_is_cloudinit drive_is_cdrom drive_is_read_only parse_drive print_drive);
 use PVE::QemuServer::Machine;
 use PVE::QemuServer::Memory qw(get_current_memory);
