@@ -5254,13 +5254,14 @@ sub vmconfig_update_net {
 	    safe_string_ne($oldnet->{macaddr}, $newnet->{macaddr}) ||
 	    safe_num_ne($oldnet->{queues}, $newnet->{queues}) ||
 	    safe_num_ne($oldnet->{mtu}, $newnet->{mtu}) ||
-	    !($newnet->{bridge} && $oldnet->{bridge})) { # bridge/nat mode change
+	    !($newnet->{bridge} && $oldnet->{bridge})
+	) { # bridge/nat mode change
 
             # for non online change, we try to hot-unplug
 	    die "skip\n" if !$hotplug;
 	    vm_deviceunplug($vmid, $conf, $opt);
 
-	    if($have_sdn) {
+	    if ($have_sdn) {
 		PVE::Network::SDN::Vnets::del_ips_from_mac($oldnet->{bridge}, $oldnet->{macaddr}, $conf->{name});
 	    }
 
@@ -5272,12 +5273,14 @@ sub vmconfig_update_net {
 	    if (safe_string_ne($oldnet->{bridge}, $newnet->{bridge}) ||
 		safe_num_ne($oldnet->{tag}, $newnet->{tag}) ||
 		safe_string_ne($oldnet->{trunks}, $newnet->{trunks}) ||
-		safe_num_ne($oldnet->{firewall}, $newnet->{firewall})) {
+		safe_num_ne($oldnet->{firewall}, $newnet->{firewall})
+	    ) {
 		PVE::Network::tap_unplug($iface);
 
 		#set link_down in guest if bridge or vlan change to notify guest (dhcp renew for example)
 		if (safe_string_ne($oldnet->{bridge}, $newnet->{bridge}) ||
-		    safe_num_ne($oldnet->{tag}, $newnet->{tag})) {
+		    safe_num_ne($oldnet->{tag}, $newnet->{tag})
+		) {
 		    qemu_set_link_status($vmid, $opt, 0);
 		}
 
@@ -5296,7 +5299,8 @@ sub vmconfig_update_net {
 
 		#set link_up in guest if bridge or vlan change to notify guest (dhcp renew for example)
 		if (safe_string_ne($oldnet->{bridge}, $newnet->{bridge}) ||
-		    safe_num_ne($oldnet->{tag}, $newnet->{tag})) {
+		    safe_num_ne($oldnet->{tag}, $newnet->{tag})
+		) {
 		    qemu_set_link_status($vmid, $opt, 1);
 		}
 
