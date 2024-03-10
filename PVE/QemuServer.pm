@@ -5206,8 +5206,10 @@ sub vmconfig_apply_pending {
 		    if ($conf->{$opt}){
 		        my $old_net = PVE::QemuServer::parse_net($conf->{$opt});
 
-			if ($old_net->{bridge} ne $new_net->{bridge} ||
-			    $old_net->{macaddr} ne $new_net->{macaddr}) {
+			if (defined($old_net->{bridge}) && defined($old_net->{macaddr}) && (
+			    safe_string_ne($old_net->{bridge}, $new_net->{bridge}) ||
+			    safe_string_ne($old_net->{macaddr}, $new_net->{macaddr})
+			)) {
 			    PVE::Network::SDN::Vnets::del_ips_from_mac($old_net->{bridge}, $old_net->{macaddr}, $conf->{name});
 			}
 		   }
