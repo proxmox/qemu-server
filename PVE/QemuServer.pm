@@ -5201,21 +5201,21 @@ sub vmconfig_apply_pending {
 	    if (defined($conf->{$opt}) && is_valid_drivename($opt)) {
 		vmconfig_register_unused_drive($storecfg, $vmid, $conf, parse_drive($opt, $conf->{$opt}))
 	    } elsif (defined($conf->{pending}->{$opt}) && $opt =~ m/^net\d+$/) {
-		if($have_sdn) {
-                    my $new_net = PVE::QemuServer::parse_net($conf->{pending}->{$opt});
-		    if ($conf->{$opt}){
-		        my $old_net = PVE::QemuServer::parse_net($conf->{$opt});
+		return if !$have_sdn; # return from eval if SDN is not available
 
-			if (defined($old_net->{bridge}) && defined($old_net->{macaddr}) && (
-			    safe_string_ne($old_net->{bridge}, $new_net->{bridge}) ||
-			    safe_string_ne($old_net->{macaddr}, $new_net->{macaddr})
-			)) {
-			    PVE::Network::SDN::Vnets::del_ips_from_mac($old_net->{bridge}, $old_net->{macaddr}, $conf->{name});
-			}
-		   }
-		   #fixme: reuse ip if mac change && same bridge
-		   PVE::Network::SDN::Vnets::add_next_free_cidr($new_net->{bridge}, $conf->{name}, $new_net->{macaddr}, $vmid, undef, 1);
+		my $new_net = PVE::QemuServer::parse_net($conf->{pending}->{$opt});
+		if ($conf->{$opt}) {
+		    my $old_net = PVE::QemuServer::parse_net($conf->{$opt});
+
+		    if (defined($old_net->{bridge}) && defined($old_net->{macaddr}) && (
+			safe_string_ne($old_net->{bridge}, $new_net->{bridge}) ||
+			safe_string_ne($old_net->{macaddr}, $new_net->{macaddr})
+		    )) {
+			PVE::Network::SDN::Vnets::del_ips_from_mac($old_net->{bridge}, $old_net->{macaddr}, $conf->{name});
+		    }
 		}
+		#fixme: reuse ip if mac change && same bridge
+		PVE::Network::SDN::Vnets::add_next_free_cidr($new_net->{bridge}, $conf->{name}, $new_net->{macaddr}, $vmid, undef, 1);
 	    }
 	};
 	if (my $err = $@) {
