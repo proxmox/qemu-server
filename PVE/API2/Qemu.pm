@@ -420,20 +420,27 @@ my sub create_disks : prototype($$$$$$$$$$) {
 		    }
 		} else {
 		    $source = PVE::Storage::abs_filesystem_path($storecfg, $source, 1);
-		    $size = PVE::Storage::file_size_info($source);
+		    ($size, my $source_format) = PVE::Storage::file_size_info($source);
 		    die "could not get file size of $source\n" if !$size;
 
-		    (undef, $dst_volid) = PVE::QemuServer::ImportDisk::do_import(
-			$source,
-			$vmid,
-			$storeid,
-			{
-			    drive_name => $ds,
-			    format => $disk->{format},
-			    'skip-config-update' => 1,
-			},
-		    );
-		    push @$vollist, $dst_volid;
+		    if ($live_import && $ds ne 'efidisk0') {
+			$live_import_mapping->{$ds} = {
+			    path => $source,
+			    format => $source_format,
+			};
+		    } else {
+			(undef, $dst_volid) = PVE::QemuServer::ImportDisk::do_import(
+			    $source,
+			    $vmid,
+			    $storeid,
+			    {
+				drive_name => $ds,
+				format => $disk->{format},
+				'skip-config-update' => 1,
+			    },
+			);
+			push @$vollist, $dst_volid;
+		    }
 		}
 
 		if ($needs_creation) {
