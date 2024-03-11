@@ -28,6 +28,8 @@ sub do_import {
     # get target format, target image's path, and whether it's possible to sparseinit
     my $storecfg = PVE::Storage::config();
     my $dst_format = PVE::QemuServer::resolve_dst_disk_format($storecfg, $storage_id, undef, $format);
+    warn "format '$format' is not supported by the target storage - using '$dst_format' instead\n"
+	if $format && $format ne $dst_format;
 
     my $dst_volid = PVE::Storage::vdisk_alloc($storecfg, $storage_id, $vmid, $dst_format, undef, $src_size / 1024);
 
