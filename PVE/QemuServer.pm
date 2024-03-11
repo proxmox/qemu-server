@@ -7298,9 +7298,6 @@ sub pbs_live_restore {
 sub live_import_from_files {
     my ($mapping, $vmid, $conf, $restore_options) = @_;
 
-    die "only live-restore is implemented for restirng from files\n"
-	if !$restore_options->{live};
-
     my $live_restore_backing = {};
     for my $dev (keys %$mapping) {
 	die "disk not support for live-restoring: '$dev'\n"
