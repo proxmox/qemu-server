@@ -418,6 +418,9 @@ sub get_custom_model {
 sub print_cpu_device {
     my ($conf, $arch, $id) = @_;
 
+    # FIXME: hot plugging other architectures like our unofficial aarch64 support?
+    die "Hotplug of non x86_64 CPU not yet supported" if $arch ne 'x86_64';
+
     my $kvm = $conf->{kvm} // is_native_arch($arch);
     my $cpu = get_default_cpu_type('x86_64', $kvm);
     if (my $cputype = $conf->{cpu}) {
@@ -442,7 +445,6 @@ sub print_cpu_device {
     my $current_core = ($id - 1) % $cores;
     my $current_socket = int(($id - 1 - $current_core)/$cores);
 
-    # FIXME: hot plugging other architectures like our unofficial arch64 support?
     return "$cpu-x86_64-cpu,id=cpu$id,socket-id=$current_socket,core-id=$current_core,thread-id=0";
 }
 
