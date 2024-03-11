@@ -21,8 +21,6 @@ qemu-server (8.1.0) bookworm; urgency=medium
 
   * fix #4085: properly activate the storage(s) of custom cloud-init snippets
 
-  * api: fix using import-from with SCSI disks
-
   * fix #1734: clone VM: if deactivation of source volume fails demote error
     to warning. Deactivation can fail if the source is still, or again, in
     use, e.g., due to parallel clones of the same template.
