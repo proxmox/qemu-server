@@ -24,7 +24,7 @@ use PVE::JSONSchema qw(get_standard_option);
 use PVE::Network;
 use PVE::RPCEnvironment;
 use PVE::SafeSyslog;
-use PVE::Tools qw(extract_param);
+use PVE::Tools qw(extract_param file_get_contents);
 
 use PVE::API2::Qemu::Agent;
 use PVE::API2::Qemu;
@@ -954,6 +954,102 @@ __PACKAGE__->register_method({
 	return;
     }});
 
+__PACKAGE__->register_method({
+    name => 'vm_import',
+    path => 'vm-import',
+    description => "Import a foreign virtual guest from a supported import source, such as an ESXi storage.",
+    parameters => {
+	additionalProperties => 0,
+	properties => PVE::QemuServer::json_config_properties({
+	    vmid => get_standard_option('pve-vmid', { completion => \&PVE::Cluster::complete_next_vmid }),
+	    'source' => {
+		type => 'string',
+		description => 'The import source volume id.',
+	    },
+	    storage => get_standard_option('pve-storage-id', {
+		description => "Default storage.",
+		completion => \&PVE::QemuServer::complete_storage,
+	    }),
+	    'live-import' => {
+		type => 'boolean',
+		optional => 1,
+		default => 0,
+		description => "Immediately start the VM and copy the data in the background.",
+	    },
+	    'dryrun' => {
+		type => 'boolean',
+		optional => 1,
+		default => 0,
+		description => "Show the create command and exit without doing anything.",
+	    },
+	    delete => {
+		type => 'string', format => 'pve-configid-list',
+		description => "A list of settings you want to delete.",
+		optional => 1,
+	    },
+	    format => {
+		type => 'string',
+		description => 'Target format',
+		enum => [ 'raw', 'qcow2', 'vmdk' ],
+		optional => 1,
+	    },
+	}),
+    },
+    returns => { type => 'null' },
+    code => sub {
+	my ($param) = @_;
+
+	my ($vmid, $source, $storage, $format, $live_import, $dryrun, $delete) =
+	    delete $param->@{qw(vmid source storage format live-import dryrun delete)};
+
+	if (defined($format)) {
+	    $format = ",format=$format";
+	} else {
+	    $format = '';
+	}
+
+	my $storecfg = PVE::Storage::config();
+	my $metadata = PVE::Storage::get_import_metadata($storecfg, $source);
+
+	my $create_args = $metadata->{'create-args'};
+	if (my $netdevs = $metadata->{net}) {
+	    for my $net (keys $netdevs->%*) {
+		my $value = $netdevs->{$net};
+		$create_args->{$net} = join(',', map { $_ . '=' . $value->{$_} } sort keys %$value);
+	    }
+	}
+	if (my $disks = $metadata->{disks}) {
+	    if (delete $disks->{efidisk0}) {
+		$create_args->{efidisk0} = "$storage:1$format,efitype=4m";
+	    }
+	    for my $disk (keys $disks->%*) {
+		my $value = $disks->{$disk}->{volid};
+		$create_args->{$disk} = "$storage:0${format},import-from=$value";
+	    }
+	}
+
+	$create_args->{'live-restore'} = 1 if $live_import;
+
+	$create_args->{$_} = $param->{$_} for keys $param->%*;
+	delete $create_args->{$_} for PVE::Tools::split_list($delete);
+
+	if ($dryrun) {
+	    print("# dry-run – the resulting create command for the import would be:\n");
+	    print("qm create $vmid \\\n  ");
+	    print(join(" \\\n  ", map { "--$_ $create_args->{$_}" } sort keys $create_args->%*));
+	    print("\n");
+	    return;
+	}
+
+	PVE::API2::Qemu->create_vm({
+	    %node,
+	    vmid => $vmid,
+	    %$create_args,
+	});
+	return;
+    }
+});
+
 my $print_agent_result = sub {
     my ($data) = @_;
 
@@ -980,7 +1076,7 @@ sub param_mapping {
     my ($name) = @_;
 
     my $ssh_key_map = ['sshkeys', sub {
-	return URI::Escape::uri_escape(PVE::Tools::file_get_contents($_[0]));
+	return URI::Escape::uri_escape(file_get_contents($_[0]));
     }];
     my $cipassword_map = PVE::CLIHandler::get_standard_mapping('pve-password', { name => 'cipassword' });
     my $password_map = PVE::CLIHandler::get_standard_mapping('pve-password');
@@ -1104,6 +1200,7 @@ our $cmddef = {
 	update => [ "PVE::API2::Qemu", 'cloudinit_update', ['vmid'], { node => $nodename }],
     },
 
+    import => [ __PACKAGE__, 'vm_import', ['vmid', 'source']],
 };
 
 1;
