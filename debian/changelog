@@ -1,3 +1,18 @@
+qemu-server (8.1.1) bookworm; urgency=medium
+
+  * config: pending network: avoid undef-warning on old/new comparison
+
+  * support live-import for 'import-from' disk options on create
+
+  * qm: add 'import' command for importing a VM through a volumeid from a
+    storage that provides the new 'import' content-type.
+
+  * disk import: warn when fallback is used instead of requested format
+
+  * cpu config: die on hotplug of non x86_64 CPUs
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 14 Mar 2024 14:04:34 +0100
+
 qemu-server (8.1.0) bookworm; urgency=medium
 
   * migration: do not allow live-migration with VNC clipboard, it's not yet
