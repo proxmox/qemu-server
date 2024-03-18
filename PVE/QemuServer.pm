@@ -2597,7 +2597,7 @@ sub check_local_resources {
     foreach my $k (keys %$conf) {
 	if ($k =~ m/^usb/) {
 	    my $entry = parse_property_string('pve-qm-usb', $conf->{$k});
-	    next if $entry->{host} =~ m/^spice$/i;
+	    next if $entry->{host} && $entry->{host} =~ m/^spice$/i;
 	    if ($entry->{mapping}) {
 		$add_missing_mapping->('usb', $k, $entry->{mapping});
 		push @$mapped_res, $k;
