@@ -4800,21 +4800,26 @@ sub qemu_volume_snapshot_delete {
     my ($vmid, $deviceid, $storecfg, $volid, $snap) = @_;
 
     my $running = check_running($vmid);
+    my $attached_deviceid;
 
-    if($running) {
-
-	$running = undef;
+    if ($running) {
 	my $conf = PVE::QemuConfig->load_config($vmid);
 	PVE::QemuConfig->foreach_volume($conf, sub {
 	    my ($ds, $drive) = @_;
-	    $running = 1 if $drive->{file} eq $volid;
+	    $attached_deviceid = "drive-$ds" if $drive->{file} eq $volid;
 	});
     }
 
-    if ($running && do_snapshots_with_qemu($storecfg, $volid, $deviceid)) {
-	mon_cmd($vmid, 'blockdev-snapshot-delete-internal-sync', device => $deviceid, name => $snap);
+    if ($attached_deviceid && do_snapshots_with_qemu($storecfg, $volid, $attached_deviceid)) {
+	mon_cmd(
+	    $vmid,
+	    'blockdev-snapshot-delete-internal-sync',
+	    device => $attached_deviceid,
+	    name => $snap,
+	);
     } else {
-	PVE::Storage::volume_snapshot_delete($storecfg, $volid, $snap, $running);
+	PVE::Storage::volume_snapshot_delete(
+	    $storecfg, $volid, $snap, $attached_deviceid ? 1 : undef);
     }
 }
 
