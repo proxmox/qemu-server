@@ -1,3 +1,23 @@
+qemu-server (7.4-5) bullseye; urgency=medium
+
+  * backport various bug fixes from the Proxmox VE 8 release series:
+    - fix #2258: select correct device when removing drive snapshot via QEMU
+    - api: fix permission check for cloudinit drive update to avoid that only
+      root@pam can change that
+    - fix #3963: Skip TPM startup for template VMs
+    - CPU hotplug: cannot change feature online
+    - migration: secure and use source volume names for deactivation
+    - fix #1734: clone VM: if deactivation fails demote error to warning
+    - fix #2816: restore: remove timeout when allocating disks
+    - VM start: set higher timeout if using PCI passthrough
+    - fix #4522: api: vncproxy: also set environment variable for ticket
+      without websocket
+    - nbd-stop: increase timeout to 25s
+    - fix #4085: properly activate cicustom storage(s)
+    - fix #4822: vzdump: fix pbs encryption for no-disk guests
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 22 Mar 2024 16:47:37 +0100
+
 qemu-server (7.4-4) bullseye; urgency=medium
 
   * disable SMM check: always return false for virt machine type
