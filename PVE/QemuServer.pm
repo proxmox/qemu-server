@@ -1413,24 +1413,24 @@ sub print_drivedevice_full {
 	my $unit = $drive->{index} % $maxdev;
 
 	my $machine_version = extract_version($machine_type, kvm_user_version());
-	my $devicetype  = PVE::QemuServer::Drive::get_scsi_device_type(
+	my $device_type = PVE::QemuServer::Drive::get_scsi_device_type(
 	    $drive, $storecfg, $machine_version);
 
 	if (!$conf->{scsihw} || $conf->{scsihw} =~ m/^lsi/ || $conf->{scsihw} eq 'pvscsi') {
-	    $device = "scsi-$devicetype,bus=$controller_prefix$controller.0,scsi-id=$unit";
+	    $device = "scsi-$device_type,bus=$controller_prefix$controller.0,scsi-id=$unit";
 	} else {
-	    $device = "scsi-$devicetype,bus=$controller_prefix$controller.0,channel=0,scsi-id=0"
+	    $device = "scsi-$device_type,bus=$controller_prefix$controller.0,channel=0,scsi-id=0"
 	        .",lun=$drive->{index}";
 	}
 	$device .= ",drive=drive-$drive_id,id=$drive_id";
 
-	if ($drive->{ssd} && ($devicetype eq 'block' || $devicetype eq 'hd')) {
+	if ($drive->{ssd} && ($device_type eq 'block' || $device_type eq 'hd')) {
 	    $device .= ",rotation_rate=1";
 	}
 	$device .= ",wwn=$drive->{wwn}" if $drive->{wwn};
 
 	# only scsi-hd and scsi-cd support passing vendor and product information
-	if ($devicetype eq 'hd' || $devicetype eq 'cd') {
+	if ($device_type eq 'hd' || $device_type eq 'cd') {
 	    if (my $vendor = $drive->{vendor}) {
 		$device .= ",vendor=$vendor";
 	    }
@@ -1454,9 +1454,9 @@ sub print_drivedevice_full {
 	    $unit = 0;
 	}
 
-	my $devicetype = ($drive->{media} && $drive->{media} eq 'cdrom') ? "cd" : "hd";
+	my $device_type = ($drive->{media} && $drive->{media} eq 'cdrom') ? "cd" : "hd";
 
-	$device = "ide-$devicetype";
+	$device = "ide-$device_type";
 	if ($drive->{interface} eq 'ide') {
 	    $device .= ",bus=ide.$controller,unit=$unit";
 	} else {
@@ -1464,7 +1464,7 @@ sub print_drivedevice_full {
 	}
 	$device .= ",drive=drive-$drive_id,id=$drive_id";
 
-	if ($devicetype eq 'hd') {
+	if ($device_type eq 'hd') {
 	    if (my $model = $drive->{model}) {
 		$model = URI::Escape::uri_unescape($model);
 		$device .= ",model=$model";
@@ -1804,7 +1804,7 @@ sub print_vga_device {
 	}
     }
 
-    die "no devicetype for $vga->{type}\n" if !$type;
+    die "no device-type for $vga->{type}\n" if !$type;
 
     my $memory = "";
     if ($vgamem_mb) {
