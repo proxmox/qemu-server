@@ -853,7 +853,7 @@ sub get_scsi_devicetype {
 
     my $devicetype = 'hd';
     my $path = '';
-    if (drive_is_cdrom($drive)) {
+    if (drive_is_cdrom($drive) || drive_is_cloudinit($drive)) {
 	$devicetype = 'cd';
     } else {
 	if ($drive->{file} =~ m|^/|) {
