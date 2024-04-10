@@ -848,7 +848,7 @@ sub path_is_scsi {
     return $res;
 }
 
-sub get_scsi_devicetype {
+sub get_scsi_device_type {
     my ($drive, $storecfg, $machine_version) = @_;
 
     my $devicetype = 'hd';

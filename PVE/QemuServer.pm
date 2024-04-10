@@ -1413,7 +1413,7 @@ sub print_drivedevice_full {
 	my $unit = $drive->{index} % $maxdev;
 
 	my $machine_version = extract_version($machine_type, kvm_user_version());
-	my $devicetype  = PVE::QemuServer::Drive::get_scsi_devicetype(
+	my $devicetype  = PVE::QemuServer::Drive::get_scsi_device_type(
 	    $drive, $storecfg, $machine_version);
 
 	if (!$conf->{scsihw} || $conf->{scsihw} =~ m/^lsi/ || $conf->{scsihw} eq 'pvscsi') {
