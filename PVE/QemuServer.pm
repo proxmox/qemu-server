@@ -8019,6 +8019,9 @@ sub qemu_drive_mirror_monitor {
 
 		die "$job_id: '$op' has been cancelled\n" if !defined($job);
 
+		qemu_handle_concluded_blockjob($vmid, $job_id, $job)
+		    if $job && $job->{status} eq 'concluded';
+
 		my $busy = $job->{busy};
 		my $ready = $job->{ready};
 		if (my $total = $job->{len}) {
@@ -8119,6 +8122,19 @@ sub qemu_drive_mirror_monitor {
     }
 }
 
+# If the job was started with auto-dismiss=false, it's necessary to dismiss it manually. Using this
+# option is useful to get the error for failed jobs here. QEMU's job lock should make it impossible
+# to see a job in 'concluded' state when auto-dismiss=true.
+# $info is the 'BlockJobInfo' for the job returned by query-block-jobs.
+sub qemu_handle_concluded_blockjob {
+    my ($vmid, $job_id, $info) = @_;
+
+    eval { mon_cmd($vmid, 'job-dismiss', id => $job_id); };
+    log_warn("$job_id: failed to dismiss job - $@") if $@;
+
+    die "$job_id: $info->{error} (io-status: $info->{'io-status'})\n" if $info->{error};
+}
+
 sub qemu_blockjobs_cancel {
     my ($vmid, $jobs) = @_;
 
@@ -8137,8 +8153,14 @@ sub qemu_blockjobs_cancel {
 	}
 
 	foreach my $job (keys %$jobs) {
+	    my $info = $running_jobs->{$job};
+	    eval {
+		qemu_handle_concluded_blockjob($vmid, $job, $info)
+		    if $info && $info->{status} eq 'concluded';
+	    };
+	    log_warn($@) if $@; # only warn and proceed with canceling other jobs
 
-	    if (defined($jobs->{$job}->{cancel}) && !defined($running_jobs->{$job})) {
+	    if (defined($jobs->{$job}->{cancel}) && !defined($info)) {
 		print "$job: Done.\n";
 		delete $jobs->{$job};
 	    }
