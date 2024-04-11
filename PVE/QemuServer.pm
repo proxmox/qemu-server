@@ -7950,7 +7950,14 @@ sub qemu_drive_mirror {
 	$qemu_target = $is_zero_initialized ? "zeroinit:$dst_path" : $dst_path;
     }
 
-    my $opts = { timeout => 10, device => "drive-$drive", mode => "existing", sync => "full", target => $qemu_target };
+    my $opts = {
+	timeout => 10,
+	device => "drive-$drive",
+	mode => "existing",
+	sync => "full",
+	target => $qemu_target,
+	'auto-dismiss' => JSON::false,
+    };
     $opts->{format} = $format if $format;
 
     if (defined($src_bitmap)) {
