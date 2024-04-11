@@ -4080,6 +4080,17 @@ sub config_to_command {
     }
     push @$machineFlags, "type=${machine_type_min}";
 
+    PVE::QemuServer::Machine::assert_valid_machine_property($conf, $machine_conf);
+
+    if (my $viommu = $machine_conf->{viommu}) {
+	if ($viommu eq 'intel') {
+	    unshift @$devices, '-device', 'intel-iommu,intremap=on,caching-mode=on';
+	    push @$machineFlags, 'kernel-irqchip=split';
+	} elsif ($viommu eq 'virtio') {
+	    push @$devices, '-device', 'virtio-iommu-pci';
+	}
+    }
+
     push @$cmd, @$devices;
     push @$cmd, '-rtc', join(',', @$rtcFlags) if scalar(@$rtcFlags);
     push @$cmd, '-machine', join(',', @$machineFlags) if scalar(@$machineFlags);

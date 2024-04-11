@@ -23,12 +23,19 @@ my $machine_fmt = {
 	format_description => 'machine type',
 	optional => 1,
     },
+    viommu => {
+	type => 'string',
+	description => "Enable and set guest vIOMMU variant (Intel vIOMMU needs q35 to be set as"
+	    ." machine type).",
+	enum => ['intel', 'virtio'],
+	optional => 1,
+    },
 };
 
 PVE::JSONSchema::register_format('pve-qemu-machine-fmt', $machine_fmt);
 
 PVE::JSONSchema::register_standard_option('pve-qemu-machine', {
-    description => "Specify the QEMU machine type.",
+    description => "Specify the QEMU machine.",
     type => 'string',
     optional => 1,
     format => PVE::JSONSchema::get_format('pve-qemu-machine-fmt'),
@@ -46,6 +53,14 @@ sub parse_machine {
 sub print_machine {
     my ($machine_conf) = @_;
     return print_property_string($machine_conf, $machine_fmt);
+}
+
+sub assert_valid_machine_property {
+    my ($conf, $machine_conf) = @_;
+    my $q35 = $machine_conf->{type} && ($machine_conf->{type} =~ m/q35/) ? 1 : 0;
+    if ($machine_conf->{viommu} && $machine_conf->{viommu} eq "intel" && !$q35) {
+	die "to use Intel vIOMMU please set the machine type to q35\n";
+    }
 }
 
 sub machine_type_is_q35 {
