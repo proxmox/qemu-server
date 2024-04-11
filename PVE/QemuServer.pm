@@ -7381,6 +7381,7 @@ sub live_import_from_files {
 	    mon_cmd($vmid, 'block-stream',
 		'job-id' => $job_id,
 		device => "drive-$ds",
+		'auto-dismiss' => JSON::false,
 	    );
 	    $jobs->{$job_id} = {};
 	}
