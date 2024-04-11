@@ -7294,6 +7294,7 @@ sub pbs_live_restore {
 	    mon_cmd($vmid, 'block-stream',
 		'job-id' => $job_id,
 		device => "$ds",
+		'auto-dismiss' => JSON::false,
 	    );
 	    $jobs->{$job_id} = {};
 	}
