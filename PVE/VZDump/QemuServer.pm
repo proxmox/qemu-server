@@ -140,6 +140,7 @@ sub prepare {
 	    path => $path,
 	    volid => $volid,
 	    storeid => $storeid,
+	    size => $size,
 	    format => $format,
 	    virtdev => $ds,
 	    qmdevice => "drive-$ds",
