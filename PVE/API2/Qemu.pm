@@ -3041,7 +3041,13 @@ __PACKAGE__->register_method({
 		type => 'boolean',
 		optional => 1,
 		default => 0,
-	    }
+	    },
+	    'overrule-shutdown' => {
+		description => "Abort any active and visible 'qmshutdown' tasks before stopping",
+		optional => 1,
+		type => 'boolean',
+		default => 0,
+	    },
 	},
     },
     returns => {
@@ -3068,10 +3074,13 @@ __PACKAGE__->register_method({
 	raise_param_exc({ migratedfrom => "Only root may use this option." })
 	    if $migratedfrom && $authuser ne 'root@pam';
 
+	my $overrule_shutdown = extract_param($param, 'overrule-shutdown');
 
 	my $storecfg = PVE::Storage::config();
 
 	if (PVE::HA::Config::vm_is_ha_managed($vmid) && ($rpcenv->{type} ne 'ha') && !defined($migratedfrom)) {
+	    raise_param_exc({ 'overrule-shutdown' => "Not applicable for HA resources." })
+		if $overrule_shutdown;
 
 	    my $hacmd = sub {
 		my $upid = shift;
@@ -3090,6 +3099,14 @@ __PACKAGE__->register_method({
 		my $upid = shift;
 
 		syslog('info', "stop VM $vmid: $upid\n");
+
+		if ($overrule_shutdown) {
+		    my $overruled_tasks = PVE::GuestHelpers::abort_guest_tasks(
+			$rpcenv, 'qmshutdown', $vmid);
+		    my $overruled_tasks_list = join(", ", $overruled_tasks->@*);
+		    print "overruled qmshutdown tasks: $overruled_tasks_list\n"
+			if @$overruled_tasks;
+		};
 
 		PVE::QemuServer::vm_stop($storecfg, $vmid, $skiplock, 0,
 					 $param->{timeout}, 0, 1, $keepActive, $migratedfrom);
