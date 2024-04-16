@@ -1,3 +1,10 @@
+qemu-server (7.4-6) bullseye; urgency=medium
+
+  * backport fix for RBD resize issue when turning on krbd while the VM is
+    running
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 16 Apr 2024 17:31:45 +0200
+
 qemu-server (7.4-5) bullseye; urgency=medium
 
   * backport various bug fixes from the Proxmox VE 8 release series:
