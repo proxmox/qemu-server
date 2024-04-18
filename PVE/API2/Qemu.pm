@@ -3043,7 +3043,7 @@ __PACKAGE__->register_method({
 		default => 0,
 	    },
 	    'overrule-shutdown' => {
-		description => "Abort any active and visible 'qmshutdown' tasks before stopping",
+		description => "Try to abort active 'qmshutdown' tasks before stopping.",
 		optional => 1,
 		type => 'boolean',
 		default => 0,
