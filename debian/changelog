@@ -1,3 +1,21 @@
+qemu-server (8.1.2) bookworm; urgency=medium
+
+  * fix #4136: backup: implement fleecing option for improved guest
+    stability when the backup target is slow
+
+  * fix #4474: stop VM: add 'overrule-shutdown' parameter to prevent
+    currently running shutdown tasks from blocking the stop task
+
+  * fix #1905: disk move: allow moving unused disks
+
+  * fix #3784: add vIOMMU parameter to support passthrough of PCI devices to
+    nested virtual machines
+
+  * fix #5363: cloudinit: fix regression to make creation of scsi cloudinit
+    disks possible again
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 19 Apr 2024 16:09:18 +0200
+
 qemu-server (8.1.1) bookworm; urgency=medium
 
   * config: pending network: avoid undef-warning on old/new comparison
