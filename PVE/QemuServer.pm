@@ -8154,7 +8154,7 @@ sub clone_disk {
     my ($newvmid, $dst_drivename, $efisize) = $dest->@{qw(vmid drivename efisize)};
     my ($storage, $format) = $dest->@{qw(storage format)};
 
-    my $unused = $src_drivename =~ /^unused/;
+    my $unused = defined($src_drivename) && $src_drivename =~ /^unused/;
     my $use_drive_mirror = $full && $running && $src_drivename && !$snapname && !$unused;
 
     if ($src_drivename && $dst_drivename && $src_drivename ne $dst_drivename) {
