@@ -6,6 +6,7 @@ use warnings;
 use PVE::QemuServer;
 use PVE::Tools qw(run_command);
 use PVE::Network;
+use PVE::Firewall;
 
 my $have_sdn;
 eval {
@@ -44,13 +45,16 @@ die "unable to get network config '$netid'\n"
 my $net = PVE::QemuServer::parse_net($netconf);
 die "unable to parse network config '$netid'\n" if !$net;
 
+# The nftable-based implementation from the newer proxmox-firewall does not requires FW bridges
+my $create_firewall_bridges = $net->{firewall} && !PVE::Firewall::is_nftables();
+
 if ($have_sdn) {
     PVE::Network::SDN::Vnets::add_dhcp_mapping($net->{bridge}, $net->{macaddr}, $vmid, $conf->{name});
     PVE::Network::SDN::Zones::tap_create($iface, $net->{bridge});
-    PVE::Network::SDN::Zones::tap_plug($iface, $net->{bridge}, $net->{tag}, $net->{firewall}, $net->{trunks}, $net->{rate});
+    PVE::Network::SDN::Zones::tap_plug($iface, $net->{bridge}, $net->{tag}, $create_firewall_bridges, $net->{trunks}, $net->{rate});
 } else {
     PVE::Network::tap_create($iface, $net->{bridge});
-    PVE::Network::tap_plug($iface, $net->{bridge}, $net->{tag}, $net->{firewall}, $net->{trunks}, $net->{rate});
+    PVE::Network::tap_plug($iface, $net->{bridge}, $net->{tag}, $create_firewall_bridges, $net->{trunks}, $net->{rate});
 }
 
 exit 0;
