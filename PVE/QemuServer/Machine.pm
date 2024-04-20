@@ -5,7 +5,7 @@ use warnings;
 
 use PVE::QemuServer::Helpers;
 use PVE::QemuServer::Monitor;
-use PVE::JSONSchema qw(get_standard_option parse_property_string);
+use PVE::JSONSchema qw(get_standard_option parse_property_string print_property_string);
 
 # Bump this for VM HW layout changes during a release (where the QEMU machine
 # version stays the same)
