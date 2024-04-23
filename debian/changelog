@@ -1,3 +1,13 @@
+qemu-server (8.2.0) bookworm; urgency=medium
+
+  * qmeventd: also treat 'prelaunch' and 'suspended' states as active to avoid
+    issues when backing up VMs that currently are in those states.
+
+  * OS type: add Windows Server 2025 as supported, map it to the same virtual
+    hardware profile as the Windows 11 one.
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 23 Apr 2024 17:09:20 +0200
+
 qemu-server (8.1.4) bookworm; urgency=medium
 
   * api: create vm: add missing import for serializing machine type to fix a
