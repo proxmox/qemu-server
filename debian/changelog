@@ -1,3 +1,9 @@
+qemu-server (8.2.1) bookworm; urgency=medium
+
+  * cpu config: fix get_cpu_bitness always reverting to default cpu type
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 24 Apr 2024 11:49:03 +0200
+
 qemu-server (8.2.0) bookworm; urgency=medium
 
   * qmeventd: also treat 'prelaunch' and 'suspended' states as active to avoid
