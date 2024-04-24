@@ -757,7 +757,7 @@ sub get_cpu_bitness {
 	my $cpu = PVE::JSONSchema::parse_property_string('pve-vm-cpu-conf', $cpu_prop_str)
 	    or die "Cannot parse cpu description: $cpu_prop_str\n";
 
-	my $cputype = $cpu->{cputype};
+	$cputype = $cpu->{cputype};
 
 	if (my $model = $builtin_models->{$cputype}) {
 	    $cputype = $model->{'reported-model'};
