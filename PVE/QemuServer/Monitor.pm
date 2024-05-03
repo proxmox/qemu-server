@@ -50,11 +50,11 @@ sub mon_cmd {
 }
 
 sub hmp_cmd {
-    my ($vmid, $cmdline) = @_;
+    my ($vmid, $cmdline, $timeout) = @_;
 
     my $cmd = {
 	execute => 'human-monitor-command',
-	arguments => { 'command-line' => $cmdline },
+	arguments => { 'command-line' => $cmdline, timeout => $timeout },
     };
 
     return qmp_cmd($vmid, $cmd);
