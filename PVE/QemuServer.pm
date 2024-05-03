@@ -4380,7 +4380,7 @@ sub qemu_driveadd {
     my $io_uring = min_version($kvmver, 6, 0);
     my $drive = print_drive_commandline_full($storecfg, $vmid, $device, undef, $io_uring);
     $drive =~ s/\\/\\\\/g;
-    my $ret = PVE::QemuServer::Monitor::hmp_cmd($vmid, "drive_add auto \"$drive\"");
+    my $ret = PVE::QemuServer::Monitor::hmp_cmd($vmid, "drive_add auto \"$drive\"", 60);
 
     # If the command succeeds qemu prints: "OK"
     return 1 if $ret =~ m/OK/s;
@@ -4391,7 +4391,7 @@ sub qemu_driveadd {
 sub qemu_drivedel {
     my ($vmid, $deviceid) = @_;
 
-    my $ret = PVE::QemuServer::Monitor::hmp_cmd($vmid, "drive_del drive-$deviceid");
+    my $ret = PVE::QemuServer::Monitor::hmp_cmd($vmid, "drive_del drive-$deviceid", 10 * 60);
     $ret =~ s/^\s+//;
 
     return 1 if $ret eq "";
