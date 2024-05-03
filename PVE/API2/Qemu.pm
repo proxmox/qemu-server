@@ -4919,7 +4919,7 @@ __PACKAGE__->register_method({
 
 	my $res = '';
 	eval {
-	    $res = PVE::QemuServer::Monitor::hmp_cmd($vmid, $param->{command});
+	    $res = PVE::QemuServer::Monitor::hmp_cmd($vmid, $param->{command}, 25);
 	};
 	$res = "ERROR: $@" if $@;
 
