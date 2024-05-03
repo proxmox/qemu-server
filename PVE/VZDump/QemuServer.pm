@@ -461,7 +461,7 @@ my $attach_tpmstate_drive = sub {
 
     my $drive = "file=$task->{tpmpath},if=none,read-only=on,id=drive-tpmstate0-backup";
     $drive =~ s/\\/\\\\/g;
-    my $ret = PVE::QemuServer::Monitor::hmp_cmd($vmid, "drive_add auto \"$drive\"");
+    my $ret = PVE::QemuServer::Monitor::hmp_cmd($vmid, "drive_add auto \"$drive\"", 60);
     die "attaching TPM drive failed - $ret\n" if $ret !~ m/OK/s;
 };
 
@@ -606,7 +606,7 @@ my sub attach_fleecing_images {
 	    # fleecing image when allocating.
 	    $drive .= ",size=$di->{size}" if $format eq 'raw';
 	    $drive =~ s/\\/\\\\/g;
-	    my $ret = PVE::QemuServer::Monitor::hmp_cmd($vmid, "drive_add auto \"$drive\"");
+	    my $ret = PVE::QemuServer::Monitor::hmp_cmd($vmid, "drive_add auto \"$drive\"", 60);
 	    die "attaching fleecing image $volid failed - $ret\n" if $ret !~ m/OK/s;
 	}
     }
