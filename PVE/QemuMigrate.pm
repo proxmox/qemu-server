@@ -7,14 +7,17 @@ use IO::File;
 use IPC::Open2;
 use Time::HiRes qw( usleep );
 
+use PVE::AccessControl;
 use PVE::Cluster;
 use PVE::Format qw(render_bytes);
 use PVE::GuestHelpers qw(safe_boolean_ne safe_string_ne);
 use PVE::INotify;
+use PVE::JSONSchema;
 use PVE::RPCEnvironment;
 use PVE::Replication;
 use PVE::ReplicationConfig;
 use PVE::ReplicationState;
+use PVE::Storage::Plugin;
 use PVE::Storage;
 use PVE::StorageTunnel;
 use PVE::Tools;
