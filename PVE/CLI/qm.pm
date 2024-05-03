@@ -512,7 +512,7 @@ __PACKAGE__->register_method ({
 	    next if $input =~ m/^\s*$/;
 	    last if $input =~ m/^\s*q(uit)?\s*$/;
 
-	    eval { print PVE::QemuServer::Monitor::hmp_cmd($vmid, $input) };
+	    eval { print PVE::QemuServer::Monitor::hmp_cmd($vmid, $input, 30) };
 	    print "ERROR: $@" if $@;
 	}
 
