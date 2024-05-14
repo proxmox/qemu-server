@@ -6406,7 +6406,8 @@ sub vm_suspend {
 	    if ($err) {
 		# cleanup, but leave suspending lock, to indicate something went wrong
 		eval {
-		    mon_cmd($vmid, "savevm-end");
+		    eval { mon_cmd($vmid, "savevm-end"); };
+		    warn $@ if $@;
 		    PVE::Storage::deactivate_volumes($storecfg, [$vmstate]);
 		    PVE::Storage::vdisk_free($storecfg, $vmstate);
 		    delete $conf->@{qw(vmstate runningmachine runningcpu)};
