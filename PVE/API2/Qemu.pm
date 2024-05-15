@@ -6006,8 +6006,12 @@ __PACKAGE__->register_method({
 		} elsif (my $handler = $cmd_handlers->{$cmd}) {
 		    print "received command '$cmd'\n";
 		    eval {
-			if ($cmd_desc->{$cmd}) {
-			    PVE::JSONSchema::validate($parsed, $cmd_desc->{$cmd});
+			if (my $props = $cmd_desc->{$cmd}) {
+			    my $schema = {
+				type => 'object',
+				properties => $props,
+			    };
+			    PVE::JSONSchema::validate($parsed, $schema);
 			} else {
 			    $parsed = {};
 			}
