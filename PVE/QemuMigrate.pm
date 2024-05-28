@@ -544,12 +544,6 @@ sub handle_replication {
 	if $self->{opts}->{remote};
 
     if ($self->{running}) {
-
-	my $version = PVE::QemuServer::kvm_user_version();
-	if (!min_version($version, 4, 2)) {
-	    die "can't live migrate VM with replicated volumes, pve-qemu to old (< 4.2)!\n"
-	}
-
 	my @live_replicatable_volumes = $self->filter_local_volumes('online', 1);
 	foreach my $volid (@live_replicatable_volumes) {
 	    my $drive = $local_volumes->{$volid}->{drivename};
