@@ -3493,6 +3493,27 @@ my sub print_ovmf_drive_commandlines {
     return ("if=pflash,unit=0,format=raw,readonly=on,file=$ovmf_code", $var_drive_str);
 }
 
+my sub get_vga_properties {
+    my ($conf, $arch, $machine_version, $winversion) = @_;
+
+    my $vga = parse_vga($conf->{vga});
+
+    my $qxlnum = vga_conf_has_spice($conf->{vga});
+    $vga->{type} = 'qxl' if $qxlnum;
+
+    if (!$vga->{type}) {
+	if ($arch eq 'aarch64') {
+	    $vga->{type} = 'virtio';
+	} elsif (min_version($machine_version, 2, 9)) {
+	    $vga->{type} = (!$winversion || $winversion >= 6) ? 'std' : 'cirrus';
+	} else {
+	    $vga->{type} = ($winversion >= 6) ? 'std' : 'cirrus';
+	}
+    }
+
+    return ($vga, $qxlnum);
+}
+
 sub config_to_command {
     my ($storecfg, $vmid, $conf, $defaults, $forcemachine, $forcecpu,
         $live_restore_backing) = @_;
@@ -3666,20 +3687,8 @@ sub config_to_command {
     my @usbcontrollers = PVE::QemuServer::USB::get_usb_controllers(
 	$conf, $bridges, $arch, $machine_type, $machine_version);
     push @$devices, @usbcontrollers if @usbcontrollers;
-    my $vga = parse_vga($conf->{vga});
 
-    my $qxlnum = vga_conf_has_spice($conf->{vga});
-    $vga->{type} = 'qxl' if $qxlnum;
-
-    if (!$vga->{type}) {
-	if ($arch eq 'aarch64') {
-	    $vga->{type} = 'virtio';
-	} elsif (min_version($machine_version, 2, 9)) {
-	    $vga->{type} = (!$winversion || $winversion >= 6) ? 'std' : 'cirrus';
-	} else {
-	    $vga->{type} = ($winversion >= 6) ? 'std' : 'cirrus';
-	}
-    }
+    my ($vga, $qxlnum) = get_vga_properties($conf, $arch, $machine_version, $winversion);
 
     # enable absolute mouse coordinates (needed by vnc)
     my $tablet = $conf->{tablet};
