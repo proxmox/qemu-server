@@ -179,7 +179,7 @@ my $agent_fmt = {
 
 my $vga_fmt = {
     type => {
-	description => "Select the VGA type.",
+	description => "Select the VGA type. Using type 'cirrus' is not recommended.",
 	type => 'string',
 	default => 'std',
 	optional => 1,
