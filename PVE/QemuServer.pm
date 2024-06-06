@@ -6209,14 +6209,6 @@ sub vm_stop_cleanup {
 	if (!$keepActive) {
 	    my $vollist = get_vm_volumes($conf);
 	    PVE::Storage::deactivate_volumes($storecfg, $vollist);
-
-	    if (my $tpmdrive = $conf->{tpmstate0}) {
-		my $tpm = parse_drive("tpmstate0", $tpmdrive);
-		my ($storeid, $volname) = PVE::Storage::parse_volume_id($tpm->{file}, 1);
-		if ($storeid) {
-		    PVE::Storage::unmap_volume($storecfg, $tpm->{file});
-		}
-	    }
 	}
 
 	foreach my $ext (qw(mon qmp pid vnc qga)) {
