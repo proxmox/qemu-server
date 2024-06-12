@@ -1590,7 +1590,7 @@ __PACKAGE__->register_method({
 		$item->{value} = $pending;
 		$item->{pending} = $conf->{$opt};
 	    } else {
-		$item->{value} = $conf->{$opt},
+		$item->{value} = $conf->{$opt};
 	    }
 
 	    push @$res, $item;
