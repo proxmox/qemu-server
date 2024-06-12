@@ -29,6 +29,7 @@ use PVE::QemuServer;
 use PVE::QemuServer::Cloudinit;
 use PVE::QemuServer::CPUConfig;
 use PVE::QemuServer::Drive;
+use PVE::QemuServer::Helpers;
 use PVE::QemuServer::ImportDisk;
 use PVE::QemuServer::Monitor qw(mon_cmd);
 use PVE::QemuServer::Machine;
@@ -45,8 +46,10 @@ use PVE::API2::Firewall::VM;
 use PVE::API2::Qemu::Agent;
 use PVE::VZDump::Plugin;
 use PVE::DataCenterConfig;
+use PVE::ProcFSTools;
 use PVE::SSHInfo;
 use PVE::Replication;
+use PVE::ReplicationState;
 use PVE::StorageTunnel;
 use PVE::RESTEnvironment qw(log_warn);
 
