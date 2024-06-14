@@ -81,7 +81,7 @@ static unsigned long
 get_vmid_from_pid(pid_t pid)
 {
     char filename[32] = { 0 };
-    int len = snprintf(filename, sizeof(filename), "/proc/%d/cgroup", pid);
+    int len = snprintf(filename, sizeof(filename), "/proc/%d/cmdline", pid);
     if (len < 0) {
 	fprintf(stderr, "error during snprintf for %d: %s\n", pid,
 		strerror(errno));
@@ -101,37 +101,34 @@ get_vmid_from_pid(pid_t pid)
     char *buf = NULL;
     size_t buflen = 0;
 
-    while (getline(&buf, &buflen, fp) >= 0) {
-	char *cgroup_path = strrchr(buf, ':');
-	if (!cgroup_path) {
-	    fprintf(stderr, "unexpected cgroup entry %s\n", buf);
+    while (getdelim(&buf, &buflen, '\0', fp) >= 0) {
+	if (strcmp(buf, "-pidfile")) {
 	    continue;
 	}
-	cgroup_path++;
 
-	if (strncmp(cgroup_path, "/qemu.slice/", 12)) {
-	    continue;
+	if (getdelim(&buf, &buflen, '\0', fp) < 0) {
+	    break;
 	}
 
 	char *vmid_start = strrchr(buf, '/');
 	if (!vmid_start) {
-	    fprintf(stderr, "unexpected cgroup entry %s\n", buf);
-	    continue;
+	    fprintf(stderr, "unexpected pidfile option %s\n", buf);
+	    break;
 	}
 	vmid_start++;
 
 	if (vmid_start[0] == '-' || vmid_start[0] == '\0') {
-	    fprintf(stderr, "invalid vmid in cgroup entry %s\n", buf);
-	    continue;
+	    fprintf(stderr, "invalid vmid in pidfile option %s\n", buf);
+	    break;
 	}
 
 	errno = 0;
 	char *endptr = NULL;
 	vmid = strtoul(vmid_start, &endptr, 10);
-	if (!endptr || strncmp(endptr, ".scope", 6)) {
-	    fprintf(stderr, "unexpected cgroup entry %s\n", buf);
+	if (!endptr || strcmp(endptr, ".pid")) {
+	    fprintf(stderr, "unexpected pidfile option %s\n", buf);
 	    vmid = 0;
-	    continue;
+	    break;
 	}
 	if (errno != 0) {
 	    vmid = 0;
@@ -143,7 +140,7 @@ get_vmid_from_pid(pid_t pid)
     if (errno) {
 	fprintf(stderr, "error parsing vmid for %d: %s\n", pid, strerror(errno));
     } else if (!vmid) {
-	fprintf(stderr, "error parsing vmid for %d: no matching qemu.slice cgroup entry\n", pid);
+	fprintf(stderr, "error parsing vmid for %d: no matching pidfile option\n", pid);
     }
 
     free(buf);
