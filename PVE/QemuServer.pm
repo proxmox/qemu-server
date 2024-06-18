@@ -7537,15 +7537,17 @@ sub restore_vma_archive {
     my $oldtimeout;
 
     eval {
+	my $timeout_message = "got timeout preparing VMA restore\n";
 	# enable interrupts
 	local $SIG{INT} =
 	    local $SIG{TERM} =
 	    local $SIG{QUIT} =
 	    local $SIG{HUP} =
 	    local $SIG{PIPE} = sub { die "interrupted by signal\n"; };
-	local $SIG{ALRM} = sub { die "got timeout\n"; };
+	local $SIG{ALRM} = sub { die $timeout_message; };
 
 	$oldtimeout = alarm(5); # for reading the VMA header - might hang with a corrupted one
+	$timeout_message = "got timeout reading VMA header - corrupted?\n";
 
 	my $parser = sub {
 	    my $line = shift;
@@ -7556,6 +7558,7 @@ sub restore_vma_archive {
 		my ($dev_id, $size, $devname) = ($1, $2, $3);
 		$devinfo->{$devname} = { size => $size, dev_id => $dev_id };
 	    } elsif ($line =~ m/^CTIME: /) {
+		$timeout_message = "got timeout during VMA restore\n";
 		# we correctly received the vma config, so we can disable
 		# the timeout now for disk allocation
 		alarm($oldtimeout || 0);
