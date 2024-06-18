@@ -7546,7 +7546,7 @@ sub restore_vma_archive {
 	    local $SIG{PIPE} = sub { die "interrupted by signal\n"; };
 	local $SIG{ALRM} = sub { die $timeout_message; };
 
-	$oldtimeout = alarm(5); # for reading the VMA header - might hang with a corrupted one
+	$oldtimeout = alarm(60); # for reading the VMA header - might hang with a corrupted one
 	$timeout_message = "got timeout reading VMA header - corrupted?\n";
 
 	my $parser = sub {
