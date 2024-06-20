@@ -3497,6 +3497,28 @@ sub config_to_command {
     my ($storecfg, $vmid, $conf, $defaults, $forcemachine, $forcecpu,
         $live_restore_backing) = @_;
 
+    # minimize config for templates, they can only start for backup,
+    # so most options besides the disks are irrelevant
+    if (PVE::QemuConfig->is_template($conf)) {
+	my $newconf = {
+	    template => 1, # in case below code checks that
+	    kvm => 0, # to prevent an error on hosts without virtualization extensions
+	    vga => 'none', # to not start a vnc server
+	    scsihw => $conf->{scsihw}, # so that the scsi disks are correctly added
+	    bios => $conf->{bios}, # so efidisk gets included if it exists
+	    name => $conf->{name}, # so it's correct in the process list
+	};
+
+	# copy all disks over
+	for my $device (PVE::QemuServer::Drive::valid_drive_names()) {
+	    $newconf->{$device} = $conf->{$device};
+	}
+
+	# remaining configs stay default
+
+	$conf = $newconf;
+    }
+
     my ($globalFlags, $machineFlags, $rtcFlags) = ([], [], []);
     my $devices = [];
     my $bridges = {};
@@ -6136,6 +6158,9 @@ sub get_vm_volumes {
 
 sub cleanup_pci_devices {
     my ($vmid, $conf) = @_;
+
+    # templates don't use pci devices
+    return if $conf->{template};
 
     foreach my $key (keys %$conf) {
 	next if $key !~ m/^hostpci(\d+)$/;
