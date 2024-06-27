@@ -394,7 +394,7 @@ my %tpmversion_fmt = (
 	description => "The TPM interface version. v2.0 is newer and should be preferred."
 	    ." Note that this cannot be changed later on.",
 	optional => 1,
-	default => 'v2.0',
+	default => 'v1.2',
     },
 );
 my $tpmstate_fmt = {
