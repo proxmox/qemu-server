@@ -314,6 +314,24 @@ my $import_from_volid = sub {
     return $cloned->@{qw(file size)};
 };
 
+my sub prohibit_tpm_version_change {
+    my ($old, $new) = @_;
+
+    return if !$old || !$new;
+
+    my $old_drive = PVE::QemuServer::parse_drive('tpmstate0', $old);
+    my $new_drive = PVE::QemuServer::parse_drive('tpmstate0', $new);
+
+    return if $old_drive->{file} ne $new_drive->{file};
+
+    my $old_version = $old_drive->{version} // 'v1.2';
+    my $new_version = $new_drive->{version} // 'v1.2';
+
+    die "cannot change TPM state version after creation\n" if $old_version ne $new_version;
+
+    return;
+}
+
 # Note: $pool is only needed when creating a VM, because pool permissions
 # are automatically inherited if VM already exists inside a pool.
 my sub create_disks : prototype($$$$$$$$$$) {
@@ -1930,6 +1948,7 @@ my $update_vm_api  = sub {
 		    # old drive
 		    if ($conf->{$opt}) {
 			$check_drive_perms->($opt, $conf->{$opt});
+			prohibit_tpm_version_change($conf->{$opt}, $param->{$opt}) if $opt eq 'tpmstate0';
 		    }
 
 		    # new drive
