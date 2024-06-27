@@ -3163,9 +3163,9 @@ sub start_swtpm {
 	    "--not-overwrite", # ignore existing state, do not modify
 	];
 
-	push @$setup_cmd, "--tpm2" if $tpm->{version} eq 'v2.0';
+	push @$setup_cmd, "--tpm2" if $tpm->{version} && $tpm->{version} eq 'v2.0';
 	# TPM 2.0 supports ECC crypto, use if possible
-	push @$setup_cmd, "--ecc" if $tpm->{version} eq 'v2.0';
+	push @$setup_cmd, "--ecc" if $tpm->{version} && $tpm->{version} eq 'v2.0';
 
 	run_command($setup_cmd, outfunc => sub {
 	    print "swtpm_setup: $1\n";
@@ -3189,7 +3189,7 @@ sub start_swtpm {
 	"--log",
 	"file=/run/qemu-server/$vmid-swtpm.log,level=1,prefix=$log_prefix",
     ];
-    push @$emulator_cmd, "--tpm2" if $tpm->{version} eq 'v2.0';
+    push @$emulator_cmd, "--tpm2" if $tpm->{version} && $tpm->{version} eq 'v2.0';
     run_command($emulator_cmd, outfunc => sub { print $1; });
 
     my $tries = 100; # swtpm may take a bit to start before daemonizing, wait up to 5s for pid
