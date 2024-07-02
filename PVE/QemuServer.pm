@@ -8099,7 +8099,7 @@ sub qemu_drive_mirror_monitor {
 
 		    for my $job_id (sort keys %$jobs) {
 			# try to switch the disk if source and destination are on the same guest
-			print "$job_id: Completing block job_id...\n";
+			print "$job_id: Completing block job...\n";
 
 			my $op;
 			if ($completion eq 'complete') {
