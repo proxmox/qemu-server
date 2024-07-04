@@ -1139,6 +1139,14 @@ sub phase2 {
 	    $self->log('info', "$drive: start migration to $nbd_uri");
 	    PVE::QemuServer::qemu_drive_mirror($vmid, $drive, $nbd_uri, $vmid, undef, $self->{storage_migration_jobs}, 'skip', undef, $bwlimit, $bitmap);
 	}
+
+	if (PVE::QemuServer::Machine::runs_at_least_qemu_version($vmid, 8, 2)) {
+	    $self->log('info', "switching mirror jobs to actively synced mode");
+	    PVE::QemuServer::qemu_drive_mirror_switch_to_active_mode(
+		$vmid,
+		$self->{storage_migration_jobs},
+	    );
+	}
     }
 
     $self->log('info', "starting online/live migration on $migrate_uri");

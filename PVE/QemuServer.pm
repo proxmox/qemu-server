@@ -8186,6 +8186,57 @@ sub qemu_blockjobs_cancel {
     }
 }
 
+# Callers should version guard this (only available with a binary >= QEMU 8.2)
+sub qemu_drive_mirror_switch_to_active_mode {
+    my ($vmid, $jobs) = @_;
+
+    my $switching = {};
+
+    for my $job (sort keys $jobs->%*) {
+	print "$job: switching to actively synced mode\n";
+
+	eval {
+	    mon_cmd(
+		$vmid,
+		"block-job-change",
+		id => $job,
+		type => 'mirror',
+		'copy-mode' => 'write-blocking',
+	    );
+	    $switching->{$job} = 1;
+	};
+	die "could not switch mirror job $job to active mode - $@\n" if $@;
+    }
+
+    while (1) {
+	my $stats = mon_cmd($vmid, "query-block-jobs");
+
+	my $running_jobs = {};
+	$running_jobs->{$_->{device}} = $_ for $stats->@*;
+
+	for my $job (sort keys $switching->%*) {
+	    die "$job: vanished while switching to active mode\n" if !$running_jobs->{$job};
+
+	    my $info = $running_jobs->{$job};
+	    if ($info->{status} eq 'concluded') {
+		qemu_handle_concluded_blockjob($vmid, $job, $info);
+		# The 'concluded' state should occur here if and only if the job failed, so the
+		# 'die' below should be unreachable, but play it safe.
+		die "$job: expected job to have failed, but no error was set\n";
+	    }
+
+	    if ($info->{'actively-synced'}) {
+		print "$job: successfully switched to actively synced mode\n";
+		delete $switching->{$job};
+	    }
+	}
+
+	last if scalar(keys $switching->%*) == 0;
+
+	sleep 1;
+    }
+}
+
 # Check for bug #4525: drive-mirror will open the target drive with the same aio setting as the
 # source, but some storages have problems with io_uring, sometimes even leading to crashes.
 my sub clone_disk_check_io_uring {
