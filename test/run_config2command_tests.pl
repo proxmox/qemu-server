@@ -16,7 +16,7 @@ use PVE::SysFSTools;
 use PVE::QemuConfig;
 use PVE::QemuServer;
 use PVE::QemuServer::Monitor;
-use PVE::QemuServer::Machine;
+use PVE::QemuServer::QMPHelpers;
 use PVE::QemuServer::CPUConfig;
 
 my $base_env = {
@@ -472,7 +472,7 @@ sub do_test($) {
     # check if QEMU version set correctly and test version_cmp
     (my $qemu_major = get_test_qemu_version()) =~ s/\..*$//;
     die "runs_at_least_qemu_version returned false, maybe error in version_cmp?"
-	if !PVE::QemuServer::Machine::runs_at_least_qemu_version($vmid, $qemu_major);
+	if !PVE::QemuServer::QMPHelpers::runs_at_least_qemu_version($vmid, $qemu_major);
 
     $cmdline =~ s/ -/ \\\n  -/g; # same as qm showcmd --pretty
     $cmdline .= "\n";

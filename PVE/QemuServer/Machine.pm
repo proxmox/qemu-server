@@ -161,18 +161,6 @@ sub can_run_pve_machine_version {
     return 0;
 }
 
-# dies if a) VM not running or not exisiting b) Version query failed
-# So, any defined return value is valid, any invalid state can be caught by eval
-sub runs_at_least_qemu_version {
-    my ($vmid, $major, $minor, $extra) = @_;
-
-    my $v = PVE::QemuServer::Monitor::mon_cmd($vmid, 'query-version');
-    die "could not query currently running version for VM $vmid\n" if !defined($v);
-    $v = $v->{qemu};
-
-    return PVE::QemuServer::Helpers::version_cmp($v->{major}, $major, $v->{minor}, $minor, $v->{micro}, $extra) >= 0;
-}
-
 sub qemu_machine_pxe {
     my ($vmid, $conf) = @_;
 

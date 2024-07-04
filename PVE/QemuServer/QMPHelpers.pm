@@ -3,6 +3,7 @@ package PVE::QemuServer::QMPHelpers;
 use warnings;
 use strict;
 
+use PVE::QemuServer::Helpers;
 use PVE::QemuServer::Monitor qw(mon_cmd);
 
 use base 'Exporter';
@@ -43,6 +44,18 @@ sub qemu_objectdel {
     mon_cmd($vmid, "object-del", id => $objectid);
 
     return 1;
+}
+
+# dies if a) VM not running or not exisiting b) Version query failed
+# So, any defined return value is valid, any invalid state can be caught by eval
+sub runs_at_least_qemu_version {
+    my ($vmid, $major, $minor, $extra) = @_;
+
+    my $v = PVE::QemuServer::Monitor::mon_cmd($vmid, 'query-version');
+    die "could not query currently running version for VM $vmid\n" if !defined($v);
+    $v = $v->{qemu};
+
+    return PVE::QemuServer::Helpers::version_cmp($v->{major}, $major, $v->{minor}, $minor, $v->{micro}, $extra) >= 0;
 }
 
 1;

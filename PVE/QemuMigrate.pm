@@ -30,6 +30,7 @@ use PVE::QemuServer::Helpers qw(min_version);
 use PVE::QemuServer::Machine;
 use PVE::QemuServer::Monitor qw(mon_cmd);
 use PVE::QemuServer::Memory qw(get_current_memory);
+use PVE::QemuServer::QMPHelpers;
 use PVE::QemuServer;
 
 use PVE::AbstractMigrate;
@@ -1140,7 +1141,7 @@ sub phase2 {
 	    PVE::QemuServer::qemu_drive_mirror($vmid, $drive, $nbd_uri, $vmid, undef, $self->{storage_migration_jobs}, 'skip', undef, $bwlimit, $bitmap);
 	}
 
-	if (PVE::QemuServer::Machine::runs_at_least_qemu_version($vmid, 8, 2)) {
+	if (PVE::QemuServer::QMPHelpers::runs_at_least_qemu_version($vmid, 8, 2)) {
 	    $self->log('info', "switching mirror jobs to actively synced mode");
 	    PVE::QemuServer::qemu_drive_mirror_switch_to_active_mode(
 		$vmid,
