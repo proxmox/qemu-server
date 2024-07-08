@@ -661,8 +661,12 @@ my sub check_usb_perm {
     $rpcenv->check_vm_perm($authuser, $vmid, $pool, ['VM.Config.HWType']);
 
     my $device = PVE::JSONSchema::parse_property_string('pve-qm-usb', $value);
-    if ($device->{host} && $device->{host} !~ m/^spice$/i) {
-	die "only root can set '$opt' config for real devices\n";
+    if ($device->{host}) {
+	if ($device->{host} =~ m/^spice$/i) {
+	    # already checked generic permission above
+	} else {
+	    die "only root can set '$opt' config for real devices\n";
+	}
     } elsif ($device->{mapping}) {
 	$rpcenv->check_full($authuser, "/mapping/usb/$device->{mapping}", ['Mapping.Use']);
     } else {
