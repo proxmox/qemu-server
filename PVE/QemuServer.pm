@@ -5100,8 +5100,8 @@ sub vmconfig_hotplug_pending {
 		my $new_cpuunits = PVE::CGroup::clamp_cpu_shares($conf->{pending}->{$opt}); #clamp
 		$cgroup->change_cpu_shares($new_cpuunits);
 	    } elsif ($opt eq 'cpulimit') {
-		my $cpulimit = $conf->{pending}->{$opt} == 0 ? -1 : int($conf->{pending}->{$opt} * 100000);
-		$cgroup->change_cpu_quota($cpulimit, 100000);
+		my $cpulimit = $conf->{pending}->{$opt} == 0 ? undef : int($conf->{pending}->{$opt} * 100);
+		$cgroup->change_cpu_quota($cpulimit, undef);
 	    } elsif ($opt eq 'agent') {
 		vmconfig_update_agent($conf, $opt, $value);
 	    } else {
