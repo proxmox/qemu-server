@@ -1,3 +1,47 @@
+qemu-server (8.2.2) bookworm; urgency=medium
+
+  * schema: mention that migrate_downtime parameter will be auto-increased if
+    migration cannot converge otherwise.
+
+  * remote migration: enable schema validation
+
+  * suspend: also cleanup in error scenario when QMP command 'savevm-end'
+    fails rather than leaving orphaned volume around and VM configuration
+    locked.
+
+  * human monitor commands: increase timeout to sensible values. In particular
+    to fix #5440 where detaching a fleecing image would fail, because of the
+    low timeout.
+
+  * vma restore: increase timeout for reading header and improve error
+    messages.
+
+  * fix #5562: improve TPM version handling by disallowing change in the
+    configuration after creation of the state file (the actual state file
+    cannot change version either). Also avoid warning about undefined value
+    when version is not explicitly set and fix schema to mention the actual
+    default for the version, being 'v1.2'.
+
+  * fix #3352: minimize config when starting templates for PBS backup. A
+    template might reside on a host that does not have the necessary resources
+    or devices to start the VM with all settings.
+
+  * block jobs: improve error handling and messages for drive mirror and
+    live-restore/live-import.
+
+  * fix #5572: avoid warning about uninitialized value when cloning cloud-init
+    disk.
+
+  * CLI autocomplete: also list backup archives from PBS storages and without
+    compressor extension.
+
+  * remove outdated QEMU version checks working around missing features in
+    QEMU binaries 4.2 and 4.0.1.
+
+  * vga: mention that type 'cirrus' is recommended against.
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 12 Jul 2024 16:09:25 +0200
+
 qemu-server (8.2.1) bookworm; urgency=medium
 
   * cpu config: fix get_cpu_bitness always reverting to default cpu type
