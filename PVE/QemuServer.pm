@@ -5254,10 +5254,11 @@ sub vmconfig_apply_pending {
 			safe_string_ne($old_net->{macaddr}, $new_net->{macaddr})
 		    )) {
 			PVE::Network::SDN::Vnets::del_ips_from_mac($old_net->{bridge}, $old_net->{macaddr}, $conf->{name});
+			PVE::Network::SDN::Vnets::add_next_free_cidr($new_net->{bridge}, $conf->{name}, $new_net->{macaddr}, $vmid, undef, 1);
 		    }
+		} else {
+		    PVE::Network::SDN::Vnets::add_next_free_cidr($new_net->{bridge}, $conf->{name}, $new_net->{macaddr}, $vmid, undef, 1);
 		}
-		#fixme: reuse ip if mac change && same bridge
-		PVE::Network::SDN::Vnets::add_next_free_cidr($new_net->{bridge}, $conf->{name}, $new_net->{macaddr}, $vmid, undef, 1);
 	    }
 	};
 	if (my $err = $@) {
