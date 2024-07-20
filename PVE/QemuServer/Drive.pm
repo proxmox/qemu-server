@@ -662,7 +662,7 @@ sub parse_drive {
     if ($res->{media} && ($res->{media} eq 'cdrom')) {
 	return if $res->{snapshot} || $res->{trans} || $res->{format};
 	return if $res->{heads} || $res->{secs} || $res->{cyls};
-	return if $res->{interface} eq 'virtio';
+	#return if $res->{interface} eq 'virtio'; // I have no idea why this was disabled in the first place, so I've basically fucked around and later I might find out :)
     }
 
     if (my $size = $res->{size}) {

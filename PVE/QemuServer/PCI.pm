@@ -284,6 +284,11 @@ sub print_pci_addr {
 
     my $res = '';
 
+    if ($arch =~ m/^sparc/) {
+      print "sparc/sparc64 does not support PCI devices, ignoring: $id\n";
+      return $res;
+    }
+
     # using same bus slots on all HW, so we need to check special cases here:
     my $busname = 'pci';
     if ($arch eq 'aarch64' && $machine =~ /^virt/) {

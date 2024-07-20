@@ -184,7 +184,7 @@ my $vga_fmt = {
 	default => 'std',
 	optional => 1,
 	default_key => 1,
-	enum => [qw(cirrus qxl qxl2 qxl3 qxl4 none serial0 serial1 serial2 serial3 std virtio virtio-gl vmware)],
+	enum => [qw(qxl qxl2 qxl3 qxl4 none serial0 serial1 serial2 serial3 std virtio virtio-gl vmware cirrus tcx cg3)],
     },
     memory => {
 	description => "Sets the VGA memory (in MiB). Has no effect with serial display.",
@@ -220,7 +220,7 @@ my $ivshmem_fmt = {
 my $audio_fmt = {
     device => {
 	type => 'string',
-	enum => [qw(ich9-intel-hda intel-hda AC97)],
+	enum => [qw(ich9-intel-hda intel-hda AC97 sb16 adlib pcspk sb16-adlib-pcspk)],
 	description =>  "Configure an audio device."
     },
     driver =>  {
@@ -661,7 +661,7 @@ EODESCR
     bios => {
 	optional => 1,
 	type => 'string',
-	enum => [ qw(seabios ovmf) ],
+	enum => [ qw(seabios ovmf openbios-sparc32 openbios-sparc64 ss5.bin ss10_v2.25_rom ss20_v2.25_rom) ],
 	description => "Select BIOS implementation.",
 	default => 'seabios',
     },
@@ -866,6 +866,8 @@ my $nic_model_list = [
     'rtl8139',
     'virtio',
     'vmxnet3',
+    'sunhme',
+    'lance',
 ];
 my $nic_model_list_txt = join(' ', sort @$nic_model_list);
 
@@ -1408,7 +1410,9 @@ sub print_drivedevice_full {
 	my $device_type = PVE::QemuServer::Drive::get_scsi_device_type(
 	    $drive, $storecfg, $machine_version);
 
-	if (!$conf->{scsihw} || $conf->{scsihw} =~ m/^lsi/ || $conf->{scsihw} eq 'pvscsi') {
+	if ($arch eq 'sparc') {
+		$device = "scsi-$device_type,channel=0,scsi-id=$unit,lun=0";
+	} elsif (!$conf->{scsihw} || $conf->{scsihw} =~ m/^lsi/ || $conf->{scsihw} eq 'pvscsi') {
 	    $device = "scsi-$device_type,bus=$controller_prefix$controller.0,scsi-id=$unit";
 	} else {
 	    $device = "scsi-$device_type,bus=$controller_prefix$controller.0,channel=0,scsi-id=0"
@@ -1480,6 +1484,9 @@ sub print_drivedevice_full {
 	$device .= ",serial=$serial";
     }
 
+	if ($arch =~ m/^sparc/ && $drive->{media} && $drive->{media} eq 'cdrom') {
+		$device .= ",physical_block_size=512";
+	}
 
     return $device;
 }
@@ -3092,6 +3099,20 @@ sub audio_devs {
 
     if ($audio->{dev} eq 'AC97') {
 	push @$devs, '-device', "AC97,id=${id}${audiopciaddr}$audiodev";
+    } elsif ($audio->{dev} eq 'sb16') {
+	push @$devs, '-device', "sb16,id=${id}$audiodev";
+    } elsif ($audio->{dev} eq 'adlib') {
+	push @$devs, '-device', "adlib,id=${id}$audiodev";
+    } elsif ($audio->{dev} eq 'pcspk') {
+	if (min_version($machine_version, 4, 2)) {
+	push @$devs, '-machine', "pcspk-audiodev=$audio->{backend_id}";
+	}
+	} elsif ($audio->{dev} eq 'sb16-adlib-pcspk') {
+	if (min_version($machine_version, 4, 2)) {
+	push @$devs, '-machine', "pcspk-audiodev=$audio->{backend_id}";
+	push @$devs, '-device', "sb16$audiodev";
+	push @$devs, '-device', "adlib$audiodev";
+	}
     } elsif ($audio->{dev} =~ /intel\-hda$/) {
 	push @$devs, '-device', "$audio->{dev},id=${id}${audiopciaddr}";
 	push @$devs, '-device', "hda-micro,id=${id}-codec0,bus=${id}.0,cad=0$audiodev";
@@ -3309,6 +3330,8 @@ sub get_ovmf_files($$$) {
 }
 
 my $Arch2Qemu = {
+    sparc => '/usr/bin/qemu-system-sparc',
+    sparc64 => '/usr/bin/qemu-system-sparc64',
     aarch64 => '/usr/bin/qemu-system-aarch64',
     x86_64 => '/usr/bin/qemu-system-x86_64',
 };
@@ -3444,7 +3467,7 @@ sub query_understood_cpu_flags {
 my sub should_disable_smm {
     my ($conf, $vga, $machine) = @_;
 
-    return if $machine =~ m/^virt/; # there is no smm flag that could be disabled
+    return if $machine =~ m/^virt/ || $machine =~ m/^SS\-/; # there is no smm flag that could be disabled
 
     return (!defined($conf->{bios}) || $conf->{bios} eq 'seabios') &&
 	$vga->{type} && $vga->{type} =~ m/^(serial\d+|none)$/;
@@ -3604,9 +3627,13 @@ sub config_to_command {
 		$value =~ s/,/,,/g;
 		$smbios_string .= "," . $key . "=" . $value if $value;
 	    }
-	    push @$cmd, '-smbios', "type=1" . $smbios_string;
+		if ($arch !~ m/^sparc/) {
+			push @$cmd, '-smbios', "type=1" . $smbios_string;
+		}
 	} else {
-	    push @$cmd, '-smbios', "type=1,$conf->{smbios1}";
+		if ($arch !~ m/^sparc/) {
+			push @$cmd, '-smbios', "type=1,$conf->{smbios1}";
+		}
 	}
     }
 
@@ -3618,6 +3645,10 @@ sub config_to_command {
 	    print_ovmf_drive_commandlines($conf, $storecfg, $vmid, $arch, $q35, $version_guard);
 	push $cmd->@*, '-drive', $code_drive_str;
 	push $cmd->@*, '-drive', $var_drive_str;
+    }
+
+    if ($conf->{bios} && ($conf->{bios} eq 'ovmf' || $conf->{arch} && $conf->{arch} =~ m/^sparc/)) {
+        push @$cmd, '-bios', "$conf->{bios}";
     }
 
     if ($q35) { # tell QEMU to load q35 config early
@@ -3638,9 +3669,11 @@ sub config_to_command {
     }
 
     # add usb controllers
+    if ($arch !~ m/^sparc/) {
     my @usbcontrollers = PVE::QemuServer::USB::get_usb_controllers(
 	$conf, $bridges, $arch, $machine_type, $machine_version);
     push @$devices, @usbcontrollers if @usbcontrollers;
+    }
     my $vga = parse_vga($conf->{vga});
 
     my $qxlnum = vga_conf_has_spice($conf->{vga});
@@ -3671,7 +3704,6 @@ sub config_to_command {
     }
 
     my $bootorder = device_bootorder($conf);
-
     # host pci device passthrough
     my ($kvm_off, $gpu_passthrough, $legacy_igd, $pci_devices) = PVE::QemuServer::PCI::print_hostpci_devices(
 	$vmid, $conf, $devices, $vga, $winversion, $bridges, $arch, $machine_type, $bootorder);
@@ -3758,7 +3790,14 @@ sub config_to_command {
 
     push @$cmd, '-no-reboot' if  defined($conf->{reboot}) && $conf->{reboot} == 0;
 
-    if ($vga->{type} && $vga->{type} !~ m/^serial\d+$/ && $vga->{type} ne 'none'){
+    if ($vga->{type} && $arch =~ m/^sparc/) {
+        push @$cmd, '-vga', $vga->{type};
+
+	    # TODO: if special mode
+	    #my $socket = PVE::QemuServer::Helpers::vnc_socket($vmid);
+	    #push @$cmd,  '-vnc', "unix:$socket,password=on";
+		$ENV{DISPLAY} = ':0'
+    } elsif ($vga->{type} && $vga->{type} !~ m/^serial\d+$/ && $vga->{type} ne 'none'){
 	push @$devices, '-device', print_vga_device(
 	    $conf, $vga, $arch, $machine_version, $machine_type, undef, $qxlnum, $bridges);
 
@@ -3797,11 +3836,13 @@ sub config_to_command {
 	push @$rtcFlags, 'base=localtime';
     }
 
+    if ($arch !~ m/^sparc/) { # TODO: support specifying cpu type for sparc platforms, until then let the machine use its default
     if ($forcecpu) {
 	push @$cmd, '-cpu', $forcecpu;
     } else {
 	push @$cmd, get_cpu_options($conf, $arch, $kvm, $kvm_off, $machine_version, $winversion, $gpu_passthrough);
     }
+	}
 
     PVE::QemuServer::Memory::config(
 	$conf, $vmid, $sockets, $cores, $hotplug_features->{memory}, $cmd);
@@ -3969,8 +4010,10 @@ sub config_to_command {
 		$queues = ",num_queues=$drive->{queues}";
 	    }
 
+	    push @$devices, '-device', "$scsihw_type,id=$controller_prefix$controller$pciaddr$iothread$queues,bus=pciB"
+		if !$scsicontroller->{$controller} && $arch eq 'sparc64';
 	    push @$devices, '-device', "$scsihw_type,id=$controller_prefix$controller$pciaddr$iothread$queues"
-		if !$scsicontroller->{$controller};
+		if !$scsicontroller->{$controller} && $arch !~ m/^sparc/;
 	    $scsicontroller->{$controller}=1;
 	}
 
@@ -4013,12 +4056,27 @@ sub config_to_command {
 	$d->{bootindex} = $bootorder->{$netname} if $bootorder->{$netname};
 
 	my $netdevfull = print_netdev_full($vmid, $conf, $arch, $d, $netname);
-	push @$devices, '-netdev', $netdevfull;
+	if ($arch eq 'sparc') {
+		$netdevfull =~ s/net0/lance.0/;
+		push @$devices, '-net', $netdevfull;
+	} else {
+		push @$devices, '-netdev', $netdevfull;
+	}
 
 	my $netdevicefull = print_netdevice_full(
 	    $vmid, $conf, $d, $netname, $bridges, $use_old_bios_files, $arch, $machine_type, $machine_version);
 
-	push @$devices, '-device', $netdevicefull;
+	if ($arch eq 'sparc') {
+		# lance is builtin and not pluggable on the sparc platform
+		push @$devices, '-net', "nic,model=lance,macaddr=08:00:20:b5:09:67"; # TODO: fix static hw
+	} elsif ($arch eq 'sparc64') {
+	    # On a real Ultra 5 all PCI devices are attached behind the two simba bridges;
+		# in-built devices are attached to bus A whilst bus B has 4 free PCI slots for use.
+		# https://wiki.qemu.org/Documentation/Platforms/SPARC
+	    push @$devices, '-device', "$netdevicefull,bus=pciB";
+	} else {
+	    push @$devices, '-device', $netdevicefull;
+	}
     }
 
     if ($conf->{ivshmem}) {
@@ -4042,7 +4100,7 @@ sub config_to_command {
     # pci.4 is nested in pci.1
     $bridges->{1} = 1 if $bridges->{4};
 
-    if (!$q35) { # add pci bridges
+    if (!$q35 && $arch !~ m/^sparc/) { # add pci bridges
 	if (min_version($machine_version, 2, 3)) {
 	   $bridges->{1} = 1;
 	   $bridges->{2} = 1;
@@ -4065,6 +4123,8 @@ sub config_to_command {
 	} else {
 	    unshift @$devices, '-device', $devstr if $k > 0;
 	}
+
+	print "Debug: q35=$q35 k=$k arch=$arch machine=$machine_type devstr=$devstr\n";
     }
 
     if (!$kvm) {
@@ -5882,6 +5942,9 @@ sub vm_start_nolock {
 		# start the TPM emulator so QEMU can connect on start
 		$tpmpid = start_swtpm($storecfg, $vmid, $tpm, $migratedfrom);
 	    }
+
+        print "cmd:\n";
+        foreach($cmd) { print join(" ", map { /^-/ ? $_ : "$_ \\\n" } @$_), "\n"; }
 
 	    my $exitcode = run_command($cmd, %run_params);
 	    if ($exitcode) {
