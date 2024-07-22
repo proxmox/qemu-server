@@ -1,3 +1,11 @@
+qemu-server (8.2.3) bookworm; urgency=medium
+
+  * config: net: avoid duplicate ipam entries on nic update
+
+  * fix #5574: api: fix permission check for 'spice' usb port
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 22 Jul 2024 19:42:15 +0200
+
 qemu-server (8.2.2) bookworm; urgency=medium
 
   * schema: mention that migrate_downtime parameter will be auto-increased if
