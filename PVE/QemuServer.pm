@@ -3313,13 +3313,13 @@ sub windows_get_pinned_machine_version {
 }
 
 sub get_vm_machine {
-    my ($conf, $forcemachine, $arch, $add_pve_version, $kvmversion) = @_;
+    my ($conf, $forcemachine, $arch, $add_pve_version) = @_;
 
     my $machine_conf = PVE::QemuServer::Machine::parse_machine($conf->{machine});
     my $machine = $forcemachine || $machine_conf->{type};
 
     if (!$machine || $machine =~ m/^(?:pc|q35|virt)$/) {
-	$kvmversion //= kvm_user_version();
+	my $kvmversion //= kvm_user_version();
 	# we must pin Windows VMs without a specific version to 5.1, as 5.2 fixed a bug in ACPI
 	# layout which confuses windows quite a bit and may result in various regressions..
 	# see: https://lists.gnu.org/archive/html/qemu-devel/2021-02/msg08484.html
