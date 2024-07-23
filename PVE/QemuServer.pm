@@ -3313,7 +3313,7 @@ sub windows_get_pinned_machine_version {
 }
 
 sub get_vm_machine {
-    my ($conf, $forcemachine, $arch, $add_pve_version) = @_;
+    my ($conf, $forcemachine, $arch) = @_;
 
     my $machine_conf = PVE::QemuServer::Machine::parse_machine($conf->{machine});
     my $machine = $forcemachine || $machine_conf->{type};
@@ -3328,13 +3328,11 @@ sub get_vm_machine {
 	}
 	$arch //= 'x86_64';
 	$machine ||= $default_machines->{$arch};
-	if ($add_pve_version) {
-	    my $pvever = PVE::QemuServer::Machine::get_pve_version($kvmversion);
-	    $machine .= "+pve$pvever";
-	}
+	my $pvever = PVE::QemuServer::Machine::get_pve_version($kvmversion);
+	$machine .= "+pve$pvever";
     }
 
-    if ($add_pve_version && $machine !~ m/\+pve\d+?(?:\.pxe)?$/) {
+    if ($machine !~ m/\+pve\d+?(?:\.pxe)?$/) {
 	my $is_pxe = $machine =~ m/^(.*?)\.pxe$/;
 	$machine = $1 if $is_pxe;
 
@@ -3619,9 +3617,7 @@ sub config_to_command {
 	die "Detected old QEMU binary ('$kvmver', at least 5.0 is required)\n";
     }
 
-    my $add_pve_version = min_version($kvmver, 4, 1);
-
-    my $machine_type = get_vm_machine($conf, $forcemachine, $arch, $add_pve_version);
+    my $machine_type = get_vm_machine($conf, $forcemachine, $arch);
     my $machine_version = extract_version($machine_type, $kvmver);
     $kvm //= 1 if is_native_arch($arch);
 
@@ -4168,10 +4164,8 @@ sub config_to_command {
     push @$machineFlags, 'smm=off' if should_disable_smm($conf, $vga, $machine_type);
 
     my $machine_type_min = $machine_type;
-    if ($add_pve_version) {
-	$machine_type_min =~ s/\+pve\d+$//;
-	$machine_type_min .= "+pve$required_pve_version";
-    }
+    $machine_type_min =~ s/\+pve\d+$//;
+    $machine_type_min .= "+pve$required_pve_version";
     push @$machineFlags, "type=${machine_type_min}";
 
     PVE::QemuServer::Machine::assert_valid_machine_property($conf, $machine_conf);
