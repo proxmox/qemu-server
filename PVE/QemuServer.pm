@@ -5340,20 +5340,18 @@ sub vmconfig_update_net {
 		    PVE::Network::tap_plug($iface, $newnet->{bridge}, $newnet->{tag}, $newnet->{firewall}, $newnet->{trunks}, $newnet->{rate});
 		}
 
-		#set link_up in guest if bridge or vlan change to notify guest (dhcp renew for example)
-		if (safe_string_ne($oldnet->{bridge}, $newnet->{bridge}) ||
-		    safe_num_ne($oldnet->{tag}, $newnet->{tag})
-		) {
-		    qemu_set_link_status($vmid, $opt, 1);
-		}
-
 	    } elsif (safe_num_ne($oldnet->{rate}, $newnet->{rate})) {
 		# Rate can be applied on its own but any change above needs to
 		# include the rate in tap_plug since OVS resets everything.
 		PVE::Network::tap_rate_limit($iface, $newnet->{rate});
 	    }
 
-	    if (safe_string_ne($oldnet->{link_down}, $newnet->{link_down})) {
+	    # set link_down on changed bridge/tag as well, because we detach the
+	    # network device in the section above if the bridge or tag changed
+	    if (safe_string_ne($oldnet->{link_down}, $newnet->{link_down})
+		|| safe_string_ne($oldnet->{bridge}, $newnet->{bridge})
+		|| safe_num_ne($oldnet->{tag}, $newnet->{tag})
+	    ) {
 		qemu_set_link_status($vmid, $opt, !$newnet->{link_down});
 	    }
 
