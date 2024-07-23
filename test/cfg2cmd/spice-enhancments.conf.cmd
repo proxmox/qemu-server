@@ -28,4 +28,4 @@
   -spice 'tls-port=61000,addr=127.0.0.1,tls-ciphers=HIGH,seamless-migration=on,streaming-video=all' \
   -device 'virtio-balloon-pci,id=balloon0,bus=pci.0,addr=0x3' \
   -iscsi 'initiator-name=iqn.1993-08.org.debian:01:aabbccddeeff' \
-  -machine 'type=pc'
+  -machine 'type=pc-i440fx-4.0+pve0'
