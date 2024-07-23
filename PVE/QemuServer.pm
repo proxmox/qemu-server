@@ -3614,9 +3614,9 @@ sub config_to_command {
     my $kvm_binary = get_command_for_arch($arch);
     my $kvmver = kvm_user_version($kvm_binary);
 
-    if (!$kvmver || $kvmver !~ m/^(\d+)\.(\d+)/ || $1 < 4) {
+    if (!$kvmver || $kvmver !~ m/^(\d+)\.(\d+)/ || $1 < 5) {
 	$kvmver //= "undefined";
-	die "Detected old QEMU binary ('$kvmver', at least 4.0 is required)\n";
+	die "Detected old QEMU binary ('$kvmver', at least 5.0 is required)\n";
     }
 
     my $add_pve_version = min_version($kvmver, 4, 1);
