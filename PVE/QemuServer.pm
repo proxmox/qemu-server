@@ -8112,10 +8112,13 @@ sub qemu_drive_mirror_monitor {
 			    die "invalid completion value: $completion\n";
 			}
 			eval { mon_cmd($vmid, $op, device => $job_id) };
-			if ($@ =~ m/cannot be completed/) {
+			my $err = $@;
+			if ($err && $err =~ m/cannot be completed/) {
 			    print "$job_id: block job cannot be completed, trying again.\n";
 			    $err_complete++;
-			}else {
+			} elsif ($err) {
+			    die "$job_id: block job cannot be completed - $err\n";
+			} else {
 			    print "$job_id: Completed successfully.\n";
 			    $jobs->{$job_id}->{complete} = 1;
 			}
