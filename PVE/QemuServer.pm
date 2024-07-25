@@ -6459,7 +6459,9 @@ sub vm_resume {
     my ($vmid, $skiplock, $nocheck) = @_;
 
     PVE::QemuConfig->lock_config($vmid, sub {
-	my $res = mon_cmd($vmid, 'query-status');
+	# After migration, the VM might not immediately be able to respond to QMP commands, because
+	# activating the block devices might take a bit of time.
+	my $res = mon_cmd($vmid, 'query-status', timeout => 60);
 	my $resume_cmd = 'cont';
 	my $reset = 0;
 	my $conf;
