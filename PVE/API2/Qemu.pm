@@ -1674,12 +1674,6 @@ my $update_vm_api  = sub {
 
     my $skip_cloud_init = extract_param($param, 'skip_cloud_init');
 
-    if (defined(my $cipassword = $param->{cipassword})) {
-	# Same logic as in cloud-init (but with the regex fixed...)
-	$param->{cipassword} = PVE::Tools::encrypt_pw($cipassword)
-	    if $cipassword !~ /^\$(?:[156]|2[ay])(\$.+){2}/;
-    }
-
     my @paramarr = (); # used for log message
     foreach my $key (sort keys %$param) {
 	my $value = $key eq 'cipassword' ? '<hidden>' : $param->{$key};
@@ -2029,6 +2023,13 @@ my $update_vm_api  = sub {
 		    my $machine_conf = PVE::QemuServer::Machine::parse_machine($param->{$opt});
 		    PVE::QemuServer::Machine::assert_valid_machine_property($conf, $machine_conf);
 		    $conf->{pending}->{$opt} = $param->{$opt};
+		} elsif ($opt eq 'cipassword') {
+		    if (!PVE::QemuServer::Helpers::windows_version($conf->{ostype})) {
+			# Same logic as in cloud-init (but with the regex fixed...)
+			$param->{cipassword} = PVE::Tools::encrypt_pw($param->{cipassword})
+			    if $param->{cipassword} !~ /^\$(?:[156]|2[ay])(\$.+){2}/;
+		    }
+		    $conf->{cipassword} = $param->{cipassword};
 		} else {
 		    $conf->{pending}->{$opt} = $param->{$opt};
 

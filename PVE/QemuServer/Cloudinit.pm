@@ -8,6 +8,7 @@ use Digest::SHA;
 use URI::Escape;
 use MIME::Base64 qw(encode_base64);
 use Storable qw(dclone);
+use JSON;
 
 use PVE::Tools qw(run_command file_set_contents);
 use PVE::Storage;
@@ -232,12 +233,23 @@ sub generate_configdrive2 {
     my ($conf, $vmid, $drive, $volname, $storeid) = @_;
 
     my ($user_data, $network_data, $meta_data, $vendor_data) = get_custom_cloudinit_files($conf);
-    $user_data = cloudinit_userdata($conf, $vmid) if !defined($user_data);
-    $network_data = configdrive2_network($conf) if !defined($network_data);
-    $vendor_data = '' if !defined($vendor_data);
+    if (PVE::QemuServer::Helpers::windows_version($conf->{ostype})) {
+	$user_data = cloudinit_userdata($conf, $vmid) if !defined($user_data);
+	$network_data = cloudbase_network_eni($conf) if !defined($network_data);
+	$vendor_data = '' if !defined($vendor_data);
 
-    if (!defined($meta_data)) {
-	$meta_data = configdrive2_gen_metadata($user_data, $network_data);
+	if (!defined($meta_data)) {
+	    my $instance_id = cloudbase_gen_instance_id($user_data, $network_data);
+	    $meta_data = cloudbase_configdrive2_metadata($instance_id, $conf);
+	}
+    } else {
+	$user_data = cloudinit_userdata($conf, $vmid) if !defined($user_data);
+	$network_data = configdrive2_network($conf) if !defined($network_data);
+	$vendor_data = '' if !defined($vendor_data);
+
+	if (!defined($meta_data)) {
+	    $meta_data = configdrive2_gen_metadata($user_data, $network_data);
+	}
     }
 
     # we always allocate a 4MiB disk for cloudinit and with the overhead of the ISO
@@ -252,6 +264,83 @@ sub generate_configdrive2 {
 	'/openstack/latest/vendor_data.json' => $vendor_data
     };
     commit_cloudinit_disk($conf, $vmid, $drive, $volname, $storeid, $files, 'config-2');
+}
+
+sub cloudbase_network_eni {
+    my ($conf) = @_;
+
+    my $content = "";
+
+    my ($searchdomains, $nameservers) = get_dns_conf($conf);
+    if ($nameservers && @$nameservers) {
+	$nameservers = join(' ', @$nameservers);
+    }
+
+    my @ifaces = grep { /^net(\d+)$/ } keys %$conf;
+    foreach my $iface (sort @ifaces) {
+	(my $id = $iface) =~ s/^net//;
+	next if !$conf->{"ipconfig$id"};
+	my $net = PVE::QemuServer::parse_ipconfig($conf->{"ipconfig$id"});
+	$id = "eth$id";
+
+	$content .="auto $id\n";
+	if ($net->{ip}) {
+	    if ($net->{ip} eq 'dhcp') {
+		$content .= "iface $id inet dhcp\n";
+	    } else {
+		my ($addr, $mask) = split_ip4($net->{ip});
+		$content .= "iface $id inet static\n";
+		$content .= "        address $addr\n";
+		$content .= "        netmask $mask\n";
+		$content .= "        gateway $net->{gw}\n" if $net->{gw};
+		$content .= "        dns-nameservers $nameservers\n" if $nameservers;
+	    }
+	}
+	if ($net->{ip6}) {
+	    if ($net->{ip6} =~ /^(auto|dhcp)$/) {
+		$content .= "iface $id inet6 $1\n";
+	    } else {
+		my ($addr, $mask) = split('/', $net->{ip6});
+		$content .= "iface $id inet6 static\n";
+		$content .= "        address $addr\n";
+		$content .= "        netmask $mask\n";
+		$content .= "        gateway $net->{gw6}\n" if $net->{gw6};
+		$content .= "        dns-nameservers $nameservers\n" if $nameservers;
+	    }
+	}
+    }
+
+    return $content;
+}
+
+sub cloudbase_configdrive2_metadata {
+    my ($uuid, $conf) = @_;
+    my $meta_data = {
+	uuid => $uuid,
+	'network_config' => {
+	    'content_path' => '/content/0000',
+	},
+    };
+    $meta_data->{'admin_pass'} = $conf->{cipassword} if $conf->{cipassword};
+    if (defined(my $keys = $conf->{sshkeys})) {
+	$keys = URI::Escape::uri_unescape($keys);
+	$keys = [map { my $key = $_; chomp $key; $key } split(/\n/, $keys)];
+	$keys = [grep { /\S/ } @$keys];
+	my $i = 0;
+	foreach my $k (@$keys) {
+	    $meta_data->{'public_keys'}->{"key-$i"} = $k;
+	    $i++;
+	}
+    }
+    my $json = encode_json($meta_data);
+    return $json;
+}
+
+sub cloudbase_gen_instance_id {
+    my ($user, $network) = @_;
+
+    my $uuid_str = Digest::SHA::sha1_hex($user.$network);
+    return $uuid_str;
 }
 
 sub generate_opennebula {
