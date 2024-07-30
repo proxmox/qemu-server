@@ -1,3 +1,25 @@
+qemu-server (8.2.4) bookworm; urgency=medium
+
+  * fix #5528: ensure cgroup limits like CPU weight are set correctly and in
+    the same way for both cases, the cold-start and when changing while the VM
+    is running
+
+  * fix #5619: honor link-down setting when hot-plugging NIC
+
+  * resume: bump timeout for query-status, as activating the block drives in
+    QEMU on resume can take a bit of time during which the QEMU process might
+    not respond to QMP commands yet.
+
+  * fix #4493: cloud-init: fix generated Windows config
+
+  * drive mirror: prevent wrongly logging success when completion fails for
+    some other reasons than for which it's safe to retry on.
+
+  * migration: avoid crash with heavy IO on migrating a disk backed by local
+    storage, if the VM is running QEMU 8.2 or newer.
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 30 Jul 2024 21:36:25 +0200
+
 qemu-server (8.2.3) bookworm; urgency=medium
 
   * config: net: avoid duplicate ipam entries on nic update
