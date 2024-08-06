@@ -196,7 +196,10 @@ $qemu_server_module->mock(
     },
     get_initiator_name => sub {
 	return 'iqn.1993-08.org.debian:01:aabbccddeeff';
-    }
+    },
+    cleanup_pci_devices => {
+	# do nothing
+    },
 );
 
 my $qemu_server_config;

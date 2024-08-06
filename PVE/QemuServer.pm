@@ -6163,6 +6163,11 @@ sub vm_commandline {
     my $defaults = load_defaults();
 
     my $cmd = config_to_command($storecfg, $vmid, $conf, $defaults, $forcemachine, $forcecpu);
+    # if the vm is not running, we need to clean up the reserved/created devices
+    if (!PVE::QemuServer::Helpers::vm_running_locally($vmid)) {
+	eval { cleanup_pci_devices($vmid, $conf) };
+	warn $@ if $@;
+    }
 
     return PVE::Tools::cmd2string($cmd);
 }

@@ -523,6 +523,9 @@ sub parse_hostpci_devices {
 my sub choose_hostpci_devices {
     my ($devices, $vmid) = @_;
 
+    # if the vm is running, we must be in 'showcmd', so don't actually reserve or create anything
+    my $is_running = PVE::QemuServer::Helpers::vm_running_locally($vmid) ? 1 : 0;
+
     my $used = {};
 
     my $add_used_device = sub {
@@ -555,8 +558,10 @@ my sub choose_hostpci_devices {
 	    my $ids = [map { $_->{id} } @$alternative];
 
 	    next if grep { defined($used->{$_}) } @$ids; # already used
-	    eval { reserve_pci_usage($ids, $vmid, 10, undef) };
-	    next if $@;
+	    if (!$is_running) {
+		eval { reserve_pci_usage($ids, $vmid, 10, undef) };
+		next if $@;
+	    }
 
 	    # found one that is not used or reserved
 	    $add_used_device->($alternative);
