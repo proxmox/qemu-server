@@ -453,7 +453,12 @@ sub parse_hostpci {
 	}
 	if (scalar($ids->@*) > 1) {
 	    $res->{'has-multifunction'} = 1;
-	    die "cannot use mediated device with multifunction device\n" if $res->{mdev};
+	    die "cannot use mediated device with multifunction device\n" if $res->{mdev} || $res->{nvidia};
+	} elsif ($res->{mdev}) {
+	    if ($ids->[0]->{nvidia} && $res->{mdev} =~ m/^nvidia-(\d+)$/) {
+		$res->{nvidia} = $1;
+		delete $res->{mdev};
+	    }
 	}
 	push $res->{ids}->@*, $ids;
     }
@@ -497,7 +502,7 @@ sub parse_hostpci_devices {
 	    die "legacy IGD assignment is not compatible with x-vga\n"
 		if $d->{'x-vga'};
 	    die "legacy IGD assignment is not compatible with mdev\n"
-		if $d->{mdev};
+		if $d->{mdev} || $d->{nvidia};
 	    die "legacy IGD assignment is not compatible with q35\n"
 		if $q35;
 	    die "legacy IGD assignment is not compatible with multifunction devices\n"
@@ -513,6 +518,41 @@ sub parse_hostpci_devices {
     }
 
     return $parsed_devices;
+}
+
+# set vgpu type of a vf of an nvidia gpu with kernel 6.8 or newer
+my sub create_nvidia_device {
+    my ($id, $model) = @_;
+
+    $id = '0000:'.$id if $id !~ m/^0000:/;
+
+    my $creation = "/sys/bus/pci/devices/$id/nvidia/current_vgpu_type";
+
+    die "no nvidia sysfs api for '$id'\n" if ! -f $creation;
+
+    my $current = PVE::Tools::file_read_firstline($creation);
+    if ($current ne "0") {
+	return 1 if $current eq $model;
+	# reset vgpu type so we can see all available and set the real device
+	die "unable to reset vgpu type for '$id'\n" if !PVE::SysFSTools::file_write($creation, "0");
+    }
+
+    my $types = PVE::SysFSTools::get_mdev_types($id);
+    my $selected;
+    for my $type_definition ($types->@*) {
+	next if $type_definition->{type} ne "nvidia-$model";
+	$selected = $type_definition;
+    }
+
+    if (!defined($selected) || $selected->{available} < 1) {
+	die "vgpu type '$model' not available for '$id'\n";
+    }
+
+    if (!PVE::SysFSTools::file_write($creation, $model)) {
+	die "could not set vgpu type to '$model' for '$id'\n";
+    }
+
+    return 1;
 }
 
 # takes the hash returned by parse_hostpci_devices and for all non mdev gpus,
@@ -541,7 +581,7 @@ my sub choose_hostpci_devices {
 	my $device = $devices->{"hostpci$i"};
 	next if !$device;
 
-	if ($device->{mdev}) {
+	if ($device->{mdev} && !$device->{nvidia}) {
 	    $device->{ids} = [ map { $_->[0] } $device->{ids}->@* ];
 	    next;
 	}
@@ -550,6 +590,10 @@ my sub choose_hostpci_devices {
 	    # we only have one alternative, use that
 	    $device->{ids} = $device->{ids}->[0];
 	    $add_used_device->($device->{ids});
+	    if ($device->{nvidia} && !$is_running) {
+		reserve_pci_usage($device->{ids}->[0]->{id}, $vmid, 10, undef);
+		create_nvidia_device($device->{ids}->[0]->{id}, $device->{nvidia});
+	    }
 	    next;
 	}
 
@@ -561,6 +605,15 @@ my sub choose_hostpci_devices {
 	    if (!$is_running) {
 		eval { reserve_pci_usage($ids, $vmid, 10, undef) };
 		next if $@;
+	    }
+
+	    if ($device->{nvidia} && !$is_running) {
+		eval { create_nvidia_device($ids->[0], $device->{nvidia}) };
+		if (my $err = $@) {
+		    warn $err;
+		    remove_pci_reservation($vmid, $ids);
+		    next;
+		}
 	    }
 
 	    # found one that is not used or reserved
@@ -661,13 +714,15 @@ sub print_hostpci_devices {
 }
 
 sub prepare_pci_device {
-    my ($vmid, $pciid, $index, $mdev) = @_;
+    my ($vmid, $pciid, $index, $device) = @_;
 
     my $info = PVE::SysFSTools::pci_device_info("$pciid");
     die "cannot prepare PCI pass-through, IOMMU not present\n" if !PVE::SysFSTools::check_iommu_support();
     die "no pci device info for device '$pciid'\n" if !$info;
 
-    if ($mdev) {
+    if ($device->{nvidia}) {
+	# nothing to do
+    } elsif (my $mdev = $device->{mdev}) {
 	my $uuid = generate_mdev_uuid($vmid, $index);
 	PVE::SysFSTools::pci_create_mdev_device($pciid, $uuid, $mdev);
     } else {
@@ -732,6 +787,21 @@ sub remove_pci_reservation {
 	$write_pci_reservation_unlocked->($reservation_list);
     });
     die $@ if $@;
+}
+
+# return all currently reserved ids from the given vmid
+sub get_reservations {
+    my ($vmid) = @_;
+
+    my $reservations = $parse_pci_reservation_unlocked->();
+
+    my $list = [];
+
+    for my $pci_id (sort keys $reservations->%*) {
+	push $list->@*, $pci_id if $reservations->{$pci_id}->{vmid} == $vmid;
+    }
+
+    return $list;
 }
 
 sub reserve_pci_usage {

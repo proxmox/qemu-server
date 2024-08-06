@@ -387,6 +387,9 @@ $pci_module->mock(
 
 	return undef;
     },
+    create_nvidia_device => sub {
+	return 1;
+    }
 );
 
 sub diff($$) {

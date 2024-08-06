@@ -5867,8 +5867,8 @@ sub vm_start_nolock {
 
 	    my $chosen_mdev;
 	    for my $dev ($d->{ids}->@*) {
-		my $info = eval { PVE::QemuServer::PCI::prepare_pci_device($vmid, $dev->{id}, $index, $d->{mdev}) };
-		if ($d->{mdev}) {
+		my $info = eval { PVE::QemuServer::PCI::prepare_pci_device($vmid, $dev->{id}, $index, $d) };
+		if ($d->{mdev} || $d->{nvidia}) {
 		    warn $@ if $@;
 		    $chosen_mdev = $info;
 		    last if $chosen_mdev; # if successful, we're done
@@ -5877,7 +5877,7 @@ sub vm_start_nolock {
 		}
 	    }
 
-	    next if !$d->{mdev};
+	    next if !$d->{mdev} && !$d->{nvidia};
 	    die "could not create mediated device\n" if !defined($chosen_mdev);
 
 	    # nvidia grid needs the uuid of the mdev as qemu parameter
@@ -6208,6 +6208,25 @@ sub cleanup_pci_devices {
 
     # templates don't use pci devices
     return if $conf->{template};
+
+    my $reservations = PVE::QemuServer::PCI::get_reservations($vmid);
+    # clean up nvidia devices
+    for my $id ($reservations->@*) {
+	$id = '0000:'.$id if $id !~ m/^0000:/;
+
+	my $create_path = "/sys/bus/pci/devices/$id/nvidia/current_vgpu_type";
+
+	next if ! -f $create_path;
+
+	for (my $i = 0; $i < 10; $i++) {
+	    last if file_read_firstline($create_path) eq "0";
+	    sleep 1;
+	    PVE::SysFSTools::file_write($create_path, "0");
+	}
+	if (file_read_firstline($create_path) ne "0") {
+	    warn "could not cleanup nvidia vgpu for '$id'\n";
+	}
+    }
 
     foreach my $key (keys %$conf) {
 	next if $key !~ m/^hostpci(\d+)$/;
