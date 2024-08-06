@@ -719,11 +719,12 @@ my $write_pci_reservation_unlocked = sub {
 
 # removes all PCI device reservations held by the `vmid`
 sub remove_pci_reservation {
-    my ($vmid) = @_;
+    my ($vmid, $pciids) = @_;
 
     PVE::Tools::lock_file($PCIID_RESERVATION_LOCK, 2, sub {
 	my $reservation_list = $parse_pci_reservation_unlocked->();
 	for my $id (keys %$reservation_list) {
+	    next if defined($pciids) && !grep { $_ eq $id } $pciids->@*;
 	    my $reservation = $reservation_list->{$id};
 	    next if $reservation->{vmid} != $vmid;
 	    delete $reservation_list->{$id};
