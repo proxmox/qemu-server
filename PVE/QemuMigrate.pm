@@ -1095,7 +1095,9 @@ sub phase2 {
 	die "only UNIX sockets are supported for remote migration\n"
 	    if $tunnel_info->{proto} ne 'unix';
 
-	my $remote_socket = $tunnel_info->{addr};
+	# untaint
+	my ($remote_socket) = $tunnel_info->{addr} =~ m|^(/run/qemu-server/\d+\.migrate)$|
+	    or die "unexpected socket address '$tunnel_info->{addr}'\n";
 	my $local_socket = $remote_socket;
 	$local_socket =~ s/$remote_vmid/$vmid/g;
 	$tunnel_info->{addr} = $local_socket;
@@ -1104,6 +1106,9 @@ sub phase2 {
 	PVE::Tunnel::forward_unix_socket($self->{tunnel}, $local_socket, $remote_socket);
 
 	foreach my $remote_socket (@{$tunnel_info->{unix_sockets}}) {
+	    # untaint
+	    ($remote_socket) = $remote_socket =~ m|^(/run/qemu-server/(?:(?!\.\./).)+\.migrate)$|
+		or die "unexpected socket address '$remote_socket'\n";
 	    my $local_socket = $remote_socket;
 	    $local_socket =~ s/$remote_vmid/$vmid/g;
 	    next if $self->{tunnel}->{forwarded}->{$local_socket};
