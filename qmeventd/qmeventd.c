@@ -366,7 +366,7 @@ handle_vzdump_handshake(struct Client *client, struct json_object *data)
 void
 add_new_client(int client_fd)
 {
-    struct Client *client = calloc(sizeof(struct Client), 1);
+    struct Client *client = calloc(1, sizeof(struct Client));
     if (client == NULL) {
 	fprintf(stderr, "could not add new client - allocation failed!\n");
 	fflush(stderr);
