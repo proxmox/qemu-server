@@ -167,7 +167,7 @@ sub parse_ovf {
 	    $disk_section_path = $1;
 	    $disk_id = $2;
 	} else {
-	   warn "invalid host ressource $host_resource, skipping\n";
+	   warn "invalid host resource $host_resource, skipping\n";
 	   next;
 	}
 	printf "disk section path: $disk_section_path and disk id: $disk_id\n" if $debug;
@@ -181,7 +181,7 @@ ovf:Disk[\@ovf:diskId='%s']/\@ovf:fileRef", $disk_id);
 
 	my $valid_url_chars = qr@${valid_uripath_chars}|/@;
 	if (!$fileref || $fileref !~ m/^${valid_url_chars}+$/) {
-	    warn "invalid host ressource $host_resource, skipping\n";
+	    warn "invalid host resource $host_resource, skipping\n";
 	    next;
 	}
 

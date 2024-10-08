@@ -801,7 +801,7 @@ __PACKAGE__->register_method({
     method => 'GET',
     description => "Virtual machine index (per node).",
     permissions => {
-	description => "Only list VMs where you have VM.Audit permissons on /vms/<vmid>.",
+	description => "Only list VMs where you have VM.Audit permissions on /vms/<vmid>.",
 	user => 'all',
     },
     proxyto => 'node',
@@ -1795,7 +1795,7 @@ my $update_vm_api  = sub {
 
 	my $conf = PVE::QemuConfig->load_config($vmid);
 
-	die "checksum missmatch (file change by other user?)\n"
+	die "checksum mismatch (file change by other user?)\n"
 	    if $digest && $digest ne $conf->{digest};
 
 	&$check_cpu_model_access($rpcenv, $authuser, $param, $conf);
@@ -2133,7 +2133,7 @@ __PACKAGE__->register_method({
     method => 'POST',
     protected => 1,
     proxyto => 'node',
-    description => "Set virtual machine options (asynchrounous API).",
+    description => "Set virtual machine options (asynchronous API).",
     permissions => {
 	check => ['perm', '/vms/{vmid}', $vm_config_perm_list, any => 1],
     },
@@ -2190,7 +2190,7 @@ __PACKAGE__->register_method({
     method => 'PUT',
     protected => 1,
     proxyto => 'node',
-    description => "Set virtual machine options (synchrounous API) - You should consider using the POST method instead for any actions involving hotplug or storage allocation.",
+    description => "Set virtual machine options (synchronous API) - You should consider using the POST method instead for any actions involving hotplug or storage allocation.",
     permissions => {
 	check => ['perm', '/vms/{vmid}', $vm_config_perm_list, any => 1],
     },
@@ -4488,11 +4488,11 @@ __PACKAGE__->register_method({
 	    not_allowed_nodes => {
 		type => 'object',
 		optional => 1,
-		description => "List not allowed nodes with additional informations, only passed if VM is offline"
+		description => "List not allowed nodes with additional information, only passed if VM is offline"
 	    },
 	    local_disks => {
 		type => 'array',
-		description => "List local disks including CD-Rom, unsused and not referenced disks"
+		description => "List local disks including CD-Rom, unused and not referenced disks"
 	    },
 	    local_resources => {
 		type => 'array',
@@ -5018,7 +5018,7 @@ __PACKAGE__->register_method({
 
             my $conf = PVE::QemuConfig->load_config($vmid);
 
-            die "checksum missmatch (file change by other user?)\n"
+            die "checksum mismatch (file change by other user?)\n"
                 if $digest && $digest ne $conf->{digest};
             PVE::QemuConfig->check_lock($conf) if !$skiplock;
 

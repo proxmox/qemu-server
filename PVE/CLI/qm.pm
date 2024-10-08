@@ -471,7 +471,7 @@ __PACKAGE__->register_method ({
 	my $pid = PVE::QemuServer::check_running ($vmid);
 	return if !$pid;
 
-	print "waiting until VM $vmid stopps (PID $pid)\n";
+	print "waiting until VM $vmid stops (PID $pid)\n";
 
 	my $count = 0;
 	while ((!$timeout || ($count < $timeout)) && PVE::QemuServer::check_running ($vmid)) {
@@ -807,7 +807,7 @@ __PACKAGE__->register_method({
 		type => 'boolean',
 		optional => 1,
 		default => 1,
-		description => "If set to off, returns the pid immediately instead of waiting for the commmand to finish or the timeout.",
+		description => "If set to off, returns the pid immediately instead of waiting for the command to finish or the timeout.",
 	    },
 	    'timeout' => {
 		type => 'integer',

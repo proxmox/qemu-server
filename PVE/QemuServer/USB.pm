@@ -33,7 +33,7 @@ my $usb_fmt = {
 The Host USB device or port or the value 'spice'. HOSTUSBDEVICE syntax is:
 
  'bus-port(.port)*' (decimal numbers) or
- 'vendor_id:product_id' (hexadeciaml numbers) or
+ 'vendor_id:product_id' (hexadecimal numbers) or
  'spice'
 
 You can use the 'lsusb -t' command to list existing usb devices.

@@ -401,7 +401,7 @@ sub mux_input {
 	    my $obj = from_json($jsons[0]);
 
 	    my $cmdid = $obj->{'return'};
-	    die "received responsed without command id\n" if !$cmdid;
+	    die "received response without command id\n" if !$cmdid;
 
 	    # skip results fro previous commands
 	    return if $cmdid < $curcmd->{id};
@@ -440,7 +440,7 @@ sub mux_input {
 	    }
 
 	    my $cmdid = $obj->{id};
-	    die "received responsed without command id\n" if !$cmdid;
+	    die "received response without command id\n" if !$cmdid;
 
 	    if ($curcmd->{id} ne $cmdid) {
 		die "got wrong command id '$cmdid' (expected $curcmd->{id})\n";
@@ -495,7 +495,7 @@ sub mux_eof {
 	    my $obj = from_json($raw);
 
 	    my $cmdid = $obj->{'return'};
-	    die "received responsed without command id\n" if !$cmdid;
+	    die "received response without command id\n" if !$cmdid;
 
 	    delete $queue_info->{current};
 

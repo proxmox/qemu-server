@@ -889,7 +889,7 @@ __EOD__
 
 my $net_fmt = {
     macaddr  => get_standard_option('mac-addr', {
-	description => "MAC address. That address must be unique withing your network. This is"
+	description => "MAC address. That address must be unique within your network. This is"
 	    ." automatically generated if not specified.",
     }),
     model => {
@@ -3100,7 +3100,7 @@ sub audio_devs {
 	push @$devs, '-device', "hda-micro,id=${id}-codec0,bus=${id}.0,cad=0$audiodev";
 	push @$devs, '-device', "hda-duplex,id=${id}-codec1,bus=${id}.0,cad=1$audiodev";
     } else {
-	die "unkown audio device '$audio->{dev}', implement me!";
+	die "unknown audio device '$audio->{dev}', implement me!";
     }
 
     push @$devs, '-audiodev', "$audio->{backend},id=$audio->{backend_id}";
@@ -6600,7 +6600,7 @@ sub tar_restore_cleanup {
 		    } else {
 			PVE::Storage::vdisk_free($storecfg, $volid);
 		    }
-		    print STDERR "temporary volume '$volid' sucessfuly removed\n";
+		    print STDERR "temporary volume '$volid' successfully removed\n";
 		};
 		print STDERR "unable to cleanup '$volid' - $@" if $@;
 	    } else {
@@ -6875,7 +6875,7 @@ my $restore_destroy_volumes = sub {
 	my $volid = $dev->{volid} or next;
 	eval {
 	    PVE::Storage::vdisk_free($storecfg, $volid);
-	    print STDERR "temporary volume '$volid' sucessfuly removed\n";
+	    print STDERR "temporary volume '$volid' successfully removed\n";
 	};
 	print STDERR "unable to cleanup '$volid' - $@" if $@;
     }
@@ -7829,7 +7829,7 @@ sub convert_iscsi_path {
 	       "file.portal=$portal,file.target=$target,file.lun=$lun,driver=raw";
     }
 
-    die "cannot convert iscsi path '$path', unkown format\n";
+    die "cannot convert iscsi path '$path', unknown format\n";
 }
 
 sub qemu_img_convert {

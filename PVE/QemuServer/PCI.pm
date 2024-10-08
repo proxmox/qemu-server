@@ -33,7 +33,7 @@ of PCI virtual functions of the host. HOSTPCIID syntax is:
 
 'bus:dev.func' (hexadecimal numbers)
 
-You can us the 'lspci' command to list existing PCI devices.
+You can use the 'lspci' command to list existing PCI devices.
 
 Either this or the 'mapping' key must be set.
 EODESCR
