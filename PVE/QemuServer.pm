@@ -7863,7 +7863,17 @@ sub qga_check_running {
     return 1;
 }
 
-sub template_create {
+=head3 template_create($vmid, $conf [, $disk])
+
+Converts all used disk volumes for the VM with the identifier C<$vmid> and
+configuration C<$conf> to base images (e.g. for VM templates).
+
+If the optional C<$disk> parameter is set, it will only convert the disk
+volume at the specified drive name (e.g. "scsi0").
+
+=cut
+
+sub template_create : prototype($$;$) {
     my ($vmid, $conf, $disk) = @_;
 
     my $storecfg = PVE::Storage::config();
@@ -7880,6 +7890,8 @@ sub template_create {
 	my $voliddst = PVE::Storage::vdisk_create_base($storecfg, $volid);
 	$drive->{file} = $voliddst;
 	$conf->{$ds} = print_drive($drive);
+
+	# write vm config on every change in case this fails on subsequent iterations
 	PVE::QemuConfig->write_config($vmid, $conf);
     });
 }
