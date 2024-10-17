@@ -461,6 +461,11 @@ my sub create_disks : prototype($$$$$$$$$$) {
 				'skip-config-update' => 1,
 			    },
 			);
+
+			# change imported disk to a base volume in case the VM is a template
+			$dst_volid = PVE::Storage::vdisk_create_base($storecfg, $dst_volid)
+			    if PVE::QemuConfig->is_template($conf);
+
 			push @$vollist, $dst_volid;
 		    }
 		}
@@ -490,6 +495,10 @@ my sub create_disks : prototype($$$$$$$$$$) {
 		    $volid = PVE::Storage::vdisk_alloc($storecfg, $storeid, $vmid, "raw", undef, $size);
 		} else {
 		    $volid = PVE::Storage::vdisk_alloc($storecfg, $storeid, $vmid, $fmt, undef, $size);
+
+		    # change created disk to a base volume in case the VM is a template
+		    $volid = PVE::Storage::vdisk_create_base($storecfg, $volid)
+			if PVE::QemuConfig->is_template($conf);
 		}
 		push @$vollist, $volid;
 		$disk->{file} = $volid;
