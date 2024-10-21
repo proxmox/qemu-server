@@ -2764,10 +2764,38 @@ our $vmstatus_return_properties = {
 	optional => 1,
 	renderer => 'bytes',
     },
+    diskread => {
+	description => "The amount of bytes the guest read from it's disks since the process"
+	    ." start in bytes.",
+	type => 'integer',
+	optional => 1,
+	renderer => 'bytes',
+    },
+    diskwrite => {
+	description => "The amount of bytes the guest wrote to it's disks since the process"
+	    ." start in bytes.",
+	type => 'integer',
+	optional => 1,
+	renderer => 'bytes',
+    },
     name => {
 	description => "VM name.",
 	type => 'string',
 	optional => 1,
+    },
+    netin => {
+	description => "The amount of traffic that was sent to the guest since the process start,"
+	    ." in bytes.",
+	type => 'integer',
+	optional => 1,
+	renderer => 'bytes',
+    },
+    netout => {
+	description => "The amount of traffic that was sent from the guest since the process start,"
+	    ." in bytes.",
+	type => 'integer',
+	optional => 1,
+	renderer => 'bytes',
     },
     qmpstatus => {
 	description => "VM run state from the 'query-status' QMP monitor command.",
@@ -2809,6 +2837,12 @@ our $vmstatus_return_properties = {
 	description => "The currently running QEMU version (if running).",
 	type => 'string',
 	optional => 1,
+    },
+    template => {
+	description => "Determines if the guest is a template.",
+	type => 'boolean',
+	optional => 1,
+	default => 0,
     },
 };
 
