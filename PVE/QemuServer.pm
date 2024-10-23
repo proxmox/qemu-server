@@ -43,6 +43,7 @@ use PVE::ProcFSTools;
 use PVE::PBSClient;
 use PVE::RESTEnvironment qw(log_warn);
 use PVE::RPCEnvironment;
+use PVE::SafeSyslog;
 use PVE::Storage;
 use PVE::SysFSTools;
 use PVE::Systemd;
@@ -6004,6 +6005,8 @@ sub vm_start_nolock {
     my $pid = PVE::QemuServer::Helpers::vm_running_locally($vmid);
     eval { PVE::QemuServer::PCI::reserve_pci_usage($pci_reserve_list, $vmid, undef, $pid) };
     warn $@ if $@;
+
+    syslog("info", "VM $vmid started with PID $pid.");
 
     if (defined(my $migrate = $res->{migrate})) {
 	if ($migrate->{proto} eq 'tcp') {
