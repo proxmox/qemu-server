@@ -743,18 +743,18 @@ my $PCIID_RESERVATION_LOCK = "${PCIID_RESERVATION_FILE}.lock";
 # for succesfully started VM processes, or a expiration time for the initial time window between
 # reservation and actual VM process start-up.
 my $parse_pci_reservation_unlocked = sub {
-    my $pciids = {};
+    my $pci_ids = {};
     if (my $fh = IO::File->new($PCIID_RESERVATION_FILE, "r")) {
 	while (my $line = <$fh>) {
 	    if ($line =~ m/^($PCIRE)\s(\d+)\s(time|pid)\:(\d+)$/) {
-		$pciids->{$1} = {
+		$pci_ids->{$1} = {
 		    vmid => $2,
 		    "$3" => $4,
 		};
 	    }
 	}
     }
-    return $pciids;
+    return $pci_ids;
 };
 
 my $write_pci_reservation_unlocked = sub {
@@ -774,12 +774,12 @@ my $write_pci_reservation_unlocked = sub {
 
 # removes all PCI device reservations held by the `vmid`
 sub remove_pci_reservation {
-    my ($vmid, $pciids) = @_;
+    my ($vmid, $pci_ids) = @_;
 
     PVE::Tools::lock_file($PCIID_RESERVATION_LOCK, 2, sub {
 	my $reservation_list = $parse_pci_reservation_unlocked->();
 	for my $id (keys %$reservation_list) {
-	    next if defined($pciids) && !grep { $_ eq $id } $pciids->@*;
+	    next if defined($pci_ids) && !grep { $_ eq $id } $pci_ids->@*;
 	    my $reservation = $reservation_list->{$id};
 	    next if $reservation->{vmid} != $vmid;
 	    delete $reservation_list->{$id};
