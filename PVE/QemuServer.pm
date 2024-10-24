@@ -2765,34 +2765,34 @@ our $vmstatus_return_properties = {
 	renderer => 'bytes',
     },
     diskread => {
-	description => "The amount of bytes the guest read from it's disks since the process"
-	    ." start in bytes.",
+	description => "The amount of bytes the guest read from it's block devices since the guest"
+	    ." was started. (Note: This info is not available for all storage types.)",
 	type => 'integer',
 	optional => 1,
 	renderer => 'bytes',
     },
     diskwrite => {
-	description => "The amount of bytes the guest wrote to it's disks since the process"
-	    ." start in bytes.",
+	description => "The amount of bytes the guest wrote from it's block devices since the guest"
+	    ." was started. (Note: This info is not available for all storage types.)",
 	type => 'integer',
 	optional => 1,
 	renderer => 'bytes',
     },
     name => {
-	description => "VM name.",
+	description => "VM (host)name.",
 	type => 'string',
 	optional => 1,
     },
     netin => {
-	description => "The amount of traffic that was sent to the guest since the process start,"
-	    ." in bytes.",
+	description => "The amount of traffic in bytes that was sent to the guest over the network"
+	    ." since it was started.",
 	type => 'integer',
 	optional => 1,
 	renderer => 'bytes',
     },
     netout => {
-	description => "The amount of traffic that was sent from the guest since the process start,"
-	    ." in bytes.",
+	description => "The amount of traffic in bytes that was sent from the guest over the network"
+	    ." since it was started.",
 	type => 'integer',
 	optional => 1,
 	renderer => 'bytes',
@@ -2803,12 +2803,12 @@ our $vmstatus_return_properties = {
 	optional => 1,
     },
     pid => {
-	description => "PID of running qemu process.",
+	description => "PID of the QEMU process, if the VM is running.",
 	type => 'integer',
 	optional => 1,
     },
     uptime => {
-	description => "Uptime.",
+	description => "Uptime in seconds.",
 	type => 'integer',
 	optional => 1,
 	renderer => 'duration',
@@ -2834,7 +2834,7 @@ our $vmstatus_return_properties = {
 	optional => 1,
     },
     'running-qemu' => {
-	description => "The currently running QEMU version (if running).",
+	description => "The QEMU version the VM is currently using (if running).",
 	type => 'string',
 	optional => 1,
     },
