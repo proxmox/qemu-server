@@ -1118,12 +1118,13 @@ sub snapshot {
 sub cleanup {
     my ($self, $task, $vmid) = @_;
 
-    $detach_tpmstate_drive->($task, $vmid);
-
-    if ($task->{'use-fleecing'}) {
-	detach_fleecing_images($task->{disks}, $vmid);
-	cleanup_fleecing_images($self, $task->{disks});
+    # If VM was started only for backup, it is already stopped now.
+    if (PVE::QemuServer::Helpers::vm_running_locally($vmid)) {
+	$detach_tpmstate_drive->($task, $vmid);
+	detach_fleecing_images($task->{disks}, $vmid) if $task->{'use-fleecing'};
     }
+
+    cleanup_fleecing_images($self, $task->{disks}) if $task->{'use-fleecing'};
 
     if ($self->{qmeventd_fh}) {
 	close($self->{qmeventd_fh});
