@@ -35,6 +35,7 @@ use PVE::QemuServer::Agent qw(agent_available);
 use PVE::QemuServer::ImportDisk;
 use PVE::QemuServer::Monitor qw(mon_cmd);
 use PVE::QemuServer::OVF;
+use PVE::QemuServer::QMPHelpers;
 use PVE::QemuServer;
 
 use PVE::CLIHandler;
@@ -385,7 +386,7 @@ __PACKAGE__->register_method ({
 
 	my $vmid = $param->{vmid};
 
-	eval { PVE::QemuServer::nbd_stop($vmid) };
+	eval { PVE::QemuServer::QMPHelpers::nbd_stop($vmid) };
 	warn $@ if $@;
 
 	return;

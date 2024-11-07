@@ -35,6 +35,7 @@ use PVE::QemuServer::Monitor qw(mon_cmd);
 use PVE::QemuServer::Machine;
 use PVE::QemuServer::Memory qw(get_current_memory);
 use PVE::QemuServer::PCI;
+use PVE::QemuServer::QMPHelpers;
 use PVE::QemuServer::USB;
 use PVE::QemuMigrate;
 use PVE::RPCEnvironment;
@@ -5910,7 +5911,7 @@ __PACKAGE__->register_method({
 		    return;
 		},
 		'nbdstop' => sub {
-		    PVE::QemuServer::nbd_stop($state->{vmid});
+		    PVE::QemuServer::QMPHelpers::nbd_stop($state->{vmid});
 		    return;
 		},
 		'resume' => sub {

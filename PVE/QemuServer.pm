@@ -8609,12 +8609,6 @@ sub generate_smbios1_uuid {
     return "uuid=".generate_uuid();
 }
 
-sub nbd_stop {
-    my ($vmid) = @_;
-
-    mon_cmd($vmid, 'nbd-server-stop', timeout => 25);
-}
-
 sub create_reboot_request {
     my ($vmid) = @_;
     open(my $fh, '>', "/run/qemu-server/$vmid.reboot")

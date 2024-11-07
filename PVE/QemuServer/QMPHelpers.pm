@@ -15,6 +15,12 @@ qemu_objectadd
 qemu_objectdel
 );
 
+sub nbd_stop {
+    my ($vmid) = @_;
+
+    mon_cmd($vmid, 'nbd-server-stop', timeout => 25);
+}
+
 sub qemu_deviceadd {
     my ($vmid, $devicefull) = @_;
 
