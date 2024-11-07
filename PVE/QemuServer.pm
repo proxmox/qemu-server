@@ -6816,6 +6816,7 @@ my $restore_allocate_devices = sub {
     my $map = {};
     foreach my $virtdev (sort keys %$virtdev_hash) {
 	my $d = $virtdev_hash->{$virtdev};
+	die "got no size for '$virtdev'\n" if !defined($d->{size});
 	my $alloc_size = int(($d->{size} + 1024 - 1)/1024);
 	my $storeid = $d->{storeid};
 	my $scfg = PVE::Storage::storage_config($storecfg, $storeid);
