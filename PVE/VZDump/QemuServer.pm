@@ -57,6 +57,8 @@ sub vmlist {
 sub prepare {
     my ($self, $task, $vmid, $mode) = @_;
 
+    my $running = PVE::QemuServer::Helpers::vm_running_locally($vmid);
+
     $task->{disks} = [];
 
     my $conf = $self->{vmlist}->{$vmid} = PVE::QemuConfig->load_config($vmid);
@@ -64,11 +66,9 @@ sub prepare {
     $self->loginfo("VM Name: $conf->{name}")
 	if defined($conf->{name});
 
-    $self->{vm_was_running} = 1;
+    $self->{vm_was_running} = $running ? 1 : 0;
     $self->{vm_was_paused} = 0;
-    if (!PVE::QemuServer::check_running($vmid)) {
-	$self->{vm_was_running} = 0;
-    } elsif (PVE::QemuServer::vm_is_paused($vmid, 0)) {
+    if ($running && PVE::QemuServer::vm_is_paused($vmid, 0)) {
 	# Do not treat a suspended VM as paused, as it would cause us to skip
 	# fs-freeze even if the VM wakes up before we reach qga_fs_freeze.
 	$self->{vm_was_paused} = 1;
