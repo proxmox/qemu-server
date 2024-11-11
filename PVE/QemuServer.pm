@@ -2383,7 +2383,7 @@ sub parse_vm_config {
 	    } else {
 		$handle_error->("vm $vmid - property 'delete' is only allowed in [PENDING]\n");
 	    }
-	} elsif ($line =~ m/^([a-z][a-z_]*\d*):\s*(.+?)\s*$/) {
+	} elsif ($line =~ m/^([a-z][a-z_\-]*\d*):\s*(.+?)\s*$/) {
 	    my $key = $1;
 	    my $value = $2;
 	    if ($section eq 'cloudinit') {
