@@ -59,6 +59,13 @@ sub prepare {
 
     my $running = PVE::QemuServer::Helpers::vm_running_locally($vmid);
 
+    if ($running && (my $status = mon_cmd($vmid, 'query-backup'))) {
+	if ($status->{status} && $status->{status} eq 'active') {
+	    $self->log('warn', "left-over backup job still running inside QEMU - canceling now");
+	    mon_cmd($vmid, 'backup-cancel');
+	}
+    }
+
     $task->{disks} = [];
 
     my $conf = $self->{vmlist}->{$vmid} = PVE::QemuConfig->load_config($vmid);
