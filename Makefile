@@ -65,6 +65,7 @@ install: $(PKGSOURCES)
 	install -m 0644 -D bootsplash.jpg $(DESTDIR)/usr/share/$(PACKAGE)
 	$(MAKE) -C PVE install
 	$(MAKE) -C qmeventd install
+	$(MAKE) -C query-machine-capabilities install
 	$(MAKE) -C qemu-configs install
 	$(MAKE) -C vm-network-scripts install
 	install -m 0755 qm $(DESTDIR)$(SBINDIR)
