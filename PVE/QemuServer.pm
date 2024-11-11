@@ -733,6 +733,13 @@ EODESCR
 	description => "List of host cores used to execute guest processes, for example: 0,5,8-11",
 	optional => 1,
     },
+    'fleecing-images' => {
+	type => 'string',
+	format => 'pve-volume-id-list',
+	description => "For internal use only. List of fleecing images allocated during backup."
+	    ." If no backup is running, these are left-overs that failed to be removed.",
+	optional => 1,
+    },
 };
 
 my $cicustom_fmt = {

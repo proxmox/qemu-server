@@ -968,6 +968,9 @@ __PACKAGE__->register_method({
 	$param->{cpuunits} = PVE::CGroup::clamp_cpu_shares($param->{cpuunits})
 	    if defined($param->{cpuunits}); # clamp value depending on cgroup version
 
+	raise_param_exc({ 'fleecing-images' => "Cannot set option - for internal use only." })
+	    if $param->{'fleecing-images'};
+
 	PVE::Cluster::check_cfs_quorum();
 
 	my $filename = PVE::QemuConfig->config_file($vmid);
@@ -1680,6 +1683,9 @@ my $update_vm_api  = sub {
 	my $value = $key eq 'cipassword' ? '<hidden>' : $param->{$key};
 	push @paramarr, "-$key", $value;
     }
+
+    raise_param_exc({ 'fleecing-images' => "Cannot set option - for internal use only." })
+	if $param->{'fleecing-images'};
 
     my $skiplock = extract_param($param, 'skiplock');
     raise_param_exc({ skiplock => "Only root may use this option." })
@@ -3794,6 +3800,9 @@ __PACKAGE__->register_method({
 		# do not copy snapshot related info
 		next if $opt eq 'snapshots' ||  $opt eq 'parent' || $opt eq 'snaptime' ||
 		    $opt eq 'vmstate' || $opt eq 'snapstate';
+
+		# left-overs, not cloned
+		next if $opt eq 'fleecing-images';
 
 		# no need to copy unused images, because VMID(owner) changes anyways
 		next if $opt =~ m/^unused\d+$/;
