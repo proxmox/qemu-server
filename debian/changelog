@@ -1,3 +1,13 @@
+qemu-server (8.2.6) bookworm; urgency=medium
+
+  * vm start: add syslog info with which PID a VM process was started
+
+  * pci: avoid the hard requirement for a passthrough device to be reset on
+    start to fix a recent regression from improving error handling from the
+    pve-common package.
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 11 Nov 2024 20:38:25 +0100
+
 qemu-server (8.2.5) bookworm; urgency=medium
 
   * remote migration: fix online migration via API clients
