@@ -728,7 +728,7 @@ sub prepare_pci_device {
     } else {
 	die "can't unbind/bind PCI group to VFIO '$pciid'\n"
 	    if !PVE::SysFSTools::pci_dev_group_bind_to_vfio($pciid);
-	die "can't reset PCI device '$pciid'\n"
+	warn "failed to reset PCI device '$pciid', but trying to continue as not all devices need a reset\n"
 	    if $info->{has_fl_reset} && !PVE::SysFSTools::pci_dev_reset($info);
     }
 
