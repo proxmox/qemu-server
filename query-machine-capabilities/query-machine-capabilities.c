@@ -5,7 +5,16 @@
 #include <errno.h>
 #include <string.h>
 
-int main() {
+typedef struct {
+    bool sev_support;
+    bool sev_es_support;
+    bool sev_snp_support;
+
+    uint8_t cbitpos;
+    uint8_t reduced_phys_bits;
+} cpu_caps_t;
+
+void query_cpu_capabilities(cpu_caps_t *res) {
     uint32_t eax, ebx, ecx, edx;
 
     // query Encrypted Memory Capabilities, see:
@@ -16,12 +25,17 @@ int main() {
          : "0"(query_function)
     );
 
-    bool sev_support = (eax & (1<<1)) != 0;
-    bool sev_es_support = (eax & (1<<3)) != 0;
-    bool sev_snp_support = (eax & (1<<4)) != 0;
+    res->sev_support = (eax & (1<<1)) != 0;
+    res->sev_es_support = (eax & (1<<3)) != 0;
+    res->sev_snp_support = (eax & (1<<4)) != 0;
 
-    uint8_t cbitpos = ebx & 0x3f;
-    uint8_t reduced_phys_bits = (ebx >> 6) & 0x3f;
+    res->cbitpos = ebx & 0x3f;
+    res->reduced_phys_bits = (ebx >> 6) & 0x3f;
+}
+
+int main() {
+    cpu_caps_t caps;
+    query_cpu_capabilities(&caps);
 
     const char *path = "/run/qemu-server/";
     // Check that the directory exists and create it if it does not.
@@ -60,11 +74,11 @@ int main() {
         " \"sev-support-snp\": %s"
         " }"
         " }\n",
-        cbitpos,
-        reduced_phys_bits,
-        sev_support ? "true" : "false",
-        sev_es_support ? "true" : "false",
-        sev_snp_support ? "true" : "false"
+        caps.cbitpos,
+        caps.reduced_phys_bits,
+        caps.sev_support ? "true" : "false",
+        caps.sev_es_support ? "true" : "false",
+        caps.sev_snp_support ? "true" : "false"
     );
     if (ret < 0) {
         printf("Error writing to file %s: %s\n", path, strerror(errno));
