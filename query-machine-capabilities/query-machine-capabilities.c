@@ -39,27 +39,34 @@ void query_cpu_capabilities(cpu_caps_t *res) {
     res->reduced_phys_bits = (ebx >> 6) & 0x3f;
 }
 
-int main() {
-    cpu_caps_t caps;
-    query_cpu_capabilities(&caps);
-
+int prepare_output_directory() {
     // Check that the directory exists and create it if it does not.
     struct stat statbuf;
     int ret = stat(OUTPUT_DIR, &statbuf);
     if (ret == 0) {
         if (!S_ISDIR(statbuf.st_mode)) {
             eprintf("Path '" OUTPUT_DIR "' already exists but is not a directory.\n");
-            return 1;
+            return 0;
         }
     } else if (errno == ENOENT) {
         if (mkdir(OUTPUT_DIR, 0755) != 0) {
             eprintf("Error creating directory '" OUTPUT_DIR "': %s\n", strerror(errno));
-            return 1;
+            return 0;
         }
     } else {
         eprintf("Error checking path '" OUTPUT_DIR "': %s\n", strerror(errno));
+        return 0;
+    }
+    return 1;
+}
+
+int main() {
+    if (!prepare_output_directory()) {
         return 1;
     }
+
+    cpu_caps_t caps;
+    query_cpu_capabilities(&caps);
 
     FILE *file = fopen(OUTPUT_PATH, "w");
     if (file == NULL) {
@@ -67,7 +74,7 @@ int main() {
         return 1;
     }
 
-    ret = fprintf(file,
+    int ret = fprintf(file,
         "{"
         " \"amd-sev\": {"
         " \"cbitpos\": %u,"
