@@ -5,6 +5,12 @@
 #include <errno.h>
 #include <string.h>
 
+#define eprintf(...) fprintf(stderr, __VA_ARGS__)
+
+#define OUTPUT_DIR "/run/qemu-server"
+#define OUTPUT_FILENAME "host-hw-capabilities.json"
+#define OUTPUT_PATH OUTPUT_DIR "/" OUTPUT_FILENAME
+
 typedef struct {
     bool sev_support;
     bool sev_es_support;
@@ -37,30 +43,27 @@ int main() {
     cpu_caps_t caps;
     query_cpu_capabilities(&caps);
 
-    const char *path = "/run/qemu-server/";
     // Check that the directory exists and create it if it does not.
     struct stat statbuf;
-    int ret = stat(path, &statbuf);
+    int ret = stat(OUTPUT_DIR, &statbuf);
     if (ret == 0) {
         if (!S_ISDIR(statbuf.st_mode)) {
-            printf("Path %s is not a directory.\n", path);
+            eprintf("Path '" OUTPUT_DIR "' already exists but is not a directory.\n");
             return 1;
         }
     } else if (errno == ENOENT) {
-        if (mkdir(path, 0755) != 0) {
-            printf("Error creating directory %s: %s\n", path, strerror(errno));
+        if (mkdir(OUTPUT_DIR, 0755) != 0) {
+            eprintf("Error creating directory '" OUTPUT_DIR "': %s\n", strerror(errno));
             return 1;
         }
     } else {
-        printf("Error checking path %s: %s\n", path, strerror(errno));
+        eprintf("Error checking path '" OUTPUT_DIR "': %s\n", strerror(errno));
         return 1;
     }
 
-    FILE *file;
-    const char *filename = "/run/qemu-server/host-hw-capabilities.json";
-    file = fopen(filename, "w");
+    FILE *file = fopen(OUTPUT_PATH, "w");
     if (file == NULL) {
-        perror("Error opening file");
+        eprintf("Error opening to file '" OUTPUT_PATH "': %s\n", strerror(errno));
         return 1;
     }
 
@@ -81,12 +84,12 @@ int main() {
         caps.sev_snp_support ? "true" : "false"
     );
     if (ret < 0) {
-        printf("Error writing to file %s: %s\n", path, strerror(errno));
+        eprintf("Error writing to file '" OUTPUT_PATH "': %s\n", strerror(errno));
     }
 
     ret = fclose(file);
     if (ret != 0) {
-        printf("Error closing file %s: %s\n", path, strerror(errno));
+        eprintf("Error closing file '" OUTPUT_PATH "': %s\n", strerror(errno));
     }
 
     return 0;
