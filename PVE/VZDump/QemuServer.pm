@@ -252,7 +252,6 @@ sub assemble {
 	    next;
 	}
 	next if $line =~ m/^lock:/ || $line =~ m/^parent:/;
-	next if $line =~ m/^fleecing-images:/;
 
 	print $outfd $line;
     }
