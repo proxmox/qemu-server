@@ -440,6 +440,7 @@ my sub create_disks : prototype($$$$$$$$$$$) {
 		    my ($vtype, undef, undef, undef, undef, undef, $fmt)
 			= PVE::Storage::parse_volname($storecfg, $source);
 		    my $needs_extraction = PVE::QemuServer::Helpers::needs_extraction($vtype, $fmt);
+		    my $untrusted = $vtype eq 'import' ? 1 : 0;
 		    if ($needs_extraction) {
 			print "extracting $source\n";
 			my $extracted_volid = PVE::GuestImport::extract_disk_from_import_file(
@@ -457,7 +458,8 @@ my sub create_disks : prototype($$$$$$$$$$$) {
 		    if ($live_import && $ds ne 'efidisk0') {
 			my $path = PVE::Storage::path($storecfg, $source)
 			    or die "failed to get a path for '$source'\n";
-			($size, my $source_format) = PVE::Storage::file_size_info($path);
+			#·check·potentially·untrusted·image·file·for·import·vtype
+			($size, my $source_format) = PVE::Storage::file_size_info($path, undef, $untrusted);
 			die "could not get file size of $path\n" if !$size;
 			$live_import_mapping->{$ds} = {
 			    path => $path,
@@ -466,6 +468,12 @@ my sub create_disks : prototype($$$$$$$$$$$) {
 			$live_import_mapping->{$ds}->{'delete-after-finish'} = $source
 			    if $needs_extraction;
 		    } else {
+			# check potentially untrusted image file for import vtype
+			if ($untrusted) {
+			    my $path = PVE::Storage::path($storecfg, $source);
+			    PVE::Storage::file_size_info($path, undef, 1);
+			}
+
 			my $dest_info = {
 			    vmid => $vmid,
 			    drivename => $ds,
