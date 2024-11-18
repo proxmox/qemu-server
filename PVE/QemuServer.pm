@@ -2573,8 +2573,8 @@ sub check_non_migratable_resources {
     }
 
     if (scalar(@blockers) && !$noerr) {
-	die "Cannot live-migrate, snapshot (with RAM), or hibernate a VM with:"
-	    ." @blockers\n";
+	die "Cannot live-migrate, snapshot (with RAM), or hibernate a VM with: "
+	    . join(', ', @blockers) ."\n";
     }
 
     return @blockers;
