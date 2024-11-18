@@ -442,7 +442,8 @@ my sub create_disks : prototype($$$$$$$$$$) {
 		    }
 		} else {
 		    $source = PVE::Storage::abs_filesystem_path($storecfg, $source, 1);
-		    ($size, my $source_format) = PVE::Storage::file_size_info($source);
+		    # check potentially untrusted image file!
+		    ($size, my $source_format) = PVE::Storage::file_size_info($source, undef, 1);
 		    die "could not get file size of $source\n" if !$size;
 
 		    if ($live_import && $ds ne 'efidisk0') {
