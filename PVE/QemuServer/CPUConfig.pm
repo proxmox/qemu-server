@@ -3,9 +3,11 @@ package PVE::QemuServer::CPUConfig;
 use strict;
 use warnings;
 
+use JSON;
+
 use PVE::JSONSchema;
 use PVE::Cluster qw(cfs_register_file cfs_read_file);
-use PVE::Tools qw(get_host_arch);
+use PVE::Tools qw(run_command get_host_arch);
 use PVE::QemuServer::Helpers qw(min_version);
 
 use base qw(PVE::SectionConfig Exporter);
@@ -15,6 +17,7 @@ print_cpu_device
 get_cpu_options
 get_cpu_bitness
 is_native_arch
+get_amd_sev_object
 );
 
 # under certain race-conditions, this module might be loaded before pve-cluster
@@ -224,6 +227,37 @@ my $cpu_fmt = {
 	optional => 1,
     },
 };
+
+my $sev_fmt = {
+    type => {
+	description => "Enable standard SEV with type='std' or enable"
+	    ." experimental SEV-ES with the 'es' option.",
+	type => 'string',
+	default_key => 1,
+	format_description => "sev-type",
+	enum => ['std', 'es'],
+	maxLength => 3,
+    },
+    'no-debug' => {
+	description => "Sets policy bit 0 to 1 to disallow debugging of guest",
+	type => 'boolean',
+	default => 0,
+	optional => 1,
+    },
+    'no-key-sharing' => {
+	description => "Sets policy bit 1 to 1 to disallow key sharing with other guests",
+	type => 'boolean',
+	default => 0,
+	optional => 1,
+    },
+    "kernel-hashes" => {
+	description => "Add kernel hashes to guest firmware for measured linux kernel launch",
+	type => 'boolean',
+	default => 0,
+	optional => 1,
+    },
+};
+PVE::JSONSchema::register_format('pve-qemu-sev-fmt', $sev_fmt);
 
 PVE::JSONSchema::register_format('pve-phys-bits', \&parse_phys_bits);
 sub parse_phys_bits {
@@ -771,6 +805,57 @@ sub get_cpu_bitness {
     return 64 if $arch eq 'aarch64';
 
     die "unsupported architecture '$arch'\n";
+}
+
+sub get_hw_capabilities {
+    # Get reduced-phys-bits & cbitpos from host-hw-capabilities.json
+    # TODO: Find better location than /run/qemu-server/
+    my $filename = '/run/qemu-server/host-hw-capabilities.json';
+    if (! -e $filename) {
+	die "$filename does not exist. Please check the status of query-machine-capabilities: "
+	    ."systemctl status query-machine-capabilities\n";
+    }
+    my $json_text = PVE::Tools::file_get_contents($filename);
+    ($json_text) = $json_text =~ /(.*)/; # untaint json text
+    my $hw_capabilities = eval { decode_json($json_text) };
+    if (my $err = $@) {
+	die $err;
+    }
+    return $hw_capabilities;
+}
+
+sub get_amd_sev_object {
+    my ($amd_sev, $bios) = @_;
+
+    my $amd_sev_conf = PVE::JSONSchema::parse_property_string($sev_fmt, $amd_sev);
+    my $sev_hw_caps = get_hw_capabilities()->{'amd-sev'};
+
+    if (!$sev_hw_caps->{'sev-support'}) {
+	die "Your CPU does not support AMD SEV.\n";
+    }
+    if ($amd_sev_conf->{type} eq 'es' && !$sev_hw_caps->{'sev-support-es'}) {
+	die "Your CPU does not support AMD SEV-ES.\n";
+    }
+    if (!$bios || $bios ne 'ovmf') {
+	die "To use AMD SEV, you need to change the BIOS to OVMF.\n";
+    }
+
+    my $sev_mem_object = 'sev-guest,id=sev0';
+    $sev_mem_object .= ',cbitpos='.$sev_hw_caps->{cbitpos};
+    $sev_mem_object .= ',reduced-phys-bits='.$sev_hw_caps->{'reduced-phys-bits'};
+
+    # guest policy bit calculation as described here:
+    # https://documentation.suse.com/sles/15-SP5/html/SLES-amd-sev/article-amd-sev.html#table-guestpolicy
+    my $policy = 0b0000;
+    $policy += 0b0001 if $amd_sev_conf->{'no-debug'};
+    $policy += 0b0010 if $amd_sev_conf->{'no-key-sharing'};
+    $policy += 0b0100 if $amd_sev_conf->{type} eq 'es';
+    # disable migration with bit 3 nosend to prevent amd-sev-migration-attack
+    $policy += 0b1000;
+
+    $sev_mem_object .= ',policy='.sprintf("%#x", $policy);
+    $sev_mem_object .= ',kernel-hashes=on' if ($amd_sev_conf->{'kernel-hashes'});
+    return $sev_mem_object;
 }
 
 __PACKAGE__->register();
