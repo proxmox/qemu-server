@@ -1,0 +1,13 @@
+[Unit]
+Description=PVE Query Machine Capabilities
+RequiresMountsFor=/run
+Before=pve-ha-lrm.service
+Before=pve-guests.service
+
+[Service]
+ExecStart=/usr/libexec/qemu-server/query-machine-capabilities
+Type=oneshot
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
