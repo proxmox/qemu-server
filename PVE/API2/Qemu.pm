@@ -132,7 +132,7 @@ my $check_drive_param = sub {
 };
 
 my $check_storage_access = sub {
-   my ($rpcenv, $authuser, $storecfg, $vmid, $settings, $default_storage) = @_;
+   my ($rpcenv, $authuser, $storecfg, $vmid, $settings, $default_storage, $extraction_storage) = @_;
 
    $foreach_volume_with_alloc->($settings, sub {
 	my ($ds, $drive) = @_;
@@ -174,9 +174,18 @@ my $check_storage_access = sub {
 		    if $vtype ne 'images' && $vtype ne 'import';
 
 		if (PVE::QemuServer::Helpers::needs_extraction($vtype, $fmt)) {
-		    raise_param_exc({ $ds => "$src_image is not on an storage with 'images' content type."})
-			if !$scfg->{content}->{images};
-		    $rpcenv->check($authuser, "/storage/$storeid", ['Datastore.AllocateSpace']);
+		    my $extraction_scfg = defined($extraction_storage) ?
+			PVE::Storage::storage_config($storecfg, $extraction_storage) :
+			$scfg;
+		    my $extraction_param = defined($extraction_storage) ? 'import-working-storage' : $ds;
+
+		    if (!$extraction_scfg->{content}->{images} || !$extraction_scfg->{path}) {
+			raise_param_exc({
+			    $extraction_param => "storage selected for extraction does not support"
+				." 'images' content type or is not file based.",
+			});
+		    }
+		    $rpcenv->check($authuser, "/storage/" . ($extraction_storage // $storeid), ['Datastore.AllocateSpace']);
 		}
 	    }
 
@@ -349,7 +358,7 @@ my sub prohibit_tpm_version_change {
 
 # Note: $pool is only needed when creating a VM, because pool permissions
 # are automatically inherited if VM already exists inside a pool.
-my sub create_disks : prototype($$$$$$$$$$) {
+my sub create_disks : prototype($$$$$$$$$$$) {
     my (
 	$rpcenv,
 	$authuser,
@@ -361,6 +370,7 @@ my sub create_disks : prototype($$$$$$$$$$) {
 	$settings,
 	$default_storage,
 	$is_live_import,
+	$extraction_storage,
     ) = @_;
 
     my $vollist = [];
@@ -432,8 +442,8 @@ my sub create_disks : prototype($$$$$$$$$$) {
 		    my $needs_extraction = PVE::QemuServer::Helpers::needs_extraction($vtype, $fmt);
 		    if ($needs_extraction) {
 			print "extracting $source\n";
-			my $extracted_volid
-			     = PVE::GuestImport::extract_disk_from_import_file($source, $vmid);
+			my $extracted_volid = PVE::GuestImport::extract_disk_from_import_file(
+			    $source, $vmid, $extraction_storage);
 			print "finished extracting to $extracted_volid\n";
 			push @$vollist, $extracted_volid;
 			$source = $extracted_volid;
@@ -980,6 +990,13 @@ __PACKAGE__->register_method({
 		    default => 0,
 		    description => "Start VM after it was created successfully.",
 		},
+		'import-working-storage' => get_standard_option('pve-storage-id', {
+		    description => "A file-based storage with 'images' content-type enabled, which"
+			." is used as an intermediary extraction storage during import. Defaults to"
+			." the source storage.",
+		    optional => 1,
+		    completion => \&PVE::QemuServer::complete_storage,
+		}),
 	    },
 	    1, # with_disk_alloc
 	),
@@ -1006,6 +1023,7 @@ __PACKAGE__->register_method({
 	my $storage = extract_param($param, 'storage');
 	my $unique = extract_param($param, 'unique');
 	my $live_restore = extract_param($param, 'live-restore');
+	my $extraction_storage = extract_param($param, 'import-working-storage');
 
 	if (defined(my $ssh_keys = $param->{sshkeys})) {
 		$ssh_keys = URI::Escape::uri_unescape($ssh_keys);
@@ -1068,7 +1086,8 @@ __PACKAGE__->register_method({
 	if (scalar(keys $param->%*) > 0) {
 	    &$resolve_cdrom_alias($param);
 
-	    &$check_storage_access($rpcenv, $authuser, $storecfg, $vmid, $param, $storage);
+	    &$check_storage_access(
+		$rpcenv, $authuser, $storecfg, $vmid, $param, $storage, $extraction_storage);
 
 	    &$check_vm_modify_config_perm($rpcenv, $authuser, $vmid, $pool, [ keys %$param]);
 
@@ -1183,6 +1202,7 @@ __PACKAGE__->register_method({
 			$param,
 			$storage,
 			$live_restore,
+			$extraction_storage
 		    );
 		    $conf->{$_} = $created_opts->{$_} for keys $created_opts->%*;
 
@@ -1725,6 +1745,8 @@ my $update_vm_api  = sub {
 
     my $skip_cloud_init = extract_param($param, 'skip_cloud_init');
 
+    my $extraction_storage = extract_param($param, 'import-working-storage');
+
     my @paramarr = (); # used for log message
     foreach my $key (sort keys %$param) {
 	my $value = $key eq 'cipassword' ? '<hidden>' : $param->{$key};
@@ -1841,7 +1863,7 @@ my $update_vm_api  = sub {
 
     &$check_vm_modify_config_perm($rpcenv, $authuser, $vmid, undef, [keys %$param]);
 
-    &$check_storage_access($rpcenv, $authuser, $storecfg, $vmid, $param);
+    &$check_storage_access($rpcenv, $authuser, $storecfg, $vmid, $param, undef, $extraction_storage);
 
     PVE::QemuServer::check_bridge_access($rpcenv, $authuser, $param);
 
@@ -2025,6 +2047,7 @@ my $update_vm_api  = sub {
 			{$opt => $param->{$opt}},
 			undef,
 			undef,
+			$extraction_storage,
 		    );
 		    $conf->{pending}->{$_} = $created_opts->{$_} for keys $created_opts->%*;
 
@@ -2227,6 +2250,13 @@ __PACKAGE__->register_method({
 		    maximum => 30,
 		    optional => 1,
 		},
+		'import-working-storage' => get_standard_option('pve-storage-id', {
+		    description => "A file-based storage with 'images' content-type enabled, which"
+			." is used as an intermediary extraction storage during import. Defaults to"
+			." the source storage.",
+		    optional => 1,
+		    completion => \&PVE::QemuServer::complete_storage,
+		}),
 	    },
 	    1, # with_disk_alloc
 	),
