@@ -2571,12 +2571,31 @@ sub config_list {
     return $res;
 }
 
+sub check_non_migratable_resources {
+    my ($conf, $state, $noerr) = @_;
+
+    my @blockers = ();
+    if ($state && $conf->{"amd-sev"}) {
+	push @blockers, "amd-sev";
+    }
+
+    if (scalar(@blockers) && !$noerr) {
+	die "Cannot live-migrate, snapshot (with RAM), or hibernate a VM with:"
+	    ." @blockers\n";
+    }
+
+    return @blockers;
+}
+
 # test if VM uses local resources (to prevent migration)
 sub check_local_resources {
-    my ($conf, $noerr) = @_;
+    my ($conf, $state, $noerr) = @_;
 
     my @loc_res = ();
     my $mapped_res = [];
+
+    my @non_migratable_resources = check_non_migratable_resources($conf, $state, $noerr);
+    push(@loc_res, @non_migratable_resources);
 
     my $nodelist = PVE::Cluster::get_nodelist();
     my $pci_map = PVE::Mapping::PCI::config();
@@ -6454,6 +6473,8 @@ sub vm_suspend {
 
 	die "cannot suspend to disk during backup\n"
 	    if $is_backing_up && $includestate;
+
+	check_non_migratable_resources($conf, $includestate, 0);
 
 	if ($includestate) {
 	    $conf->{lock} = 'suspending';

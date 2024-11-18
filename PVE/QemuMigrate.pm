@@ -233,7 +233,7 @@ sub prepare {
 	$self->{vm_was_paused} = 1 if PVE::QemuServer::vm_is_paused($vmid, 0);
     }
 
-    my ($loc_res, $mapped_res, $missing_mappings_by_node) = PVE::QemuServer::check_local_resources($conf, 1);
+    my ($loc_res, $mapped_res, $missing_mappings_by_node) = PVE::QemuServer::check_local_resources($conf, $running, 1);
     my $blocking_resources = [];
     for my $res ($loc_res->@*) {
 	if (!grep($res, $mapped_res->@*)) {

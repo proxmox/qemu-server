@@ -199,6 +199,11 @@ sub get_backup_volumes {
     return $return_volumes;
 }
 
+sub __snapshot_assert_no_blockers {
+    my ($class, $vmconf, $save_vmstate) = @_;
+    PVE::QemuServer::check_non_migratable_resources($vmconf, $save_vmstate, 0);
+}
+
 sub __snapshot_save_vmstate {
     my ($class, $vmid, $conf, $snapname, $storecfg, $statestorage, $suspend) = @_;
 

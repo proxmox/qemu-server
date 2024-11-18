@@ -4626,7 +4626,7 @@ __PACKAGE__->register_method({
 	$res->{running} = PVE::QemuServer::check_running($vmid) ? 1:0;
 
 	my ($local_resources, $mapped_resources, $missing_mappings_by_node) =
-	    PVE::QemuServer::check_local_resources($vmconf, 1);
+	    PVE::QemuServer::check_local_resources($vmconf, $res->{running}, 1);
 	delete $missing_mappings_by_node->{$localnode};
 
 	my $vga = PVE::QemuServer::parse_vga($vmconf->{vga});
@@ -5313,6 +5313,9 @@ __PACKAGE__->register_method({
 
 	die "unable to use snapshot name 'pending' (reserved name)\n"
 	    if lc($snapname) eq 'pending';
+
+	my $vmconf = PVE::QemuConfig->load_config($vmid);
+	PVE::QemuServer::check_non_migratable_resources($vmconf, $param->{vmstate}, 0);
 
 	my $realcmd = sub {
 	    PVE::Cluster::log_msg('info', $authuser, "snapshot VM $vmid: $snapname");
