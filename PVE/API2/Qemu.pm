@@ -174,9 +174,9 @@ my $check_storage_access = sub {
 		    if $vtype ne 'images' && $vtype ne 'import';
 
 		if (PVE::QemuServer::Helpers::needs_extraction($vtype, $fmt)) {
-		    my $extraction_scfg = defined($extraction_storage) ?
-			PVE::Storage::storage_config($storecfg, $extraction_storage) :
-			$scfg;
+		    my $extraction_scfg = defined($extraction_storage)
+			? PVE::Storage::storage_config($storecfg, $extraction_storage)
+			: $scfg;
 		    my $extraction_param = defined($extraction_storage) ? 'import-working-storage' : $ds;
 
 		    if (!$extraction_scfg->{content}->{images} || !$extraction_scfg->{path}) {
