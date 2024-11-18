@@ -225,4 +225,9 @@ sub windows_version {
     return $winversion;
 }
 
+sub needs_extraction {
+    my ($vtype, $fmt) = @_;
+    return $vtype eq 'import' && $fmt =~ m/^ova\+(.*)$/;
+}
+
 1;

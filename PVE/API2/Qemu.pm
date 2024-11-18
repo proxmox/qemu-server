@@ -24,6 +24,7 @@ use PVE::JSONSchema qw(get_standard_option);
 use PVE::RESTHandler;
 use PVE::ReplicationConfig;
 use PVE::GuestHelpers qw(assert_tag_permissions);
+use PVE::GuestImport;
 use PVE::QemuConfig;
 use PVE::QemuServer;
 use PVE::QemuServer::Cloudinit;
@@ -163,10 +164,20 @@ my $check_storage_access = sub {
 
 	if (my $src_image = $drive->{'import-from'}) {
 	    my $src_vmid;
-	    if (PVE::Storage::parse_volume_id($src_image, 1)) { # PVE-managed volume
-		(my $vtype, undef, $src_vmid) = PVE::Storage::parse_volname($storecfg, $src_image);
-		raise_param_exc({ $ds => "$src_image has wrong type '$vtype' - not an image" })
-		    if $vtype ne 'images';
+	    my ($storeid, $volname) = PVE::Storage::parse_volume_id($src_image, 1);
+	    if ($storeid) { # PVE-managed volume
+		my $scfg = PVE::Storage::storage_config($storecfg, $storeid);
+		my $plugin = PVE::Storage::Plugin->lookup($scfg->{type});
+		(my $vtype, undef, $src_vmid, undef, undef, undef, my $fmt) = $plugin->parse_volname($volname);
+
+		raise_param_exc({ $ds => "$src_image has wrong type '$vtype' - needs to be 'images' or 'import'" })
+		    if $vtype ne 'images' && $vtype ne 'import';
+
+		if (PVE::QemuServer::Helpers::needs_extraction($vtype, $fmt)) {
+		    raise_param_exc({ $ds => "$src_image is not on an storage with 'images' content type."})
+			if !$scfg->{content}->{images};
+		    $rpcenv->check($authuser, "/storage/$storeid", ['Datastore.AllocateSpace']);
+		}
 	    }
 
 	    if ($src_vmid) { # might be actively used by VM and will be copied via clone_disk()
@@ -413,17 +424,37 @@ my sub create_disks : prototype($$$$$$$$$$) {
 
 		$needs_creation = $live_import;
 
-		if (PVE::Storage::parse_volume_id($source, 1)) { # PVE-managed volume
+		my ($source_storage, $source_volid) = PVE::Storage::parse_volume_id($source, 1);
+
+		if ($source_storage) { # PVE-managed volume
+		    my ($vtype, undef, undef, undef, undef, undef, $fmt)
+			= PVE::Storage::parse_volname($storecfg, $source);
+		    my $needs_extraction = PVE::QemuServer::Helpers::needs_extraction($vtype, $fmt);
+		    if ($needs_extraction) {
+			print "extracting $source\n";
+			my $extracted_volid
+			     = PVE::GuestImport::extract_disk_from_import_file($source, $vmid);
+			print "finished extracting to $extracted_volid\n";
+			push @$vollist, $extracted_volid;
+			$source = $extracted_volid;
+
+			my (undef, undef, undef, $parent)
+			    = PVE::Storage::volume_size_info($storecfg, $source);
+			die "importing from extracted images with backing file ($parent) not allowed\n"
+			    if $parent;
+		    }
+
 		    if ($live_import && $ds ne 'efidisk0') {
 			my $path = PVE::Storage::path($storecfg, $source)
 			    or die "failed to get a path for '$source'\n";
-			$source = $path;
-			($size, my $source_format) = PVE::Storage::file_size_info($source);
-			die "could not get file size of $source\n" if !$size;
+			($size, my $source_format) = PVE::Storage::file_size_info($path);
+			die "could not get file size of $path\n" if !$size;
 			$live_import_mapping->{$ds} = {
-			    path => $source,
+			    path => $path,
 			    format => $source_format,
 			};
+			$live_import_mapping->{$ds}->{'delete-after-finish'} = $source
+			    if $needs_extraction;
 		    } else {
 			my $dest_info = {
 			    vmid => $vmid,
@@ -435,8 +466,14 @@ my sub create_disks : prototype($$$$$$$$$$) {
 			$dest_info->{efisize} = PVE::QemuServer::get_efivars_size($conf, $disk)
 			    if $ds eq 'efidisk0';
 
-			($dst_volid, $size) = eval {
-			    $import_from_volid->($storecfg, $source, $dest_info, $vollist);
+			eval {
+			    ($dst_volid, $size)
+				= $import_from_volid->($storecfg, $source, $dest_info, $vollist);
+
+			    # remove extracted volumes after importing
+			    PVE::Storage::vdisk_free($storecfg, $source) if $needs_extraction;
+			    print "cleaned up extracted image $source\n";
+			    @$vollist = grep { $_ ne $source } @$vollist;
 			};
 			die "cannot import from '$source' - $@" if $@;
 		    }

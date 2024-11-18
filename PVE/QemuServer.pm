@@ -7407,6 +7407,7 @@ sub live_import_from_files {
     my ($mapping, $vmid, $conf, $restore_options) = @_;
 
     my $live_restore_backing = {};
+    my $sources_to_remove = [];
     for my $dev (keys %$mapping) {
 	die "disk not support for live-restoring: '$dev'\n"
 	    if !is_valid_drivename($dev) || $dev =~ /^(?:efidisk|tpmstate)/;
@@ -7427,6 +7428,9 @@ sub live_import_from_files {
 	    . ",read-only=on"
 	    . ",file.driver=file,file.filename=$path"
 	};
+
+	my $source_volid = $info->{'delete-after-finish'};
+	push $sources_to_remove->@*, $source_volid if defined($source_volid);
     };
 
     my $storecfg = PVE::Storage::config();
@@ -7470,6 +7474,14 @@ sub live_import_from_files {
     };
 
     my $err = $@;
+
+    for my $volid ($sources_to_remove->@*) {
+	eval {
+	    PVE::Storage::vdisk_free($storecfg, $volid);
+	    print "cleaned up extracted image $volid\n";
+	};
+	warn "An error occurred while cleaning up source images: $@\n" if $@;
+    }
 
     if ($err) {
 	warn "An error occurred during live-restore: $err\n";
