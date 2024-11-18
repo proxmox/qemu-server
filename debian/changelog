@@ -1,3 +1,38 @@
+qemu-server (8.2.7) bookworm; urgency=medium
+
+  * backup: cleanup: check if VM is running before issuing QMP commands
+
+  * restore: die early when there is no size for a device
+
+  * add tiny C program to query some hardware capabilities from CPUID
+
+  * backup: prepare: cancel previous job if still running, which can happen
+    after a hard failure, e.g. if the vzdump task was canceled.
+
+  * parse config: allow config keys with minus sign
+
+  * import disk: add 'target-disk' option to add imported volume to disk
+
+  * import disk: convert imported volume disks to base images for templates
+
+  * fix #5301: convert added volume disks to base image for templates
+
+  * use OVF module from the pve-storage package, it was moved over there
+
+  * api: create: implement extracting disks when needed for import-from
+
+  * api: create: add 'import-working-storage' parameter for overriding the
+    staging directory used to extract to-be-imported disks.
+
+  * api: check untrusted image files for the new import content type for
+    proactive hardening.
+
+  * config: add initial AMD SEV support
+
+  * migration: add amd-sev to non-migratable resources blockers
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 18 Nov 2024 21:48:24 +0100
+
 qemu-server (8.2.6) bookworm; urgency=medium
 
   * vm start: add syslog info with which PID a VM process was started
