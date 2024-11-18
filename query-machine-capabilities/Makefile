@@ -13,7 +13,7 @@ query-machine-capabilities: query-machine-capabilities.c
 install: query-machine-capabilities
 	install -d ${DESTDIR}/${BINDIR}
 	install -m 0755 query-machine-capabilities ${DESTDIR}${BINDIR}
-	install -m 0644 query-machine-capabilities.service ${DESTDIR}${SERVICEDIR}
+	install -m 0644 pve-query-machine-capabilities.service ${DESTDIR}${SERVICEDIR}
 
 .PHONY: clean
 clean:
