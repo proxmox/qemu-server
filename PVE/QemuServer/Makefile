@@ -2,7 +2,6 @@ SOURCES=PCI.pm		\
 	USB.pm		\
 	Memory.pm	\
 	ImportDisk.pm	\
-	OVF.pm		\
 	Cloudinit.pm	\
 	Agent.pm	\
 	Helpers.pm	\

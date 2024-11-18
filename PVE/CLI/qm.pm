@@ -19,6 +19,7 @@ use PVE::APIClient::LWP;
 use PVE::Cluster;
 use PVE::Exception qw(raise_param_exc);
 use PVE::GuestHelpers;
+use PVE::GuestImport::OVF;
 use PVE::INotify;
 use PVE::JSONSchema qw(get_standard_option);
 use PVE::Network;
@@ -34,7 +35,6 @@ use PVE::QemuServer::Helpers;
 use PVE::QemuServer::Agent qw(agent_available);
 use PVE::QemuServer::ImportDisk;
 use PVE::QemuServer::Monitor qw(mon_cmd);
-use PVE::QemuServer::OVF;
 use PVE::QemuServer::QMPHelpers;
 use PVE::QemuServer;
 
@@ -756,7 +756,7 @@ __PACKAGE__->register_method ({
 	my $storecfg = PVE::Storage::config();
 	PVE::Storage::storage_check_enabled($storecfg, $storeid);
 
-	my $parsed = PVE::QemuServer::OVF::parse_ovf($ovf_file);
+	my $parsed = PVE::GuestImport::OVF::parse_ovf($ovf_file);
 
 	if ($dryrun) {
 	    print to_json($parsed, { pretty => 1, canonical => 1});
