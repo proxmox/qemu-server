@@ -178,14 +178,15 @@ my $check_storage_access = sub {
 			? PVE::Storage::storage_config($storecfg, $extraction_storage)
 			: $scfg;
 		    my $extraction_param = defined($extraction_storage) ? 'import-working-storage' : $ds;
+		    my $extraction_id = $extraction_storage // $storeid;
 
 		    if (!$extraction_scfg->{content}->{images} || !$extraction_scfg->{path}) {
 			raise_param_exc({
-			    $extraction_param => "storage selected for extraction does not support"
+			    $extraction_param => "import working storage '$extraction_id' does not support"
 				." 'images' content type or is not file based.",
 			});
 		    }
-		    $rpcenv->check($authuser, "/storage/" . ($extraction_storage // $storeid), ['Datastore.AllocateSpace']);
+		    $rpcenv->check($authuser, "/storage/$extraction_id", ['Datastore.AllocateSpace']);
 		}
 	    }
 
