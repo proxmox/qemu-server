@@ -1,3 +1,14 @@
+qemu-server (8.3.0) bookworm; urgency=medium
+
+  * api: import working storage: improve error message
+
+  * migration: drop outdated check that was introduced for PVE 7.2 to PVE 7.3
+    to guard against (relatively low) fallout of the newly introduced
+    cloudinit section in the VM config. This check can sometimes trigger as
+    false-positive.
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 20 Nov 2024 12:12:00 +0100
+
 qemu-server (8.2.7) bookworm; urgency=medium
 
   * backup: cleanup: check if VM is running before issuing QMP commands
