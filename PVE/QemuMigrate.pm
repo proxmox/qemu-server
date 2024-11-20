@@ -183,14 +183,6 @@ sub prepare {
     my $version = PVE::QemuServer::Helpers::get_node_pvecfg_version($self->{node});
     my $cloudinit_config = $conf->{cloudinit};
 
-    if (
-	PVE::QemuConfig->has_cloudinit($conf) && defined($cloudinit_config)
-	&& scalar(keys %$cloudinit_config) > 0
-	&& !PVE::QemuServer::Helpers::pvecfg_min_version($version, 7, 2, 13)
-    ) {
-	die "target node is too old (manager <= 7.2-13) and doesn't support new cloudinit section\n";
-    }
-
     my $repl_conf = PVE::ReplicationConfig->new();
     $self->{replication_jobcfg} = $repl_conf->find_local_replication_job($vmid, $self->{node});
     $self->{is_replicated} = $repl_conf->check_for_existing_jobs($vmid, 1);
