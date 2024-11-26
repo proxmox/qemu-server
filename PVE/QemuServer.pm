@@ -6349,7 +6349,7 @@ sub _do_vm_stop {
 
     eval {
 	if ($shutdown) {
-	    if (defined($conf) && get_qga_key($conf, 'enabled')) {
+	    if (defined($conf) && get_qga_key($conf, 'enabled') && qga_check_running($vmid)) {
 		mon_cmd($vmid, "guest-shutdown", timeout => $timeout);
 	    } else {
 		mon_cmd($vmid, "system_powerdown");
