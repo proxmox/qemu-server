@@ -167,6 +167,15 @@ sub config_aware_timeout {
 	$timeout = 150;
     }
 
+    # Some testing showed that adding a NIC increased the start time by ~450ms
+    # consistently across different NIC models, options and already existing
+    # number of NICs.
+    # So 10x that to account for any potential system differences seemed
+    # reasonable. User reports with real-life values (20+: ~50s, 25: 45s, 17: 42s)
+    # also make this seem a good value.
+    my $nic_count = scalar (grep { /^net\d+/ } keys %{$config});
+    $timeout += $nic_count * 5;
+
     return $timeout;
 }
 
