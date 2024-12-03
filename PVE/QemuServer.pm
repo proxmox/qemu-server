@@ -1552,7 +1552,7 @@ sub print_drive_commandline_full {
 
     if (drive_is_cdrom($drive)) {
 	$path = get_iso_path($storecfg, $vmid, $volid);
-        die "$drive_id: cannot back cdrom drive with a live restore image\n" if $live_restore_name;
+	die "$drive_id: cannot back cdrom drive with a live restore image\n" if $live_restore_name;
     } else {
 	if ($storeid) {
 	    $path = PVE::Storage::path($storecfg, $volid);
@@ -1561,9 +1561,9 @@ sub print_drive_commandline_full {
 	    $path = $volid;
 	    $format //= "raw";
 	}
-   }
+    }
 
-   my $is_rbd = $path =~ m/^rbd:/;
+    my $is_rbd = $path =~ m/^rbd:/;
 
     my $opts = '';
     my @qemu_drive_options = qw(heads secs cyls trans media cache rerror werror aio discard);
