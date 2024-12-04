@@ -3874,7 +3874,7 @@ __PACKAGE__->register_method({
 	    my $fullclone = {};
 	    my $vollist = [];
 
-	    foreach my $opt (keys %$oldconf) {
+	    for my $opt (sort keys %$oldconf) {
 		my $value = $oldconf->{$opt};
 
 		# do not copy snapshot related info
