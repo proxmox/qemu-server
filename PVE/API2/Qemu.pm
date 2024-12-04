@@ -3899,18 +3899,19 @@ __PACKAGE__->register_method({
 		    if (PVE::QemuServer::drive_is_cdrom($drive, 1)) {
 			$newconf->{$opt} = $value; # simply copy configuration
 		    } else {
+			my $volid = $drive->{file};
 			if ($full || PVE::QemuServer::drive_is_cloudinit($drive)) {
-			    die "Full clone feature is not supported for drive '$opt'\n"
-				if !PVE::Storage::volume_has_feature($storecfg, 'copy', $drive->{file}, $snapname, $running);
+			    die "Full clone feature is not supported for '$volid' ($opt)\n"
+				if !PVE::Storage::volume_has_feature($storecfg, 'copy', $volid, $snapname, $running);
 			    $fullclone->{$opt} = 1;
 			} else {
 			    # not full means clone instead of copy
-			    die "Linked clone feature is not supported for drive '$opt'\n"
-				if !PVE::Storage::volume_has_feature($storecfg, 'clone', $drive->{file}, $snapname, $running);
+			    die "Linked clone feature is not supported for '$volid' ($opt)\n"
+				if !PVE::Storage::volume_has_feature($storecfg, 'clone', $volid, $snapname, $running);
 			}
 			$drives->{$opt} = $drive;
 			next if PVE::QemuServer::drive_is_cloudinit($drive);
-			push @$vollist, $drive->{file};
+			push @$vollist, $volid;
 		    }
 		} else {
 		    # copy everything else
