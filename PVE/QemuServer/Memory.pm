@@ -278,7 +278,7 @@ sub qemu_memory_hotplug {
 		    eval { qemu_objectdel($vmid, "mem-$name"); };
 		    die $err;
 		}
-		#update conf after each succesful module hotplug
+		# update conf after each successful module hotplug
 		$newmem->{current} = $current_size;
 		$conf->{memory} = print_memory($newmem);
 		PVE::QemuConfig->write_config($vmid, $conf);
@@ -307,7 +307,7 @@ sub qemu_memory_hotplug {
 		$retry++;
 	    }
 	    $current_size -= $dimm_size;
-	    #update conf after each succesful module unplug
+	    # update conf after each successful module unplug
             $newmem->{current} = $current_size;
             $conf->{memory} = print_memory($newmem);
 
@@ -724,7 +724,7 @@ sub hugepages_reset {
 sub hugepages_update_locked {
     my ($code, @param) = @_;
 
-    my $timeout = 60; #could be long if a lot of hugepages need to be alocated
+    my $timeout = 60; #could be long if a lot of hugepages need to be allocated
 
     my $lock_filename = "/var/lock/hugepages.lck";
 

@@ -403,7 +403,7 @@ sub mux_input {
 	    my $cmdid = $obj->{'return'};
 	    die "received response without command id\n" if !$cmdid;
 
-	    # skip results fro previous commands
+	    # skip results from previous commands
 	    return if $cmdid < $curcmd->{id};
 
 	    if ($curcmd->{id} ne $cmdid) {

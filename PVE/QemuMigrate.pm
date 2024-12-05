@@ -423,7 +423,7 @@ sub scan_local_volumes {
 	    if (defined($snaprefs)) {
 		$local_volumes->{$volid}->{snapshots} = 1;
 
-		# we cannot migrate shapshots on local storage
+		# we cannot migrate snapshots on local storage
 		# exceptions: 'zfspool' or 'qcow2' files (on directory storage)
 
 		die "online storage migration not possible if non-replicated snapshot exists\n"
@@ -1299,10 +1299,10 @@ sub phase2 {
 	    my $speed = ($memstat->{'pages-per-second'} // 0) * ($memstat->{'page-size'} // 0);
 	    my $dirty_rate = ($memstat->{'dirty-pages-rate'} // 0) * ($memstat->{'page-size'} // 0);
 
-	    # reduce sleep if remainig memory is lower than the average transfer speed
+	    # reduce sleep if remaining memory is lower than the average transfer speed
 	    $usleep = 100_000 if $avglstat && $rem < $avglstat;
 
-	    # also reduce loggin if we poll more frequent
+	    # also reduce logging if we poll more frequent
 	    my $should_log = $usleep > 100_000 ? 1 : ($i % 10) == 0;
 
 	    my $total_h = render_bytes($total, 1);
@@ -1402,7 +1402,7 @@ sub phase2_cleanup {
         $self->log('err', $err);
     }
 
-    # cleanup ressources on target host
+    # cleanup resources on target host
     if ($self->{storage_migration}) {
 	eval { PVE::QemuServer::qemu_blockjobs_cancel($vmid, $self->{storage_migration_jobs}) };
 	if (my $err = $@) {

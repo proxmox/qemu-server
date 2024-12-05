@@ -102,7 +102,7 @@ sub get_current_qemu_machine {
 }
 
 # returns a string with major.minor+pve<VERSION>, patch version-part is ignored
-# as it's seldom ressembling a real QEMU machine type, so it would be '0' 99% of
+# as it's seldom resembling a real QEMU machine type, so it would be '0' 99% of
 # the time anyway.. This explicitly separates pveversion from the machine.
 sub extract_version {
     my ($machine_type, $kvmversion) = @_;

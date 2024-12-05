@@ -52,7 +52,7 @@ sub qemu_objectdel {
     return 1;
 }
 
-# dies if a) VM not running or not exisiting b) Version query failed
+# dies if a) VM not running or not existing b) Version query failed
 # So, any defined return value is valid, any invalid state can be caught by eval
 sub runs_at_least_qemu_version {
     my ($vmid, $major, $minor, $extra) = @_;

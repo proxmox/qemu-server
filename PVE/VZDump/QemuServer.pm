@@ -695,7 +695,7 @@ sub archive_pbs {
 	return;
     }
 
-    # get list early so we die on unkown drive types before doing anything
+    # get list early so we die on unknown drive types before doing anything
     my $devlist = _get_task_devlist($task);
 
     $self->enforce_vm_running_for_backup($vmid);

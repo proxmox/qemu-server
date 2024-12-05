@@ -794,7 +794,7 @@ my $check_vm_modify_config_perm = sub {
 
     foreach my $opt (@$key_list) {
 	# some checks (e.g., disk, serial port, usb) need to be done somewhere
-	# else, as there the permission can be value dependend
+	# else, as there the permission can be value dependent
 	next if PVE::QemuServer::is_valid_drivename($opt);
 	next if $opt eq 'cdrom';
 	next if $opt =~ m/^(?:unused|serial|usb|hostpci)\d+$/;
@@ -2566,7 +2566,7 @@ __PACKAGE__->register_method({
 	if ($node ne 'localhost' && $node ne PVE::INotify::nodename()) {
 	    (undef, $family) = PVE::Cluster::remote_node_ip($node);
 	    my $sshinfo = PVE::SSHInfo::get_ssh_info($node);
-	    # NOTE: kvm VNC traffic is already TLS encrypted or is known unsecure
+	    # NOTE: kvm VNC traffic is already TLS encrypted or is known insecure
 	    $remcmd = PVE::SSHInfo::ssh_info_to_command($sshinfo, defined($serial) ? '-t' : '-T');
 	} else {
 	    $family = PVE::Tools::get_host_address_family($node);
@@ -2794,7 +2794,7 @@ __PACKAGE__->register_method({
 
 	my $conf = PVE::QemuConfig->load_config($vmid, $node); # VM exists ?
 
-	# Note: VNC ports are acessible from outside, so we do not gain any
+	# Note: VNC ports are accessible from outside, so we do not gain any
 	# security if we verify that $param->{port} belongs to VM $vmid. This
 	# check is done by verifying the VNC ticket (inside VNC protocol).
 
@@ -4067,7 +4067,7 @@ __PACKAGE__->register_method({
 	    return;
 	};
 
-	# Aquire exclusive lock lock for $newid
+	# Acquire exclusive lock lock for $newid
 	my $lock_target_vm = sub {
 	    return PVE::QemuConfig->lock_config_full($newid, 1, $clonefn);
 	};

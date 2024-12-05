@@ -107,8 +107,8 @@ my $OVMF = {
 
 my $cpuinfo = PVE::ProcFSTools::read_cpuinfo();
 
-# Note about locking: we use flock on the config file protect against concurent actions.
-# Aditionaly, we have a 'lock' setting in the config file. This  can be set to 'migrate',
+# Note about locking: we use flock on the config file protect against concurrent actions.
+# Additionally, we have a 'lock' setting in the config file. This  can be set to 'migrate',
 # 'backup', 'snapshot' or 'rollback'. Most actions are not allowed when such lock is set.
 # But you can ignore this kind of lock with the --skiplock flag.
 
@@ -1655,7 +1655,7 @@ sub print_drive_commandline_full {
     # my $file_param = $live_restore_name ? "file.file.filename" : "file";
     my $file_param = "file";
     if ($live_restore_name) {
-	# non-rbd drivers require the underlying file to be a seperate block
+	# non-rbd drivers require the underlying file to be a separate block
 	# node, so add a second .file indirection
 	$file_param .= ".file" if !$is_rbd;
 	$file_param .= ".filename";
@@ -3074,7 +3074,7 @@ sub vmstatus {
 	$qmpclient->queue_cmd($vmid, $machinecb, 'query-machines');
 	$qmpclient->queue_cmd($vmid, $versioncb, 'query-version');
 	# this fails if ballon driver is not loaded, so this must be
-	# the last commnand (following command are aborted if this fails).
+	# the last command (following command are aborted if this fails).
 	$qmpclient->queue_cmd($vmid, $ballooncb, 'query-balloon');
 
 	my $status = 'unknown';
@@ -4672,7 +4672,7 @@ sub qemu_cpu_hotplug {
 		    $retry++;
 		    sleep 1;
 		}
-		#update conf after each succesfull cpu unplug
+		#update conf after each successful cpu unplug
 		$conf->{vcpus} = scalar(@{$currentrunningvcpus});
 		PVE::QemuConfig->write_config($vmid, $conf);
 	    }
@@ -4703,7 +4703,7 @@ sub qemu_cpu_hotplug {
 		sleep 1;
 		$retry++;
 	    }
-            #update conf after each succesfull cpu hotplug
+            #update conf after each successful cpu hotplug
 	    $conf->{vcpus} = scalar(@{$currentrunningvcpus});
 	    PVE::QemuConfig->write_config($vmid, $conf);
 	}
@@ -5963,7 +5963,7 @@ sub vm_start_nolock {
     if (my $cpulimit = $conf->{cpulimit}) {
 	$systemd_properties{CPUQuota} = int($cpulimit * 100);
     }
-    $systemd_properties{timeout} = 10 if $statefile; # setting up the scope shoul be quick
+    $systemd_properties{timeout} = 10 if $statefile; # setting up the scope should be quick
 
     my $run_qemu = sub {
 	PVE::Tools::run_fork sub {
@@ -6652,7 +6652,7 @@ sub check_restore_permissions {
     check_bridge_access($rpcenv, $user, $conf);
     check_mapping_access($rpcenv, $user, $conf);
 }
-# vzdump restore implementaion
+# vzdump restore implementation
 
 sub tar_archive_read_firstfile {
     my $archive = shift;
@@ -6716,7 +6716,7 @@ sub restore_file_archive {
     }
 }
 
-# hepler to remove disks that will not be used after restore
+# helper to remove disks that will not be used after restore
 my $restore_cleanup_oldconf = sub {
     my ($storecfg, $vmid, $oldconf, $virtdev_hash) = @_;
 

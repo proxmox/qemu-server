@@ -740,7 +740,7 @@ my $PCIID_RESERVATION_FILE = "${RUNDIR}/pci-id-reservations";
 my $PCIID_RESERVATION_LOCK = "${PCIID_RESERVATION_FILE}.lock";
 
 # a list of PCI ID to VMID reservations, the validity is protected against leakage by either a PID,
-# for succesfully started VM processes, or a expiration time for the initial time window between
+# for successfully started VM processes, or a expiration time for the initial time window between
 # reservation and actual VM process start-up.
 my $parse_pci_reservation_unlocked = sub {
     my $pci_ids = {};
@@ -855,7 +855,7 @@ sub reserve_pci_usage {
 	    $reservation_list->{$id} = { vmid => $vmid };
 	    if (defined($pid)) { # VM started up, we can reserve now with the actual PID
 		$reservation_list->{$id}->{pid} = $pid;
-	    } elsif (defined($timeout)) { # tempoaray reserve as we don't now the PID yet
+	    } elsif (defined($timeout)) { # temporary reserve as we don't now the PID yet
 		$reservation_list->{$id}->{time} = $ctime + $timeout + 5;
 	    }
 	}

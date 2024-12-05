@@ -70,7 +70,7 @@ sub get_cloudinit_format {
     # No format specified, default based on ostype because windows'
     # cloudbased-init only supports configdrivev2, whereas on linux we need
     # to use mac addresses because regular cloudinit doesn't map 'ethX' to
-    # the new predicatble network device naming scheme.
+    # the new predictable network device naming scheme.
     if (defined(my $ostype = $conf->{ostype})) {
 	return 'configdrive2'
 	    if PVE::QemuServer::Helpers::windows_version($ostype);

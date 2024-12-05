@@ -1184,7 +1184,7 @@ our $cmddef = {
 
     unlock => [ __PACKAGE__, 'unlock', ['vmid']],
 
-    # TODO: evluate dropping below aliases for 8.0, if no usage is left
+    # TODO: evaluate dropping below aliases for 8.0, if no usage is left
     importdisk => { alias => 'disk import' },
     'move-disk' => { alias => 'disk move' },
     move_disk => { alias => 'disk move' },
