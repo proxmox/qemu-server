@@ -459,7 +459,7 @@ my sub create_disks : prototype($$$$$$$$$$$) {
 		    if ($live_import && $ds ne 'efidisk0') {
 			my $path = PVE::Storage::path($storecfg, $source)
 			    or die "failed to get a path for '$source'\n";
-			#·check·potentially·untrusted·image·file·for·import·vtype
+			# check potentially untrusted image file for import vtype
 			($size, my $source_format) = PVE::Storage::file_size_info($path, undef, $untrusted);
 			die "could not get file size of $path\n" if !$size;
 			$live_import_mapping->{$ds} = {
