@@ -508,7 +508,7 @@ sub do_test($) {
     }
 }
 
-print "testing config to command stabillity\n";
+print "testing config to command stability\n";
 
 # exec tests
 if (my $file = shift) {
