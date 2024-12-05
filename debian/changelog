@@ -459,7 +459,7 @@ qemu-server (7.3-4) bullseye; urgency=medium
   * swtpm: enable logging to `/run/qemu-server/$vmid-swtpm.log`
 
   * fix #4140: vzdump: transform the previous hardcoded behavior of issuing a
-    fs-freeze and fs-thaw if QGA is enabled  into an overrideable option named
+    fs-freeze and fs-thaw if QGA is enabled  into an overridable option named
     'fs-freeze-on-backup'
 
   * update network dev: MTU is not hot-pluggable, avoid suggesting so
@@ -589,7 +589,7 @@ qemu-server (7.2-7) bullseye; urgency=medium
   * fix #4324: USB: use qemu-xhci for machine versions >= 7.1
 
   * usb: increase max USB devices from 5 to 14 for modern 7.1 machine
-    and OS versions (Linux 2.6+ annd Windows 8+)
+    and OS versions (Linux 2.6+ and Windows 8+)
 
   * fix #4201: delete cloud-init disk on rollback
 
@@ -670,7 +670,7 @@ qemu-server (7.2-2) bullseye; urgency=medium
 
 qemu-server (7.2-1) bullseye; urgency=medium
 
-  * migrate: add log for guest fstrim and make a failure noticable
+  * migrate: add log for guest fstrim and make a failure noticeable
 
   * migrate: resume initially running VM when failing after convergence
 
@@ -818,7 +818,7 @@ qemu-server (7.0-18) bullseye; urgency=medium
 
   * cfg2cmd: switch off ACPI hotplug on bridges for q35 VMs with linux as
     ostype to avoid changes in network interface naming due to systemd's
-    predicatble naming scheme
+    predictable naming scheme
 
  -- Proxmox Support Team <support@proxmox.com>  Thu, 04 Nov 2021 15:29:55 +0100
 
@@ -1088,7 +1088,7 @@ qemu-server (6.3-6) pve; urgency=medium
   * always pin virtual machines with Windows as ostype to a fixed QEMU machine
     version by default. For existing VMs with Windows based OS-type use the 5.1
     machine version (or the next available one, for older QEMU versions) to
-    improve stabillity of the hardware layout from Windows point of view. Linux
+    improve stability of the hardware layout from Windows point of view. Linux
     and other OS types are not as sensitive to those changes, so keep the
     default to the currently latest available machine versions for non-Windows
     VMs.
@@ -1586,7 +1586,7 @@ qemu-server (6.0-17) pve; urgency=medium
 
 qemu-server (6.0-16) pve; urgency=medium
 
-  * fix #2473: use of unitialized value
+  * fix #2473: use of uninitialized value
 
  -- Proxmox Support Team <support@proxmox.com>  Fri, 22 Nov 2019 14:18:58 +0100
 
@@ -2342,7 +2342,7 @@ qemu-server (5.0-7) unstable; urgency=medium
 
   * get_replicatable_volumes: skip volumes on shared storage
 
-  * PVE/API2/Qemu.pm: aquire guest_migration_lock inside worker
+  * PVE/API2/Qemu.pm: acquire guest_migration_lock inside worker
 
   * Add a migration lock to avoid a replication on rollback-time
 
@@ -2420,7 +2420,7 @@ qemu-server (5.0-3) unstable; urgency=medium
 
 qemu-server (5.0-2) unstable; urgency=medium
 
-  * fix drive mirror readyness check
+  * fix drive mirror readiness check
 
   * fix uninitialized warning when deleting unset VM option
 
@@ -2806,7 +2806,7 @@ qemu-server (4.0-71) unstable; urgency=medium
 
   * Fix #643: activate volumes before resizing
 
-  * fix #947: reenable disk/cdrom passthrough
+  * fix #947: re-enable disk/cdrom passthrough
 
  -- Proxmox Support Team <support@proxmox.com>  Thu, 21 Apr 2016 10:34:42 +0200
 
@@ -2908,7 +2908,7 @@ qemu-server (4.0-57) unstable; urgency=medium
 
   * disable vnc server and add -nographic is no vga card is present
 
-  * passthrough : reenable hyperv and add hv_vendor_id for windows
+  * passthrough : re-enable hyperv and add hv_vendor_id for windows
 
  -- Proxmox Support Team <support@proxmox.com>  Thu, 18 Feb 2016 12:47:51 +0100
 
@@ -3035,7 +3035,7 @@ qemu-server (4.0-39) unstable; urgency=medium
   * fix bug #783: set KillMode=none, so that systemd don't kill
     them at shutdown
 
-  * reenable steal time
+  * re-enable steal time
 
   * backup/restore firewall config with vzdump
 
@@ -3216,7 +3216,7 @@ qemu-server (4.0-14) unstable; urgency=medium
 
   * cpuflags : remove -rdtscp for Opteron cpu models
 
-  * vzdump : abord backup if disk have iothread enabled
+  * vzdump : abort backup if disk have iothread enabled
 
  -- Proxmox Support Team <support@proxmox.com>  Mon, 27 Jul 2015 13:24:31 +0200
 
@@ -3443,7 +3443,7 @@ qemu-server (3.3-4) unstable; urgency=low
 
 qemu-server (3.3-3) unstable; urgency=low
 
-  * drive-mirror: further improvments
+  * drive-mirror: further improvements
 
  -- Proxmox Support Team <support@proxmox.com>  Mon, 10 Nov 2014 06:32:04 +0100
 
@@ -3737,7 +3737,7 @@ qemu-server (3.0-28) unstable; urgency=low
 
 qemu-server (3.0-27) unstable; urgency=low
 
-  * add support for unsecure/fast migration (setting in datacenter.cfg)
+  * add support for insecure/fast migration (setting in datacenter.cfg)
 
  -- Proxmox Support Team <support@proxmox.com>  Fri, 26 Jul 2013 11:24:36 +0200
 
@@ -3805,7 +3805,7 @@ qemu-server (3.0-19) unstable; urgency=low
 
 qemu-server (3.0-18) unstable; urgency=low
 
-  * imlement delete flag for move_disk
+  * implement delete flag for move_disk
   
   * API: rename move to move_disk
 
@@ -4455,7 +4455,7 @@ qemu-server (2.0-11) unstable; urgency=low
 
 qemu-server (2.0-10) unstable; urgency=low
 
-  * set qm exit codes currectly
+  * set qm exit codes correctly
   
   * fix 'qm shutdown <vmid>'
 
@@ -4699,7 +4699,7 @@ qemu-server (1.0-8) unstable; urgency=low
 
 qemu-server (1.0-7) unstable; urgency=low
 
-  * use new systax for kvm vga option (needed for kvm newer than kvm77)
+  * use new syntax for kvm vga option (needed for kvm newer than kvm77)
 
  -- Proxmox Support Team <support@proxmox.com>  Wed,  7 Jan 2009 14:46:09 +0100
 
