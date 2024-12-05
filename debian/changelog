@@ -1,3 +1,12 @@
+qemu-server (8.3.1) bookworm; urgency=medium
+
+  * api: clone vm: make error for unsupported volumes appear in a
+    deterministic order and include the ID of the problematic volume.
+
+  * fix #3588: helper: consider NIC count for config-specific timeout
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 05 Dec 2024 12:38:12 +0100
+
 qemu-server (8.3.0) bookworm; urgency=medium
 
   * api: import working storage: improve error message
