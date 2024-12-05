@@ -8606,23 +8606,24 @@ sub scsihw_infos {
 }
 
 sub resolve_dst_disk_format {
-	my ($storecfg, $storeid, $src_volname, $format) = @_;
-	my ($defFormat, $validFormats) = PVE::Storage::storage_default_format($storecfg, $storeid);
+    my ($storecfg, $storeid, $src_volname, $format) = @_;
 
-	if (!$format) {
-	    # if no target format is specified, use the source disk format as hint
-	    if ($src_volname) {
-		my $scfg = PVE::Storage::storage_config($storecfg, $storeid);
-		$format = qemu_img_format($scfg, $src_volname);
-	    } else {
-		return $defFormat;
-	    }
+    my ($defFormat, $validFormats) = PVE::Storage::storage_default_format($storecfg, $storeid);
+
+    if (!$format) {
+	# if no target format is specified, use the source disk format as hint
+	if ($src_volname) {
+	    my $scfg = PVE::Storage::storage_config($storecfg, $storeid);
+	    $format = qemu_img_format($scfg, $src_volname);
+	} else {
+	    return $defFormat;
 	}
+    }
 
-	# test if requested format is supported - else use default
-	my $supported = grep { $_ eq $format } @$validFormats;
-	$format = $defFormat if !$supported;
-	return $format;
+    # test if requested format is supported - else use default
+    my $supported = grep { $_ eq $format } @$validFormats;
+    $format = $defFormat if !$supported;
+    return $format;
 }
 
 # NOTE: if this logic changes, please update docs & possibly gui logic
