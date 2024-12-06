@@ -472,7 +472,7 @@ my sub create_disks : prototype($$$$$$$$$$$) {
 			# check potentially untrusted image file for import vtype
 			if ($untrusted) {
 			    my $path = PVE::Storage::path($storecfg, $source);
-			    PVE::Storage::file_size_info($path, undef, 1);
+			    PVE::Storage::file_size_info($path, undef, $source_format, 1);
 			}
 
 			my $dest_info = {
