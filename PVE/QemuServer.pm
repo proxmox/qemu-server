@@ -8421,10 +8421,10 @@ sub clone_disk {
 	$newvolid = PVE::Storage::vdisk_clone($storecfg,  $drive->{file}, $newvmid, $snapname);
 	push @$newvollist, $newvolid;
     } else {
-	my ($src_storeid, $volname) = PVE::Storage::parse_volume_id($drive->{file});
+	my ($src_storeid) = PVE::Storage::parse_volume_id($drive->{file});
 	my $storeid = $storage || $src_storeid;
 
-	my $dst_format = resolve_dst_disk_format($storecfg, $storeid, $volname, $format);
+	my $dst_format = resolve_dst_disk_format($storecfg, $storeid, $drive->{file}, $format);
 
 	my $name = undef;
 	my $size = undef;
@@ -8615,15 +8615,15 @@ sub scsihw_infos {
 }
 
 sub resolve_dst_disk_format {
-    my ($storecfg, $storeid, $src_volname, $format) = @_;
+    my ($storecfg, $storeid, $src_volid, $format) = @_;
 
     my ($defFormat, $validFormats) = PVE::Storage::storage_default_format($storecfg, $storeid);
 
     if (!$format) {
 	# if no target format is specified, use the source disk format as hint
-	if ($src_volname) {
+	if ($src_volid) {
 	    my $scfg = PVE::Storage::storage_config($storecfg, $storeid);
-	    $format = qemu_img_format($scfg, $src_volname);
+	    $format = checked_volume_format($storecfg, $src_volid);
 	} else {
 	    return $defFormat;
 	}
