@@ -6825,7 +6825,7 @@ my $parse_backup_hints = sub {
 		my ($storeid, $volname) = PVE::Storage::parse_volume_id($drive->{file});
 		$storeid = $options->{storage} if defined ($options->{storage});
 		my $scfg = PVE::Storage::storage_config($storecfg, $storeid);
-		my $format = qemu_img_format($scfg, $volname); # has 'raw' fallback
+		my $format = eval { checked_volume_format($storecfg, $drive->{file}) } // 'raw';
 
 		$check_storage->($storeid, $scfg); # permission and content type check
 
