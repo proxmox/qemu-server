@@ -164,11 +164,11 @@ my $check_storage_access = sub {
 
 	if (my $src_image = $drive->{'import-from'}) {
 	    my $src_vmid;
-	    my ($storeid, $volname) = PVE::Storage::parse_volume_id($src_image, 1);
+	    my ($storeid) = PVE::Storage::parse_volume_id($src_image, 1);
 	    if ($storeid) { # PVE-managed volume
 		my $scfg = PVE::Storage::storage_config($storecfg, $storeid);
-		my $plugin = PVE::Storage::Plugin->lookup($scfg->{type});
-		(my $vtype, undef, $src_vmid, undef, undef, undef, my $fmt) = $plugin->parse_volname($volname);
+		(my $vtype, undef, $src_vmid, undef, undef, undef, my $fmt)
+		    = checked_parse_volname($storecfg, $src_image);
 
 		raise_param_exc({ $ds => "$src_image has wrong type '$vtype' - needs to be 'images' or 'import'" })
 		    if $vtype ne 'images' && $vtype ne 'import';
