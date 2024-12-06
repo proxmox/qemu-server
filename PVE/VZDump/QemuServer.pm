@@ -26,6 +26,7 @@ use PVE::Format qw(render_duration render_bytes);
 
 use PVE::QemuConfig;
 use PVE::QemuServer;
+use PVE::QemuServer::Drive qw(checked_volume_format);
 use PVE::QemuServer::Helpers;
 use PVE::QemuServer::Machine;
 use PVE::QemuServer::Monitor qw(mon_cmd);
@@ -131,8 +132,7 @@ sub prepare {
 	    $size = eval { PVE::Storage::volume_size_info($self->{storecfg}, $volid, 5) };
 	    die "cannot determine size of volume '$volid' - $@\n" if $@;
 
-	    my $scfg = PVE::Storage::storage_config($self->{storecfg}, $storeid);
-	    $format = PVE::QemuServer::qemu_img_format($scfg, $volname);
+	    $format = checked_volume_format($self->{storecfg}, $volid);
 	} else {
 	    ($size, $format) = eval {
 		PVE::Storage::volume_size_info($self->{storecfg}, $volid, 5);
