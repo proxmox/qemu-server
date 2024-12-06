@@ -8486,7 +8486,7 @@ sub clone_disk {
 		# better for Ceph if block size is not too small, see bug #3324
 		my $bs = 1024*1024;
 
-		my $cmd = ['qemu-img', 'dd', '-n', '-O', $dst_format];
+		my $cmd = ['qemu-img', 'dd', '-n', '-f', $src_format, '-O', $dst_format];
 
 		if ($src_format eq 'qcow2' && $snapname) {
 		    die "cannot clone qcow2 EFI disk snapshot - requires QEMU >= 6.2\n"
