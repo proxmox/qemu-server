@@ -438,9 +438,9 @@ my sub create_disks : prototype($$$$$$$$$$$) {
 		my ($source_storage, $source_volid) = PVE::Storage::parse_volume_id($source, 1);
 
 		if ($source_storage) { # PVE-managed volume
-		    my ($vtype, undef, undef, undef, undef, undef, $fmt)
-			= PVE::Storage::parse_volname($storecfg, $source);
-		    my $needs_extraction = PVE::QemuServer::Helpers::needs_extraction($vtype, $fmt);
+		    my ($vtype, $source_format) = (checked_parse_volname($storecfg, $source))[0,6];
+		    my $needs_extraction =
+			PVE::QemuServer::Helpers::needs_extraction($vtype, $source_format);
 		    my $untrusted = $vtype eq 'import' ? 1 : 0;
 		    if ($needs_extraction) {
 			print "extracting $source\n";
@@ -460,7 +460,7 @@ my sub create_disks : prototype($$$$$$$$$$$) {
 			my $path = PVE::Storage::path($storecfg, $source)
 			    or die "failed to get a path for '$source'\n";
 			# check potentially untrusted image file for import vtype
-			($size, my $source_format) = PVE::Storage::file_size_info($path, undef, $untrusted);
+			$size = PVE::Storage::file_size_info($path, undef, $source_format, $untrusted);
 			die "could not get file size of $path\n" if !$size;
 			$live_import_mapping->{$ds} = {
 			    path => $path,
