@@ -7963,8 +7963,8 @@ sub qemu_img_convert {
     my ($src_volid, $dst_volid, $size, $snapname, $is_zero_initialized, $bwlimit) = @_;
 
     my $storecfg = PVE::Storage::config();
-    my ($src_storeid, $src_volname) = PVE::Storage::parse_volume_id($src_volid, 1);
-    my ($dst_storeid, $dst_volname) = PVE::Storage::parse_volume_id($dst_volid, 1);
+    my ($src_storeid) = PVE::Storage::parse_volume_id($src_volid, 1);
+    my ($dst_storeid) = PVE::Storage::parse_volume_id($dst_volid, 1);
 
     die "destination '$dst_volid' is not a valid volid form qemu-img convert\n" if !$dst_storeid;
 
@@ -7976,7 +7976,7 @@ sub qemu_img_convert {
     if ($src_storeid) {
 	PVE::Storage::activate_volumes($storecfg, [$src_volid], $snapname);
 	my $src_scfg = PVE::Storage::storage_config($storecfg, $src_storeid);
-	$src_format = qemu_img_format($src_scfg, $src_volname);
+	$src_format = checked_volume_format($storecfg, $src_volid);
 	$src_path = PVE::Storage::path($storecfg, $src_volid, $snapname);
 	$src_is_iscsi = ($src_path =~ m|^iscsi://|);
 	$cachemode = 'none' if $src_scfg->{type} eq 'zfspool';
@@ -7990,7 +7990,7 @@ sub qemu_img_convert {
     die "source '$src_volid' is not a valid volid nor path for qemu-img convert\n" if !$src_path;
 
     my $dst_scfg = PVE::Storage::storage_config($storecfg, $dst_storeid);
-    my $dst_format = qemu_img_format($dst_scfg, $dst_volname);
+    my $dst_format = checked_volume_format($storecfg, $dst_volid);
     my $dst_path = PVE::Storage::path($storecfg, $dst_volid);
     my $dst_is_iscsi = ($dst_path =~ m|^iscsi://|);
 
