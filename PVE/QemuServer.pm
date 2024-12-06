@@ -8039,20 +8039,6 @@ sub qemu_img_convert {
     die "copy failed: $err" if $err;
 }
 
-sub qemu_img_format {
-    my ($scfg, $volname) = @_;
-
-    # FIXME: this entire function is kind of weird given that `parse_volname`
-    # also already gives us a format?
-    my $is_path_storage = $scfg->{path} || $scfg->{type} eq 'esxi';
-
-    if ($is_path_storage && $volname =~ m/\.($PVE::QemuServer::Drive::QEMU_FORMAT_RE)$/) {
-	return $1;
-    } else {
-	return "raw";
-    }
-}
-
 sub qemu_drive_mirror {
     my ($vmid, $drive, $dst_volid, $vmiddst, $is_zero_initialized, $jobs, $completion, $qga, $bwlimit, $src_bitmap) = @_;
 
