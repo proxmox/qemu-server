@@ -13,6 +13,7 @@ use JSON;
 use PVE::Tools qw(run_command file_set_contents);
 use PVE::Storage;
 use PVE::QemuServer;
+use PVE::QemuServer::Drive qw(checked_volume_format);
 use PVE::QemuServer::Helpers;
 
 use constant CLOUDINIT_DISK_SIZE => 4 * 1024 * 1024; # 4MiB in bytes
@@ -36,7 +37,7 @@ sub commit_cloudinit_disk {
     my $storecfg = PVE::Storage::config();
     my $iso_path = PVE::Storage::path($storecfg, $drive->{file});
     my $scfg = PVE::Storage::storage_config($storecfg, $storeid);
-    my $format = PVE::QemuServer::qemu_img_format($scfg, $volname);
+    my $format = checked_volume_format($storecfg, $drive->{file});
 
     my $size = eval { PVE::Storage::volume_size_info($storecfg, $drive->{file}) };
     if (!defined($size) || $size <= 0) {
