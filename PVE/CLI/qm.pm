@@ -614,8 +614,10 @@ __PACKAGE__->register_method ({
 
 	print "importing disk '$source' to VM $vmid ...\n";
 
+	my $size = PVE::Storage::file_size_info($source, undef, 'auto-detect');
 	my ($drive_id, $volid) = PVE::QemuServer::ImportDisk::do_import(
 	    $source,
+	    $size,
 	    $vmid,
 	    $storeid,
 	    {
@@ -783,7 +785,8 @@ __PACKAGE__->register_method ({
 
 	    foreach my $disk (@{ $parsed->{disks} }) {
 		my ($file, $drive) = ($disk->{backing_file}, $disk->{disk_address});
-		my ($name, $volid) = PVE::QemuServer::ImportDisk::do_import($file, $vmid, $storeid, {
+		my $size = PVE::Storage::file_size_info($file, undef, 'auto-detect');
+		my ($name, $volid) = PVE::QemuServer::ImportDisk::do_import($file, $size, $vmid, $storeid, {
 		    drive_name => $drive,
 		    format => $format,
 		    skiplock => 1,

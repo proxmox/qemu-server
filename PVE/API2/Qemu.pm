@@ -511,6 +511,7 @@ my sub create_disks : prototype($$$$$$$$$$$) {
 		    } else {
 			(undef, $dst_volid) = PVE::QemuServer::ImportDisk::do_import(
 			    $source,
+			    $size,
 			    $vmid,
 			    $storeid,
 			    {

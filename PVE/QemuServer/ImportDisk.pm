@@ -14,16 +14,13 @@ use PVE::Tools qw(run_command extract_param);
 # $params->{skiplock} may be used to skip checking for a lock in the VM config
 # $params->{'skip-config-update'} may be used to import the disk without updating the VM config
 sub do_import {
-    my ($src_path, $vmid, $storage_id, $params) = @_;
+    my ($src_path, $src_size, $vmid, $storage_id, $params) = @_;
 
     my $drive_name = extract_param($params, 'drive_name');
     my $format = extract_param($params, 'format');
     if ($drive_name && !(PVE::QemuServer::is_valid_drivename($drive_name))) {
 	die "invalid drive name: $drive_name\n";
     }
-
-    # get the needed size from  source disk
-    my $src_size = PVE::Storage::file_size_info($src_path);
 
     # get target format, target image's path, and whether it's possible to sparseinit
     my $storecfg = PVE::Storage::config();
