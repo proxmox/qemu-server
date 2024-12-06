@@ -55,7 +55,7 @@ use PVE::QemuServer::Helpers qw(config_aware_timeout min_version windows_version
 use PVE::QemuServer::Cloudinit;
 use PVE::QemuServer::CGroup;
 use PVE::QemuServer::CPUConfig qw(print_cpu_device get_cpu_options get_cpu_bitness is_native_arch get_amd_sev_object);
-use PVE::QemuServer::Drive qw(is_valid_drivename drive_is_cloudinit drive_is_cdrom drive_is_read_only parse_drive print_drive);
+use PVE::QemuServer::Drive qw(is_valid_drivename checked_volume_format drive_is_cloudinit drive_is_cdrom drive_is_read_only parse_drive print_drive);
 use PVE::QemuServer::Machine;
 use PVE::QemuServer::Memory qw(get_current_memory);
 use PVE::QemuServer::Monitor qw(mon_cmd);
@@ -1544,7 +1544,6 @@ sub print_drive_commandline_full {
 
     my $path;
     my $volid = $drive->{file};
-    my $format = $drive->{format};
     my $drive_id = get_drive_id($drive);
 
     my ($storeid, $volname) = PVE::Storage::parse_volume_id($volid, 1);
@@ -1556,11 +1555,27 @@ sub print_drive_commandline_full {
     } else {
 	if ($storeid) {
 	    $path = PVE::Storage::path($storecfg, $volid);
-	    $format //= qemu_img_format($scfg, $volname);
 	} else {
 	    $path = $volid;
-	    $format //= "raw";
 	}
+    }
+
+    # For PVE-managed volumes, use the format from the storage layer and prevent overrides via the
+    # drive's 'format' option. For unmanaged volumes, fallback to 'raw' to avoid auto-detection by
+    # QEMU. For the special case 'none' (get_iso_path() returns an empty $path), there should be no
+    # format or QEMU won't start.
+    my $format;
+    if (drive_is_cdrom($drive) && !$path) {
+	# no format
+    } elsif ($storeid) {
+	$format = checked_volume_format($storecfg, $volid);
+
+	if ($drive->{format} && $drive->{format} ne $format) {
+	    die "drive '$drive->{interface}$drive->{index}' - volume '$volid'"
+		." - 'format=$drive->{format}' option different from storage format '$format'\n";
+	}
+    } else {
+	$format = $drive->{format} // 'raw';
     }
 
     my $is_rbd = $path =~ m/^rbd:/;
