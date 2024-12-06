@@ -8067,11 +8067,8 @@ sub qemu_drive_mirror {
 	$format = "nbd";
     } else {
 	my $storecfg = PVE::Storage::config();
-	my ($dst_storeid, $dst_volname) = PVE::Storage::parse_volume_id($dst_volid);
 
-	my $dst_scfg = PVE::Storage::storage_config($storecfg, $dst_storeid);
-
-	$format = qemu_img_format($dst_scfg, $dst_volname);
+	$format = checked_volume_format($storecfg, $dst_volid);
 
 	my $dst_path = PVE::Storage::path($storecfg, $dst_volid);
 
