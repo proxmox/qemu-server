@@ -3539,10 +3539,7 @@ my sub print_ovmf_drive_commandlines {
 	my ($path, $format) = $d->@{'file', 'format'};
 	if ($storeid) {
 	    $path = PVE::Storage::path($storecfg, $d->{file});
-	    if (!defined($format)) {
-		my $scfg = PVE::Storage::storage_config($storecfg, $storeid);
-		$format = qemu_img_format($scfg, $volname);
-	    }
+	    $format //= checked_volume_format($storecfg, $d->{file});
 	} elsif (!defined($format)) {
 	    die "efidisk format must be specified\n";
 	}
