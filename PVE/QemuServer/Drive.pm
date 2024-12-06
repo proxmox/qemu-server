@@ -14,6 +14,8 @@ use base qw(Exporter);
 
 our @EXPORT_OK = qw(
 is_valid_drivename
+checked_parse_volname
+checked_volume_format
 drive_is_cloudinit
 drive_is_cdrom
 drive_is_read_only
@@ -30,6 +32,43 @@ PVE::JSONSchema::register_standard_option('pve-qm-image-format', {
     description => "The drive's backing file's data format.",
     optional => 1,
 });
+
+# Check that a volume can be used for image-related operations with QEMU, in
+# particular, attached as VM image or ISO, used for qemu-img, or (live-)imported.
+# NOTE Currently, this helper cannot be used for backups.
+# TODO allow configuring certain restrictions via $opts argument, e.g. expected vtype?
+sub checked_parse_volname {
+    my ($storecfg, $volid) = @_;
+
+    my ($vtype, $name, $vmid, $basename, $basevmid, $isBase, $format) =
+	PVE::Storage::parse_volname($storecfg, $volid);
+
+    if ($vtype eq 'import') {
+	die "unable to parse format for import volume '$volid'\n" if !$format;
+	if ($format =~ m/^ova\+(.*)$/) {
+	    my $extracted_format = $1;
+	    die "volume '$volid' - unknown import format '$format'\n"
+		if $extracted_format !~ m/^($QEMU_FORMAT_RE)$/;
+	    return ($vtype, $name, $vmid, $basename, $basevmid, $isBase, $format);
+	}
+    }
+
+    # TODO PVE 9 - consider switching to die for an undefined format
+    $format = 'raw' if !defined($format);
+
+    die "volume '$volid' - not a QEMU image format '$format'\n"
+	if $format !~ m/^($QEMU_FORMAT_RE)$/;
+
+    # For iso content type, no format is returned yet.
+
+    return ($vtype, $name, $vmid, $basename, $basevmid, $isBase, $format);
+}
+
+sub checked_volume_format {
+    my ($storecfg, $volid) = @_;
+
+    return (checked_parse_volname($storecfg, $volid))[6];
+}
 
 my $MAX_IDE_DISKS = 4;
 my $MAX_SCSI_DISKS = 31;
