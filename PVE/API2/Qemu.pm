@@ -29,7 +29,7 @@ use PVE::QemuConfig;
 use PVE::QemuServer;
 use PVE::QemuServer::Cloudinit;
 use PVE::QemuServer::CPUConfig;
-use PVE::QemuServer::Drive;
+use PVE::QemuServer::Drive qw(checked_parse_volname);
 use PVE::QemuServer::Helpers;
 use PVE::QemuServer::ImportDisk;
 use PVE::QemuServer::Monitor qw(mon_cmd);
@@ -568,9 +568,16 @@ my sub create_disks : prototype($$$$$$$$$$$) {
 	} else {
 	    PVE::Storage::check_volume_access($rpcenv, $authuser, $storecfg, $vmid, $volid);
 	    if ($storeid) {
-		my ($vtype) = PVE::Storage::parse_volname($storecfg, $volid);
+		my ($vtype, $volume_format) = (checked_parse_volname($storecfg, $volid))[0,6];
+
 		die "cannot use volume $volid - content type needs to be 'images' or 'iso'"
 		    if $vtype ne 'images' && $vtype ne 'iso';
+
+		# TODO PVE 9 - consider disallowing setting an explicit format for managed volumes.
+		if ($disk->{format} && $disk->{format} ne $volume_format) {
+		    die "drive '$ds' - volume '$volid' - 'format=$disk->{format}' option different"
+			." from storage format '$volume_format'\n";
+		}
 
 		if (PVE::QemuServer::Drive::drive_is_cloudinit($disk)) {
 		    if (
