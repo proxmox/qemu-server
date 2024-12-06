@@ -25,7 +25,7 @@ use PVE::Tunnel;
 
 use PVE::QemuConfig;
 use PVE::QemuServer::CPUConfig;
-use PVE::QemuServer::Drive;
+use PVE::QemuServer::Drive qw(checked_volume_format);
 use PVE::QemuServer::Helpers qw(min_version);
 use PVE::QemuServer::Machine;
 use PVE::QemuServer::Monitor qw(mon_cmd);
@@ -799,9 +799,8 @@ sub phase1_remote {
 
 	return if !grep { $_ eq $volid} @online_local_volumes;
 
-	my ($storeid, $volname) = PVE::Storage::parse_volume_id($volid);
-	my $scfg = PVE::Storage::storage_config($self->{storecfg}, $storeid);
-	my $source_format = PVE::QemuServer::qemu_img_format($scfg, $volname);
+	my ($storeid) = PVE::Storage::parse_volume_id($volid);
+	my $source_format = checked_volume_format($self->{storecfg}, $volid);
 
 	# set by target cluster
 	my $oldvolid = delete $drive->{file};
