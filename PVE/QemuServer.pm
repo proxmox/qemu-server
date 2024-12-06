@@ -5627,7 +5627,7 @@ sub vm_migrate_get_nbd_disks {
 	my $scfg = PVE::Storage::storage_config($storecfg, $storeid);
 	return if $scfg->{shared};
 
-	my $format = qemu_img_format($scfg, $volname);
+	my $format = checked_volume_format($storecfg, $volid);
 
 	# replicated disks re-use existing state via bitmap
 	my $use_existing = $replicated_volumes->{$volid} ? 1 : 0;
