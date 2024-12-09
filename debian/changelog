@@ -1,3 +1,9 @@
+qemu-server (8.3.2) bookworm; urgency=medium
+
+  * use image format from storage layer for PVE-managed volumes
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 09 Dec 2024 10:08:14 +0100
+
 qemu-server (8.3.1) bookworm; urgency=medium
 
   * api: clone vm: make error for unsupported volumes appear in a
