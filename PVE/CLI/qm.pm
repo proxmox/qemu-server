@@ -599,7 +599,7 @@ __PACKAGE__->register_method ({
 	my $target_disk = extract_param($param, 'target-disk');
 
 	# do_import does not allow invalid drive names (e.g. unused0)
-	$target_disk = undef if !is_valid_drivename($target_disk);
+	$target_disk = undef if $target_disk && !is_valid_drivename($target_disk);
 
 	my $vm_conf = PVE::QemuConfig->load_config($vmid);
 	PVE::QemuConfig->check_lock($vm_conf);
