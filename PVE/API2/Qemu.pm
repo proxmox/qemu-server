@@ -4042,7 +4042,7 @@ __PACKAGE__->register_method({
 
 		if ($target) {
 		    if (!$running) {
-			# always deactivate volumes – avoids that LVM LVs are active on several nodes
+			# always deactivate volumes - avoids that LVM LVs are active on several nodes
 			eval { PVE::Storage::deactivate_volumes($storecfg, $vollist, $snapname) };
 			# but only warn when that fails (e.g., parallel clones keeping them active)
 			log_warn($@) if $@;
