@@ -589,6 +589,8 @@ my sub create_disks : prototype($$$$$$$$$$$) {
 		    ) {
 			die "$ds - cloud-init drive is already attached at '$ci_key'\n";
 		    }
+		} elsif ($ds eq 'tpmstate0' && $volume_format ne 'raw') {
+		    die "tpmstate0: volume format is '$volume_format', only 'raw' is supported!\n";
 		}
 	    }
 
