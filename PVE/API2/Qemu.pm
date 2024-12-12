@@ -3912,7 +3912,7 @@ __PACKAGE__->register_method({
 			my $msg = "clone feature is not supported for";
 			$msg .= " a snapshot of" if $snapname;
 			$msg .= " '$volid' ($opt)";
-			if ($full || PVE::QemuServer::drive_is_cloudinit($drive)) {
+			if ($full || PVE::QemuServer::drive_is_cloudinit($drive) || $opt eq 'tpmstate0') {
 			    die "Full $msg\n"
 				if !PVE::Storage::volume_has_feature($storecfg, 'copy', $volid, $snapname, $running);
 			    $fullclone->{$opt} = 1;
