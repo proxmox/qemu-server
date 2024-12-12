@@ -3212,6 +3212,8 @@ sub start_swtpm {
     my $tpm = parse_drive("tpmstate0", $tpmdrive);
     my ($storeid, $volname) = PVE::Storage::parse_volume_id($tpm->{file}, 1);
     if ($storeid) {
+	my $format = checked_volume_format($storecfg, $tpm->{file});
+	die "swtpm currently only supports 'raw' state volumes\n" if $format ne 'raw';
 	$state = PVE::Storage::map_volume($storecfg, $tpm->{file});
     } else {
 	$state = $tpm->{file};
