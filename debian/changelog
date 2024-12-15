@@ -1,3 +1,17 @@
+qemu-server (8.3.3) bookworm; urgency=medium
+
+  * fix #5980: import disk: fix spurious warning if no target disk is defined
+
+  * api: clone: always do a full clone of tpmstate volumes
+
+  * swtpm: check that format of tpmstate volume is raw as swtpm currently
+    doesn't support anything else anyway.
+
+  * create disk: disallow adding existing non-raw volumes as tpmstate0, like
+    as for new volumes.
+
+ -- Proxmox Support Team <support@proxmox.com>  Sun, 15 Dec 2024 14:26:32 +0100
+
 qemu-server (8.3.2) bookworm; urgency=medium
 
   * use image format from storage layer for PVE-managed volumes
