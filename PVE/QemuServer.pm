@@ -2794,7 +2794,7 @@ our $vmstatus_return_properties = {
 	enum => ['stopped', 'running'],
     },
     mem => {
-	description => "Current memroy usage in bytes.",
+	description => "Currently used memory in bytes.",
 	type => 'integer',
 	optional => 1,
 	renderer => 'bytes',
