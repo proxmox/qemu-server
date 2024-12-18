@@ -4581,27 +4581,74 @@ __PACKAGE__->register_method({
     returns => {
 	type => "object",
 	properties => {
-	    running => { type => 'boolean' },
+	    running => {
+		type => 'boolean',
+		description => "Determines if the VM is running.",
+	    },
 	    allowed_nodes => {
 		type => 'array',
+		items => {
+		    type => 'string',
+		    description => "An allowed node",
+		},
 		optional => 1,
 		description => "List nodes allowed for offline migration, only passed if VM is offline"
 	    },
 	    not_allowed_nodes => {
 		type => 'object',
 		optional => 1,
+		properties =>  {
+		    unavailable_storages => {
+			type => 'array',
+			optional => 1,
+			description => 'A list of not available storages.',
+			items => {
+			    type => 'string',
+			    description => 'A storage',
+			},
+		    },
+		},
 		description => "List not allowed nodes with additional information, only passed if VM is offline"
 	    },
 	    local_disks => {
 		type => 'array',
+		items => {
+		    type => 'object',
+		    properties => {
+			size => {
+			    type => 'integer',
+			    description => 'The size of the disk in bytes.',
+			},
+			volid => {
+			    type => 'string',
+			    description => 'The volid of the disk.',
+			},
+			cdrom => {
+			    type => 'boolean',
+			    description => 'True if the disk is a cdrom.',
+			},
+			is_unused => {
+			    type => 'boolean',
+			    description => 'True if the disk is unused.',
+			},
+		    },
+		},
 		description => "List local disks including CD-Rom, unused and not referenced disks"
 	    },
 	    local_resources => {
 		type => 'array',
+		items => {
+		    type => 'string',
+		    description => "A local resource",
+		},
 		description => "List local resources e.g. pci, usb"
 	    },
 	    'mapped-resources' => {
 		type => 'array',
+		items => {
+		    type => 'string',
+		    description => "A mapped resource",
+		},
 		description => "List of mapped resources e.g. pci, usb"
 	    },
 	},
