@@ -132,7 +132,7 @@ __PACKAGE__->register_method ({
 	properties => {
 	    vmid => get_standard_option('pve-vmid', { completion => \&PVE::QemuServer::complete_vmid }),
 	    pretty => {
-		description => "Puts each option on a new line to enhance human readability",
+		description => "Puts each option on a new line to enhance human readability.",
 		type => 'boolean',
 		optional => 1,
 		default => 0,
@@ -315,7 +315,7 @@ __PACKAGE__->register_method ({
     name => 'vncproxy',
     path => 'vncproxy',
     method => 'PUT',
-    description => "Proxy VM VNC traffic to stdin/stdout",
+    description => "Proxy VM VNC traffic to stdin/stdout.",
     parameters => {
 	additionalProperties => 0,
 	properties => {
@@ -641,7 +641,7 @@ __PACKAGE__->register_method ({
     name => 'terminal',
     path => 'terminal',
     method => 'POST',
-    description => "Open a terminal using a serial device (The VM need to have a serial device configured, for example 'serial0: socket')",
+    description => "Open a terminal using a serial device. (The VM needs to have a serial device configured, for example 'serial0: socket')",
     parameters => {
 	additionalProperties => 0,
 	properties => {
@@ -717,7 +717,7 @@ __PACKAGE__->register_method ({
 __PACKAGE__->register_method ({
     name => 'importovf',
     path => 'importovf',
-    description => "Create a new VM using parameters read from an OVF manifest",
+    description => "Create a new VM using parameters read from an OVF manifest.",
     parameters => {
 	additionalProperties => 0,
 	properties => {
@@ -739,7 +739,7 @@ __PACKAGE__->register_method ({
 	    },
 	    dryrun => {
 		type => 'boolean',
-		description => 'Print a parsed representation of the extracted OVF parameters, but do not create a VM',
+		description => 'Print a parsed representation of the extracted OVF parameters, but do not create a VM.',
 		optional => 1,
 	    }
 	},
@@ -795,7 +795,7 @@ __PACKAGE__->register_method ({
 		push @$imported_disks, $volid;
 	    }
 
-	    # reload after disks entries have been created
+	    # reload after disks' entries have been created
 	    $conf = PVE::QemuConfig->load_config($vmid);
 	    my $devs = PVE::QemuServer::get_default_bootdevices($conf);
 	    $conf->{boot} = PVE::QemuServer::print_bootorder($devs);
@@ -826,7 +826,7 @@ __PACKAGE__->register_method({
     path => 'exec',
     method => 'POST',
     protected => 1,
-    description => "Executes the given command via the guest agent",
+    description => "Executes the given command via the guest agent.",
     parameters => {
 	additionalProperties => 0,
 	properties => {
@@ -841,14 +841,14 @@ __PACKAGE__->register_method({
 	    },
 	    'timeout' => {
 		type => 'integer',
-		description => "The maximum time to wait synchronously for the command to finish. If reached, the pid gets returned. Set to 0 to deactivate",
+		description => "The maximum time to wait synchronously for the command to finish. If reached, the pid gets returned. Set to 0 to deactivate.",
 		minimum => 0,
 		optional => 1,
 		default => 30,
 	    },
 	    'pass-stdin' => {
 		type => 'boolean',
-		description => "When set, read STDIN until EOF and forward to guest agent via 'input-data' (usually treated as STDIN to process launched by guest agent). Allows maximal 1 MiB.",
+		description => "When set, read STDIN until EOF and forward to guest agent via 'input-data' (usually treated as STDIN to process launched by guest agent). Allows at most 1 MiB.",
 		optional => 1,
 		default => 0,
 	    },
@@ -922,11 +922,11 @@ __PACKAGE__->register_method({
 		    completion => \&PVE::QemuServer::complete_vmid_running }),
 	    'clean-shutdown' => {
 		type => 'boolean',
-		description => "Indicates if qemu shutdown cleanly.",
+		description => "Indicates whether qemu shutdown cleanly.",
 	    },
 	    'guest-requested' => {
 		type => 'boolean',
-		description => "Indicates if the shutdown was requested by the guest or via qmp.",
+		description => "Indicates whether the shutdown was requested by the guest or via qmp.",
 	    },
 	},
     },
