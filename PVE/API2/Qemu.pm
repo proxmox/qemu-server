@@ -554,11 +554,12 @@ my sub create_disks : prototype($$$$$$$$$$$) {
 		    $volid = PVE::Storage::vdisk_alloc($storecfg, $storeid, $vmid, "raw", undef, $size);
 		} else {
 		    $volid = PVE::Storage::vdisk_alloc($storecfg, $storeid, $vmid, $fmt, undef, $size);
-
-		    # change created disk to a base volume in case the VM is a template
-		    $volid = PVE::Storage::vdisk_create_base($storecfg, $volid)
-			if PVE::QemuConfig->is_template($conf);
 		}
+
+		# change created disk to a base volume in case the VM is a template
+		$volid = PVE::Storage::vdisk_create_base($storecfg, $volid)
+		    if PVE::QemuConfig->is_template($conf);
+
 		push @$vollist, $volid;
 		$disk->{file} = $volid;
 		$disk->{size} = PVE::Tools::convert_size($size, 'kb' => 'b');
