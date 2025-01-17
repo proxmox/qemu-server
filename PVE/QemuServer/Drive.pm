@@ -133,8 +133,8 @@ sub get_path_and_format {
 	$format = checked_volume_format($storecfg, $volid);
 
 	if ($drive->{format} && $drive->{format} ne $format) {
-	    die "drive '$drive->{interface}$drive->{index}' - volume '$volid'"
-		." - 'format=$drive->{format}' option different from storage format '$format'\n";
+	    die "drive '$drive_id' - volume '$volid' - 'format=$drive->{format}' option different"
+		." from storage format '$format'\n";
 	}
     } else {
 	$format = $drive->{format} // 'raw';
