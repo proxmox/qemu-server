@@ -7,6 +7,7 @@ SOURCES=PCI.pm		\
 	Helpers.pm	\
 	Monitor.pm	\
 	Machine.pm	\
+	MetaInfo.pm	\
 	CPUConfig.pm	\
 	CGroup.pm	\
 	Drive.pm	\

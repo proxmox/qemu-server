@@ -35,6 +35,7 @@ use PVE::QemuServer::ImportDisk;
 use PVE::QemuServer::Monitor qw(mon_cmd);
 use PVE::QemuServer::Machine;
 use PVE::QemuServer::Memory qw(get_current_memory);
+use PVE::QemuServer::MetaInfo;
 use PVE::QemuServer::PCI;
 use PVE::QemuServer::QMPHelpers;
 use PVE::QemuServer::USB;
@@ -1205,7 +1206,7 @@ __PACKAGE__->register_method({
 		    assert_scsi_feature_compatibility($opt, $conf, $storecfg, $param->{$opt});
 		}
 
-		$conf->{meta} = PVE::QemuServer::new_meta_info_string();
+		$conf->{meta} = PVE::QemuServer::MetaInfo::new_meta_info_string();
 
 		my $vollist = [];
 		eval {

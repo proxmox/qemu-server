@@ -57,6 +57,7 @@ use PVE::QemuServer::CPUConfig qw(print_cpu_device get_cpu_options get_cpu_bitne
 use PVE::QemuServer::Drive qw(is_valid_drivename checked_volume_format drive_is_cloudinit drive_is_cdrom drive_is_read_only parse_drive print_drive);
 use PVE::QemuServer::Machine;
 use PVE::QemuServer::Memory qw(get_current_memory);
+use PVE::QemuServer::MetaInfo;
 use PVE::QemuServer::Monitor qw(mon_cmd);
 use PVE::QemuServer::PCI qw(print_pci_addr print_pcie_addr print_pcie_root_port parse_hostpci);
 use PVE::QemuServer::QMPHelpers qw(qemu_deviceadd qemu_devicedel qemu_objectadd qemu_objectdel);
@@ -278,21 +279,6 @@ my $rng_fmt = {
 	    ." the guest to retrieve another 'max_bytes' of entropy.",
 	optional => 1,
 	default => 1000,
-    },
-};
-
-my $meta_info_fmt = {
-    'ctime' => {
-	type => 'integer',
-	description => "The guest creation timestamp as UNIX epoch time",
-	minimum => 0,
-	optional => 1,
-    },
-    'creation-qemu' => {
-	type => 'string',
-	description => "The QEMU (machine) version from the time this VM was created.",
-	pattern => '\d+(\.\d+)+',
-	optional => 1,
     },
 };
 
@@ -729,7 +715,7 @@ EODESCR
     },
     meta => {
 	type => 'string',
-	format => $meta_info_fmt,
+	format => $PVE::QemuServer::MetaInfo::meta_info_fmt,
 	description => "Some (read-only) meta-information about this guest.",
 	optional => 1,
     },
@@ -2058,32 +2044,10 @@ sub parse_rng {
     return $res;
 }
 
-sub parse_meta_info {
-    my ($value) = @_;
-
-    return if !$value;
-
-    my $res = eval { parse_property_string($meta_info_fmt, $value) };
-    warn $@ if $@;
-    return $res;
-}
-
-sub new_meta_info_string {
-    my () = @_; # for now do not allow to override any value
-
-    return PVE::JSONSchema::print_property_string(
-	{
-	    'creation-qemu' => kvm_user_version(),
-	    ctime => "". int(time()),
-	},
-	$meta_info_fmt
-    );
-}
-
 sub qemu_created_version_fixups {
     my ($conf, $forcemachine, $kvmver) = @_;
 
-    my $meta = parse_meta_info($conf->{meta}) // {};
+    my $meta = PVE::QemuServer::MetaInfo::parse_meta_info($conf->{meta}) // {};
     my $forced_vers = PVE::QemuServer::Machine::extract_version($forcemachine);
 
     # check if we need to apply some handling for VMs that always use the latest machine version but
