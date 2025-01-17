@@ -186,4 +186,11 @@ sub qemu_machine_pxe {
     return $machine;
 }
 
+sub get_installed_machine_version {
+    my ($kvmversion) = @_;
+    $kvmversion = PVE::QemuServer::Helpers::kvm_user_version() if !defined($kvmversion);
+    $kvmversion =~ m/^(\d+\.\d+)/;
+    return $1;
+}
+
 1;

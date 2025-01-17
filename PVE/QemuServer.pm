@@ -3271,13 +3271,6 @@ sub vga_conf_has_spice {
     return $1 || 1;
 }
 
-sub get_installed_machine_version {
-    my ($kvmversion) = @_;
-    $kvmversion = kvm_user_version() if !defined($kvmversion);
-    $kvmversion =~ m/^(\d+\.\d+)/;
-    return $1;
-}
-
 sub windows_get_pinned_machine_version {
     my ($machine, $base_version, $kvmversion) = @_;
 
@@ -3285,7 +3278,7 @@ sub windows_get_pinned_machine_version {
     if (!defined($base_version) ||
 	!PVE::QemuServer::Machine::can_run_pve_machine_version($base_version, $kvmversion)
     ) {
-	$pin_version = get_installed_machine_version($kvmversion);
+	$pin_version = PVE::QemuServer::Machine::get_installed_machine_version($kvmversion);
     }
     if (!$machine || $machine eq 'pc') {
 	$machine = "pc-i440fx-$pin_version";
