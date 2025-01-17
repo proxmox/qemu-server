@@ -854,7 +854,7 @@ sub assert_scsi_feature_compatibility {
 
     my $machine_type = PVE::QemuServer::get_vm_machine($conf, undef, $conf->{arch});
     my $machine_version = PVE::QemuServer::Machine::extract_version(
-	$machine_type, PVE::QemuServer::kvm_user_version());
+	$machine_type, PVE::QemuServer::Helpers::kvm_user_version());
     my $drivetype = PVE::QemuServer::Drive::get_scsi_device_type(
 	$drive, $storecfg, $machine_version);
 

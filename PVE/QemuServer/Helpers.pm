@@ -14,6 +14,7 @@ use base 'Exporter';
 our @EXPORT_OK = qw(
 min_version
 config_aware_timeout
+kvm_user_version
 parse_number_sets
 windows_version
 );
@@ -31,6 +32,35 @@ sub get_command_for_arch($) {
     my $cmd = $arch_to_qemu_binary->{$arch}
 	or die "don't know how to emulate architecture '$arch'\n";
     return $cmd;
+}
+
+my $kvm_user_version = {};
+my $kvm_mtime = {};
+
+sub kvm_user_version {
+    my ($binary) = @_;
+
+    $binary //= get_command_for_arch(get_host_arch()); # get the native arch by default
+    my $st = stat($binary);
+
+    my $cachedmtime = $kvm_mtime->{$binary} // -1;
+    return $kvm_user_version->{$binary} if $kvm_user_version->{$binary} &&
+	$cachedmtime == $st->mtime;
+
+    $kvm_user_version->{$binary} = 'unknown';
+    $kvm_mtime->{$binary} = $st->mtime;
+
+    my $code = sub {
+	my $line = shift;
+	if ($line =~ m/^QEMU( PC)? emulator version (\d+\.\d+(\.\d+)?)(\.\d+)?[,\s]/) {
+	    $kvm_user_version->{$binary} = $2;
+	}
+    };
+
+    eval { PVE::Tools::run_command([$binary, '--version'], outfunc => $code); };
+    warn $@ if $@;
+
+    return $kvm_user_version->{$binary};
 }
 
 # Paths and directories

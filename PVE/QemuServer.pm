@@ -10,7 +10,6 @@ use Fcntl;
 use File::Basename;
 use File::Copy qw(copy);
 use File::Path;
-use File::stat;
 use Getopt::Long;
 use IO::Dir;
 use IO::File;
@@ -51,7 +50,7 @@ use PVE::Tools qw(run_command file_read_firstline file_get_contents dir_glob_for
 
 use PVE::QMPClient;
 use PVE::QemuConfig;
-use PVE::QemuServer::Helpers qw(config_aware_timeout min_version windows_version);
+use PVE::QemuServer::Helpers qw(config_aware_timeout min_version kvm_user_version windows_version);
 use PVE::QemuServer::Cloudinit;
 use PVE::QemuServer::CGroup;
 use PVE::QemuServer::CPUConfig qw(print_cpu_device get_cpu_options get_cpu_bitness is_native_arch get_amd_sev_object);
@@ -1193,35 +1192,6 @@ sub kvm_version {
     return $kvm_api_version;
 }
 
-my $kvm_user_version = {};
-my $kvm_mtime = {};
-
-sub kvm_user_version {
-    my ($binary) = @_;
-
-    $binary //= PVE::QemuServer::Helpers::get_command_for_arch(get_host_arch()); # get the native arch by default
-    my $st = stat($binary);
-
-    my $cachedmtime = $kvm_mtime->{$binary} // -1;
-    return $kvm_user_version->{$binary} if $kvm_user_version->{$binary} &&
-	$cachedmtime == $st->mtime;
-
-    $kvm_user_version->{$binary} = 'unknown';
-    $kvm_mtime->{$binary} = $st->mtime;
-
-    my $code = sub {
-	my $line = shift;
-	if ($line =~ m/^QEMU( PC)? emulator version (\d+\.\d+(\.\d+)?)(\.\d+)?[,\s]/) {
-	    $kvm_user_version->{$binary} = $2;
-	}
-    };
-
-    eval { run_command([$binary, '--version'], outfunc => $code); };
-    warn $@ if $@;
-
-    return $kvm_user_version->{$binary};
-
-}
 my sub extract_version {
     my ($machine_type, $version) = @_;
     $version = kvm_user_version() if !defined($version);

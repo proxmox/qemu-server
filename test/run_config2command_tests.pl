@@ -15,6 +15,7 @@ use PVE::SysFSTools;
 
 use PVE::QemuConfig;
 use PVE::QemuServer;
+use PVE::QemuServer::Helpers;
 use PVE::QemuServer::Monitor;
 use PVE::QemuServer::QMPHelpers;
 use PVE::QemuServer::CPUConfig;
@@ -72,7 +73,7 @@ my $base_env = {
 	}
     },
     vmid => 8006,
-    real_qemu_version => PVE::QemuServer::kvm_user_version(), # not yet mocked
+    real_qemu_version => PVE::QemuServer::Helpers::kvm_user_version(), # not yet mocked
 };
 
 my $pci_devs = [
