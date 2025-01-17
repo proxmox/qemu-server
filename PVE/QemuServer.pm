@@ -1463,10 +1463,9 @@ my sub drive_uses_cache_direct {
 sub print_drive_commandline_full {
     my ($storecfg, $vmid, $drive, $live_restore_name, $io_uring) = @_;
 
-    my $volid = $drive->{file};
     my $drive_id = PVE::QemuServer::Drive::get_drive_id($drive);
 
-    my ($storeid, $volname) = PVE::Storage::parse_volume_id($volid, 1);
+    my ($storeid) = PVE::Storage::parse_volume_id($drive->{file}, 1);
     my $scfg = $storeid ? PVE::Storage::storage_config($storecfg, $storeid) : undef;
 
     my ($path, $format) = PVE::QemuServer::Drive::get_path_and_format(
