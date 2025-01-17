@@ -1198,7 +1198,7 @@ __PACKAGE__->register_method({
 
 	    my $realcmd = sub {
 		my $conf = $param;
-		my $arch = PVE::QemuServer::get_vm_arch($conf);
+		my $arch = PVE::QemuServer::Helpers::get_vm_arch($conf);
 
 		for my $opt (sort keys $param->%*) {
 		    next if $opt !~ m/^scsi\d+$/;
@@ -2034,7 +2034,7 @@ my $update_vm_api  = sub {
 		$conf = PVE::QemuConfig->load_config($vmid); # update/reload
 		next if defined($conf->{pending}->{$opt}) && ($param->{$opt} eq $conf->{pending}->{$opt}); # skip if nothing changed
 
-		my $arch = PVE::QemuServer::get_vm_arch($conf);
+		my $arch = PVE::QemuServer::Helpers::get_vm_arch($conf);
 
 		if (PVE::QemuServer::is_valid_drivename($opt)) {
 		    # old drive

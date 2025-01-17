@@ -3271,11 +3271,6 @@ sub vga_conf_has_spice {
     return $1 || 1;
 }
 
-sub get_vm_arch {
-    my ($conf) = @_;
-    return $conf->{arch} // get_host_arch();
-}
-
 my $default_machines = {
     x86_64 => 'pc',
     aarch64 => 'virt',
@@ -3590,7 +3585,7 @@ sub config_to_command {
 
     my $machine_conf = PVE::QemuServer::Machine::parse_machine($conf->{machine});
 
-    my $arch = get_vm_arch($conf);
+    my $arch = PVE::QemuServer::Helpers::get_vm_arch($conf);
     my $kvm_binary = PVE::QemuServer::Helpers::get_command_for_arch($arch);
     my $kvmver = kvm_user_version($kvm_binary);
 
@@ -4670,7 +4665,7 @@ sub qemu_cpu_hotplug {
 	if scalar(@{$currentrunningvcpus}) != $currentvcpus;
 
     if (PVE::QemuServer::Machine::machine_version($machine_type, 2, 7)) {
-	my $arch = get_vm_arch($conf);
+	my $arch = PVE::QemuServer::Helpers::get_vm_arch($conf);
 
 	for (my $i = $currentvcpus+1; $i <= $vcpus; $i++) {
 	    my $cpustr = print_cpu_device($conf, $arch, $i);
@@ -4912,7 +4907,7 @@ sub vmconfig_hotplug_pending {
     my ($vmid, $conf, $storecfg, $selection, $errors) = @_;
 
     my $defaults = load_defaults();
-    my $arch = get_vm_arch($conf);
+    my $arch = PVE::QemuServer::Helpers::get_vm_arch($conf);
     my $machine_type = get_vm_machine($conf, undef, $arch);
 
     # commit values which do not have any impact on running VM first
@@ -8493,7 +8488,7 @@ sub qemu_use_old_bios_files {
 sub get_efivars_size {
     my ($conf, $efidisk) = @_;
 
-    my $arch = get_vm_arch($conf);
+    my $arch = PVE::QemuServer::Helpers::get_vm_arch($conf);
     $efidisk //= $conf->{efidisk0} ? parse_drive('efidisk0', $conf->{efidisk0}) : undef;
     my $smm = PVE::QemuServer::Machine::machine_type_is_q35($conf);
     my (undef, $ovmf_vars) = get_ovmf_files($arch, $efidisk, $smm);

@@ -34,6 +34,11 @@ sub get_command_for_arch($) {
     return $cmd;
 }
 
+sub get_vm_arch {
+    my ($conf) = @_;
+    return $conf->{arch} // get_host_arch();
+}
+
 my $kvm_user_version = {};
 my $kvm_mtime = {};
 
