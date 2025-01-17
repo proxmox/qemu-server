@@ -136,7 +136,7 @@ sub extract_version {
     return;
 }
 
-sub machine_version {
+sub is_machine_version_at_least {
     my ($machine_type, $major, $minor, $pve) = @_;
 
     return PVE::QemuServer::Helpers::min_version(

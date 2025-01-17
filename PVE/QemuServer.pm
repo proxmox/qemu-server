@@ -4532,7 +4532,7 @@ sub qemu_cpu_hotplug {
 
     if ($vcpus < $currentvcpus) {
 
-	if (PVE::QemuServer::Machine::machine_version($machine_type, 2, 7)) {
+	if (PVE::QemuServer::Machine::is_machine_version_at_least($machine_type, 2, 7)) {
 
 	    for (my $i = $currentvcpus; $i > $vcpus; $i--) {
 		qemu_devicedel($vmid, "cpu$i");
@@ -4560,7 +4560,7 @@ sub qemu_cpu_hotplug {
     die "vcpus in running vm does not match its configuration\n"
 	if scalar(@{$currentrunningvcpus}) != $currentvcpus;
 
-    if (PVE::QemuServer::Machine::machine_version($machine_type, 2, 7)) {
+    if (PVE::QemuServer::Machine::is_machine_version_at_least($machine_type, 2, 7)) {
 	my $arch = PVE::QemuServer::Helpers::get_vm_arch($conf);
 
 	for (my $i = $currentvcpus+1; $i <= $vcpus; $i++) {
