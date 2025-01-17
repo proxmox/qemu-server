@@ -221,7 +221,7 @@ sub get_vm_machine {
     my $machine = $forcemachine || $machine_conf->{type};
 
     if (!$machine || $machine =~ m/^(?:pc|q35|virt)$/) {
-	my $kvmversion //= PVE::QemuServer::Helpers::kvm_user_version();
+	my $kvmversion = PVE::QemuServer::Helpers::kvm_user_version();
 	# we must pin Windows VMs without a specific version and no meta info about creation QEMU to
 	# 5.1, as 5.2 fixed a bug in ACPI layout which confuses windows quite a bit and may result
 	# in various regressions..
