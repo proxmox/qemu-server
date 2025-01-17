@@ -213,4 +213,38 @@ sub windows_get_pinned_machine_version {
     return $machine;
 }
 
+sub get_vm_machine {
+    my ($conf, $forcemachine, $arch) = @_;
+
+    my $machine_conf = parse_machine($conf->{machine});
+    my $machine = $forcemachine || $machine_conf->{type};
+
+    if (!$machine || $machine =~ m/^(?:pc|q35|virt)$/) {
+	my $kvmversion //= PVE::QemuServer::Helpers::kvm_user_version();
+	# we must pin Windows VMs without a specific version to 5.1, as 5.2 fixed a bug in ACPI
+	# layout which confuses windows quite a bit and may result in various regressions..
+	# see: https://lists.gnu.org/archive/html/qemu-devel/2021-02/msg08484.html
+	if (PVE::QemuServer::Helpers::windows_version($conf->{ostype})) {
+	    $machine = windows_get_pinned_machine_version($machine, '5.1', $kvmversion);
+	}
+	$arch //= 'x86_64';
+	$machine ||= default_machine_for_arch($arch);
+	my $pvever = get_pve_version($kvmversion);
+	$machine .= "+pve$pvever";
+    }
+
+    if ($machine !~ m/\+pve\d+?(?:\.pxe)?$/) {
+	my $is_pxe = $machine =~ m/^(.*?)\.pxe$/;
+	$machine = $1 if $is_pxe;
+
+	# for version-pinned machines that do not include a pve-version (e.g.
+	# pc-q35-4.1), we assume 0 to keep them stable in case we bump
+	$machine .= '+pve0';
+
+	$machine .= '.pxe' if $is_pxe;
+    }
+
+    return $machine;
+}
+
 1;

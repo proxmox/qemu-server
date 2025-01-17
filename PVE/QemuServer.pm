@@ -3271,40 +3271,6 @@ sub vga_conf_has_spice {
     return $1 || 1;
 }
 
-sub get_vm_machine {
-    my ($conf, $forcemachine, $arch) = @_;
-
-    my $machine_conf = PVE::QemuServer::Machine::parse_machine($conf->{machine});
-    my $machine = $forcemachine || $machine_conf->{type};
-
-    if (!$machine || $machine =~ m/^(?:pc|q35|virt)$/) {
-	my $kvmversion //= kvm_user_version();
-	# we must pin Windows VMs without a specific version to 5.1, as 5.2 fixed a bug in ACPI
-	# layout which confuses windows quite a bit and may result in various regressions..
-	# see: https://lists.gnu.org/archive/html/qemu-devel/2021-02/msg08484.html
-	if (windows_version($conf->{ostype})) {
-	    $machine = PVE::QemuServer::Machine::windows_get_pinned_machine_version($machine, '5.1', $kvmversion);
-	}
-	$arch //= 'x86_64';
-	$machine ||= PVE::QemuServer::Machine::default_machine_for_arch($arch);
-	my $pvever = PVE::QemuServer::Machine::get_pve_version($kvmversion);
-	$machine .= "+pve$pvever";
-    }
-
-    if ($machine !~ m/\+pve\d+?(?:\.pxe)?$/) {
-	my $is_pxe = $machine =~ m/^(.*?)\.pxe$/;
-	$machine = $1 if $is_pxe;
-
-	# for version-pinned machines that do not include a pve-version (e.g.
-	# pc-q35-4.1), we assume 0 to keep them stable in case we bump
-	$machine .= '+pve0';
-
-	$machine .= '.pxe' if $is_pxe;
-    }
-
-    return $machine;
-}
-
 sub get_ovmf_files($$$) {
     my ($arch, $efidisk, $smm) = @_;
 
@@ -3560,7 +3526,7 @@ sub config_to_command {
 	die "Detected old QEMU binary ('$kvmver', at least 5.0 is required)\n";
     }
 
-    my $machine_type = get_vm_machine($conf, $forcemachine, $arch);
+    my $machine_type = PVE::QemuServer::Machine::get_vm_machine($conf, $forcemachine, $arch);
     my $machine_version = extract_version($machine_type, $kvmver);
     $kvm //= 1 if is_native_arch($arch);
 
@@ -4874,7 +4840,7 @@ sub vmconfig_hotplug_pending {
 
     my $defaults = load_defaults();
     my $arch = PVE::QemuServer::Helpers::get_vm_arch($conf);
-    my $machine_type = get_vm_machine($conf, undef, $arch);
+    my $machine_type = PVE::QemuServer::Machine::get_vm_machine($conf, undef, $arch);
 
     # commit values which do not have any impact on running VM first
     # Note: those option cannot raise errors, we we do not care about
