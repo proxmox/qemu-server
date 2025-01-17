@@ -261,4 +261,20 @@ sub get_vm_machine {
     return $machine;
 }
 
+sub check_and_pin_machine_string {
+    my ($machine_string, $ostype) = @_;
+
+    my $machine_conf = parse_machine($machine_string);
+    my $machine = $machine_conf->{type};
+    if (!$machine || $machine =~ m/^(?:pc|q35|virt)$/) {
+	# always pin Windows' machine version on create, they get confused too easily
+	if (PVE::QemuServer::Helpers::windows_version($ostype)) {
+	    $machine_conf->{type} = windows_get_pinned_machine_version($machine);
+	}
+    }
+
+    assert_valid_machine_property($machine_conf);
+    return print_machine($machine_conf);
+}
+
 1;

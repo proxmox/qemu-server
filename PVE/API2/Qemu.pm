@@ -1242,17 +1242,9 @@ __PACKAGE__->register_method({
 			$conf->{vmgenid} = PVE::QemuServer::generate_uuid();
 		    }
 
-		    my $machine_conf = PVE::QemuServer::Machine::parse_machine($conf->{machine});
-		    my $machine = $machine_conf->{type};
-		    if (!$machine || $machine =~ m/^(?:pc|q35|virt)$/) {
-			# always pin Windows' machine version on create, they get to easily confused
-			if (PVE::QemuServer::Helpers::windows_version($conf->{ostype})) {
-			    $machine_conf->{type} =
-				PVE::QemuServer::Machine::windows_get_pinned_machine_version($machine);
-			    $conf->{machine} = PVE::QemuServer::Machine::print_machine($machine_conf);
-			}
-		    }
-		    PVE::QemuServer::Machine::assert_valid_machine_property($machine_conf);
+		    # always pin Windows' machine version on create, they get confused too easily
+		    $conf->{machine} = PVE::QemuServer::Machine::check_and_pin_machine_string(
+			$conf->{machine}, $conf->{ostype});
 
 		    $conf->{lock} = 'import' if $live_import_mapping;
 
