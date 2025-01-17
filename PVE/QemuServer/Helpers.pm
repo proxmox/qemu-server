@@ -8,6 +8,7 @@ use JSON;
 
 use PVE::INotify;
 use PVE::ProcFSTools;
+use PVE::Tools qw(get_host_arch);
 
 use base 'Exporter';
 our @EXPORT_OK = qw(
@@ -18,6 +19,19 @@ windows_version
 );
 
 my $nodename = PVE::INotify::nodename();
+
+my $arch_to_qemu_binary = {
+    aarch64 => '/usr/bin/qemu-system-aarch64',
+    x86_64 => '/usr/bin/qemu-system-x86_64',
+};
+sub get_command_for_arch($) {
+    my ($arch) = @_;
+    return '/usr/bin/kvm' if get_host_arch() eq $arch; # i.e. native arch
+
+    my $cmd = $arch_to_qemu_binary->{$arch}
+	or die "don't know how to emulate architecture '$arch'\n";
+    return $cmd;
+}
 
 # Paths and directories
 

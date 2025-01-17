@@ -1199,7 +1199,7 @@ my $kvm_mtime = {};
 sub kvm_user_version {
     my ($binary) = @_;
 
-    $binary //= get_command_for_arch(get_host_arch()); # get the native arch by default
+    $binary //= PVE::QemuServer::Helpers::get_command_for_arch(get_host_arch()); # get the native arch by default
     my $st = stat($binary);
 
     my $cachedmtime = $kvm_mtime->{$binary} // -1;
@@ -3397,19 +3397,6 @@ sub get_ovmf_files($$$) {
     return ($ovmf_code, $ovmf_vars);
 }
 
-my $Arch2Qemu = {
-    aarch64 => '/usr/bin/qemu-system-aarch64',
-    x86_64 => '/usr/bin/qemu-system-x86_64',
-};
-sub get_command_for_arch($) {
-    my ($arch) = @_;
-    return '/usr/bin/kvm' if is_native_arch($arch);
-
-    my $cmd = $Arch2Qemu->{$arch}
-	or die "don't know how to emulate architecture '$arch'\n";
-    return $cmd;
-}
-
 # To use query_supported_cpu_flags and query_understood_cpu_flags to get flags
 # to use in a QEMU command line (-cpu element), first array_intersect the result
 # of query_supported_ with query_understood_. This is necessary because:
@@ -3444,7 +3431,7 @@ sub query_supported_cpu_flags {
 	$arch eq "aarch64";
 
     my $kvm_supported = defined(kvm_version());
-    my $qemu_cmd = get_command_for_arch($arch);
+    my $qemu_cmd = PVE::QemuServer::Helpers::get_command_for_arch($arch);
     my $fakevmid = -1;
     my $pidfile = PVE::QemuServer::Helpers::pidfile_name($fakevmid);
 
@@ -3634,7 +3621,7 @@ sub config_to_command {
     my $machine_conf = PVE::QemuServer::Machine::parse_machine($conf->{machine});
 
     my $arch = get_vm_arch($conf);
-    my $kvm_binary = get_command_for_arch($arch);
+    my $kvm_binary = PVE::QemuServer::Helpers::get_command_for_arch($arch);
     my $kvmver = kvm_user_version($kvm_binary);
 
     if (!$kvmver || $kvmver !~ m/^(\d+)\.(\d+)/ || $1 < 5) {
