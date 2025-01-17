@@ -2109,6 +2109,24 @@ my $update_vm_api  = sub {
 		    my $machine_conf = PVE::QemuServer::Machine::parse_machine($param->{$opt});
 		    PVE::QemuServer::Machine::assert_valid_machine_property($machine_conf);
 		    $conf->{pending}->{$opt} = $param->{$opt};
+		} elsif ($opt eq 'ostype') {
+		    # Check if machine version pinning is needed when switching OS type, just like
+		    # upon creation. Skip if 'machine' is explicitly set or removed at the same time
+		    # to honor the users request. While it should be enough to look at $modified,
+		    # because 'machine' is sorted before 'ostype', be explicit just to be sure.
+		    if (
+			!defined($param->{machine})
+			&& !defined($conf->{pending}->{machine})
+			&& !$modified->{machine} # detects deletion
+		    ) {
+			eval {
+			    $conf->{pending}->{machine} =
+				PVE::QemuServer::Machine::check_and_pin_machine_string(
+				    $conf->{machine}, $param->{ostype});
+			};
+			print "automatic pinning of machine version failed - $@" if $@;
+		    }
+		    $conf->{pending}->{$opt} = $param->{$opt};
 		} elsif ($opt eq 'cipassword') {
 		    if (!PVE::QemuServer::Helpers::windows_version($conf->{ostype})) {
 			# Same logic as in cloud-init (but with the regex fixed...)
