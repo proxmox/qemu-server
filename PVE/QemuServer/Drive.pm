@@ -100,6 +100,49 @@ sub get_iso_path {
     }
 }
 
+# Returns the path that can be used on the QEMU commandline and in QMP commands as well as the
+# checked format of the drive.
+sub get_path_and_format {
+    my ($storecfg, $vmid, $drive, $live_restore_name) = @_;
+
+    my $path;
+    my $volid = $drive->{file};
+    my $drive_id = get_drive_id($drive);
+
+    my ($storeid) = PVE::Storage::parse_volume_id($volid, 1);
+
+    if (drive_is_cdrom($drive)) {
+	$path = get_iso_path($storecfg, $vmid, $volid);
+	die "$drive_id: cannot back cdrom drive with a live restore image\n" if $live_restore_name;
+    } else {
+	if ($storeid) {
+	    $path = PVE::Storage::path($storecfg, $volid);
+	} else {
+	    $path = $volid;
+	}
+    }
+
+    # For PVE-managed volumes, use the format from the storage layer and prevent overrides via the
+    # drive's 'format' option. For unmanaged volumes, fallback to 'raw' to avoid auto-detection by
+    # QEMU. For the special case 'none' (get_iso_path() returns an empty $path), there should be no
+    # format or QEMU won't start.
+    my $format;
+    if (drive_is_cdrom($drive) && !$path) {
+	# no format
+    } elsif ($storeid) {
+	$format = checked_volume_format($storecfg, $volid);
+
+	if ($drive->{format} && $drive->{format} ne $format) {
+	    die "drive '$drive->{interface}$drive->{index}' - volume '$volid'"
+		." - 'format=$drive->{format}' option different from storage format '$format'\n";
+	}
+    } else {
+	$format = $drive->{format} // 'raw';
+    }
+
+    return ($path, $format);
+}
+
 my $MAX_IDE_DISKS = 4;
 my $MAX_SCSI_DISKS = 31;
 my $MAX_VIRTIO_DISKS = 16;
