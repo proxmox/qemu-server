@@ -1250,7 +1250,7 @@ __PACKAGE__->register_method({
 			    $conf->{machine} = PVE::QemuServer::Machine::print_machine($machine_conf);
 			}
 		    }
-		    PVE::QemuServer::Machine::assert_valid_machine_property($conf, $machine_conf);
+		    PVE::QemuServer::Machine::assert_valid_machine_property($machine_conf);
 
 		    $conf->{lock} = 'import' if $live_import_mapping;
 
@@ -2113,7 +2113,7 @@ my $update_vm_api  = sub {
 		    $conf->{pending}->{$opt} = $param->{$opt};
 		} elsif ($opt eq 'machine') {
 		    my $machine_conf = PVE::QemuServer::Machine::parse_machine($param->{$opt});
-		    PVE::QemuServer::Machine::assert_valid_machine_property($conf, $machine_conf);
+		    PVE::QemuServer::Machine::assert_valid_machine_property($machine_conf);
 		    $conf->{pending}->{$opt} = $param->{$opt};
 		} elsif ($opt eq 'cipassword') {
 		    if (!PVE::QemuServer::Helpers::windows_version($conf->{ostype})) {

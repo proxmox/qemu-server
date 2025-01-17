@@ -4193,7 +4193,7 @@ sub config_to_command {
     $machine_type_min .= "+pve$required_pve_version";
     push @$machineFlags, "type=${machine_type_min}";
 
-    PVE::QemuServer::Machine::assert_valid_machine_property($conf, $machine_conf);
+    PVE::QemuServer::Machine::assert_valid_machine_property($machine_conf);
 
     if (my $viommu = $machine_conf->{viommu}) {
 	if ($viommu eq 'intel') {

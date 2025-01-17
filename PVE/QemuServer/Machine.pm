@@ -56,7 +56,7 @@ sub print_machine {
 }
 
 sub assert_valid_machine_property {
-    my ($conf, $machine_conf) = @_;
+    my ($machine_conf) = @_;
     my $q35 = $machine_conf->{type} && ($machine_conf->{type} =~ m/q35/) ? 1 : 0;
     if ($machine_conf->{viommu} && $machine_conf->{viommu} eq "intel" && !$q35) {
 	die "to use Intel vIOMMU please set the machine type to q35\n";
