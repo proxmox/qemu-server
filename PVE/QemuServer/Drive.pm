@@ -748,6 +748,11 @@ sub print_drive {
     return PVE::JSONSchema::print_property_string($drive, $fmt, $skip);
 }
 
+sub get_drive_id {
+    my ($drive) = @_;
+    return "$drive->{interface}$drive->{index}";
+}
+
 sub get_bootdisks {
     my ($conf) = @_;
 
