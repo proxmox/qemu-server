@@ -1,3 +1,27 @@
+qemu-server (8.3.4) bookworm; urgency=medium
+
+  * vm shutdown: check if QEMU Guest Agent (QGA) is actually running before
+    relying on it for handling the shutdown. This avoids waiting for the
+    timeout just to then fail the task.
+
+  * api: VM status: document 'cpu' and 'mem' return types
+
+  * api: create disks: also convert the 'tpmstate' and 'efidisk0' volumes to
+    base image for VM templates
+
+  * machine: fallback to QEMU version from the VM creation time for windows
+    VMs that get started with QEMU version 9.1 or later, if there is no
+    explicit version set.
+
+  * api: update vm config: pin machine version when switching to Windows os
+    type, just like we do since a long time for newly created VMs with a
+    Windows OS type.
+
+  * machine: log informational line when pinning machine version for Windows
+    guest
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 17 Jan 2025 19:32:17 +0100
+
 qemu-server (8.3.3) bookworm; urgency=medium
 
   * fix #5980: import disk: fix spurious warning if no target disk is defined
