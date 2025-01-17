@@ -1246,7 +1246,8 @@ __PACKAGE__->register_method({
 		    if (!$machine || $machine =~ m/^(?:pc|q35|virt)$/) {
 			# always pin Windows' machine version on create, they get to easily confused
 			if (PVE::QemuServer::Helpers::windows_version($conf->{ostype})) {
-			    $machine_conf->{type} = PVE::QemuServer::windows_get_pinned_machine_version($machine);
+			    $machine_conf->{type} =
+				PVE::QemuServer::Machine::windows_get_pinned_machine_version($machine);
 			    $conf->{machine} = PVE::QemuServer::Machine::print_machine($machine_conf);
 			}
 		    }

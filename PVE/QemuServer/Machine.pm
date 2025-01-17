@@ -193,4 +193,24 @@ sub get_installed_machine_version {
     return $1;
 }
 
+sub windows_get_pinned_machine_version {
+    my ($machine, $base_version, $kvmversion) = @_;
+
+    my $pin_version = $base_version;
+    if (!defined($base_version) || !can_run_pve_machine_version($base_version, $kvmversion)) {
+	$pin_version = get_installed_machine_version($kvmversion);
+    }
+    if (!$machine || $machine eq 'pc') {
+	$machine = "pc-i440fx-$pin_version";
+    } elsif ($machine eq 'q35') {
+	$machine = "pc-q35-$pin_version";
+    } elsif ($machine eq 'virt') {
+	$machine = "virt-$pin_version";
+    } else {
+	warn "unknown machine type '$machine', not touching that!\n";
+    }
+
+    return $machine;
+}
+
 1;
