@@ -3271,11 +3271,6 @@ sub vga_conf_has_spice {
     return $1 || 1;
 }
 
-my $default_machines = {
-    x86_64 => 'pc',
-    aarch64 => 'virt',
-};
-
 sub get_installed_machine_version {
     my ($kvmversion) = @_;
     $kvmversion = kvm_user_version() if !defined($kvmversion);
@@ -3320,7 +3315,7 @@ sub get_vm_machine {
 	    $machine = windows_get_pinned_machine_version($machine, '5.1', $kvmversion);
 	}
 	$arch //= 'x86_64';
-	$machine ||= $default_machines->{$arch};
+	$machine ||= PVE::QemuServer::Machine::default_machine_for_arch($arch);
 	my $pvever = PVE::QemuServer::Machine::get_pve_version($kvmversion);
 	$machine .= "+pve$pvever";
     }
@@ -3386,7 +3381,7 @@ sub query_supported_cpu_flags {
     my ($arch) = @_;
 
     $arch //= get_host_arch();
-    my $default_machine = $default_machines->{$arch};
+    my $default_machine = PVE::QemuServer::Machine::default_machine_for_arch($arch);
 
     my $flags = {};
 

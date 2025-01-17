@@ -55,6 +55,18 @@ sub print_machine {
     return print_property_string($machine_conf, $machine_fmt);
 }
 
+my $default_machines = {
+    x86_64 => 'pc',
+    aarch64 => 'virt',
+};
+
+sub default_machine_for_arch {
+    my ($arch) = @_;
+
+    my $machine = $default_machines->{$arch} or die "unsupported architecture '$arch'\n";
+    return $machine;
+}
+
 sub assert_valid_machine_property {
     my ($machine_conf) = @_;
     my $q35 = $machine_conf->{type} && ($machine_conf->{type} =~ m/q35/) ? 1 : 0;
