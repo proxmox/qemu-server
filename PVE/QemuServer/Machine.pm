@@ -270,6 +270,7 @@ sub check_and_pin_machine_string {
 	# always pin Windows' machine version on create, they get confused too easily
 	if (PVE::QemuServer::Helpers::windows_version($ostype)) {
 	    $machine_conf->{type} = windows_get_pinned_machine_version($machine);
+	    print "pinning machine type to '$machine_conf->{type}' for Windows guest OS\n";
 	}
     }
 
