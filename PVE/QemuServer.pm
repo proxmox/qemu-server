@@ -5354,14 +5354,20 @@ sub vmconfig_update_disk {
 		    vmconfig_register_unused_drive($storecfg, $vmid, $conf, $old_drive);
 		}
 	    } else {
-		my $path = PVE::QemuServer::Drive::get_iso_path($storecfg, $vmid, $drive->{file});
+		my ($path, $format) = PVE::QemuServer::Drive::get_path_and_format(
+		    $storecfg, $vmid, $drive);
 
 		# force eject if locked
 		mon_cmd($vmid, "eject", force => JSON::true, id => "$opt");
 
 		if ($path) {
-		    mon_cmd($vmid, "blockdev-change-medium",
-			id => "$opt", filename => "$path");
+		    mon_cmd(
+			$vmid,
+			"blockdev-change-medium",
+			id => "$opt",
+			filename => "$path",
+			format => "$format",
+		    );
 		}
 	    }
 
@@ -5398,10 +5404,17 @@ sub vmconfig_update_cloudinit_drive {
     my $running = PVE::QemuServer::check_running($vmid);
 
     if ($running) {
-	my $path = PVE::Storage::path($storecfg, $cloudinit_drive->{file});
+	my ($path, $format) = PVE::QemuServer::Drive::get_path_and_format(
+	    $storecfg, $vmid, $cloudinit_drive);
 	if ($path) {
 	    mon_cmd($vmid, "eject", force => JSON::true, id => "$cloudinit_ds");
-	    mon_cmd($vmid, "blockdev-change-medium", id => "$cloudinit_ds", filename => "$path");
+	    mon_cmd(
+		$vmid,
+		"blockdev-change-medium",
+		id => "$cloudinit_ds",
+		filename => "$path",
+		format => "$format",
+	    );
 	}
     }
 }
