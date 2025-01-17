@@ -6,7 +6,9 @@ use warnings;
 use Storable qw(dclone);
 
 use IO::File;
+use List::Util qw(first);
 
+use PVE::RESTEnvironment qw(log_warn);
 use PVE::Storage;
 use PVE::JSONSchema qw(get_standard_option);
 
@@ -68,6 +70,34 @@ sub checked_volume_format {
     my ($storecfg, $volid) = @_;
 
     return (checked_parse_volname($storecfg, $volid))[6];
+}
+
+my $cdrom_path;
+sub get_cdrom_path {
+    return $cdrom_path if defined($cdrom_path);
+
+    $cdrom_path = first { -l $_ } map { "/dev/cdrom$_" } ('', '1', '2');
+
+    if (!defined($cdrom_path)) {
+	log_warn("no physical CD-ROM available, ignoring");
+	$cdrom_path = '';
+    }
+
+    return $cdrom_path;
+}
+
+sub get_iso_path {
+    my ($storecfg, $vmid, $cdrom) = @_;
+
+    if ($cdrom eq 'cdrom') {
+	return get_cdrom_path();
+    } elsif ($cdrom eq 'none') {
+	return '';
+    } elsif ($cdrom =~ m|^/|) {
+	return $cdrom;
+    } else {
+	return PVE::Storage::path($storecfg, $cdrom);
+    }
 }
 
 my $MAX_IDE_DISKS = 4;

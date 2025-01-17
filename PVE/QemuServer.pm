@@ -18,7 +18,6 @@ use IO::Select;
 use IO::Socket::UNIX;
 use IPC::Open3;
 use JSON;
-use List::Util qw(first);
 use MIME::Base64;
 use POSIX;
 use Storable qw(dclone);
@@ -1193,35 +1192,6 @@ sub option_exists {
     return defined($confdesc->{$key});
 }
 
-my $cdrom_path;
-sub get_cdrom_path {
-
-    return $cdrom_path if defined($cdrom_path);
-
-    $cdrom_path = first { -l $_ } map { "/dev/cdrom$_" } ('', '1', '2');
-
-    if (!defined($cdrom_path)) {
-	log_warn("no physical CD-ROM available, ignoring");
-	$cdrom_path = '';
-    }
-
-    return $cdrom_path;
-}
-
-sub get_iso_path {
-    my ($storecfg, $vmid, $cdrom) = @_;
-
-    if ($cdrom eq 'cdrom') {
-	return get_cdrom_path();
-    } elsif ($cdrom eq 'none') {
-	return '';
-    } elsif ($cdrom =~ m|^/|) {
-	return $cdrom;
-    } else {
-	return PVE::Storage::path($storecfg, $cdrom);
-    }
-}
-
 # try to convert old style file names to volume IDs
 sub filename_to_volume_id {
     my ($vmid, $file, $media) = @_;
@@ -1506,7 +1476,7 @@ sub print_drive_commandline_full {
     my $scfg = $storeid ? PVE::Storage::storage_config($storecfg, $storeid) : undef;
 
     if (drive_is_cdrom($drive)) {
-	$path = get_iso_path($storecfg, $vmid, $volid);
+	$path = PVE::QemuServer::Drive::get_iso_path($storecfg, $vmid, $volid);
 	die "$drive_id: cannot back cdrom drive with a live restore image\n" if $live_restore_name;
     } else {
 	if ($storeid) {
@@ -5416,7 +5386,7 @@ sub vmconfig_update_disk {
 		    vmconfig_register_unused_drive($storecfg, $vmid, $conf, $old_drive);
 		}
 	    } else {
-		my $path = get_iso_path($storecfg, $vmid, $drive->{file});
+		my $path = PVE::QemuServer::Drive::get_iso_path($storecfg, $vmid, $drive->{file});
 
 		# force eject if locked
 		mon_cmd($vmid, "eject", force => JSON::true, id => "$opt");
