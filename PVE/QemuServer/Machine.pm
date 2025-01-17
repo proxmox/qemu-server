@@ -4,6 +4,7 @@ use strict;
 use warnings;
 
 use PVE::QemuServer::Helpers;
+use PVE::QemuServer::MetaInfo;
 use PVE::QemuServer::Monitor;
 use PVE::JSONSchema qw(get_standard_option parse_property_string print_property_string);
 
@@ -221,11 +222,24 @@ sub get_vm_machine {
 
     if (!$machine || $machine =~ m/^(?:pc|q35|virt)$/) {
 	my $kvmversion //= PVE::QemuServer::Helpers::kvm_user_version();
-	# we must pin Windows VMs without a specific version to 5.1, as 5.2 fixed a bug in ACPI
-	# layout which confuses windows quite a bit and may result in various regressions..
+	# we must pin Windows VMs without a specific version and no meta info about creation QEMU to
+	# 5.1, as 5.2 fixed a bug in ACPI layout which confuses windows quite a bit and may result
+	# in various regressions..
 	# see: https://lists.gnu.org/archive/html/qemu-devel/2021-02/msg08484.html
+	# Starting from QEMU 9.1, pin to the creation version instead. Support for 5.1 is expected
+	# to drop with QEMU 11.1 and it would still be good to handle Windows VMs that do not have
+	# an explicit machine version for whatever reason.
 	if (PVE::QemuServer::Helpers::windows_version($conf->{ostype})) {
-	    $machine = windows_get_pinned_machine_version($machine, '5.1', $kvmversion);
+	    my $base_version = '5.1';
+	    # TODO PVE 10 - die early if there is a Windows VM both without explicit machine version
+	    # and without meta info.
+	    if (my $meta = PVE::QemuServer::MetaInfo::parse_meta_info($conf->{meta})) {
+		if (PVE::QemuServer::Helpers::min_version($meta->{'creation-qemu'}, 9, 1)) {
+		    # need only major.minor
+		    ($base_version) = ($meta->{'creation-qemu'} =~ m/^(\d+.\d+)/);
+		}
+	    }
+	    $machine = windows_get_pinned_machine_version($machine, $base_version, $kvmversion);
 	}
 	$arch //= 'x86_64';
 	$machine ||= default_machine_for_arch($arch);
