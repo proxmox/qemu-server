@@ -29,7 +29,7 @@ use PVE::QemuConfig;
 use PVE::QemuServer;
 use PVE::QemuServer::Cloudinit;
 use PVE::QemuServer::CPUConfig;
-use PVE::QemuServer::Drive qw(checked_parse_volname);
+use PVE::QemuServer::Drive qw(checked_volume_format checked_parse_volname);
 use PVE::QemuServer::Helpers;
 use PVE::QemuServer::ImportDisk;
 use PVE::QemuServer::Monitor qw(mon_cmd);
@@ -450,6 +450,7 @@ my sub create_disks : prototype($$$$$$$$$$$) {
 			print "finished extracting to $extracted_volid\n";
 			push @$vollist, $extracted_volid;
 			$source = $extracted_volid;
+			$source_format = checked_volume_format($storecfg, $source);
 
 			my (undef, undef, undef, $parent)
 			    = PVE::Storage::volume_size_info($storecfg, $source);
