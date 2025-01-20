@@ -1,3 +1,9 @@
+qemu-server (8.3.5) bookworm; urgency=medium
+
+  * unify CDROM medium hotplug and startup code
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 20 Jan 2025 11:21:50 +0100
+
 qemu-server (8.3.4) bookworm; urgency=medium
 
   * vm shutdown: check if QEMU Guest Agent (QGA) is actually running before
