@@ -1243,8 +1243,9 @@ __PACKAGE__->register_method({
 		    }
 
 		    # always pin Windows' machine version on create, they get confused too easily
-		    $conf->{machine} = PVE::QemuServer::Machine::check_and_pin_machine_string(
+		    my $machine_string = PVE::QemuServer::Machine::check_and_pin_machine_string(
 			$conf->{machine}, $conf->{ostype});
+		    $conf->{machine} = $machine_string if $machine_string;
 
 		    $conf->{lock} = 'import' if $live_import_mapping;
 
@@ -2120,9 +2121,10 @@ my $update_vm_api  = sub {
 			&& !$modified->{machine} # detects deletion
 		    ) {
 			eval {
-			    $conf->{pending}->{machine} =
+			    my $machine_string =
 				PVE::QemuServer::Machine::check_and_pin_machine_string(
 				    $conf->{machine}, $param->{ostype});
+			    $conf->{pending}->{machine} = $machine_string if $machine_string;
 			};
 			print "automatic pinning of machine version failed - $@" if $@;
 		    }
