@@ -687,7 +687,7 @@ sub archive_pbs {
 	push @$cmd, "qemu-server.conf:$conffile";
 	push @$cmd, "fw.conf:$firewall" if -e $firewall;
 
-	$self->loginfo("starting template backup");
+	$self->loginfo("starting diskless backup");
 	$self->loginfo(join(' ', @$cmd));
 
 	$self->cmd($cmd);
@@ -852,19 +852,8 @@ sub archive_vma {
     my $is_template = PVE::QemuConfig->is_template($self->{vmlist}->{$vmid});
 
     my $diskcount = scalar(@{$task->{disks}});
-    if ($is_template || !$diskcount) {
-	my @pathlist;
-	foreach my $di (@{$task->{disks}}) {
-	    if ($di->{type} eq 'block' || $di->{type} eq 'file') {
-		push @pathlist, "$di->{qmdevice}=$di->{path}";
-	    } else {
-		die "implement me";
-	    }
-	}
-
-	if (!$diskcount) {
-	    $self->loginfo("backup contains no disks");
-	}
+    if (!$diskcount) {
+	$self->loginfo("backup contains no disks");
 
 	my $outcmd;
 	if ($comp) {
@@ -877,9 +866,9 @@ sub archive_vma {
 
 	my $cmd = ['/usr/bin/vma', 'create', '-v', '-c', $conffile];
 	push @$cmd, '-c', $firewall if -e $firewall;
-	push @$cmd, $outcmd, @pathlist;
+	push @$cmd, $outcmd;
 
-	$self->loginfo("starting template backup");
+	$self->loginfo("starting diskless backup");
 	$self->loginfo(join(' ', @$cmd));
 
 	if ($opts->{stdout}) {
