@@ -13,6 +13,7 @@ use PVE::QemuServer::Monitor qw(mon_cmd);
 use PVE::QemuServer;
 use PVE::QemuServer::Machine;
 use PVE::QemuServer::Memory qw(get_current_memory);
+use PVE::RESTEnvironment qw(log_warn);
 use PVE::Storage;
 use PVE::Tools;
 use PVE::Format qw(render_bytes render_duration);
@@ -576,6 +577,87 @@ sub has_cloudinit {
     });
 
     return $found;
+}
+
+# Caller is expected to deal with volumes from an already existing 'fleecing' special section in the
+# configuration first.
+sub record_fleecing_images {
+    my ($vmid, $volids) = @_;
+
+    return if scalar($volids->@*) == 0;
+
+    PVE::QemuConfig->lock_config($vmid, sub {
+	my $conf = PVE::QemuConfig->load_config($vmid);
+	$conf->{'special-sections'}->{fleecing}->{'fleecing-images'} = join(',', $volids->@*);
+	PVE::QemuConfig->write_config($vmid, $conf);
+    });
+}
+
+# Will also cancel a running backup job inside QEMU. Not doing so can lead to a deadlock when
+# attempting to detach the fleecing image.
+sub cleanup_fleecing_images {
+    my ($vmid, $storecfg, $log_func) = @_;
+
+    if (!$log_func) {
+	$log_func = sub {
+	    my ($level, $line) = @_;
+	    chomp($line);
+	    if ($level eq 'info') {
+		print "$line\n";
+	    } else {
+		log_warn($line);
+	    }
+	};
+    }
+
+    my $volids = [];
+    my $failed = [];
+
+    # cancel left-over backup job and detach any left-over images from a running VM
+    if (PVE::QemuServer::Helpers::vm_running_locally($vmid)) {
+	eval {
+	    if (my $status = mon_cmd($vmid, 'query-backup')) {
+		if ($status->{status} && $status->{status} eq 'active') {
+		    $log_func->('warn', "left-over backup job still running inside QEMU - canceling now");
+		    mon_cmd($vmid, 'backup-cancel');
+		}
+	    }
+	};
+	$log_func->('warn', "checking/canceling old backup job failed - $@") if $@;
+
+	my $block_info = mon_cmd($vmid, "query-block");
+	for my $info ($block_info->@*) {
+	    my $device_id = $info->{device};
+	    next if $device_id !~ m/-fleecing$/;
+
+	    $log_func->('info', "detaching (old) fleecing image for '$device_id'");
+	    $device_id =~ s/^drive-//; # re-added by qemu_drivedel()
+	    eval { PVE::QemuServer::qemu_drivedel($vmid, $device_id) };
+	    $log_func->('warn', "error detaching (old) fleecing image '$device_id' - $@") if $@;
+	}
+    }
+
+    PVE::QemuConfig->lock_config($vmid, sub {
+	my $conf = PVE::QemuConfig->load_config($vmid);
+	my $special = $conf->{'special-sections'};
+	if (my $fleecing = $special->{fleecing}) {
+	    $volids = [PVE::Tools::split_list($fleecing->{'fleecing-images'})];
+	    delete $fleecing->{'fleecing-images'};
+	    delete $special->{fleecing} if !scalar(keys $fleecing->%*);
+	    PVE::QemuConfig->write_config($vmid, $conf);
+	}
+    });
+
+    for my $volid ($volids->@*) {
+	$log_func->('info', "removing (old) fleecing image '$volid'");
+	eval { PVE::Storage::vdisk_free($storecfg, $volid); };
+	if (my $err = $@) {
+	    $log_func->('warn', "error removing fleecing image '$volid' - $err");
+	    push $failed->@*, $volid;
+	}
+    }
+
+    record_fleecing_images($vmid, $failed);
 }
 
 1;

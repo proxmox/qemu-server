@@ -533,15 +533,25 @@ sub get_and_check_pbs_encryption_config {
     die "internal error - unhandled case for getting & checking PBS encryption ($keyfile, $master_keyfile)!";
 }
 
+# Helper is intended to be called from allocate_fleecing_images() only. Otherwise, fleecing volids
+# have already been recorded in the configuration and PVE::QemuConfig::cleanup_fleecing_images()
+# should be used instead.
 my sub cleanup_fleecing_images {
-    my ($self, $disks) = @_;
+    my ($self, $vmid, $disks) = @_;
+
+    my $failed = [];
 
     for my $di ($disks->@*) {
 	if (my $volid = $di->{'fleece-volid'}) {
 	    eval { PVE::Storage::vdisk_free($self->{storecfg}, $volid); };
-	    $self->log('warn', "error removing fleecing image '$volid' - $@") if $@;
+	    if (my $err = $@) {
+		$self->log('warn', "error removing fleecing image '$volid' - $err");
+		push $failed->@*, $volid;
+	    }
 	}
     }
+
+    PVE::QemuConfig::record_fleecing_images($vmid, $failed);
 }
 
 my sub allocate_fleecing_images {
@@ -549,8 +559,7 @@ my sub allocate_fleecing_images {
 
     die "internal error - no fleecing storage specified\n" if !$fleecing_storeid;
 
-    # TODO what about potential left-over images from a failed attempt? Just
-    # auto-remove? While unlikely, could conflict with manually created image from user...
+    my $fleece_volids = [];
 
     eval {
 	my $n = 0; # counter for fleecing image names
@@ -567,6 +576,8 @@ my sub allocate_fleecing_images {
 		$di->{'fleece-volid'} = PVE::Storage::vdisk_alloc(
 		    $self->{storecfg}, $fleecing_storeid, $vmid, $format, $name, $size);
 
+		push $fleece_volids->@*, $di->{'fleece-volid'};
+
 		$n++;
 	    } else {
 		die "implement me (type '$di->{type}')";
@@ -574,9 +585,11 @@ my sub allocate_fleecing_images {
 	}
     };
     if (my $err = $@) {
-	cleanup_fleecing_images($self, $disks);
+	cleanup_fleecing_images($self, $vmid, $disks);
 	die $err;
     }
+
+    PVE::QemuConfig::record_fleecing_images($vmid, $fleece_volids);
 }
 
 my sub detach_fleecing_images {
@@ -635,6 +648,13 @@ my sub check_and_prepare_fleecing {
 	);
 	$use_fleecing = 0;
     }
+
+    # clean up potential left-overs from a previous attempt
+    eval {
+	PVE::QemuConfig::cleanup_fleecing_images(
+	    $vmid, $self->{storecfg}, sub { $self->log($_[0], $_[1]); });
+    };
+    $self->log('warn', "attempt to clean up left-over fleecing images failed - $@") if $@;
 
     if ($use_fleecing) {
 	my ($default_format, $valid_formats) = PVE::Storage::storage_default_format(
@@ -1132,7 +1152,11 @@ sub cleanup {
     # If VM was started only for backup, it is already stopped now.
     if (PVE::QemuServer::Helpers::vm_running_locally($vmid)) {
 	$detach_tpmstate_drive->($task, $vmid);
-	detach_fleecing_images($task->{disks}, $vmid) if $task->{'use-fleecing'};
+	if ($task->{'use-fleecing'}) {
+	    detach_fleecing_images($task->{disks}, $vmid);
+	    PVE::QemuConfig::cleanup_fleecing_images(
+		$vmid, $self->{storecfg}, sub { $self->log($_[0], $_[1]); });
+	}
     }
 
     cleanup_fleecing_images($self, $task->{disks}) if $task->{'use-fleecing'};
