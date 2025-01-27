@@ -2198,6 +2198,7 @@ sub parse_vm_config {
 
     return if !defined($raw);
 
+    # note that pending, snapshot and special sections are currently skipped when a backup is taken
     my $res = {
 	digest => Digest::SHA::sha1_hex($raw),
 	snapshots => {},
