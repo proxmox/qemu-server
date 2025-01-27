@@ -181,7 +181,6 @@ sub prepare {
     my $conf = $self->{vmconf} = PVE::QemuConfig->load_config($vmid);
 
     my $version = PVE::QemuServer::Helpers::get_node_pvecfg_version($self->{node});
-    my $cloudinit_config = $conf->{cloudinit};
 
     my $repl_conf = PVE::ReplicationConfig->new();
     $self->{replication_jobcfg} = $repl_conf->find_local_replication_job($vmid, $self->{node});
