@@ -237,9 +237,9 @@ sub assemble {
 	next if $line =~ m/^\#vzdump\#/; # just to be sure
 	next if $line =~ m/^\#qmdump\#/; # just to be sure
 	if ($line =~ m/^\[(.*)\]\s*$/) {
-	    if ($1 =~ m/PENDING/i) {
+	    if ($1 =~ m/^PENDING$/i) {
 		$found_pending = 1;
-	    } elsif ($1 =~ m/special:cloudinit/) {
+	    } elsif ($1 =~ m/^special:cloudinit$/) {
 		$found_cloudinit = 1;
 	    } else {
 		$found_snapshot = 1;
