@@ -26,7 +26,7 @@ my $OUTPUT_DIR = './parse-config-output';
 my $EXPECTED_DIR = './parse-config-expected';
 
 # NOTE update when you add/remove tests
-plan tests => 2 * 6;
+plan tests => 2 * 7;
 
 sub run_tests {
     my ($strict) = @_;

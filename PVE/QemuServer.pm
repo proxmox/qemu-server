@@ -2229,27 +2229,27 @@ sub parse_vm_config {
 	}
 	$descr = undef;
     };
-    my $section = '';
+    my $section = { name => '', type => 'main' };
 
     my @lines = split(/\n/, $raw);
     foreach my $line (@lines) {
 	next if $line =~ m/^\s*$/;
 
 	if ($line =~ m/^\[PENDING\]\s*$/i) {
-	    $section = 'pending';
+	    $section = { name => 'pending', type => 'pending' };
 	    $finish_description->();
-	    $conf = $res->{$section} = {};
+	    $conf = $res->{$section->{name}} = {};
 	    next;
 	} elsif ($line =~ m/^\[special:cloudinit\]\s*$/i) {
-	    $section = 'cloudinit';
+	    $section = { name => 'cloudinit', type => 'special' };
 	    $finish_description->();
-	    $conf = $res->{$section} = {};
+	    $conf = $res->{$section->{name}} = {};
 	    next;
 
 	} elsif ($line =~ m/^\[([a-z][a-z0-9_\-]+)\]\s*$/i) {
-	    $section = $1;
+	    $section = { name => $1, type => 'snapshot' };
 	    $finish_description->();
-	    $conf = $res->{snapshots}->{$section} = {};
+	    $conf = $res->{snapshots}->{$section->{name}} = {};
 	    next;
 	}
 
@@ -2270,7 +2270,7 @@ sub parse_vm_config {
 	    $conf->{$key} = $value;
 	} elsif ($line =~ m/^delete:\s*(.*\S)\s*$/) {
 	    my $value = $1;
-	    if ($section eq 'pending') {
+	    if ($section->{name} eq 'pending' && $section->{type} eq 'pending') {
 		$conf->{delete} = $value; # we parse this later
 	    } else {
 		$handle_error->("vm $vmid - property 'delete' is only allowed in [PENDING]\n");
@@ -2278,7 +2278,7 @@ sub parse_vm_config {
 	} elsif ($line =~ m/^([a-z][a-z_\-]*\d*):\s*(.+?)\s*$/) {
 	    my $key = $1;
 	    my $value = $2;
-	    if ($section eq 'cloudinit') {
+	    if ($section->{name} eq 'cloudinit' && $section->{type} eq 'special') {
 		# ignore validation only used for informative purpose
 		$conf->{$key} = $value;
 		next;
