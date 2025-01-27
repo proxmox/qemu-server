@@ -657,7 +657,11 @@ my $cloudinit_methods = {
 sub has_changes {
     my ($conf) = @_;
 
-    return !!$conf->{cloudinit}->%*;
+    if (my $cloudinit = $conf->{'special-sections'}->{cloudinit}) {
+	return !!$cloudinit->%*;
+    }
+
+    return;
 }
 
 sub generate_cloudinit_config {
@@ -689,7 +693,7 @@ sub apply_cloudinit_config {
     my $has_changes = generate_cloudinit_config($conf, $vmid);
 
     if ($has_changes) {
-	delete $conf->{cloudinit};
+	delete $conf->{'special-sections'}->{cloudinit};
 	PVE::QemuConfig->write_config($vmid, $conf);
 	return 1;
     }

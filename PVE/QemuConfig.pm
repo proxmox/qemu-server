@@ -541,7 +541,7 @@ sub load_current_config {
     my ($class, $vmid, $current) = @_;
 
     my $conf = $class->SUPER::load_current_config($vmid, $current);
-    delete $conf->{cloudinit};
+    delete $conf->{'special-sections'};
     return $conf;
 }
 

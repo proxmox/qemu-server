@@ -1849,7 +1849,7 @@ sub vmconfig_register_unused_drive {
     if (drive_is_cloudinit($drive)) {
 	eval { PVE::Storage::vdisk_free($storecfg, $drive->{file}) };
 	warn $@ if $@;
-	delete $conf->{cloudinit};
+	delete $conf->{'special-sections'}->{cloudinit};
     } elsif (!drive_is_cdrom($drive)) {
 	my $volid = $drive->{file};
 	if (vm_is_volid_owner($storecfg, $vmid, $volid)) {
@@ -2203,7 +2203,7 @@ sub parse_vm_config {
 	digest => Digest::SHA::sha1_hex($raw),
 	snapshots => {},
 	pending => {},
-	cloudinit => {},
+	'special-sections' => {},
     };
 
     my $handle_error = sub {
@@ -2230,6 +2230,9 @@ sub parse_vm_config {
 	}
 	$descr = undef;
     };
+
+    my $special_sections_re_1 = qr/(cloudinit)/;
+
     my $section = { name => '', type => 'main' };
 
     my @lines = split(/\n/, $raw);
@@ -2241,10 +2244,10 @@ sub parse_vm_config {
 	    $finish_description->();
 	    $conf = $res->{$section->{name}} = {};
 	    next;
-	} elsif ($line =~ m/^\[special:cloudinit\]\s*$/i) {
-	    $section = { name => 'cloudinit', type => 'special' };
+	} elsif ($line =~ m/^\[special:$special_sections_re_1\]\s*$/i) {
+	    $section = { name => $1, type => 'special' };
 	    $finish_description->();
-	    $conf = $res->{$section->{name}} = {};
+	    $conf = $res->{'special-sections'}->{$section->{name}} = {};
 	    next;
 
 	} elsif ($line =~ m/^\[([a-z][a-z0-9_\-]+)\]\s*$/i) {
@@ -2349,7 +2352,7 @@ sub write_vm_config {
 
 	foreach my $key (keys %$cref) {
 	    next if $key eq 'digest' || $key eq 'description' || $key eq 'snapshots' ||
-		$key eq 'snapstate' || $key eq 'pending' || $key eq 'cloudinit';
+		$key eq 'snapstate' || $key eq 'pending' || $key eq 'special-sections';
 	    my $value = $cref->{$key};
 	    if ($key eq 'delete') {
 		die "propertry 'delete' is only allowed in [PENDING]\n"
@@ -2403,7 +2406,7 @@ sub write_vm_config {
 	}
 
 	foreach my $key (sort keys %$conf) {
-	    next if $key =~ /^(digest|description|pending|cloudinit|snapshots)$/;
+	    next if $key =~ /^(digest|description|pending|snapshots|special-sections)$/;
 	    $raw .= "$key: $conf->{$key}\n";
 	}
 	return $raw;
@@ -2416,9 +2419,10 @@ sub write_vm_config {
 	$raw .= &$generate_raw_config($conf->{pending}, 1);
     }
 
-    if (scalar(keys %{$conf->{cloudinit}}) && PVE::QemuConfig->has_cloudinit($conf)){
-	$raw .= "\n[special:cloudinit]\n";
-	$raw .= &$generate_raw_config($conf->{cloudinit});
+    for my $special (sort keys $conf->{'special-sections'}->%*) {
+	next if $special eq 'cloudinit' && !PVE::QemuConfig->has_cloudinit($conf);
+	$raw .= "\n[special:$special]\n";
+	$raw .= &$generate_raw_config($conf->{'special-sections'}->{$special});
     }
 
     foreach my $snapname (sort keys %{$conf->{snapshots}}) {
@@ -4767,7 +4771,7 @@ sub vmconfig_hotplug_pending {
 	my ($conf, $opt, $old, $new) = @_;
 	return if !$cloudinit_pending_properties->{$opt};
 
-	my $ci = ($conf->{cloudinit} //= {});
+	my $ci = ($conf->{'special-sections'}->{cloudinit} //= {});
 
 	my $recorded = $ci->{$opt};
 	my %added = map { $_ => 1 } PVE::Tools::split_list(delete($ci->{added}) // '');
@@ -5157,7 +5161,7 @@ sub vmconfig_apply_pending {
     if ($generate_cloudinit) {
 	if (PVE::QemuServer::Cloudinit::apply_cloudinit_config($conf, $vmid)) {
 	    # After successful generation and if there were changes to be applied, update the
-	    # config to drop the {cloudinit} entry.
+	    # config to drop the 'cloudinit' special section.
 	    PVE::QemuConfig->write_config($vmid, $conf);
 	}
     }
@@ -5588,7 +5592,7 @@ sub vm_start_nolock {
     if (!$migratedfrom) {
 	if (PVE::QemuServer::Cloudinit::apply_cloudinit_config($conf, $vmid)) {
 	    # FIXME: apply_cloudinit_config updates $conf in this case, and it would only drop
-	    # $conf->{cloudinit}, so we could just not do this?
+	    # $conf->{'special-sections'}->{cloudinit}, so we could just not do this?
 	    # But we do it above, so for now let's be consistent.
 	    $conf = PVE::QemuConfig->load_config($vmid); # update/reload
 	}

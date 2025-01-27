@@ -1654,7 +1654,7 @@ __PACKAGE__->register_method({
 	my $vmid = $param->{vmid};
 	my $conf = PVE::QemuConfig->load_config($vmid);
 
-	my $ci = $conf->{cloudinit};
+	my $ci = $conf->{'special-sections'}->{cloudinit};
 
 	$conf->{cipassword} = '**********' if exists $conf->{cipassword};
 	$ci->{cipassword} = '**********' if exists $ci->{cipassword};
@@ -5952,8 +5952,21 @@ __PACKAGE__->register_method({
 		    # not handled by update_vm_api
 		    my $vmgenid = delete $new_conf->{vmgenid};
 		    my $meta = delete $new_conf->{meta};
-		    my $cloudinit = delete $new_conf->{cloudinit}; # this is informational only
+
+		    my $special_sections = delete $new_conf->{'special-sections'} // {};
+
 		    $new_conf->{skip_cloud_init} = 1; # re-use image from source side
+
+		    # TODO PVE 10 - remove backwards-compat handling?
+		    my $cloudinit = delete $new_conf->{cloudinit};
+		    if ($cloudinit) {
+			if ($special_sections->{cloudinit}) {
+			    warn "config has duplicate special 'cloudinit' sections - skipping"
+				." legacy variant\n";
+			} else {
+			    $special_sections->{cloudinit} = $cloudinit;
+			}
+		    }
 
 		    $new_conf->{vmid} = $state->{vmid};
 		    $new_conf->{node} = $node;
@@ -5976,7 +5989,7 @@ __PACKAGE__->register_method({
 		    $conf->{lock} = 'migrate';
 		    $conf->{vmgenid} = $vmgenid if defined($vmgenid);
 		    $conf->{meta} = $meta if defined($meta);
-		    $conf->{cloudinit} = $cloudinit if defined($cloudinit);
+		    $conf->{'special-sections'} = $special_sections;
 		    PVE::QemuConfig->write_config($state->{vmid}, $conf);
 
 		    $state->{lock} = 'migrate';
