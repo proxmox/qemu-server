@@ -2251,7 +2251,15 @@ sub parse_vm_config {
 	    $finish_description->();
 	    $conf = $res->{snapshots}->{$section->{name}} = {};
 	    next;
+	} elsif ($line =~ m/^\[([^\]]*)\]\s*$/i) {
+	    my $unknown_section = $1;
+	    $section = undef;
+	    $finish_description->();
+	    $handle_error->("vm $vmid - skipping unknown section: '$unknown_section'\n");
+	    next;
 	}
+
+	next if !defined($section);
 
 	if ($line =~ m/^\#(.*)$/) {
 	    $descr = '' if !defined($descr);
