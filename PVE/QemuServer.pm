@@ -2202,7 +2202,7 @@ sub parse_vm_config {
     my $res = {
 	digest => Digest::SHA::sha1_hex($raw),
 	snapshots => {},
-	pending => {},
+	pending => undef,
 	'special-sections' => {},
     };
 
@@ -2242,17 +2242,23 @@ sub parse_vm_config {
 	if ($line =~ m/^\[PENDING\]\s*$/i) {
 	    $section = { name => 'pending', type => 'pending' };
 	    $finish_description->();
+	    $handle_error->("vm $vmid - duplicate section: $section->{name}\n")
+		if defined($res->{$section->{name}});
 	    $conf = $res->{$section->{name}} = {};
 	    next;
 	} elsif ($line =~ m/^\[special:$special_sections_re_1\]\s*$/i) {
 	    $section = { name => $1, type => 'special' };
 	    $finish_description->();
+	    $handle_error->("vm $vmid - duplicate special section: $section->{name}\n")
+		if defined($res->{'special-sections'}->{$section->{name}});
 	    $conf = $res->{'special-sections'}->{$section->{name}} = {};
 	    next;
 
 	} elsif ($line =~ m/^\[([a-z][a-z0-9_\-]+)\]\s*$/i) {
 	    $section = { name => $1, type => 'snapshot' };
 	    $finish_description->();
+	    $handle_error->("vm $vmid - duplicate snapshot section: $section->{name}\n")
+		if defined($res->{snapshots}->{$section->{name}});
 	    $conf = $res->{snapshots}->{$section->{name}} = {};
 	    next;
 	} elsif ($line =~ m/^\[([^\]]*)\]\s*$/i) {
@@ -2321,6 +2327,8 @@ sub parse_vm_config {
 
     $finish_description->();
     delete $res->{snapstate}; # just to be sure
+
+    $res->{pending} = {} if !defined($res->{pending});
 
     return $res;
 }
