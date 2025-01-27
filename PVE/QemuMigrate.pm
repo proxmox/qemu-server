@@ -177,6 +177,13 @@ sub prepare {
 
     my $storecfg = $self->{storecfg} = PVE::Storage::config();
 
+    # updates the configuration, so ordered before saving the configuration in $self
+    eval {
+	PVE::QemuConfig::cleanup_fleecing_images(
+	    $vmid, $storecfg, sub { $self->log($_[0], $_[1]); });
+    };
+    $self->log('warn', "attempt to clean up left-over fleecing images failed - $@") if $@;
+
     # test if VM exists
     my $conf = $self->{vmconf} = PVE::QemuConfig->load_config($vmid);
 
