@@ -2122,6 +2122,9 @@ sub check_type {
 sub destroy_vm {
     my ($storecfg, $vmid, $skiplock, $replacement_conf, $purge_unreferenced) = @_;
 
+    eval { PVE::QemuConfig::cleanup_fleecing_images($vmid, $storecfg) };
+    log_warn("attempt to clean up left-over fleecing images failed - $@") if $@;
+
     my $conf = PVE::QemuConfig->load_config($vmid);
 
     if (!$skiplock && !PVE::QemuConfig->has_lock($conf, 'suspended')) {
