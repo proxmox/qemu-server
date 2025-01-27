@@ -2081,11 +2081,13 @@ sub cloudinit_pending_properties {
 }
 
 sub check_type {
-    my ($key, $value) = @_;
+    my ($key, $value, $schema) = @_;
 
-    die "unknown setting '$key'\n" if !$confdesc->{$key};
+    die "check_type: no schema defined\n" if !$schema;
 
-    my $type = $confdesc->{$key}->{type};
+    die "unknown setting '$key'\n" if !$schema->{$key};
+
+    my $type = $schema->{$key}->{type};
 
     if (!defined($value)) {
 	die "got undefined value\n";
@@ -2106,7 +2108,7 @@ sub check_type {
         return $value if $value =~ m/^(\d+)(\.\d+)?$/;
         die "type check ('number') failed - got '$value'\n";
     } elsif ($type eq 'string') {
-	if (my $fmt = $confdesc->{$key}->{format}) {
+	if (my $fmt = $schema->{$key}->{format}) {
 	    PVE::JSONSchema::check_format($fmt, $value);
 	    return $value;
 	}
@@ -2301,7 +2303,7 @@ sub parse_vm_config {
 		$conf->{$key} = $value;
 		next;
 	    }
-	    eval { $value = check_type($key, $value); };
+	    eval { $value = check_type($key, $value, $confdesc); };
 	    if ($@) {
 		$handle_error->("vm $vmid - unable to parse value of '$key' - $@");
 	    } else {
@@ -2368,7 +2370,7 @@ sub write_vm_config {
 		# fixme: check syntax?
 		next;
 	    }
-	    eval { $value = check_type($key, $value); };
+	    eval { $value = check_type($key, $value, $confdesc); };
 	    die "unable to parse value of '$key' - $@" if $@;
 
 	    $cref->{$key} = $value;
