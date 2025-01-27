@@ -2195,6 +2195,16 @@ sub destroy_vm {
     }
 }
 
+my $fleecing_section_schema = {
+    'fleecing-images' => {
+	type => 'string',
+	format => 'pve-volume-id-list',
+	description => "For internal use only. List of fleecing images allocated during backup."
+	   ." If no backup is running, these are left-overs that failed to be removed.",
+	optional => 1,
+    },
+};
+
 sub parse_vm_config {
     my ($filename, $raw, $strict) = @_;
 
@@ -2233,23 +2243,28 @@ sub parse_vm_config {
 	$descr = undef;
     };
 
-    my $special_sections_re_1 = qr/(cloudinit)/;
+    my $special_schemas = {
+	cloudinit => $confdesc, # not actually used right now, see below
+	fleecing => $fleecing_section_schema,
+    };
+    my $special_sections_re_string = join('|', keys $special_schemas->%*);
+    my $special_sections_re_1 = qr/($special_sections_re_string)/;
 
-    my $section = { name => '', type => 'main' };
+    my $section = { name => '', type => 'main', schema => $confdesc };
 
     my @lines = split(/\n/, $raw);
     foreach my $line (@lines) {
 	next if $line =~ m/^\s*$/;
 
 	if ($line =~ m/^\[PENDING\]\s*$/i) {
-	    $section = { name => 'pending', type => 'pending' };
+	    $section = { name => 'pending', type => 'pending', schema => $confdesc };
 	    $finish_description->();
 	    $handle_error->("vm $vmid - duplicate section: $section->{name}\n")
 		if defined($res->{$section->{name}});
 	    $conf = $res->{$section->{name}} = {};
 	    next;
 	} elsif ($line =~ m/^\[special:$special_sections_re_1\]\s*$/i) {
-	    $section = { name => $1, type => 'special' };
+	    $section = { name => $1, type => 'special', schema => $special_schemas->{$1} };
 	    $finish_description->();
 	    $handle_error->("vm $vmid - duplicate special section: $section->{name}\n")
 		if defined($res->{'special-sections'}->{$section->{name}});
@@ -2257,7 +2272,7 @@ sub parse_vm_config {
 	    next;
 
 	} elsif ($line =~ m/^\[([a-z][a-z0-9_\-]+)\]\s*$/i) {
-	    $section = { name => $1, type => 'snapshot' };
+	    $section = { name => $1, type => 'snapshot', schema => $confdesc };
 	    $finish_description->();
 	    $handle_error->("vm $vmid - duplicate snapshot section: $section->{name}\n")
 		if defined($res->{snapshots}->{$section->{name}});
@@ -2303,12 +2318,12 @@ sub parse_vm_config {
 		$conf->{$key} = $value;
 		next;
 	    }
-	    eval { $value = check_type($key, $value, $confdesc); };
+	    eval { $value = check_type($key, $value, $section->{schema}); };
 	    if ($@) {
 		$handle_error->("vm $vmid - unable to parse value of '$key' - $@");
 	    } else {
 		$key = 'ide2' if $key eq 'cdrom';
-		my $fmt = $confdesc->{$key}->{format};
+		my $fmt = $section->{schema}->{$key}->{format};
 		if ($fmt && $fmt =~ /^pve-qm-(?:ide|scsi|virtio|sata)$/) {
 		    my $v = parse_drive($key, $value);
 		    if (my $volid = filename_to_volume_id($vmid, $v->{file}, $v->{media})) {

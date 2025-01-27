@@ -5955,6 +5955,9 @@ __PACKAGE__->register_method({
 
 		    my $special_sections = delete $new_conf->{'special-sections'} // {};
 
+		    # fleecing state is specific to source side
+		    delete $special_sections->{fleecing};
+
 		    $new_conf->{skip_cloud_init} = 1; # re-use image from source side
 
 		    # TODO PVE 10 - remove backwards-compat handling?
