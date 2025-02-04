@@ -25,15 +25,14 @@ sub qemu_deviceadd {
     my ($vmid, $devicefull) = @_;
 
     $devicefull = "driver=".$devicefull;
-    my %options =  split(/[=,]/, $devicefull);
 
-    mon_cmd($vmid, "device_add" , %options);
+    PVE::QemuServer::Monitor::hmp_cmd($vmid, "device_add $devicefull", 25);
 }
 
 sub qemu_devicedel {
     my ($vmid, $deviceid) = @_;
 
-    my $ret = mon_cmd($vmid, "device_del", id => $deviceid);
+    PVE::QemuServer::Monitor::hmp_cmd($vmid, "device_del $deviceid", 25);
 }
 
 sub qemu_objectadd {
