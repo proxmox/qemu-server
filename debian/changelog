@@ -1,3 +1,12 @@
+qemu-server (8.3.7) bookworm; urgency=medium
+
+  * api: fix ova live import of disks by using correct format for source image
+
+  * qmp helpers: use the HMP interface as a stopgap to deal with QEMU 9.2's
+    stricter requirements for the serialized format sent over the QMP.
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 04 Feb 2025 17:12:25 +0100
+
 qemu-server (8.3.6) bookworm; urgency=medium
 
   * api: do not set an empty machine option when pinning
