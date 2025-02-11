@@ -3851,13 +3851,15 @@ __PACKAGE__->register_method({
 	    my $storecfg = PVE::Storage::config();
 
 	    if ($storage) {
-		# check if storage is enabled on local node
-		PVE::Storage::storage_check_enabled($storecfg, $storage);
+		# check if storage is enabled on local node and supports vm images
+		my $scfg = PVE::Storage::storage_check_enabled($storecfg, $storage);
+		raise_param_exc({ storage => "storage '$storage' does not support vm images" })
+		    if !$scfg->{content}->{images};
+
 		if ($target) {
 		    # check if storage is available on target node
 		    PVE::Storage::storage_check_enabled($storecfg, $storage, $target);
 		    # clone only works if target storage is shared
-		    my $scfg = PVE::Storage::storage_config($storecfg, $storage);
 		    die "can't clone to non-shared storage '$storage'\n"
 			if !$scfg->{shared};
 		}
