@@ -4233,6 +4233,10 @@ __PACKAGE__->register_method({
 	    die "you can't move to the same storage with same format\n"
 		if $oldstoreid eq $storeid && (!$format || !$oldfmt || $oldfmt eq $format);
 
+	    my $scfg = PVE::Storage::storage_check_enabled($storecfg, $storeid);
+	    raise_param_exc({ storage => "storage '$storeid' does not support vm images" })
+		if !$scfg->{content}->{images};
+
 	    # this only checks snapshots because $disk is passed!
 	    my $snapshotted = PVE::QemuServer::Drive::is_volume_in_use(
 		$storecfg,
