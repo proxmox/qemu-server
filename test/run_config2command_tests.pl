@@ -31,6 +31,13 @@ my $base_env = {
 		type => 'dir',
 		shared => 0,
 	    },
+	    noimages => {
+		content => {
+		    iso => 1,
+		},
+		path => '/var/lib/vz',
+		type => 'dir',
+	    },
 	    'btrfs-store' => {
 		content => {
 		    images => 1,
