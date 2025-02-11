@@ -148,7 +148,7 @@ my $check_storage_access = sub {
 	} elsif ($isCDROM && ($volid eq 'cdrom')) {
 	    $rpcenv->check($authuser, "/", ['Sys.Console']);
 	} elsif (!$isCDROM && ($volid =~ $PVE::QemuServer::Drive::NEW_DISK_RE)) {
-	    my ($storeid, $size) = ($2 || $default_storage, $3);
+	    my $storeid = $2 || $default_storage;
 	    die "no storage ID specified (and no default storage)\n" if !$storeid;
 	    $rpcenv->check($authuser, "/storage/$storeid", ['Datastore.AllocateSpace']);
 	    my $scfg = PVE::Storage::storage_config($storecfg, $storeid);
