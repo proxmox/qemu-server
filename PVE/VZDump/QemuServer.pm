@@ -698,14 +698,14 @@ sub archive_pbs {
     # get list early so we die on unknown drive types before doing anything
     my $devlist = _get_task_devlist($task);
 
-    $self->enforce_vm_running_for_backup($vmid);
-    $self->{qmeventd_fh} = PVE::QemuServer::register_qmeventd_handle($vmid);
-
     my $backup_job_uuid;
     eval {
 	$SIG{INT} = $SIG{TERM} = $SIG{QUIT} = $SIG{HUP} = $SIG{PIPE} = sub {
 	    die "interrupted by signal\n";
 	};
+
+	$self->enforce_vm_running_for_backup($vmid);
+	$self->{qmeventd_fh} = PVE::QemuServer::register_qmeventd_handle($vmid);
 
 	my $qemu_support = eval { mon_cmd($vmid, "query-proxmox-support") };
 	my $err = $@;
@@ -893,9 +893,6 @@ sub archive_vma {
 
     my $devlist = _get_task_devlist($task);
 
-    $self->enforce_vm_running_for_backup($vmid);
-    $self->{qmeventd_fh} = PVE::QemuServer::register_qmeventd_handle($vmid);
-
     my $cpid;
     my $backup_job_uuid;
 
@@ -903,6 +900,9 @@ sub archive_vma {
 	$SIG{INT} = $SIG{TERM} = $SIG{QUIT} = $SIG{HUP} = $SIG{PIPE} = sub {
 	    die "interrupted by signal\n";
 	};
+
+	$self->enforce_vm_running_for_backup($vmid);
+	$self->{qmeventd_fh} = PVE::QemuServer::register_qmeventd_handle($vmid);
 
 	# Currently, failing to determine Proxmox support is not critical here, because it's only
 	# used for performance settings like 'max-workers'.
