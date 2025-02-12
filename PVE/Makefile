@@ -11,4 +11,5 @@ install:
 	$(MAKE) -C VZDump install
 	$(MAKE) -C API2 install
 	$(MAKE) -C CLI install
+	$(MAKE) -C QemuConfig install
 	$(MAKE) -C QemuServer install

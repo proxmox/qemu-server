@@ -3,6 +3,8 @@ package PVE::QemuConfig;
 use strict;
 use warnings;
 
+use Scalar::Util qw(blessed);
+
 use PVE::AbstractConfig;
 use PVE::INotify;
 use PVE::JSONSchema;
@@ -559,6 +561,19 @@ sub get_derived_property {
     } else {
 	die "unknown derived property - $name\n";
     }
+}
+
+sub write_config {
+    my ($class, $vmid, $conf) = @_;
+
+    # Dispatch to class the object was blessed with if caller invoked the method via the
+    # 'PVE::QemuConfig' class name explicitly. This is hack, but the code currently doesn't
+    # generally use blessed config objects. Safeguard against infinite recursion.
+    if (blessed($conf) && !blessed($class)) {
+	return $conf->write_config($vmid, $conf);
+    }
+
+    return $class->SUPER::write_config($vmid, $conf);
 }
 
 # END implemented abstract methods from PVE::AbstractConfig
