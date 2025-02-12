@@ -49,6 +49,7 @@ use PVE::Tools qw(run_command file_read_firstline file_get_contents dir_glob_for
 
 use PVE::QMPClient;
 use PVE::QemuConfig;
+use PVE::QemuConfig::NoWrite;
 use PVE::QemuServer::Helpers qw(config_aware_timeout min_version kvm_user_version windows_version);
 use PVE::QemuServer::Cloudinit;
 use PVE::QemuServer::CGroup;
@@ -3397,6 +3398,7 @@ sub config_to_command {
 	    bios => $conf->{bios}, # so efidisk gets included if it exists
 	    name => $conf->{name}, # so it's correct in the process list
 	};
+	$newconf = PVE::QemuConfig::NoWrite->new($newconf);
 
 	# copy all disks over
 	for my $device (PVE::QemuServer::Drive::valid_drive_names()) {
@@ -4017,7 +4019,7 @@ sub config_to_command {
 	push @$cmd, @$aa;
     }
 
-    return wantarray ? ($cmd, $vollist, $spice_port, $pci_devices) : $cmd;
+    return wantarray ? ($cmd, $vollist, $spice_port, $pci_devices, $conf) : $cmd;
 }
 
 sub check_rng_source {
@@ -5613,8 +5615,17 @@ sub vm_start_nolock {
 	print "Resuming suspended VM\n";
     }
 
-    my ($cmd, $vollist, $spice_port, $pci_devices) = config_to_command($storecfg, $vmid,
-	$conf, $defaults, $forcemachine, $forcecpu, $params->{'live-restore-backing'});
+    # Note that for certain cases like templates, the configuration is minimized, so need to ensure
+    # the rest of the function here uses the same configuration that was used to build the command
+    (my $cmd, my $vollist, my $spice_port, my $pci_devices, $conf) = config_to_command(
+	$storecfg,
+	$vmid,
+	$conf,
+	$defaults,
+	$forcemachine,
+	$forcecpu,
+	$params->{'live-restore-backing'},
+    );
 
     my $migration_ip;
     my $get_migration_ip = sub {
