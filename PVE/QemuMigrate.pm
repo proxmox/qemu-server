@@ -5,6 +5,7 @@ use warnings;
 
 use IO::File;
 use IPC::Open2;
+use Storable qw(dclone);
 use Time::HiRes qw( usleep );
 
 use PVE::AccessControl;
@@ -1457,7 +1458,8 @@ sub phase3_cleanup {
 
     my $tunnel = $self->{tunnel};
 
-    my $sourcevollist = PVE::QemuServer::get_vm_volumes($conf);
+    # we'll need an unmodified copy of the config later for the cleanup
+    my $oldconf = dclone($conf);
 
     if ($self->{volume_map} && !$self->{opts}->{remote}) {
 	my $target_drives = $self->{target_drive};
@@ -1588,12 +1590,10 @@ sub phase3_cleanup {
 	$self->{errors} = 1;
     }
 
-    # always deactivate volumes - avoid lvm LVs to be active on several nodes
-    eval {
-	PVE::Storage::deactivate_volumes($self->{storecfg}, $sourcevollist);
-    };
+    # stop with nocheck does not do a cleanup, so do it here with the original config
+    eval { PVE::QemuServer::vm_stop_cleanup($self->{storecfg}, $vmid, $oldconf) };
     if (my $err = $@) {
-	$self->log('err', $err);
+	$self->log('err', "Cleanup after stopping VM failed - $err");
 	$self->{errors} = 1;
     }
 

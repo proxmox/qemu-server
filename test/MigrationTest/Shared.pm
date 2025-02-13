@@ -130,6 +130,9 @@ $qemu_server_module->mock(
     clear_reboot_request => sub {
 	return 1;
     },
+    vm_stop_cleanup => sub {
+	return;
+    },
     get_efivars_size => sub {
 	 return 128 * 1024;
     },
