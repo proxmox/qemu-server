@@ -963,7 +963,7 @@ __PACKAGE__->register_method({
 
 	    if (!$clean || $guest) {
 		# vm was shutdown from inside the guest or crashed, doing api cleanup
-		PVE::QemuServer::vm_stop_cleanup($storecfg, $vmid, $conf, 0, 0);
+		PVE::QemuServer::vm_stop_cleanup($storecfg, $vmid, $conf, 0, 0, 1);
 	    }
 	    PVE::GuestHelpers::exec_hookscript($conf, $vmid, 'post-stop');
 

@@ -6123,7 +6123,7 @@ sub cleanup_pci_devices {
 }
 
 sub vm_stop_cleanup {
-    my ($storecfg, $vmid, $conf, $keepActive, $apply_pending_changes) = @_;
+    my ($storecfg, $vmid, $conf, $keepActive, $apply_pending_changes, $noerr) = @_;
 
     eval {
 
@@ -6149,7 +6149,10 @@ sub vm_stop_cleanup {
 
 	vmconfig_apply_pending($vmid, $conf, $storecfg) if $apply_pending_changes;
     };
-    warn $@ if $@; # avoid errors - just warn
+    if (my $err = $@) {
+	die $err if !$noerr;
+	warn $err;
+    }
 }
 
 # call only in locked context
@@ -6200,7 +6203,7 @@ sub _do_vm_stop {
 		die "VM quit/powerdown failed - got timeout\n";
 	    }
 	} else {
-	    vm_stop_cleanup($storecfg, $vmid, $conf, $keepActive, 1) if $conf;
+	    vm_stop_cleanup($storecfg, $vmid, $conf, $keepActive, 1, 1) if $conf;
 	    return;
 	}
     } else {
@@ -6231,7 +6234,7 @@ sub _do_vm_stop {
 	sleep 1;
     }
 
-    vm_stop_cleanup($storecfg, $vmid, $conf, $keepActive, 1) if $conf;
+    vm_stop_cleanup($storecfg, $vmid, $conf, $keepActive, 1, 1) if $conf;
 }
 
 # Note: use $nocheck to skip tests if VM configuration file exists.
@@ -6246,7 +6249,7 @@ sub vm_stop {
 	my $pid = check_running($vmid, $nocheck, $migratedfrom);
 	kill 15, $pid if $pid;
 	my $conf = PVE::QemuConfig->load_config($vmid, $migratedfrom);
-	vm_stop_cleanup($storecfg, $vmid, $conf, $keepActive, 0);
+	vm_stop_cleanup($storecfg, $vmid, $conf, $keepActive, 0, 1);
 	return;
     }
 
