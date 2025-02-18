@@ -261,18 +261,15 @@ my $rng_fmt = {
 	type => 'string',
 	enum => ['/dev/urandom', '/dev/random', '/dev/hwrng'],
 	default_key => 1,
-	description => "The file on the host to gather entropy from. In most cases '/dev/urandom'"
-	    ." should be preferred over '/dev/random' to avoid entropy-starvation issues on the"
-	    ." host. Using urandom does *not* decrease security in any meaningful way, as it's"
-	    ." still seeded from real entropy, and the bytes provided will most likely be mixed"
-	    ." with real entropy on the guest as well. '/dev/hwrng' can be used to pass through"
-	    ." a hardware RNG from the host.",
+	description => "The file on the host to gather entropy from. Using urandom does *not*"
+	    ." decrease security in any meaningful way, as it's still seeded from real entropy, and"
+	    ." the bytes provided will most likely be mixed with real entropy on the guest as well."
+	    ."'/dev/hwrng' can be used to pass through a hardware RNG from the host.",
     },
     max_bytes => {
 	type => 'integer',
 	description => "Maximum bytes of entropy allowed to get injected into the guest every"
-	    ." 'period' milliseconds. Prefer a lower value when using '/dev/random' as source. Use"
-	    ." `0` to disable limiting (potentially dangerous!).",
+	    ." 'period' milliseconds. Use `0` to disable limiting (potentially dangerous!).",
 	optional => 1,
 
 	# default is 1 KiB/s, provides enough entropy to the guest to avoid boot-starvation issues
