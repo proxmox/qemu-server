@@ -13,6 +13,8 @@ use base 'Exporter';
 our @EXPORT_OK = qw(
 parse_rng
 check_rng_source
+print_rng_device_commandline
+print_rng_object_commandline
 );
 
 my $rng_fmt = {
@@ -81,6 +83,34 @@ sub check_rng_source {
 	    ." '$rng_current' is set to 'none'. Ensure that a compatible hardware-RNG is attached"
 	    ." to the host.\n";
     }
+}
+
+sub print_rng_device_commandline {
+    my ($id, $rng, $bridges, $arch, $machine) = @_;
+
+    die "no rng device specified\n" if !$rng;
+
+    my $max_bytes = $rng->{max_bytes} // $rng_fmt->{max_bytes}->{default};
+    my $period = $rng->{period} // $rng_fmt->{period}->{default};
+    my $limiter_str = "";
+    if ($max_bytes) {
+	$limiter_str = ",max-bytes=$max_bytes,period=$period";
+    }
+
+    my $rng_addr = print_pci_addr($id, $bridges, $arch, $machine);
+
+    return "virtio-rng-pci,rng=$id$limiter_str$rng_addr";
+}
+
+sub print_rng_object_commandline {
+    my ($id, $rng) = @_;
+
+    die "no rng device specified\n" if !$rng;
+
+    my $source_path = $rng->{source};
+    check_rng_source($source_path);
+
+    return "rng-random,filename=$source_path,id=$id";
 }
 
 1;

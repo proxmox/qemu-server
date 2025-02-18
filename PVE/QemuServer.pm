@@ -61,7 +61,7 @@ use PVE::QemuServer::MetaInfo;
 use PVE::QemuServer::Monitor qw(mon_cmd);
 use PVE::QemuServer::PCI qw(print_pci_addr print_pcie_addr print_pcie_root_port parse_hostpci);
 use PVE::QemuServer::QMPHelpers qw(qemu_deviceadd qemu_devicedel qemu_objectadd qemu_objectdel);
-use PVE::QemuServer::RNG qw(check_rng_source parse_rng);
+use PVE::QemuServer::RNG qw(parse_rng print_rng_device_commandline print_rng_object_commandline);
 use PVE::QemuServer::USB;
 
 my $have_sdn;
@@ -3726,18 +3726,10 @@ sub config_to_command {
 
     my $rng = $conf->{rng0} ? parse_rng($conf->{rng0}) : undef;
     if ($rng && $version_guard->(4, 1, 2)) {
-	check_rng_source($rng->{source});
-
-	my $max_bytes = $rng->{max_bytes} // $rng_fmt->{max_bytes}->{default};
-	my $period = $rng->{period} // $rng_fmt->{period}->{default};
-	my $limiter_str = "";
-	if ($max_bytes) {
-	    $limiter_str = ",max-bytes=$max_bytes,period=$period";
-	}
-
-	my $rng_addr = print_pci_addr("rng0", $bridges, $arch, $machine_type);
-	push @$devices, '-object', "rng-random,filename=$rng->{source},id=rng0";
-	push @$devices, '-device', "virtio-rng-pci,rng=rng0$limiter_str$rng_addr";
+	my $rng_object = print_rng_object_commandline('rng0', $rng);
+	my $rng_device = print_rng_device_commandline('rng0', $rng, $bridges, $arch, $machine_type);
+	push @$devices, '-object', $rng_object;
+	push @$devices, '-device', $rng_device;
     }
 
     my $spice_port;
