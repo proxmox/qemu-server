@@ -16,8 +16,7 @@ sub mark_config {
 sub write_config {
     my ($class, $vmid, $conf) = @_;
 
-    log_warn("refusing to write temporary configuration");
-    return;
+    die("refusing to write temporary configuration\n");
 }
 
 1;
