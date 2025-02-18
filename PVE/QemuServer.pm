@@ -1654,8 +1654,8 @@ sub print_netdev_full {
     my $script = $hotplug ? "pve-bridge-hotplug" : "pve-bridge";
 
     if ($net->{bridge}) {
-	$netdev = "type=tap,id=$netid,ifname=${ifname},script=/var/lib/qemu-server/$script"
-	    .",downscript=/var/lib/qemu-server/pve-bridgedown$vhostparam";
+	$netdev = "type=tap,id=$netid,ifname=${ifname},script=/usr/libexec/qemu-server/$script"
+	    .",downscript=/usr/libexec/qemu-server/pve-bridgedown$vhostparam";
     } else {
         $netdev = "type=user,id=$netid,hostname=$vmname";
     }
