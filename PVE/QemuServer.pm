@@ -6392,6 +6392,9 @@ sub vm_resume {
 	    $conf = PVE::QemuConfig->load_config($vmid);
 	}
 
+	die "VM $vmid is a template and cannot be resumed!\n"
+	    if PVE::QemuConfig->is_template($conf);
+
 	if ($res->{status}) {
 	    return if $res->{status} eq 'running'; # job done, go home
 	    $resume_cmd = 'system_wakeup' if $res->{status} eq 'suspended';
