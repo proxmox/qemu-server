@@ -6457,8 +6457,14 @@ sub check_mapping_access {
 	    } else {
 		die "either 'host' or 'mapping' must be set.\n";
 	    }
-       }
-   }
+	} elsif ($opt =~ m/^rng\d+$/) {
+	    my $device = PVE::JSONSchema::parse_property_string('pve-qm-rng', $conf->{$opt});
+
+	    if ($device->{source} && $device->{source} eq '/dev/hwrng') {
+		die "only root can set '$opt' config for a non-mapped Hardware RNG device\n";
+	    }
+	}
+    }
 };
 
 sub check_restore_permissions {

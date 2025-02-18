@@ -38,6 +38,7 @@ use PVE::QemuServer::Memory qw(get_current_memory);
 use PVE::QemuServer::MetaInfo;
 use PVE::QemuServer::PCI;
 use PVE::QemuServer::QMPHelpers;
+use PVE::QemuServer::RNG;
 use PVE::QemuServer::USB;
 use PVE::QemuMigrate;
 use PVE::RPCEnvironment;
@@ -680,6 +681,7 @@ my $hwtypeoptions = {
     'vga' => 1,
     'watchdog' => 1,
     'audio0' => 1,
+    'rng0' => 1,
 };
 
 my $generaloptions = {
@@ -807,6 +809,21 @@ my sub check_vm_create_hostpci_perm {
 
     return 1;
 };
+
+my sub check_rng_perm {
+    my ($rpcenv, $authuser, $vmid, $pool, $opt, $value) = @_;
+
+    return 1 if $authuser eq 'root@pam';
+
+    $rpcenv->check_vm_perm($authuser, $vmid, $pool, ['VM.Config.HWType']);
+
+    my $device = PVE::JSONSchema::parse_property_string('pve-qm-rng', $value);
+    if ($device->{source} && $device->{source} eq '/dev/hwrng') {
+	die "only root can set '$opt' config for a non-mapped Hardware RNG device\n";
+    }
+
+    return 1;
+}
 
 my $check_vm_modify_config_perm = sub {
     my ($rpcenv, $authuser, $vmid, $pool, $key_list) = @_;
@@ -1121,6 +1138,8 @@ __PACKAGE__->register_method({
 	    &$check_vm_create_serial_perm($rpcenv, $authuser, $vmid, $pool, $param);
 	    check_vm_create_usb_perm($rpcenv, $authuser, $vmid, $pool, $param);
 	    check_vm_create_hostpci_perm($rpcenv, $authuser, $vmid, $pool, $param);
+	    check_rng_perm($rpcenv, $authuser, $vmid, $pool, 'rng0', $param->{rng0})
+		if $param->{rng0};
 
 	    PVE::QemuServer::check_bridge_access($rpcenv, $authuser, $param);
 	    &$check_cpu_model_access($rpcenv, $authuser, $param);
@@ -2012,6 +2031,10 @@ my $update_vm_api  = sub {
 		    check_hostpci_perm($rpcenv, $authuser, $vmid, undef, $opt, $val);
 		    PVE::QemuConfig->add_to_pending_delete($conf, $opt, $force);
 		    PVE::QemuConfig->write_config($vmid, $conf);
+		} elsif ($opt =~ m/^rng\d+$/) {
+		    check_rng_perm($rpcenv, $authuser, $vmid, undef, $opt, $val);
+		    PVE::QemuConfig->add_to_pending_delete($conf, $opt, $force);
+		    PVE::QemuConfig->write_config($vmid, $conf);
 		} elsif ($opt eq 'tags') {
 		    assert_tag_permissions($vmid, $val, '', $rpcenv, $authuser);
 		    delete $conf->{$opt};
@@ -2101,6 +2124,12 @@ my $update_vm_api  = sub {
 			check_hostpci_perm($rpcenv, $authuser, $vmid, undef, $opt, $oldvalue);
 		    }
 		    check_hostpci_perm($rpcenv, $authuser, $vmid, undef, $opt, $param->{$opt});
+		    $conf->{pending}->{$opt} = $param->{$opt};
+		} elsif ($opt =~ m/^rng\d+$/) {
+		    if (my $oldvalue = $conf->{$opt}) {
+			check_rng_perm($rpcenv, $authuser, $vmid, undef, $opt, $oldvalue);
+		    }
+		    check_rng_perm($rpcenv, $authuser, $vmid, undef, $opt, $param->{$opt});
 		    $conf->{pending}->{$opt} = $param->{$opt};
 		} elsif ($opt eq 'tags') {
 		    assert_tag_permissions($vmid, $conf->{$opt}, $param->{$opt}, $rpcenv, $authuser);
