@@ -1,3 +1,19 @@
+qemu-server (8.3.8) bookworm; urgency=medium
+
+  * resume: error out if VM is a template
+
+  * backup: also restore VM power state for early failures
+
+  * config: add special class that prevents writing the configuration
+
+  * fix #6007: template backup: use minimized configuration for handling the full vm start
+
+  * vzdump: align behavior for vma backup with PBS backup for templates
+
+  * config: make attempts at writing out NoWrite configs fatal
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 18 Feb 2025 14:59:25 +0100
+
 qemu-server (8.3.7) bookworm; urgency=medium
 
   * api: fix ova live import of disks by using correct format for source image
