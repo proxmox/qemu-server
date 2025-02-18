@@ -7,12 +7,10 @@ use PVE::RESTEnvironment qw(log_warn);
 
 use base qw(PVE::QemuConfig);
 
-sub new {
+sub mark_config {
     my ($class, $conf) = @_;
 
     bless($conf, $class);
-
-    return $conf;
 }
 
 sub write_config {

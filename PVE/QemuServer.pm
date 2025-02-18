@@ -3398,7 +3398,6 @@ sub config_to_command {
 	    bios => $conf->{bios}, # so efidisk gets included if it exists
 	    name => $conf->{name}, # so it's correct in the process list
 	};
-	$newconf = PVE::QemuConfig::NoWrite->new($newconf);
 
 	# copy all disks over
 	for my $device (PVE::QemuServer::Drive::valid_drive_names()) {
@@ -3406,6 +3405,9 @@ sub config_to_command {
 	}
 
 	# remaining configs stay default
+
+	# mark config to prevent writing it out
+	PVE::QemuConfig::NoWrite->mark_config($newconf);
 
 	$conf = $newconf;
     }
