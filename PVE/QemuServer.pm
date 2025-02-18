@@ -6435,12 +6435,14 @@ sub check_bridge_access {
 sub check_mapping_access {
     my ($rpcenv, $user, $conf) = @_;
 
+    return 1 if $user eq 'root@pam';
+
     for my $opt (keys $conf->%*) {
 	if ($opt =~ m/^usb\d+$/) {
 	    my $device = PVE::JSONSchema::parse_property_string('pve-qm-usb', $conf->{$opt});
 	    if (my $host = $device->{host}) {
 		die "only root can set '$opt' config for real devices\n"
-		    if $host !~ m/^spice$/i && $user ne 'root@pam';
+		    if $host !~ m/^spice$/i;
 	    } elsif ($device->{mapping}) {
 		$rpcenv->check_full($user, "/mapping/usb/$device->{mapping}", ['Mapping.Use']);
 	    } else {
@@ -6449,7 +6451,7 @@ sub check_mapping_access {
 	} elsif ($opt =~ m/^hostpci\d+$/) {
 	    my $device = PVE::JSONSchema::parse_property_string('pve-qm-hostpci', $conf->{$opt});
 	    if ($device->{host}) {
-		die "only root can set '$opt' config for non-mapped devices\n" if $user ne 'root@pam';
+		die "only root can set '$opt' config for non-mapped devices\n";
 	    } elsif ($device->{mapping}) {
 		$rpcenv->check_full($user, "/mapping/pci/$device->{mapping}", ['Mapping.Use']);
 	    } else {
