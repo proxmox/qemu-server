@@ -1,4 +1,5 @@
 SOURCES=PCI.pm		\
+	RNG.pm		\
 	USB.pm		\
 	Memory.pm	\
 	ImportDisk.pm	\
