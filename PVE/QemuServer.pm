@@ -6461,7 +6461,7 @@ sub check_mapping_access {
 	    my $device = PVE::JSONSchema::parse_property_string('pve-qm-rng', $conf->{$opt});
 
 	    if ($device->{source} && $device->{source} eq '/dev/hwrng') {
-		die "only root can set '$opt' config for a non-mapped Hardware RNG device\n";
+		$rpcenv->check_full($user, "/mapping/hwrng", ['Mapping.Use']);
 	    }
 	}
     }
