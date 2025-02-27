@@ -4886,7 +4886,8 @@ sub vmconfig_hotplug_pending {
 		    PVE::Network::SDN::Vnets::del_ips_from_mac($net->{bridge}, $net->{macaddr}, $conf->{name});
 		}
 	    } elsif (is_valid_drivename($opt)) {
-		die "skip\n" if !$hotplug_features->{disk} || $opt =~ m/(ide|sata)(\d+)/;
+		die "skip\n"
+		    if !$hotplug_features->{disk} || $opt =~ m/(efidisk|ide|sata|tpmstate)(\d+)/;
 		vm_deviceunplug($vmid, $conf, $opt);
 		vmconfig_delete_or_detach_drive($vmid, $storecfg, $conf, $opt, $force);
 	    } elsif ($opt =~ m/^memory$/) {
