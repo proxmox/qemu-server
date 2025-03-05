@@ -26,11 +26,11 @@ parse_drive
 print_drive
 );
 
-our $QEMU_FORMAT_RE = qr/raw|cow|qcow|qcow2|qed|vmdk|cloop/;
+our $QEMU_FORMAT_RE = qr/raw|qcow|qcow2|qed|vmdk|cloop/;
 
 PVE::JSONSchema::register_standard_option('pve-qm-image-format', {
     type => 'string',
-    enum => [qw(raw cow qcow qed qcow2 vmdk cloop)],
+    enum => [qw(raw qcow qed qcow2 vmdk cloop)],
     description => "The drive's backing file's data format.",
     optional => 1,
 });
