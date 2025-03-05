@@ -2573,7 +2573,7 @@ __PACKAGE__->register_method({
 	my $serial;
 	if ($conf->{vga}) {
 	    my $vga = PVE::QemuServer::parse_vga($conf->{vga});
-	    $serial = $vga->{type} if $vga->{type} =~ m/^serial\d+$/;
+	    $serial = $vga->{type} if defined($vga->{type}) && $vga->{type} =~ m/^serial\d+$/;
 	}
 
 	my $authpath = "/vms/$vmid";
@@ -2723,7 +2723,7 @@ __PACKAGE__->register_method({
 	if (!defined($serial)) {
 	    if ($conf->{vga}) {
 		my $vga = PVE::QemuServer::parse_vga($conf->{vga});
-		$serial = $vga->{type} if $vga->{type} =~ m/^serial\d+$/;
+		$serial = $vga->{type} if defined($vga->{type}) && $vga->{type} =~ m/^serial\d+$/;
 	    }
 	}
 
