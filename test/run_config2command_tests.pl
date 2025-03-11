@@ -108,6 +108,7 @@ my $pci_map_config = {
     ids => {
 	someGpu => {
 	    type => 'pci',
+	    mdev => 1,
 	    map => [
 		'node=localhost,path=0000:01:00.4,id=10de:2231,iommugroup=1',
 		'node=localhost,path=0000:01:00.5,id=10de:2231,iommugroup=1',
@@ -330,7 +331,6 @@ $pve_common_sysfstools->mock(
 	} elsif ($path =~ m/^0000:07:10/) {
 	    return {
 		iommugroup => 2,
-		mdev => 0,
 		vendor => "0x8086",
 		device => "0x1520",
 	    };
