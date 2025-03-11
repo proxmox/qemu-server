@@ -1241,6 +1241,7 @@ sub phase2 {
     $self->log('info', "migrate uri => $migrate_uri failed: $merr") if $merr;
 
     my $last_mem_transferred = 0;
+    my $last_vfio_transferred = 0;
     my $usleep = 1000000;
     my $i = 0;
     my $err_count = 0;
@@ -1300,8 +1301,11 @@ sub phase2 {
 	    last;
 	}
 
-	if ($memstat->{transferred} ne $last_mem_transferred) {
+	if ($memstat->{transferred} ne $last_mem_transferred ||
+	    $stat->{vfio}->{transferred} ne $last_vfio_transferred
+	) {
 	    my $trans = $memstat->{transferred} || 0;
+	    my $vfio_transferred = $stat->{vfio}->{transferred} || 0;
 	    my $rem = $memstat->{remaining} || 0;
 	    my $total = $memstat->{total} || 0;
 	    my $speed = ($memstat->{'pages-per-second'} // 0) * ($memstat->{'page-size'} // 0);
@@ -1318,6 +1322,11 @@ sub phase2 {
 	    my $speed_h = render_bytes($speed, 1);
 
 	    my $progress = "transferred $transferred_h of $total_h VM-state, ${speed_h}/s";
+
+	    if ($vfio_transferred > 0) {
+		my $vfio_h = render_bytes($vfio_transferred, 1);
+		$progress .= " (+ $vfio_h VFIO-state)";
+	    }
 
 	    if ($dirty_rate > $speed) {
 		my $dirty_rate_h = render_bytes($dirty_rate, 1);
@@ -1360,6 +1369,7 @@ sub phase2 {
 	}
 
 	$last_mem_transferred = $memstat->{transferred};
+	$last_vfio_transferred = $stat->{vfio}->{transferred};
     }
 
     if ($self->{storage_migration}) {
