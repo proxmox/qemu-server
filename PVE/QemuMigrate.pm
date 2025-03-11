@@ -1288,6 +1288,20 @@ sub phase2 {
 		my $downtime = $stat->{downtime} || 0;
 		$self->log('info', "average migration speed: $avg_speed/s - downtime $downtime ms");
 	    }
+	    my $trans = $memstat->{transferred} || 0;
+	    my $vfio_transferred = $stat->{vfio}->{transferred} || 0;
+
+	    if ($trans > 0 || $vfio_transferred > 0) {
+		my $transferred_h = render_bytes($trans, 1);
+		my $summary = "transferred $transferred_h VM-state";
+
+		if ($vfio_transferred > 0) {
+		    my $vfio_h = render_bytes($vfio_transferred, 1);
+		    $summary .= " (+ $vfio_h VFIO-state)";
+		}
+
+		$self->log('info', "migration $status, $summary");
+	    }
 	}
 
 	if ($status eq 'failed' || $status eq 'cancelled') {
