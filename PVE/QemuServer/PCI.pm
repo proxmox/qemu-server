@@ -433,9 +433,11 @@ sub parse_hostpci {
 	die "PCI device mapping not found for '$mapping'\n" if !$devices || !scalar($devices->@*);
 
 	my $config = PVE::Mapping::PCI::config();
+	my $mapping_cfg = $config->{ids}->{$mapping};
+	$res->{'live-migration-capable'} = 1 if $mapping_cfg->{'live-migration-capable'};
 
 	for my $device ($devices->@*) {
-	    eval { PVE::Mapping::PCI::assert_valid($mapping, $device, $config->{ids}->{$mapping}) };
+	    eval { PVE::Mapping::PCI::assert_valid($mapping, $device, $mapping_cfg) };
 	    die "PCI device mapping invalid (hardware probably changed): $@\n" if $@;
 	    push $alternatives->@*, [split(/;/, $device->{path})];
 	}
@@ -690,6 +692,10 @@ sub print_hostpci_devices {
 		$devicestr .= ",sysfsdev=$sysfspath";
 	    } else {
 		$devicestr .= ",host=$pcidevice->{id}";
+	    }
+
+	    if ($d->{'live-migration-capable'}) {
+		$devicestr .= ",enable-migration=on";
 	    }
 
 	    my $mf_addr = $multifunction ? ".$j" : '';

@@ -2519,6 +2519,12 @@ sub check_local_resources {
 		my $mapped_device = { name => $name };
 		$mapped_res->{$k} = $mapped_device;
 
+		if ($pci_map->{ids}->{$name}->{'live-migration-capable'}) {
+		    $mapped_device->{'live-migration'} = 1;
+		    # don't add mapped device with live migration as blocker
+		    next;
+		}
+
 		# don't add mapped devices as blocker for offline migration but still iterate over
 		# all mappings above to collect on which nodes they are available.
 		next if !$state;
