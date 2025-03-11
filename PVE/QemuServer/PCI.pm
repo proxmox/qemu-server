@@ -432,8 +432,10 @@ sub parse_hostpci {
 	my $devices = PVE::Mapping::PCI::find_on_current_node($mapping);
 	die "PCI device mapping not found for '$mapping'\n" if !$devices || !scalar($devices->@*);
 
+	my $config = PVE::Mapping::PCI::config();
+
 	for my $device ($devices->@*) {
-	    eval { PVE::Mapping::PCI::assert_valid($mapping, $device) };
+	    eval { PVE::Mapping::PCI::assert_valid($mapping, $device, $config->{ids}->{$mapping}) };
 	    die "PCI device mapping invalid (hardware probably changed): $@\n" if $@;
 	    push $alternatives->@*, [split(/;/, $device->{path})];
 	}
