@@ -4665,7 +4665,7 @@ __PACKAGE__->register_method({
 		    type => 'string',
 		    description => "A local resource",
 		},
-		description => "List local resources e.g. pci, usb"
+		description => "List local resources (e.g. pci, usb) that block migration."
 	    },
 	    'mapped-resources' => {
 		type => 'array',

@@ -2517,6 +2517,10 @@ sub check_local_resources {
 	    if ($entry->{mapping}) {
 		$add_missing_mapping->('pci', $k, $entry->{mapping});
 		push @$mapped_res, $k;
+
+		# don't add mapped devices as blocker for offline migration but still iterate over
+		# all mappings above to collect on which nodes they are available.
+		next if !$state;
 	    }
 	}
 	# sockets are safe: they will recreated be on the target side post-migrate
