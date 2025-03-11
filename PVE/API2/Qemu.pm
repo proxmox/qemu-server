@@ -4603,6 +4603,8 @@ __PACKAGE__->register_method({
 	},
     },
     returns => {
+	# TODO 9.x: rework the api call to return more sensible structures
+	# e.g. a simple list of nodes with their blockers and/or notices to show
 	type => "object",
 	properties => {
 	    running => {
@@ -4616,7 +4618,7 @@ __PACKAGE__->register_method({
 		    description => "An allowed node",
 		},
 		optional => 1,
-		description => "List nodes allowed for offline migration, only passed if VM is offline"
+		description => "List of nodes allowed for migration.",
 	    },
 	    not_allowed_nodes => {
 		type => 'object',
@@ -4632,7 +4634,7 @@ __PACKAGE__->register_method({
 			},
 		    },
 		},
-		description => "List not allowed nodes with additional information, only passed if VM is offline"
+		description => "List of not allowed nodes with additional information.",
 	    },
 	    local_disks => {
 		type => 'array',
@@ -4710,37 +4712,40 @@ __PACKAGE__->register_method({
 
 	my ($local_resources, $mapped_resources, $missing_mappings_by_node) =
 	    PVE::QemuServer::check_local_resources($vmconf, $res->{running}, 1);
-	delete $missing_mappings_by_node->{$localnode};
 
 	my $vga = PVE::QemuServer::parse_vga($vmconf->{vga});
 	if ($res->{running} && $vga->{'clipboard'} && $vga->{'clipboard'} eq 'vnc') {
 	    push $local_resources->@*, "clipboard=vnc";
 	}
 
-	# if vm is not running, return target nodes where local storage/mapped devices are available
-	# for offline migration
-	if (!$res->{running}) {
-	    $res->{allowed_nodes} = [];
-	    my $checked_nodes = PVE::QemuServer::check_local_storage_availability($vmconf, $storecfg);
-	    delete $checked_nodes->{$localnode};
+	$res->{allowed_nodes} = [];
+	$res->{not_allowed_nodes} = {};
 
-	    foreach my $node (keys %$checked_nodes) {
-		my $missing_mappings = $missing_mappings_by_node->{$node};
-		if (scalar($missing_mappings->@*)) {
-		    $checked_nodes->{$node}->{'unavailable-resources'} = $missing_mappings;
-		    next;
-		}
+	my $storage_nodehash = PVE::QemuServer::check_local_storage_availability($vmconf, $storecfg);
 
-		if (!defined($checked_nodes->{$node}->{unavailable_storages})) {
-		    push @{$res->{allowed_nodes}}, $node;
-		}
+	my $nodelist = PVE::Cluster::get_nodelist();
+	for my $node ($nodelist->@*) {
+	    next if $node eq $localnode;
 
+	    # extract missing storage info
+	    if (my $storage_info = $storage_nodehash->{$node}) {
+		$res->{not_allowed_nodes}->{$node} = $storage_info;
 	    }
-	    $res->{not_allowed_nodes} = $checked_nodes;
+
+	    # extract missing mappings info
+	    my $missing_mappings = $missing_mappings_by_node->{$node};
+	    if (scalar($missing_mappings->@*)) {
+		$res->{not_allowed_nodes}->{$node}->{'unavailable-resources'} = $missing_mappings;
+	    }
+
+	    # if nothing came up, add it to the allowed nodes
+	    if (scalar($res->{not_allowed_nodes}->{$node}->%*) == 0) {
+		push $res->{allowed_nodes}->@*, $node;
+	    }
 	}
 
 	my $local_disks = &$check_vm_disks_local($storecfg, $vmconf, $vmid);
-	$res->{local_disks} = [ values %$local_disks ];;
+	$res->{local_disks} = [ values %$local_disks ];
 
 	$res->{local_resources} = $local_resources;
 	$res->{'mapped-resources'} = [ sort keys $mapped_resources->%* ];
