@@ -492,8 +492,10 @@ my sub create_disks : prototype($$$$$$$$$$$) {
 				= $import_from_volid->($storecfg, $source, $dest_info, $vollist);
 
 			    # remove extracted volumes after importing
-			    PVE::Storage::vdisk_free($storecfg, $source) if $needs_extraction;
-			    print "cleaned up extracted image $source\n";
+			    if ($needs_extraction) {
+				PVE::Storage::vdisk_free($storecfg, $source);
+				print "cleaned up extracted image $source\n";
+			    }
 			    @$vollist = grep { $_ ne $source } @$vollist;
 			};
 			die "cannot import from '$source' - $@" if $@;
