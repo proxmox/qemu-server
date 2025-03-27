@@ -1443,6 +1443,7 @@ sub print_drive_commandline_full {
 
     my ($storeid) = PVE::Storage::parse_volume_id($drive->{file}, 1);
     my $scfg = $storeid ? PVE::Storage::storage_config($storecfg, $storeid) : undef;
+    my $vtype = $storeid ? (PVE::Storage::parse_volname($storecfg, $drive->{file}))[0] : undef;
 
     my ($path, $format) = PVE::QemuServer::Drive::get_path_and_format(
 	$storecfg, $vmid, $drive, $live_restore_name);
@@ -1513,6 +1514,9 @@ sub print_drive_commandline_full {
 	    }
 	}
     }
+
+    die "$drive_id: explicit media parameter is required for iso images\n"
+	if !defined($drive->{media}) && defined($vtype) && $vtype eq 'iso';
 
     if (!drive_is_cdrom($drive)) {
 	my $detectzeroes;
