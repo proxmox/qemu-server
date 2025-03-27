@@ -127,6 +127,19 @@ my $check_drive_param = sub {
 
 	PVE::QemuServer::cleanup_drive_path($opt, $storecfg, $drive);
 
+	my $volid = $drive->{file};
+	my ($storeid, $volname) = PVE::Storage::parse_volume_id($volid, 1);
+	if (
+	    $storeid
+	    && $volid !~ $PVE::QemuServer::Drive::NEW_DISK_RE
+	    && defined($volname)
+	    && $volname ne 'cloudinit'
+	) {
+	    my $vtype = (PVE::Storage::parse_volname($storecfg, $volid))[0];
+	    raise_param_exc({ $opt => "explicit 'media=cdrom' is required for iso images"})
+		if $vtype eq 'iso' && !(defined($drive->{media}) && $drive->{media} eq 'cdrom');
+	}
+
 	$extra_checks->($drive) if $extra_checks;
 
 	$param->{$opt} = PVE::QemuServer::print_drive($drive, 1);
