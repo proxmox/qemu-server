@@ -18,6 +18,7 @@ get_cpu_options
 get_cpu_bitness
 is_native_arch
 get_amd_sev_object
+get_amd_sev_type
 );
 
 # under certain race-conditions, this module might be loaded before pve-cluster
@@ -231,23 +232,30 @@ my $cpu_fmt = {
 my $sev_fmt = {
     type => {
 	description => "Enable standard SEV with type='std' or enable"
-	    ." experimental SEV-ES with the 'es' option.",
+	    ." experimental SEV-ES with the 'es' option or enable"
+	    ." experimental SEV-SNP with the 'snp' option.",
 	type => 'string',
 	default_key => 1,
 	format_description => "sev-type",
-	enum => ['std', 'es'],
+	enum => ['std', 'es', 'snp'],
 	maxLength => 3,
     },
     'no-debug' => {
-	description => "Sets policy bit 0 to 1 to disallow debugging of guest",
+	description => "Sets policy bit to disallow debugging of guest",
 	type => 'boolean',
 	default => 0,
 	optional => 1,
     },
     'no-key-sharing' => {
-	description => "Sets policy bit 1 to 1 to disallow key sharing with other guests",
+	description => "Sets policy bit to disallow key sharing with other guests (Ignored for SEV-SNP)",
 	type => 'boolean',
 	default => 0,
+	optional => 1,
+    },
+    'allow-smt' => {
+	description => "Sets policy bit to allow Simultaneous Multi Threading (SMT) (Ignored unless for SEV-SNP)",
+	type => 'boolean',
+	default => 1,
 	optional => 1,
     },
     "kernel-hashes" => {
@@ -823,6 +831,13 @@ sub get_hw_capabilities {
     }
     return $hw_capabilities;
 }
+sub get_amd_sev_type {
+    my ($conf) = @_;
+
+    return undef if !$conf->{'amd-sev'};
+
+    return PVE::JSONSchema::parse_property_string($sev_fmt, $conf->{'amd-sev'})->{type};
+}
 
 sub get_amd_sev_object {
     my ($amd_sev, $bios) = @_;
@@ -836,22 +851,41 @@ sub get_amd_sev_object {
     if ($amd_sev_conf->{type} eq 'es' && !$sev_hw_caps->{'sev-support-es'}) {
 	die "Your CPU does not support AMD SEV-ES.\n";
     }
+    if ($amd_sev_conf->{type} eq 'snp' && !$sev_hw_caps->{'sev-support-snp'}) {
+	die "Your CPU does not support AMD SEV-SNP.\n";
+    }
     if (!$bios || $bios ne 'ovmf') {
 	die "To use AMD SEV, you need to change the BIOS to OVMF.\n";
     }
 
-    my $sev_mem_object = 'sev-guest,id=sev0';
-    $sev_mem_object .= ',cbitpos='.$sev_hw_caps->{cbitpos};
-    $sev_mem_object .= ',reduced-phys-bits='.$sev_hw_caps->{'reduced-phys-bits'};
+    my $sev_mem_object = '';
+    my $policy;
+    if ($amd_sev_conf->{type} eq 'es' || $amd_sev_conf->{type} eq 'std') {
+	$sev_mem_object .= 'sev-guest,id=sev0';
+	$sev_mem_object .= ',cbitpos='.$sev_hw_caps->{cbitpos};
+	$sev_mem_object .= ',reduced-phys-bits='.$sev_hw_caps->{'reduced-phys-bits'};
 
-    # guest policy bit calculation as described here:
-    # https://documentation.suse.com/sles/15-SP5/html/SLES-amd-sev/article-amd-sev.html#table-guestpolicy
-    my $policy = 0;
-    $policy |= 1 << 0 if $amd_sev_conf->{'no-debug'};
-    $policy |= 1 << 1 if $amd_sev_conf->{'no-key-sharing'};
-    $policy |= 1 << 2 if $amd_sev_conf->{type} eq 'es';
-    # disable migration with bit 3 nosend to prevent amd-sev-migration-attack
-    $policy |= 1 << 3;
+	# guest policy bit calculation as described here:
+	# https://documentation.suse.com/sles/15-SP5/html/SLES-amd-sev/article-amd-sev.html#table-guestpolicy
+	$policy = 0;
+	$policy |= 1 << 0 if $amd_sev_conf->{'no-debug'};
+	$policy |= 1 << 1 if $amd_sev_conf->{'no-key-sharing'};
+	$policy |= 1 << 2 if $amd_sev_conf->{type} eq 'es';
+	# disable migration with bit 3 nosend to prevent amd-sev-migration-attack
+	$policy |= 1 << 3;
+    } elsif ($amd_sev_conf->{type} eq 'snp') {
+	$sev_mem_object .= 'sev-snp-guest,id=sev0';
+	$sev_mem_object .= ',cbitpos='.$sev_hw_caps->{cbitpos};
+	$sev_mem_object .= ',reduced-phys-bits='.$sev_hw_caps->{'reduced-phys-bits'};
+
+	# guest policy bit calculation as described in chapter 4.3:
+	# https://www.amd.com/system/files/TechDocs/56860.pdf
+	# Reserved bit must be one
+	$policy = 1 << 17;
+	$policy |= 1 << 16 if !defined($amd_sev_conf->{'allow-smt'}) || $amd_sev_conf->{'allow-smt'};
+	$policy |= 1 << 19 if !$amd_sev_conf->{'no-debug'};
+    }
+
 
     $sev_mem_object .= ',policy='.sprintf("%#x", $policy);
     $sev_mem_object .= ',kernel-hashes=on' if ($amd_sev_conf->{'kernel-hashes'});

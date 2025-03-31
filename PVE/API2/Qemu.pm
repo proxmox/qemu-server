@@ -550,8 +550,13 @@ my sub create_disks : prototype($$$$$$$$$$$) {
 		my $volid;
 		if ($ds eq 'efidisk0') {
 		    my $smm = PVE::QemuServer::Machine::machine_type_is_q35($conf);
+
+		    my $amd_sev_type = PVE::QemuServer::CPUConfig::get_amd_sev_type($conf);
+		    die "SEV-SNP uses consolidated read-only firmware and does not require an EFI disk\n"
+			if $amd_sev_type && $amd_sev_type eq 'snp';
+
 		    ($volid, $size) = PVE::QemuServer::create_efidisk(
-			$storecfg, $storeid, $vmid, $fmt, $arch, $disk, $smm);
+			$storecfg, $storeid, $vmid, $fmt, $arch, $disk, $smm, $amd_sev_type);
 		} elsif ($ds eq 'tpmstate0') {
 		    # swtpm can only use raw volumes, and uses a fixed size
 		    $size = PVE::Tools::convert_size(PVE::QemuServer::Drive::TPMSTATE_DISK_SIZE, 'b' => 'kb');

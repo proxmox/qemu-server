@@ -53,7 +53,7 @@ use PVE::QemuConfig::NoWrite;
 use PVE::QemuServer::Helpers qw(config_aware_timeout min_version kvm_user_version windows_version);
 use PVE::QemuServer::Cloudinit;
 use PVE::QemuServer::CGroup;
-use PVE::QemuServer::CPUConfig qw(print_cpu_device get_cpu_options get_cpu_bitness is_native_arch get_amd_sev_object);
+use PVE::QemuServer::CPUConfig qw(print_cpu_device get_cpu_options get_cpu_bitness is_native_arch get_amd_sev_object get_amd_sev_type);
 use PVE::QemuServer::Drive qw(is_valid_drivename checked_volume_format drive_is_cloudinit drive_is_cdrom drive_is_read_only parse_drive print_drive);
 use PVE::QemuServer::Machine;
 use PVE::QemuServer::Memory qw(get_current_memory);
@@ -88,6 +88,13 @@ my $OVMF = {
 	'4m-ms' => [
 	    "$EDK2_FW_BASE/OVMF_CODE_4M.secboot.fd",
 	    "$EDK2_FW_BASE/OVMF_VARS_4M.ms.fd",
+	],
+	'4m-sev' => [
+	    "$EDK2_FW_BASE/OVMF_CVM_CODE_4M.fd",
+	    "$EDK2_FW_BASE/OVMF_CVM_VARS_4M.fd",
+	],
+	'4m-snp' => [
+	    "$EDK2_FW_BASE/OVMF_CVM_4M.fd",
 	],
 	# FIXME: These are legacy 2MB-sized images that modern OVMF doesn't supports to build
 	# anymore. how can we deperacate this sanely without breaking existing instances, or using
@@ -3184,15 +3191,22 @@ sub vga_conf_has_spice {
     return $1 || 1;
 }
 
-sub get_ovmf_files($$$) {
-    my ($arch, $efidisk, $smm) = @_;
+sub get_ovmf_files($$$$) {
+    my ($arch, $efidisk, $smm, $amd_sev_type) = @_;
 
     my $types = $OVMF->{$arch}
 	or die "no OVMF images known for architecture '$arch'\n";
 
     my $type = 'default';
     if ($arch eq 'x86_64') {
-	if (defined($efidisk->{efitype}) && $efidisk->{efitype} eq '4m') {
+	if ($amd_sev_type && $amd_sev_type eq 'snp') {
+	    $type = "4m-snp";
+	    my ($ovmf) = $types->{$type}->@*;
+	    die "EFI base image '$ovmf' not found\n" if ! -f $ovmf;
+	    return ($ovmf);
+	} elsif ($amd_sev_type) {
+	    $type = "4m-sev";
+	} elsif (defined($efidisk->{efitype}) && $efidisk->{efitype} eq '4m') {
 	    $type = $smm ? "4m" : "4m-no-smm";
 	    $type .= '-ms' if $efidisk->{'pre-enrolled-keys'};
 	} else {
@@ -3341,7 +3355,10 @@ my sub print_ovmf_drive_commandlines {
 
     my $d = $conf->{efidisk0} ? parse_drive('efidisk0', $conf->{efidisk0}) : undef;
 
-    my ($ovmf_code, $ovmf_vars) = get_ovmf_files($arch, $d, $q35);
+    my $amd_sev_type = get_amd_sev_type($conf);
+    die "Attempting to configure SEV-SNP with flash devices instead of using `-bios`\n"
+	if $amd_sev_type && $amd_sev_type eq 'snp';
+    my ($ovmf_code, $ovmf_vars) = get_ovmf_files($arch, $d, $q35, $amd_sev_type);
 
     my $var_drive_str = "if=pflash,unit=1,id=drive-efidisk0";
     if ($d) {
@@ -3541,10 +3558,18 @@ sub config_to_command {
 	die "OVMF (UEFI) BIOS is not supported on 32-bit CPU types\n"
 	    if !$forcecpu && get_cpu_bitness($conf->{cpu}, $arch) == 32;
 
-	my ($code_drive_str, $var_drive_str) =
-	    print_ovmf_drive_commandlines($conf, $storecfg, $vmid, $arch, $q35, $version_guard);
-	push $cmd->@*, '-drive', $code_drive_str;
-	push $cmd->@*, '-drive', $var_drive_str;
+	my $amd_sev_type = get_amd_sev_type($conf);
+	if ($amd_sev_type && $amd_sev_type eq 'snp') {
+	   my $arch = PVE::QemuServer::Helpers::get_vm_arch($conf);
+	   print "Existing EFI disk will be ignored for SEV-SNP\n"
+		if parse_drive('efidisk0', $conf->{efidisk0});
+	   push $cmd->@*, '-bios', get_ovmf_files($arch, undef, undef, $amd_sev_type);
+	} else {
+	    my ($code_drive_str, $var_drive_str) = print_ovmf_drive_commandlines(
+		$conf, $storecfg, $vmid, $arch, $q35, $version_guard);
+	    push $cmd->@*, '-drive', $code_drive_str;
+	    push $cmd->@*, '-drive', $var_drive_str;
+	}
     }
 
     if ($q35) { # tell QEMU to load q35 config early
@@ -8368,7 +8393,8 @@ sub get_efivars_size {
     my $arch = PVE::QemuServer::Helpers::get_vm_arch($conf);
     $efidisk //= $conf->{efidisk0} ? parse_drive('efidisk0', $conf->{efidisk0}) : undef;
     my $smm = PVE::QemuServer::Machine::machine_type_is_q35($conf);
-    my (undef, $ovmf_vars) = get_ovmf_files($arch, $efidisk, $smm);
+    my $amd_sev_type = get_amd_sev_type($conf);
+    my (undef, $ovmf_vars) = get_ovmf_files($arch, $efidisk, $smm, $amd_sev_type);
     return -s $ovmf_vars;
 }
 
@@ -8392,10 +8418,10 @@ sub update_tpmstate_size {
     $conf->{tpmstate0} = print_drive($disk);
 }
 
-sub create_efidisk($$$$$$$) {
-    my ($storecfg, $storeid, $vmid, $fmt, $arch, $efidisk, $smm) = @_;
+sub create_efidisk($$$$$$$$) {
+    my ($storecfg, $storeid, $vmid, $fmt, $arch, $efidisk, $smm, $amd_sev_type) = @_;
 
-    my (undef, $ovmf_vars) = get_ovmf_files($arch, $efidisk, $smm);
+    my (undef, $ovmf_vars) = get_ovmf_files($arch, $efidisk, $smm, $amd_sev_type);
 
     my $vars_size_b = -s $ovmf_vars;
     my $vars_size = PVE::Tools::convert_size($vars_size_b, 'b' => 'kb');
