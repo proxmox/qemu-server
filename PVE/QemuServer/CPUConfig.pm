@@ -846,12 +846,12 @@ sub get_amd_sev_object {
 
     # guest policy bit calculation as described here:
     # https://documentation.suse.com/sles/15-SP5/html/SLES-amd-sev/article-amd-sev.html#table-guestpolicy
-    my $policy = 0b0000;
-    $policy += 0b0001 if $amd_sev_conf->{'no-debug'};
-    $policy += 0b0010 if $amd_sev_conf->{'no-key-sharing'};
-    $policy += 0b0100 if $amd_sev_conf->{type} eq 'es';
+    my $policy = 0;
+    $policy |= 1 << 0 if $amd_sev_conf->{'no-debug'};
+    $policy |= 1 << 1 if $amd_sev_conf->{'no-key-sharing'};
+    $policy |= 1 << 2 if $amd_sev_conf->{type} eq 'es';
     # disable migration with bit 3 nosend to prevent amd-sev-migration-attack
-    $policy += 0b1000;
+    $policy |= 1 << 3;
 
     $sev_mem_object .= ',policy='.sprintf("%#x", $policy);
     $sev_mem_object .= ',kernel-hashes=on' if ($amd_sev_conf->{'kernel-hashes'});
