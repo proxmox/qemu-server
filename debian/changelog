@@ -1,3 +1,39 @@
+qemu-server (8.3.9) bookworm; urgency=medium
+
+  * fix #5284: api: move-disk, clone: assert content type support for target
+    storage to avoid situations where one can clone or move a disk to a
+    storage where it then cannot be used anymore, blocking VM start.
+
+  * disallow deleting the tpmstate and efidisk from configuration while the VM
+    is running to avoid an inconsistent state.
+
+  * api: termproxy/vncproxy: fix 'use of uninitialized value' warning when
+    checking vga type
+
+  * migration: extend clean-up of resources after successful migration, like
+    freeing up PCI mdev usage again.
+
+  * migration blockers: allow mapped devices for offline migration as long as
+    the mapping is also available on the target node.
+
+  * pci passthrough: enable live-migration for PCI passthrough device that are
+    handled by a resource mapping that declared support for live-migration.
+
+  * api: migration preconditions: return detailed info for mapped-resources
+    and deprecated previously returned flat list, it will be removed in a
+    future major release.
+
+  * api: migrate preconditions: include not available mapped resources also
+    for running VMs to improve UX.
+
+  * migration: show amount of traffic for transferring vfio state in progress
+    log.
+
+  * migration: report short summary for transfer traffic stats once migration
+    finished.
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 03 Apr 2025 17:43:04 +0200
+
 qemu-server (8.3.8) bookworm; urgency=medium
 
   * resume: error out if VM is a template
@@ -6,7 +42,8 @@ qemu-server (8.3.8) bookworm; urgency=medium
 
   * config: add special class that prevents writing the configuration
 
-  * fix #6007: template backup: use minimized configuration for handling the full vm start
+  * fix #6007: template backup: use minimized configuration for handling the
+    full vm start
 
   * vzdump: align behavior for vma backup with PBS backup for templates
 
