@@ -3561,10 +3561,10 @@ sub config_to_command {
 
 	my $amd_sev_type = get_amd_sev_type($conf);
 	if ($amd_sev_type && $amd_sev_type eq 'snp') {
-	   my $arch = PVE::QemuServer::Helpers::get_vm_arch($conf);
-	   print "Existing EFI disk will be ignored for SEV-SNP\n"
-		if parse_drive('efidisk0', $conf->{efidisk0});
-	   push $cmd->@*, '-bios', get_ovmf_files($arch, undef, undef, $amd_sev_type);
+	    if (defined($conf->{efidisk0})) {
+		log_warn("EFI disks are not supported with SEV-SNP and will be ignored");
+	    }
+	    push $cmd->@*, '-bios', get_ovmf_files($arch, undef, undef, $amd_sev_type);
 	} else {
 	    my ($code_drive_str, $var_drive_str) = print_ovmf_drive_commandlines(
 		$conf, $storecfg, $vmid, $arch, $q35, $version_guard);
