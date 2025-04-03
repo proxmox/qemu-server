@@ -4667,13 +4667,18 @@ __PACKAGE__->register_method({
 		},
 		description => "List local resources (e.g. pci, usb) that block migration."
 	    },
+	    # FIXME: remove with 9.0
 	    'mapped-resources' => {
 		type => 'array',
 		items => {
 		    type => 'string',
 		    description => "A mapped resource",
 		},
-		description => "List of mapped resources e.g. pci, usb"
+		description => "List of mapped resources e.g. pci, usb. Deprecated, use 'mapped-resource-info' instead."
+	    },
+	    'mapped-resource-info' => {
+		type => 'object',
+		description => "Object of mapped resources with additional information such if they're live migratable.",
 	    },
 	},
     },
@@ -4738,7 +4743,8 @@ __PACKAGE__->register_method({
 	$res->{local_disks} = [ values %$local_disks ];;
 
 	$res->{local_resources} = $local_resources;
-	$res->{'mapped-resources'} = $mapped_resources;
+	$res->{'mapped-resources'} = [ sort keys $mapped_resources->%* ];
+	$res->{'mapped-resource-info'} = $mapped_resources;
 
 	return $res;
 

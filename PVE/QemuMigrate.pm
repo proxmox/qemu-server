@@ -229,7 +229,7 @@ sub prepare {
     my ($loc_res, $mapped_res, $missing_mappings_by_node) = PVE::QemuServer::check_local_resources($conf, $running, 1);
     my $blocking_resources = [];
     for my $res ($loc_res->@*) {
-	if (!grep($res, $mapped_res->@*)) {
+	if (!defined($mapped_res->{$res})) {
 	    push $blocking_resources->@*, $res;
 	}
     }
@@ -241,12 +241,20 @@ sub prepare {
 	}
     }
 
-    if (scalar($mapped_res->@*)) {
+    if (scalar(keys $mapped_res->%*)) {
 	my $missing_mappings = $missing_mappings_by_node->{$self->{node}};
-	if ($running) {
-	    die "can't migrate running VM which uses mapped devices: " . join(", ", $mapped_res->@*) . "\n";
-	} elsif (scalar($missing_mappings->@*)) {
-	    die "can't migrate to '$self->{node}': missing mapped devices " . join(", ", $missing_mappings->@*) . "\n";
+	my $missing_live_mappings = [];
+	for my $key (sort keys $mapped_res->%*) {
+	    my $res = $mapped_res->{$key};
+	    my $name = "$key:$res->{name}";
+	    push $missing_live_mappings->@*, $name if !$res->{'live-migration'};
+	}
+	if (scalar($missing_mappings->@*)) {
+	    my $missing = join(", ", $missing_mappings->@*);
+	    die "can't migrate to '$self->{node}': missing mapped devices $missing\n";
+	} elsif ($running && scalar($missing_live_mappings->@*)) {
+	    my $missing = join(", ", $missing_live_mappings->@*);
+	    die "can't live migrate running VM which uses following mapped devices: $missing\n";
 	} else {
 	    $self->log('info', "migrating VM which uses mapped local devices");
 	}

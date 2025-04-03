@@ -2472,7 +2472,7 @@ sub check_local_resources {
     my ($conf, $state, $noerr) = @_;
 
     my @loc_res = ();
-    my $mapped_res = [];
+    my $mapped_res = {};
 
     my @non_migratable_resources = check_non_migratable_resources($conf, $state, $noerr);
     push(@loc_res, @non_migratable_resources);
@@ -2507,16 +2507,17 @@ sub check_local_resources {
 	if ($k =~ m/^usb/) {
 	    my $entry = parse_property_string('pve-qm-usb', $conf->{$k});
 	    next if $entry->{host} && $entry->{host} =~ m/^spice$/i;
-	    if ($entry->{mapping}) {
-		$add_missing_mapping->('usb', $k, $entry->{mapping});
-		push @$mapped_res, $k;
+	    if (my $name = $entry->{mapping}) {
+		$add_missing_mapping->('usb', $k, $name);
+		$mapped_res->{$k} = { name => $name };
 	    }
 	}
 	if ($k =~ m/^hostpci/) {
 	    my $entry = parse_property_string('pve-qm-hostpci', $conf->{$k});
-	    if ($entry->{mapping}) {
-		$add_missing_mapping->('pci', $k, $entry->{mapping});
-		push @$mapped_res, $k;
+	    if (my $name = $entry->{mapping}) {
+		$add_missing_mapping->('pci', $k, $name);
+		my $mapped_device = { name => $name };
+		$mapped_res->{$k} = $mapped_device;
 
 		# don't add mapped devices as blocker for offline migration but still iterate over
 		# all mappings above to collect on which nodes they are available.
