@@ -831,12 +831,15 @@ sub get_hw_capabilities {
     }
     return $hw_capabilities;
 }
+
 sub get_amd_sev_type {
     my ($conf) = @_;
 
     return undef if !$conf->{'amd-sev'};
 
-    return PVE::JSONSchema::parse_property_string($sev_fmt, $conf->{'amd-sev'})->{type};
+    my $sev = PVE::JSONSchema::parse_property_string($sev_fmt, $conf->{'amd-sev'});
+
+    return $sev->{type};
 }
 
 sub get_amd_sev_object {
