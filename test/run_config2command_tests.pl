@@ -5,6 +5,7 @@ use warnings;
 
 use lib qw(..);
 
+use JSON qw(decode_json);
 use Test::More;
 use Test::MockModule;
 use Socket qw(AF_INET AF_INET6);
@@ -128,6 +129,13 @@ my $pci_map_config = {
 
 my $usb_map_config = {},
 
+my $cpu_hw_capabilities = {
+    # Gathered from an AMD EPYC 9475F running kernel 6.11.11-2-pve
+    'amd-turin-9005' => '{ "amd-sev": { "cbitpos": 51, "reduced-phys-bits": 6, "sev-support": true,'
+	.' "sev-support-es": true, "sev-support-snp": true } }',
+    # TODO: others?
+};
+
 my $current_test; # = {
 #   description => 'Test description', # if available
 #   qemu_version => '2.12',
@@ -143,6 +151,8 @@ my $current_test; # = {
 #   QEMU_VERSION: \d+\.\d+(\.\d+)? (defaults to current version)
 #   HOST_ARCH: x86_64 | aarch64 (default to x86_64, to make tests stable)
 #   EXPECT_ERROR: <error message> For negative tests
+#   EXPECT_WARN(ING): <warning message> that is expected
+#   HW_CAPABILITIES: <cpu-type-or-json-string> to defined the HW caps the test should expose
 # all fields are optional
 sub parse_test($) {
     my ($config_fn) = @_;
@@ -173,6 +183,8 @@ sub parse_test($) {
 	    $current_test->{expect_error} = "$1";
 	} elsif ($line =~ /^EXPECT_WARN(?:ING)?:\s*(.*)\s*$/) {
 	    $current_test->{expect_warning} = "$1";
+	} elsif ($line =~ /^HW_CAPABILITIES:\s*(.*)\s*$/) {
+	    $current_test->{hw_capabilities} = "$1"; # either a CPU from above hash or raw JSON
 	}
     }
 
@@ -282,6 +294,21 @@ cpu-model: alldefault
 
 EOF
 	)
+    },
+    get_hw_capabilities => sub {
+	my $hw_capabilities_raw;
+	if (!defined($current_test->{hw_capabilities})) {
+	    # default to barebone uncapable HW
+	    $hw_capabilities_raw = '{"amd-sev":{"cbitpos":0,"reduced-phys-bits":0,"sev-support":false,'
+		.'"sev-support-es":false,"sev-support-snp":false}}';
+	} elsif (my $cpu_hw_caps = $cpu_hw_capabilities->{lc($current_test->{hw_capabilities})}) {
+	    $hw_capabilities_raw = $cpu_hw_caps;
+	} else {
+	    $hw_capabilities_raw = $current_test->{hw_capabilities};
+	}
+
+	my $hw_capabilities = decode_json($hw_capabilities_raw);
+	return $hw_capabilities;
     },
 );
 
