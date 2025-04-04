@@ -15,6 +15,21 @@ our $PVE_MACHINE_VERSION = {
     '9.2' => 1,
 };
 
+# When bumping the pveX version, add a description why.
+my $PVE_MACHINE_VERSION_DESCRIPTIONS = {
+    '4.1+pve1' => 'Introduction of pveX versioning, no changes.',
+    '4.1+pve2' => 'Increases supported SCSI drive count.',
+    '9.2+pve1' => 'Disables S3/S4 power states. These are often problematic in virtualized guests.',
+};
+
+# returns the description of a given machine version with pve version, e.g. 9.2+pve1 or undef if
+# there is none
+sub get_pve_version_description {
+    my ($version) = @_;
+
+    return $PVE_MACHINE_VERSION_DESCRIPTIONS->{$version};
+}
+
 my $machine_fmt = {
     type => {
 	default_key => 1,
