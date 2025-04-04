@@ -541,7 +541,7 @@ my sub cleanup_fleecing_images {
 }
 
 my sub allocate_fleecing_images {
-    my ($self, $disks, $vmid, $fleecing_storeid, $format) = @_;
+    my ($self, $disks, $vmid, $fleecing_storeid, $format, $all_images) = @_;
 
     die "internal error - no fleecing storage specified\n" if !$fleecing_storeid;
 
@@ -552,7 +552,8 @@ my sub allocate_fleecing_images {
 	my $n = 0; # counter for fleecing image names
 
 	for my $di ($disks->@*) {
-	    next if $di->{virtdev} =~ m/^(?:tpmstate|efidisk)\d$/; # too small to be worth it
+	    # EFI/TPM are usually too small to be worth it, but it's required for external providers
+	    next if !$all_images && $di->{virtdev} =~ m/^(?:tpmstate|efidisk)\d$/;
 	    if ($di->{type} eq 'block' || $di->{type} eq 'file') {
 		my $scfg = PVE::Storage::storage_config($self->{storecfg}, $fleecing_storeid);
 		my $name = "vm-$vmid-fleece-$n";
@@ -624,7 +625,7 @@ my sub attach_fleecing_images {
 }
 
 my sub check_and_prepare_fleecing {
-    my ($self, $vmid, $fleecing_opts, $disks, $is_template, $qemu_support) = @_;
+    my ($self, $vmid, $fleecing_opts, $disks, $is_template, $qemu_support, $all_images) = @_;
 
     # Even if the VM was started specifically for fleecing, it's possible that the VM is resumed and
     # then starts doing IO. For VMs that are not resumed the fleecing images will just stay empty,
@@ -647,7 +648,8 @@ my sub check_and_prepare_fleecing {
 	    $self->{storecfg}, $fleecing_opts->{storage});
 	my $format = scalar(grep { $_ eq 'qcow2' } $valid_formats->@*) ? 'qcow2' : 'raw';
 
-	allocate_fleecing_images($self, $disks, $vmid, $fleecing_opts->{storage}, $format);
+	allocate_fleecing_images(
+	    $self, $disks, $vmid, $fleecing_opts->{storage}, $format, $all_images);
 	attach_fleecing_images($self, $disks, $vmid, $format);
     }
 
@@ -738,7 +740,7 @@ sub archive_pbs {
 	my $is_template = PVE::QemuConfig->is_template($self->{vmlist}->{$vmid});
 
 	$task->{'use-fleecing'} = check_and_prepare_fleecing(
-	    $self, $vmid, $opts->{fleecing}, $task->{disks}, $is_template, $qemu_support);
+	    $self, $vmid, $opts->{fleecing}, $task->{disks}, $is_template, $qemu_support, 0);
 
 	my $fs_frozen = $self->qga_fs_freeze($task, $vmid);
 
@@ -911,7 +913,7 @@ sub archive_vma {
 	$attach_tpmstate_drive->($self, $task, $vmid);
 
 	$task->{'use-fleecing'} = check_and_prepare_fleecing(
-	    $self, $vmid, $opts->{fleecing}, $task->{disks}, $is_template, $qemu_support);
+	    $self, $vmid, $opts->{fleecing}, $task->{disks}, $is_template, $qemu_support, 0);
 
 	my $outfh;
 	if ($opts->{stdout}) {
