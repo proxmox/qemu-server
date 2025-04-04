@@ -163,6 +163,8 @@
   -device 'pc-dimm,id=dimm70,memdev=mem-dimm70,node=0' \
   -object 'memory-backend-ram,id=mem-dimm71,size=2048M' \
   -device 'pc-dimm,id=dimm71,memdev=mem-dimm71,node=1' \
+  -global 'PIIX4_PM.disable_s3=1' \
+  -global 'PIIX4_PM.disable_s4=1' \
   -device 'pci-bridge,id=pci.1,chassis_nr=1,bus=pci.0,addr=0x1e' \
   -device 'pci-bridge,id=pci.2,chassis_nr=2,bus=pci.0,addr=0x1f' \
   -device 'vmgenid,guid=c773c261-d800-4348-9f5d-167fadd53cf8' \
@@ -171,4 +173,4 @@
   -device 'VGA,id=vga,bus=pci.0,addr=0x2' \
   -device 'virtio-balloon-pci,id=balloon0,bus=pci.0,addr=0x3,free-page-reporting=on' \
   -iscsi 'initiator-name=iqn.1993-08.org.debian:01:aabbccddeeff' \
-  -machine 'type=pc+pve0'
+  -machine 'type=pc+pve1'

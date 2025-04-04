@@ -12,6 +12,7 @@ use PVE::JSONSchema qw(get_standard_option parse_property_string print_property_
 # version stays the same)
 our $PVE_MACHINE_VERSION = {
     '4.1' => 2,
+    '9.2' => 1,
 };
 
 my $machine_fmt = {
@@ -33,12 +34,12 @@ my $machine_fmt = {
     },
     'enable-s3' => {
 	type => 'boolean',
-	description => "Enables S3 power state. Defaults to true.",
+	description => "Enables S3 power state. Defaults to false beginning with machine types 9.2+pve1, true before.",
 	optional => 1,
     },
     'enable-s4' => {
 	type => 'boolean',
-	description => "Enables S4 power state. Defaults to true.",
+	description => "Enables S4 power state. Defaults to false beginning with machine types 9.2+pve1, true before.",
 	optional => 1,
     },
 };
@@ -294,14 +295,20 @@ sub check_and_pin_machine_string {
     return print_machine($machine_conf);
 }
 
+# disable s3/s4 by default for 9.2+pve1 machine types
 # returns an arrayref of cmdline options for qemu or undef
 sub get_power_state_flags {
-    my ($machine_conf) = @_;
+    my ($machine_conf, $version_guard) = @_;
 
     my $object = $machine_conf->{type} && ($machine_conf->{type} =~ m/q35/) ? "ICH9-LPC" : "PIIX4_PM";
 
-    my $s3 = $machine_conf->{'enable-s3'} // 1;
-    my $s4 = $machine_conf->{'enable-s4'} // 1;
+    my $default = 1;
+    if ($version_guard->(9, 2, 1)) {
+	$default = 0;
+    }
+
+    my $s3 = $machine_conf->{'enable-s3'} // $default;
+    my $s4 = $machine_conf->{'enable-s4'} // $default;
 
     my $options = [];
 

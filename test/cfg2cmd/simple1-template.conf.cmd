@@ -15,6 +15,8 @@
   -nographic \
   -cpu qemu64 \
   -m 512 \
+  -global 'PIIX4_PM.disable_s3=1' \
+  -global 'PIIX4_PM.disable_s4=1' \
   -device 'pci-bridge,id=pci.1,chassis_nr=1,bus=pci.0,addr=0x1e' \
   -device 'pci-bridge,id=pci.2,chassis_nr=2,bus=pci.0,addr=0x1f' \
   -device 'piix3-usb-uhci,id=uhci,bus=pci.0,addr=0x1.0x2' \
@@ -29,5 +31,5 @@
   -device 'ahci,id=ahci0,multifunction=on,bus=pci.0,addr=0x7' \
   -drive 'file=/var/lib/vz/images/8006/base-8006-disk-0.qcow2,if=none,id=drive-sata0,discard=on,format=qcow2,cache=none,aio=io_uring,detect-zeroes=unmap' \
   -device 'ide-hd,bus=ahci0.0,drive=drive-sata0,id=sata0' \
-  -machine 'accel=tcg,smm=off,type=pc+pve0' \
+  -machine 'accel=tcg,smm=off,type=pc+pve1' \
   -snapshot

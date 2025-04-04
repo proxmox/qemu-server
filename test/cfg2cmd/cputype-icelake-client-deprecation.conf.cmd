@@ -15,6 +15,8 @@
   -vnc 'unix:/var/run/qemu-server/8006.vnc,password=on' \
   -cpu 'Icelake-Server,enforce,+kvm_pv_eoi,+kvm_pv_unhalt,vendor=GenuineIntel' \
   -m 768 \
+  -global 'PIIX4_PM.disable_s3=1' \
+  -global 'PIIX4_PM.disable_s4=1' \
   -device 'pci-bridge,id=pci.1,chassis_nr=1,bus=pci.0,addr=0x1e' \
   -device 'pci-bridge,id=pci.2,chassis_nr=2,bus=pci.0,addr=0x1f' \
   -device 'vmgenid,guid=c773c261-d800-4348-9f5d-167fadd53cf8' \
@@ -28,4 +30,4 @@
   -device 'virtio-scsi-pci,id=scsihw0,bus=pci.0,addr=0x5' \
   -drive 'file=/var/lib/vz/images/8006/base-8006-disk-0.qcow2,if=none,id=drive-scsi0,discard=on,format=qcow2,cache=none,aio=io_uring,detect-zeroes=unmap' \
   -device 'scsi-hd,bus=scsihw0.0,channel=0,scsi-id=0,lun=0,drive=drive-scsi0,id=scsi0,bootindex=100' \
-  -machine 'type=pc+pve0'
+  -machine 'type=pc+pve1'
