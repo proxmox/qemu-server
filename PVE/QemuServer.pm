@@ -7771,8 +7771,14 @@ sub convert_iscsi_path {
     die "cannot convert iscsi path '$path', unknown format\n";
 }
 
+# The possible options are:
+# bwlimit - The bandwidth limit in KiB/s.
+# is-zero-initialized - If the destination image is zero-initialized.
+# snapname - Use this snapshot of the source image.
 sub qemu_img_convert {
-    my ($src_volid, $dst_volid, $size, $snapname, $is_zero_initialized, $bwlimit) = @_;
+    my ($src_volid, $dst_volid, $size, $opts) = @_;
+
+    my ($bwlimit, $snapname) = $opts->@{qw(bwlimit snapname)};
 
     my $storecfg = PVE::Storage::config();
     my ($src_storeid) = PVE::Storage::parse_volume_id($src_volid, 1);
@@ -7830,7 +7836,7 @@ sub qemu_img_convert {
 
     push @$cmd, $src_path;
 
-    if (!$dst_is_iscsi && $is_zero_initialized) {
+    if (!$dst_is_iscsi && $opts->{'is-zero-initialized'}) {
 	push @$cmd, "zeroinit:$dst_path";
     } else {
 	push @$cmd, $dst_path;
@@ -8291,7 +8297,12 @@ sub clone_disk {
 		push $cmd->@*, "bs=$bs", "osize=$size", "if=$src_path", "of=$dst_path";
 		run_command($cmd);
 	    } else {
-		qemu_img_convert($drive->{file}, $newvolid, $size, $snapname, $sparseinit, $bwlimit);
+		my $opts = {
+		    bwlimit => $bwlimit,
+		    'is-zero-initialized' => $sparseinit,
+		    snapname => $snapname,
+		};
+		qemu_img_convert($drive->{file}, $newvolid, $size, $opts);
 	    }
 	}
     }
@@ -8376,7 +8387,7 @@ sub create_efidisk($$$$$$$$) {
     my $volid = PVE::Storage::vdisk_alloc($storecfg, $storeid, $vmid, $fmt, undef, $vars_size);
     PVE::Storage::activate_volumes($storecfg, [$volid]);
 
-    qemu_img_convert($ovmf_vars, $volid, $vars_size_b, undef, 0);
+    qemu_img_convert($ovmf_vars, $volid, $vars_size_b);
     my $size = PVE::Storage::volume_size_info($storecfg, $volid, 3);
 
     return ($volid, $size/1024);

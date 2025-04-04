@@ -55,7 +55,7 @@ my $storage_config = {
 my $tests = [
     {
 	name => 'qcow2raw',
-	parameters => [ "local:$vmid/vm-$vmid-disk-0.qcow2", "local:$vmid/vm-$vmid-disk-0.raw", 1024*10, undef, 0, undef ],
+	parameters => [ "local:$vmid/vm-$vmid-disk-0.qcow2", "local:$vmid/vm-$vmid-disk-0.raw", 1024*10 ],
 	expected => [
 	    "/usr/bin/qemu-img", "convert", "-p", "-n", "-f", "qcow2", "-O", "raw",
 	    "/var/lib/vz/images/$vmid/vm-$vmid-disk-0.qcow2", "/var/lib/vz/images/$vmid/vm-$vmid-disk-0.raw"
@@ -63,7 +63,7 @@ my $tests = [
     },
     {
 	name => "raw2qcow2",
-	parameters => [ "local:$vmid/vm-$vmid-disk-0.raw", "local:$vmid/vm-$vmid-disk-0.qcow2", 1024*10, undef, 0, undef ],
+	parameters => [ "local:$vmid/vm-$vmid-disk-0.raw", "local:$vmid/vm-$vmid-disk-0.qcow2", 1024*10 ],
 	expected => [
 	    "/usr/bin/qemu-img", "convert", "-p", "-n", "-f", "raw", "-O", "qcow2",
 	    "/var/lib/vz/images/$vmid/vm-$vmid-disk-0.raw", "/var/lib/vz/images/$vmid/vm-$vmid-disk-0.qcow2"
@@ -71,7 +71,7 @@ my $tests = [
     },
     {
 	name => "local2rbd",
-	parameters => [ "local:$vmid/vm-$vmid-disk-0.raw", "rbd-store:vm-$vmid-disk-0", 1024*10, undef, 0, undef ],
+	parameters => [ "local:$vmid/vm-$vmid-disk-0.raw", "rbd-store:vm-$vmid-disk-0", 1024*10 ],
 	expected => [
 	    "/usr/bin/qemu-img", "convert", "-p", "-n", "-f", "raw", "-O", "raw",
 	    "/var/lib/vz/images/$vmid/vm-$vmid-disk-0.raw", "rbd:cpool/vm-$vmid-disk-0:mon_host=127.0.0.42;127.0.0.21;[\\:\\:1]:auth_supported=none"
@@ -79,7 +79,7 @@ my $tests = [
     },
     {
 	name => "rbd2local",
-	parameters => [ "rbd-store:vm-$vmid-disk-0", "local:$vmid/vm-$vmid-disk-0.raw", 1024*10, undef, 0, undef ],
+	parameters => [ "rbd-store:vm-$vmid-disk-0", "local:$vmid/vm-$vmid-disk-0.raw", 1024*10 ],
 	expected => [
 	    "/usr/bin/qemu-img", "convert", "-p", "-n", "-f", "raw", "-O", "raw",
 	    "rbd:cpool/vm-$vmid-disk-0:mon_host=127.0.0.42;127.0.0.21;[\\:\\:1]:auth_supported=none", "/var/lib/vz/images/$vmid/vm-$vmid-disk-0.raw"
@@ -87,7 +87,7 @@ my $tests = [
     },
     {
 	name => "local2zos",
-	parameters => [ "local:$vmid/vm-$vmid-disk-0.raw", "zfs-over-iscsi:vm-$vmid-disk-0", 1024*10, undef, 0, undef ],
+	parameters => [ "local:$vmid/vm-$vmid-disk-0.raw", "zfs-over-iscsi:vm-$vmid-disk-0", 1024*10 ],
 	expected => [
 	    "/usr/bin/qemu-img", "convert", "-p", "-n", "-f", "raw", "--target-image-opts",
 	    "/var/lib/vz/images/$vmid/vm-$vmid-disk-0.raw",
@@ -96,7 +96,7 @@ my $tests = [
     },
     {
 	name => "zos2local",
-	parameters => [ "zfs-over-iscsi:vm-$vmid-disk-0", "local:$vmid/vm-$vmid-disk-0.raw", 1024*10, undef, 0, undef ],
+	parameters => [ "zfs-over-iscsi:vm-$vmid-disk-0", "local:$vmid/vm-$vmid-disk-0.raw", 1024*10 ],
 	expected => [
 	    "/usr/bin/qemu-img", "convert", "-p", "-n", "--image-opts", "-O", "raw",
 	    "file.driver=iscsi,file.transport=tcp,file.initiator-name=foobar,file.portal=127.0.0.1,file.target=iqn.2019-10.org.test:foobar,file.lun=1,driver=raw",
@@ -105,7 +105,7 @@ my $tests = [
     },
     {
 	name => "zos2rbd",
-	parameters => [ "zfs-over-iscsi:vm-$vmid-disk-0", "rbd-store:vm-$vmid-disk-0", 1024*10, undef, 0, undef ],
+	parameters => [ "zfs-over-iscsi:vm-$vmid-disk-0", "rbd-store:vm-$vmid-disk-0", 1024*10 ],
 	expected => [
 	    "/usr/bin/qemu-img", "convert", "-p", "-n", "--image-opts", "-O", "raw",
 	    "file.driver=iscsi,file.transport=tcp,file.initiator-name=foobar,file.portal=127.0.0.1,file.target=iqn.2019-10.org.test:foobar,file.lun=1,driver=raw",
@@ -114,7 +114,7 @@ my $tests = [
     },
     {
 	name => "rbd2zos",
-	parameters => [ "rbd-store:vm-$vmid-disk-0", "zfs-over-iscsi:vm-$vmid-disk-0", 1024*10, undef, 0, undef ],
+	parameters => [ "rbd-store:vm-$vmid-disk-0", "zfs-over-iscsi:vm-$vmid-disk-0", 1024*10 ],
 	expected => [
 	    "/usr/bin/qemu-img", "convert", "-p", "-n", "-f", "raw", "--target-image-opts",
 	    "rbd:cpool/vm-$vmid-disk-0:mon_host=127.0.0.42;127.0.0.21;[\\:\\:1]:auth_supported=none",
@@ -123,7 +123,7 @@ my $tests = [
     },
     {
 	name => "local2lvmthin",
-	parameters => [ "local:$vmid/vm-$vmid-disk-0.raw", "local-lvm:vm-$vmid-disk-0", 1024*10, undef, 0, undef ],
+	parameters => [ "local:$vmid/vm-$vmid-disk-0.raw", "local-lvm:vm-$vmid-disk-0", 1024*10 ],
 	expected => [
 	    "/usr/bin/qemu-img", "convert", "-p", "-n", "-f", "raw", "-O", "raw",
 	    "/var/lib/vz/images/$vmid/vm-$vmid-disk-0.raw",
@@ -132,7 +132,7 @@ my $tests = [
     },
     {
 	name => "lvmthin2local",
-	parameters => [ "local-lvm:vm-$vmid-disk-0", "local:$vmid/vm-$vmid-disk-0.raw", 1024*10, undef, 0, undef ],
+	parameters => [ "local-lvm:vm-$vmid-disk-0", "local:$vmid/vm-$vmid-disk-0.raw", 1024*10 ],
 	expected => [
 	    "/usr/bin/qemu-img", "convert", "-p", "-n", "-f", "raw", "-O", "raw",
 	    "/dev/pve/vm-$vmid-disk-0",
@@ -141,7 +141,12 @@ my $tests = [
     },
     {
 	name => "zeroinit",
-	parameters => [ "local-lvm:vm-$vmid-disk-0", "local:$vmid/vm-$vmid-disk-0.raw", 1024*10, undef, 1, undef ],
+	parameters => [
+	    "local-lvm:vm-$vmid-disk-0",
+	    "local:$vmid/vm-$vmid-disk-0.raw",
+	    1024*10,
+	    { 'is-zero-initialized' => 1 },
+	],
 	expected => [
 	    "/usr/bin/qemu-img", "convert", "-p", "-n", "-f", "raw", "-O", "raw",
 	    "/dev/pve/vm-$vmid-disk-0",
@@ -150,12 +155,12 @@ my $tests = [
     },
     {
 	name => "notexistingstorage",
-	parameters => [ "local-lvm:vm-$vmid-disk-0", "not-existing:$vmid/vm-$vmid-disk-0.raw", 1024*10, undef, 1, undef ],
+	parameters => [ "local-lvm:vm-$vmid-disk-0", "not-existing:$vmid/vm-$vmid-disk-0.raw", 1024*10 ],
 	expected => "storage 'not-existing' does not exist\n",
     },
     {
 	name => "vmdkfile",
-	parameters => [ "./test.vmdk", "local:$vmid/vm-$vmid-disk-0.raw", 1024*10, undef, 0, undef ],
+	parameters => [ "./test.vmdk", "local:$vmid/vm-$vmid-disk-0.raw", 1024*10 ],
 	expected => [
 	    "/usr/bin/qemu-img", "convert", "-p", "-n", "-f", "vmdk", "-O", "raw",
 	    "./test.vmdk",
@@ -164,12 +169,12 @@ my $tests = [
     },
     {
 	name => "notexistingfile",
-	parameters => [ "/foo/bar", "local:$vmid/vm-$vmid-disk-0.raw", 1024*10, undef, 0, undef ],
+	parameters => [ "/foo/bar", "local:$vmid/vm-$vmid-disk-0.raw", 1024*10 ],
 	expected => "source '/foo/bar' is not a valid volid nor path for qemu-img convert\n",
     },
     {
 	name => "efidisk",
-	parameters => [ "/usr/share/kvm/OVMF_VARS-pure-efi.fd", "local:$vmid/vm-$vmid-disk-0.raw", 1024*10, undef, 0, undef ],
+	parameters => [ "/usr/share/kvm/OVMF_VARS-pure-efi.fd", "local:$vmid/vm-$vmid-disk-0.raw", 1024*10 ],
 	expected => [
 	    "/usr/bin/qemu-img", "convert", "-p", "-n", "-O", "raw",
 	    "/usr/share/kvm/OVMF_VARS-pure-efi.fd",
@@ -178,7 +183,7 @@ my $tests = [
     },
     {
 	name => "efi2zos",
-	parameters => [ "/usr/share/kvm/OVMF_VARS-pure-efi.fd", "zfs-over-iscsi:vm-$vmid-disk-0", 1024*10, undef, 0, undef ],
+	parameters => [ "/usr/share/kvm/OVMF_VARS-pure-efi.fd", "zfs-over-iscsi:vm-$vmid-disk-0", 1024*10 ],
 	expected => [
 	    "/usr/bin/qemu-img", "convert", "-p", "-n", "--target-image-opts",
 	    "/usr/share/kvm/OVMF_VARS-pure-efi.fd",
@@ -187,7 +192,12 @@ my $tests = [
     },
     {
 	name => "bwlimit",
-	parameters => [ "local-lvm:vm-$vmid-disk-0", "local:$vmid/vm-$vmid-disk-0.raw", 1024*10, undef, 0, 1024 ],
+	parameters => [
+	    "local-lvm:vm-$vmid-disk-0",
+	    "local:$vmid/vm-$vmid-disk-0.raw",
+	    1024*10,
+	    { bwlimit => 1024 },
+	],
 	expected => [
 	    "/usr/bin/qemu-img", "convert", "-p", "-n", "-r", "1024K", "-f", "raw", "-O", "raw",
 	    "/dev/pve/vm-$vmid-disk-0",
@@ -196,7 +206,12 @@ my $tests = [
     },
     {
 	name => "lvmsnapshot",
-	parameters => [ "local-lvm:vm-$vmid-disk-0", "local:$vmid/vm-$vmid-disk-0.raw", 1024*10, 'foo', 0, undef ],
+	parameters => [
+	    "local-lvm:vm-$vmid-disk-0",
+	    "local:$vmid/vm-$vmid-disk-0.raw",
+	    1024*10,
+	    { snapname => 'foo'},
+	],
 	expected => [
 	    "/usr/bin/qemu-img", "convert", "-p", "-n", "-f", "raw", "-O", "raw",
 	    "/dev/pve/snap_vm-$vmid-disk-0_foo",
@@ -205,7 +220,12 @@ my $tests = [
     },
     {
 	name => "qcow2snapshot",
-	parameters => [ "local:$vmid/vm-$vmid-disk-0.qcow2", "local:$vmid/vm-$vmid-disk-0.raw", 1024*10, 'snap', 0, undef ],
+	parameters => [
+	    "local:$vmid/vm-$vmid-disk-0.qcow2",
+	    "local:$vmid/vm-$vmid-disk-0.raw",
+	    1024*10,
+	    { snapname => 'snap' },
+	],
 	expected => [
 	    "/usr/bin/qemu-img", "convert", "-p", "-n", "-l", "snapshot.name=snap", "-f", "qcow2", "-O", "raw",
 	    "/var/lib/vz/images/$vmid/vm-$vmid-disk-0.qcow2",

@@ -70,7 +70,8 @@ sub do_import {
 	    local $SIG{PIPE} = sub { die "interrupted by signal $!\n"; };
 
 	PVE::Storage::activate_volumes($storecfg, [$dst_volid]);
-	PVE::QemuServer::qemu_img_convert($src_path, $dst_volid, $src_size, undef, $zeroinit);
+	PVE::QemuServer::qemu_img_convert(
+	    $src_path, $dst_volid, $src_size, { 'is-zero-initialized' => $zeroinit });
 	PVE::Storage::deactivate_volumes($storecfg, [$dst_volid]);
 	PVE::QemuConfig->lock_config($vmid, $create_drive) if !$params->{'skip-config-update'};
     };
