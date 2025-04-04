@@ -639,7 +639,7 @@ my sub check_and_prepare_fleecing {
 
     my $use_fleecing = $fleecing_opts && $fleecing_opts->{enabled} && !$is_template;
 
-    if ($use_fleecing && !defined($qemu_support->{'backup-fleecing'})) {
+    if ($use_fleecing && !$qemu_support->{'backup-fleecing'}) {
 	$self->log(
 	    'warn',
 	    "running QEMU version does not support backup fleecing - continuing without",
@@ -739,7 +739,7 @@ sub archive_pbs {
 
 	# pve-qemu supports it since 5.2.0-1 (PVE 6.4), so safe to die since PVE 8
 	die "master key configured but running QEMU version does not support master keys\n"
-	    if !defined($qemu_support->{'pbs-masterkey'}) && defined($master_keyfile);
+	    if !$qemu_support->{'pbs-masterkey'} && defined($master_keyfile);
 
 	$attach_tpmstate_drive->($self, $task, $vmid);
 
