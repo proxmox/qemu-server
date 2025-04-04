@@ -316,6 +316,8 @@ my $bitmap_action_to_human = sub {
 	}
     } elsif ($action eq "invalid") {
 	return "existing bitmap was invalid and has been cleared";
+    } elsif ($action eq "missing-recreated") {
+	return "expected bitmap was missing and has been recreated";
     } else {
 	return "unknown";
     }
@@ -1372,6 +1374,7 @@ my sub backup_access_to_volume_info {
 	'new' => 'new',
 	'used' => 'reuse',
 	'invalid' => 'new',
+	'missing-recreated' => 'new',
     };
 
     my $volumes = {};
