@@ -240,11 +240,12 @@ sub get_vm_machine {
 		}
 	    }
 	    $machine = windows_get_pinned_machine_version($machine, $base_version, $kvmversion);
+	} else {
+	    $arch //= 'x86_64';
+	    $machine ||= default_machine_for_arch($arch);
+	    my $pvever = get_pve_version($kvmversion);
+	    $machine .= "+pve$pvever";
 	}
-	$arch //= 'x86_64';
-	$machine ||= default_machine_for_arch($arch);
-	my $pvever = get_pve_version($kvmversion);
-	$machine .= "+pve$pvever";
     }
 
     if ($machine !~ m/\+pve\d+?(?:\.pxe)?$/) {
