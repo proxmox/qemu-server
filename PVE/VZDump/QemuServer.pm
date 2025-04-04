@@ -558,7 +558,15 @@ my sub allocate_fleecing_images {
 		my $name = "vm-$vmid-fleece-$n";
 		$name .= ".$format" if $scfg->{path};
 
-		my $size = PVE::Tools::convert_size($di->{'block-node-size'}, 'b' => 'kb');
+		my $size;
+		if ($format ne 'raw') {
+		    # Since non-raw images cannot be attached with an explicit 'size' parameter to
+		    # QEMU later, pass the exact size to the storage layer. This makes qcow2
+		    # fleecing images work for non-1KiB-aligned source images.
+		    $size = $di->{'block-node-size'}/1024;
+		} else {
+		    $size = PVE::Tools::convert_size($di->{'block-node-size'}, 'b' => 'kb');
+		}
 
 		$di->{'fleece-volid'} = PVE::Storage::vdisk_alloc(
 		    $self->{storecfg}, $fleecing_storeid, $vmid, $format, $name, $size);
