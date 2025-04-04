@@ -3403,7 +3403,7 @@ sub config_to_command {
 	$conf = $newconf;
     }
 
-    my ($globalFlags, $machineFlags, $rtcFlags) = ([], [], []);
+    my ($machineFlags, $rtcFlags) = ([], []);
     my $devices = [];
     my $bridges = {};
     my $ostype = $conf->{ostype};
@@ -3688,7 +3688,7 @@ sub config_to_command {
     }
 
     if ($winversion >= 6) {
-	push @$globalFlags, 'kvm-pit.lost_tick_policy=discard';
+	push $cmd->@*, '-global', 'kvm-pit.lost_tick_policy=discard';
 	push @$machineFlags, 'hpet=off';
     }
 
@@ -3992,7 +3992,6 @@ sub config_to_command {
     push @$cmd, @$devices;
     push @$cmd, '-rtc', join(',', @$rtcFlags) if scalar(@$rtcFlags);
     push @$cmd, '-machine', join(',', @$machineFlags) if scalar(@$machineFlags);
-    push @$cmd, '-global', join(',', @$globalFlags) if scalar(@$globalFlags);
 
     if (my $vmstate = $conf->{vmstate}) {
 	my $statepath = PVE::Storage::path($storecfg, $vmstate);

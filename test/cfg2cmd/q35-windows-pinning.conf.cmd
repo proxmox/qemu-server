@@ -12,6 +12,7 @@
   -nodefaults \
   -boot 'menu=on,strict=on,reboot-timeout=1000,splash=/usr/share/qemu-server/bootsplash.jpg' \
   -vnc 'unix:/var/run/qemu-server/8006.vnc,password=on' \
+  -global 'kvm-pit.lost_tick_policy=discard' \
   -cpu 'kvm64,enforce,hv_ipi,hv_relaxed,hv_reset,hv_runtime,hv_spinlocks=0x1fff,hv_stimer,hv_synic,hv_time,hv_vapic,hv_vpindex,+kvm_pv_eoi,+kvm_pv_unhalt,+lahf_lm,+sep' \
   -m 512 \
   -readconfig /usr/share/qemu-server/pve-q35-4.0.cfg \
@@ -20,5 +21,4 @@
   -device 'virtio-balloon-pci,id=balloon0,bus=pci.0,addr=0x3,free-page-reporting=on' \
   -iscsi 'initiator-name=iqn.1993-08.org.debian:01:aabbccddeeff' \
   -rtc 'driftfix=slew,base=localtime' \
-  -machine 'hpet=off,type=pc-q35-9.2+pve0' \
-  -global 'kvm-pit.lost_tick_policy=discard'
+  -machine 'hpet=off,type=pc-q35-9.2+pve0'
