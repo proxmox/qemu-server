@@ -7775,6 +7775,8 @@ sub convert_iscsi_path {
 # bwlimit - The bandwidth limit in KiB/s.
 # is-zero-initialized - If the destination image is zero-initialized.
 # snapname - Use this snapshot of the source image.
+# source-path-format - Indicate the format of the source when the source is a path. For PVE-managed
+# volumes, the format from the storage layer is always used.
 sub qemu_img_convert {
     my ($src_volid, $dst_volid, $size, $opts) = @_;
 
@@ -7800,7 +7802,9 @@ sub qemu_img_convert {
 	$cachemode = 'none' if $src_scfg->{type} eq 'zfspool';
     } elsif (-f $src_volid || -b $src_volid) {
 	$src_path = $src_volid;
-	if ($src_path =~ m/\.($PVE::QemuServer::Drive::QEMU_FORMAT_RE)$/) {
+	if ($opts->{'source-path-format'}) {
+	    $src_format = $opts->{'source-path-format'};
+	} elsif ($src_path =~ m/\.($PVE::QemuServer::Drive::QEMU_FORMAT_RE)$/) {
 	    $src_format = $1;
 	}
     }
