@@ -31,6 +31,16 @@ my $machine_fmt = {
 	enum => ['intel', 'virtio'],
 	optional => 1,
     },
+    'enable-s3' => {
+	type => 'boolean',
+	description => "Enables S3 power state. Defaults to true.",
+	optional => 1,
+    },
+    'enable-s4' => {
+	type => 'boolean',
+	description => "Enables S4 power state. Defaults to true.",
+	optional => 1,
+    },
 };
 
 PVE::JSONSchema::register_format('pve-qemu-machine-fmt', $machine_fmt);
@@ -282,6 +292,32 @@ sub check_and_pin_machine_string {
 
     assert_valid_machine_property($machine_conf);
     return print_machine($machine_conf);
+}
+
+# returns an arrayref of cmdline options for qemu or undef
+sub get_power_state_flags {
+    my ($machine_conf) = @_;
+
+    my $object = $machine_conf->{type} && ($machine_conf->{type} =~ m/q35/) ? "ICH9-LPC" : "PIIX4_PM";
+
+    my $s3 = $machine_conf->{'enable-s3'} // 1;
+    my $s4 = $machine_conf->{'enable-s4'} // 1;
+
+    my $options = [];
+
+    # they're enabled by default in QEMU, so only add the flags to disable them
+    if (!$s3) {
+	push $options->@*, '-global', "${object}.disable_s3=1";
+    }
+    if (!$s4) {
+	push $options->@*, '-global', "${object}.disable_s4=1";
+    }
+
+    if (scalar($options->@*)) {
+	return $options;
+    }
+
+    return;
 }
 
 1;
