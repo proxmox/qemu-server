@@ -962,7 +962,7 @@ __PACKAGE__->register_method({
 	return $res;
     }});
 
-my $parse_restore_archive = sub {
+my $classify_restore_archive = sub {
     my ($storecfg, $archive) = @_;
 
     my ($archive_storeid, $archive_volname) = PVE::Storage::parse_volume_id($archive, 1);
@@ -974,6 +974,22 @@ my $parse_restore_archive = sub {
 	$res->{volid} = $archive;
 	if ($scfg->{type} eq 'pbs') {
 	    $res->{type} = 'pbs';
+	    return $res;
+	}
+	if (PVE::Storage::storage_has_feature($storecfg, $archive_storeid, 'backup-provider')) {
+	    my $log_function = sub {
+		my ($log_level, $message) = @_;
+		my $prefix = $log_level eq 'err' ? 'ERROR' : uc($log_level);
+		print "$prefix: $message\n";
+	    };
+	    my $backup_provider = PVE::Storage::new_backup_provider(
+		$storecfg,
+		$archive_storeid,
+		$log_function,
+	    );
+
+	    $res->{type} = 'external';
+	    $res->{'backup-provider'} = $backup_provider;
 	    return $res;
 	}
     }
@@ -1136,7 +1152,7 @@ __PACKAGE__->register_method({
 		    'backup',
 		);
 
-		$archive = $parse_restore_archive->($storecfg, $archive);
+		$archive = $classify_restore_archive->($storecfg, $archive);
 	    }
 	}
 
@@ -1197,7 +1213,15 @@ __PACKAGE__->register_method({
 			PVE::QemuServer::check_restore_permissions($rpcenv, $authuser, $merged);
 		    }
 		}
-		if ($archive->{type} eq 'file' || $archive->{type} eq 'pipe') {
+		if (my $backup_provider = $archive->{'backup-provider'}) {
+		    PVE::QemuServer::restore_external_archive(
+			$backup_provider,
+			$archive->{volid},
+			$vmid,
+			$authuser,
+			$restore_options,
+		    );
+		} elsif ($archive->{type} eq 'file' || $archive->{type} eq 'pipe') {
 		    die "live-restore is only compatible with backup images from a Proxmox Backup Server\n"
 			if $live_restore;
 		    PVE::QemuServer::restore_file_archive($archive->{path} // '-', $vmid, $authuser, $restore_options);

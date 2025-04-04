@@ -7159,6 +7159,155 @@ sub restore_proxmox_backup_archive {
     }
 }
 
+sub restore_external_archive {
+    my ($backup_provider, $archive, $vmid, $user, $options) = @_;
+
+    die "live restore from backup provider is not implemented\n" if $options->{live};
+
+    my $storecfg = PVE::Storage::config();
+
+    my ($storeid, $volname) = PVE::Storage::parse_volume_id($archive);
+    my $scfg = PVE::Storage::storage_config($storecfg, $storeid);
+
+    my $tmpdir = "/run/qemu-server/vzdumptmp$$";
+    rmtree($tmpdir);
+    mkpath($tmpdir) or die "unable to create $tmpdir\n";
+
+    my $conffile = PVE::QemuConfig->config_file($vmid);
+    # disable interrupts (always do cleanups)
+    local $SIG{INT} =
+	local $SIG{TERM} =
+	local $SIG{QUIT} =
+	local $SIG{HUP} = sub { print STDERR "got interrupt - ignored\n"; };
+
+    # Note: $oldconf is undef if VM does not exists
+    my $cfs_path = PVE::QemuConfig->cfs_config_path($vmid);
+    my $oldconf = PVE::Cluster::cfs_read_file($cfs_path);
+    my $new_conf_raw = '';
+
+    my $rpcenv = PVE::RPCEnvironment::get();
+    my $devinfo = {}; # info about drives included in backup
+    my $virtdev_hash = {}; # info about allocated drives
+
+    eval {
+	# enable interrupts
+	local $SIG{INT} =
+	    local $SIG{TERM} =
+	    local $SIG{QUIT} =
+	    local $SIG{HUP} =
+	    local $SIG{PIPE} = sub { die "interrupted by signal\n"; };
+
+	my $cfgfn = "$tmpdir/qemu-server.conf";
+	my $firewall_config_fn = "$tmpdir/fw.conf";
+
+	my $cmd = "restore";
+
+	my ($mechanism, $vmtype) =
+	    $backup_provider->restore_get_mechanism($volname);
+	die "mechanism '$mechanism' requested by backup provider is not supported for VMs\n"
+	    if $mechanism ne 'qemu-img';
+	die "cannot restore non-VM guest of type '$vmtype'\n" if $vmtype ne 'qemu';
+
+	$devinfo = $backup_provider->restore_vm_init($volname);
+
+	my $data = $backup_provider->archive_get_guest_config($volname)
+	    or die "backup provider failed to extract guest configuration\n";
+	PVE::Tools::file_set_contents($cfgfn, $data);
+
+	if ($data = $backup_provider->archive_get_firewall_config($volname)) {
+	    PVE::Tools::file_set_contents($firewall_config_fn, $data);
+	    my $pve_firewall_dir = '/etc/pve/firewall';
+	    mkdir $pve_firewall_dir; # make sure the dir exists
+	    PVE::Tools::file_copy($firewall_config_fn, "${pve_firewall_dir}/$vmid.fw");
+	}
+
+	my $fh = IO::File->new($cfgfn, "r") or die "unable to read qemu-server.conf - $!\n";
+
+	$virtdev_hash = $parse_backup_hints->($rpcenv, $user, $storecfg, $fh, $devinfo, $options);
+
+	# create empty/temp config
+	PVE::Tools::file_set_contents($conffile, "memory: 128\nlock: create");
+
+	$restore_cleanup_oldconf->($storecfg, $vmid, $oldconf, $virtdev_hash) if $oldconf;
+
+	# allocate volumes
+	my $map = $restore_allocate_devices->($storecfg, $virtdev_hash, $vmid);
+
+	for my $virtdev (sort keys $virtdev_hash->%*) {
+	    my $d = $virtdev_hash->{$virtdev};
+	    next if $d->{is_cloudinit}; # no need to restore cloudinit
+
+	    my $sparseinit = PVE::Storage::volume_has_feature($storecfg, 'sparseinit', $d->{volid});
+	    my $source_format = 'raw';
+
+	    my $info = $backup_provider->restore_vm_volume_init($volname, $d->{devname}, {});
+	    my $source_path = $info->{'qemu-img-path'}
+		or die "did not get source image path from backup provider\n";
+
+	    print "importing drive '$d->{devname}' from '$source_path'\n";
+
+	    # safety check for untrusted source image
+	    PVE::Storage::file_size_info($source_path, undef, $source_format, 1);
+
+	    eval {
+		my $convert_opts = {
+		    bwlimit => $options->{bwlimit},
+		    'is-zero-initialized' => $sparseinit,
+		    'source-path-format' => $source_format,
+		};
+		qemu_img_convert($source_path, $d->{volid}, $d->{size}, $convert_opts);
+	    };
+	    my $err = $@;
+	    eval { $backup_provider->restore_vm_volume_cleanup($volname, $d->{devname}, {}); };
+	    if (my $cleanup_err = $@) {
+		die $cleanup_err if !$err;
+		warn $cleanup_err;
+	    }
+	    die $err if $err
+	}
+
+	$fh->seek(0, 0) || die "seek failed - $!\n";
+
+	my $cookie = { netcount => 0 };
+	while (defined(my $line = <$fh>)) {
+	    $new_conf_raw .= restore_update_config_line(
+		$cookie,
+		$map,
+		$line,
+		$options->{unique},
+	    );
+	}
+
+	$fh->close();
+    };
+    my $err = $@;
+
+    eval { $backup_provider->restore_vm_cleanup($volname); };
+    warn "backup provider cleanup after restore failed - $@" if $@;
+
+    if ($err) {
+	$restore_deactivate_volumes->($storecfg, $virtdev_hash);
+    }
+
+    rmtree($tmpdir);
+
+    if ($err) {
+	$restore_destroy_volumes->($storecfg, $virtdev_hash);
+	die $err;
+    }
+
+    my $new_conf = restore_merge_config($conffile, $new_conf_raw, $options->{override_conf});
+    check_restore_permissions($rpcenv, $user, $new_conf);
+    PVE::QemuConfig->write_config($vmid, $new_conf);
+
+    eval { rescan($vmid, 1); };
+    warn $@ if $@;
+
+    PVE::AccessControl::add_vm_to_pool($vmid, $options->{pool}) if $options->{pool};
+
+    return;
+}
+
 sub pbs_live_restore {
     my ($vmid, $conf, $storecfg, $restored_disks, $opts) = @_;
 
