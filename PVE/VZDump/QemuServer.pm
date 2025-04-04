@@ -317,6 +317,8 @@ my $bitmap_action_to_human = sub {
     } elsif ($action eq "invalid") {
 	return "existing bitmap was invalid and has been cleared";
     } elsif ($action eq "missing-recreated") {
+	# Lie about the TPM state, because it is newly attached each time.
+	return "created new" if $info->{drive} eq 'drive-tpmstate0-backup';
 	return "expected bitmap was missing and has been recreated";
     } else {
 	return "unknown";
