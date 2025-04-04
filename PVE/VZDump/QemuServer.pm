@@ -558,7 +558,7 @@ my sub allocate_fleecing_images {
 		my $name = "vm-$vmid-fleece-$n";
 		$name .= ".$format" if $scfg->{path};
 
-		my $size = PVE::Tools::convert_size($di->{size}, 'b' => 'kb');
+		my $size = PVE::Tools::convert_size($di->{'block-node-size'}, 'b' => 'kb');
 
 		$di->{'fleece-volid'} = PVE::Storage::vdisk_alloc(
 		    $self->{storecfg}, $fleecing_storeid, $vmid, $format, $name, $size);
@@ -607,7 +607,7 @@ my sub attach_fleecing_images {
 	    my $drive = "file=$path,if=none,id=$devid,format=$format,discard=unmap";
 	    # Specify size explicitly, to make it work if storage backend rounded up size for
 	    # fleecing image when allocating.
-	    $drive .= ",size=$di->{size}" if $format eq 'raw';
+	    $drive .= ",size=$di->{'block-node-size'}" if $format eq 'raw';
 	    $drive =~ s/\\/\\\\/g;
 	    my $ret = PVE::QemuServer::Monitor::hmp_cmd($vmid, "drive_add auto \"$drive\"", 60);
 	    die "attaching fleecing image $volid failed - $ret\n" if $ret !~ m/OK/s;
@@ -633,6 +633,8 @@ my sub check_and_prepare_fleecing {
     }
 
     if ($use_fleecing) {
+	$self->query_block_node_sizes($vmid, $disks);
+
 	my ($default_format, $valid_formats) = PVE::Storage::storage_default_format(
 	    $self->{storecfg}, $fleecing_opts->{storage});
 	my $format = scalar(grep { $_ eq 'qcow2' } $valid_formats->@*) ? 'qcow2' : 'raw';
@@ -1036,6 +1038,31 @@ sub qga_fs_thaw {
     $self->loginfo("issuing guest-agent 'fs-thaw' command");
     eval { mon_cmd($vmid, "guest-fsfreeze-thaw") };
     $self->logerr($@) if $@;
+}
+
+# The size for fleecing images needs to be exactly the same size as QEMU sees. E.g. EFI disk can bex
+# attached with a smaller size then the underyling image on the storage.
+sub query_block_node_sizes {
+    my ($self, $vmid, $disks) = @_;
+
+    my $block_info = mon_cmd($vmid, "query-block");
+    $block_info = { map { $_->{device} => $_ } $block_info->@* };
+
+    for my $diskinfo ($disks->@*) {
+	my $drive_key = $diskinfo->{virtdev};
+	$drive_key .= "-backup" if $drive_key eq 'tpmstate0';
+	my $block_node_size =
+	    eval { $block_info->{"drive-$drive_key"}->{inserted}->{image}->{'virtual-size'}; };
+	if (!$block_node_size) {
+	    $self->loginfo(
+		"could not determine block node size of drive '$drive_key' - using fallback");
+	    $block_node_size = $diskinfo->{size}
+		or die "could not determine size of drive '$drive_key'\n";
+	}
+	$diskinfo->{'block-node-size'} = $block_node_size;
+    }
+
+    return;
 }
 
 # we need a running QEMU/KVM process for backup, starts a paused (prelaunch)
