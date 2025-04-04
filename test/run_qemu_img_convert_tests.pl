@@ -194,6 +194,24 @@ my $tests = [
 	    "/var/lib/vz/images/$vmid/vm-$vmid-disk-0.raw",
 	]
     },
+    {
+	name => "lvmsnapshot",
+	parameters => [ "local-lvm:vm-$vmid-disk-0", "local:$vmid/vm-$vmid-disk-0.raw", 1024*10, 'foo', 0, undef ],
+	expected => [
+	    "/usr/bin/qemu-img", "convert", "-p", "-n", "-f", "raw", "-O", "raw",
+	    "/dev/pve/snap_vm-$vmid-disk-0_foo",
+	    "/var/lib/vz/images/$vmid/vm-$vmid-disk-0.raw",
+	]
+    },
+    {
+	name => "qcow2snapshot",
+	parameters => [ "local:$vmid/vm-$vmid-disk-0.qcow2", "local:$vmid/vm-$vmid-disk-0.raw", 1024*10, 'snap', 0, undef ],
+	expected => [
+	    "/usr/bin/qemu-img", "convert", "-p", "-n", "-l", "snapshot.name=snap", "-f", "qcow2", "-O", "raw",
+	    "/var/lib/vz/images/$vmid/vm-$vmid-disk-0.qcow2",
+	    "/var/lib/vz/images/$vmid/vm-$vmid-disk-0.raw",
+	]
+    },
 ];
 
 my $command;
