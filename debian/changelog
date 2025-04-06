@@ -1,3 +1,31 @@
+qemu-server (8.3.10) bookworm; urgency=medium
+
+  * drive: remove ancient and for a long time unsupported 'cow' from formats.
+
+  * confidential virtualization: add AMD SEV-SNP support.
+
+  * allow non-root users to add a virtion RNG (random number generator) device
+    using /dev/u?random or /dev/hwrng as source.
+
+  * config: add S3 and S4 power state properties to machine option.
+
+  * disable S3 and S4 power states for new machine versions, these states are
+    almost never useful for virtual machines and can even cause (hibernation
+    or suspend related) problems.
+
+  * api: qemu machine capabilities: return custom pveX versions and include
+    core changes for them in a new property.
+
+  * backup: allow adding fleecing images also for EFI and TPM
+
+  * backup: keep track of block-node size for fleecing to avoid problems with,
+    e.g., efidisks on some storage types.
+
+  * backup: implement backup and restore operations for external provider
+    storage plugins.
+
+ -- Proxmox Support Team <support@proxmox.com>  Sun, 06 Apr 2025 21:39:19 +0200
+
 qemu-server (8.3.9) bookworm; urgency=medium
 
   * fix #5284: api: move-disk, clone: assert content type support for target
