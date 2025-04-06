@@ -59,27 +59,26 @@ __PACKAGE__->register_method({
 	    my $raw = file_get_contents('/usr/share/kvm/machine-versions-x86_64.json');
 	    my $machines = from_json($raw, { utf8 => 1 });
 
-	    my $to_add = [];
-
+	    my $pve_machines = [];
 	    for my $machine ($machines->@*) {
-		my $base_version = $machine->{version};
-		my $pvever = PVE::QemuServer::Machine::get_pve_version($base_version);
-		for (my $i = 1; $i <= $pvever; $i++) {
-		    my $version = $base_version . "+pve$i";
+		my $pve_machine = PVE::QemuServer::Machine::get_machine_pve_revisions($machine->{version}) or next;
+
+		for my $pve_revision (sort keys $pve_machine->{revisions}->%*) {
 		    my $entry = {
-			id => $machine->{id} . "+pve$i",
+			id => $machine->{id} . $pve_revision,
 			type => $machine->{type},
-			version => $version,
+			version => $machine->{version} . $pve_revision,
 		    };
 
-		    my $desc = PVE::QemuServer::Machine::get_pve_version_description($version);
-		    $entry->{changes} = $desc if defined($desc);
+		    if (defined(my $changes = $pve_machine->{revisions}->{$pve_revision})) {
+			$entry->{changes} = $changes;
+		    }
 
-		    push $to_add->@*, $entry;
+		    push $pve_machines->@*, $entry;
 		}
 	    }
 
-	    return [ sort { $b->{id} cmp $a->{id} } ($machines->@*, $to_add->@*) ];  # merge & sort
+	    return [ sort { $b->{id} cmp $a->{id} } ($machines->@*, $pve_machines->@*) ];  # merge & sort
 	};
 	die "could not load supported machine versions - $@\n" if $@;
 	return $supported_machine_list;

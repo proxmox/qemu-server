@@ -8,27 +8,36 @@ use PVE::QemuServer::MetaInfo;
 use PVE::QemuServer::Monitor;
 use PVE::JSONSchema qw(get_standard_option parse_property_string print_property_string);
 
-# Bump this for VM HW layout changes during a release (where the QEMU machine
-# version stays the same)
+# The PVE machine versions allow rolling out (incompatibel) changes to the hardware layout and/or
+# the QEMU command of a VM without requiring a newer QEMU upstream machine version.
+#
+# To use this find the newest available QEMU machine version, add and entry in this hash if it does
+# not already exists and then bump the higherst version, or introduce a new one starting at 1, as
+# the upstream version is counted as having a PVE revision of 0.
+# Additionally you must describe in short what the basic changes done with such a new PVE machine
+# revision in the respective subhash, use the full version including the pve one as key there.
+#
+# NOTE: Do not overuse this. one or two changes per upstream machine can be fine, if needed. But
+# most of the time it's better to batch more together and if there is no time pressure then wait a
+# few weeks/months until the next QEMU machine revision is ready. As it will get confusing otherwise
+# and we lazily use some simple ascii sort when processing these, so more than 10 per entry require
+# changes but should be avoided in the first place.
+# TODO: add basic test to ensure the keys are correct and there's a change entry for each version.
 our $PVE_MACHINE_VERSION = {
-    '4.1' => 2,
-    '9.2' => 1,
+    '4.1' => {
+	highest => 2,
+	revisions => {
+	    '+pve1' => 'Introduction of pveX versioning, no changes.',
+	    '+pve2' => 'Increases the number of SCSI drives supported.',
+	},
+    },
+    '9.2' => {
+	highest => 1,
+	revisions => {
+	    '+pve1' => 'Disables S3/S4 power states by default.',
+	},
+    },
 };
-
-# When bumping the pveX version, add a description why.
-my $PVE_MACHINE_VERSION_DESCRIPTIONS = {
-    '4.1+pve1' => 'Introduction of pveX versioning, no changes.',
-    '4.1+pve2' => 'Increases supported SCSI drive count.',
-    '9.2+pve1' => 'Disables S3/S4 power states. These are often problematic in virtualized guests.',
-};
-
-# returns the description of a given machine version with pve version, e.g. 9.2+pve1 or undef if
-# there is none
-sub get_pve_version_description {
-    my ($version) = @_;
-
-    return $PVE_MACHINE_VERSION_DESCRIPTIONS->{$version};
-}
 
 my $machine_fmt = {
     type => {
@@ -169,14 +178,22 @@ sub is_machine_version_at_least {
 	extract_version($machine_type), $major, $minor, $pve);
 }
 
+sub get_machine_pve_revisions {
+    my ($machine_version_str) = @_;
+
+    if ($machine_version_str =~ m/^(\d+\.\d+)/) {
+	return $PVE_MACHINE_VERSION->{$1};
+    }
+
+    die "internal error: cannot get pve version for invalid string '$machine_version_str'";
+}
+
 sub get_pve_version {
     my ($verstr) = @_;
 
-    if ($verstr =~ m/^(\d+\.\d+)/) {
-	return $PVE_MACHINE_VERSION->{$1} // 0;
-    }
+    my $pve_machine = get_machine_pve_revisions($verstr);
 
-    die "internal error: cannot get pve version for invalid string '$verstr'";
+    return $pve_machine->{highest} // 0;
 }
 
 sub can_run_pve_machine_version {
