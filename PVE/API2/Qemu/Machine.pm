@@ -79,9 +79,7 @@ __PACKAGE__->register_method({
 		}
 	    }
 
-	    push $machines->@*, $to_add->@*;
-
-	    return [sort { $b->{id} cmp $a->{id} } $machines->@*];
+	    return [ sort { $b->{id} cmp $a->{id} } ($machines->@*, $to_add->@*) ];  # merge & sort
 	};
 	die "could not load supported machine versions - $@\n" if $@;
 	return $supported_machine_list;
