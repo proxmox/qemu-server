@@ -46,11 +46,10 @@ __PACKAGE__->register_method({
 		    type => 'string',
 		    description => "The machine version.",
 		},
-		description => {
+		changes => {
 		    type => 'string',
 		    optional => 1,
-		    description => 'Notable changes that version introduces, only used for +pveX"
-			." versions.',
+		    description => 'Notable changes of a version, currently only set for +pveX versions.',
 		},
 	    },
 	},
@@ -74,7 +73,7 @@ __PACKAGE__->register_method({
 		    };
 
 		    my $desc = PVE::QemuServer::Machine::get_pve_version_description($version);
-		    $entry->{description} = $desc if defined($desc);
+		    $entry->{changes} = $desc if defined($desc);
 
 		    push $to_add->@*, $entry;
 		}
