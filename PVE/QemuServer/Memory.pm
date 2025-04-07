@@ -336,7 +336,7 @@ sub qemu_memdevices_list {
 }
 
 sub config {
-    my ($conf, $vmid, $sockets, $cores, $hotplug, $cmd) = @_;
+    my ($conf, $vmid, $sockets, $cores, $hotplug, $virtiofs_enabled, $cmd, $machine_flags) = @_;
 
     my $memory = get_current_memory($conf->{memory});
     my $static_memory = 0;
@@ -367,6 +367,9 @@ sub config {
 
     die "numa needs to be enabled to use hugepages" if $conf->{hugepages} && !$conf->{numa};
 
+    die "Memory hotplug does not work in combination with virtio-fs.\n"
+	if $hotplug && $virtiofs_enabled;
+
     if ($conf->{numa}) {
 
 	my $numa_totalmemory = undef;
@@ -379,7 +382,8 @@ sub config {
 	    my $numa_memory = $numa->{memory};
 	    $numa_totalmemory += $numa_memory;
 
-	    my $mem_object = print_mem_object($conf, "ram-node$i", $numa_memory);
+	    my $memdev = $virtiofs_enabled ? "virtiofs-mem$i" : "ram-node$i";
+	    my $mem_object = print_mem_object($conf, $memdev, $numa_memory);
 
 	    # cpus
 	    my $cpulists = $numa->{cpus};
@@ -404,7 +408,7 @@ sub config {
 	    }
 
 	    push @$cmd, '-object', $mem_object;
-	    push @$cmd, '-numa', "node,nodeid=$i,cpus=$cpus,memdev=ram-node$i";
+	    push @$cmd, '-numa', "node,nodeid=$i,cpus=$cpus,memdev=$memdev";
 	}
 
 	die "total memory for NUMA nodes must be equal to vm static memory\n"
@@ -418,15 +422,20 @@ sub config {
 		die "host NUMA node$i doesn't exist\n"
 		    if !host_numanode_exists($i) && $conf->{hugepages};
 
-		my $mem_object = print_mem_object($conf, "ram-node$i", $numa_memory);
-		push @$cmd, '-object', $mem_object;
-
 		my $cpus = ($cores * $i);
 		$cpus .= "-" . ($cpus + $cores - 1) if $cores > 1;
 
-		push @$cmd, '-numa', "node,nodeid=$i,cpus=$cpus,memdev=ram-node$i";
+		my $memdev = $virtiofs_enabled ? "virtiofs-mem$i" : "ram-node$i";
+		my $mem_object = print_mem_object($conf, $memdev, $numa_memory);
+		push @$cmd, '-object', $mem_object;
+		push @$cmd, '-numa', "node,nodeid=$i,cpus=$cpus,memdev=$memdev";
 	    }
 	}
+    } elsif ($virtiofs_enabled) {
+	# kvm: '-machine memory-backend' and '-numa memdev' properties are mutually exclusive
+	push @$cmd, '-object', 'memory-backend-memfd,id=virtiofs-mem'
+	    .",size=$conf->{memory}M,share=on";
+	push @$machine_flags, 'memory-backend=virtiofs-mem';
     }
 
     if ($hotplug) {
@@ -453,6 +462,8 @@ sub print_mem_object {
 	my $path = hugepages_mount_path($hugepages_size);
 
 	return "memory-backend-file,id=$id,size=${size}M,mem-path=$path,share=on,prealloc=yes";
+    } elsif ($id =~ m/^virtiofs-mem/) {
+	return "memory-backend-memfd,id=$id,size=${size}M,share=on";
     } else {
 	return "memory-backend-ram,id=$id,size=${size}M";
     }

@@ -12,7 +12,8 @@ SOURCES=PCI.pm		\
 	CPUConfig.pm	\
 	CGroup.pm	\
 	Drive.pm	\
-	QMPHelpers.pm
+	QMPHelpers.pm	\
+	Virtiofs.pm
 
 .PHONY: install
 install: ${SOURCES}

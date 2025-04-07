@@ -33,6 +33,7 @@ use PVE::Exception qw(raise raise_param_exc);
 use PVE::Format qw(render_duration render_bytes);
 use PVE::GuestHelpers qw(safe_string_ne safe_num_ne safe_boolean_ne);
 use PVE::HA::Config;
+use PVE::Mapping::Dir;
 use PVE::Mapping::PCI;
 use PVE::Mapping::USB;
 use PVE::INotify;
@@ -63,6 +64,7 @@ use PVE::QemuServer::PCI qw(print_pci_addr print_pcie_addr print_pcie_root_port 
 use PVE::QemuServer::QMPHelpers qw(qemu_deviceadd qemu_devicedel qemu_objectadd qemu_objectdel);
 use PVE::QemuServer::RNG qw(parse_rng print_rng_device_commandline print_rng_object_commandline);
 use PVE::QemuServer::USB;
+use PVE::QemuServer::Virtiofs qw(max_virtiofs start_all_virtiofsd);
 
 my $have_sdn;
 eval {
@@ -922,6 +924,10 @@ my $netdesc = {
 };
 
 PVE::JSONSchema::register_standard_option("pve-qm-net", $netdesc);
+
+for (my $i = 0; $i < max_virtiofs(); $i++)  {
+    $confdesc->{"virtiofs$i"} = get_standard_option('pve-qm-virtiofs');
+}
 
 my $ipconfig_fmt = {
     ip => {
@@ -3757,8 +3763,18 @@ sub config_to_command {
 	push @$cmd, get_cpu_options($conf, $arch, $kvm, $kvm_off, $machine_version, $winversion, $gpu_passthrough);
     }
 
+    my $virtiofs_enabled = PVE::QemuServer::Virtiofs::virtiofs_enabled($conf);
+
     PVE::QemuServer::Memory::config(
-	$conf, $vmid, $sockets, $cores, $hotplug_features->{memory}, $cmd);
+	$conf,
+	$vmid,
+	$sockets,
+	$cores,
+	$hotplug_features->{memory},
+	$virtiofs_enabled,
+	$cmd,
+	$machineFlags,
+    );
 
     push @$cmd, '-S' if $conf->{freeze};
 
@@ -4042,6 +4058,8 @@ sub config_to_command {
 	push @$devices, '-object', get_amd_sev_object($conf->{'amd-sev'}, $conf->{bios});
 	push @$machineFlags, 'confidential-guest-support=sev0';
     }
+
+    PVE::QemuServer::Virtiofs::config($conf, $vmid, $devices);
 
     push @$cmd, @$devices;
     push @$cmd, '-rtc', join(',', @$rtcFlags) if scalar(@$rtcFlags);
@@ -5830,6 +5848,8 @@ sub vm_start_nolock {
 	PVE::Tools::run_fork sub {
 	    PVE::Systemd::enter_systemd_scope($vmid, "Proxmox VE VM $vmid", %systemd_properties);
 
+	    my $virtiofs_sockets = start_all_virtiofsd($conf, $vmid);
+
 	    my $tpmpid;
 	    if ((my $tpm = $conf->{tpmstate0}) && !PVE::QemuConfig->is_template($conf)) {
 		# start the TPM emulator so QEMU can connect on start
@@ -5837,6 +5857,8 @@ sub vm_start_nolock {
 	    }
 
 	    my $exitcode = run_command($cmd, %run_params);
+	    eval { PVE::QemuServer::Virtiofs::close_sockets(@$virtiofs_sockets); };
+	    log_warn("closing virtiofs sockets failed - $@") if $@;
 	    if ($exitcode) {
 		if ($tpmpid) {
 		    warn "stopping swtpm instance (pid $tpmpid) due to QEMU startup error\n";
@@ -6517,6 +6539,9 @@ sub check_mapping_access {
 	    if ($device->{source} && $device->{source} eq '/dev/hwrng') {
 		$rpcenv->check_full($user, "/mapping/hwrng", ['Mapping.Use']);
 	    }
+	} elsif ($opt =~ m/^virtiofs\d$/) {
+	    my $virtiofs = PVE::JSONSchema::parse_property_string('pve-qm-virtiofs', $conf->{$opt});
+	    $rpcenv->check_full($user, "/mapping/dir/$virtiofs->{dirid}", ['Mapping.Use']);
 	}
     }
 };

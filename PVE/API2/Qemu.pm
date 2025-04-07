@@ -40,6 +40,7 @@ use PVE::QemuServer::PCI;
 use PVE::QemuServer::QMPHelpers;
 use PVE::QemuServer::RNG;
 use PVE::QemuServer::USB;
+use PVE::QemuServer::Virtiofs qw(max_virtiofs);
 use PVE::QemuMigrate;
 use PVE::RPCEnvironment;
 use PVE::AccessControl;
@@ -838,6 +839,33 @@ my sub check_rng_perm {
     return 1;
 }
 
+my sub check_dir_perm {
+    my ($rpcenv, $authuser, $vmid, $pool, $opt, $value) = @_;
+
+    return 1 if $authuser eq 'root@pam';
+
+    $rpcenv->check_vm_perm($authuser, $vmid, $pool, ['VM.Config.Disk']);
+
+    my $virtiofs = PVE::JSONSchema::parse_property_string('pve-qm-virtiofs', $value);
+    $rpcenv->check_full($authuser, "/mapping/dir/$virtiofs->{dirid}", ['Mapping.Use']);
+
+    return 1;
+};
+
+my sub check_vm_create_dir_perm {
+    my ($rpcenv, $authuser, $vmid, $pool, $param) = @_;
+
+    return 1 if $authuser eq 'root@pam';
+
+    for (my $i = 0; $i < max_virtiofs(); $i++) {
+	my $opt = "virtiofs$i";
+	next if !$param->{$opt};
+	check_dir_perm($rpcenv, $authuser, $vmid, $pool, $opt, $param->{$opt});
+    }
+
+    return 1;
+};
+
 my $check_vm_modify_config_perm = sub {
     my ($rpcenv, $authuser, $vmid, $pool, $key_list) = @_;
 
@@ -848,7 +876,7 @@ my $check_vm_modify_config_perm = sub {
 	# else, as there the permission can be value dependent
 	next if PVE::QemuServer::is_valid_drivename($opt);
 	next if $opt eq 'cdrom';
-	next if $opt =~ m/^(?:unused|serial|usb|hostpci)\d+$/;
+	next if $opt =~ m/^(?:unused|serial|usb|hostpci|virtiofs)\d+$/;
 	next if $opt eq 'tags';
 
 
@@ -1169,6 +1197,7 @@ __PACKAGE__->register_method({
 	    check_vm_create_hostpci_perm($rpcenv, $authuser, $vmid, $pool, $param);
 	    check_rng_perm($rpcenv, $authuser, $vmid, $pool, 'rng0', $param->{rng0})
 		if $param->{rng0};
+	    check_vm_create_dir_perm($rpcenv, $authuser, $vmid, $pool, $param);
 
 	    PVE::QemuServer::check_bridge_access($rpcenv, $authuser, $param);
 	    &$check_cpu_model_access($rpcenv, $authuser, $param);
@@ -2072,6 +2101,10 @@ my $update_vm_api  = sub {
 		    check_rng_perm($rpcenv, $authuser, $vmid, undef, $opt, $val);
 		    PVE::QemuConfig->add_to_pending_delete($conf, $opt, $force);
 		    PVE::QemuConfig->write_config($vmid, $conf);
+		} elsif ($opt =~ m/^virtiofs\d$/) {
+		    check_dir_perm($rpcenv, $authuser, $vmid, undef, $opt, $val);
+		    PVE::QemuConfig->add_to_pending_delete($conf, $opt, $force);
+		    PVE::QemuConfig->write_config($vmid, $conf);
 		} elsif ($opt eq 'tags') {
 		    assert_tag_permissions($vmid, $val, '', $rpcenv, $authuser);
 		    delete $conf->{$opt};
@@ -2167,6 +2200,12 @@ my $update_vm_api  = sub {
 			check_rng_perm($rpcenv, $authuser, $vmid, undef, $opt, $oldvalue);
 		    }
 		    check_rng_perm($rpcenv, $authuser, $vmid, undef, $opt, $param->{$opt});
+		    $conf->{pending}->{$opt} = $param->{$opt};
+		} elsif ($opt =~ m/^virtiofs\d$/) {
+		    if (my $oldvalue = $conf->{$opt}) {
+			check_dir_perm($rpcenv, $authuser, $vmid, undef, $opt, $oldvalue);
+		    }
+		    check_dir_perm($rpcenv, $authuser, $vmid, undef, $opt, $param->{$opt});
 		    $conf->{pending}->{$opt} = $param->{$opt};
 		} elsif ($opt eq 'tags') {
 		    assert_tag_permissions($vmid, $conf->{$opt}, $param->{$opt}, $rpcenv, $authuser);
