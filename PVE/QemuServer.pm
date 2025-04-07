@@ -3486,7 +3486,12 @@ sub config_to_command {
     push @$cmd, '-mon', "chardev=qmp,mode=control";
 
     if (min_version($machine_version, 2, 12)) {
-	push @$cmd, '-chardev', "socket,id=qmp-event,path=/var/run/qmeventd.sock,reconnect=5";
+	# QEMU 9.2 introduced a new 'reconnect-ms' option while deprecating the 'reconnect' option
+	my $reconnect_param = "reconnect=5";
+	if (min_version($kvmver, 9, 2)) { # this depends on the binary version
+	    $reconnect_param = "reconnect-ms=5000";
+	}
+	push @$cmd, '-chardev', "socket,id=qmp-event,path=/var/run/qmeventd.sock,$reconnect_param";
 	push @$cmd, '-mon', "chardev=qmp-event,mode=control";
     }
 
