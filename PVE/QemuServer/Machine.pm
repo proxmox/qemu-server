@@ -191,9 +191,11 @@ sub get_machine_pve_revisions {
 sub get_pve_version {
     my ($verstr) = @_;
 
-    my $pve_machine = get_machine_pve_revisions($verstr);
+    if (my $pve_machine = get_machine_pve_revisions($verstr)) {
+	return $pve_machine->{highest} || die "internal error - machine version '$verstr' missing 'highest'";
+    }
 
-    return $pve_machine->{highest} // 0;
+    return 0;
 }
 
 sub can_run_pve_machine_version {
