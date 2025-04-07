@@ -4617,7 +4617,6 @@ sub set_migration_caps {
 	"xbzrle" => 1,
 	"x-rdma-pin-all" => 0,
 	"zero-blocks" => 0,
-	"compress" => 0,
 	"dirty-bitmaps" => $dirty_bitmaps,
     };
 
