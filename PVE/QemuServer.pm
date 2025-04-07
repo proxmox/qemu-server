@@ -4616,7 +4616,6 @@ sub set_migration_caps {
 	"auto-converge" => 1,
 	"xbzrle" => 1,
 	"x-rdma-pin-all" => 0,
-	"zero-blocks" => 0,
 	"dirty-bitmaps" => $dirty_bitmaps,
     };
 
