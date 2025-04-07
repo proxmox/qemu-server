@@ -1829,7 +1829,7 @@ sub vmconfig_register_unused_drive {
     if (drive_is_cloudinit($drive)) {
 	eval { PVE::Storage::vdisk_free($storecfg, $drive->{file}) };
 	warn $@ if $@;
-	delete $conf->{cloudinit};
+	delete $conf->{'special-sections'}->{cloudinit};
     } elsif (!drive_is_cdrom($drive)) {
 	my $volid = $drive->{file};
 	if (vm_is_volid_owner($storecfg, $vmid, $volid)) {
@@ -2051,11 +2051,13 @@ sub cloudinit_pending_properties {
 }
 
 sub check_type {
-    my ($key, $value) = @_;
+    my ($key, $value, $schema) = @_;
 
-    die "unknown setting '$key'\n" if !$confdesc->{$key};
+    die "check_type: no schema defined\n" if !$schema;
 
-    my $type = $confdesc->{$key}->{type};
+    die "unknown setting '$key'\n" if !$schema->{$key};
+
+    my $type = $schema->{$key}->{type};
 
     if (!defined($value)) {
 	die "got undefined value\n";
@@ -2076,7 +2078,7 @@ sub check_type {
         return $value if $value =~ m/^(\d+)(\.\d+)?$/;
         die "type check ('number') failed - got '$value'\n";
     } elsif ($type eq 'string') {
-	if (my $fmt = $confdesc->{$key}->{format}) {
+	if (my $fmt = $schema->{$key}->{format}) {
 	    PVE::JSONSchema::check_format($fmt, $value);
 	    return $value;
 	}
@@ -2089,6 +2091,9 @@ sub check_type {
 
 sub destroy_vm {
     my ($storecfg, $vmid, $skiplock, $replacement_conf, $purge_unreferenced) = @_;
+
+    eval { PVE::QemuConfig::cleanup_fleecing_images($vmid, $storecfg) };
+    log_warn("attempt to clean up left-over fleecing images failed - $@") if $@;
 
     my $conf = PVE::QemuConfig->load_config($vmid);
 
@@ -2163,16 +2168,27 @@ sub destroy_vm {
     }
 }
 
+my $fleecing_section_schema = {
+    'fleecing-images' => {
+	type => 'string',
+	format => 'pve-volume-id-list',
+	description => "For internal use only. List of fleecing images allocated during backup."
+	   ." If no backup is running, these are left-overs that failed to be removed.",
+	optional => 1,
+    },
+};
+
 sub parse_vm_config {
     my ($filename, $raw, $strict) = @_;
 
     return if !defined($raw);
 
+    # note that pending, snapshot and special sections are currently skipped when a backup is taken
     my $res = {
 	digest => Digest::SHA::sha1_hex($raw),
 	snapshots => {},
-	pending => {},
-	cloudinit => {},
+	pending => undef,
+	'special-sections' => {},
     };
 
     my $handle_error = sub {
@@ -2199,29 +2215,51 @@ sub parse_vm_config {
 	}
 	$descr = undef;
     };
-    my $section = '';
+
+    my $special_schemas = {
+	cloudinit => $confdesc, # not actually used right now, see below
+	fleecing => $fleecing_section_schema,
+    };
+    my $special_sections_re_string = join('|', keys $special_schemas->%*);
+    my $special_sections_re_1 = qr/($special_sections_re_string)/;
+
+    my $section = { name => '', type => 'main', schema => $confdesc };
 
     my @lines = split(/\n/, $raw);
     foreach my $line (@lines) {
 	next if $line =~ m/^\s*$/;
 
 	if ($line =~ m/^\[PENDING\]\s*$/i) {
-	    $section = 'pending';
+	    $section = { name => 'pending', type => 'pending', schema => $confdesc };
 	    $finish_description->();
-	    $conf = $res->{$section} = {};
+	    $handle_error->("vm $vmid - duplicate section: $section->{name}\n")
+		if defined($res->{$section->{name}});
+	    $conf = $res->{$section->{name}} = {};
 	    next;
-	} elsif ($line =~ m/^\[special:cloudinit\]\s*$/i) {
-	    $section = 'cloudinit';
+	} elsif ($line =~ m/^\[special:$special_sections_re_1\]\s*$/i) {
+	    $section = { name => $1, type => 'special', schema => $special_schemas->{$1} };
 	    $finish_description->();
-	    $conf = $res->{$section} = {};
+	    $handle_error->("vm $vmid - duplicate special section: $section->{name}\n")
+		if defined($res->{'special-sections'}->{$section->{name}});
+	    $conf = $res->{'special-sections'}->{$section->{name}} = {};
 	    next;
 
 	} elsif ($line =~ m/^\[([a-z][a-z0-9_\-]+)\]\s*$/i) {
-	    $section = $1;
+	    $section = { name => $1, type => 'snapshot', schema => $confdesc };
 	    $finish_description->();
-	    $conf = $res->{snapshots}->{$section} = {};
+	    $handle_error->("vm $vmid - duplicate snapshot section: $section->{name}\n")
+		if defined($res->{snapshots}->{$section->{name}});
+	    $conf = $res->{snapshots}->{$section->{name}} = {};
+	    next;
+	} elsif ($line =~ m/^\[([^\]]*)\]\s*$/i) {
+	    my $unknown_section = $1;
+	    $section = undef;
+	    $finish_description->();
+	    $handle_error->("vm $vmid - skipping unknown section: '$unknown_section'\n");
 	    next;
 	}
+
+	next if !defined($section);
 
 	if ($line =~ m/^\#(.*)$/) {
 	    $descr = '' if !defined($descr);
@@ -2240,7 +2278,7 @@ sub parse_vm_config {
 	    $conf->{$key} = $value;
 	} elsif ($line =~ m/^delete:\s*(.*\S)\s*$/) {
 	    my $value = $1;
-	    if ($section eq 'pending') {
+	    if ($section->{name} eq 'pending' && $section->{type} eq 'pending') {
 		$conf->{delete} = $value; # we parse this later
 	    } else {
 		$handle_error->("vm $vmid - property 'delete' is only allowed in [PENDING]\n");
@@ -2248,17 +2286,17 @@ sub parse_vm_config {
 	} elsif ($line =~ m/^([a-z][a-z_\-]*\d*):\s*(.+?)\s*$/) {
 	    my $key = $1;
 	    my $value = $2;
-	    if ($section eq 'cloudinit') {
+	    if ($section->{name} eq 'cloudinit' && $section->{type} eq 'special') {
 		# ignore validation only used for informative purpose
 		$conf->{$key} = $value;
 		next;
 	    }
-	    eval { $value = check_type($key, $value); };
+	    eval { $value = check_type($key, $value, $section->{schema}); };
 	    if ($@) {
 		$handle_error->("vm $vmid - unable to parse value of '$key' - $@");
 	    } else {
 		$key = 'ide2' if $key eq 'cdrom';
-		my $fmt = $confdesc->{$key}->{format};
+		my $fmt = $section->{schema}->{$key}->{format};
 		if ($fmt && $fmt =~ /^pve-qm-(?:ide|scsi|virtio|sata)$/) {
 		    my $v = parse_drive($key, $value);
 		    if (my $volid = filename_to_volume_id($vmid, $v->{file}, $v->{media})) {
@@ -2279,6 +2317,8 @@ sub parse_vm_config {
 
     $finish_description->();
     delete $res->{snapstate}; # just to be sure
+
+    $res->{pending} = {} if !defined($res->{pending});
 
     return $res;
 }
@@ -2310,7 +2350,7 @@ sub write_vm_config {
 
 	foreach my $key (keys %$cref) {
 	    next if $key eq 'digest' || $key eq 'description' || $key eq 'snapshots' ||
-		$key eq 'snapstate' || $key eq 'pending' || $key eq 'cloudinit';
+		$key eq 'snapstate' || $key eq 'pending' || $key eq 'special-sections';
 	    my $value = $cref->{$key};
 	    if ($key eq 'delete') {
 		die "propertry 'delete' is only allowed in [PENDING]\n"
@@ -2318,7 +2358,7 @@ sub write_vm_config {
 		# fixme: check syntax?
 		next;
 	    }
-	    eval { $value = check_type($key, $value); };
+	    eval { $value = check_type($key, $value, $confdesc); };
 	    die "unable to parse value of '$key' - $@" if $@;
 
 	    $cref->{$key} = $value;
@@ -2364,7 +2404,7 @@ sub write_vm_config {
 	}
 
 	foreach my $key (sort keys %$conf) {
-	    next if $key =~ /^(digest|description|pending|cloudinit|snapshots)$/;
+	    next if $key =~ /^(digest|description|pending|snapshots|special-sections)$/;
 	    $raw .= "$key: $conf->{$key}\n";
 	}
 	return $raw;
@@ -2377,9 +2417,10 @@ sub write_vm_config {
 	$raw .= &$generate_raw_config($conf->{pending}, 1);
     }
 
-    if (scalar(keys %{$conf->{cloudinit}}) && PVE::QemuConfig->has_cloudinit($conf)){
-	$raw .= "\n[special:cloudinit]\n";
-	$raw .= &$generate_raw_config($conf->{cloudinit});
+    for my $special (sort keys $conf->{'special-sections'}->%*) {
+	next if $special eq 'cloudinit' && !PVE::QemuConfig->has_cloudinit($conf);
+	$raw .= "\n[special:$special]\n";
+	$raw .= &$generate_raw_config($conf->{'special-sections'}->{$special});
     }
 
     foreach my $snapname (sort keys %{$conf->{snapshots}}) {
@@ -4740,7 +4781,7 @@ sub vmconfig_hotplug_pending {
 	my ($conf, $opt, $old, $new) = @_;
 	return if !$cloudinit_pending_properties->{$opt};
 
-	my $ci = ($conf->{cloudinit} //= {});
+	my $ci = ($conf->{'special-sections'}->{cloudinit} //= {});
 
 	my $recorded = $ci->{$opt};
 	my %added = map { $_ => 1 } PVE::Tools::split_list(delete($ci->{added}) // '');
@@ -5131,7 +5172,7 @@ sub vmconfig_apply_pending {
     if ($generate_cloudinit) {
 	if (PVE::QemuServer::Cloudinit::apply_cloudinit_config($conf, $vmid)) {
 	    # After successful generation and if there were changes to be applied, update the
-	    # config to drop the {cloudinit} entry.
+	    # config to drop the 'cloudinit' special section.
 	    PVE::QemuConfig->write_config($vmid, $conf);
 	}
     }
@@ -5562,7 +5603,7 @@ sub vm_start_nolock {
     if (!$migratedfrom) {
 	if (PVE::QemuServer::Cloudinit::apply_cloudinit_config($conf, $vmid)) {
 	    # FIXME: apply_cloudinit_config updates $conf in this case, and it would only drop
-	    # $conf->{cloudinit}, so we could just not do this?
+	    # $conf->{'special-sections'}->{cloudinit}, so we could just not do this?
 	    # But we do it above, so for now let's be consistent.
 	    $conf = PVE::QemuConfig->load_config($vmid); # update/reload
 	}

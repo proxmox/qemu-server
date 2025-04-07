@@ -236,20 +236,21 @@ sub assemble {
 
     my $found_snapshot;
     my $found_pending;
-    my $found_cloudinit;
+    my $found_special;
     while (defined (my $line = <$conffd>)) {
 	next if $line =~ m/^\#vzdump\#/; # just to be sure
 	next if $line =~ m/^\#qmdump\#/; # just to be sure
 	if ($line =~ m/^\[(.*)\]\s*$/) {
-	    if ($1 =~ m/PENDING/i) {
+	    if ($1 =~ m/^PENDING$/i) {
 		$found_pending = 1;
-	    } elsif ($1 =~ m/special:cloudinit/) {
-		$found_cloudinit = 1;
+	    } elsif ($1 =~ m/^special:.*$/) {
+		$found_special = 1;
 	    } else {
 		$found_snapshot = 1;
 	    }
 	}
-	next if $found_snapshot || $found_pending || $found_cloudinit; # skip all snapshots,pending changes and cloudinit config data
+	# skip all snapshots, pending changes and special sections
+	next if $found_snapshot || $found_pending || $found_special;
 
 	if ($line =~ m/^unused\d+:\s*(\S+)\s*/) {
 	    $self->loginfo("skip unused drive '$1' (not included into backup)");
@@ -270,6 +271,9 @@ sub assemble {
 	}
     }
 
+    if ($found_special) {
+	$self->loginfo("special config section found (not included into backup)");
+    }
     if ($found_snapshot) {
 	$self->loginfo("snapshots found (not included into backup)");
     }
@@ -539,15 +543,25 @@ sub get_and_check_pbs_encryption_config {
     die "internal error - unhandled case for getting & checking PBS encryption ($keyfile, $master_keyfile)!";
 }
 
+# Helper is intended to be called from allocate_fleecing_images() only. Otherwise, fleecing volids
+# have already been recorded in the configuration and PVE::QemuConfig::cleanup_fleecing_images()
+# should be used instead.
 my sub cleanup_fleecing_images {
-    my ($self, $disks) = @_;
+    my ($self, $vmid, $disks) = @_;
+
+    my $failed = [];
 
     for my $di ($disks->@*) {
 	if (my $volid = $di->{'fleece-volid'}) {
 	    eval { PVE::Storage::vdisk_free($self->{storecfg}, $volid); };
-	    $self->log('warn', "error removing fleecing image '$volid' - $@") if $@;
+	    if (my $err = $@) {
+		$self->log('warn', "error removing fleecing image '$volid' - $err");
+		push $failed->@*, $volid;
+	    }
 	}
     }
+
+    PVE::QemuConfig::record_fleecing_images($vmid, $failed);
 }
 
 my sub allocate_fleecing_images {
@@ -555,8 +569,7 @@ my sub allocate_fleecing_images {
 
     die "internal error - no fleecing storage specified\n" if !$fleecing_storeid;
 
-    # TODO what about potential left-over images from a failed attempt? Just
-    # auto-remove? While unlikely, could conflict with manually created image from user...
+    my $fleece_volids = [];
 
     eval {
 	my $n = 0; # counter for fleecing image names
@@ -582,6 +595,8 @@ my sub allocate_fleecing_images {
 		$di->{'fleece-volid'} = PVE::Storage::vdisk_alloc(
 		    $self->{storecfg}, $fleecing_storeid, $vmid, $format, $name, $size);
 
+		push $fleece_volids->@*, $di->{'fleece-volid'};
+
 		$n++;
 	    } else {
 		die "implement me (type '$di->{type}')";
@@ -589,9 +604,11 @@ my sub allocate_fleecing_images {
 	}
     };
     if (my $err = $@) {
-	cleanup_fleecing_images($self, $disks);
+	cleanup_fleecing_images($self, $vmid, $disks);
 	die $err;
     }
+
+    PVE::QemuConfig::record_fleecing_images($vmid, $fleece_volids);
 }
 
 my sub detach_fleecing_images {
@@ -650,6 +667,13 @@ my sub check_and_prepare_fleecing {
 	);
 	$use_fleecing = 0;
     }
+
+    # clean up potential left-overs from a previous attempt
+    eval {
+	PVE::QemuConfig::cleanup_fleecing_images(
+	    $vmid, $self->{storecfg}, sub { $self->log($_[0], $_[1]); });
+    };
+    $self->log('warn', "attempt to clean up left-over fleecing images failed - $@") if $@;
 
     if ($use_fleecing) {
 	$self->query_block_node_sizes($vmid, $disks);
@@ -1243,7 +1267,11 @@ sub cleanup {
 	}
 
 	$detach_tpmstate_drive->($task, $vmid);
-	detach_fleecing_images($task->{disks}, $vmid) if $task->{'use-fleecing'};
+	if ($task->{'use-fleecing'}) {
+	    detach_fleecing_images($task->{disks}, $vmid);
+	    PVE::QemuConfig::cleanup_fleecing_images(
+		$vmid, $self->{storecfg}, sub { $self->log($_[0], $_[1]); });
+	}
     }
 
     cleanup_fleecing_images($self, $task->{disks}) if $task->{'use-fleecing'};

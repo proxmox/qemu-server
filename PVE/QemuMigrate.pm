@@ -178,11 +178,17 @@ sub prepare {
 
     my $storecfg = $self->{storecfg} = PVE::Storage::config();
 
+    # updates the configuration, so ordered before saving the configuration in $self
+    eval {
+	PVE::QemuConfig::cleanup_fleecing_images(
+	    $vmid, $storecfg, sub { $self->log($_[0], $_[1]); });
+    };
+    $self->log('warn', "attempt to clean up left-over fleecing images failed - $@") if $@;
+
     # test if VM exists
     my $conf = $self->{vmconf} = PVE::QemuConfig->load_config($vmid);
 
     my $version = PVE::QemuServer::Helpers::get_node_pvecfg_version($self->{node});
-    my $cloudinit_config = $conf->{cloudinit};
 
     my $repl_conf = PVE::ReplicationConfig->new();
     $self->{replication_jobcfg} = $repl_conf->find_local_replication_job($vmid, $self->{node});

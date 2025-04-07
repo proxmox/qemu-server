@@ -1,6 +1,6 @@
 all: test
 
-test: test_snapshot test_cfg_to_cmd test_pci_addr_conflicts test_qemu_img_convert test_migration test_restore_config
+test: test_snapshot test_cfg_to_cmd test_pci_addr_conflicts test_qemu_img_convert test_migration test_restore_config test_parse_config
 
 test_snapshot: run_snapshot_tests.pl
 	./run_snapshot_tests.pl
@@ -25,6 +25,9 @@ $(MIGRATION_TEST_TARGETS):
 test_restore_config: run_qemu_restore_config_tests.pl
 	./run_qemu_restore_config_tests.pl
 
+test_parse_config: run_parse_config_tests.pl
+	./run_parse_config_tests.pl
+
 .PHONY: clean
 clean:
-	rm -rf MigrationTest/run
+	rm -rf MigrationTest/run parse-config-output
