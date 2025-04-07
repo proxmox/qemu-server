@@ -2471,8 +2471,9 @@ sub check_non_migratable_resources {
     my ($conf, $state, $noerr) = @_;
 
     my @blockers = ();
-    if ($state && $conf->{"amd-sev"}) {
-	push @blockers, "amd-sev";
+    if ($state) {
+	push @blockers, "amd-sev" if $conf->{"amd-sev"};
+	push @blockers, "virtiofs" if PVE::QemuServer::Virtiofs::virtiofs_enabled($conf);
     }
 
     if (scalar(@blockers) && !$noerr) {
