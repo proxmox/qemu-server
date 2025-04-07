@@ -2789,6 +2789,11 @@ our $vmstatus_return_properties = {
 	optional => 1,
 	default => 0,
     },
+    serial => {
+	description => "Guest has serial device configured.",
+	type => 'boolean',
+	optional => 1,
+    },
 };
 
 my $last_proc_pid_stat;
