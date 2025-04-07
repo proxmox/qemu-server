@@ -2496,6 +2496,7 @@ sub check_local_resources {
     my $nodelist = PVE::Cluster::get_nodelist();
     my $pci_map = PVE::Mapping::PCI::config();
     my $usb_map = PVE::Mapping::USB::config();
+    my $dir_map = PVE::Mapping::Dir::config();
 
     my $missing_mappings_by_node = { map { $_ => [] } @$nodelist };
 
@@ -2507,6 +2508,8 @@ sub check_local_resources {
 		$entry = PVE::Mapping::PCI::get_node_mapping($pci_map, $id, $node);
 	    } elsif ($type eq 'usb') {
 		$entry = PVE::Mapping::USB::get_node_mapping($usb_map, $id, $node);
+	    } elsif ($type eq 'dir') {
+		$entry = PVE::Mapping::Dir::get_node_mapping($dir_map, $id, $node);
 	    }
 	    if (!scalar($entry->@*)) {
 		push @{$missing_mappings_by_node->{$node}}, $key;
@@ -2546,9 +2549,14 @@ sub check_local_resources {
 		next if !$state;
 	    }
 	}
+	if ($k =~ m/^virtiofs/) {
+	    my $entry = parse_property_string('pve-qm-virtiofs', $conf->{$k});
+	    $add_missing_mapping->('dir', $k, $entry->{dirid});
+	    $mapped_res->{$k} = { name => $entry->{dirid} };
+	}
 	# sockets are safe: they will recreated be on the target side post-migrate
 	next if $k =~ m/^serial/ && ($conf->{$k} eq 'socket');
-	push @loc_res, $k if $k =~ m/^(usb|hostpci|serial|parallel)\d+$/;
+	push @loc_res, $k if $k =~ m/^(usb|hostpci|serial|parallel|virtiofs)\d+$/;
     }
 
     die "VM uses local resources\n" if scalar @loc_res && !$noerr;

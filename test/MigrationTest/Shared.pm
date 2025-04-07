@@ -90,6 +90,13 @@ $mapping_pci_module->mock(
     },
 );
 
+our $mapping_dir_module = Test::MockModule->new("PVE::Mapping::Dir");
+$mapping_dir_module->mock(
+    config => sub {
+	return {};
+    },
+);
+
 our $ha_config_module = Test::MockModule->new("PVE::HA::Config");
 $ha_config_module->mock(
     vm_is_ha_managed => sub {
