@@ -1,3 +1,34 @@
+qemu-server (8.3.11) bookworm; urgency=medium
+
+  * handle various deprecations of options in upstream QEMU 9.2.
+
+  * parse config: skip unknown sections and warn about their presence.
+
+  * parse config: warn about duplicate sections.
+
+  * vzdump: skip all special sections inside guest config.
+
+  * fix #5440: vzdump: better cleanup fleecing images after hard errors using
+    a new "fleecing" special config section where the allocated fleecing
+    images get recorded. This record will be used to clean them up on any
+    error.
+
+  * migration: attempt to clean up potential left-over fleecing images.
+
+  * vm-network-scripts: move scripts to '/usr/libexec', keep old locations for
+    now to avoid a race condition on package upgrade.
+
+  * qmeventd: go back to extracting VMID from command line instead of cgroup
+    file to address sporadic errors when trying to query the VMID from an
+    exited process.
+
+  * fix #1027: add support for shared mounts using Virtiofs.
+
+  * block live-migration, snapshot (with RAM) and hibernation if any Virtiofs
+    device is configured.
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 07 Apr 2025 23:35:50 +0200
+
 qemu-server (8.3.10) bookworm; urgency=medium
 
   * drive: remove ancient and for a long time unsupported 'cow' from formats.
