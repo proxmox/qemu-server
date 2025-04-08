@@ -45,13 +45,6 @@ my $virtiofs_fmt = {
 	default => 0,
 	optional => 1,
     },
-    writeback => {
-	type => 'boolean',
-	description => "Enable writeback cache. If enabled, writes may be cached in the guest until"
-	    ." the file is closed or an fsync is performed.",
-	default => 0,
-	optional => 1,
-    },
     'expose-xattr' => {
 	type => 'boolean',
 	description => "Enable support for extended attributes for this mount.",
@@ -182,7 +175,6 @@ sub start_virtiofsd {
 	    push @$cmd, '--announce-submounts';
 	    push @$cmd, '--allow-direct-io' if $virtiofs->{'direct-io'};
 	    push @$cmd, '--cache='.$virtiofs->{cache} if $virtiofs->{cache};
-	    push @$cmd, '--writeback' if $virtiofs->{'writeback'};
 	    push @$cmd, '--syslog';
 	    exec(@$cmd);
 	} elsif (!defined($pid2)) {
