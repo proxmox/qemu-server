@@ -1,3 +1,9 @@
+qemu-server (8.3.12) bookworm; urgency=medium
+
+  * virtiofs: drop unsafe and problematic writeback option completely fow now.
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 08 Apr 2025 17:30:49 +0200
+
 qemu-server (8.3.11) bookworm; urgency=medium
 
   * handle various deprecations of options in upstream QEMU 9.2.
