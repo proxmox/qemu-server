@@ -1267,14 +1267,16 @@ sub cleanup {
 	}
 
 	$detach_tpmstate_drive->($task, $vmid);
-	if ($task->{'use-fleecing'}) {
+    }
+
+    if ($task->{'use-fleecing'}) {
+	eval {
 	    detach_fleecing_images($task->{disks}, $vmid);
 	    PVE::QemuConfig::cleanup_fleecing_images(
 		$vmid, $self->{storecfg}, sub { $self->log($_[0], $_[1]); });
-	}
+	};
+	$self->log('warn', "attempt to clean up fleecing images failed - $@") if $@;
     }
-
-    cleanup_fleecing_images($self, $task->{disks}) if $task->{'use-fleecing'};
 
     if ($self->{qmeventd_fh}) {
 	close($self->{qmeventd_fh});
