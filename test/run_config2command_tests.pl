@@ -16,6 +16,7 @@ use PVE::SysFSTools;
 
 use PVE::QemuConfig;
 use PVE::QemuServer;
+use PVE::QemuServer::Drive;
 use PVE::QemuServer::Helpers;
 use PVE::QemuServer::Monitor;
 use PVE::QemuServer::QMPHelpers;
@@ -68,6 +69,29 @@ my $base_env = {
 		pool => 'cpool',
 		username => 'admin',
 		shared => 1
+	    },
+	    'krbd-store' => {
+		monhost => '127.0.0.42,127.0.0.21,::1',
+		fsid => 'fc4181a6-56eb-4f68-b452-8ba1f381ca2a',
+		content => {
+		    images => 1,
+		},
+		type => 'rbd',
+		pool => 'cpool',
+		username => 'admin',
+		shared => 1,
+		krbd => 1,
+	    },
+	    'zfs-over-iscsi-store' => {
+		type => 'zfs',
+		iscsiprovider => "comstar",
+		lio_tpg => "tpg1",
+		portal => "127.0.0.1",
+		target => "iqn.2019-10.org.test:foobar",
+		pool => "tank",
+		content => {
+		    images => 1,
+		},
 	    },
 	    'local-lvm' => {
 		vgname => 'pve',
@@ -223,6 +247,16 @@ $qemu_server_module->mock(
     },
 );
 
+my $zfsplugin_module = Test::MockModule->new("PVE::Storage::ZFSPlugin");
+$zfsplugin_module->mock(
+    zfs_get_lu_name => sub {
+	return "foobar";
+    },
+    zfs_get_lun_number => sub {
+	return "0";
+    },
+);
+
 my $qemu_server_config;
 $qemu_server_config = Test::MockModule->new('PVE::QemuConfig');
 $qemu_server_config->mock(
@@ -364,6 +398,14 @@ $pve_common_sysfstools->mock(
 	} else {
 	    return {};
 	}
+    },
+);
+
+my $qemu_drive_module;
+$qemu_drive_module = Test::MockModule->new('PVE::QemuServer::Drive');
+$qemu_drive_module->mock(
+    get_cdrom_path => sub {
+	return "/dev/cdrom";
     },
 );
 
