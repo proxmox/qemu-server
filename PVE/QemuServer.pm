@@ -6965,6 +6965,10 @@ sub update_disk_config {
 	$referencedpath->{$path} = 1 if $path;
     });
 
+    if (my $fleecing = $conf->{'special-sections'}->{fleecing}) {
+	$referenced->{$_} = 1 for PVE::Tools::split_list($fleecing->{'fleecing-images'});
+    }
+
     foreach my $volid (sort keys %$volid_hash) {
 	next if $volid =~ m/vm-$vmid-state-/;
 	next if $referenced->{$volid};
