@@ -1,3 +1,10 @@
+qemu-server (7.4-7) bullseye; urgency=medium
+
+  * backport fix for online remote migration via API clients. This eases
+    upgrading to newer versions of Proxmox VE.
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 30 Apr 2025 11:52:42 +0200
+
 qemu-server (7.4-6) bullseye; urgency=medium
 
   * backport fix for RBD resize issue when turning on krbd while the VM is
