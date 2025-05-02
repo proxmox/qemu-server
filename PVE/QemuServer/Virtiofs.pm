@@ -130,14 +130,17 @@ sub start_all_virtiofsd {
 	next if !$conf->{$opt};
 	my $virtiofs = parse_property_string('pve-qm-virtiofs', $conf->{$opt});
 
-	my $virtiofs_socket = start_virtiofsd($vmid, $i, $virtiofs);
+	# See https://github.com/virtio-win/kvm-guest-drivers-windows/issues/1136
+	my $prefer_inode_fh = PVE::QemuServer::Helpers::windows_version($conf->{ostype}) ? 1 : 0;
+
+	my $virtiofs_socket = start_virtiofsd($vmid, $i, $virtiofs, $prefer_inode_fh);
 	push @$virtiofs_sockets, $virtiofs_socket;
     }
     return $virtiofs_sockets;
 }
 
 sub start_virtiofsd {
-    my ($vmid, $fsid, $virtiofs) = @_;
+    my ($vmid, $fsid, $virtiofs, $prefer_inode_fh) = @_;
 
     mkdir $socket_path_root;
     my $socket_path = "$socket_path_root/vm$vmid-fs$fsid";
@@ -175,6 +178,7 @@ sub start_virtiofsd {
 	    push @$cmd, '--announce-submounts';
 	    push @$cmd, '--allow-direct-io' if $virtiofs->{'direct-io'};
 	    push @$cmd, '--cache='.$virtiofs->{cache} if $virtiofs->{cache};
+	    push @$cmd, '--inode-file-handles=prefer' if $prefer_inode_fh;
 	    push @$cmd, '--syslog';
 	    exec(@$cmd);
 	} elsif (!defined($pid2)) {
