@@ -87,7 +87,7 @@ sub get_cdrom_path {
 }
 
 sub get_iso_path {
-    my ($storecfg, $vmid, $cdrom) = @_;
+    my ($storecfg, $cdrom) = @_;
 
     if ($cdrom eq 'cdrom') {
 	return get_cdrom_path();
@@ -112,7 +112,7 @@ sub get_path_and_format {
     my ($storeid) = PVE::Storage::parse_volume_id($volid, 1);
 
     if (drive_is_cdrom($drive)) {
-	$path = get_iso_path($storecfg, $vmid, $volid);
+	$path = get_iso_path($storecfg, $volid);
 	die "$drive_id: cannot back cdrom drive with a live restore image\n" if $live_restore_name;
     } else {
 	if ($storeid) {
