@@ -1321,9 +1321,12 @@ sub phase2 {
 	    last;
 	}
 
-	if ($memstat->{transferred} ne $last_mem_transferred ||
-	    $stat->{vfio}->{transferred} ne $last_vfio_transferred
-	) {
+	if (
+	    $memstat->{transferred} ne $last_mem_transferred
+	    || (defined($stat->{vfio}->{transferred})
+		&& $stat->{vfio}->{transferred} ne $last_vfio_transferred)
+	)
+	{
 	    my $trans = $memstat->{transferred} || 0;
 	    my $vfio_transferred = $stat->{vfio}->{transferred} || 0;
 	    my $rem = $memstat->{remaining} || 0;
@@ -1389,7 +1392,7 @@ sub phase2 {
 	}
 
 	$last_mem_transferred = $memstat->{transferred};
-	$last_vfio_transferred = $stat->{vfio}->{transferred};
+	$last_vfio_transferred = $stat->{vfio}->{transferred} // 0;
     }
 
     if ($self->{storage_migration}) {
