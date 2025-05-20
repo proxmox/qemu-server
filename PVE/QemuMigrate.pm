@@ -1286,6 +1286,9 @@ sub phase2 {
 
 	my $memstat = $stat->{ram};
 
+	my $mem_transferred = $memstat->{transferred} || 0;
+	my $vfio_transferred = $stat->{vfio}->{transferred} || 0;
+
 	if ($status eq 'completed') {
 	    my $delay = time() - $start;
 	    if ($delay > 0) {
@@ -1294,11 +1297,9 @@ sub phase2 {
 		my $downtime = $stat->{downtime} || 0;
 		$self->log('info', "average migration speed: $avg_speed/s - downtime $downtime ms");
 	    }
-	    my $trans = $memstat->{transferred} || 0;
-	    my $vfio_transferred = $stat->{vfio}->{transferred} || 0;
 
-	    if ($trans > 0 || $vfio_transferred > 0) {
-		my $transferred_h = render_bytes($trans, 1);
+	    if ($mem_transferred > 0 || $vfio_transferred > 0) {
+		my $transferred_h = render_bytes($mem_transferred, 1);
 		my $summary = "transferred $transferred_h VM-state";
 
 		if ($vfio_transferred > 0) {
@@ -1321,14 +1322,9 @@ sub phase2 {
 	    last;
 	}
 
-	if (
-	    $memstat->{transferred} ne $last_mem_transferred
-	    || (defined($stat->{vfio}->{transferred})
-		&& $stat->{vfio}->{transferred} ne $last_vfio_transferred)
-	)
-	{
-	    my $trans = $memstat->{transferred} || 0;
-	    my $vfio_transferred = $stat->{vfio}->{transferred} || 0;
+	if ($mem_transferred ne $last_mem_transferred
+	    || $vfio_transferred ne $last_vfio_transferred
+	) {
 	    my $rem = $memstat->{remaining} || 0;
 	    my $total = $memstat->{total} || 0;
 	    my $speed = ($memstat->{'pages-per-second'} // 0) * ($memstat->{'page-size'} // 0);
@@ -1341,7 +1337,7 @@ sub phase2 {
 	    my $should_log = $usleep > 100_000 ? 1 : ($i % 10) == 0;
 
 	    my $total_h = render_bytes($total, 1);
-	    my $transferred_h = render_bytes($trans, 1);
+	    my $transferred_h = render_bytes($mem_transferred, 1);
 	    my $speed_h = render_bytes($speed, 1);
 
 	    my $progress = "transferred $transferred_h of $total_h VM-state, ${speed_h}/s";
@@ -1391,8 +1387,8 @@ sub phase2 {
 	    }
 	}
 
-	$last_mem_transferred = $memstat->{transferred};
-	$last_vfio_transferred = $stat->{vfio}->{transferred} // 0;
+	$last_mem_transferred = $mem_transferred;
+	$last_vfio_transferred = $vfio_transferred;
     }
 
     if ($self->{storage_migration}) {
