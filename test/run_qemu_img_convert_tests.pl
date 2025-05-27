@@ -21,6 +21,26 @@ my $storage_config = {
 	    type => "dir",
 	    shared => 0,
 	},
+	btrfs => {
+	    content => {
+		images => 1,
+	    },
+	    path => "/var/lib/btrfs",
+	    type => "btrfs",
+	    shared => 0,
+	},
+	"krbd-store" => {
+	    monhost => "127.0.0.42,127.0.0.21,::1",
+	    fsid => 'fc4181a6-56eb-4f68-b452-8ba1f381ca2a',
+	    content => {
+		images => 1,
+	    },
+	    type => "rbd",
+	    krbd => 1,
+	    pool => "apool",
+	    username => "admin",
+	    shared => 1,
+	},
 	"rbd-store" => {
 	    monhost => "127.0.0.42,127.0.0.21,::1",
 	    fsid => 'fc4181a6-56eb-4f68-b452-8ba1f381ca2a',
@@ -201,6 +221,62 @@ my $tests = [
 	expected => [
 	    "/usr/bin/qemu-img", "convert", "-p", "-n", "-r", "1024K", "-f", "raw", "-O", "raw",
 	    "/dev/pve/vm-$vmid-disk-0",
+	    "/var/lib/vz/images/$vmid/vm-$vmid-disk-0.raw",
+	]
+    },
+    {
+	name => "krbdsnapshot",
+	parameters => [
+	    "krbd-store:vm-$vmid-disk-0",
+	    "local:$vmid/vm-$vmid-disk-0.raw",
+	    1024*10,
+	    { snapname => 'foo' },
+	],
+	expected => [
+	    "/usr/bin/qemu-img", "convert", "-p", "-n", "-f", "raw", "-O", "raw",
+	    "/dev/rbd-pve/fc4181a6-56eb-4f68-b452-8ba1f381ca2a/apool/vm-$vmid-disk-0\@foo",
+	    "/var/lib/vz/images/$vmid/vm-$vmid-disk-0.raw",
+	]
+    },
+    {
+	name => "rbdsnapshot",
+	parameters => [
+	    "rbd-store:vm-$vmid-disk-0",
+	    "local:$vmid/vm-$vmid-disk-0.raw",
+	    1024*10,
+	    { snapname => 'foo' },
+	],
+	expected => [
+	    "/usr/bin/qemu-img", "convert", "-p", "-n", "-f", "raw", "-O", "raw",
+	    "rbd:cpool/vm-$vmid-disk-0\@foo:mon_host=127.0.0.42;127.0.0.21;[\\:\\:1]:auth_supported=none",
+	    "/var/lib/vz/images/$vmid/vm-$vmid-disk-0.raw",
+	]
+    },
+    {
+	name => "btrfs_raw_snapshots",
+	parameters => [
+	    "btrfs:$vmid/vm-$vmid-disk-0.raw",
+	    "local:$vmid/vm-$vmid-disk-0.raw",
+	    1024*10,
+	    { snapname => 'foo' },
+	],
+	expected => [
+	    "/usr/bin/qemu-img", "convert", "-p", "-n", "-f", "raw", "-O", "raw",
+	    "/var/lib/btrfs/images/$vmid/vm-$vmid-disk-0\@foo/disk.raw",
+	    "/var/lib/vz/images/$vmid/vm-$vmid-disk-0.raw",
+	]
+    },
+    {
+	name => "btrfs_qcow2_snapshots",
+	parameters => [
+	    "btrfs:$vmid/vm-$vmid-disk-0.qcow2",
+	    "local:$vmid/vm-$vmid-disk-0.raw",
+	    1024*10,
+	    { snapname => 'snap' },
+	],
+	expected => [
+	    "/usr/bin/qemu-img", "convert", "-p", "-n", "-l", "snapshot.name=snap", "-f", "qcow2", "-O", "raw",
+	    "/var/lib/btrfs/images/$vmid/vm-$vmid-disk-0.qcow2",
 	    "/var/lib/vz/images/$vmid/vm-$vmid-disk-0.raw",
 	]
     },
