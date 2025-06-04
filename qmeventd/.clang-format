@@ -1,0 +1,9 @@
+BasedOnStyle: LLVM
+ColumnLimit: 100
+IndentWidth: 4
+AlignAfterOpenBracket: BlockIndent
+BinPackParameters: false # TODO: evaluate using OnePerLine (needs clang 20+) for a balanance?
+AlwaysBreakBeforeMultilineStrings: true
+AllowShortIfStatementsOnASingleLine: false
+InsertBraces: true
+AllowShortEnumsOnASingleLine: false

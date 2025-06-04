@@ -16,32 +16,32 @@
 #define __NR_pidfd_send_signal 424
 #endif
 
-#define VERBOSE_PRINT(...) do { if (verbose) { printf(__VA_ARGS__); fflush(stdout); } } while (0)
+#define VERBOSE_PRINT(...)                                                                         \
+    do {                                                                                           \
+        if (verbose) {                                                                             \
+            printf(__VA_ARGS__);                                                                   \
+            fflush(stdout);                                                                        \
+        }                                                                                          \
+    } while (0)
 
-static inline void log_neg(int errval, const char *msg)
-{
+static inline void log_neg(int errval, const char *msg) {
     if (errval < 0) {
-	perror(msg);
+        perror(msg);
     }
 }
 
-static inline void bail_neg(int errval, const char *msg)
-{
+static inline void bail_neg(int errval, const char *msg) {
     if (errval < 0) {
-	perror(msg);
-	exit(EXIT_FAILURE);
+        perror(msg);
+        exit(EXIT_FAILURE);
     }
 }
 
-static inline int
-pidfd_open(pid_t pid, unsigned int flags)
-{
+static inline int pidfd_open(pid_t pid, unsigned int flags) {
     return syscall(__NR_pidfd_open, pid, flags);
 }
 
-static inline int
-pidfd_send_signal(int pidfd, int sig, siginfo_t *info, unsigned int flags)
-{
+static inline int pidfd_send_signal(int pidfd, int sig, siginfo_t *info, unsigned int flags) {
     return syscall(__NR_pidfd_send_signal, pidfd, sig, info, flags);
 }
 
