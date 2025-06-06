@@ -25,7 +25,7 @@
   -device 'VGA,id=vga,bus=pci.0,addr=0x2' \
   -device 'virtio-balloon-pci,id=balloon0,bus=pci.0,addr=0x3,free-page-reporting=on' \
   -iscsi 'initiator-name=iqn.1993-08.org.debian:01:aabbccddeeff' \
-  -drive 'file=/mnt/pve/cifs-store/template/iso/zero.iso,if=none,id=drive-ide0,media=cdrom,format=raw,aio=threads' \
+  -drive 'file=/var/lib/vz/template/iso/zero.iso,if=none,id=drive-ide0,media=cdrom,format=raw,aio=io_uring' \
   -device 'ide-cd,bus=ide.0,unit=0,drive=drive-ide0,id=ide0,bootindex=200' \
   -drive 'file=/mnt/pve/cifs-store/template/iso/one.iso,if=none,id=drive-ide1,media=cdrom,format=raw,aio=threads' \
   -device 'ide-cd,bus=ide.0,unit=1,drive=drive-ide1,id=ide1,bootindex=201' \

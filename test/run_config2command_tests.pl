@@ -28,6 +28,7 @@ my $base_env = {
 	    local => {
 		content => {
 		    images => 1,
+		    iso => 1,
 		},
 		path => '/var/lib/vz',
 		type => 'dir',
@@ -92,6 +93,13 @@ my $base_env = {
 		content => {
 		    images => 1,
 		},
+	    },
+	    'lvm-store' => {
+		vgname => 'veegee',
+		type => 'lvm',
+		content => {
+		    images => 1,
+		}
 	    },
 	    'local-lvm' => {
 		vgname => 'pve',

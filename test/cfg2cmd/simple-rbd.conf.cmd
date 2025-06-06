@@ -28,10 +28,22 @@
   -drive 'if=none,id=drive-ide2,media=cdrom,aio=io_uring' \
   -device 'ide-cd,bus=ide.1,unit=0,drive=drive-ide2,id=ide2,bootindex=200' \
   -device 'virtio-scsi-pci,id=scsihw0,bus=pci.0,addr=0x5' \
-  -drive 'file=rbd:cpool/vm-8006-disk-0:mon_host=127.0.0.42;127.0.0.21;[\:\:1]:auth_supported=none,if=none,id=drive-scsi0,discard=on,format=raw,cache=none,aio=io_uring,detect-zeroes=unmap'
+  -drive 'file=rbd:cpool/vm-8006-disk-0:mon_host=127.0.0.42;127.0.0.21;[\:\:1]:auth_supported=none,if=none,id=drive-scsi0,discard=on,format=raw,cache=none,aio=io_uring,detect-zeroes=unmap' \
   -device 'scsi-hd,bus=scsihw0.0,channel=0,scsi-id=0,lun=0,drive=drive-scsi0,id=scsi0,bootindex=100' \
-  -drive 'file=/dev/rbd-pve/fc4181a6-56eb-4f68-b452-8ba1f381ca2a/cpool/vm-8006-disk-0,if=none,id=drive-scsi1,discard=on,format=raw,cache=none,aio=io_uring,detect-zeroes=unmap'
-  -device 'scsi-hd,bus=scsihw0.0,channel=0,scsi-id=0,lun=1,drive=drive-scsi1,id=scsi1'
+  -drive 'file=rbd:cpool/vm-8006-disk-0:mon_host=127.0.0.42;127.0.0.21;[\:\:1]:auth_supported=none,if=none,id=drive-scsi1,cache=writeback,discard=on,format=raw,aio=io_uring,detect-zeroes=unmap' \
+  -device 'scsi-hd,bus=scsihw0.0,channel=0,scsi-id=0,lun=1,drive=drive-scsi1,id=scsi1' \
+  -drive 'file=rbd:cpool/vm-8006-disk-0:mon_host=127.0.0.42;127.0.0.21;[\:\:1]:auth_supported=none,if=none,id=drive-scsi2,cache=writethrough,discard=on,format=raw,aio=io_uring,detect-zeroes=unmap' \
+  -device 'scsi-hd,bus=scsihw0.0,channel=0,scsi-id=0,lun=2,drive=drive-scsi2,id=scsi2' \
+  -drive 'file=rbd:cpool/vm-8006-disk-0:mon_host=127.0.0.42;127.0.0.21;[\:\:1]:auth_supported=none,if=none,id=drive-scsi3,cache=directsync,discard=on,format=raw,aio=io_uring,detect-zeroes=unmap' \
+  -device 'scsi-hd,bus=scsihw0.0,channel=0,scsi-id=0,lun=3,drive=drive-scsi3,id=scsi3' \
+  -drive 'file=/dev/rbd-pve/fc4181a6-56eb-4f68-b452-8ba1f381ca2a/cpool/vm-8006-disk-0,if=none,id=drive-scsi4,discard=on,format=raw,cache=none,aio=io_uring,detect-zeroes=unmap' \
+  -device 'scsi-hd,bus=scsihw0.0,channel=0,scsi-id=0,lun=4,drive=drive-scsi4,id=scsi4' \
+  -drive 'file=/dev/rbd-pve/fc4181a6-56eb-4f68-b452-8ba1f381ca2a/cpool/vm-8006-disk-0,if=none,id=drive-scsi5,cache=writeback,discard=on,format=raw,aio=threads,detect-zeroes=unmap' \
+  -device 'scsi-hd,bus=scsihw0.0,channel=0,scsi-id=0,lun=5,drive=drive-scsi5,id=scsi5' \
+  -drive 'file=/dev/rbd-pve/fc4181a6-56eb-4f68-b452-8ba1f381ca2a/cpool/vm-8006-disk-0,if=none,id=drive-scsi6,cache=writethrough,discard=on,format=raw,aio=threads,detect-zeroes=unmap' \
+  -device 'scsi-hd,bus=scsihw0.0,channel=0,scsi-id=0,lun=6,drive=drive-scsi6,id=scsi6' \
+  -drive 'file=/dev/rbd-pve/fc4181a6-56eb-4f68-b452-8ba1f381ca2a/cpool/vm-8006-disk-0,if=none,id=drive-scsi7,cache=directsync,discard=on,format=raw,aio=io_uring,detect-zeroes=unmap' \
+  -device 'scsi-hd,bus=scsihw0.0,channel=0,scsi-id=0,lun=7,drive=drive-scsi7,id=scsi7' \
   -netdev 'type=tap,id=net0,ifname=tap8006i0,script=/usr/libexec/qemu-server/pve-bridge,downscript=/usr/libexec/qemu-server/pve-bridgedown,vhost=on' \
   -device 'virtio-net-pci,mac=A2:C0:43:77:08:A0,netdev=net0,bus=pci.0,addr=0x12,id=net0,rx_queue_size=1024,tx_queue_size=256,bootindex=300' \
   -machine 'type=pc+pve1'
