@@ -28,6 +28,10 @@ DEBS=$(DEB) $(DBG_DEB)
 
 all:
 
+.PHONY: tidy
+tidy:
+	git ls-files ':*.p[ml]'| xargs -n4 -P0 proxmox-perltidy
+
 .PHONY: dinstall
 dinstall: deb
 	dpkg -i $(DEB)
