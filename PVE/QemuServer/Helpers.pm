@@ -12,11 +12,11 @@ use PVE::Tools qw(get_host_arch);
 
 use base 'Exporter';
 our @EXPORT_OK = qw(
-min_version
-config_aware_timeout
-kvm_user_version
-parse_number_sets
-windows_version
+    min_version
+    config_aware_timeout
+    kvm_user_version
+    parse_number_sets
+    windows_version
 );
 
 my $nodename = PVE::INotify::nodename();
@@ -25,12 +25,13 @@ my $arch_to_qemu_binary = {
     aarch64 => '/usr/bin/qemu-system-aarch64',
     x86_64 => '/usr/bin/qemu-system-x86_64',
 };
+
 sub get_command_for_arch($) {
     my ($arch) = @_;
     return '/usr/bin/kvm' if get_host_arch() eq $arch; # i.e. native arch
 
     my $cmd = $arch_to_qemu_binary->{$arch}
-	or die "don't know how to emulate architecture '$arch'\n";
+        or die "don't know how to emulate architecture '$arch'\n";
     return $cmd;
 }
 
@@ -49,17 +50,18 @@ sub kvm_user_version {
     my $st = stat($binary);
 
     my $cachedmtime = $kvm_mtime->{$binary} // -1;
-    return $kvm_user_version->{$binary} if $kvm_user_version->{$binary} &&
-	$cachedmtime == $st->mtime;
+    return $kvm_user_version->{$binary}
+        if $kvm_user_version->{$binary}
+        && $cachedmtime == $st->mtime;
 
     $kvm_user_version->{$binary} = 'unknown';
     $kvm_mtime->{$binary} = $st->mtime;
 
     my $code = sub {
-	my $line = shift;
-	if ($line =~ m/^QEMU( PC)? emulator version (\d+\.\d+(\.\d+)?)(\.\d+)?[,\s]/) {
-	    $kvm_user_version->{$binary} = $2;
-	}
+        my $line = shift;
+        if ($line =~ m/^QEMU( PC)? emulator version (\d+\.\d+(\.\d+)?)(\.\d+)?[,\s]/) {
+            $kvm_user_version->{$binary} = $2;
+        }
     };
 
     eval { PVE::Tools::run_command([$binary, '--version'], outfunc => $code); };
@@ -95,32 +97,32 @@ sub parse_cmdline {
 
     my $fh = IO::File->new("/proc/$pid/cmdline", "r");
     if (defined($fh)) {
-	my $line = <$fh>;
-	$fh->close;
-	return if !$line;
-	my @param = split(/\0/, $line);
+        my $line = <$fh>;
+        $fh->close;
+        return if !$line;
+        my @param = split(/\0/, $line);
 
-	my $cmd = $param[0];
-	return if !$cmd || ($cmd !~ m|kvm$| && $cmd !~ m@(?:^|/)qemu-system-[^/]+$@);
+        my $cmd = $param[0];
+        return if !$cmd || ($cmd !~ m|kvm$| && $cmd !~ m@(?:^|/)qemu-system-[^/]+$@);
 
-	my $phash = {};
-	my $pending_cmd;
-	for (my $i = 0; $i < scalar (@param); $i++) {
-	    my $p = $param[$i];
-	    next if !$p;
+        my $phash = {};
+        my $pending_cmd;
+        for (my $i = 0; $i < scalar(@param); $i++) {
+            my $p = $param[$i];
+            next if !$p;
 
-	    if ($p =~ m/^--?(.*)$/) {
-		if ($pending_cmd) {
-		    $phash->{$pending_cmd} = {};
-		}
-		$pending_cmd = $1;
-	    } elsif ($pending_cmd) {
-		$phash->{$pending_cmd} = { value => $p };
-		$pending_cmd = undef;
-	    }
-	}
+            if ($p =~ m/^--?(.*)$/) {
+                if ($pending_cmd) {
+                    $phash->{$pending_cmd} = {};
+                }
+                $pending_cmd = $1;
+            } elsif ($pending_cmd) {
+                $phash->{$pending_cmd} = { value => $p };
+                $pending_cmd = undef;
+            }
+        }
 
-	return $phash;
+        return $phash;
     }
     return;
 }
@@ -131,25 +133,29 @@ sub vm_running_locally {
     my $pidfile = pidfile_name($vmid);
 
     if (my $fd = IO::File->new("<$pidfile")) {
-	my $st = stat($fd);
-	my $line = <$fd>;
-	close($fd);
+        my $st = stat($fd);
+        my $line = <$fd>;
+        close($fd);
 
-	my $mtime = $st->mtime;
-	if ($mtime > time()) {
-	    warn "file '$pidfile' modified in future\n";
-	}
+        my $mtime = $st->mtime;
+        if ($mtime > time()) {
+            warn "file '$pidfile' modified in future\n";
+        }
 
-	if ($line =~ m/^(\d+)$/) {
-	    my $pid = $1;
-	    my $cmdline = parse_cmdline($pid);
-	    if ($cmdline && defined($cmdline->{pidfile}) && $cmdline->{pidfile}->{value}
-		&& $cmdline->{pidfile}->{value} eq $pidfile) {
-		if (my $pinfo = PVE::ProcFSTools::check_process_running($pid)) {
-		    return $pid;
-		}
-	    }
-	}
+        if ($line =~ m/^(\d+)$/) {
+            my $pid = $1;
+            my $cmdline = parse_cmdline($pid);
+            if (
+                $cmdline
+                && defined($cmdline->{pidfile})
+                && $cmdline->{pidfile}->{value}
+                && $cmdline->{pidfile}->{value} eq $pidfile
+            ) {
+                if (my $pinfo = PVE::ProcFSTools::check_process_running($pid)) {
+                    return $pid;
+                }
+            }
+        }
     }
 
     return;
@@ -159,8 +165,8 @@ sub min_version {
     my ($verstr, $major, $minor, $pve) = @_;
 
     if ($verstr =~ m/^(\d+)\.(\d+)(?:\.(\d+))?(?:\+pve(\d+))?/) {
-	return 1 if version_cmp($1, $major, $2, $minor, $4, $pve) >= 0;
-	return 0;
+        return 1 if version_cmp($1, $major, $2, $minor, $4, $pve) >= 0;
+        return 0;
     }
 
     die "internal error: cannot check version of invalid string '$verstr'";
@@ -177,17 +183,17 @@ sub version_cmp {
     return 0 if $size == 0;
 
     if ($size & 1) {
-	my (undef, $fn, $line) = caller(0);
-	die "cannot compare odd count of versions, called from $fn:$line\n";
+        my (undef, $fn, $line) = caller(0);
+        die "cannot compare odd count of versions, called from $fn:$line\n";
     }
 
     for (my $i = 0; $i < $size; $i += 2) {
-	my ($a, $b) = splice(@versions, 0, 2);
-	$a //= 0;
-	$b //= 0;
+        my ($a, $b) = splice(@versions, 0, 2);
+        $a //= 0;
+        $b //= 0;
 
-	return 1 if $a > $b;
-	return -1 if $a < $b;
+        return 1 if $a > $b;
+        return -1 if $a < $b;
     }
     return 0;
 }
@@ -198,22 +204,22 @@ sub config_aware_timeout {
 
     # Based on user reported startup time for vm with 512GiB @ 4-5 minutes
     if (defined($memory) && $memory > 30720) {
-	$timeout = int($memory/1024);
+        $timeout = int($memory / 1024);
     }
 
     # When using PCI passthrough, users reported much higher startup times,
     # growing with the amount of memory configured. Constant factor chosen
     # based on user reports.
     if (grep(/^hostpci[0-9]+$/, keys %$config)) {
-	$timeout *= 4;
+        $timeout *= 4;
     }
 
     if ($is_suspended && $timeout < 300) {
-	$timeout = 300;
+        $timeout = 300;
     }
 
     if ($config->{hugepages} && $timeout < 150) {
-	$timeout = 150;
+        $timeout = 150;
     }
 
     # Some testing showed that adding a NIC increased the start time by ~450ms
@@ -222,7 +228,7 @@ sub config_aware_timeout {
     # So 10x that to account for any potential system differences seemed
     # reasonable. User reports with real-life values (20+: ~50s, 25: 45s, 17: 42s)
     # also make this seem a good value.
-    my $nic_count = scalar (grep { /^net\d+/ } keys %{$config});
+    my $nic_count = scalar(grep { /^net\d+/ } keys %{$config});
     $timeout += $nic_count * 5;
 
     return $timeout;
@@ -244,8 +250,8 @@ sub pvecfg_min_version {
     return 0 if !$verstr;
 
     if ($verstr =~ m/^(\d+)\.(\d+)(?:[.-](\d+))?/) {
-	return 1 if version_cmp($1, $major, $2, $minor, $3 // 0, $release) >= 0;
-	return 0;
+        return 1 if version_cmp($1, $major, $2, $minor, $3 // 0, $release) >= 0;
+        return 0;
     }
 
     die "internal error: cannot check version of invalid string '$verstr'";
@@ -255,12 +261,12 @@ sub parse_number_sets {
     my ($set) = @_;
     my $res = [];
     foreach my $part (split(/;/, $set)) {
-	if ($part =~ /^\s*(\d+)(?:-(\d+))?\s*$/) {
-	    die "invalid range: $part ($2 < $1)\n" if defined($2) && $2 < $1;
-	    push @$res, [ $1, $2 ];
-	} else {
-	    die "invalid range: $part\n";
-	}
+        if ($part =~ /^\s*(\d+)(?:-(\d+))?\s*$/) {
+            die "invalid range: $part ($2 < $1)\n" if defined($2) && $2 < $1;
+            push @$res, [$1, $2];
+        } else {
+            die "invalid range: $part\n";
+        }
     }
     return $res;
 }
@@ -272,9 +278,9 @@ sub windows_version {
 
     my $winversion = 0;
 
-    if($ostype eq 'wxp' || $ostype eq 'w2k3' || $ostype eq 'w2k') {
+    if ($ostype eq 'wxp' || $ostype eq 'w2k3' || $ostype eq 'w2k') {
         $winversion = 5;
-    } elsif($ostype eq 'w2k8' || $ostype eq 'wvista') {
+    } elsif ($ostype eq 'w2k8' || $ostype eq 'wvista') {
         $winversion = 6;
     } elsif ($ostype =~ m/^win(\d+)$/) {
         $winversion = $1;

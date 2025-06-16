@@ -25,12 +25,17 @@ sub add_target_volid {
 
     PVE::Storage::parse_volume_id($volid);
 
-    lock_file_full("${RUN_DIR_PATH}/target_volids.lock", undef, 0, sub {
-	my $target_volids = decode_json(file_get_contents("${RUN_DIR_PATH}/target_volids"));
-	die "target volid already present " if defined($target_volids->{$volid});
-	$target_volids->{$volid} = 1;
-	file_set_contents("${RUN_DIR_PATH}/target_volids", to_json($target_volids));
-    });
+    lock_file_full(
+        "${RUN_DIR_PATH}/target_volids.lock",
+        undef,
+        0,
+        sub {
+            my $target_volids = decode_json(file_get_contents("${RUN_DIR_PATH}/target_volids"));
+            die "target volid already present " if defined($target_volids->{$volid});
+            $target_volids->{$volid} = 1;
+            file_set_contents("${RUN_DIR_PATH}/target_volids", to_json($target_volids));
+        },
+    );
     die $@ if $@;
 }
 
@@ -39,12 +44,17 @@ sub remove_target_volid {
 
     PVE::Storage::parse_volume_id($volid);
 
-    lock_file_full("${RUN_DIR_PATH}/target_volids.lock", undef, 0, sub {
-	my $target_volids = decode_json(file_get_contents("${RUN_DIR_PATH}/target_volids"));
-	die "target volid does not exist " if !defined($target_volids->{$volid});
-	delete $target_volids->{$volid};
-	file_set_contents("${RUN_DIR_PATH}/target_volids", to_json($target_volids));
-    });
+    lock_file_full(
+        "${RUN_DIR_PATH}/target_volids.lock",
+        undef,
+        0,
+        sub {
+            my $target_volids = decode_json(file_get_contents("${RUN_DIR_PATH}/target_volids"));
+            die "target volid does not exist " if !defined($target_volids->{$volid});
+            delete $target_volids->{$volid};
+            file_set_contents("${RUN_DIR_PATH}/target_volids", to_json($target_volids));
+        },
+    );
     die $@ if $@;
 }
 
@@ -52,9 +62,9 @@ my $mocked_cfs_read_file = sub {
     my ($file) = @_;
 
     if ($file eq 'datacenter.cfg') {
-	return {};
+        return {};
     } elsif ($file eq 'replication.cfg') {
-	return $replication_config;
+        return $replication_config;
     }
     die "cfs_read_file (mocked) - implement me: $file\n";
 };
@@ -64,7 +74,7 @@ my $mocked_cfs_read_file = sub {
 our $cgroup_module = Test::MockModule->new("PVE::CGroup");
 $cgroup_module->mock(
     cgroup_mode => sub {
-	return 2;
+        return 2;
     },
 );
 
@@ -72,90 +82,88 @@ our $cluster_module = Test::MockModule->new("PVE::Cluster");
 $cluster_module->mock(
     cfs_read_file => $mocked_cfs_read_file,
     check_cfs_quorum => sub {
-	return 1;
+        return 1;
     },
 );
 
 our $mapping_usb_module = Test::MockModule->new("PVE::Mapping::USB");
 $mapping_usb_module->mock(
     config => sub {
-	return {};
+        return {};
     },
 );
 
 our $mapping_pci_module = Test::MockModule->new("PVE::Mapping::PCI");
 $mapping_pci_module->mock(
     config => sub {
-	return {};
+        return {};
     },
 );
 
 our $mapping_dir_module = Test::MockModule->new("PVE::Mapping::Dir");
 $mapping_dir_module->mock(
     config => sub {
-	return {};
+        return {};
     },
 );
 
 our $ha_config_module = Test::MockModule->new("PVE::HA::Config");
 $ha_config_module->mock(
     vm_is_ha_managed => sub {
-	return 0;
+        return 0;
     },
 );
 
 our $qemu_config_module = Test::MockModule->new("PVE::QemuConfig");
 $qemu_config_module->mock(
     assert_config_exists_on_node => sub {
-	return;
+        return;
     },
     load_config => sub {
-	my ($class, $vmid, $node) = @_;
-	die "trying to load wrong config: '$vmid'\n" if $vmid ne $test_vmid;
-	return decode_json(file_get_contents("${RUN_DIR_PATH}/vm_config"));
+        my ($class, $vmid, $node) = @_;
+        die "trying to load wrong config: '$vmid'\n" if $vmid ne $test_vmid;
+        return decode_json(file_get_contents("${RUN_DIR_PATH}/vm_config"));
     },
     lock_config => sub { # no use locking here because lock is local to node
-	my ($self, $vmid, $code, @param) = @_;
-	return $code->(@param);
+        my ($self, $vmid, $code, @param) = @_;
+        return $code->(@param);
     },
     write_config => sub {
-	my ($class, $vmid, $conf) = @_;
-	die "trying to write wrong config: '$vmid'\n" if $vmid ne $test_vmid;
-	file_set_contents("${RUN_DIR_PATH}/vm_config", to_json($conf));
+        my ($class, $vmid, $conf) = @_;
+        die "trying to write wrong config: '$vmid'\n" if $vmid ne $test_vmid;
+        file_set_contents("${RUN_DIR_PATH}/vm_config", to_json($conf));
     },
 );
 
 our $qemu_server_cloudinit_module = Test::MockModule->new("PVE::QemuServer::Cloudinit");
 $qemu_server_cloudinit_module->mock(
     generate_cloudinitconfig => sub {
-	return;
+        return;
     },
 );
 
 our $qemu_server_module = Test::MockModule->new("PVE::QemuServer");
 $qemu_server_module->mock(
     clear_reboot_request => sub {
-	return 1;
+        return 1;
     },
     vm_stop_cleanup => sub {
-	return;
+        return;
     },
     get_efivars_size => sub {
-	 return 128 * 1024;
+        return 128 * 1024;
     },
 );
 
 our $replication_module = Test::MockModule->new("PVE::Replication");
 $replication_module->mock(
     run_replication => sub {
-	die "run_replication error" if $fail_config->{run_replication};
+        die "run_replication error" if $fail_config->{run_replication};
 
-	my $vm_config = PVE::QemuConfig->load_config($test_vmid);
-	return PVE::QemuConfig->get_replicatable_volumes(
-	    $storage_config,
-	    $test_vmid,
-	    $vm_config,
-	);
+        my $vm_config = PVE::QemuConfig->load_config($test_vmid);
+        return PVE::QemuConfig->get_replicatable_volumes(
+            $storage_config, $test_vmid, $vm_config,
+        );
     },
 );
 
@@ -166,23 +174,23 @@ $replication_config_module->mock(
 
 our $safe_syslog_module = Test::MockModule->new("PVE::SafeSyslog");
 $safe_syslog_module->mock(
-    initlog => sub {},
-    syslog => sub {},
+    initlog => sub { },
+    syslog => sub { },
 );
 
 our $storage_module = Test::MockModule->new("PVE::Storage");
 $storage_module->mock(
     activate_volumes => sub {
-	return 1;
+        return 1;
     },
     deactivate_volumes => sub {
-	return 1;
+        return 1;
     },
     config => sub {
-	return $storage_config;
+        return $storage_config;
     },
     get_bandwidth_limit => sub {
-	return 123456;
+        return 123456;
     },
     cfs_read_file => $mocked_cfs_read_file,
 );
@@ -190,22 +198,22 @@ $storage_module->mock(
 our $storage_plugin_module = Test::MockModule->new("PVE::Storage::Plugin");
 $storage_plugin_module->mock(
     cluster_lock_storage => sub {
-	my ($class, $storeid, $shared, $timeout, $func, @param) = @_;
+        my ($class, $storeid, $shared, $timeout, $func, @param) = @_;
 
-	mkdir "${RUN_DIR_PATH}/lock";
+        mkdir "${RUN_DIR_PATH}/lock";
 
-	my $path = "${RUN_DIR_PATH}/lock/pve-storage-${storeid}";
-	return PVE::Tools::lock_file($path, $timeout, $func, @param);
+        my $path = "${RUN_DIR_PATH}/lock/pve-storage-${storeid}";
+        return PVE::Tools::lock_file($path, $timeout, $func, @param);
     },
 );
 
 our $systemd_module = Test::MockModule->new("PVE::Systemd");
 $systemd_module->mock(
     wait_for_unit_removed => sub {
-	return;
+        return;
     },
     enter_systemd_scope => sub {
-	return;
+        return;
     },
 );
 
@@ -214,10 +222,10 @@ my $migrate_port_counter = 60000;
 our $tools_module = Test::MockModule->new("PVE::Tools");
 $tools_module->mock(
     get_host_address_family => sub {
-	return AF_INET;
+        return AF_INET;
     },
     next_migrate_port => sub {
-	return $migrate_port_counter++;
+        return $migrate_port_counter++;
     },
 );
 

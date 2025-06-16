@@ -13,12 +13,12 @@ use PVE::QemuServer::Helpers qw(min_version);
 use base qw(PVE::SectionConfig Exporter);
 
 our @EXPORT_OK = qw(
-print_cpu_device
-get_cpu_options
-get_cpu_bitness
-is_native_arch
-get_amd_sev_object
-get_amd_sev_type
+    print_cpu_device
+    get_cpu_options
+    get_cpu_bitness
+    is_native_arch
+    get_amd_sev_object
+    get_amd_sev_type
 );
 
 # under certain race-conditions, this module might be loaded before pve-cluster
@@ -41,20 +41,22 @@ sub load_custom_model_conf {
 #builtin models : reported-model is mandatory
 my $builtin_models = {
     'x86-64-v2' => {
-	'reported-model' => 'qemu64',
-	flags => "+popcnt;+pni;+sse4.1;+sse4.2;+ssse3",
+        'reported-model' => 'qemu64',
+        flags => "+popcnt;+pni;+sse4.1;+sse4.2;+ssse3",
     },
     'x86-64-v2-AES' => {
-	'reported-model' => 'qemu64',
-	flags => "+aes;+popcnt;+pni;+sse4.1;+sse4.2;+ssse3",
+        'reported-model' => 'qemu64',
+        flags => "+aes;+popcnt;+pni;+sse4.1;+sse4.2;+ssse3",
     },
     'x86-64-v3' => {
-	'reported-model' => 'qemu64',
-	flags => "+aes;+popcnt;+pni;+sse4.1;+sse4.2;+ssse3;+avx;+avx2;+bmi1;+bmi2;+f16c;+fma;+abm;+movbe;+xsave",
+        'reported-model' => 'qemu64',
+        flags =>
+            "+aes;+popcnt;+pni;+sse4.1;+sse4.2;+ssse3;+avx;+avx2;+bmi1;+bmi2;+f16c;+fma;+abm;+movbe;+xsave",
     },
     'x86-64-v4' => {
-	'reported-model' => 'qemu64',
-	flags => "+aes;+popcnt;+pni;+sse4.1;+sse4.2;+ssse3;+avx;+avx2;+bmi1;+bmi2;+f16c;+fma;+abm;+movbe;+xsave;+avx512f;+avx512bw;+avx512cd;+avx512dq;+avx512vl",
+        'reported-model' => 'qemu64',
+        flags =>
+            "+aes;+popcnt;+pni;+sse4.1;+sse4.2;+ssse3;+avx;+avx2;+bmi1;+bmi2;+f16c;+fma;+abm;+movbe;+xsave;+avx512f;+avx512bw;+avx512cd;+avx512dq;+avx512vl",
     },
 };
 
@@ -171,7 +173,7 @@ my @supported_cpu_flags = (
     'md-clear',
     'hv-tlbflush',
     'hv-evmcs',
-    'aes'
+    'aes',
 );
 my $cpu_flag_supported_re = qr/([+-])(@{[join('|', @supported_cpu_flags)]})/;
 my $cpu_flag_any_re = qr/([+-])([a-zA-Z0-9\-_\.]+)/;
@@ -180,107 +182,114 @@ our $qemu_cmdline_cpu_re = qr/^((?>[+-]?[\w\-\._=]+,?)+)$/;
 
 my $cpu_fmt = {
     cputype => {
-	description => "Emulated CPU type. Can be default or custom name (custom model names must be prefixed with 'custom-').",
-	type => 'string',
-	format_description => 'string',
-	default => 'kvm64',
-	default_key => 1,
-	optional => 1,
+        description =>
+            "Emulated CPU type. Can be default or custom name (custom model names must be prefixed with 'custom-').",
+        type => 'string',
+        format_description => 'string',
+        default => 'kvm64',
+        default_key => 1,
+        optional => 1,
     },
     'reported-model' => {
-	description => "CPU model and vendor to report to the guest. Must be a QEMU/KVM supported model."
-	    ." Only valid for custom CPU model definitions, default models will always report themselves to the guest OS.",
-	type => 'string',
-	enum => [ sort { lc("$a") cmp lc("$b") } keys %$cpu_vendor_list ],
-	default => 'kvm64',
-	optional => 1,
+        description =>
+            "CPU model and vendor to report to the guest. Must be a QEMU/KVM supported model."
+            . " Only valid for custom CPU model definitions, default models will always report themselves to the guest OS.",
+        type => 'string',
+        enum => [sort { lc("$a") cmp lc("$b") } keys %$cpu_vendor_list],
+        default => 'kvm64',
+        optional => 1,
     },
     hidden => {
-	description => "Do not identify as a KVM virtual machine.",
-	type => 'boolean',
-	optional => 1,
-	default => 0
+        description => "Do not identify as a KVM virtual machine.",
+        type => 'boolean',
+        optional => 1,
+        default => 0,
     },
     'hv-vendor-id' => {
-	type => 'string',
-	pattern => qr/[a-zA-Z0-9]{1,12}/,
-	format_description => 'vendor-id',
-	description => 'The Hyper-V vendor ID. Some drivers or programs inside Windows guests need a specific ID.',
-	optional => 1,
+        type => 'string',
+        pattern => qr/[a-zA-Z0-9]{1,12}/,
+        format_description => 'vendor-id',
+        description =>
+            'The Hyper-V vendor ID. Some drivers or programs inside Windows guests need a specific ID.',
+        optional => 1,
     },
     flags => {
-	description => "List of additional CPU flags separated by ';'. Use '+FLAG' to enable,"
-	    ." '-FLAG' to disable a flag. Custom CPU models can specify any flag supported by"
-	    ." QEMU/KVM, VM-specific flags must be from the following set for security reasons: "
-	    . join(', ', @supported_cpu_flags),
-	format_description => '+FLAG[;-FLAG...]',
-	type => 'string',
-	pattern => qr/$cpu_flag_any_re(;$cpu_flag_any_re)*/,
-	optional => 1,
+        description => "List of additional CPU flags separated by ';'. Use '+FLAG' to enable,"
+            . " '-FLAG' to disable a flag. Custom CPU models can specify any flag supported by"
+            . " QEMU/KVM, VM-specific flags must be from the following set for security reasons: "
+            . join(', ', @supported_cpu_flags),
+        format_description => '+FLAG[;-FLAG...]',
+        type => 'string',
+        pattern => qr/$cpu_flag_any_re(;$cpu_flag_any_re)*/,
+        optional => 1,
     },
     'phys-bits' => {
-	type => 'string',
-	format => 'pve-phys-bits',
-	format_description => '8-64|host',
-	description => "The physical memory address bits that are reported to the guest OS. Should"
-	    ." be smaller or equal to the host's. Set to 'host' to use value from host CPU, but"
-	    ." note that doing so will break live migration to CPUs with other values.",
-	optional => 1,
+        type => 'string',
+        format => 'pve-phys-bits',
+        format_description => '8-64|host',
+        description =>
+            "The physical memory address bits that are reported to the guest OS. Should"
+            . " be smaller or equal to the host's. Set to 'host' to use value from host CPU, but"
+            . " note that doing so will break live migration to CPUs with other values.",
+        optional => 1,
     },
 };
 
 my $sev_fmt = {
     type => {
-	description => "Enable standard SEV with type='std' or enable"
-	    ." experimental SEV-ES with the 'es' option or enable"
-	    ." experimental SEV-SNP with the 'snp' option.",
-	type => 'string',
-	default_key => 1,
-	format_description => "sev-type",
-	enum => ['std', 'es', 'snp'],
-	maxLength => 3,
+        description => "Enable standard SEV with type='std' or enable"
+            . " experimental SEV-ES with the 'es' option or enable"
+            . " experimental SEV-SNP with the 'snp' option.",
+        type => 'string',
+        default_key => 1,
+        format_description => "sev-type",
+        enum => ['std', 'es', 'snp'],
+        maxLength => 3,
     },
     'no-debug' => {
-	description => "Sets policy bit to disallow debugging of guest",
-	type => 'boolean',
-	default => 0,
-	optional => 1,
+        description => "Sets policy bit to disallow debugging of guest",
+        type => 'boolean',
+        default => 0,
+        optional => 1,
     },
     'no-key-sharing' => {
-	description => "Sets policy bit to disallow key sharing with other guests (Ignored for SEV-SNP)",
-	type => 'boolean',
-	default => 0,
-	optional => 1,
+        description =>
+            "Sets policy bit to disallow key sharing with other guests (Ignored for SEV-SNP)",
+        type => 'boolean',
+        default => 0,
+        optional => 1,
     },
     'allow-smt' => {
-	description => "Sets policy bit to allow Simultaneous Multi Threading (SMT) (Ignored unless for SEV-SNP)",
-	type => 'boolean',
-	default => 1,
-	optional => 1,
+        description =>
+            "Sets policy bit to allow Simultaneous Multi Threading (SMT) (Ignored unless for SEV-SNP)",
+        type => 'boolean',
+        default => 1,
+        optional => 1,
     },
     "kernel-hashes" => {
-	description => "Add kernel hashes to guest firmware for measured linux kernel launch",
-	type => 'boolean',
-	default => 0,
-	optional => 1,
+        description => "Add kernel hashes to guest firmware for measured linux kernel launch",
+        type => 'boolean',
+        default => 0,
+        optional => 1,
     },
 };
 PVE::JSONSchema::register_format('pve-qemu-sev-fmt', $sev_fmt);
 
 PVE::JSONSchema::register_format('pve-phys-bits', \&parse_phys_bits);
+
 sub parse_phys_bits {
     my ($str, $noerr) = @_;
 
     my $err_msg = "value must be an integer between 8 and 64 or 'host'\n";
 
     if ($str !~ m/^(host|\d{1,2})$/) {
-	die $err_msg if !$noerr;
-	return;
+        die $err_msg if !$noerr;
+        return;
     }
 
     if ($str =~ m/^\d+$/ && (int($str) < 8 || int($str) > 64)) {
-	die $err_msg if !$noerr;
-	return;
+        die $err_msg if !$noerr;
+        return;
     }
 
     return $str;
@@ -290,6 +299,7 @@ sub parse_phys_bits {
 # as the definition of a custom CPU model. There are some slight differences
 # though, which we catch in the custom validation functions below.
 PVE::JSONSchema::register_format('pve-cpu-conf', $cpu_fmt, \&validate_cpu_conf);
+
 sub validate_cpu_conf {
     my ($cpu) = @_;
     # required, but can't be forced in schema since it's encoded in section header for custom models
@@ -297,6 +307,7 @@ sub validate_cpu_conf {
     return $cpu;
 }
 PVE::JSONSchema::register_format('pve-vm-cpu-conf', $cpu_fmt, \&validate_vm_cpu_conf);
+
 sub validate_vm_cpu_conf {
     my ($cpu) = @_;
 
@@ -306,20 +317,21 @@ sub validate_vm_cpu_conf {
 
     # a VM-specific config is only valid if the cputype exists
     if (is_custom_model($cputype)) {
-	# dies on unknown model
-	get_custom_model($cputype);
+        # dies on unknown model
+        get_custom_model($cputype);
     } else {
-	die "Built-in cputype '$cputype' is not defined (missing 'custom-' prefix?)\n"
-	    if !defined($cpu_vendor_list->{$cputype}) && !defined($builtin_models->{$cputype});
+        die "Built-in cputype '$cputype' is not defined (missing 'custom-' prefix?)\n"
+            if !defined($cpu_vendor_list->{$cputype}) && !defined($builtin_models->{$cputype});
     }
 
     # in a VM-specific config, certain properties are limited/forbidden
 
     die "VM-specific CPU flags must be a subset of: @{[join(', ', @supported_cpu_flags)]}\n"
-	if ($cpu->{flags} && $cpu->{flags} !~ m/^$cpu_flag_supported_re(;$cpu_flag_supported_re)*$/);
+        if ($cpu->{flags}
+            && $cpu->{flags} !~ m/^$cpu_flag_supported_re(;$cpu_flag_supported_re)*$/);
 
     die "Property 'reported-model' not allowed in VM-specific CPU config.\n"
-	if defined($cpu->{'reported-model'});
+        if defined($cpu->{'reported-model'});
 
     return $cpu;
 }
@@ -327,7 +339,7 @@ sub validate_vm_cpu_conf {
 # Section config settings
 my $defaultData = {
     # shallow copy, since SectionConfig modifies propertyList internally
-    propertyList => { %$cpu_fmt },
+    propertyList => {%$cpu_fmt},
 };
 
 sub private {
@@ -335,7 +347,7 @@ sub private {
 }
 
 sub options {
-    return { %$cpu_fmt };
+    return {%$cpu_fmt};
 }
 
 sub type {
@@ -345,15 +357,19 @@ sub type {
 sub parse_section_header {
     my ($class, $line) = @_;
 
-    my ($type, $sectionId, $errmsg, $config) =
-	$class->SUPER::parse_section_header($line);
+    my ($type, $sectionId, $errmsg, $config) = $class->SUPER::parse_section_header($line);
 
     return if !$type;
-    return ($type, $sectionId, $errmsg, {
-	# name is given by section header, and we can always prepend 'custom-'
-	# since we're reading the custom CPU file
-	cputype => "custom-$sectionId",
-    });
+    return (
+        $type,
+        $sectionId,
+        $errmsg,
+        {
+            # name is given by section header, and we can always prepend 'custom-'
+            # since we're reading the custom CPU file
+            cputype => "custom-$sectionId",
+        },
+    );
 }
 
 sub write_config {
@@ -361,17 +377,19 @@ sub write_config {
 
     mkdir "/etc/pve/virtual-guest";
 
-    for my $model (keys %{$cfg->{ids}}) {
-	my $model_conf = $cfg->{ids}->{$model};
+    for my $model (keys %{ $cfg->{ids} }) {
+        my $model_conf = $cfg->{ids}->{$model};
 
-	die "internal error: tried saving built-in CPU model (or missing prefix): $model_conf->{cputype}\n"
-	    if !is_custom_model($model_conf->{cputype});
+        die
+            "internal error: tried saving built-in CPU model (or missing prefix): $model_conf->{cputype}\n"
+            if !is_custom_model($model_conf->{cputype});
 
-	die "internal error: tried saving custom cpumodel with cputype (ignoring prefix: $model_conf->{cputype}) not equal to \$cfg->ids entry ($model)\n"
-	    if "custom-$model" ne $model_conf->{cputype};
+        die
+            "internal error: tried saving custom cpumodel with cputype (ignoring prefix: $model_conf->{cputype}) not equal to \$cfg->ids entry ($model)\n"
+            if "custom-$model" ne $model_conf->{cputype};
 
-	# saved in section header
-	delete $model_conf->{cputype};
+        # saved in section header
+        delete $model_conf->{cputype};
     }
 
     $class->SUPER::write_config($filename, $cfg);
@@ -381,7 +399,7 @@ sub add_cpu_json_properties {
     my ($prop) = @_;
 
     foreach my $opt (keys %$cpu_fmt) {
-	$prop->{$opt} = $cpu_fmt->{$opt};
+        $prop->{$opt} = $cpu_fmt->{$opt};
     }
 
     return $prop;
@@ -393,35 +411,38 @@ sub get_cpu_models {
     my $models = [];
 
     for my $default_model (keys %{$cpu_vendor_list}) {
-	push @$models, {
-	    name => $default_model,
-	    custom => 0,
-	    vendor => $cpu_vendor_list->{$default_model},
-	};
+        push @$models,
+            {
+                name => $default_model,
+                custom => 0,
+                vendor => $cpu_vendor_list->{$default_model},
+            };
     }
 
     for my $model (keys %{$builtin_models}) {
-	my $reported_model = $builtin_models->{$model}->{'reported-model'};
-	my $vendor = $cpu_vendor_list->{$reported_model};
-	push @$models, {
-	    name => $model,
-	    custom => 0,
-	    vendor => $vendor,
-	};
+        my $reported_model = $builtin_models->{$model}->{'reported-model'};
+        my $vendor = $cpu_vendor_list->{$reported_model};
+        push @$models,
+            {
+                name => $model,
+                custom => 0,
+                vendor => $vendor,
+            };
     }
 
     return $models if !$include_custom;
 
     my $conf = load_custom_model_conf();
-    for my $custom_model (keys %{$conf->{ids}}) {
-	my $reported_model = $conf->{ids}->{$custom_model}->{'reported-model'};
-	$reported_model //= $cpu_fmt->{'reported-model'}->{default};
-	my $vendor = $cpu_vendor_list->{$reported_model};
-	push @$models, {
-	    name => "custom-$custom_model",
-	    custom => 1,
-	    vendor => $vendor,
-	};
+    for my $custom_model (keys %{ $conf->{ids} }) {
+        my $reported_model = $conf->{ids}->{$custom_model}->{'reported-model'};
+        $reported_model //= $cpu_fmt->{'reported-model'}->{default};
+        my $vendor = $cpu_vendor_list->{$reported_model};
+        push @$models,
+            {
+                name => "custom-$custom_model",
+                custom => 1,
+                vendor => $vendor,
+            };
     }
 
     return $models;
@@ -442,15 +463,15 @@ sub get_custom_model {
 
     my $entry = $conf->{ids}->{$name};
     if (!defined($entry)) {
-	die "Custom cputype '$name' not found\n" if !$noerr;
-	return;
+        die "Custom cputype '$name' not found\n" if !$noerr;
+        return;
     }
 
     my $model = {};
     for my $property (keys %$cpu_fmt) {
-	if (my $value = $entry->{$property}) {
-	    $model->{$property} = $value;
-	}
+        if (my $value = $entry->{$property}) {
+            $model->{$property} = $value;
+        }
     }
 
     return $model;
@@ -466,26 +487,26 @@ sub print_cpu_device {
     my $kvm = $conf->{kvm} // is_native_arch($arch);
     my $cpu = get_default_cpu_type('x86_64', $kvm);
     if (my $cputype = $conf->{cpu}) {
-	my $cpuconf = PVE::JSONSchema::parse_property_string('pve-vm-cpu-conf', $cputype)
-	    or die "Cannot parse cpu description: $cputype\n";
-	$cpu = $cpuconf->{cputype};
+        my $cpuconf = PVE::JSONSchema::parse_property_string('pve-vm-cpu-conf', $cputype)
+            or die "Cannot parse cpu description: $cputype\n";
+        $cpu = $cpuconf->{cputype};
 
-	if (my $model = $builtin_models->{$cpu}) {
-	    $cpu = $model->{'reported-model'};
-	} elsif (is_custom_model($cputype)) {
-	    my $custom_cpu = get_custom_model($cpu);
+        if (my $model = $builtin_models->{$cpu}) {
+            $cpu = $model->{'reported-model'};
+        } elsif (is_custom_model($cputype)) {
+            my $custom_cpu = get_custom_model($cpu);
 
-	    $cpu = $custom_cpu->{'reported-model'} // $cpu_fmt->{'reported-model'}->{default};
-	}
-	if (my $replacement_type = $depreacated_cpu_map->{$cpu}) {
-	    $cpu = $replacement_type;
-	}
+            $cpu = $custom_cpu->{'reported-model'} // $cpu_fmt->{'reported-model'}->{default};
+        }
+        if (my $replacement_type = $depreacated_cpu_map->{$cpu}) {
+            $cpu = $replacement_type;
+        }
     }
 
     my $cores = $conf->{cores} || 1;
 
     my $current_core = ($id - 1) % $cores;
-    my $current_socket = int(($id - 1 - $current_core)/$cores);
+    my $current_socket = int(($id - 1 - $current_core) / $cores);
 
     return "$cpu-x86_64-cpu,id=cpu$id,socket-id=$current_socket,core-id=$current_core,thread-id=0";
 }
@@ -507,39 +528,39 @@ sub resolve_cpu_flags {
     my $flags = {};
 
     for my $hash (@_) {
-	for my $flag_name (keys %$hash) {
-	    my $flag = $hash->{$flag_name};
-	    my $old_flag = $flags->{$flag_name};
+        for my $flag_name (keys %$hash) {
+            my $flag = $hash->{$flag_name};
+            my $old_flag = $flags->{$flag_name};
 
-	    $flag->{op} //= "";
-	    $flag->{reason} //= "unknown origin";
+            $flag->{op} //= "";
+            $flag->{reason} //= "unknown origin";
 
-	    if ($old_flag) {
-		my $value_changed = (defined($flag->{value}) != defined($old_flag->{value})) ||
-				    (defined($flag->{value}) && $flag->{value} ne $old_flag->{value});
+            if ($old_flag) {
+                my $value_changed = (defined($flag->{value}) != defined($old_flag->{value}))
+                    || (defined($flag->{value}) && $flag->{value} ne $old_flag->{value});
 
-		if ($old_flag->{op} eq $flag->{op} && !$value_changed) {
-		    $flags->{$flag_name}->{reason} .= " & $flag->{reason}";
-		    next;
-		}
+                if ($old_flag->{op} eq $flag->{op} && !$value_changed) {
+                    $flags->{$flag_name}->{reason} .= " & $flag->{reason}";
+                    next;
+                }
 
-		my $old = print_cpuflag_hash($flag_name, $flags->{$flag_name});
-		my $new = print_cpuflag_hash($flag_name, $flag);
-		warn "warning: CPU flag/setting $new overwrites $old\n";
-	    }
+                my $old = print_cpuflag_hash($flag_name, $flags->{$flag_name});
+                my $new = print_cpuflag_hash($flag_name, $flag);
+                warn "warning: CPU flag/setting $new overwrites $old\n";
+            }
 
-	    $flags->{$flag_name} = $flag;
-	}
+            $flags->{$flag_name} = $flag;
+        }
     }
 
     my $flag_str = '';
     # sort for command line stability
     for my $flag_name (sort keys %$flags) {
-	$flag_str .= ',';
-	$flag_str .= $flags->{$flag_name}->{op};
-	$flag_str .= $flag_name;
-	$flag_str .= "=$flags->{$flag_name}->{value}"
-	    if $flags->{$flag_name}->{value};
+        $flag_str .= ',';
+        $flag_str .= $flags->{$flag_name}->{op};
+        $flag_str .= $flag_name;
+        $flag_str .= "=$flags->{$flag_name}->{value}"
+            if $flags->{$flag_name}->{value};
     }
 
     return $flag_str;
@@ -561,9 +582,9 @@ sub parse_cpuflag_list {
     return $res if !$flaglist;
 
     foreach my $flag (split(";", $flaglist)) {
-	if ($flag =~ m/^$re$/) {
-	    $res->{$2} = { op => $1, reason => $reason };
-	}
+        if ($flag =~ m/^$re$/) {
+            $res->{$2} = { op => $1, reason => $reason };
+        }
     }
 
     return $res;
@@ -580,87 +601,95 @@ sub get_cpu_options {
     my $builtin_cpu;
     my $hv_vendor_id;
     if (my $cpu_prop_str = $conf->{cpu}) {
-	$cpu = PVE::JSONSchema::parse_property_string('pve-vm-cpu-conf', $cpu_prop_str)
-	    or die "Cannot parse cpu description: $cpu_prop_str\n";
+        $cpu = PVE::JSONSchema::parse_property_string('pve-vm-cpu-conf', $cpu_prop_str)
+            or die "Cannot parse cpu description: $cpu_prop_str\n";
 
-	$cputype = $cpu->{cputype};
-	if (my $model = $builtin_models->{$cputype}) {
-	    $cputype = $model->{'reported-model'};
-	    $builtin_cpu->{flags} = $model->{'flags'};
-	} elsif (is_custom_model($cputype)) {
-	    $custom_cpu = get_custom_model($cputype);
+        $cputype = $cpu->{cputype};
+        if (my $model = $builtin_models->{$cputype}) {
+            $cputype = $model->{'reported-model'};
+            $builtin_cpu->{flags} = $model->{'flags'};
+        } elsif (is_custom_model($cputype)) {
+            $custom_cpu = get_custom_model($cputype);
 
-	    $cputype = $custom_cpu->{'reported-model'} // $cpu_fmt->{'reported-model'}->{default};
-	    $kvm_off = $custom_cpu->{hidden} if defined($custom_cpu->{hidden});
-	    $hv_vendor_id = $custom_cpu->{'hv-vendor-id'};
-	}
+            $cputype = $custom_cpu->{'reported-model'} // $cpu_fmt->{'reported-model'}->{default};
+            $kvm_off = $custom_cpu->{hidden} if defined($custom_cpu->{hidden});
+            $hv_vendor_id = $custom_cpu->{'hv-vendor-id'};
+        }
 
-	if (my $replacement_type = $depreacated_cpu_map->{$cputype}) {
-	    $cputype = $replacement_type;
-	}
+        if (my $replacement_type = $depreacated_cpu_map->{$cputype}) {
+            $cputype = $replacement_type;
+        }
 
-	# VM-specific settings override custom CPU config
-	$kvm_off = $cpu->{hidden} if defined($cpu->{hidden});
-	$hv_vendor_id = $cpu->{'hv-vendor-id'} if defined($cpu->{'hv-vendor-id'});
+        # VM-specific settings override custom CPU config
+        $kvm_off = $cpu->{hidden} if defined($cpu->{hidden});
+        $hv_vendor_id = $cpu->{'hv-vendor-id'} if defined($cpu->{'hv-vendor-id'});
     }
 
     my $pve_flags = get_pve_cpu_flags($conf, $kvm, $cputype, $arch, $machine_version);
 
-    my $hv_flags = $kvm
-	? get_hyperv_enlightenments(
-	    $winversion,
-	    $machine_version,
-	    $conf->{bios},
-	    $gpu_passthrough,
-	    $hv_vendor_id,
-	)
-	: undef;
+    my $hv_flags =
+        $kvm
+        ? get_hyperv_enlightenments(
+            $winversion,
+            $machine_version,
+            $conf->{bios},
+            $gpu_passthrough,
+            $hv_vendor_id,
+        )
+        : undef;
 
-    my $builtin_cputype_flags = parse_cpuflag_list(
-	$cpu_flag_any_re, "set by builtin CPU model", $builtin_cpu->{flags});
+    my $builtin_cputype_flags =
+        parse_cpuflag_list($cpu_flag_any_re, "set by builtin CPU model", $builtin_cpu->{flags});
 
-    my $custom_cputype_flags = parse_cpuflag_list(
-	$cpu_flag_any_re, "set by custom CPU model", $custom_cpu->{flags});
+    my $custom_cputype_flags =
+        parse_cpuflag_list($cpu_flag_any_re, "set by custom CPU model", $custom_cpu->{flags});
 
-    my $vm_flags = parse_cpuflag_list(
-	$cpu_flag_supported_re, "manually set for VM", $cpu->{flags});
+    my $vm_flags = parse_cpuflag_list($cpu_flag_supported_re, "manually set for VM", $cpu->{flags});
 
     my $pve_forced_flags = {};
     $pve_forced_flags->{'enforce'} = {
-	reason => "error if requested CPU settings not available",
-    } if $cputype ne 'host' && $kvm && $arch eq 'x86_64';
+        reason => "error if requested CPU settings not available",
+        }
+        if $cputype ne 'host' && $kvm && $arch eq 'x86_64';
     $pve_forced_flags->{'kvm'} = {
-	value => "off",
-	reason => "hide KVM virtualization from guest",
-    } if $kvm_off;
+        value => "off",
+        reason => "hide KVM virtualization from guest",
+        }
+        if $kvm_off;
 
     # $cputype is the "reported-model" for custom types, so we can just look up
     # the vendor in the default list
     my $cpu_vendor = $cpu_vendor_list->{$cputype};
     if ($cpu_vendor) {
-	$pve_forced_flags->{'vendor'} = {
-	    value => $cpu_vendor,
-	} if $cpu_vendor ne 'default';
+        $pve_forced_flags->{'vendor'} = {
+            value => $cpu_vendor,
+        } if $cpu_vendor ne 'default';
     } elsif ($arch ne 'aarch64') {
-	die "internal error"; # should not happen
+        die "internal error"; # should not happen
     }
 
     my $cpu_str = $cputype;
 
     # will be resolved in parameter order
     $cpu_str .= resolve_cpu_flags(
-	$pve_flags, $hv_flags, $builtin_cputype_flags, $custom_cputype_flags, $vm_flags, $pve_forced_flags);
+        $pve_flags,
+        $hv_flags,
+        $builtin_cputype_flags,
+        $custom_cputype_flags,
+        $vm_flags,
+        $pve_forced_flags,
+    );
 
     my $phys_bits = '';
     foreach my $conf ($custom_cpu, $cpu) {
-	next if !defined($conf);
-	my $conf_val = $conf->{'phys-bits'};
-	next if !$conf_val;
-	if ($conf_val eq 'host') {
-	    $phys_bits = ",host-phys-bits=true";
-	} else {
-	    $phys_bits = ",phys-bits=$conf_val";
-	}
+        next if !defined($conf);
+        my $conf_val = $conf->{'phys-bits'};
+        next if !$conf_val;
+        if ($conf_val eq 'host') {
+            $phys_bits = ",host-phys-bits=true";
+        } else {
+            $phys_bits = ",phys-bits=$conf_val";
+        }
     }
     $cpu_str .= $phys_bits;
 
@@ -675,34 +704,38 @@ sub get_pve_cpu_flags {
     my $pve_msg = "set by PVE;";
 
     $pve_flags->{'lahf_lm'} = {
-	op => '+',
-	reason => "$pve_msg to support Windows 8.1+",
-    } if $cputype eq 'kvm64' && $arch eq 'x86_64';
+        op => '+',
+        reason => "$pve_msg to support Windows 8.1+",
+        }
+        if $cputype eq 'kvm64' && $arch eq 'x86_64';
 
     $pve_flags->{'x2apic'} = {
-	op => '-',
-	reason => "$pve_msg incompatible with Solaris",
-    } if $conf->{ostype} && $conf->{ostype} eq 'solaris';
+        op => '-',
+        reason => "$pve_msg incompatible with Solaris",
+        }
+        if $conf->{ostype} && $conf->{ostype} eq 'solaris';
 
     $pve_flags->{'sep'} = {
-	op => '+',
-	reason => "$pve_msg to support Windows 8+ and improve Windows XP+",
-    } if $cputype eq 'kvm64' || $cputype eq 'kvm32';
+        op => '+',
+        reason => "$pve_msg to support Windows 8+ and improve Windows XP+",
+        }
+        if $cputype eq 'kvm64' || $cputype eq 'kvm32';
 
     $pve_flags->{'rdtscp'} = {
-	op => '-',
-	reason => "$pve_msg broken on AMD Opteron",
-    } if $cputype =~ m/^Opteron/;
+        op => '-',
+        reason => "$pve_msg broken on AMD Opteron",
+        }
+        if $cputype =~ m/^Opteron/;
 
     if (min_version($machine_version, 2, 3) && $kvm && $arch eq 'x86_64') {
-	$pve_flags->{'kvm_pv_unhalt'} = {
-	    op => '+',
-	    reason => "$pve_msg to improve Linux guest spinlock performance",
-	};
-	$pve_flags->{'kvm_pv_eoi'} = {
-	    op => '+',
-	    reason => "$pve_msg to improve Linux guest interrupt performance",
-	};
+        $pve_flags->{'kvm_pv_unhalt'} = {
+            op => '+',
+            reason => "$pve_msg to improve Linux guest spinlock performance",
+        };
+        $pve_flags->{'kvm_pv_eoi'} = {
+            op => '+',
+            reason => "$pve_msg to improve Linux guest interrupt performance",
+        };
     }
 
     return $pve_flags;
@@ -717,46 +750,51 @@ sub get_hyperv_enlightenments {
     my $flags = {};
     my $default_reason = "automatic Hyper-V enlightenment for Windows";
     my $flagfn = sub {
-	my ($flag, $value, $reason) = @_;
-	$flags->{$flag} = {
-	    reason => $reason // $default_reason,
-	    value => $value,
-	}
+        my ($flag, $value, $reason) = @_;
+        $flags->{$flag} = {
+            reason => $reason // $default_reason,
+            value => $value,
+        };
     };
 
     my $hv_vendor_set = defined($hv_vendor_id);
     if ($gpu_passthrough || $hv_vendor_set) {
-	$hv_vendor_id //= 'proxmox';
-	$flagfn->('hv_vendor_id', $hv_vendor_id, $hv_vendor_set ?
-	    "custom hv_vendor_id set" : "NVIDIA workaround for GPU passthrough");
+        $hv_vendor_id //= 'proxmox';
+        $flagfn->(
+            'hv_vendor_id',
+            $hv_vendor_id,
+            $hv_vendor_set
+            ? "custom hv_vendor_id set"
+            : "NVIDIA workaround for GPU passthrough",
+        );
     }
 
     if (min_version($machine_version, 2, 3)) {
-	$flagfn->('hv_spinlocks', '0x1fff');
-	$flagfn->('hv_vapic');
-	$flagfn->('hv_time');
+        $flagfn->('hv_spinlocks', '0x1fff');
+        $flagfn->('hv_vapic');
+        $flagfn->('hv_time');
     } else {
-	$flagfn->('hv_spinlocks', '0xffff');
+        $flagfn->('hv_spinlocks', '0xffff');
     }
 
     if (min_version($machine_version, 2, 6)) {
-	$flagfn->('hv_reset');
-	$flagfn->('hv_vpindex');
-	$flagfn->('hv_runtime');
+        $flagfn->('hv_reset');
+        $flagfn->('hv_vpindex');
+        $flagfn->('hv_runtime');
     }
 
     if ($winversion >= 7) {
-	my $win7_reason = $default_reason . " 7 and higher";
-	$flagfn->('hv_relaxed', undef, $win7_reason);
+        my $win7_reason = $default_reason . " 7 and higher";
+        $flagfn->('hv_relaxed', undef, $win7_reason);
 
-	if (min_version($machine_version, 2, 12)) {
-	    $flagfn->('hv_synic', undef, $win7_reason);
-	    $flagfn->('hv_stimer', undef, $win7_reason);
-	}
+        if (min_version($machine_version, 2, 12)) {
+            $flagfn->('hv_synic', undef, $win7_reason);
+            $flagfn->('hv_stimer', undef, $win7_reason);
+        }
 
-	if (min_version($machine_version, 3, 1)) {
-	    $flagfn->('hv_ipi', undef, $win7_reason);
-	}
+        if (min_version($machine_version, 3, 1)) {
+            $flagfn->('hv_ipi', undef, $win7_reason);
+        }
     }
 
     return $flags;
@@ -767,7 +805,7 @@ sub get_cpu_from_running_vm {
 
     my $cmdline = PVE::QemuServer::Helpers::parse_cmdline($pid);
     die "could not read commandline of running machine\n"
-	if !$cmdline->{cpu}->{value};
+        if !$cmdline->{cpu}->{value};
 
     # sanitize and untaint value
     $cmdline->{cpu}->{value} =~ $qemu_cmdline_cpu_re;
@@ -796,17 +834,17 @@ sub get_cpu_bitness {
     my $cputype = get_default_cpu_type($arch, 0);
 
     if ($cpu_prop_str) {
-	my $cpu = PVE::JSONSchema::parse_property_string('pve-vm-cpu-conf', $cpu_prop_str)
-	    or die "Cannot parse cpu description: $cpu_prop_str\n";
+        my $cpu = PVE::JSONSchema::parse_property_string('pve-vm-cpu-conf', $cpu_prop_str)
+            or die "Cannot parse cpu description: $cpu_prop_str\n";
 
-	$cputype = $cpu->{cputype};
+        $cputype = $cpu->{cputype};
 
-	if (my $model = $builtin_models->{$cputype}) {
-	    $cputype = $model->{'reported-model'};
-	} elsif (is_custom_model($cputype)) {
-	    my $custom_cpu = get_custom_model($cputype);
-	    $cputype = $custom_cpu->{'reported-model'} // $cpu_fmt->{'reported-model'}->{default};
-	}
+        if (my $model = $builtin_models->{$cputype}) {
+            $cputype = $model->{'reported-model'};
+        } elsif (is_custom_model($cputype)) {
+            my $custom_cpu = get_custom_model($cputype);
+            $cputype = $custom_cpu->{'reported-model'} // $cpu_fmt->{'reported-model'}->{default};
+        }
     }
 
     return $cputypes_32bit->{$cputype} ? 32 : 64 if $arch eq 'x86_64';
@@ -819,15 +857,15 @@ sub get_hw_capabilities {
     # Get reduced-phys-bits & cbitpos from host-hw-capabilities.json
     # TODO: Find better location than /run/qemu-server/
     my $filename = '/run/qemu-server/host-hw-capabilities.json';
-    if (! -e $filename) {
-	die "$filename does not exist. Please check the status of query-machine-capabilities: "
-	    ."systemctl status query-machine-capabilities\n";
+    if (!-e $filename) {
+        die "$filename does not exist. Please check the status of query-machine-capabilities: "
+            . "systemctl status query-machine-capabilities\n";
     }
     my $json_text = PVE::Tools::file_get_contents($filename);
     ($json_text) = $json_text =~ /(.*)/; # untaint json text
     my $hw_capabilities = eval { decode_json($json_text) };
     if (my $err = $@) {
-	die $err;
+        die $err;
     }
     return $hw_capabilities;
 }
@@ -849,48 +887,48 @@ sub get_amd_sev_object {
     my $sev_hw_caps = get_hw_capabilities()->{'amd-sev'};
 
     if (!$sev_hw_caps->{'sev-support'}) {
-	die "Your CPU does not support AMD SEV.\n";
+        die "Your CPU does not support AMD SEV.\n";
     }
     if ($amd_sev_conf->{type} eq 'es' && !$sev_hw_caps->{'sev-support-es'}) {
-	die "Your CPU does not support AMD SEV-ES.\n";
+        die "Your CPU does not support AMD SEV-ES.\n";
     }
     if ($amd_sev_conf->{type} eq 'snp' && !$sev_hw_caps->{'sev-support-snp'}) {
-	die "Your CPU does not support AMD SEV-SNP.\n";
+        die "Your CPU does not support AMD SEV-SNP.\n";
     }
     if (!$bios || $bios ne 'ovmf') {
-	die "To use AMD SEV, you need to change the BIOS to OVMF.\n";
+        die "To use AMD SEV, you need to change the BIOS to OVMF.\n";
     }
 
     my $sev_mem_object = '';
     my $policy;
     if ($amd_sev_conf->{type} eq 'es' || $amd_sev_conf->{type} eq 'std') {
-	$sev_mem_object .= 'sev-guest,id=sev0';
-	$sev_mem_object .= ',cbitpos='.$sev_hw_caps->{cbitpos};
-	$sev_mem_object .= ',reduced-phys-bits='.$sev_hw_caps->{'reduced-phys-bits'};
+        $sev_mem_object .= 'sev-guest,id=sev0';
+        $sev_mem_object .= ',cbitpos=' . $sev_hw_caps->{cbitpos};
+        $sev_mem_object .= ',reduced-phys-bits=' . $sev_hw_caps->{'reduced-phys-bits'};
 
-	# guest policy bit calculation as described here:
-	# https://documentation.suse.com/sles/15-SP5/html/SLES-amd-sev/article-amd-sev.html#table-guestpolicy
-	$policy = 0;
-	$policy |= 1 << 0 if $amd_sev_conf->{'no-debug'};
-	$policy |= 1 << 1 if $amd_sev_conf->{'no-key-sharing'};
-	$policy |= 1 << 2 if $amd_sev_conf->{type} eq 'es';
-	# disable migration with bit 3 nosend to prevent amd-sev-migration-attack
-	$policy |= 1 << 3;
+        # guest policy bit calculation as described here:
+        # https://documentation.suse.com/sles/15-SP5/html/SLES-amd-sev/article-amd-sev.html#table-guestpolicy
+        $policy = 0;
+        $policy |= 1 << 0 if $amd_sev_conf->{'no-debug'};
+        $policy |= 1 << 1 if $amd_sev_conf->{'no-key-sharing'};
+        $policy |= 1 << 2 if $amd_sev_conf->{type} eq 'es';
+        # disable migration with bit 3 nosend to prevent amd-sev-migration-attack
+        $policy |= 1 << 3;
     } elsif ($amd_sev_conf->{type} eq 'snp') {
-	$sev_mem_object .= 'sev-snp-guest,id=sev0';
-	$sev_mem_object .= ',cbitpos='.$sev_hw_caps->{cbitpos};
-	$sev_mem_object .= ',reduced-phys-bits='.$sev_hw_caps->{'reduced-phys-bits'};
+        $sev_mem_object .= 'sev-snp-guest,id=sev0';
+        $sev_mem_object .= ',cbitpos=' . $sev_hw_caps->{cbitpos};
+        $sev_mem_object .= ',reduced-phys-bits=' . $sev_hw_caps->{'reduced-phys-bits'};
 
-	# guest policy bit calculation as described in chapter 4.3:
-	# https://www.amd.com/system/files/TechDocs/56860.pdf
-	# Reserved bit must be one
-	$policy = 1 << 17;
-	$policy |= 1 << 16 if !defined($amd_sev_conf->{'allow-smt'}) || $amd_sev_conf->{'allow-smt'};
-	$policy |= 1 << 19 if !$amd_sev_conf->{'no-debug'};
+        # guest policy bit calculation as described in chapter 4.3:
+        # https://www.amd.com/system/files/TechDocs/56860.pdf
+        # Reserved bit must be one
+        $policy = 1 << 17;
+        $policy |= 1 << 16
+            if !defined($amd_sev_conf->{'allow-smt'}) || $amd_sev_conf->{'allow-smt'};
+        $policy |= 1 << 19 if !$amd_sev_conf->{'no-debug'};
     }
 
-
-    $sev_mem_object .= ',policy='.sprintf("%#x", $policy);
+    $sev_mem_object .= ',policy=' . sprintf("%#x", $policy);
     $sev_mem_object .= ',kernel-hashes=on' if ($amd_sev_conf->{'kernel-hashes'});
     return $sev_mem_object;
 }

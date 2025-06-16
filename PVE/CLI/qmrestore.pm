@@ -24,64 +24,78 @@ __PACKAGE__->register_method({
     method => 'POST',
     description => "Restore QemuServer vzdump backups.",
     parameters => {
-    	additionalProperties => 0,
-	properties => {
-	    vmid => get_standard_option('pve-vmid', { completion => \&PVE::Cluster::complete_next_vmid }),
-	    archive => {
-		description => "The backup file. You can pass '-' to read from standard input.",
-		type => 'string',
-		maxLength => 255,
-		completion => \&PVE::QemuServer::complete_backup_archives,
-	    },
-	    storage => get_standard_option('pve-storage-id', {
-		description => "Default storage.",
-		optional => 1,
-		completion => \&PVE::QemuServer::complete_storage,
-	    }),
-	    force => {
-		optional => 1,
-		type => 'boolean',
-		description => "Allow to overwrite existing VM.",
-	    },
-	    unique => {
-		optional => 1,
-		type => 'boolean',
-		description => "Assign a unique random ethernet address.",
-	    },
-	    pool => {
-		optional => 1,
-		type => 'string', format => 'pve-poolid',
-		description => "Add the VM to the specified pool.",
-	    },
-	    bwlimit => {
-		description => "Override I/O bandwidth limit (in KiB/s).",
-		optional => 1,
-		type => 'number',
-		minimum => '0',
-	    },
-	    'live-restore' => {
-		optional => 1,
-		type => 'boolean',
-		description => "Start the VM immediately from the backup and restore in background. PBS only.",
-	    },
-	},
+        additionalProperties => 0,
+        properties => {
+            vmid => get_standard_option(
+                'pve-vmid',
+                { completion => \&PVE::Cluster::complete_next_vmid },
+            ),
+            archive => {
+                description => "The backup file. You can pass '-' to read from standard input.",
+                type => 'string',
+                maxLength => 255,
+                completion => \&PVE::QemuServer::complete_backup_archives,
+            },
+            storage => get_standard_option(
+                'pve-storage-id',
+                {
+                    description => "Default storage.",
+                    optional => 1,
+                    completion => \&PVE::QemuServer::complete_storage,
+                },
+            ),
+            force => {
+                optional => 1,
+                type => 'boolean',
+                description => "Allow to overwrite existing VM.",
+            },
+            unique => {
+                optional => 1,
+                type => 'boolean',
+                description => "Assign a unique random ethernet address.",
+            },
+            pool => {
+                optional => 1,
+                type => 'string',
+                format => 'pve-poolid',
+                description => "Add the VM to the specified pool.",
+            },
+            bwlimit => {
+                description => "Override I/O bandwidth limit (in KiB/s).",
+                optional => 1,
+                type => 'number',
+                minimum => '0',
+            },
+            'live-restore' => {
+                optional => 1,
+                type => 'boolean',
+                description =>
+                    "Start the VM immediately from the backup and restore in background. PBS only.",
+            },
+        },
     },
     returns => {
-	type => 'string',
+        type => 'string',
     },
     code => sub {
-	my ($param) = @_;
+        my ($param) = @_;
 
-	$param->{node} = PVE::INotify::nodename();
+        $param->{node} = PVE::INotify::nodename();
 
-	return PVE::API2::Qemu->create_vm($param);
-    }});
+        return PVE::API2::Qemu->create_vm($param);
+    },
+});
 
-our $cmddef = [ __PACKAGE__, 'qmrestore', ['archive', 'vmid'], undef,
-		sub {
-		    my $upid = shift;
-		    my $status = PVE::Tools::upid_read_status($upid);
-		    exit(PVE::Tools::upid_status_is_error($status) ? -1 : 0);
-		}];
+our $cmddef = [
+    __PACKAGE__,
+    'qmrestore',
+    ['archive', 'vmid'],
+    undef,
+    sub {
+        my $upid = shift;
+        my $status = PVE::Tools::upid_read_status($upid);
+        exit(PVE::Tools::upid_status_is_error($status) ? -1 : 0);
+    },
+];
 
 1;

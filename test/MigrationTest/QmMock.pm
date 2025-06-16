@@ -46,36 +46,36 @@ sub fork_worker {
 my $inotify_module = Test::MockModule->new("PVE::INotify");
 $inotify_module->mock(
     nodename => sub {
-       return $nodename;
+        return $nodename;
     },
 );
 
 $MigrationTest::Shared::qemu_server_module->mock(
     nodename => sub {
-	return $nodename;
+        return $nodename;
     },
     config_to_command => sub {
-	return [ 'mocked_kvm_command' ];
+        return ['mocked_kvm_command'];
     },
     vm_start_nolock => sub {
-	my ($storecfg, $vmid, $conf, $params, $migrate_opts) = @_;
-	$forcemachine = $params->{forcemachine}
-	    or die "mocked vm_start_nolock - expected 'forcemachine' parameter\n";
-	$MigrationTest::Shared::qemu_server_module->original('vm_start_nolock')->(@_);
+        my ($storecfg, $vmid, $conf, $params, $migrate_opts) = @_;
+        $forcemachine = $params->{forcemachine}
+            or die "mocked vm_start_nolock - expected 'forcemachine' parameter\n";
+        $MigrationTest::Shared::qemu_server_module->original('vm_start_nolock')->(@_);
     },
 );
 
 my $qemu_server_helpers_module = Test::MockModule->new("PVE::QemuServer::Helpers");
 $qemu_server_helpers_module->mock(
     vm_running_locally => sub {
-	return $kvm_exectued;
+        return $kvm_exectued;
     },
 );
 
 our $qemu_server_machine_module = Test::MockModule->new("PVE::QemuServer::Machine");
 $qemu_server_machine_module->mock(
     get_current_qemu_machine => sub {
-	return wantarray ? ($forcemachine, 0) : $forcemachine;
+        return wantarray ? ($forcemachine, 0) : $forcemachine;
     },
 );
 
@@ -84,75 +84,78 @@ my $disk_counter = 10;
 
 $MigrationTest::Shared::storage_module->mock(
     vdisk_alloc => sub {
-	my ($cfg, $storeid, $vmid, $fmt, $name, $size) = @_;
+        my ($cfg, $storeid, $vmid, $fmt, $name, $size) = @_;
 
-	die "vdisk_alloc (mocked) - name is not expected to be set - implement me\n"
-	    if defined($name);
+        die "vdisk_alloc (mocked) - name is not expected to be set - implement me\n"
+            if defined($name);
 
-	my $name_without_extension = "vm-${vmid}-disk-${disk_counter}";
-	$disk_counter++;
+        my $name_without_extension = "vm-${vmid}-disk-${disk_counter}";
+        $disk_counter++;
 
-	my $volid;
-	my $scfg = PVE::Storage::storage_config($cfg, $storeid);
-	if ($scfg->{path}) {
-	    $volid = "${storeid}:${vmid}/${name_without_extension}.${fmt}";
-	} else {
-	    $volid = "${storeid}:${name_without_extension}";
-	}
+        my $volid;
+        my $scfg = PVE::Storage::storage_config($cfg, $storeid);
+        if ($scfg->{path}) {
+            $volid = "${storeid}:${vmid}/${name_without_extension}.${fmt}";
+        } else {
+            $volid = "${storeid}:${name_without_extension}";
+        }
 
-	PVE::Storage::parse_volume_id($volid);
+        PVE::Storage::parse_volume_id($volid);
 
-	die "vdisk_alloc '$volid' error\n" if $fail_config->{vdisk_alloc}
-					   && $fail_config->{vdisk_alloc} eq $volid;
+        die "vdisk_alloc '$volid' error\n"
+            if $fail_config->{vdisk_alloc}
+            && $fail_config->{vdisk_alloc} eq $volid;
 
-	MigrationTest::Shared::add_target_volid($volid);
+        MigrationTest::Shared::add_target_volid($volid);
 
-	return $volid;
+        return $volid;
     },
 );
 
 $MigrationTest::Shared::qemu_server_module->mock(
     mon_cmd => sub {
-	my ($vmid, $command, %params) = @_;
+        my ($vmid, $command, %params) = @_;
 
-	if ($command eq 'nbd-server-start') {
-	    return;
-	} elsif ($command eq 'block-export-add') {
-	    return;
-	} elsif ($command eq 'query-block') {
-	    return [];
-	} elsif ($command eq 'qom-set') {
-	    return;
-	}
-	die "mon_cmd (mocked) - implement me: $command";
+        if ($command eq 'nbd-server-start') {
+            return;
+        } elsif ($command eq 'block-export-add') {
+            return;
+        } elsif ($command eq 'query-block') {
+            return [];
+        } elsif ($command eq 'qom-set') {
+            return;
+        }
+        die "mon_cmd (mocked) - implement me: $command";
     },
     run_command => sub {
-	my ($cmd_full, %param) = @_;
+        my ($cmd_full, %param) = @_;
 
-	my $cmd_msg = to_json($cmd_full);
+        my $cmd_msg = to_json($cmd_full);
 
-	my $cmd = shift @{$cmd_full};
+        my $cmd = shift @{$cmd_full};
 
-	if ($cmd eq '/bin/systemctl') {
-	    return;
-	} elsif ($cmd eq 'mocked_kvm_command') {
-	    $kvm_exectued = 1;
-	    return 0;
-	}
-	die "run_command (mocked) - implement me: ${cmd_msg}";
+        if ($cmd eq '/bin/systemctl') {
+            return;
+        } elsif ($cmd eq 'mocked_kvm_command') {
+            $kvm_exectued = 1;
+            return 0;
+        }
+        die "run_command (mocked) - implement me: ${cmd_msg}";
     },
     set_migration_caps => sub {
-	return;
+        return;
     },
-    vm_migrate_alloc_nbd_disks => sub{
-	my $nbd = $MigrationTest::Shared::qemu_server_module->original('vm_migrate_alloc_nbd_disks')->(@_);
-	file_set_contents("${RUN_DIR_PATH}/nbd_info", to_json($nbd));
-	return $nbd;
+    vm_migrate_alloc_nbd_disks => sub {
+        my $nbd =
+            $MigrationTest::Shared::qemu_server_module->original('vm_migrate_alloc_nbd_disks')
+            ->(@_);
+        file_set_contents("${RUN_DIR_PATH}/nbd_info", to_json($nbd));
+        return $nbd;
     },
 );
 
 our $cmddef = {
-    start => [ "PVE::API2::Qemu", 'vm_start', ['vmid'], { node => $nodename } ],
+    start => ["PVE::API2::Qemu", 'vm_start', ['vmid'], { node => $nodename }],
 };
 
 MigrationTest::QmMock->run_cli_handler();

@@ -24,93 +24,93 @@ use PVE::QemuServer::CPUConfig;
 
 my $base_env = {
     storage_config => {
-	ids => {
-	    local => {
-		content => {
-		    images => 1,
-		    iso => 1,
-		},
-		path => '/var/lib/vz',
-		type => 'dir',
-		shared => 0,
-	    },
-	    noimages => {
-		content => {
-		    iso => 1,
-		},
-		path => '/var/lib/vz',
-		type => 'dir',
-	    },
-	    'btrfs-store' => {
-		content => {
-		    images => 1,
-		},
-		path => '/butter/bread',
-		type => 'btrfs',
-	    },
-	    'cifs-store' => {
-		shared => 1,
-		path => '/mnt/pve/cifs-store',
-		username => 'guest',
-		server => '127.0.0.42',
-		type => 'cifs',
-		share => 'CIFShare',
-		content => {
-		    images => 1,
-		    iso => 1,
-		},
-	    },
-	    'rbd-store' => {
-		monhost => '127.0.0.42,127.0.0.21,::1',
-		fsid => 'fc4181a6-56eb-4f68-b452-8ba1f381ca2a',
-		content => {
-		    images => 1
-		},
-		type => 'rbd',
-		pool => 'cpool',
-		username => 'admin',
-		shared => 1
-	    },
-	    'krbd-store' => {
-		monhost => '127.0.0.42,127.0.0.21,::1',
-		fsid => 'fc4181a6-56eb-4f68-b452-8ba1f381ca2a',
-		content => {
-		    images => 1,
-		},
-		type => 'rbd',
-		pool => 'cpool',
-		username => 'admin',
-		shared => 1,
-		krbd => 1,
-	    },
-	    'zfs-over-iscsi-store' => {
-		type => 'zfs',
-		iscsiprovider => "comstar",
-		lio_tpg => "tpg1",
-		portal => "127.0.0.1",
-		target => "iqn.2019-10.org.test:foobar",
-		pool => "tank",
-		content => {
-		    images => 1,
-		},
-	    },
-	    'lvm-store' => {
-		vgname => 'veegee',
-		type => 'lvm',
-		content => {
-		    images => 1,
-		}
-	    },
-	    'local-lvm' => {
-		vgname => 'pve',
-		bwlimit => 'restore=1024',
-		type => 'lvmthin',
-		thinpool => 'data',
-		content => {
-		    images => 1,
-		}
-	    }
-	}
+        ids => {
+            local => {
+                content => {
+                    images => 1,
+                    iso => 1,
+                },
+                path => '/var/lib/vz',
+                type => 'dir',
+                shared => 0,
+            },
+            noimages => {
+                content => {
+                    iso => 1,
+                },
+                path => '/var/lib/vz',
+                type => 'dir',
+            },
+            'btrfs-store' => {
+                content => {
+                    images => 1,
+                },
+                path => '/butter/bread',
+                type => 'btrfs',
+            },
+            'cifs-store' => {
+                shared => 1,
+                path => '/mnt/pve/cifs-store',
+                username => 'guest',
+                server => '127.0.0.42',
+                type => 'cifs',
+                share => 'CIFShare',
+                content => {
+                    images => 1,
+                    iso => 1,
+                },
+            },
+            'rbd-store' => {
+                monhost => '127.0.0.42,127.0.0.21,::1',
+                fsid => 'fc4181a6-56eb-4f68-b452-8ba1f381ca2a',
+                content => {
+                    images => 1,
+                },
+                type => 'rbd',
+                pool => 'cpool',
+                username => 'admin',
+                shared => 1,
+            },
+            'krbd-store' => {
+                monhost => '127.0.0.42,127.0.0.21,::1',
+                fsid => 'fc4181a6-56eb-4f68-b452-8ba1f381ca2a',
+                content => {
+                    images => 1,
+                },
+                type => 'rbd',
+                pool => 'cpool',
+                username => 'admin',
+                shared => 1,
+                krbd => 1,
+            },
+            'zfs-over-iscsi-store' => {
+                type => 'zfs',
+                iscsiprovider => "comstar",
+                lio_tpg => "tpg1",
+                portal => "127.0.0.1",
+                target => "iqn.2019-10.org.test:foobar",
+                pool => "tank",
+                content => {
+                    images => 1,
+                },
+            },
+            'lvm-store' => {
+                vgname => 'veegee',
+                type => 'lvm',
+                content => {
+                    images => 1,
+                },
+            },
+            'local-lvm' => {
+                vgname => 'pve',
+                bwlimit => 'restore=1024',
+                type => 'lvmthin',
+                thinpool => 'data',
+                content => {
+                    images => 1,
+                },
+            },
+        },
     },
     vmid => 8006,
     real_qemu_version => PVE::QemuServer::Helpers::kvm_user_version(), # not yet mocked
@@ -139,34 +139,35 @@ my $pci_devs = [
 
 my $pci_map_config = {
     ids => {
-	someGpu => {
-	    type => 'pci',
-	    mdev => 1,
-	    map => [
-		'node=localhost,path=0000:01:00.4,id=10de:2231,iommugroup=1',
-		'node=localhost,path=0000:01:00.5,id=10de:2231,iommugroup=1',
-		'node=localhost,path=0000:01:00.6,id=10de:2231,iommugroup=1',
-	    ],
-	},
-	someNic => {
-	    type => 'pci',
-	    map => [
-		'node=localhost,path=0000:07:10.0,id=8086:1520,iommugroup=2',
-		'node=localhost,path=0000:07:10.1,id=8086:1520,iommugroup=2',
-		'node=localhost,path=0000:07:10.4,id=8086:1520,iommugroup=2',
-	    ],
-	},
+        someGpu => {
+            type => 'pci',
+            mdev => 1,
+            map => [
+                'node=localhost,path=0000:01:00.4,id=10de:2231,iommugroup=1',
+                'node=localhost,path=0000:01:00.5,id=10de:2231,iommugroup=1',
+                'node=localhost,path=0000:01:00.6,id=10de:2231,iommugroup=1',
+            ],
+        },
+        someNic => {
+            type => 'pci',
+            map => [
+                'node=localhost,path=0000:07:10.0,id=8086:1520,iommugroup=2',
+                'node=localhost,path=0000:07:10.1,id=8086:1520,iommugroup=2',
+                'node=localhost,path=0000:07:10.4,id=8086:1520,iommugroup=2',
+            ],
+        },
     },
 };
 
 my $usb_map_config = {},
 
-my $cpu_hw_capabilities = {
-    # Gathered from an AMD EPYC 9475F running kernel 6.11.11-2-pve
-    'amd-turin-9005' => '{ "amd-sev": { "cbitpos": 51, "reduced-phys-bits": 6, "sev-support": true,'
-	.' "sev-support-es": true, "sev-support-snp": true } }',
-    # TODO: others?
-};
+    my $cpu_hw_capabilities = {
+        # Gathered from an AMD EPYC 9475F running kernel 6.11.11-2-pve
+        'amd-turin-9005' =>
+        '{ "amd-sev": { "cbitpos": 51, "reduced-phys-bits": 6, "sev-support": true,'
+        . ' "sev-support-es": true, "sev-support-snp": true } }',
+        # TODO: others?
+    };
 
 my $current_test; # = {
 #   description => 'Test description', # if available
@@ -191,7 +192,7 @@ sub parse_test($) {
 
     $current_test = {}; # reset
 
-    my $fake_config_fn ="$config_fn/qemu-server/8006.conf";
+    my $fake_config_fn = "$config_fn/qemu-server/8006.conf";
     my $config_raw = file_get_contents($config_fn);
     my $config = PVE::QemuServer::parse_vm_config($fake_config_fn, $config_raw);
 
@@ -200,30 +201,30 @@ sub parse_test($) {
     my $description = $config->{description} // '';
 
     while ($description =~ /^\h*(.*?)\h*$/gm) {
-	my $line = $1;
-	next if !$line || $line =~ /^#/;
-	$line =~ s/^\s+//;
-	$line =~ s/\s+$//;
+        my $line = $1;
+        next if !$line || $line =~ /^#/;
+        $line =~ s/^\s+//;
+        $line =~ s/\s+$//;
 
-	if ($line =~ /^TEST:\s*(.*)\s*$/) {
-	    $current_test->{description} = "$1";
-	} elsif ($line =~ /^QEMU_VERSION:\s*(.*)\s*$/) {
-	    $current_test->{qemu_version} = "$1";
-	} elsif ($line =~ /^HOST_ARCH:\s*(.*)\s*$/) {
-	    $current_test->{host_arch} = "$1";
-	} elsif ($line =~ /^EXPECT_ERROR:\s*(.*)\s*$/) {
-	    $current_test->{expect_error} = "$1";
-	} elsif ($line =~ /^EXPECT_WARN(?:ING)?:\s*(.*)\s*$/) {
-	    $current_test->{expect_warning} = "$1";
-	} elsif ($line =~ /^HW_CAPABILITIES:\s*(.*)\s*$/) {
-	    $current_test->{hw_capabilities} = "$1"; # either a CPU from above hash or raw JSON
-	}
+        if ($line =~ /^TEST:\s*(.*)\s*$/) {
+            $current_test->{description} = "$1";
+        } elsif ($line =~ /^QEMU_VERSION:\s*(.*)\s*$/) {
+            $current_test->{qemu_version} = "$1";
+        } elsif ($line =~ /^HOST_ARCH:\s*(.*)\s*$/) {
+            $current_test->{host_arch} = "$1";
+        } elsif ($line =~ /^EXPECT_ERROR:\s*(.*)\s*$/) {
+            $current_test->{expect_error} = "$1";
+        } elsif ($line =~ /^EXPECT_WARN(?:ING)?:\s*(.*)\s*$/) {
+            $current_test->{expect_warning} = "$1";
+        } elsif ($line =~ /^HW_CAPABILITIES:\s*(.*)\s*$/) {
+            $current_test->{hw_capabilities} = "$1"; # either a CPU from above hash or raw JSON
+        }
     }
 
     $config_fn =~ /([^\/]+)$/;
     my $testname = "$1";
     if (my $desc = $current_test->{description}) {
-	$testname = "'$testname' - $desc";
+        $testname = "'$testname' - $desc";
     }
     $current_test->{testname} = $testname;
 }
@@ -236,32 +237,32 @@ my $qemu_server_module;
 $qemu_server_module = Test::MockModule->new('PVE::QemuServer');
 $qemu_server_module->mock(
     kvm_user_version => sub {
-	return get_test_qemu_version();
+        return get_test_qemu_version();
     },
     kvm_version => sub {
-	return get_test_qemu_version();
+        return get_test_qemu_version();
     },
     kernel_has_vhost_net => sub {
-	return 1; # TODO: make this per-test configurable?
+        return 1; # TODO: make this per-test configurable?
     },
     get_host_arch => sub() {
-	return $current_test->{host_arch} // 'x86_64';
+        return $current_test->{host_arch} // 'x86_64';
     },
     get_initiator_name => sub {
-	return 'iqn.1993-08.org.debian:01:aabbccddeeff';
+        return 'iqn.1993-08.org.debian:01:aabbccddeeff';
     },
     cleanup_pci_devices => {
-	# do nothing
+        # do nothing
     },
 );
 
 my $zfsplugin_module = Test::MockModule->new("PVE::Storage::ZFSPlugin");
 $zfsplugin_module->mock(
     zfs_get_lu_name => sub {
-	return "foobar";
+        return "foobar";
     },
     zfs_get_lun_number => sub {
-	return "0";
+        return "0";
     },
 );
 
@@ -269,9 +270,9 @@ my $qemu_server_config;
 $qemu_server_config = Test::MockModule->new('PVE::QemuConfig');
 $qemu_server_config->mock(
     load_config => sub {
-	my ($class, $vmid, $node) = @_;
+        my ($class, $vmid, $node) = @_;
 
-	return $current_test->{config};
+        return $current_test->{config};
     },
 );
 
@@ -279,41 +280,41 @@ my $qemu_server_memory;
 $qemu_server_memory = Test::MockModule->new('PVE::QemuServer::Memory');
 $qemu_server_memory->mock(
     hugepages_chunk_size_supported => sub {
-	return 1;
+        return 1;
     },
     host_numanode_exists => sub {
-	my ($id) = @_;
-	return 1;
+        my ($id) = @_;
+        return 1;
     },
     get_host_phys_address_bits => sub {
-	return 46;
-    }
+        return 46;
+    },
 );
 
 my $pve_common_tools;
 $pve_common_tools = Test::MockModule->new('PVE::Tools');
 $pve_common_tools->mock(
     next_vnc_port => sub {
-	my ($family, $address) = @_;
+        my ($family, $address) = @_;
 
-	return '5900';
+        return '5900';
     },
     next_spice_port => sub {
-	my ($family, $address) = @_;
+        my ($family, $address) = @_;
 
-	return '61000';
+        return '61000';
     },
     getaddrinfo_all => sub {
-	my ($hostname, @opts) = @_;
-	die "need stable hostname" if $hostname ne 'localhost';
-	return (
-	    {
-		addr => Socket::pack_sockaddr_in(0, Socket::INADDR_LOOPBACK),
-		family => AF_INET, # IPv4
-		protocol => 6,
-		socktype => 1,
-	    },
-	);
+        my ($hostname, @opts) = @_;
+        die "need stable hostname" if $hostname ne 'localhost';
+        return (
+            {
+                addr => Socket::pack_sockaddr_in(0, Socket::INADDR_LOOPBACK),
+                family => AF_INET, # IPv4
+                protocol => 6,
+                socktype => 1,
+            },
+        );
     },
 );
 
@@ -321,9 +322,10 @@ my $pve_cpuconfig;
 $pve_cpuconfig = Test::MockModule->new('PVE::QemuServer::CPUConfig');
 $pve_cpuconfig->mock(
     load_custom_model_conf => sub {
-	# mock custom CPU model config
-	return PVE::QemuServer::CPUConfig->parse_config("cpu-models.conf",
-<<EOF
+        # mock custom CPU model config
+        return PVE::QemuServer::CPUConfig->parse_config(
+            "cpu-models.conf",
+            <<EOF,
 
 # "qemu64" is also a default CPU, used here to test that this doesn't matter
 cpu-model: qemu64
@@ -335,22 +337,25 @@ cpu-model: qemu64
 cpu-model: alldefault
 
 EOF
-	)
+        );
     },
     get_hw_capabilities => sub {
-	my $hw_capabilities_raw;
-	if (!defined($current_test->{hw_capabilities})) {
-	    # default to barebone uncapable HW
-	    $hw_capabilities_raw = '{"amd-sev":{"cbitpos":0,"reduced-phys-bits":0,"sev-support":false,'
-		.'"sev-support-es":false,"sev-support-snp":false}}';
-	} elsif (my $cpu_hw_caps = $cpu_hw_capabilities->{lc($current_test->{hw_capabilities})}) {
-	    $hw_capabilities_raw = $cpu_hw_caps;
-	} else {
-	    $hw_capabilities_raw = $current_test->{hw_capabilities};
-	}
+        my $hw_capabilities_raw;
+        if (!defined($current_test->{hw_capabilities})) {
+            # default to barebone uncapable HW
+            $hw_capabilities_raw =
+                '{"amd-sev":{"cbitpos":0,"reduced-phys-bits":0,"sev-support":false,'
+                . '"sev-support-es":false,"sev-support-snp":false}}';
+        } elsif (
+            my $cpu_hw_caps = $cpu_hw_capabilities->{ lc($current_test->{hw_capabilities}) }
+        ) {
+            $hw_capabilities_raw = $cpu_hw_caps;
+        } else {
+            $hw_capabilities_raw = $current_test->{hw_capabilities};
+        }
 
-	my $hw_capabilities = decode_json($hw_capabilities_raw);
-	return $hw_capabilities;
+        my $hw_capabilities = decode_json($hw_capabilities_raw);
+        return $hw_capabilities;
     },
 );
 
@@ -358,16 +363,15 @@ my $pve_common_network;
 $pve_common_network = Test::MockModule->new('PVE::Network');
 $pve_common_network->mock(
     read_bridge_mtu => sub {
-	return 1500;
+        return 1500;
     },
 );
-
 
 my $pve_common_inotify;
 $pve_common_inotify = Test::MockModule->new('PVE::INotify');
 $pve_common_inotify->mock(
     nodename => sub {
-	return 'localhost';
+        return 'localhost';
     },
 );
 
@@ -375,37 +379,37 @@ my $pve_common_sysfstools;
 $pve_common_sysfstools = Test::MockModule->new('PVE::SysFSTools');
 $pve_common_sysfstools->mock(
     lspci => sub {
-	my ($filter, $verbose) = @_;
+        my ($filter, $verbose) = @_;
 
-	return [
-	    map { { id => $_ } }
-	    grep {
-		!defined($filter)
-		|| (!ref($filter) && $_ =~ m/^(0000:)?\Q$filter\E/)
-		|| (ref($filter) eq 'CODE' && $filter->({ id => $_ }))
-	    } sort @$pci_devs
-	];
+        return [
+            map { { id => $_ } }
+            grep {
+                !defined($filter)
+                    || (!ref($filter) && $_ =~ m/^(0000:)?\Q$filter\E/)
+                    || (ref($filter) eq 'CODE' && $filter->({ id => $_ }))
+            } sort @$pci_devs
+        ];
     },
     pci_device_info => sub {
-	my ($path, $noerr) = @_;
+        my ($path, $noerr) = @_;
 
-	if ($path =~ m/^0000:01:00/) {
-	    return {
-		mdev => 1,
-		iommugroup => 1,
-		mdev => 1,
-		vendor => "0x10de",
-		device => "0x2231",
-	    };
-	} elsif ($path =~ m/^0000:07:10/) {
-	    return {
-		iommugroup => 2,
-		vendor => "0x8086",
-		device => "0x1520",
-	    };
-	} else {
-	    return {};
-	}
+        if ($path =~ m/^0000:01:00/) {
+            return {
+                mdev => 1,
+                iommugroup => 1,
+                mdev => 1,
+                vendor => "0x10de",
+                device => "0x2231",
+            };
+        } elsif ($path =~ m/^0000:07:10/) {
+            return {
+                iommugroup => 2,
+                vendor => "0x8086",
+                device => "0x1520",
+            };
+        } else {
+            return {};
+        }
     },
 );
 
@@ -413,7 +417,7 @@ my $qemu_drive_module;
 $qemu_drive_module = Test::MockModule->new('PVE::QemuServer::Drive');
 $qemu_drive_module->mock(
     get_cdrom_path => sub {
-	return "/dev/cdrom";
+        return "/dev/cdrom";
     },
 );
 
@@ -421,24 +425,24 @@ my $qemu_monitor_module;
 $qemu_monitor_module = Test::MockModule->new('PVE::QemuServer::Monitor');
 $qemu_monitor_module->mock(
     mon_cmd => sub {
-	my ($vmid, $cmd) = @_;
+        my ($vmid, $cmd) = @_;
 
-	die "invalid vmid: $vmid (expected: $base_env->{vmid})"
-	    if $vmid != $base_env->{vmid};
+        die "invalid vmid: $vmid (expected: $base_env->{vmid})"
+            if $vmid != $base_env->{vmid};
 
-	if ($cmd eq 'query-version') {
-	    my $ver = get_test_qemu_version();
-	    $ver =~ m/(\d+)\.(\d+)(?:\.(\d+))?/;
-	    return {
-		qemu => {
-		    major => $1,
-		    minor => $2,
-		    micro => $3
-		}
-	    }
-	}
+        if ($cmd eq 'query-version') {
+            my $ver = get_test_qemu_version();
+            $ver =~ m/(\d+)\.(\d+)(?:\.(\d+))?/;
+            return {
+                qemu => {
+                    major => $1,
+                    minor => $2,
+                    micro => $3,
+                },
+            };
+        }
 
-	die "unexpected QMP command: '$cmd'";
+        die "unexpected QMP command: '$cmd'";
     },
 );
 $qemu_monitor_module->mock('qmp_cmd', \&qmp_cmd);
@@ -446,35 +450,35 @@ $qemu_monitor_module->mock('qmp_cmd', \&qmp_cmd);
 my $mapping_usb_module = Test::MockModule->new("PVE::Mapping::USB");
 $mapping_usb_module->mock(
     config => sub {
-	return $usb_map_config;
+        return $usb_map_config;
     },
 );
 
 my $mapping_pci_module = Test::MockModule->new("PVE::Mapping::PCI");
 $mapping_pci_module->mock(
     config => sub {
-	return $pci_map_config;
+        return $pci_map_config;
     },
 );
 
 my $pci_module = Test::MockModule->new("PVE::QemuServer::PCI");
 $pci_module->mock(
     reserve_pci_usage => sub {
-	my ($ids, $vmid, $timeout, $pid, $dryrun) = @_;
+        my ($ids, $vmid, $timeout, $pid, $dryrun) = @_;
 
-	$ids = [$ids] if !ref($ids);
+        $ids = [$ids] if !ref($ids);
 
-	for my $id (@$ids) {
-	    if ($id eq "0000:07:10.1") {
-		die "reserved";
-	    }
-	}
+        for my $id (@$ids) {
+            if ($id eq "0000:07:10.1") {
+                die "reserved";
+            }
+        }
 
-	return undef;
+        return undef;
     },
     create_nvidia_device => sub {
-	return 1;
-    }
+        return 1;
+    },
 );
 
 sub diff($$) {
@@ -487,7 +491,7 @@ sub diff($$) {
     my $hb = IO::Handle->new_from_fd($wb, 'w');
 
     open my $diffproc, '-|', 'diff', '-up', "/proc/self/fd/$ra", "/proc/self/fd/$rb" ## no critic
-	or die "failed to run program 'diff': $!";
+        or die "failed to run program 'diff': $!";
     POSIX::close($ra);
     POSIX::close($rb);
 
@@ -495,8 +499,8 @@ sub diff($$) {
     open my $f2, '<', \$b;
     my ($line1, $line2);
     do {
-	$ha->print($line1) if defined($line1 = <$f1>);
-	$hb->print($line2) if defined($line2 = <$f2>);
+        $ha->print($line1) if defined($line1 = <$f1>);
+        $hb->print($line2) if defined($line2 = <$f2>);
     } while (defined($line1 // $line2));
     close $f1;
     close $f2;
@@ -513,13 +517,13 @@ $SIG{__WARN__} = sub {
     my $warning = shift;
     chomp $warning;
     if (my $warn_expect = $current_test->{expect_warning}) {
-	if ($warn_expect ne $warning) {
-	    fail($current_test->{testname});
-	    note("warning does not match expected error: '$warning' != '$warn_expect'");
-	} else {
-	    note("got expected warning '$warning'");
-	    return;
-	}
+        if ($warn_expect ne $warning) {
+            fail($current_test->{testname});
+            note("warning does not match expected error: '$warning' != '$warn_expect'");
+        } else {
+            note("got expected warning '$warning'");
+            return;
+        }
     }
 
     fail($current_test->{testname});
@@ -529,7 +533,7 @@ $SIG{__WARN__} = sub {
 sub do_test($) {
     my ($config_fn) = @_;
 
-    die "no such input test config: $config_fn\n" if ! -f $config_fn;
+    die "no such input test config: $config_fn\n" if !-f $config_fn;
 
     parse_test $config_fn;
 
@@ -541,29 +545,29 @@ sub do_test($) {
     my $err = $@;
 
     if (my $err_expect = $current_test->{expect_error}) {
-	if (!$err) {
-	    fail("$testname");
-	    note("did NOT get any error, but expected error: $err_expect");
-	    return;
-	}
-	chomp $err;
-	if ($err ne $err_expect) {
-	    fail("$testname");
-	    note("error does not match expected error: '$err' !~ '$err_expect'");
-	} else {
-	    pass("$testname");
-	}
-	return;
+        if (!$err) {
+            fail("$testname");
+            note("did NOT get any error, but expected error: $err_expect");
+            return;
+        }
+        chomp $err;
+        if ($err ne $err_expect) {
+            fail("$testname");
+            note("error does not match expected error: '$err' !~ '$err_expect'");
+        } else {
+            pass("$testname");
+        }
+        return;
     } elsif ($err) {
-	fail("$testname");
-	note("got unexpected error: $err");
-	return;
+        fail("$testname");
+        note("got unexpected error: $err");
+        return;
     }
 
     # check if QEMU version set correctly and test version_cmp
     (my $qemu_major = get_test_qemu_version()) =~ s/\..*$//;
     die "runs_at_least_qemu_version returned false, maybe error in version_cmp?"
-	if !PVE::QemuServer::QMPHelpers::runs_at_least_qemu_version($vmid, $qemu_major);
+        if !PVE::QemuServer::QMPHelpers::runs_at_least_qemu_version($vmid, $qemu_major);
 
     $cmdline =~ s/ -/ \\\n  -/g; # same as qm showcmd --pretty
     $cmdline .= "\n";
@@ -571,25 +575,25 @@ sub do_test($) {
     my $cmd_fn = "$config_fn.cmd";
 
     if (-f $cmd_fn) {
-	my $cmdline_expected = file_get_contents($cmd_fn);
+        my $cmdline_expected = file_get_contents($cmd_fn);
 
-	my $cmd_expected = [ split /\s*\\?\n\s*/, $cmdline_expected ];
-	my $cmd = [ split /\s*\\?\n\s*/, $cmdline ];
+        my $cmd_expected = [split /\s*\\?\n\s*/, $cmdline_expected];
+        my $cmd = [split /\s*\\?\n\s*/, $cmdline];
 
-	# uncomment for easier debugging
-	#file_set_contents("$cmd_fn.tmp", $cmdline);
+        # uncomment for easier debugging
+        #file_set_contents("$cmd_fn.tmp", $cmdline);
 
-	my $exp = join("\n", @$cmd_expected);
-	my $got = join("\n", @$cmd);
-	eval { diff($exp, $got) };
-	if (my $err = $@) {
-	    fail("$testname");
-	    note($err);
-	} else {
-	    pass("$testname");
-	}
+        my $exp = join("\n", @$cmd_expected);
+        my $got = join("\n", @$cmd);
+        eval { diff($exp, $got) };
+        if (my $err = $@) {
+            fail("$testname");
+            note($err);
+        } else {
+            pass("$testname");
+        }
     } else {
-	file_set_contents($cmd_fn, $cmdline);
+        file_set_contents($cmd_fn, $cmdline);
     }
 }
 
@@ -600,7 +604,7 @@ if (my $file = shift) {
     do_test $file;
 } else {
     while (my $file = <cfg2cmd/*.conf>) {
-	do_test $file;
+        do_test $file;
     }
 }
 

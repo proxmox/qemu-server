@@ -31,57 +31,61 @@ plan tests => 2 * 10;
 sub run_tests {
     my ($strict) = @_;
 
-    PVE::Tools::dir_glob_foreach('./parse-config-input', '.*\.conf', sub {
-	my ($file) = @_;
+    PVE::Tools::dir_glob_foreach(
+        './parse-config-input',
+        '.*\.conf',
+        sub {
+            my ($file) = @_;
 
-	my $strict_mode = $strict ? 'strict' : 'non-strict';
+            my $strict_mode = $strict ? 'strict' : 'non-strict';
 
-	my $expected_err_file = "${EXPECTED_DIR}/${file}.${strict_mode}.error";
-	my $expected_err;
-	$expected_err = PVE::Tools::file_get_contents($expected_err_file) if -f $expected_err_file;
+            my $expected_err_file = "${EXPECTED_DIR}/${file}.${strict_mode}.error";
+            my $expected_err;
+            $expected_err = PVE::Tools::file_get_contents($expected_err_file)
+                if -f $expected_err_file;
 
-	my $fake_config_fn ="$file/qemu-server/8006.conf";
-	my $input_file = "${INPUT_DIR}/${file}";
-	my $input = PVE::Tools::file_get_contents($input_file);
-	my $conf = eval {
-	    PVE::QemuServer::parse_vm_config($fake_config_fn, $input, $strict);
-	};
-	if (my $err = $@) {
-	    if ($expected_err) {
-		is($err, $expected_err, $file);
-	    } else {
-		note("got unexpected error '$err'");
-		fail($file);
-	    }
-	    return;
-	}
+            my $fake_config_fn = "$file/qemu-server/8006.conf";
+            my $input_file = "${INPUT_DIR}/${file}";
+            my $input = PVE::Tools::file_get_contents($input_file);
+            my $conf =
+                eval { PVE::QemuServer::parse_vm_config($fake_config_fn, $input, $strict); };
+            if (my $err = $@) {
+                if ($expected_err) {
+                    is($err, $expected_err, $file);
+                } else {
+                    note("got unexpected error '$err'");
+                    fail($file);
+                }
+                return;
+            }
 
-	if ($expected_err) {
-	    note("expected error for strict mode did not occur: '$expected_err'");
-	    fail($file);
-	    return;
-	}
+            if ($expected_err) {
+                note("expected error for strict mode did not occur: '$expected_err'");
+                fail($file);
+                return;
+            }
 
-	my $output = eval { PVE::QemuServer::write_vm_config($fake_config_fn, $conf); };
-	if (my $err = $@) {
-	    note("got unexpected error '$err'");
-	    fail($file);
-	    return;
-	}
+            my $output = eval { PVE::QemuServer::write_vm_config($fake_config_fn, $conf); };
+            if (my $err = $@) {
+                note("got unexpected error '$err'");
+                fail($file);
+                return;
+            }
 
-	my $output_file = "${OUTPUT_DIR}/${file}";
-	PVE::Tools::file_set_contents($output_file, $output);
+            my $output_file = "${OUTPUT_DIR}/${file}";
+            PVE::Tools::file_set_contents($output_file, $output);
 
-	my $expected_file = "${EXPECTED_DIR}/${file}";
-	$expected_file = $input_file if !-f $expected_file;
+            my $expected_file = "${EXPECTED_DIR}/${file}";
+            $expected_file = $input_file if !-f $expected_file;
 
-	my $cmd = ['diff', '-u', $expected_file, $output_file];
-	if (system(@$cmd) == 0) {
-	    pass($file);
-	} else {
-	    fail($file);
-	}
-    });
+            my $cmd = ['diff', '-u', $expected_file, $output_file];
+            if (system(@$cmd) == 0) {
+                pass($file);
+            } else {
+                fail($file);
+            }
+        },
+    );
 }
 
 make_path(${OUTPUT_DIR});

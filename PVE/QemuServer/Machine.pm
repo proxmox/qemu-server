@@ -25,57 +25,64 @@ use PVE::JSONSchema qw(get_standard_option parse_property_string print_property_
 # TODO: add basic test to ensure the keys are correct and there's a change entry for each version.
 our $PVE_MACHINE_VERSION = {
     '4.1' => {
-	highest => 2,
-	revisions => {
-	    '+pve1' => 'Introduction of pveX versioning, no changes.',
-	    '+pve2' => 'Increases the number of SCSI drives supported.',
-	},
+        highest => 2,
+        revisions => {
+            '+pve1' => 'Introduction of pveX versioning, no changes.',
+            '+pve2' => 'Increases the number of SCSI drives supported.',
+        },
     },
     '9.2' => {
-	highest => 1,
-	revisions => {
-	    '+pve1' => 'Disables S3/S4 power states by default.',
-	},
+        highest => 1,
+        revisions => {
+            '+pve1' => 'Disables S3/S4 power states by default.',
+        },
     },
 };
 
 my $machine_fmt = {
     type => {
-	default_key => 1,
-	description => "Specifies the QEMU machine type.",
-	type => 'string',
-	pattern => '(pc|pc(-i440fx)?-\d+(\.\d+)+(\+pve\d+)?(\.pxe)?|q35|pc-q35-\d+(\.\d+)+(\+pve\d+)?(\.pxe)?|virt(?:-\d+(\.\d+)+)?(\+pve\d+)?)',
-	maxLength => 40,
-	format_description => 'machine type',
-	optional => 1,
+        default_key => 1,
+        description => "Specifies the QEMU machine type.",
+        type => 'string',
+        pattern =>
+            '(pc|pc(-i440fx)?-\d+(\.\d+)+(\+pve\d+)?(\.pxe)?|q35|pc-q35-\d+(\.\d+)+(\+pve\d+)?(\.pxe)?|virt(?:-\d+(\.\d+)+)?(\+pve\d+)?)',
+        maxLength => 40,
+        format_description => 'machine type',
+        optional => 1,
     },
     viommu => {
-	type => 'string',
-	description => "Enable and set guest vIOMMU variant (Intel vIOMMU needs q35 to be set as"
-	    ." machine type).",
-	enum => ['intel', 'virtio'],
-	optional => 1,
+        type => 'string',
+        description =>
+            "Enable and set guest vIOMMU variant (Intel vIOMMU needs q35 to be set as"
+            . " machine type).",
+        enum => ['intel', 'virtio'],
+        optional => 1,
     },
     'enable-s3' => {
-	type => 'boolean',
-	description => "Enables S3 power state. Defaults to false beginning with machine types 9.2+pve1, true before.",
-	optional => 1,
+        type => 'boolean',
+        description =>
+            "Enables S3 power state. Defaults to false beginning with machine types 9.2+pve1, true before.",
+        optional => 1,
     },
     'enable-s4' => {
-	type => 'boolean',
-	description => "Enables S4 power state. Defaults to false beginning with machine types 9.2+pve1, true before.",
-	optional => 1,
+        type => 'boolean',
+        description =>
+            "Enables S4 power state. Defaults to false beginning with machine types 9.2+pve1, true before.",
+        optional => 1,
     },
 };
 
 PVE::JSONSchema::register_format('pve-qemu-machine-fmt', $machine_fmt);
 
-PVE::JSONSchema::register_standard_option('pve-qemu-machine', {
-    description => "Specify the QEMU machine.",
-    type => 'string',
-    optional => 1,
-    format => PVE::JSONSchema::get_format('pve-qemu-machine-fmt'),
-});
+PVE::JSONSchema::register_standard_option(
+    'pve-qemu-machine',
+    {
+        description => "Specify the QEMU machine.",
+        type => 'string',
+        optional => 1,
+        format => PVE::JSONSchema::get_format('pve-qemu-machine-fmt'),
+    },
+);
 
 sub parse_machine {
     my ($value) = @_;
@@ -107,7 +114,7 @@ sub assert_valid_machine_property {
     my ($machine_conf) = @_;
     my $q35 = $machine_conf->{type} && ($machine_conf->{type} =~ m/q35/) ? 1 : 0;
     if ($machine_conf->{viommu} && $machine_conf->{viommu} eq "intel" && !$q35) {
-	die "to use Intel vIOMMU please set the machine type to q35\n";
+        die "to use Intel vIOMMU please set the machine type to q35\n";
     }
 }
 
@@ -124,14 +131,14 @@ sub current_from_query_machines {
 
     my ($current, $default);
     for my $machine ($machines->@*) {
-	$default = $machine->{name} if $machine->{'is-default'};
+        $default = $machine->{name} if $machine->{'is-default'};
 
-	if ($machine->{'is-current'}) {
-	    $current = $machine->{name};
-	    # pve-version only exists for the current machine
-	    $current .= "+$machine->{'pve-version'}" if $machine->{'pve-version'};
-	    return wantarray ? ($current, $machine->{deprecated} ? 1 : 0) : $current;
-	}
+        if ($machine->{'is-current'}) {
+            $current = $machine->{name};
+            # pve-version only exists for the current machine
+            $current .= "+$machine->{'pve-version'}" if $machine->{'pve-version'};
+            return wantarray ? ($current, $machine->{deprecated} ? 1 : 0) : $current;
+        }
     }
 
     # fallback to the default machine if current is not supported by qemu - assume never deprecated
@@ -155,17 +162,19 @@ sub get_current_qemu_machine {
 sub extract_version {
     my ($machine_type, $kvmversion) = @_;
 
-    if (defined($machine_type) && $machine_type =~
-	m/^(?:pc(?:-i440fx|-q35)?|virt)-(\d+)\.(\d+)(?:\.(\d+))?(\+pve\d+)?(?:\.pxe)?/)
-    {
-	my $versionstr = "$1.$2";
-	$versionstr .= $4 if $4;
-	return $versionstr;
+    if (
+        defined($machine_type)
+        && $machine_type =~
+        m/^(?:pc(?:-i440fx|-q35)?|virt)-(\d+)\.(\d+)(?:\.(\d+))?(\+pve\d+)?(?:\.pxe)?/
+    ) {
+        my $versionstr = "$1.$2";
+        $versionstr .= $4 if $4;
+        return $versionstr;
     } elsif (defined($kvmversion)) {
-	if ($kvmversion =~ m/^(\d+)\.(\d+)/) {
-	    my $pvever = get_pve_version($kvmversion);
-	    return "$1.$2+pve$pvever";
-	}
+        if ($kvmversion =~ m/^(\d+)\.(\d+)/) {
+            my $pvever = get_pve_version($kvmversion);
+            return "$1.$2+pve$pvever";
+        }
     }
 
     return;
@@ -174,15 +183,15 @@ sub extract_version {
 sub is_machine_version_at_least {
     my ($machine_type, $major, $minor, $pve) = @_;
 
-    return PVE::QemuServer::Helpers::min_version(
-	extract_version($machine_type), $major, $minor, $pve);
+    return PVE::QemuServer::Helpers::min_version(extract_version($machine_type), $major, $minor,
+        $pve);
 }
 
 sub get_machine_pve_revisions {
     my ($machine_version_str) = @_;
 
     if ($machine_version_str =~ m/^(\d+\.\d+)/) {
-	return $PVE_MACHINE_VERSION->{$1};
+        return $PVE_MACHINE_VERSION->{$1};
     }
 
     die "internal error: cannot get pve version for invalid string '$machine_version_str'";
@@ -192,7 +201,8 @@ sub get_pve_version {
     my ($verstr) = @_;
 
     if (my $pve_machine = get_machine_pve_revisions($verstr)) {
-	return $pve_machine->{highest} || die "internal error - machine version '$verstr' missing 'highest'";
+        return $pve_machine->{highest}
+            || die "internal error - machine version '$verstr' missing 'highest'";
     }
 
     return 0;
@@ -222,11 +232,11 @@ sub can_run_pve_machine_version {
 sub qemu_machine_pxe {
     my ($vmid, $conf) = @_;
 
-    my $machine =  get_current_qemu_machine($vmid);
+    my $machine = get_current_qemu_machine($vmid);
 
     my $machine_conf = parse_machine($conf->{machine});
     if ($machine_conf->{type} && $machine_conf->{type} =~ m/\.pxe$/) {
-	$machine .= '.pxe';
+        $machine .= '.pxe';
     }
 
     return $machine;
@@ -244,21 +254,21 @@ sub windows_get_pinned_machine_version {
 
     my $pin_version = $base_version;
     if (!defined($base_version) || !can_run_pve_machine_version($base_version, $kvmversion)) {
-	$pin_version = get_installed_machine_version($kvmversion);
-	# pin to the current pveX version to make use of most current features if > 0
-	my $pvever = get_pve_version($pin_version);
-	if ($pvever > 0) {
-	    $pin_version .= "+pve$pvever";
-	}
+        $pin_version = get_installed_machine_version($kvmversion);
+        # pin to the current pveX version to make use of most current features if > 0
+        my $pvever = get_pve_version($pin_version);
+        if ($pvever > 0) {
+            $pin_version .= "+pve$pvever";
+        }
     }
     if (!$machine || $machine eq 'pc') {
-	$machine = "pc-i440fx-$pin_version";
+        $machine = "pc-i440fx-$pin_version";
     } elsif ($machine eq 'q35') {
-	$machine = "pc-q35-$pin_version";
+        $machine = "pc-q35-$pin_version";
     } elsif ($machine eq 'virt') {
-	$machine = "virt-$pin_version";
+        $machine = "virt-$pin_version";
     } else {
-	warn "unknown machine type '$machine', not touching that!\n";
+        warn "unknown machine type '$machine', not touching that!\n";
     }
 
     return $machine;
@@ -271,42 +281,42 @@ sub get_vm_machine {
     my $machine = $forcemachine || $machine_conf->{type};
 
     if (!$machine || $machine =~ m/^(?:pc|q35|virt)$/) {
-	my $kvmversion = PVE::QemuServer::Helpers::kvm_user_version();
-	# we must pin Windows VMs without a specific version and no meta info about creation QEMU to
-	# 5.1, as 5.2 fixed a bug in ACPI layout which confuses windows quite a bit and may result
-	# in various regressions..
-	# see: https://lists.gnu.org/archive/html/qemu-devel/2021-02/msg08484.html
-	# Starting from QEMU 9.1, pin to the creation version instead. Support for 5.1 is expected
-	# to drop with QEMU 11.1 and it would still be good to handle Windows VMs that do not have
-	# an explicit machine version for whatever reason.
-	if (PVE::QemuServer::Helpers::windows_version($conf->{ostype})) {
-	    my $base_version = '5.1';
-	    # TODO PVE 10 - die early if there is a Windows VM both without explicit machine version
-	    # and without meta info.
-	    if (my $meta = PVE::QemuServer::MetaInfo::parse_meta_info($conf->{meta})) {
-		if (PVE::QemuServer::Helpers::min_version($meta->{'creation-qemu'}, 9, 1)) {
-		    # need only major.minor
-		    ($base_version) = ($meta->{'creation-qemu'} =~ m/^(\d+.\d+)/);
-		}
-	    }
-	    $machine = windows_get_pinned_machine_version($machine, $base_version, $kvmversion);
-	} else {
-	    $arch //= 'x86_64';
-	    $machine ||= default_machine_for_arch($arch);
-	    my $pvever = get_pve_version($kvmversion);
-	    $machine .= "+pve$pvever";
-	}
+        my $kvmversion = PVE::QemuServer::Helpers::kvm_user_version();
+        # we must pin Windows VMs without a specific version and no meta info about creation QEMU to
+        # 5.1, as 5.2 fixed a bug in ACPI layout which confuses windows quite a bit and may result
+        # in various regressions..
+        # see: https://lists.gnu.org/archive/html/qemu-devel/2021-02/msg08484.html
+        # Starting from QEMU 9.1, pin to the creation version instead. Support for 5.1 is expected
+        # to drop with QEMU 11.1 and it would still be good to handle Windows VMs that do not have
+        # an explicit machine version for whatever reason.
+        if (PVE::QemuServer::Helpers::windows_version($conf->{ostype})) {
+            my $base_version = '5.1';
+            # TODO PVE 10 - die early if there is a Windows VM both without explicit machine version
+            # and without meta info.
+            if (my $meta = PVE::QemuServer::MetaInfo::parse_meta_info($conf->{meta})) {
+                if (PVE::QemuServer::Helpers::min_version($meta->{'creation-qemu'}, 9, 1)) {
+                    # need only major.minor
+                    ($base_version) = ($meta->{'creation-qemu'} =~ m/^(\d+.\d+)/);
+                }
+            }
+            $machine = windows_get_pinned_machine_version($machine, $base_version, $kvmversion);
+        } else {
+            $arch //= 'x86_64';
+            $machine ||= default_machine_for_arch($arch);
+            my $pvever = get_pve_version($kvmversion);
+            $machine .= "+pve$pvever";
+        }
     }
 
     if ($machine !~ m/\+pve\d+?(?:\.pxe)?$/) {
-	my $is_pxe = $machine =~ m/^(.*?)\.pxe$/;
-	$machine = $1 if $is_pxe;
+        my $is_pxe = $machine =~ m/^(.*?)\.pxe$/;
+        $machine = $1 if $is_pxe;
 
-	# for version-pinned machines that do not include a pve-version (e.g.
-	# pc-q35-4.1), we assume 0 to keep them stable in case we bump
-	$machine .= '+pve0';
+        # for version-pinned machines that do not include a pve-version (e.g.
+        # pc-q35-4.1), we assume 0 to keep them stable in case we bump
+        $machine .= '+pve0';
 
-	$machine .= '.pxe' if $is_pxe;
+        $machine .= '.pxe' if $is_pxe;
     }
 
     return $machine;
@@ -318,11 +328,11 @@ sub check_and_pin_machine_string {
     my $machine_conf = parse_machine($machine_string);
     my $machine = $machine_conf->{type};
     if (!$machine || $machine =~ m/^(?:pc|q35|virt)$/) {
-	# always pin Windows' machine version on create, they get confused too easily
-	if (PVE::QemuServer::Helpers::windows_version($ostype)) {
-	    $machine_conf->{type} = windows_get_pinned_machine_version($machine);
-	    print "pinning machine type to '$machine_conf->{type}' for Windows guest OS\n";
-	}
+        # always pin Windows' machine version on create, they get confused too easily
+        if (PVE::QemuServer::Helpers::windows_version($ostype)) {
+            $machine_conf->{type} = windows_get_pinned_machine_version($machine);
+            print "pinning machine type to '$machine_conf->{type}' for Windows guest OS\n";
+        }
     }
 
     assert_valid_machine_property($machine_conf);
@@ -334,11 +344,12 @@ sub check_and_pin_machine_string {
 sub get_power_state_flags {
     my ($machine_conf, $version_guard) = @_;
 
-    my $object = $machine_conf->{type} && ($machine_conf->{type} =~ m/q35/) ? "ICH9-LPC" : "PIIX4_PM";
+    my $object =
+        $machine_conf->{type} && ($machine_conf->{type} =~ m/q35/) ? "ICH9-LPC" : "PIIX4_PM";
 
     my $default = 1;
     if ($version_guard->(9, 2, 1)) {
-	$default = 0;
+        $default = 0;
     }
 
     my $s3 = $machine_conf->{'enable-s3'} // $default;
@@ -348,14 +359,14 @@ sub get_power_state_flags {
 
     # they're enabled by default in QEMU, so only add the flags to disable them
     if (!$s3) {
-	push $options->@*, '-global', "${object}.disable_s3=1";
+        push $options->@*, '-global', "${object}.disable_s3=1";
     }
     if (!$s4) {
-	push $options->@*, '-global', "${object}.disable_s4=1";
+        push $options->@*, '-global', "${object}.disable_s4=1";
     }
 
     if (scalar($options->@*)) {
-	return $options;
+        return $options;
     }
 
     return;

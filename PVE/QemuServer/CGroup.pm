@@ -23,9 +23,9 @@ my sub set_unit_properties : prototype($$) {
     my ($self, $properties) = @_;
 
     PVE::Systemd::systemd_call(sub {
-	my ($if, $reactor, $finish_cb) = @_;
-	$if->SetUnitProperties($self->scope(), dbus_boolean(1), $properties);
-	return 1;
+        my ($if, $reactor, $finish_cb) = @_;
+        $if->SetUnitProperties($self->scope(), dbus_boolean(1), $properties);
+        return 1;
     });
 }
 
@@ -38,7 +38,7 @@ sub change_cpu_quota {
     die "period is not controlled for VMs\n" if defined($period);
 
     $quota = dbus_uint64(defined($quota) ? ($quota * 10_000) : -1);
-    set_unit_properties($self, [ [ CPUQuotaPerSecUSec => $quota ] ]);
+    set_unit_properties($self, [[CPUQuotaPerSecUSec => $quota]]);
 
     return;
 }
@@ -52,9 +52,9 @@ sub change_cpu_shares {
     $shares //= -1;
 
     if (PVE::CGroup::cgroup_mode() == 2) {
-	set_unit_properties($self, [ [ CPUWeight => dbus_uint64($shares) ] ]);
+        set_unit_properties($self, [[CPUWeight => dbus_uint64($shares)]]);
     } else {
-	set_unit_properties($self, [ [ CPUShares => dbus_uint64($shares) ] ]);
+        set_unit_properties($self, [[CPUShares => dbus_uint64($shares)]]);
     }
 
     return;

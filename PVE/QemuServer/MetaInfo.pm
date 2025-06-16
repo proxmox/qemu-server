@@ -9,16 +9,16 @@ use PVE::QemuServer::Helpers;
 
 our $meta_info_fmt = {
     'ctime' => {
-	type => 'integer',
-	description => "The guest creation timestamp as UNIX epoch time",
-	minimum => 0,
-	optional => 1,
+        type => 'integer',
+        description => "The guest creation timestamp as UNIX epoch time",
+        minimum => 0,
+        optional => 1,
     },
     'creation-qemu' => {
-	type => 'string',
-	description => "The QEMU (machine) version from the time this VM was created.",
-	pattern => '\d+(\.\d+)+',
-	optional => 1,
+        type => 'string',
+        description => "The QEMU (machine) version from the time this VM was created.",
+        pattern => '\d+(\.\d+)+',
+        optional => 1,
     },
 };
 
@@ -36,11 +36,11 @@ sub new_meta_info_string {
     my () = @_; # for now do not allow to override any value
 
     return PVE::JSONSchema::print_property_string(
-	{
-	    'creation-qemu' => PVE::QemuServer::Helpers::kvm_user_version(),
-	    ctime => "". int(time()),
-	},
-	$meta_info_fmt,
+        {
+            'creation-qemu' => PVE::QemuServer::Helpers::kvm_user_version(),
+            ctime => "" . int(time()),
+        },
+        $meta_info_fmt,
     );
 }
 

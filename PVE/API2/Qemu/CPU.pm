@@ -15,47 +15,48 @@ __PACKAGE__->register_method({
     method => 'GET',
     description => 'List all custom and default CPU models.',
     permissions => {
-	user => 'all',
-	description => 'Only returns custom models when the current user has'
-		     . ' Sys.Audit on /nodes.',
+        user => 'all',
+        description => 'Only returns custom models when the current user has'
+            . ' Sys.Audit on /nodes.',
     },
     parameters => {
-	additionalProperties => 0,
-	properties => {
-	    node => get_standard_option('pve-node'),
-	},
+        additionalProperties => 0,
+        properties => {
+            node => get_standard_option('pve-node'),
+        },
     },
     returns => {
-	type => 'array',
-	items => {
-	    type => 'object',
-	    properties => {
-		name => {
-		    type => 'string',
-		    description => "Name of the CPU model. Identifies it for"
-				 . " subsequent API calls. Prefixed with"
-				 . " 'custom-' for custom models.",
-		},
-		custom => {
-		    type => 'boolean',
-		    description => "True if this is a custom CPU model.",
-		},
-		vendor => {
-		    type => 'string',
-		    description => "CPU vendor visible to the guest when this"
-				 . " model is selected. Vendor of"
-				 . " 'reported-model' in case of custom models.",
-		},
-	    },
-	},
-	links => [ { rel => 'child', href => '{name}' } ],
+        type => 'array',
+        items => {
+            type => 'object',
+            properties => {
+                name => {
+                    type => 'string',
+                    description => "Name of the CPU model. Identifies it for"
+                        . " subsequent API calls. Prefixed with"
+                        . " 'custom-' for custom models.",
+                },
+                custom => {
+                    type => 'boolean',
+                    description => "True if this is a custom CPU model.",
+                },
+                vendor => {
+                    type => 'string',
+                    description => "CPU vendor visible to the guest when this"
+                        . " model is selected. Vendor of"
+                        . " 'reported-model' in case of custom models.",
+                },
+            },
+        },
+        links => [{ rel => 'child', href => '{name}' }],
     },
     code => sub {
-	my $rpcenv = PVE::RPCEnvironment::get();
-	my $authuser = $rpcenv->get_user();
-	my $include_custom = $rpcenv->check($authuser, "/nodes", ['Sys.Audit'], 1);
+        my $rpcenv = PVE::RPCEnvironment::get();
+        my $authuser = $rpcenv->get_user();
+        my $include_custom = $rpcenv->check($authuser, "/nodes", ['Sys.Audit'], 1);
 
-	return PVE::QemuServer::CPUConfig::get_cpu_models($include_custom);
-    }});
+        return PVE::QemuServer::CPUConfig::get_cpu_models($include_custom);
+    },
+});
 
 1;

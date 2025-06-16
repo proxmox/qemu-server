@@ -26,9 +26,9 @@ sub new {
     my $mux = IO::Multiplex->new();
 
     my $self = bless {
-	mux => $mux,
-	queue_lookup => {}, # $fh => $queue_info
-	queue_info => {},
+        mux => $mux,
+        queue_lookup => {}, # $fh => $queue_info
+        queue_info => {},
     }, $class;
 
     $self->{eventcb} = $eventcb if $eventcb;
@@ -64,7 +64,7 @@ my $push_cmd_to_queue = sub {
     $self->{queue_info}->{$sname} = { qga => $qga, vmid => $vmid, sname => $sname, cmds => [] }
         if !$self->{queue_info}->{$sname};
 
-    push @{$self->{queue_info}->{$sname}->{cmds}}, $cmd;
+    push @{ $self->{queue_info}->{$sname}->{cmds} }, $cmd;
 
     return $self->{queue_info}->{$sname};
 };
@@ -91,9 +91,9 @@ sub cmd {
     my $result;
 
     my $callback = sub {
-	my ($vmid, $resp) = @_;
-	$result = $resp->{'return'};
-	$result = { error => $resp->{'error'} } if !defined($result) && $resp->{'error'};
+        my ($vmid, $resp) = @_;
+        $result = $resp->{'return'};
+        $result = { error => $resp->{'error'} } if !defined($result) && $resp->{'error'};
     };
 
     die "no command specified" if !($cmd && $cmd->{execute});
@@ -104,50 +104,50 @@ sub cmd {
     my $queue_info = &$push_cmd_to_queue($self, $vmid, $cmd);
 
     if (!$timeout) {
-	# hack: monitor sometime blocks
-	if ($cmd->{execute} eq 'query-migrate') {
-	    $timeout = 60*60; # 1 hour
-	} elsif ($cmd->{execute} =~ m/^(eject|change)/) {
-	    $timeout = 60; # note: cdrom mount command is slow
-	} elsif ($cmd->{execute} eq 'guest-fsfreeze-freeze') {
-	    # freeze syncs all guest FS, if we kill it it stays in an unfreezable
-	    # locked state with high probability, so use an generous timeout
-	    $timeout = 60*60; # 1 hour
-	} elsif ($cmd->{execute} eq 'guest-fsfreeze-thaw') {
-	    # While it should return instantly or never (dead locked) for Linux guests,
-	    # the variance for Windows guests can be big. And there might be hook scripts
-	    # that are executed upon thaw, so use 3 minutes to be on the safe side.
-	    $timeout = 3 * 60;
-	} elsif (
-	    $cmd->{execute} eq 'backup-cancel' ||
-	    $cmd->{execute} eq 'blockdev-snapshot-delete-internal-sync' ||
-	    $cmd->{execute} eq 'blockdev-snapshot-internal-sync' ||
-	    $cmd->{execute} eq 'block-job-cancel' ||
-	    $cmd->{execute} eq 'block-job-complete' ||
-	    $cmd->{execute} eq 'drive-mirror' ||
-	    $cmd->{execute} eq 'guest-fstrim' ||
-	    $cmd->{execute} eq 'guest-shutdown' ||
-	    $cmd->{execute} eq 'query-backup' ||
-	    $cmd->{execute} eq 'query-block-jobs' ||
-	    $cmd->{execute} eq 'query-savevm' ||
-	    $cmd->{execute} eq 'savevm-end' ||
-	    $cmd->{execute} eq 'savevm-start'
-	 ) {
-	    $timeout = 10*60; # 10 mins
-	} else {
-	    #  NOTE: if you came here as user and want to change this, try using IO-Threads first
-	    # which move out quite some processing of the main thread, leaving more time for QMP
-	    $timeout = 5; # default
-	}
+        # hack: monitor sometime blocks
+        if ($cmd->{execute} eq 'query-migrate') {
+            $timeout = 60 * 60; # 1 hour
+        } elsif ($cmd->{execute} =~ m/^(eject|change)/) {
+            $timeout = 60; # note: cdrom mount command is slow
+        } elsif ($cmd->{execute} eq 'guest-fsfreeze-freeze') {
+            # freeze syncs all guest FS, if we kill it it stays in an unfreezable
+            # locked state with high probability, so use an generous timeout
+            $timeout = 60 * 60; # 1 hour
+        } elsif ($cmd->{execute} eq 'guest-fsfreeze-thaw') {
+            # While it should return instantly or never (dead locked) for Linux guests,
+            # the variance for Windows guests can be big. And there might be hook scripts
+            # that are executed upon thaw, so use 3 minutes to be on the safe side.
+            $timeout = 3 * 60;
+        } elsif (
+            $cmd->{execute} eq 'backup-cancel'
+            || $cmd->{execute} eq 'blockdev-snapshot-delete-internal-sync'
+            || $cmd->{execute} eq 'blockdev-snapshot-internal-sync'
+            || $cmd->{execute} eq 'block-job-cancel'
+            || $cmd->{execute} eq 'block-job-complete'
+            || $cmd->{execute} eq 'drive-mirror'
+            || $cmd->{execute} eq 'guest-fstrim'
+            || $cmd->{execute} eq 'guest-shutdown'
+            || $cmd->{execute} eq 'query-backup'
+            || $cmd->{execute} eq 'query-block-jobs'
+            || $cmd->{execute} eq 'query-savevm'
+            || $cmd->{execute} eq 'savevm-end'
+            || $cmd->{execute} eq 'savevm-start'
+        ) {
+            $timeout = 10 * 60; # 10 mins
+        } else {
+            #  NOTE: if you came here as user and want to change this, try using IO-Threads first
+            # which move out quite some processing of the main thread, leaving more time for QMP
+            $timeout = 5; # default
+        }
     }
 
     $self->queue_execute($timeout, 2);
 
     die "VM $vmid qmp command '$cmd->{execute}' failed - $queue_info->{error}"
-	if defined($queue_info->{error});
+        if defined($queue_info->{error});
 
     return $result;
-};
+}
 
 my $cmdid_seq = 0;
 my $cmdid_seq_qga = 0;
@@ -155,12 +155,12 @@ my $cmdid_seq_qga = 0;
 my $next_cmdid = sub {
     my ($qga) = @_;
 
-    if($qga){
-	$cmdid_seq_qga++;
-	return "$$"."0".$cmdid_seq_qga;
+    if ($qga) {
+        $cmdid_seq_qga++;
+        return "$$" . "0" . $cmdid_seq_qga;
     } else {
-	$cmdid_seq++;
-	return "$$:$cmdid_seq";
+        $cmdid_seq++;
+        return "$$:$cmdid_seq";
     }
 };
 
@@ -169,8 +169,8 @@ my $lookup_queue_info = sub {
 
     my $queue_info = $self->{queue_lookup}->{$fh};
     if (!$queue_info) {
-	warn "internal error - unable to lookup queue info" if !$noerr;
-	return;
+        warn "internal error - unable to lookup queue info" if !$noerr;
+        return;
     }
     return $queue_info;
 };
@@ -179,8 +179,8 @@ my $close_connection = sub {
     my ($self, $queue_info) = @_;
 
     if (my $fh = delete $queue_info->{fh}) {
-	delete $self->{queue_lookup}->{$fh};
-	$self->{mux}->close($fh);
+        delete $self->{queue_lookup}->{$fh};
+        $self->{mux}->close($fh);
     }
 };
 
@@ -203,17 +203,17 @@ my $open_connection = sub {
     my $sotype = $qga ? 'qga' : 'qmp';
 
     for (;;) {
-	$count++;
-	$fh = IO::Socket::UNIX->new(Peer => $sname, Blocking => 0, Timeout => 1);
-	last if $fh;
-	if ($! != EINTR && $! != EAGAIN) {
-	    die "unable to connect to VM $vmid $sotype socket - $!\n";
-	}
-	my $elapsed = tv_interval($starttime, [gettimeofday]);
-	if ($elapsed >= $timeout) {
-	    die "unable to connect to VM $vmid $sotype socket - timeout after $count retries\n";
-	}
-	usleep(100000);
+        $count++;
+        $fh = IO::Socket::UNIX->new(Peer => $sname, Blocking => 0, Timeout => 1);
+        last if $fh;
+        if ($! != EINTR && $! != EAGAIN) {
+            die "unable to connect to VM $vmid $sotype socket - $!\n";
+        }
+        my $elapsed = tv_interval($starttime, [gettimeofday]);
+        if ($elapsed >= $timeout) {
+            die "unable to connect to VM $vmid $sotype socket - timeout after $count retries\n";
+        }
+        usleep(100000);
     }
 
     $queue_info->{fh} = $fh;
@@ -231,67 +231,72 @@ my $check_queue = sub {
 
     my $running = 0;
 
-    foreach my $sname (keys %{$self->{queue_info}}) {
-	my $queue_info = $self->{queue_info}->{$sname};
-	my $fh = $queue_info->{fh};
-	next if !$fh;
+    foreach my $sname (keys %{ $self->{queue_info} }) {
+        my $queue_info = $self->{queue_info}->{$sname};
+        my $fh = $queue_info->{fh};
+        next if !$fh;
 
-	my $qga = $queue_info->{qga};
+        my $qga = $queue_info->{qga};
 
-	if ($queue_info->{error}) {
-	    &$close_connection($self, $queue_info);
-	    next;
-	}
+        if ($queue_info->{error}) {
+            &$close_connection($self, $queue_info);
+            next;
+        }
 
-	if ($queue_info->{current}) { # command running, waiting for response
-	    $running++;
-	    next;
-	}
+        if ($queue_info->{current}) { # command running, waiting for response
+            $running++;
+            next;
+        }
 
-	if (!scalar(@{$queue_info->{cmds}})) { # no more commands
-	    &$close_connection($self, $queue_info);
-	    next;
-	}
+        if (!scalar(@{ $queue_info->{cmds} })) { # no more commands
+            &$close_connection($self, $queue_info);
+            next;
+        }
 
-	eval {
+        eval {
 
-	    my $cmd = $queue_info->{current} = shift @{$queue_info->{cmds}};
-	    $cmd->{id} = &$next_cmdid($qga);
+            my $cmd = $queue_info->{current} = shift @{ $queue_info->{cmds} };
+            $cmd->{id} = &$next_cmdid($qga);
 
-	    my $fd = -1;
-	    if ($cmd->{execute} eq 'add-fd' || $cmd->{execute} eq 'getfd') {
-		$fd = $cmd->{arguments}->{fd};
-		delete $cmd->{arguments}->{fd};
-	    }
+            my $fd = -1;
+            if ($cmd->{execute} eq 'add-fd' || $cmd->{execute} eq 'getfd') {
+                $fd = $cmd->{arguments}->{fd};
+                delete $cmd->{arguments}->{fd};
+            }
 
-	    my $qmpcmd;
+            my $qmpcmd;
 
-	    if ($qga) {
+            if ($qga) {
 
-		$qmpcmd = to_json({ execute => 'guest-sync-delimited',
-				    arguments => { id => int($cmd->{id})}}) . "\n" .
-		    to_json({ execute => $cmd->{execute}, arguments => $cmd->{arguments}}) . "\n";
+                $qmpcmd = to_json({
+                    execute => 'guest-sync-delimited',
+                    arguments => { id => int($cmd->{id}) },
+                })
+                    . "\n"
+                    . to_json({ execute => $cmd->{execute}, arguments => $cmd->{arguments} })
+                    . "\n";
 
-	    } else {
+            } else {
 
-		$qmpcmd = to_json({
-		    execute => $cmd->{execute},
-		    arguments => $cmd->{arguments},
-		    id => $cmd->{id}});
-	    }
+                $qmpcmd = to_json({
+                    execute => $cmd->{execute},
+                    arguments => $cmd->{arguments},
+                    id => $cmd->{id},
+                });
+            }
 
-	    if ($fd >= 0) {
-		my $ret = PVE::IPCC::sendfd(fileno($fh), $fd, $qmpcmd);
-		die "sendfd failed" if $ret < 0;
-	    } else {
-		$self->{mux}->write($fh, $qmpcmd);
-	    }
-	};
-	if (my $err = $@) {
-	    $queue_info->{error} = $err;
-	} else {
-	    $running++;
-	}
+            if ($fd >= 0) {
+                my $ret = PVE::IPCC::sendfd(fileno($fh), $fd, $qmpcmd);
+                die "sendfd failed" if $ret < 0;
+            } else {
+                $self->{mux}->write($fh, $qmpcmd);
+            }
+        };
+        if (my $err = $@) {
+            $queue_info->{error} = $err;
+        } else {
+            $running++;
+        }
     }
 
     $self->{mux}->endloop() if !$running;
@@ -307,49 +312,49 @@ sub queue_execute {
     $timeout = 3 if !$timeout;
 
     # open all necessary connections
-    foreach my $sname (keys %{$self->{queue_info}}) {
-	my $queue_info = $self->{queue_info}->{$sname};
-	next if !scalar(@{$queue_info->{cmds}}); # no commands
+    foreach my $sname (keys %{ $self->{queue_info} }) {
+        my $queue_info = $self->{queue_info}->{$sname};
+        next if !scalar(@{ $queue_info->{cmds} }); # no commands
 
-	$queue_info->{error} = undef;
-	$queue_info->{current} = undef;
+        $queue_info->{error} = undef;
+        $queue_info->{current} = undef;
 
-	eval {
-	    &$open_connection($self, $queue_info, $timeout);
+        eval {
+            &$open_connection($self, $queue_info, $timeout);
 
-	    if (!$queue_info->{qga}) {
-		my $cap_cmd = { execute => 'qmp_capabilities', arguments => {} };
-		unshift @{$queue_info->{cmds}}, $cap_cmd;
-	    }
-	};
-	if (my $err = $@) {
-	    $queue_info->{error} = $err;
-	}
+            if (!$queue_info->{qga}) {
+                my $cap_cmd = { execute => 'qmp_capabilities', arguments => {} };
+                unshift @{ $queue_info->{cmds} }, $cap_cmd;
+            }
+        };
+        if (my $err = $@) {
+            $queue_info->{error} = $err;
+        }
     }
 
     my $running;
 
     for (;;) {
 
-	$running = &$check_queue($self);
+        $running = &$check_queue($self);
 
-	last if !$running;
+        last if !$running;
 
-	$self->{mux}->loop;
+        $self->{mux}->loop;
     }
 
     # make sure we close everything
     my $errors = '';
-    foreach my $sname (keys %{$self->{queue_info}}) {
-	my $queue_info = $self->{queue_info}->{$sname};
-	&$close_connection($self, $queue_info);
-	if ($queue_info->{error}) {
-	    if ($noerr) {
-		warn $queue_info->{error} if $noerr < 2;
-	    } else {
-		$errors .= $queue_info->{error}
-	    }
-	}
+    foreach my $sname (keys %{ $self->{queue_info} }) {
+        my $queue_info = $self->{queue_info}->{$sname};
+        &$close_connection($self, $queue_info);
+        if ($queue_info->{error}) {
+            if ($noerr) {
+                warn $queue_info->{error} if $noerr < 2;
+            } else {
+                $errors .= $queue_info->{error};
+            }
+        }
     }
 
     $self->{queue_info} = $self->{queue_lookup} = {};
@@ -364,7 +369,7 @@ sub mux_close {
     return if !$queue_info;
 
     $queue_info->{error} = "client closed connection\n"
-	if !$queue_info->{error};
+        if !$queue_info->{error};
 }
 
 # mux_input is called when input is available on one of the descriptors.
@@ -384,77 +389,77 @@ sub mux_input {
     my $raw;
 
     if ($qga) {
-	return if $$input !~ s/^.*\xff([^\n]+}\r?\n[^\n]+})\r?\n(.*)$/$2/so;
-	$raw = $1;
+        return if $$input !~ s/^.*\xff([^\n]+}\r?\n[^\n]+})\r?\n(.*)$/$2/so;
+        $raw = $1;
     } else {
-	return if $$input !~ s/^(.*})\r?\n(.*)$/$2/so;
-	$raw = $1;
+        return if $$input !~ s/^(.*})\r?\n(.*)$/$2/so;
+        $raw = $1;
     }
 
     eval {
-	my @jsons = split("\n", $raw);
+        my @jsons = split("\n", $raw);
 
-	if ($qga) {
+        if ($qga) {
 
-	    die "response is not complete" if @jsons != 2 ;
+            die "response is not complete" if @jsons != 2;
 
-	    my $obj = from_json($jsons[0]);
+            my $obj = from_json($jsons[0]);
 
-	    my $cmdid = $obj->{'return'};
-	    die "received response without command id\n" if !$cmdid;
+            my $cmdid = $obj->{'return'};
+            die "received response without command id\n" if !$cmdid;
 
-	    # skip results from previous commands
-	    return if $cmdid < $curcmd->{id};
+            # skip results from previous commands
+            return if $cmdid < $curcmd->{id};
 
-	    if ($curcmd->{id} ne $cmdid) {
-		die "got wrong command id '$cmdid' (expected $curcmd->{id})\n";
-	    }
+            if ($curcmd->{id} ne $cmdid) {
+                die "got wrong command id '$cmdid' (expected $curcmd->{id})\n";
+            }
 
-	    delete $queue_info->{current};
+            delete $queue_info->{current};
 
-	    $obj = from_json($jsons[1]);
+            $obj = from_json($jsons[1]);
 
-	    if (my $callback = $curcmd->{callback}) {
-		&$callback($vmid, $obj);
-	    }
+            if (my $callback = $curcmd->{callback}) {
+                &$callback($vmid, $obj);
+            }
 
-	    return;
-	}
+            return;
+        }
 
-	foreach my $json (@jsons) {
-	    my $obj = from_json($json);
-	    next if defined($obj->{QMP}); # skip monitor greeting
+        foreach my $json (@jsons) {
+            my $obj = from_json($json);
+            next if defined($obj->{QMP}); # skip monitor greeting
 
-	    if (exists($obj->{error}->{desc})) {
-		my $desc = $obj->{error}->{desc};
-		chomp $desc;
-		die "$desc\n" if $desc !~ m/Connection can not be completed immediately/;
-		next;
-	    }
+            if (exists($obj->{error}->{desc})) {
+                my $desc = $obj->{error}->{desc};
+                chomp $desc;
+                die "$desc\n" if $desc !~ m/Connection can not be completed immediately/;
+                next;
+            }
 
-	    if (defined($obj->{event})) {
-		if (my $eventcb = $self->{eventcb}) {
-		    &$eventcb($obj);
-		}
-		next;
-	    }
+            if (defined($obj->{event})) {
+                if (my $eventcb = $self->{eventcb}) {
+                    &$eventcb($obj);
+                }
+                next;
+            }
 
-	    my $cmdid = $obj->{id};
-	    die "received response without command id\n" if !$cmdid;
+            my $cmdid = $obj->{id};
+            die "received response without command id\n" if !$cmdid;
 
-	    if ($curcmd->{id} ne $cmdid) {
-		die "got wrong command id '$cmdid' (expected $curcmd->{id})\n";
-	    }
+            if ($curcmd->{id} ne $cmdid) {
+                die "got wrong command id '$cmdid' (expected $curcmd->{id})\n";
+            }
 
-	    delete $queue_info->{current};
+            delete $queue_info->{current};
 
-	    if (my $callback = $curcmd->{callback}) {
-		&$callback($vmid, $obj);
-	    }
-	}
+            if (my $callback = $curcmd->{callback}) {
+                &$callback($vmid, $obj);
+            }
+        }
     };
     if (my $err = $@) {
-	$queue_info->{error} = $err;
+        $queue_info->{error} = $err;
     }
 
     &$check_queue($self);
@@ -465,8 +470,8 @@ sub mux_timeout {
     my ($self, $mux, $fh) = @_;
 
     if (my $queue_info = &$lookup_queue_info($self, $fh)) {
-	$queue_info->{error} = "got timeout\n";
-	$self->{mux}->inbuffer($fh, ''); # clear to avoid warnings
+        $queue_info->{error} = "got timeout\n";
+        $self->{mux}->inbuffer($fh, ''); # clear to avoid warnings
     }
 
     &$check_queue($self);
@@ -485,42 +490,42 @@ sub mux_eof {
     my $curcmd = $queue_info->{current};
     die "unable to lookup current command for VM $vmid ($sname)\n" if !$curcmd;
 
-    if ($qga && $qga_allow_close_cmds->{$curcmd->{execute}}) {
+    if ($qga && $qga_allow_close_cmds->{ $curcmd->{execute} }) {
 
-	return if $$input !~ s/^.*\xff([^\n]+})\r?\n(.*)$/$2/so;
+        return if $$input !~ s/^.*\xff([^\n]+})\r?\n(.*)$/$2/so;
 
-	my $raw = $1;
+        my $raw = $1;
 
-	eval {
-	    my $obj = from_json($raw);
+        eval {
+            my $obj = from_json($raw);
 
-	    my $cmdid = $obj->{'return'};
-	    die "received response without command id\n" if !$cmdid;
+            my $cmdid = $obj->{'return'};
+            die "received response without command id\n" if !$cmdid;
 
-	    delete $queue_info->{current};
+            delete $queue_info->{current};
 
-	    if (my $callback = $curcmd->{callback}) {
-		&$callback($vmid, undef);
-	    }
-	};
-	if (my $err = $@) {
-	    $queue_info->{error} = $err;
-	}
+            if (my $callback = $curcmd->{callback}) {
+                &$callback($vmid, undef);
+            }
+        };
+        if (my $err = $@) {
+            $queue_info->{error} = $err;
+        }
 
-	&$close_connection($self, $queue_info);
+        &$close_connection($self, $queue_info);
 
-	if (scalar(@{$queue_info->{cmds}}) && !$queue_info->{error}) {
-	    $queue_info->{error} = "Got EOF but command queue is not empty.\n";
-	}
+        if (scalar(@{ $queue_info->{cmds} }) && !$queue_info->{error}) {
+            $queue_info->{error} = "Got EOF but command queue is not empty.\n";
+        }
     }
 }
 
 sub DESTROY {
     my ($self) = @_;
 
-    foreach my $sname (keys %{$self->{queue_info}}) {
-	my $queue_info = $self->{queue_info}->{$sname};
-	$close_connection->($self, $queue_info);
+    foreach my $sname (keys %{ $self->{queue_info} }) {
+        my $queue_info = $self->{queue_info}->{$sname};
+        $close_connection->($self, $queue_info);
     }
 }
 
