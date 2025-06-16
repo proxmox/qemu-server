@@ -1,3 +1,31 @@
+qemu-server (8.3.13) bookworm; urgency=medium
+
+  * fix #6317: backup: properly cleanup fleecing images after the backup of a
+    stopped VM.
+
+  * disk rescan: avoid adding fleecing images as unused disks.
+
+  * tests: add config-to-command tests for disk pass-through with RBD, kRBD
+    and ZFS over iSCSI storages.
+
+  * migrate: avoid warning about uninitialized value if transferred memory did
+    not change between iterations.
+
+  * tests: add qemu-img convert tests for disks on RBD and BTRFS storages with
+    snapshots.
+
+  * virtiofs: prevent issue with Windows OS and too many files. The number of
+    open file handles by the virtiofsd process would increase even if the
+    guest opened files sequentially. Use the 'inode-file-handles=prefer'
+    commandline option to avoid this.
+
+  * qmeventd: auto-format code base using clang-format.
+
+  * tests: add config-to-command tests for aio and cache settings on various
+    storages.
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 16 Jun 2025 10:04:17 +0200
+
 qemu-server (8.3.12) bookworm; urgency=medium
 
   * virtiofs: drop unsafe and problematic writeback option completely fow now.
