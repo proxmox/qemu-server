@@ -32,7 +32,6 @@ use PVE::DataCenterConfig;
 use PVE::Exception qw(raise raise_param_exc);
 use PVE::Format qw(render_duration render_bytes);
 use PVE::GuestHelpers qw(safe_string_ne safe_num_ne safe_boolean_ne);
-use PVE::HA::Config;
 use PVE::Mapping::Dir;
 use PVE::Mapping::PCI;
 use PVE::Mapping::USB;
@@ -75,6 +74,18 @@ eval {
     require PVE::Network::SDN::Vnets;
     $have_sdn = 1;
 };
+
+my $have_ha_config;
+eval {
+    require PVE::HA::Config;
+    $have_ha_config = 1;
+};
+
+my sub vm_is_ha_managed {
+    my ($vmid) = @_;
+    die "cannot check if VM is managed by HA, missing HA Config module!\n" if !$have_ha_config;
+    return PVE::HA::Config::vm_is_ha_managed($vmid);
+}
 
 my $EDK2_FW_BASE = '/usr/share/pve-edk2-firmware/';
 my $OVMF = {
@@ -7850,7 +7861,7 @@ sub pbs_live_restore {
     my $drives_streamed = 0;
     eval {
         # make sure HA doesn't interrupt our restore by stopping the VM
-        if (PVE::HA::Config::vm_is_ha_managed($vmid)) {
+        if (vm_is_ha_managed($vmid)) {
             run_command(['ha-manager', 'set', "vm:$vmid", '--state', 'started']);
         }
 
@@ -7949,7 +7960,7 @@ sub live_import_from_files {
     eval {
 
         # make sure HA doesn't interrupt our restore by stopping the VM
-        if (PVE::HA::Config::vm_is_ha_managed($vmid)) {
+        if (vm_is_ha_managed($vmid)) {
             run_command(['ha-manager', 'set', "vm:$vmid", '--state', 'started']);
         }
 
