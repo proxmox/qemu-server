@@ -11,7 +11,7 @@ use Test::More;
 use PVE::Tools qw(file_get_contents);
 use PVE::QemuServer::PCI;
 
-my $qemu_cfg_base_path = "../qemu-configs";
+my $qemu_cfg_base_path = "../usr";
 
 # not our format but that what QEMU gets passed with '-readconfig'
 sub slurp_qemu_config {

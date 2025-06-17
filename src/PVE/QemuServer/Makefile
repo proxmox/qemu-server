@@ -1,3 +1,7 @@
+DESTDIR=
+PREFIX=/usr
+PERLDIR=$(PREFIX)/share/perl5
+
 SOURCES=PCI.pm		\
 	RNG.pm		\
 	USB.pm		\
@@ -16,5 +20,5 @@ SOURCES=PCI.pm		\
 	Virtiofs.pm
 
 .PHONY: install
-install: ${SOURCES}
-	for i in ${SOURCES}; do install -D -m 0644 $$i ${DESTDIR}${PERLDIR}/PVE/QemuServer/$$i; done
+install: $(SOURCES)
+	for i in $(SOURCES); do install -D -m 0644 $$i $(DESTDIR)$(PERLDIR)/PVE/QemuServer/$$i; done

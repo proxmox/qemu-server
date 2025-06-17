@@ -1,3 +1,7 @@
+DESTDIR=
+PREFIX=/usr
+PERLDIR=$(PREFIX)/share/perl5
+
 PERLSOURCE = 			\
 	QemuServer.pm		\
 	QemuMigrate.pm		\
@@ -6,8 +10,8 @@ PERLSOURCE = 			\
 
 .PHONY: install
 install:
-	install -d ${DESTDIR}${PERLDIR}/PVE
-	install -m 0644 ${PERLSOURCE} ${DESTDIR}${PERLDIR}/PVE/
+	install -d $(DESTDIR)$(PERLDIR)/PVE
+	install -m 0644 $(PERLSOURCE) $(DESTDIR)$(PERLDIR)/PVE/
 	$(MAKE) -C VZDump install
 	$(MAKE) -C API2 install
 	$(MAKE) -C CLI install
