@@ -8,8 +8,8 @@ MANDIR=$(PREFIX)/share/man
 
 CC ?= gcc
 CFLAGS += -O2 -Werror -Wall -Wextra -Wpedantic -Wtype-limits -Wl,-z,relro -std=gnu11
-CFLAGS += $(shell pkg-config --cflags json-c glib-2.0)
-LDFLAGS += $(shell pkg-config --libs json-c glib-2.0)
+CFLAGS += $(shell pkgconf --cflags json-c glib-2.0)
+LDFLAGS += $(shell pkgconf --libs json-c glib-2.0)
 
 qmeventd: qmeventd.c
 	$(CC) $(CFLAGS) -o $@ $< $(LDFLAGS)
