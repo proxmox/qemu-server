@@ -1,3 +1,19 @@
+qemu-server (9.0.0) trixie; urgency=medium
+
+  * re-build for Debian 13 Trixie based Proxmox VE 9 releases.
+
+  * move module-load config from /etc to /usr, as a file with the same name in
+    the /etc/modules-load.d/ directory takes precedence over a file in the
+    /usr/lib/modules-load.d/ direcotry, an admin can still overrides this in a
+    easy manner.
+
+  * drop duplicated network hook script from /var, they have beend migrated to
+    /usr/libexec since a while now, and as all users must upgrade to latest
+    PVE 8.4 before being able to upgrade to PVE 9 they are simply not required
+    anymore.
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 17 Jun 2025 15:27:09 +0200
+
 qemu-server (8.3.13) bookworm; urgency=medium
 
   * fix #6317: backup: properly cleanup fleecing images after the backup of a
