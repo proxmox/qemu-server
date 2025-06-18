@@ -1529,7 +1529,7 @@ my sub drive_uses_cache_direct {
 }
 
 sub print_drive_commandline_full {
-    my ($storecfg, $vmid, $drive, $live_restore_name, $io_uring) = @_;
+    my ($storecfg, $vmid, $drive, $live_restore_name) = @_;
 
     my $drive_id = PVE::QemuServer::Drive::get_drive_id($drive);
 
@@ -1594,7 +1594,7 @@ sub print_drive_commandline_full {
     $opts .= ",cache=none" if !$drive->{cache} && $cache_direct;
 
     if (!$drive->{aio}) {
-        if ($io_uring && storage_allows_io_uring_default($scfg, $cache_direct)) {
+        if (storage_allows_io_uring_default($scfg, $cache_direct)) {
             # io_uring supports all cache modes
             $opts .= ",aio=io_uring";
         } else {
@@ -3618,9 +3618,9 @@ sub config_to_command {
     my $kvm_binary = PVE::QemuServer::Helpers::get_command_for_arch($arch);
     my $kvmver = kvm_user_version($kvm_binary);
 
-    if (!$kvmver || $kvmver !~ m/^(\d+)\.(\d+)/ || $1 < 5) {
+    if (!$kvmver || $kvmver !~ m/^(\d+)\.(\d+)/ || $1 < 6) {
         $kvmver //= "undefined";
-        die "Detected old QEMU binary ('$kvmver', at least 5.0 is required)\n";
+        die "Detected old QEMU binary ('$kvmver', at least 6.0 is required)\n";
     }
 
     my $machine_type = PVE::QemuServer::Machine::get_vm_machine($conf, $forcemachine, $arch);
@@ -4147,13 +4147,8 @@ sub config_to_command {
                 push @$devices, '-blockdev', $live_restore->{blockdev};
             }
 
-            my $drive_cmd = print_drive_commandline_full(
-                $storecfg,
-                $vmid,
-                $drive,
-                $live_blockdev_name,
-                min_version($kvmver, 6, 0),
-            );
+            my $drive_cmd =
+                print_drive_commandline_full($storecfg, $vmid, $drive, $live_blockdev_name);
 
             # extra protection for templates, but SATA and IDE don't support it..
             $drive_cmd .= ',readonly=on' if drive_is_read_only($conf, $drive);
@@ -4557,9 +4552,7 @@ sub qemu_iothread_del {
 sub qemu_driveadd {
     my ($storecfg, $vmid, $device) = @_;
 
-    my $kvmver = get_running_qemu_version($vmid);
-    my $io_uring = min_version($kvmver, 6, 0);
-    my $drive = print_drive_commandline_full($storecfg, $vmid, $device, undef, $io_uring);
+    my $drive = print_drive_commandline_full($storecfg, $vmid, $device, undef);
     $drive =~ s/\\/\\\\/g;
     my $ret = PVE::QemuServer::Monitor::hmp_cmd($vmid, "drive_add auto \"$drive\"", 60);
 
