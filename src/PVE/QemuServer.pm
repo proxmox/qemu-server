@@ -1577,15 +1577,7 @@ sub print_drive_commandline_full {
         if !defined($drive->{media}) && defined($vtype) && $vtype eq 'iso';
 
     if (!drive_is_cdrom($drive)) {
-        my $detectzeroes;
-        if (defined($drive->{detect_zeroes}) && !$drive->{detect_zeroes}) {
-            $detectzeroes = 'off';
-        } elsif ($drive->{discard}) {
-            $detectzeroes = $drive->{discard} eq 'on' ? 'unmap' : 'on';
-        } else {
-            # This used to be our default with discard not being specified:
-            $detectzeroes = 'on';
-        }
+        my $detectzeroes = PVE::QemuServer::Drive::detect_zeroes_cmdline_option($drive);
 
         # note: 'detect-zeroes' works per blockdev and we want it to persist
         # after the alloc-track is removed, so put it on 'file' directly

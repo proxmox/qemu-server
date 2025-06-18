@@ -1109,4 +1109,20 @@ sub aio_cmdline_option {
     }
 }
 
+# must not be called for CD-ROMs
+sub detect_zeroes_cmdline_option {
+    my ($drive) = @_;
+
+    die "cannot use detect-zeroes for CD-ROM\n" if drive_is_cdrom($drive);
+
+    if (defined($drive->{detect_zeroes}) && !$drive->{detect_zeroes}) {
+        return 'off';
+    } elsif ($drive->{discard}) {
+        return $drive->{discard} eq 'on' ? 'unmap' : 'on';
+    }
+
+    # This used to be our default with discard not being specified:
+    return 'on';
+}
+
 1;
