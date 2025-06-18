@@ -56,8 +56,16 @@ use PVE::QemuServer::Cloudinit;
 use PVE::QemuServer::CGroup;
 use PVE::QemuServer::CPUConfig
     qw(print_cpu_device get_cpu_options get_cpu_bitness is_native_arch get_amd_sev_object get_amd_sev_type);
-use PVE::QemuServer::Drive
-    qw(is_valid_drivename checked_volume_format drive_is_cloudinit drive_is_cdrom drive_is_read_only parse_drive print_drive);
+use PVE::QemuServer::Drive qw(
+    is_valid_drivename
+    checked_volume_format
+    drive_is_cloudinit
+    drive_is_cdrom
+    drive_is_read_only
+    parse_drive
+    print_drive
+    storage_allows_io_uring_default
+);
 use PVE::QemuServer::Machine;
 use PVE::QemuServer::Memory qw(get_current_memory);
 use PVE::QemuServer::MetaInfo;
@@ -1497,37 +1505,6 @@ sub get_initiator_name {
     return $initiator;
 }
 
-my sub storage_allows_io_uring_default {
-    my ($scfg, $cache_direct) = @_;
-
-    # io_uring with cache mode writeback or writethrough on krbd will hang...
-    return if $scfg && $scfg->{type} eq 'rbd' && $scfg->{krbd} && !$cache_direct;
-
-    # io_uring with cache mode writeback or writethrough on LVM will hang, without cache only
-    # sometimes, just plain disable...
-    return if $scfg && $scfg->{type} eq 'lvm';
-
-    # io_uring causes problems when used with CIFS since kernel 5.15
-    # Some discussion: https://www.spinics.net/lists/linux-cifs/msg26734.html
-    return if $scfg && $scfg->{type} eq 'cifs';
-
-    return 1;
-}
-
-my sub drive_uses_cache_direct {
-    my ($drive, $scfg) = @_;
-
-    my $cache_direct = 0;
-
-    if (my $cache = $drive->{cache}) {
-        $cache_direct = $cache =~ /^(?:off|none|directsync)$/;
-    } elsif (!drive_is_cdrom($drive) && !($scfg && $scfg->{type} eq 'btrfs' && !$scfg->{nocow})) {
-        $cache_direct = 1;
-    }
-
-    return $cache_direct;
-}
-
 sub print_drive_commandline_full {
     my ($storecfg, $vmid, $drive, $live_restore_name) = @_;
 
@@ -1589,7 +1566,7 @@ sub print_drive_commandline_full {
         $opts .= ",format=$format";
     }
 
-    my $cache_direct = drive_uses_cache_direct($drive, $scfg);
+    my $cache_direct = PVE::QemuServer::Drive::drive_uses_cache_direct($drive, $scfg);
 
     $opts .= ",cache=none" if !$drive->{cache} && $cache_direct;
 
@@ -8864,7 +8841,7 @@ my sub clone_disk_check_io_uring {
     my $src_scfg = PVE::Storage::storage_config($storecfg, $src_storeid);
     my $dst_scfg = PVE::Storage::storage_config($storecfg, $dst_storeid);
 
-    my $cache_direct = drive_uses_cache_direct($src_drive, $src_scfg);
+    my $cache_direct = PVE::QemuServer::Drive::drive_uses_cache_direct($src_drive, $src_scfg);
 
     my $src_uses_io_uring;
     if ($src_drive->{aio}) {

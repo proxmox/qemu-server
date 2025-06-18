@@ -24,6 +24,7 @@ our @EXPORT_OK = qw(
     get_scsi_devicetype
     parse_drive
     print_drive
+    storage_allows_io_uring_default
 );
 
 my $DROPPED_PROPERTIES = ['cyls', 'heads', 'secs', 'trans'];
@@ -1058,4 +1059,36 @@ sub get_scsi_device_type {
 
     return $devicetype;
 }
+
+sub storage_allows_io_uring_default {
+    my ($scfg, $cache_direct) = @_;
+
+    # io_uring with cache mode writeback or writethrough on krbd will hang...
+    return if $scfg && $scfg->{type} eq 'rbd' && $scfg->{krbd} && !$cache_direct;
+
+    # io_uring with cache mode writeback or writethrough on LVM will hang, without cache only
+    # sometimes, just plain disable...
+    return if $scfg && $scfg->{type} eq 'lvm';
+
+    # io_uring causes problems when used with CIFS since kernel 5.15
+    # Some discussion: https://www.spinics.net/lists/linux-cifs/msg26734.html
+    return if $scfg && $scfg->{type} eq 'cifs';
+
+    return 1;
+}
+
+sub drive_uses_cache_direct {
+    my ($drive, $scfg) = @_;
+
+    my $cache_direct = 0;
+
+    if (my $cache = $drive->{cache}) {
+        $cache_direct = $cache =~ /^(?:off|none|directsync)$/;
+    } elsif (!drive_is_cdrom($drive) && !($scfg && $scfg->{type} eq 'btrfs' && !$scfg->{nocow})) {
+        $cache_direct = 1;
+    }
+
+    return $cache_direct;
+}
+
 1;
