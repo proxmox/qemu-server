@@ -3526,7 +3526,10 @@ my sub get_vga_properties {
 }
 
 sub config_to_command {
-    my ($storecfg, $vmid, $conf, $defaults, $forcemachine, $forcecpu, $live_restore_backing) = @_;
+    my ($storecfg, $vmid, $conf, $defaults, $options) = @_;
+
+    my ($forcemachine, $forcecpu, $live_restore_backing) =
+        $options->@{qw(force-machine force-cpu live-restore-backing)};
 
     # minimize config for templates, they can only start for backup,
     # so most options besides the disks are irrelevant
@@ -5995,9 +5998,11 @@ sub vm_start_nolock {
             $vmid,
             $conf,
             $defaults,
-            $forcemachine,
-            $forcecpu,
-            $params->{'live-restore-backing'},
+            {
+                'force-machine' => $forcemachine,
+                'force-cpu' => $forcecpu,
+                'live-restore-backing' => $params->{'live-restore-backing'},
+            },
         );
 
         my $memory = get_current_memory($conf->{memory});
@@ -6320,14 +6325,14 @@ sub vm_commandline {
 
     my $conf = PVE::QemuConfig->load_config($vmid);
 
-    my ($forcemachine, $forcecpu);
+    my $options = {};
     if ($snapname) {
         my $snapshot = $conf->{snapshots}->{$snapname};
         die "snapshot '$snapname' does not exist\n" if !defined($snapshot);
 
         # check for machine or CPU overrides in snapshot
-        $forcemachine = $snapshot->{runningmachine};
-        $forcecpu = $snapshot->{runningcpu};
+        $options->{'force-machine'} = $snapshot->{runningmachine};
+        $options->{'force-cpu'} = $snapshot->{runningcpu};
 
         $snapshot->{digest} = $conf->{digest}; # keep file digest for API
 
@@ -6346,7 +6351,7 @@ sub vm_commandline {
     }
 
     my $cmd;
-    eval { $cmd = config_to_command($storecfg, $vmid, $conf, $defaults, $forcemachine, $forcecpu); };
+    eval { $cmd = config_to_command($storecfg, $vmid, $conf, $defaults, $options); };
     my $err = $@;
 
     # If the vm is not running, need to clean up the reserved/created devices.
