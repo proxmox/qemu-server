@@ -3,10 +3,15 @@ package PVE::QemuServer::PCI;
 use warnings;
 use strict;
 
+use IO::File;
+
 use PVE::JSONSchema;
 use PVE::Mapping::PCI;
 use PVE::SysFSTools;
 use PVE::Tools;
+
+use PVE::QemuServer::Helpers;
+use PVE::QemuServer::Machine;
 
 use base 'Exporter';
 
