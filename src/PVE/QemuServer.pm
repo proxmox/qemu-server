@@ -4016,7 +4016,6 @@ sub config_to_command {
         push @$devices, '-watchdog-action', $wdopts->{action} if $wdopts->{action};
     }
 
-    my $vollist = [];
     my $scsicontroller = {};
     my $ahcicontroller = {};
     my $scsihw = defined($conf->{scsihw}) ? $conf->{scsihw} : $defaults->{scsihw};
@@ -4030,11 +4029,6 @@ sub config_to_command {
         $conf,
         sub {
             my ($ds, $drive) = @_;
-
-            if (PVE::Storage::parse_volume_id($drive->{file}, 1)) {
-                check_volume_storage_type($storecfg, $drive->{file});
-                push @$vollist, $drive->{file};
-            }
 
             # ignore efidisk here, already added in bios/fw handling code above
             return if $drive->{interface} eq 'efidisk';
@@ -4234,7 +4228,6 @@ sub config_to_command {
 
     if (my $vmstate = $conf->{vmstate}) {
         my $statepath = PVE::Storage::path($storecfg, $vmstate);
-        push @$vollist, $vmstate;
         push @$cmd, '-loadstate', $statepath;
         print "activating and using '$vmstate' as vmstate\n";
     }
@@ -4250,7 +4243,7 @@ sub config_to_command {
         push @$cmd, @$aa;
     }
 
-    return wantarray ? ($cmd, $vollist, $spice_port, $pci_devices, $conf) : $cmd;
+    return wantarray ? ($cmd, $spice_port, $pci_devices, $conf) : $cmd;
 }
 
 sub spice_port {
@@ -6017,12 +6010,18 @@ sub vm_start_nolock {
         $state_cmdline = ['-S'];
     }
 
-    my ($cmd, $vollist, $spice_port, $start_timeout);
+    my $vollist = get_current_vm_volumes($storecfg, $conf);
+    push $vollist->@*, $statefile if $statefile_is_a_volume;
+
+    my ($cmd, $spice_port, $start_timeout);
     my $pci_reserve_list = [];
     eval {
+        # With -blockdev, it is necessary to activate the volumes before generating the command line
+        PVE::Storage::activate_volumes($storecfg, $vollist);
+
         # Note that for certain cases like templates, the configuration is minimized, so need to ensure
         # the rest of the function here uses the same configuration that was used to build the command
-        ($cmd, $vollist, $spice_port, my $pci_devices, $conf) = config_to_command(
+        ($cmd, $spice_port, my $pci_devices, $conf) = config_to_command(
             $storecfg,
             $vmid,
             $conf,
@@ -6036,7 +6035,6 @@ sub vm_start_nolock {
         $start_timeout = $params->{timeout} // config_aware_timeout($conf, $memory, $resume);
 
         push $cmd->@*, $state_cmdline->@*;
-        push @$vollist, $statefile if $statefile_is_a_volume;
 
         for my $device (values $pci_devices->%*) {
             next if $device->{mdev}; # we don't reserve for mdev devices
@@ -6080,12 +6078,12 @@ sub vm_start_nolock {
         push @$cmd, '-uuid', $uuid if defined($uuid);
     };
     if (my $err = $@) {
+        eval { PVE::Storage::deactivate_volumes($storecfg, $vollist); };
+        warn $@ if $@;
         eval { cleanup_pci_devices($vmid, $conf) };
         warn $@ if $@;
         die $err;
     }
-
-    PVE::Storage::activate_volumes($storecfg, $vollist);
 
     my %silence_std_outs = (outfunc => sub { }, errfunc => sub { });
     eval { run_command(['/bin/systemctl', 'reset-failed', "$vmid.scope"], %silence_std_outs) };
@@ -6369,12 +6367,22 @@ sub vm_commandline {
 
     my $defaults = load_defaults();
 
+    my $running = PVE::QemuServer::Helpers::vm_running_locally($vmid);
+    my $volumes = [];
+
+    # With -blockdev, it is necessary to activate the volumes before generating the command line
+    if (!$running) {
+        $volumes = get_current_vm_volumes($storecfg, $conf);
+        PVE::Storage::activate_volumes($storecfg, $volumes);
+    }
+
     my $cmd;
     eval { $cmd = config_to_command($storecfg, $vmid, $conf, $defaults, $forcemachine, $forcecpu); };
     my $err = $@;
 
-    # if the vm is not running, we need to clean up the reserved/created devices
-    if (!PVE::QemuServer::Helpers::vm_running_locally($vmid)) {
+    # If the vm is not running, need to clean up the reserved/created devices.
+    # There might be concurrent operations on the volumes, so do not deactivate.
+    if (!$running) {
         eval { cleanup_pci_devices($vmid, $conf) };
         warn $@ if $@;
     }
@@ -6419,6 +6427,28 @@ sub get_vm_volumes {
     );
 
     return $vollist;
+}
+
+# Get volumes defined in the current VM configuration, including the VM state file.
+sub get_current_vm_volumes {
+    my ($storecfg, $conf) = @_;
+
+    my $volumes = [];
+
+    PVE::QemuConfig->foreach_volume_full(
+        $conf,
+        { extra_keys => ['vmstate'] },
+        sub {
+            my ($ds, $drive) = @_;
+
+            if (PVE::Storage::parse_volume_id($drive->{file}, 1)) {
+                check_volume_storage_type($storecfg, $drive->{file});
+                push $volumes->@*, $drive->{file};
+            }
+        },
+    );
+
+    return $volumes;
 }
 
 sub cleanup_pci_devices {

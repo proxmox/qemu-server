@@ -256,6 +256,16 @@ $qemu_server_module->mock(
     },
 );
 
+my $storage_module = Test::MockModule->new("PVE::Storage");
+$storage_module->mock(
+    activate_volumes => sub {
+        return;
+    },
+    deactivate_volumes => sub {
+        return;
+    },
+);
+
 my $zfsplugin_module = Test::MockModule->new("PVE::Storage::ZFSPlugin");
 $zfsplugin_module->mock(
     zfs_get_lu_name => sub {
