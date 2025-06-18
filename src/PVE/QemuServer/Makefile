@@ -2,21 +2,21 @@ DESTDIR=
 PREFIX=/usr
 PERLDIR=$(PREFIX)/share/perl5
 
-SOURCES=PCI.pm		\
+SOURCES=Agent.pm	\
+	CGroup.pm	\
+	Cloudinit.pm	\
+	CPUConfig.pm	\
+	Drive.pm	\
+	Helpers.pm	\
+	ImportDisk.pm	\
+	Machine.pm	\
+	Memory.pm	\
+	MetaInfo.pm	\
+	Monitor.pm	\
+	PCI.pm		\
+	QMPHelpers.pm	\
 	RNG.pm		\
 	USB.pm		\
-	Memory.pm	\
-	ImportDisk.pm	\
-	Cloudinit.pm	\
-	Agent.pm	\
-	Helpers.pm	\
-	Monitor.pm	\
-	Machine.pm	\
-	MetaInfo.pm	\
-	CPUConfig.pm	\
-	CGroup.pm	\
-	Drive.pm	\
-	QMPHelpers.pm	\
 	Virtiofs.pm
 
 .PHONY: install
