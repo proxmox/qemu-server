@@ -26,6 +26,8 @@ our @EXPORT_OK = qw(
     print_drive
 );
 
+my $DROPPED_PROPERTIES = [];
+
 our $QEMU_FORMAT_RE = qr/raw|qcow|qcow2|qed|vmdk|cloop/;
 
 PVE::JSONSchema::register_standard_option(
@@ -789,7 +791,10 @@ sub parse_drive {
     }
 
     my $desc = $desc_hash->{$key}->{format};
-    my $res = eval { PVE::JSONSchema::parse_property_string($desc, $data) };
+    my $res = eval {
+        my $pps_opts = { skip => $DROPPED_PROPERTIES };
+        PVE::JSONSchema::parse_property_string($desc, $data, undef, undef, $pps_opts);
+    };
     return if !$res;
     $res->{interface} = $interface;
     $res->{index} = $index;
