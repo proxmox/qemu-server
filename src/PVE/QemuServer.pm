@@ -8864,7 +8864,7 @@ my sub clone_disk_check_io_uring {
     my $src_scfg = PVE::Storage::storage_config($storecfg, $src_storeid);
     my $dst_scfg = PVE::Storage::storage_config($storecfg, $dst_storeid);
 
-    my $cache_direct = drive_uses_cache_direct($src_drive);
+    my $cache_direct = drive_uses_cache_direct($src_drive, $src_scfg);
 
     my $src_uses_io_uring;
     if ($src_drive->{aio}) {
