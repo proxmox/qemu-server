@@ -1,6 +1,6 @@
 all: test
 
-test: test_snapshot test_cfg_to_cmd test_pci_addr_conflicts test_qemu_img_convert test_migration test_restore_config test_parse_config
+test: test_snapshot test_cfg_to_cmd test_pci_addr_conflicts test_pci_reservation test_qemu_img_convert test_migration test_restore_config test_parse_config
 
 test_snapshot: run_snapshot_tests.pl
 	./run_snapshot_tests.pl
@@ -14,6 +14,9 @@ test_qemu_img_convert: run_qemu_img_convert_tests.pl
 
 test_pci_addr_conflicts: run_pci_addr_checks.pl
 	./run_pci_addr_checks.pl
+
+test_pci_reservation: run_pci_reservation_tests.pl
+	./run_pci_reservation_tests.pl
 
 MIGRATION_TEST_TARGETS := $(addprefix test_migration_,$(shell perl -ne 'print "$$1 " if /^\s*name\s*=>\s*["'\'']([^\s"'\'']+)["'\'']\s*,\s*$$/; END { print "\n" }' run_qemu_migrate_tests.pl))
 

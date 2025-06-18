@@ -576,7 +576,7 @@ my sub create_nvidia_device {
 #
 # mdev devices must be chosen later when we actually allocate it, but we
 # flatten the inner list since there can only be one device per alternative anyway
-my sub choose_hostpci_devices {
+sub choose_hostpci_devices {
     my ($devices, $vmid) = @_;
 
     # if the vm is running, we must be in 'showcmd', so don't actually reserve or create anything
