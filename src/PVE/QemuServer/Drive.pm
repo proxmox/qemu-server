@@ -107,7 +107,7 @@ sub get_iso_path {
 # Returns the path that can be used on the QEMU commandline and in QMP commands as well as the
 # checked format of the drive.
 sub get_path_and_format {
-    my ($storecfg, $vmid, $drive, $live_restore_name) = @_;
+    my ($storecfg, $drive, $live_restore_name) = @_;
 
     my $path;
     my $volid = $drive->{file};

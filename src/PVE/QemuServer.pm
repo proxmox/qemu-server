@@ -1538,7 +1538,7 @@ sub print_drive_commandline_full {
     my $vtype = $storeid ? (PVE::Storage::parse_volname($storecfg, $drive->{file}))[0] : undef;
 
     my ($path, $format) =
-        PVE::QemuServer::Drive::get_path_and_format($storecfg, $vmid, $drive, $live_restore_name);
+        PVE::QemuServer::Drive::get_path_and_format($storecfg, $drive, $live_restore_name);
 
     my $is_rbd = $path =~ m/^rbd:/;
 
@@ -5775,7 +5775,7 @@ sub vmconfig_update_disk {
                 }
             } else {
                 my ($path, $format) =
-                    PVE::QemuServer::Drive::get_path_and_format($storecfg, $vmid, $drive);
+                    PVE::QemuServer::Drive::get_path_and_format($storecfg, $drive);
 
                 # force eject if locked
                 mon_cmd($vmid, "eject", force => JSON::true, id => "$opt");
@@ -5828,7 +5828,7 @@ sub vmconfig_update_cloudinit_drive {
 
     if ($running) {
         my ($path, $format) =
-            PVE::QemuServer::Drive::get_path_and_format($storecfg, $vmid, $cloudinit_drive);
+            PVE::QemuServer::Drive::get_path_and_format($storecfg, $cloudinit_drive);
         if ($path) {
             mon_cmd($vmid, "eject", force => JSON::true, id => "$cloudinit_ds");
             mon_cmd(
