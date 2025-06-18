@@ -4249,11 +4249,19 @@ sub vm_devices_list {
         $devices_to_check = $to_check;
     }
 
+    # Block device IDs need to be checked at the qdev level, since with '-blockdev', the 'device'
+    # property will not be set.
     my $resblock = mon_cmd($vmid, 'query-block');
-    foreach my $block (@$resblock) {
-        if ($block->{device} =~ m/^drive-(\S+)/) {
-            $devices->{$1} = 1;
+    for my $block ($resblock->@*) {
+        my $qdev_id = $block->{qdev} or next;
+        if ($qdev_id =~ m|^/machine/peripheral/(virtio(\d+))/virtio-backend$|) {
+            $qdev_id = $1;
+        } elsif ($qdev_id =~ m|^/machine/system\.flash0$|) {
+            $qdev_id = 'pflash0';
+        } elsif ($qdev_id =~ m|^/machine/system\.flash1$|) {
+            $qdev_id = 'efidisk0';
         }
+        $devices->{$qdev_id} = 1;
     }
 
     my $resmice = mon_cmd($vmid, 'query-mice');
