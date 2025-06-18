@@ -6017,34 +6017,35 @@ sub vm_start_nolock {
         $state_cmdline = ['-S'];
     }
 
-    # Note that for certain cases like templates, the configuration is minimized, so need to ensure
-    # the rest of the function here uses the same configuration that was used to build the command
-    (my $cmd, my $vollist, my $spice_port, my $pci_devices, $conf) = config_to_command(
-        $storecfg,
-        $vmid,
-        $conf,
-        $defaults,
-        $forcemachine,
-        $forcecpu,
-        $params->{'live-restore-backing'},
-    );
-
-    push $cmd->@*, $state_cmdline->@*;
-    push @$vollist, $statefile if $statefile_is_a_volume;
-
-    my $memory = get_current_memory($conf->{memory});
-    my $start_timeout = $params->{timeout} // config_aware_timeout($conf, $memory, $resume);
-
+    my ($cmd, $vollist, $spice_port, $start_timeout);
     my $pci_reserve_list = [];
-    for my $device (values $pci_devices->%*) {
-        next if $device->{mdev}; # we don't reserve for mdev devices
-        push $pci_reserve_list->@*, map { $_->{id} } $device->{ids}->@*;
-    }
-
-    # reserve all PCI IDs before actually doing anything with them
-    PVE::QemuServer::PCI::reserve_pci_usage($pci_reserve_list, $vmid, $start_timeout);
-
     eval {
+        # Note that for certain cases like templates, the configuration is minimized, so need to ensure
+        # the rest of the function here uses the same configuration that was used to build the command
+        ($cmd, $vollist, $spice_port, my $pci_devices, $conf) = config_to_command(
+            $storecfg,
+            $vmid,
+            $conf,
+            $defaults,
+            $forcemachine,
+            $forcecpu,
+            $params->{'live-restore-backing'},
+        );
+
+        my $memory = get_current_memory($conf->{memory});
+        $start_timeout = $params->{timeout} // config_aware_timeout($conf, $memory, $resume);
+
+        push $cmd->@*, $state_cmdline->@*;
+        push @$vollist, $statefile if $statefile_is_a_volume;
+
+        for my $device (values $pci_devices->%*) {
+            next if $device->{mdev}; # we don't reserve for mdev devices
+            push $pci_reserve_list->@*, map { $_->{id} } $device->{ids}->@*;
+        }
+
+        # reserve all PCI IDs before actually doing anything with them
+        PVE::QemuServer::PCI::reserve_pci_usage($pci_reserve_list, $vmid, $start_timeout);
+
         my $uuid;
         for my $id (sort keys %$pci_devices) {
             my $d = $pci_devices->{$id};
@@ -6368,12 +6369,17 @@ sub vm_commandline {
 
     my $defaults = load_defaults();
 
-    my $cmd = config_to_command($storecfg, $vmid, $conf, $defaults, $forcemachine, $forcecpu);
+    my $cmd;
+    eval { $cmd = config_to_command($storecfg, $vmid, $conf, $defaults, $forcemachine, $forcecpu); };
+    my $err = $@;
+
     # if the vm is not running, we need to clean up the reserved/created devices
     if (!PVE::QemuServer::Helpers::vm_running_locally($vmid)) {
         eval { cleanup_pci_devices($vmid, $conf) };
         warn $@ if $@;
     }
+
+    die $err if $err;
 
     return PVE::Tools::cmd2string($cmd);
 }
