@@ -5994,18 +5994,6 @@ sub vm_start_nolock {
         print "Resuming suspended VM\n";
     }
 
-    # Note that for certain cases like templates, the configuration is minimized, so need to ensure
-    # the rest of the function here uses the same configuration that was used to build the command
-    (my $cmd, my $vollist, my $spice_port, my $pci_devices, $conf) = config_to_command(
-        $storecfg,
-        $vmid,
-        $conf,
-        $defaults,
-        $forcemachine,
-        $forcecpu,
-        $params->{'live-restore-backing'},
-    );
-
     my $migration_ip;
     if (
         ($statefile && $statefile eq 'tcp' && $migration_type eq 'insecure')
@@ -6025,12 +6013,24 @@ sub vm_start_nolock {
             PVE::QemuServer::StateFile::statefile_cmdline_option(
                 $storecfg, $vmid, $statefile, $migration_type, $migration_ip,
             );
-        push @$vollist, $statefile if $statefile_is_a_volume;
     } elsif ($params->{paused}) {
         $state_cmdline = ['-S'];
     }
 
+    # Note that for certain cases like templates, the configuration is minimized, so need to ensure
+    # the rest of the function here uses the same configuration that was used to build the command
+    (my $cmd, my $vollist, my $spice_port, my $pci_devices, $conf) = config_to_command(
+        $storecfg,
+        $vmid,
+        $conf,
+        $defaults,
+        $forcemachine,
+        $forcecpu,
+        $params->{'live-restore-backing'},
+    );
+
     push $cmd->@*, $state_cmdline->@*;
+    push @$vollist, $statefile if $statefile_is_a_volume;
 
     my $memory = get_current_memory($conf->{memory});
     my $start_timeout = $params->{timeout} // config_aware_timeout($conf, $memory, $resume);
