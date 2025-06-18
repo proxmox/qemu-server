@@ -5946,8 +5946,6 @@ sub vm_start_nolock {
     my $migration_type = $migrate_opts->{type};
     my $nbd_protocol_version = $migrate_opts->{nbd_proto_version} // 0;
 
-    my $res = {};
-
     # clean up leftover reboot request files
     eval { clear_reboot_request($vmid); };
     warn $@ if $@;
@@ -6019,45 +6017,20 @@ sub vm_start_nolock {
             PVE::QemuServer::StateFile::get_migration_ip($nodename, $migrate_opts->{network});
     }
 
+    my $res = {};
+    my $statefile_is_a_volume;
+    my $state_cmdline = [];
     if ($statefile) {
-        if ($statefile eq 'tcp') {
-            my $migrate = $res->{migrate} = { proto => 'tcp' };
-            $migrate->{addr} = "localhost";
-
-            die "no migration type set\n" if !defined($migration_type);
-
-            if ($migration_type eq 'insecure') {
-                $migrate->{addr} = $migration_ip // die "internal error - no migration IP";
-                $migrate->{addr} = "[$migrate->{addr}]" if Net::IP::ip_is_ipv6($migrate->{addr});
-            }
-
-            # see #4501: port reservation should be done close to usage - tell QEMU where to listen
-            # via QMP later
-            push @$cmd, '-incoming', 'defer';
-            push @$cmd, '-S';
-
-        } elsif ($statefile eq 'unix') {
-            # should be default for secure migrations as a ssh TCP forward
-            # tunnel is not deterministic reliable ready and fails regurarly
-            # to set up in time, so use UNIX socket forwards
-            my $migrate = $res->{migrate} = { proto => 'unix' };
-            $migrate->{addr} = "/run/qemu-server/$vmid.migrate";
-            unlink $migrate->{addr};
-
-            $migrate->{uri} = "unix:$migrate->{addr}";
-            push @$cmd, '-incoming', $migrate->{uri};
-            push @$cmd, '-S';
-
-        } elsif (-e $statefile) {
-            push @$cmd, '-loadstate', $statefile;
-        } else {
-            my $statepath = PVE::Storage::path($storecfg, $statefile);
-            push @$vollist, $statefile;
-            push @$cmd, '-loadstate', $statepath;
-        }
+        ($state_cmdline, $res->{migrate}, $statefile_is_a_volume) =
+            PVE::QemuServer::StateFile::statefile_cmdline_option(
+                $storecfg, $vmid, $statefile, $migration_type, $migration_ip,
+            );
+        push @$vollist, $statefile if $statefile_is_a_volume;
     } elsif ($params->{paused}) {
-        push @$cmd, '-S';
+        $state_cmdline = ['-S'];
     }
+
+    push $cmd->@*, $state_cmdline->@*;
 
     my $memory = get_current_memory($conf->{memory});
     my $start_timeout = $params->{timeout} // config_aware_timeout($conf, $memory, $resume);
