@@ -1403,6 +1403,8 @@ sub print_drivedevice_full {
     my $device = '';
     my $maxdev = 0;
 
+    my $machine_version = extract_version($machine_type, kvm_user_version());
+
     my $drive_id = PVE::QemuServer::Drive::get_drive_id($drive);
     if ($drive->{interface} eq 'virtio') {
         my $pciaddr = print_pci_addr("$drive_id", $bridges, $arch);
@@ -1413,7 +1415,6 @@ sub print_drivedevice_full {
         my ($maxdev, $controller, $controller_prefix) = scsihw_infos($conf, $drive);
         my $unit = $drive->{index} % $maxdev;
 
-        my $machine_version = extract_version($machine_type, kvm_user_version());
         my $device_type =
             PVE::QemuServer::Drive::get_scsi_device_type($drive, $storecfg, $machine_version);
 
@@ -1487,6 +1488,16 @@ sub print_drivedevice_full {
     if (my $serial = $drive->{serial}) {
         $serial = URI::Escape::uri_unescape($serial);
         $device .= ",serial=$serial";
+    }
+
+    if (min_version($machine_version, 10, 0)) { # for the switch to -blockdev
+        if (!drive_is_cdrom($drive)) {
+            my $write_cache = 'on';
+            if (my $cache = $drive->{cache}) {
+                $write_cache = 'off' if $cache eq 'writethrough' || $cache eq 'directsync';
+            }
+            $device .= ",write-cache=$write_cache";
+        }
     }
 
     return $device;
