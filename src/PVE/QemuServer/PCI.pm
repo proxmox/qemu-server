@@ -286,17 +286,16 @@ my $get_addr_mapping_from_id = sub {
 sub print_pci_addr {
     my ($id, $bridges, $arch) = @_;
 
-    my $res = '';
+    die "aarch64 cannot use IDE devices\n" if $arch eq 'aarch64' && $id =~ /^ide/;
 
-    # using same bus slots on all HW, so we need to check special cases here:
-    my $busname = 'pci';
-    if ($arch eq 'aarch64') {
-        die "aarch64 cannot use IDE devices\n" if $id =~ /^ide/;
-        $busname = 'pcie';
-    }
+    my $res = '';
 
     my $map = get_pci_addr_map();
     if (my $d = $get_addr_mapping_from_id->($map, $id)) {
+        # Using same bus slots on all HW, so we need to check special cases here. For aarch64, the
+        # virt machine has an initial pcie.0. The other pci bridges that get added are called pci.N.
+        my $busname = $arch eq 'aarch64' && $d->{bus} eq 0 ? 'pcie' : 'pci';
+
         $res = ",bus=$busname.$d->{bus},addr=$d->{addr}";
         $bridges->{ $d->{bus} } = 1 if $bridges;
     }
