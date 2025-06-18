@@ -6043,16 +6043,9 @@ sub vm_start_nolock {
         if ($statefile eq 'tcp') {
             my $migrate = $res->{migrate} = { proto => 'tcp' };
             $migrate->{addr} = "localhost";
-            my $datacenterconf = PVE::Cluster::cfs_read_file('datacenter.cfg');
             my $nodename = nodename();
 
-            if (!defined($migration_type)) {
-                if (defined($datacenterconf->{migration}->{type})) {
-                    $migration_type = $datacenterconf->{migration}->{type};
-                } else {
-                    $migration_type = 'secure';
-                }
-            }
+            die "no migration type set\n" if !defined($migration_type);
 
             if ($migration_type eq 'insecure') {
                 $migrate->{addr} = $get_migration_ip->($nodename);
