@@ -1498,6 +1498,9 @@ sub print_drivedevice_full {
             }
             $device .= ",write-cache=$write_cache";
         }
+        for my $o (qw(rerror werror)) {
+            $device .= ",$o=$drive->{$o}" if defined($drive->{$o});
+        }
     }
 
     return $device;
