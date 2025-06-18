@@ -3528,8 +3528,8 @@ my sub get_vga_properties {
 sub config_to_command {
     my ($storecfg, $vmid, $conf, $defaults, $options) = @_;
 
-    my ($forcemachine, $forcecpu, $live_restore_backing) =
-        $options->@{qw(force-machine force-cpu live-restore-backing)};
+    my ($forcemachine, $forcecpu, $live_restore_backing, $dry_run) =
+        $options->@{qw(force-machine force-cpu live-restore-backing dry-run)};
 
     # minimize config for templates, they can only start for backup,
     # so most options besides the disks are irrelevant
@@ -3738,7 +3738,7 @@ sub config_to_command {
     # host pci device passthrough
     my ($kvm_off, $gpu_passthrough, $legacy_igd, $pci_devices) =
         PVE::QemuServer::PCI::print_hostpci_devices(
-            $vmid, $conf, $devices, $vga, $winversion, $bridges, $arch, $bootorder,
+            $vmid, $conf, $devices, $vga, $winversion, $bridges, $arch, $bootorder, $dry_run,
         );
 
     # usb devices
@@ -6325,7 +6325,7 @@ sub vm_commandline {
 
     my $conf = PVE::QemuConfig->load_config($vmid);
 
-    my $options = {};
+    my $options = { 'dry-run' => 1 };
     if ($snapname) {
         my $snapshot = $conf->{snapshots}->{$snapname};
         die "snapshot '$snapname' does not exist\n" if !defined($snapshot);
@@ -6350,18 +6350,9 @@ sub vm_commandline {
         PVE::Storage::activate_volumes($storecfg, $volumes);
     }
 
-    my $cmd;
-    eval { $cmd = config_to_command($storecfg, $vmid, $conf, $defaults, $options); };
-    my $err = $@;
-
-    # If the vm is not running, need to clean up the reserved/created devices.
     # There might be concurrent operations on the volumes, so do not deactivate.
-    if (!$running) {
-        eval { cleanup_pci_devices($vmid, $conf) };
-        warn $@ if $@;
-    }
 
-    die $err if $err;
+    my $cmd = config_to_command($storecfg, $vmid, $conf, $defaults, $options);
 
     return PVE::Tools::cmd2string($cmd);
 }

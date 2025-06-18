@@ -577,10 +577,7 @@ my sub create_nvidia_device {
 # mdev devices must be chosen later when we actually allocate it, but we
 # flatten the inner list since there can only be one device per alternative anyway
 sub choose_hostpci_devices {
-    my ($devices, $vmid) = @_;
-
-    # if the vm is running, we must be in 'showcmd', so don't actually reserve or create anything
-    my $is_running = PVE::QemuServer::Helpers::vm_running_locally($vmid) ? 1 : 0;
+    my ($devices, $vmid, $dry_run) = @_;
 
     my $used = {};
 
@@ -606,7 +603,7 @@ sub choose_hostpci_devices {
             # we only have one alternative, use that
             $device->{ids} = $device->{ids}->[0];
             $add_used_device->($device->{ids});
-            if ($device->{nvidia} && !$is_running) {
+            if ($device->{nvidia} && !$dry_run) {
                 reserve_pci_usage($device->{ids}->[0]->{id}, $vmid, 10, undef);
                 create_nvidia_device($device->{ids}->[0]->{id}, $device->{nvidia});
             }
@@ -618,12 +615,12 @@ sub choose_hostpci_devices {
             my $ids = [map { $_->{id} } @$alternative];
 
             next if grep { defined($used->{$_}) } @$ids; # already used
-            if (!$is_running) {
+            if (!$dry_run) {
                 eval { reserve_pci_usage($ids, $vmid, 10, undef) };
                 next if $@;
             }
 
-            if ($device->{nvidia} && !$is_running) {
+            if ($device->{nvidia} && !$dry_run) {
                 eval { create_nvidia_device($ids->[0], $device->{nvidia}) };
                 if (my $err = $@) {
                     warn $err;
@@ -645,14 +642,14 @@ sub choose_hostpci_devices {
 }
 
 sub print_hostpci_devices {
-    my ($vmid, $conf, $devices, $vga, $winversion, $bridges, $arch, $bootorder) = @_;
+    my ($vmid, $conf, $devices, $vga, $winversion, $bridges, $arch, $bootorder, $dry_run) = @_;
 
     my $kvm_off = 0;
     my $gpu_passthrough = 0;
     my $legacy_igd = 0;
 
     my $pciaddr;
-    my $pci_devices = choose_hostpci_devices(parse_hostpci_devices($conf), $vmid);
+    my $pci_devices = choose_hostpci_devices(parse_hostpci_devices($conf), $vmid, $dry_run);
 
     for (my $i = 0; $i < $MAX_HOSTPCI_DEVICES; $i++) {
         my $id = "hostpci$i";

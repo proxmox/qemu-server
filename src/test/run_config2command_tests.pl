@@ -474,20 +474,10 @@ $mapping_pci_module->mock(
 my $pci_module = Test::MockModule->new("PVE::QemuServer::PCI");
 $pci_module->mock(
     reserve_pci_usage => sub {
-        my ($ids, $vmid, $timeout, $pid, $dryrun) = @_;
-
-        $ids = [$ids] if !ref($ids);
-
-        for my $id (@$ids) {
-            if ($id eq "0000:07:10.1") {
-                die "reserved";
-            }
-        }
-
-        return undef;
+        die "reserve_pci_usage should not be called for 'qm showcmd'\n";
     },
     create_nvidia_device => sub {
-        return 1;
+        die "create_nvidia_device should not be called for 'qm showcmd'\n";
     },
 );
 

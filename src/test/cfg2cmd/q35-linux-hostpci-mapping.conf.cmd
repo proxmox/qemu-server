@@ -29,7 +29,7 @@
   -device 'usb-tablet,id=tablet,bus=ehci.0,port=1' \
   -device 'vfio-pci,host=0000:07:10.0,id=hostpci0,bus=pci.0,addr=0x10' \
   -device 'vfio-pci,sysfsdev=/sys/bus/mdev/devices/00000001-0000-0000-0000-000000008006,id=hostpci1,bus=pci.0,addr=0x11' \
-  -device 'vfio-pci,host=0000:07:10.4,id=hostpci2,bus=pci.0,addr=0x1b' \
+  -device 'vfio-pci,host=0000:07:10.1,id=hostpci2,bus=pci.0,addr=0x1b' \
   -device 'VGA,id=vga,bus=pcie.0,addr=0x1' \
   -device 'virtio-balloon-pci,id=balloon0,bus=pci.0,addr=0x3,free-page-reporting=on' \
   -iscsi 'initiator-name=iqn.1993-08.org.debian:01:aabbccddeeff' \
