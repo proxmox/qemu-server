@@ -1520,7 +1520,7 @@ sub print_drive_commandline_full {
     my $is_rbd = $path =~ m/^rbd:/;
 
     my $opts = '';
-    my @qemu_drive_options = qw(media cache rerror werror aio discard);
+    my @qemu_drive_options = qw(media cache rerror werror discard);
     foreach my $o (@qemu_drive_options) {
         $opts .= ",$o=$drive->{$o}" if defined($drive->{$o});
     }
@@ -1570,19 +1570,8 @@ sub print_drive_commandline_full {
 
     $opts .= ",cache=none" if !$drive->{cache} && $cache_direct;
 
-    if (!$drive->{aio}) {
-        if (storage_allows_io_uring_default($scfg, $cache_direct)) {
-            # io_uring supports all cache modes
-            $opts .= ",aio=io_uring";
-        } else {
-            # aio native works only with O_DIRECT
-            if ($cache_direct) {
-                $opts .= ",aio=native";
-            } else {
-                $opts .= ",aio=threads";
-            }
-        }
-    }
+    my $aio = PVE::QemuServer::Drive::aio_cmdline_option($scfg, $drive, $cache_direct);
+    $opts .= ",aio=$aio";
 
     die "$drive_id: explicit media parameter is required for iso images\n"
         if !defined($drive->{media}) && defined($vtype) && $vtype eq 'iso';

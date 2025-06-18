@@ -1091,4 +1091,22 @@ sub drive_uses_cache_direct {
     return $cache_direct;
 }
 
+sub aio_cmdline_option {
+    my ($scfg, $drive, $cache_direct) = @_;
+
+    return $drive->{aio} if $drive->{aio};
+
+    if (storage_allows_io_uring_default($scfg, $cache_direct)) {
+        # io_uring supports all cache modes
+        return 'io_uring';
+    } else {
+        # aio native works only with O_DIRECT
+        if ($cache_direct) {
+            return 'native';
+        } else {
+            return 'threads';
+        }
+    }
+}
+
 1;
