@@ -4,10 +4,10 @@ qemu-server (9.0.0) trixie; urgency=medium
 
   * move module-load config from /etc to /usr, as a file with the same name in
     the /etc/modules-load.d/ directory takes precedence over a file in the
-    /usr/lib/modules-load.d/ direcotry, an admin can still overrides this in a
+    /usr/lib/modules-load.d/ directory, an admin can still overrides this in a
     easy manner.
 
-  * drop duplicated network hook script from /var, they have beend migrated to
+  * drop duplicated network hook script from /var, they have been migrated to
     /usr/libexec since a while now, and as all users must upgrade to latest
     PVE 8.4 before being able to upgrade to PVE 9 they are simply not required
     anymore.
