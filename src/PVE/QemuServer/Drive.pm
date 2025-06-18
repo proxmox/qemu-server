@@ -26,7 +26,7 @@ our @EXPORT_OK = qw(
     print_drive
 );
 
-my $DROPPED_PROPERTIES = [];
+my $DROPPED_PROPERTIES = ['cyls', 'heads', 'secs', 'trans'];
 
 our $QEMU_FORMAT_RE = qr/raw|qcow|qcow2|qed|vmdk|cloop/;
 
@@ -174,27 +174,6 @@ my %drivedesc_base = (
         enum => [qw(cdrom disk)],
         description => "The drive's media type.",
         default => 'disk',
-        optional => 1,
-    },
-    cyls => {
-        type => 'integer',
-        description => "Force the drive's physical geometry to have a specific cylinder count.",
-        optional => 1,
-    },
-    heads => {
-        type => 'integer',
-        description => "Force the drive's physical geometry to have a specific head count.",
-        optional => 1,
-    },
-    secs => {
-        type => 'integer',
-        description => "Force the drive's physical geometry to have a specific sector count.",
-        optional => 1,
-    },
-    trans => {
-        type => 'string',
-        enum => [qw(none lba auto)],
-        description => "Force disk geometry bios translation mode.",
         optional => 1,
     },
     snapshot => {
@@ -765,7 +744,7 @@ sub drive_is_read_only {
     return $drive->{interface} ne 'sata' && $drive->{interface} ne 'ide';
 }
 
-# ideX = [volume=]volume-id[,media=d][,cyls=c,heads=h,secs=s[,trans=t]]
+# ideX = [volume=]volume-id[,media=d]
 #        [,snapshot=on|off][,cache=on|off][,format=f][,backup=yes|no]
 #        [,rerror=ignore|report|stop][,werror=enospc|ignore|report|stop]
 #        [,aio=native|threads][,discard=ignore|on][,detect_zeroes=on|off]
@@ -841,8 +820,7 @@ sub parse_drive {
     return if $res->{iops_wr} && $res->{iops};
 
     if ($res->{media} && ($res->{media} eq 'cdrom')) {
-        return if $res->{snapshot} || $res->{trans} || $res->{format};
-        return if $res->{heads} || $res->{secs} || $res->{cyls};
+        return if $res->{snapshot} || $res->{format};
         return if $res->{interface} eq 'virtio';
     }
 

@@ -1543,7 +1543,7 @@ sub print_drive_commandline_full {
     my $is_rbd = $path =~ m/^rbd:/;
 
     my $opts = '';
-    my @qemu_drive_options = qw(heads secs cyls trans media cache rerror werror aio discard);
+    my @qemu_drive_options = qw(media cache rerror werror aio discard);
     foreach my $o (@qemu_drive_options) {
         $opts .= ",$o=$drive->{$o}" if defined($drive->{$o});
     }
