@@ -284,14 +284,14 @@ my $get_addr_mapping_from_id = sub {
 };
 
 sub print_pci_addr {
-    my ($id, $bridges, $arch, $machine) = @_;
+    my ($id, $bridges, $arch) = @_;
 
     my $res = '';
 
     # using same bus slots on all HW, so we need to check special cases here:
     my $busname = 'pci';
-    if ($arch eq 'aarch64' && $machine =~ /^virt/) {
-        die "aarch64/virt cannot use IDE devices\n" if $id =~ /^ide/;
+    if ($arch eq 'aarch64') {
+        die "aarch64 cannot use IDE devices\n" if $id =~ /^ide/;
         $busname = 'pcie';
     }
 
@@ -640,7 +640,7 @@ my sub choose_hostpci_devices {
 }
 
 sub print_hostpci_devices {
-    my ($vmid, $conf, $devices, $vga, $winversion, $bridges, $arch, $machine_type, $bootorder) = @_;
+    my ($vmid, $conf, $devices, $vga, $winversion, $bridges, $arch, $bootorder) = @_;
 
     my $kvm_off = 0;
     my $gpu_passthrough = 0;
@@ -671,7 +671,7 @@ sub print_hostpci_devices {
             }
         } else {
             my $pci_name = $d->{'legacy-igd'} ? 'legacy-igd' : $id;
-            $pciaddr = print_pci_addr($pci_name, $bridges, $arch, $machine_type);
+            $pciaddr = print_pci_addr($pci_name, $bridges, $arch);
         }
 
         my $num_devices = scalar($d->{ids}->@*);

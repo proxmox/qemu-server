@@ -120,7 +120,7 @@ my sub assert_usb_index_is_useable {
 }
 
 sub get_usb_controllers {
-    my ($conf, $bridges, $arch, $machine, $machine_version) = @_;
+    my ($conf, $bridges, $arch, $machine_version) = @_;
 
     my $devices = [];
     my $pciaddr = "";
@@ -134,10 +134,10 @@ sub get_usb_controllers {
     my $is_q35 = PVE::QemuServer::Machine::machine_type_is_q35($conf);
 
     if ($arch eq 'aarch64') {
-        $pciaddr = print_pci_addr('ehci', $bridges, $arch, $machine);
+        $pciaddr = print_pci_addr('ehci', $bridges, $arch);
         push @$devices, '-device', "usb-ehci,id=ehci$pciaddr";
     } elsif (!$is_q35) {
-        $pciaddr = print_pci_addr("piix3", $bridges, $arch, $machine);
+        $pciaddr = print_pci_addr("piix3", $bridges, $arch);
         push @$devices, '-device', "piix3-usb-uhci,id=uhci$pciaddr.0x2";
     }
 
@@ -157,7 +157,7 @@ sub get_usb_controllers {
         push @$devices, '-readconfig', '/usr/share/qemu-server/pve-usb.cfg';
     }
 
-    $pciaddr = print_pci_addr("xhci", $bridges, $arch, $machine);
+    $pciaddr = print_pci_addr("xhci", $bridges, $arch);
     if ($use_qemu_xhci && $any_usb) {
         push @$devices, '-device', print_qemu_xhci_controller($pciaddr);
     } elsif ($use_usb3) {
