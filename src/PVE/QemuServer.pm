@@ -1405,7 +1405,7 @@ sub print_drivedevice_full {
 
     my $drive_id = PVE::QemuServer::Drive::get_drive_id($drive);
     if ($drive->{interface} eq 'virtio') {
-        my $pciaddr = print_pci_addr("$drive_id", $bridges, $arch, $machine_type);
+        my $pciaddr = print_pci_addr("$drive_id", $bridges, $arch);
         $device = "virtio-blk-pci,drive=drive-$drive_id,id=${drive_id}${pciaddr}";
         $device .= ",iothread=iothread-$drive_id" if $drive->{iothread};
     } elsif ($drive->{interface} eq 'scsi') {
@@ -1616,24 +1616,14 @@ sub print_pbs_blockdev {
 }
 
 sub print_netdevice_full {
-    my (
-        $vmid,
-        $conf,
-        $net,
-        $netid,
-        $bridges,
-        $use_old_bios_files,
-        $arch,
-        $machine_type,
-        $machine_version,
-    ) = @_;
+    my ($vmid, $conf, $net, $netid, $bridges, $use_old_bios_files, $arch, $machine_version) = @_;
 
     my $device = $net->{model};
     if ($net->{model} eq 'virtio') {
         $device = 'virtio-net-pci';
     }
 
-    my $pciaddr = print_pci_addr("$netid", $bridges, $arch, $machine_type);
+    my $pciaddr = print_pci_addr("$netid", $bridges, $arch);
     my $tmpstr = "$device,mac=$net->{macaddr},netdev=$netid$pciaddr,id=$netid";
     if ($net->{queues} && $net->{queues} > 1 && $net->{model} eq 'virtio') {
         # Consider we have N queues, the number of vectors needed is 2 * N + 2, i.e., one per in
@@ -1736,7 +1726,7 @@ my $vga_map = {
 };
 
 sub print_vga_device {
-    my ($conf, $vga, $arch, $machine_version, $machine, $id, $qxlnum, $bridges) = @_;
+    my ($conf, $vga, $arch, $machine_version, $id, $qxlnum, $bridges) = @_;
 
     my $type = $vga_map->{ $vga->{type} };
     if ($arch eq 'aarch64' && defined($type) && $type eq 'virtio-vga') {
@@ -1788,7 +1778,7 @@ sub print_vga_device {
         # the first display uses pcie.0 bus on q35 machines
         $pciaddr = print_pcie_addr($vgaid);
     } else {
-        $pciaddr = print_pci_addr($vgaid, $bridges, $arch, $machine);
+        $pciaddr = print_pci_addr($vgaid, $bridges, $arch);
     }
 
     if ($vga->{type} eq 'virtio-gl') {
@@ -3720,9 +3710,8 @@ sub config_to_command {
     }
 
     # add usb controllers
-    my @usbcontrollers = PVE::QemuServer::USB::get_usb_controllers(
-        $conf, $bridges, $arch, $machine_type, $machine_version,
-    );
+    my @usbcontrollers =
+        PVE::QemuServer::USB::get_usb_controllers($conf, $bridges, $arch, $machine_version);
     push @$devices, @usbcontrollers if @usbcontrollers;
 
     my ($vga, $qxlnum) = get_vga_properties($conf, $arch, $machine_version, $winversion);
@@ -3746,15 +3735,7 @@ sub config_to_command {
     # host pci device passthrough
     my ($kvm_off, $gpu_passthrough, $legacy_igd, $pci_devices) =
         PVE::QemuServer::PCI::print_hostpci_devices(
-            $vmid,
-            $conf,
-            $devices,
-            $vga,
-            $winversion,
-            $bridges,
-            $arch,
-            $machine_type,
-            $bootorder,
+            $vmid, $conf, $devices, $vga, $winversion, $bridges, $arch, $bootorder,
         );
 
     # usb devices
@@ -3798,7 +3779,7 @@ sub config_to_command {
     }
 
     if (min_version($machine_version, 4, 0) && (my $audio = conf_has_audio($conf))) {
-        my $audiopciaddr = print_pci_addr("audio0", $bridges, $arch, $machine_type);
+        my $audiopciaddr = print_pci_addr("audio0", $bridges, $arch);
         my $audio_devs = audio_devs($audio, $audiopciaddr, $machine_version);
         push @$devices, @$audio_devs;
     }
@@ -3843,9 +3824,7 @@ sub config_to_command {
 
     if ($vga->{type} && $vga->{type} !~ m/^serial\d+$/ && $vga->{type} ne 'none') {
         push @$devices, '-device',
-            print_vga_device(
-                $conf, $vga, $arch, $machine_version, $machine_type, undef, $qxlnum, $bridges,
-            );
+            print_vga_device($conf, $vga, $arch, $machine_version, undef, $qxlnum, $bridges);
 
         push @$cmd, '-display', 'egl-headless,gl=core' if $vga->{type} eq 'virtio-gl'; # VIRGL
 
@@ -3915,7 +3894,7 @@ sub config_to_command {
         push @$devices, '-chardev', "socket,path=$qgasocket,server=on,wait=off,id=qga0";
 
         if (!$guest_agent->{type} || $guest_agent->{type} eq 'virtio') {
-            my $pciaddr = print_pci_addr("qga0", $bridges, $arch, $machine_type);
+            my $pciaddr = print_pci_addr("qga0", $bridges, $arch);
             push @$devices, '-device', "virtio-serial,id=qga0$pciaddr";
             push @$devices, '-device', 'virtserialport,chardev=qga0,name=org.qemu.guest_agent.0';
         } elsif ($guest_agent->{type} eq 'isa') {
@@ -3926,7 +3905,7 @@ sub config_to_command {
     my $rng = $conf->{rng0} ? parse_rng($conf->{rng0}) : undef;
     if ($rng && $version_guard->(4, 1, 2)) {
         my $rng_object = print_rng_object_commandline('rng0', $rng);
-        my $rng_device = print_rng_device_commandline('rng0', $rng, $bridges, $arch, $machine_type);
+        my $rng_device = print_rng_device_commandline('rng0', $rng, $bridges, $arch);
         push @$devices, '-object', $rng_object;
         push @$devices, '-device', $rng_device;
     }
@@ -3942,14 +3921,7 @@ sub config_to_command {
                 for (my $i = 1; $i < $qxlnum; $i++) {
                     push @$devices, '-device',
                         print_vga_device(
-                            $conf,
-                            $vga,
-                            $arch,
-                            $machine_version,
-                            $machine_type,
-                            $i,
-                            $qxlnum,
-                            $bridges,
+                            $conf, $vga, $arch, $machine_version, $i, $qxlnum, $bridges,
                         );
                 }
             } else {
@@ -3964,7 +3936,7 @@ sub config_to_command {
             }
         }
 
-        my $pciaddr = print_pci_addr("spice", $bridges, $arch, $machine_type);
+        my $pciaddr = print_pci_addr("spice", $bridges, $arch);
 
         push @$devices, '-device', "virtio-serial,id=spice$pciaddr";
         if ($vga->{'clipboard'} && $vga->{'clipboard'} eq 'vnc') {
@@ -4002,7 +3974,7 @@ sub config_to_command {
 
     # enable balloon by default, unless explicitly disabled
     if (!defined($conf->{balloon}) || $conf->{balloon}) {
-        my $pciaddr = print_pci_addr("balloon0", $bridges, $arch, $machine_type);
+        my $pciaddr = print_pci_addr("balloon0", $bridges, $arch);
         my $ballooncmd = "virtio-balloon-pci,id=balloon0$pciaddr";
         $ballooncmd .= ",free-page-reporting=on" if min_version($machine_version, 6, 2);
         push @$devices, '-device', $ballooncmd;
@@ -4010,7 +3982,7 @@ sub config_to_command {
 
     if ($conf->{watchdog}) {
         my $wdopts = parse_watchdog($conf->{watchdog});
-        my $pciaddr = print_pci_addr("watchdog", $bridges, $arch, $machine_type);
+        my $pciaddr = print_pci_addr("watchdog", $bridges, $arch);
         my $watchdog = $wdopts->{model} || 'i6300esb';
         push @$devices, '-device', "$watchdog$pciaddr";
         push @$devices, '-watchdog-action', $wdopts->{action} if $wdopts->{action};
@@ -4051,8 +4023,7 @@ sub config_to_command {
                     "scsi$drive->{index}: machine version 4.1~pve2 or higher is required to use more than 14 SCSI disks\n"
                     if $drive->{index} > 13 && !&$version_guard(4, 1, 2);
 
-                my $pciaddr =
-                    print_pci_addr("$controller_prefix$controller", $bridges, $arch, $machine_type);
+                my $pciaddr = print_pci_addr("$controller_prefix$controller", $bridges, $arch);
                 my $scsihw_type =
                     $scsihw =~ m/^virtio-scsi-single/ ? "virtio-scsi-pci" : $scsihw;
 
@@ -4087,7 +4058,7 @@ sub config_to_command {
 
             if ($drive->{interface} eq 'sata') {
                 my $controller = int($drive->{index} / $PVE::QemuServer::Drive::MAX_SATA_DISKS);
-                my $pciaddr = print_pci_addr("ahci$controller", $bridges, $arch, $machine_type);
+                my $pciaddr = print_pci_addr("ahci$controller", $bridges, $arch);
                 push @$devices, '-device', "ahci,id=ahci$controller,multifunction=on$pciaddr"
                     if !$ahcicontroller->{$controller};
                 $ahcicontroller->{$controller} = 1;
@@ -4137,7 +4108,6 @@ sub config_to_command {
             $bridges,
             $use_old_bios_files,
             $arch,
-            $machine_type,
             $machine_version,
         );
 
@@ -4151,7 +4121,7 @@ sub config_to_command {
         if ($q35) {
             $bus = print_pcie_addr("ivshmem");
         } else {
-            $bus = print_pci_addr("ivshmem", $bridges, $arch, $machine_type);
+            $bus = print_pci_addr("ivshmem", $bridges, $arch);
         }
 
         my $ivshmem_name = $ivshmem->{name} // $vmid;
@@ -4180,7 +4150,7 @@ sub config_to_command {
         if ($k == 2 && $legacy_igd) {
             $k_name = "$k-igd";
         }
-        my $pciaddr = print_pci_addr("pci.$k_name", undef, $arch, $machine_type);
+        my $pciaddr = print_pci_addr("pci.$k_name", undef, $arch);
         my $devstr = "pci-bridge,id=pci.$k,chassis_nr=$k$pciaddr";
 
         if ($q35) { # add after -readconfig pve-q35.cfg
@@ -4344,7 +4314,7 @@ sub vm_deviceplug {
         }
     } elsif ($deviceid =~ m/^(virtioscsi|scsihw)(\d+)$/) {
         my $scsihw = defined($conf->{scsihw}) ? $conf->{scsihw} : "lsi";
-        my $pciaddr = print_pci_addr($deviceid, undef, $arch, $machine_type);
+        my $pciaddr = print_pci_addr($deviceid, undef, $arch);
         my $scsihw_type = $scsihw eq 'virtio-scsi-single' ? "virtio-scsi-pci" : $scsihw;
 
         my $devicefull = "$scsihw_type,id=$deviceid$pciaddr";
@@ -4388,7 +4358,6 @@ sub vm_deviceplug {
             undef,
             $use_old_bios_files,
             $arch,
-            $machine_type,
             $machine_version,
         );
         qemu_deviceadd($vmid, $netdevicefull);
@@ -4403,7 +4372,7 @@ sub vm_deviceplug {
         }
     } elsif (!$q35 && $deviceid =~ m/^(pci\.)(\d+)$/) {
         my $bridgeid = $2;
-        my $pciaddr = print_pci_addr($deviceid, undef, $arch, $machine_type);
+        my $pciaddr = print_pci_addr($deviceid, undef, $arch);
         my $devicefull = "pci-bridge,id=pci.$bridgeid,chassis_nr=$bridgeid$pciaddr";
 
         qemu_deviceadd($vmid, $devicefull);
@@ -4609,7 +4578,7 @@ sub qemu_add_pci_bridge {
 
     my $bridgeid;
 
-    print_pci_addr($device, $bridges, $arch, $machine_type);
+    print_pci_addr($device, $bridges, $arch);
 
     while (my ($k, $v) = each %$bridges) {
         $bridgeid = $k;
@@ -4672,7 +4641,7 @@ sub qemu_usb_hotplug {
     my $devicelist = vm_devices_list($vmid);
 
     if (!$devicelist->{xhci}) {
-        my $pciaddr = print_pci_addr("xhci", undef, $arch, $machine_type);
+        my $pciaddr = print_pci_addr("xhci", undef, $arch);
         qemu_deviceadd($vmid, PVE::QemuServer::USB::print_qemu_xhci_controller($pciaddr));
     }
 
