@@ -73,6 +73,7 @@ use PVE::QemuServer::Monitor qw(mon_cmd);
 use PVE::QemuServer::PCI qw(print_pci_addr print_pcie_addr print_pcie_root_port parse_hostpci);
 use PVE::QemuServer::QMPHelpers qw(qemu_deviceadd qemu_devicedel qemu_objectadd qemu_objectdel);
 use PVE::QemuServer::RNG qw(parse_rng print_rng_device_commandline print_rng_object_commandline);
+use PVE::QemuServer::StateFile;
 use PVE::QemuServer::USB;
 use PVE::QemuServer::Virtiofs qw(max_virtiofs start_all_virtiofsd);
 
@@ -5943,6 +5944,7 @@ sub vm_start_nolock {
 
     my $migratedfrom = $migrate_opts->{migratedfrom};
     my $migration_type = $migrate_opts->{type};
+    my $nbd_protocol_version = $migrate_opts->{nbd_proto_version} // 0;
 
     my $res = {};
 
@@ -6007,48 +6009,25 @@ sub vm_start_nolock {
     );
 
     my $migration_ip;
-    my $get_migration_ip = sub {
-        my ($nodename) = @_;
-
-        return $migration_ip if defined($migration_ip);
-
-        my $cidr = $migrate_opts->{network};
-
-        if (!defined($cidr)) {
-            my $dc_conf = PVE::Cluster::cfs_read_file('datacenter.cfg');
-            $cidr = $dc_conf->{migration}->{network};
-        }
-
-        if (defined($cidr)) {
-            my $ips = PVE::Network::get_local_ip_from_cidr($cidr);
-
-            die "could not get IP: no address configured on local "
-                . "node for network '$cidr'\n"
-                if scalar(@$ips) == 0;
-
-            die "could not get IP: multiple addresses configured on local "
-                . "node for network '$cidr'\n"
-                if scalar(@$ips) > 1;
-
-            $migration_ip = @$ips[0];
-        }
-
-        $migration_ip = PVE::Cluster::remote_node_ip($nodename, 1)
-            if !defined($migration_ip);
-
-        return $migration_ip;
-    };
+    if (
+        ($statefile && $statefile eq 'tcp' && $migration_type eq 'insecure')
+        || ($migrate_opts->{nbd}
+            && ($nbd_protocol_version == 0 || $migration_type eq 'insecure'))
+    ) {
+        my $nodename = nodename();
+        $migration_ip =
+            PVE::QemuServer::StateFile::get_migration_ip($nodename, $migrate_opts->{network});
+    }
 
     if ($statefile) {
         if ($statefile eq 'tcp') {
             my $migrate = $res->{migrate} = { proto => 'tcp' };
             $migrate->{addr} = "localhost";
-            my $nodename = nodename();
 
             die "no migration type set\n" if !defined($migration_type);
 
             if ($migration_type eq 'insecure') {
-                $migrate->{addr} = $get_migration_ip->($nodename);
+                $migrate->{addr} = $migration_ip // die "internal error - no migration IP";
                 $migrate->{addr} = "[$migrate->{addr}]" if Net::IP::ip_is_ipv6($migrate->{addr});
             }
 
@@ -6264,7 +6243,6 @@ sub vm_start_nolock {
 
     #start nbd server for storage migration
     if (my $nbd = $migrate_opts->{nbd}) {
-        my $nbd_protocol_version = $migrate_opts->{nbd_proto_version} // 0;
 
         my $migrate_storage_uri;
         # nbd_protocol_version > 0 for unix socket support
@@ -6282,7 +6260,7 @@ sub vm_start_nolock {
             $res->{migrate}->{unix_sockets} = [$socket_path];
         } else {
             my $nodename = nodename();
-            my $localip = $get_migration_ip->($nodename);
+            my $localip = $migration_ip // die "internal error - no migration IP";
             my $pfamily = PVE::Tools::get_host_address_family($nodename);
             my $storage_migrate_port = PVE::Tools::next_migrate_port($pfamily);
 

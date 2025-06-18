@@ -16,6 +16,7 @@ SOURCES=Agent.pm	\
 	PCI.pm		\
 	QMPHelpers.pm	\
 	RNG.pm		\
+	StateFile.pm	\
 	USB.pm		\
 	Virtiofs.pm
 
