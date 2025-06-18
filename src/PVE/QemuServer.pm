@@ -1786,7 +1786,7 @@ sub print_vga_device {
     my $pciaddr;
     if ($q35 && $vgaid eq 'vga') {
         # the first display uses pcie.0 bus on q35 machines
-        $pciaddr = print_pcie_addr($vgaid, $bridges, $arch, $machine);
+        $pciaddr = print_pcie_addr($vgaid);
     } else {
         $pciaddr = print_pci_addr($vgaid, $bridges, $arch, $machine);
     }
