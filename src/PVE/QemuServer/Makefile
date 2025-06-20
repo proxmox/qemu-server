@@ -3,6 +3,7 @@ PREFIX=/usr
 PERLDIR=$(PREFIX)/share/perl5
 
 SOURCES=Agent.pm	\
+	Blockdev.pm	\
 	CGroup.pm	\
 	Cloudinit.pm	\
 	CPUConfig.pm	\
