@@ -27,6 +27,6 @@
   -iscsi 'initiator-name=iqn.1993-08.org.debian:01:aabbccddeeff' \
   -device 'virtio-scsi-pci,id=scsihw0,bus=pci.0,addr=0x5' \
   -drive 'file=/var/lib/vz/images/100/base-100-disk-2.raw,if=none,id=drive-scsi0,format=raw,cache=none,aio=io_uring,detect-zeroes=on,readonly=on' \
-  -device 'scsi-hd,bus=scsihw0.0,channel=0,scsi-id=0,lun=0,drive=drive-scsi0,id=scsi0' \
-  -machine 'accel=tcg,type=pc+pve1' \
+  -device 'scsi-hd,bus=scsihw0.0,channel=0,scsi-id=0,lun=0,drive=drive-scsi0,id=scsi0,write-cache=on' \
+  -machine 'accel=tcg,type=pc+pve0' \
   -snapshot

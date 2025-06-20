@@ -25,32 +25,32 @@
   -iscsi 'initiator-name=iqn.1993-08.org.debian:01:aabbccddeeff' \
   -device 'lsi,id=scsihw0,bus=pci.0,addr=0x5' \
   -drive 'file=/var/lib/vz/images/8006/vm-8006-disk-0.raw,if=none,id=drive-scsi0,discard=on,format=raw,cache=none,aio=threads,detect-zeroes=unmap' \
-  -device 'scsi-hd,bus=scsihw0.0,scsi-id=0,drive=drive-scsi0,id=scsi0' \
+  -device 'scsi-hd,bus=scsihw0.0,scsi-id=0,drive=drive-scsi0,id=scsi0,write-cache=on' \
   -drive 'file=/var/lib/vz/images/8006/vm-8006-disk-1.raw,if=none,id=drive-scsi1,discard=on,format=raw,cache=none,aio=native,detect-zeroes=unmap' \
-  -device 'scsi-hd,bus=scsihw0.0,scsi-id=1,drive=drive-scsi1,id=scsi1' \
+  -device 'scsi-hd,bus=scsihw0.0,scsi-id=1,drive=drive-scsi1,id=scsi1,write-cache=on' \
   -drive 'file=/var/lib/vz/images/8006/vm-8006-disk-2.raw,if=none,id=drive-scsi2,discard=on,format=raw,cache=none,aio=io_uring,detect-zeroes=unmap' \
-  -device 'scsi-hd,bus=scsihw0.0,scsi-id=2,drive=drive-scsi2,id=scsi2' \
+  -device 'scsi-hd,bus=scsihw0.0,scsi-id=2,drive=drive-scsi2,id=scsi2,write-cache=on' \
   -drive 'file=/var/lib/vz/images/8006/vm-8006-disk-3.raw,if=none,id=drive-scsi3,discard=on,format=raw,cache=none,aio=io_uring,detect-zeroes=unmap' \
-  -device 'scsi-hd,bus=scsihw0.0,scsi-id=3,drive=drive-scsi3,id=scsi3' \
+  -device 'scsi-hd,bus=scsihw0.0,scsi-id=3,drive=drive-scsi3,id=scsi3,write-cache=on' \
   -drive 'file=/mnt/pve/cifs-store/images/8006/vm-8006-disk-4.raw,if=none,id=drive-scsi4,discard=on,format=raw,cache=none,aio=native,detect-zeroes=unmap' \
-  -device 'scsi-hd,bus=scsihw0.0,scsi-id=4,drive=drive-scsi4,id=scsi4' \
+  -device 'scsi-hd,bus=scsihw0.0,scsi-id=4,drive=drive-scsi4,id=scsi4,write-cache=on' \
   -drive 'file=/mnt/pve/cifs-store/images/8006/vm-8006-disk-5.raw,if=none,id=drive-scsi5,discard=on,format=raw,cache=none,aio=io_uring,detect-zeroes=unmap' \
-  -device 'scsi-hd,bus=scsihw0.0,scsi-id=5,drive=drive-scsi5,id=scsi5' \
+  -device 'scsi-hd,bus=scsihw0.0,scsi-id=5,drive=drive-scsi5,id=scsi5,write-cache=on' \
   -drive 'file=/dev/rbd-pve/fc4181a6-56eb-4f68-b452-8ba1f381ca2a/cpool/vm-8006-disk-6,if=none,id=drive-scsi6,discard=on,format=raw,cache=none,aio=io_uring,detect-zeroes=unmap' \
-  -device 'scsi-hd,bus=scsihw0.0,scsi-id=6,drive=drive-scsi6,id=scsi6' \
+  -device 'scsi-hd,bus=scsihw0.0,scsi-id=6,drive=drive-scsi6,id=scsi6,write-cache=on' \
   -device 'lsi,id=scsihw1,bus=pci.0,addr=0x6' \
   -drive 'file=/dev/rbd-pve/fc4181a6-56eb-4f68-b452-8ba1f381ca2a/cpool/vm-8006-disk-7,if=none,id=drive-scsi7,discard=on,format=raw,cache=none,aio=io_uring,detect-zeroes=unmap' \
-  -device 'scsi-hd,bus=scsihw1.0,scsi-id=0,drive=drive-scsi7,id=scsi7' \
+  -device 'scsi-hd,bus=scsihw1.0,scsi-id=0,drive=drive-scsi7,id=scsi7,write-cache=on' \
   -drive 'file=/dev/rbd-pve/fc4181a6-56eb-4f68-b452-8ba1f381ca2a/cpool/vm-8006-disk-8,if=none,id=drive-scsi8,cache=writeback,discard=on,format=raw,aio=threads,detect-zeroes=unmap' \
-  -device 'scsi-hd,bus=scsihw1.0,scsi-id=1,drive=drive-scsi8,id=scsi8' \
+  -device 'scsi-hd,bus=scsihw1.0,scsi-id=1,drive=drive-scsi8,id=scsi8,write-cache=on' \
   -drive 'file=/dev/rbd-pve/fc4181a6-56eb-4f68-b452-8ba1f381ca2a/cpool/vm-8006-disk-9,if=none,id=drive-scsi9,cache=writeback,discard=on,format=raw,aio=io_uring,detect-zeroes=unmap' \
-  -device 'scsi-hd,bus=scsihw1.0,scsi-id=2,drive=drive-scsi9,id=scsi9' \
+  -device 'scsi-hd,bus=scsihw1.0,scsi-id=2,drive=drive-scsi9,id=scsi9,write-cache=on' \
   -drive 'file=rbd:cpool/vm-8006-disk-8:mon_host=127.0.0.42;127.0.0.21;[\:\:1]:auth_supported=none,if=none,id=drive-scsi10,discard=on,format=raw,cache=none,aio=io_uring,detect-zeroes=unmap' \
-  -device 'scsi-hd,bus=scsihw1.0,scsi-id=3,drive=drive-scsi10,id=scsi10' \
+  -device 'scsi-hd,bus=scsihw1.0,scsi-id=3,drive=drive-scsi10,id=scsi10,write-cache=on' \
   -drive 'file=rbd:cpool/vm-8006-disk-8:mon_host=127.0.0.42;127.0.0.21;[\:\:1]:auth_supported=none,if=none,id=drive-scsi11,discard=on,format=raw,cache=none,aio=io_uring,detect-zeroes=unmap' \
-  -device 'scsi-hd,bus=scsihw1.0,scsi-id=4,drive=drive-scsi11,id=scsi11' \
+  -device 'scsi-hd,bus=scsihw1.0,scsi-id=4,drive=drive-scsi11,id=scsi11,write-cache=on' \
   -drive 'file=/dev/veegee/vm-8006-disk-9,if=none,id=drive-scsi12,discard=on,format=raw,cache=none,aio=native,detect-zeroes=unmap' \
-  -device 'scsi-hd,bus=scsihw1.0,scsi-id=5,drive=drive-scsi12,id=scsi12' \
+  -device 'scsi-hd,bus=scsihw1.0,scsi-id=5,drive=drive-scsi12,id=scsi12,write-cache=on' \
   -drive 'file=/dev/veegee/vm-8006-disk-9,if=none,id=drive-scsi13,discard=on,format=raw,cache=none,aio=io_uring,detect-zeroes=unmap' \
-  -device 'scsi-hd,bus=scsihw1.0,scsi-id=6,drive=drive-scsi13,id=scsi13' \
-  -machine 'type=pc+pve1'
+  -device 'scsi-hd,bus=scsihw1.0,scsi-id=6,drive=drive-scsi13,id=scsi13,write-cache=on' \
+  -machine 'type=pc+pve0'

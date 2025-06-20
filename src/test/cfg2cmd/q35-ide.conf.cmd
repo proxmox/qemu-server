@@ -34,7 +34,7 @@
   -device 'ide-cd,bus=ide.3,unit=0,drive=drive-ide3,id=ide3,bootindex=203' \
   -device 'virtio-scsi-pci,id=scsihw0,bus=pci.0,addr=0x5' \
   -drive 'file=/var/lib/vz/images/100/vm-100-disk-2.qcow2,if=none,id=drive-scsi0,format=qcow2,cache=none,aio=io_uring,detect-zeroes=on' \
-  -device 'scsi-hd,bus=scsihw0.0,channel=0,scsi-id=0,lun=0,drive=drive-scsi0,id=scsi0,bootindex=100' \
+  -device 'scsi-hd,bus=scsihw0.0,channel=0,scsi-id=0,lun=0,drive=drive-scsi0,id=scsi0,bootindex=100,write-cache=on' \
   -netdev 'type=tap,id=net0,ifname=tap8006i0,script=/usr/libexec/qemu-server/pve-bridge,downscript=/usr/libexec/qemu-server/pve-bridgedown,vhost=on' \
   -device 'virtio-net-pci,mac=2E:01:68:F9:9C:87,netdev=net0,bus=pci.0,addr=0x12,id=net0,rx_queue_size=1024,tx_queue_size=256,bootindex=300' \
-  -machine 'type=q35+pve1'
+  -machine 'type=q35+pve0'

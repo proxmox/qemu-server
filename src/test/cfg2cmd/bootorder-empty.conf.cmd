@@ -31,11 +31,11 @@
   -device 'ide-cd,bus=ide.1,unit=0,drive=drive-ide2,id=ide2' \
   -device 'lsi,id=scsihw0,bus=pci.0,addr=0x5' \
   -drive 'file=/var/lib/vz/images/8006/vm-8006-disk-0.qcow2,if=none,id=drive-scsi4,discard=on,format=qcow2,cache=none,aio=io_uring,detect-zeroes=unmap' \
-  -device 'scsi-hd,bus=scsihw0.0,scsi-id=4,drive=drive-scsi4,id=scsi4' \
+  -device 'scsi-hd,bus=scsihw0.0,scsi-id=4,drive=drive-scsi4,id=scsi4,write-cache=on' \
   -drive 'file=/var/lib/vz/images/8006/vm-8006-disk-0.qcow2,if=none,id=drive-virtio0,discard=on,format=qcow2,cache=none,aio=io_uring,detect-zeroes=unmap' \
-  -device 'virtio-blk-pci,drive=drive-virtio0,id=virtio0,bus=pci.0,addr=0xa,iothread=iothread-virtio0' \
+  -device 'virtio-blk-pci,drive=drive-virtio0,id=virtio0,bus=pci.0,addr=0xa,iothread=iothread-virtio0,write-cache=on' \
   -drive 'file=/var/lib/vz/images/8006/vm-8006-disk-0.qcow2,if=none,id=drive-virtio1,discard=on,format=qcow2,cache=none,aio=io_uring,detect-zeroes=unmap' \
-  -device 'virtio-blk-pci,drive=drive-virtio1,id=virtio1,bus=pci.0,addr=0xb,iothread=iothread-virtio1' \
+  -device 'virtio-blk-pci,drive=drive-virtio1,id=virtio1,bus=pci.0,addr=0xb,iothread=iothread-virtio1,write-cache=on' \
   -netdev 'type=tap,id=net0,ifname=tap8006i0,script=/usr/libexec/qemu-server/pve-bridge,downscript=/usr/libexec/qemu-server/pve-bridgedown,vhost=on' \
   -device 'virtio-net-pci,mac=A2:C0:43:77:08:A0,netdev=net0,bus=pci.0,addr=0x12,id=net0,rx_queue_size=1024,tx_queue_size=256' \
-  -machine 'type=pc+pve1'
+  -machine 'type=pc+pve0'

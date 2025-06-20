@@ -27,9 +27,9 @@
   -device 'ide-cd,bus=ide.1,unit=0,drive=drive-ide2,id=ide2,bootindex=200' \
   -device 'virtio-scsi-pci,id=scsihw0,bus=pci.0,addr=0x5' \
   -drive 'file=/var/lib/vz/images/8006/base-8006-disk-1.qcow2,if=none,id=drive-scsi0,discard=on,format=qcow2,cache=none,aio=io_uring,detect-zeroes=unmap,readonly=on' \
-  -device 'scsi-hd,bus=scsihw0.0,channel=0,scsi-id=0,lun=0,drive=drive-scsi0,id=scsi0' \
+  -device 'scsi-hd,bus=scsihw0.0,channel=0,scsi-id=0,lun=0,drive=drive-scsi0,id=scsi0,write-cache=on' \
   -device 'ahci,id=ahci0,multifunction=on,bus=pci.0,addr=0x7' \
   -drive 'file=/var/lib/vz/images/8006/base-8006-disk-0.qcow2,if=none,id=drive-sata0,discard=on,format=qcow2,cache=none,aio=io_uring,detect-zeroes=unmap' \
-  -device 'ide-hd,bus=ahci0.0,drive=drive-sata0,id=sata0' \
-  -machine 'accel=tcg,smm=off,type=pc+pve1' \
+  -device 'ide-hd,bus=ahci0.0,drive=drive-sata0,id=sata0,write-cache=on' \
+  -machine 'accel=tcg,smm=off,type=pc+pve0' \
   -snapshot

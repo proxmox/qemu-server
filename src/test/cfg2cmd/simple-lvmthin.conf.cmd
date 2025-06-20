@@ -25,11 +25,11 @@
   -iscsi 'initiator-name=iqn.1993-08.org.debian:01:aabbccddeeff' \
   -device 'virtio-scsi-pci,id=scsihw0,bus=pci.0,addr=0x5' \
   -drive 'file=/dev/pve/vm-8006-disk-0,if=none,id=drive-scsi0,discard=on,format=raw,cache=none,aio=io_uring,detect-zeroes=unmap' \
-  -device 'scsi-hd,bus=scsihw0.0,channel=0,scsi-id=0,lun=0,drive=drive-scsi0,id=scsi0,bootindex=100' \
+  -device 'scsi-hd,bus=scsihw0.0,channel=0,scsi-id=0,lun=0,drive=drive-scsi0,id=scsi0,bootindex=100,write-cache=on' \
   -drive 'file=/dev/pve/vm-8006-disk-0,if=none,id=drive-scsi1,cache=writeback,discard=on,format=raw,aio=io_uring,detect-zeroes=unmap' \
-  -device 'scsi-hd,bus=scsihw0.0,channel=0,scsi-id=0,lun=1,drive=drive-scsi1,id=scsi1' \
+  -device 'scsi-hd,bus=scsihw0.0,channel=0,scsi-id=0,lun=1,drive=drive-scsi1,id=scsi1,write-cache=on' \
   -drive 'file=/dev/pve/vm-8006-disk-0,if=none,id=drive-scsi2,cache=writethrough,discard=on,format=raw,aio=io_uring,detect-zeroes=unmap' \
-  -device 'scsi-hd,bus=scsihw0.0,channel=0,scsi-id=0,lun=2,drive=drive-scsi2,id=scsi2' \
+  -device 'scsi-hd,bus=scsihw0.0,channel=0,scsi-id=0,lun=2,drive=drive-scsi2,id=scsi2,write-cache=off' \
   -drive 'file=/dev/pve/vm-8006-disk-0,if=none,id=drive-scsi3,cache=directsync,discard=on,format=raw,aio=io_uring,detect-zeroes=unmap' \
-  -device 'scsi-hd,bus=scsihw0.0,channel=0,scsi-id=0,lun=3,drive=drive-scsi3,id=scsi3' \
-  -machine 'type=pc+pve1'
+  -device 'scsi-hd,bus=scsihw0.0,channel=0,scsi-id=0,lun=3,drive=drive-scsi3,id=scsi3,write-cache=off' \
+  -machine 'type=pc+pve0'

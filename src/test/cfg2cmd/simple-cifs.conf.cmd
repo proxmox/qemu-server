@@ -27,11 +27,11 @@
   -device 'ide-cd,bus=ide.1,unit=0,drive=drive-ide2,id=ide2,bootindex=200' \
   -device 'virtio-scsi-pci,id=scsihw0,bus=pci.0,addr=0x5' \
   -drive 'file=/mnt/pve/cifs-store/images/8006/vm-8006-disk-0.raw,if=none,id=drive-scsi0,discard=on,format=raw,cache=none,aio=native,detect-zeroes=unmap' \
-  -device 'scsi-hd,bus=scsihw0.0,channel=0,scsi-id=0,lun=0,drive=drive-scsi0,id=scsi0' \
+  -device 'scsi-hd,bus=scsihw0.0,channel=0,scsi-id=0,lun=0,drive=drive-scsi0,id=scsi0,write-cache=on' \
   -drive 'file=/mnt/pve/cifs-store/images/8006/vm-8006-disk-0.raw,if=none,id=drive-scsi1,cache=writeback,discard=on,format=raw,aio=threads,detect-zeroes=unmap' \
-  -device 'scsi-hd,bus=scsihw0.0,channel=0,scsi-id=0,lun=1,drive=drive-scsi1,id=scsi1' \
+  -device 'scsi-hd,bus=scsihw0.0,channel=0,scsi-id=0,lun=1,drive=drive-scsi1,id=scsi1,write-cache=on' \
   -drive 'file=/mnt/pve/cifs-store/images/8006/vm-8006-disk-0.raw,if=none,id=drive-scsi2,cache=writethrough,discard=on,format=raw,aio=threads,detect-zeroes=unmap' \
-  -device 'scsi-hd,bus=scsihw0.0,channel=0,scsi-id=0,lun=2,drive=drive-scsi2,id=scsi2' \
+  -device 'scsi-hd,bus=scsihw0.0,channel=0,scsi-id=0,lun=2,drive=drive-scsi2,id=scsi2,write-cache=off' \
   -drive 'file=/mnt/pve/cifs-store/images/8006/vm-8006-disk-0.raw,if=none,id=drive-scsi3,cache=directsync,discard=on,format=raw,aio=native,detect-zeroes=unmap' \
-  -device 'scsi-hd,bus=scsihw0.0,channel=0,scsi-id=0,lun=3,drive=drive-scsi3,id=scsi3' \
-  -machine 'type=pc+pve1'
+  -device 'scsi-hd,bus=scsihw0.0,channel=0,scsi-id=0,lun=3,drive=drive-scsi3,id=scsi3,write-cache=off' \
+  -machine 'type=pc+pve0'

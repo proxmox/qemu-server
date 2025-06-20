@@ -29,7 +29,7 @@
   -drive 'if=none,id=drive-ide2,media=cdrom,aio=io_uring' \
   -device 'ide-cd,bus=ide.1,unit=0,drive=drive-ide2,id=ide2,bootindex=200' \
   -drive 'file=/var/lib/vz/images/8006/vm-8006-disk-0.qcow2,if=none,id=drive-virtio0,discard=on,format=qcow2,cache=none,aio=io_uring,detect-zeroes=unmap' \
-  -device 'virtio-blk-pci,drive=drive-virtio0,id=virtio0,bus=pci.0,addr=0xa,iothread=iothread-virtio0,bootindex=100' \
+  -device 'virtio-blk-pci,drive=drive-virtio0,id=virtio0,bus=pci.0,addr=0xa,iothread=iothread-virtio0,bootindex=100,write-cache=on' \
   -netdev 'type=tap,id=net0,ifname=tap8006i0,script=/usr/libexec/qemu-server/pve-bridge,downscript=/usr/libexec/qemu-server/pve-bridgedown,vhost=on' \
   -device 'virtio-net-pci,mac=A2:C0:43:77:08:A0,netdev=net0,bus=pci.0,addr=0x12,id=net0,rx_queue_size=1024,tx_queue_size=256,bootindex=300' \
-  -machine 'type=pc+pve1'
+  -machine 'type=pc+pve0'
