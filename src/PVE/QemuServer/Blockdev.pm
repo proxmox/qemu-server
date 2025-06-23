@@ -128,7 +128,14 @@ sub generate_file_blockdev {
         $scfg = PVE::Storage::storage_config($storecfg, $storeid);
     }
 
-    $blockdev->{cache} = generate_blockdev_drive_cache($drive, $scfg);
+    # SPI flash does lots of read-modify-write OPs, without writeback this gets really slow #3329
+    # It also needs the rbd_cache_policy set to 'writeback' on the RBD side, which is done by the
+    # storage layer.
+    if ($blockdev->{driver} eq 'rbd' && $drive->{interface} eq 'efidisk') {
+        $blockdev->{cache} = { direct => JSON::false, 'no-flush' => JSON::false };
+    } else {
+        $blockdev->{cache} = generate_blockdev_drive_cache($drive, $scfg);
+    }
 
     my $driver = $blockdev->{driver};
     # only certain drivers have the aio setting
