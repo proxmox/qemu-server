@@ -16,6 +16,7 @@ use base 'Exporter';
 our @EXPORT_OK = qw(
     min_version
     config_aware_timeout
+    get_iscsi_initiator_name
     kvm_user_version
     parse_number_sets
     windows_version
@@ -294,6 +295,20 @@ sub windows_version {
 sub needs_extraction {
     my ($vtype, $fmt) = @_;
     return $vtype eq 'import' && $fmt =~ m/^ova\+(.*)$/;
+}
+
+sub get_iscsi_initiator_name {
+    my $initiator;
+
+    my $fh = IO::File->new('/etc/iscsi/initiatorname.iscsi') || return;
+    while (defined(my $line = <$fh>)) {
+        next if $line !~ m/^\s*InitiatorName\s*=\s*([\.\-:\w]+)/;
+        $initiator = $1;
+        last;
+    }
+    $fh->close();
+
+    return $initiator;
 }
 
 1;

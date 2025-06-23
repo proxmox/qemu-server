@@ -504,7 +504,7 @@ $qemu_server_module->mock(
     run_command => sub {
         $command = shift;
     },
-    get_initiator_name => sub {
+    get_iscsi_initiator_name => sub {
         return "foobar";
     },
 );

@@ -51,7 +51,8 @@ use PVE::Tools
 use PVE::QMPClient;
 use PVE::QemuConfig;
 use PVE::QemuConfig::NoWrite;
-use PVE::QemuServer::Helpers qw(config_aware_timeout min_version kvm_user_version windows_version);
+use PVE::QemuServer::Helpers
+    qw(config_aware_timeout get_iscsi_initiator_name min_version kvm_user_version windows_version);
 use PVE::QemuServer::Cloudinit;
 use PVE::QemuServer::CGroup;
 use PVE::QemuServer::CPUConfig
@@ -1504,20 +1505,6 @@ sub print_drivedevice_full {
     }
 
     return $device;
-}
-
-sub get_initiator_name {
-    my $initiator;
-
-    my $fh = IO::File->new('/etc/iscsi/initiatorname.iscsi') || return;
-    while (defined(my $line = <$fh>)) {
-        next if $line !~ m/^\s*InitiatorName\s*=\s*([\.\-:\w]+)/;
-        $initiator = $1;
-        last;
-    }
-    $fh->close();
-
-    return $initiator;
 }
 
 sub print_drive_commandline_full {
@@ -4010,7 +3997,7 @@ sub config_to_command {
     my $scsihw = defined($conf->{scsihw}) ? $conf->{scsihw} : $defaults->{scsihw};
 
     # Add iscsi initiator name if available
-    if (my $initiator = get_initiator_name()) {
+    if (my $initiator = get_iscsi_initiator_name()) {
         push @$devices, '-iscsi', "initiator-name=$initiator";
     }
 
@@ -8357,7 +8344,7 @@ sub convert_iscsi_path {
         my $target = $2;
         my $lun = $3;
 
-        my $initiator_name = get_initiator_name();
+        my $initiator_name = get_iscsi_initiator_name();
 
         return "file.driver=iscsi,file.transport=tcp,file.initiator-name=$initiator_name,"
             . "file.portal=$portal,file.target=$target,file.lun=$lun,driver=raw";
