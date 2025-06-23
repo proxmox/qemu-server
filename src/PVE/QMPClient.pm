@@ -119,6 +119,15 @@ sub cmd {
             # that are executed upon thaw, so use 3 minutes to be on the safe side.
             $timeout = 3 * 60;
         } elsif (
+            $cmd->{execute} eq 'device_add'
+            || $cmd->{execute} eq 'device_del'
+            || $cmd->{execute} eq 'netdev_add'
+            || $cmd->{execute} eq 'netdev_del'
+            || $cmd->{execute} eq 'object-add'
+            || $cmd->{execute} eq 'object-del'
+        ) {
+            $timeout = 60;
+        } elsif (
             $cmd->{execute} eq 'backup-cancel'
             || $cmd->{execute} eq 'blockdev-snapshot-delete-internal-sync'
             || $cmd->{execute} eq 'blockdev-snapshot-internal-sync'
