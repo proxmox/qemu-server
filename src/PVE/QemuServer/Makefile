@@ -15,6 +15,7 @@ SOURCES=Agent.pm	\
 	MetaInfo.pm	\
 	Monitor.pm	\
 	PCI.pm		\
+	QemuImage.pm	\
 	QMPHelpers.pm	\
 	RNG.pm		\
 	StateFile.pm	\

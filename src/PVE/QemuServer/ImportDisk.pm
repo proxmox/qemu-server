@@ -4,8 +4,10 @@ use strict;
 use warnings;
 
 use PVE::Storage;
-use PVE::QemuServer;
 use PVE::Tools qw(run_command extract_param);
+
+use PVE::QemuServer;
+use PVE::QemuServer::QemuImage;
 
 # imports an external disk image to an existing VM
 # and creates by default a drive entry unused[n] pointing to the created volume
@@ -82,7 +84,7 @@ sub do_import {
             local $SIG{PIPE} = sub { die "interrupted by signal $!\n"; };
 
         PVE::Storage::activate_volumes($storecfg, [$dst_volid]);
-        PVE::QemuServer::qemu_img_convert(
+        PVE::QemuImage::convert(
             $src_path,
             $dst_volid,
             $src_size,

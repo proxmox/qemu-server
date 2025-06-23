@@ -72,6 +72,7 @@ use PVE::QemuServer::Memory qw(get_current_memory);
 use PVE::QemuServer::MetaInfo;
 use PVE::QemuServer::Monitor qw(mon_cmd);
 use PVE::QemuServer::PCI qw(print_pci_addr print_pcie_addr print_pcie_root_port parse_hostpci);
+use PVE::QemuServer::QemuImage;
 use PVE::QemuServer::QMPHelpers qw(qemu_deviceadd qemu_devicedel qemu_objectadd qemu_objectdel);
 use PVE::QemuServer::RNG qw(parse_rng print_rng_device_commandline print_rng_object_commandline);
 use PVE::QemuServer::StateFile;
@@ -7684,7 +7685,12 @@ sub restore_external_archive {
                     'is-zero-initialized' => $sparseinit,
                     'source-path-format' => $source_format,
                 };
-                qemu_img_convert($source_path, $d->{volid}, $d->{size}, $convert_opts);
+                PVE::QemuServer::QemuImage::convert(
+                    $source_path,
+                    $d->{volid},
+                    $d->{size},
+                    $convert_opts,
+                );
             };
             my $err = $@;
             eval { $backup_provider->restore_vm_volume_cleanup($volname, $d->{devname}, {}); };
@@ -8336,116 +8342,6 @@ sub template_create : prototype($$;$) {
     );
 }
 
-sub convert_iscsi_path {
-    my ($path) = @_;
-
-    if ($path =~ m|^iscsi://([^/]+)/([^/]+)/(.+)$|) {
-        my $portal = $1;
-        my $target = $2;
-        my $lun = $3;
-
-        my $initiator_name = get_iscsi_initiator_name();
-
-        return "file.driver=iscsi,file.transport=tcp,file.initiator-name=$initiator_name,"
-            . "file.portal=$portal,file.target=$target,file.lun=$lun,driver=raw";
-    }
-
-    die "cannot convert iscsi path '$path', unknown format\n";
-}
-
-# The possible options are:
-# bwlimit - The bandwidth limit in KiB/s.
-# is-zero-initialized - If the destination image is zero-initialized.
-# snapname - Use this snapshot of the source image.
-# source-path-format - Indicate the format of the source when the source is a path. For PVE-managed
-# volumes, the format from the storage layer is always used.
-sub qemu_img_convert {
-    my ($src_volid, $dst_volid, $size, $opts) = @_;
-
-    my ($bwlimit, $snapname) = $opts->@{qw(bwlimit snapname)};
-
-    my $storecfg = PVE::Storage::config();
-    my ($src_storeid) = PVE::Storage::parse_volume_id($src_volid, 1);
-    my ($dst_storeid) = PVE::Storage::parse_volume_id($dst_volid, 1);
-
-    die "destination '$dst_volid' is not a valid volid form qemu-img convert\n" if !$dst_storeid;
-
-    my $cachemode;
-    my $src_path;
-    my $src_is_iscsi = 0;
-    my $src_format;
-
-    if ($src_storeid) {
-        PVE::Storage::activate_volumes($storecfg, [$src_volid], $snapname);
-        my $src_scfg = PVE::Storage::storage_config($storecfg, $src_storeid);
-        $src_format = checked_volume_format($storecfg, $src_volid);
-        $src_path = PVE::Storage::path($storecfg, $src_volid, $snapname);
-        $src_is_iscsi = ($src_path =~ m|^iscsi://|);
-        $cachemode = 'none' if $src_scfg->{type} eq 'zfspool';
-    } elsif (-f $src_volid || -b $src_volid) {
-        $src_path = $src_volid;
-        if ($opts->{'source-path-format'}) {
-            $src_format = $opts->{'source-path-format'};
-        } elsif ($src_path =~ m/\.($PVE::QemuServer::Drive::QEMU_FORMAT_RE)$/) {
-            $src_format = $1;
-        }
-    }
-
-    die "source '$src_volid' is not a valid volid nor path for qemu-img convert\n" if !$src_path;
-
-    my $dst_scfg = PVE::Storage::storage_config($storecfg, $dst_storeid);
-    my $dst_format = checked_volume_format($storecfg, $dst_volid);
-    my $dst_path = PVE::Storage::path($storecfg, $dst_volid);
-    my $dst_is_iscsi = ($dst_path =~ m|^iscsi://|);
-
-    my $cmd = [];
-    push @$cmd, '/usr/bin/qemu-img', 'convert', '-p', '-n';
-    push @$cmd, '-l', "snapshot.name=$snapname"
-        if $snapname && $src_format && $src_format eq "qcow2";
-    push @$cmd, '-t', 'none' if $dst_scfg->{type} eq 'zfspool';
-    push @$cmd, '-T', $cachemode if defined($cachemode);
-    push @$cmd, '-r', "${bwlimit}K" if defined($bwlimit);
-
-    if ($src_is_iscsi) {
-        push @$cmd, '--image-opts';
-        $src_path = convert_iscsi_path($src_path);
-    } elsif ($src_format) {
-        push @$cmd, '-f', $src_format;
-    }
-
-    if ($dst_is_iscsi) {
-        push @$cmd, '--target-image-opts';
-        $dst_path = convert_iscsi_path($dst_path);
-    } else {
-        push @$cmd, '-O', $dst_format;
-    }
-
-    push @$cmd, $src_path;
-
-    if (!$dst_is_iscsi && $opts->{'is-zero-initialized'}) {
-        push @$cmd, "zeroinit:$dst_path";
-    } else {
-        push @$cmd, $dst_path;
-    }
-
-    my $parser = sub {
-        my $line = shift;
-        if ($line =~ m/\((\S+)\/100\%\)/) {
-            my $percent = $1;
-            my $transferred = int($size * $percent / 100);
-            my $total_h = render_bytes($size, 1);
-            my $transferred_h = render_bytes($transferred, 1);
-
-            print "transferred $transferred_h of $total_h ($percent%)\n";
-        }
-
-    };
-
-    eval { run_command($cmd, timeout => undef, outfunc => $parser); };
-    my $err = $@;
-    die "copy failed: $err" if $err;
-}
-
 sub qemu_drive_mirror {
     my (
         $vmid,
@@ -8913,7 +8809,7 @@ sub clone_disk {
                     'is-zero-initialized' => $sparseinit,
                     snapname => $snapname,
                 };
-                qemu_img_convert($drive->{file}, $newvolid, $size, $opts);
+                PVE::QemuServer::QemuImage::convert($drive->{file}, $newvolid, $size, $opts);
             }
         }
     }
@@ -8998,7 +8894,7 @@ sub create_efidisk($$$$$$$$) {
     my $volid = PVE::Storage::vdisk_alloc($storecfg, $storeid, $vmid, $fmt, undef, $vars_size);
     PVE::Storage::activate_volumes($storecfg, [$volid]);
 
-    qemu_img_convert($ovmf_vars, $volid, $vars_size_b);
+    PVE::QemuServer::QemuImage::convert($ovmf_vars, $volid, $vars_size_b);
     my $size = PVE::Storage::volume_size_info($storecfg, $volid, 3);
 
     return ($volid, $size / 1024);

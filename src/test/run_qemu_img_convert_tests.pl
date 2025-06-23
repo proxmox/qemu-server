@@ -8,7 +8,7 @@ use lib qw(..);
 use Test::More;
 use Test::MockModule;
 
-use PVE::QemuServer;
+use PVE::QemuServer::QemuImage;
 
 my $vmid = 8006;
 my $storage_config = {
@@ -498,21 +498,24 @@ $zfsplugin_module->mock(
     },
 );
 
-# we use the exported run_command so we have to mock it there
-my $qemu_server_module = Test::MockModule->new("PVE::QemuServer");
-$qemu_server_module->mock(
-    run_command => sub {
-        $command = shift;
-    },
+my $qemu_server_helpers_module = Test::MockModule->new("PVE::QemuServer::Helpers");
+$qemu_server_helpers_module->mock(
     get_iscsi_initiator_name => sub {
         return "foobar";
+    },
+);
+
+my $tools_module = Test::MockModule->new("PVE::Tools");
+$tools_module->mock(
+    run_command => sub {
+        $command = shift;
     },
 );
 
 foreach my $test (@$tests) {
     my $name = $test->{name};
     my $expected = $test->{expected};
-    eval { PVE::QemuServer::qemu_img_convert(@{ $test->{parameters} }) };
+    eval { PVE::QemuServer::QemuImage::convert(@{ $test->{parameters} }) };
     if (my $err = $@) {
         is($err, $expected, $name);
     } elsif (defined($command)) {
