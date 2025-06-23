@@ -4,8 +4,10 @@ use strict;
 use warnings;
 
 use File::stat;
+use IO::File;
 use JSON;
 
+use PVE::Cluster;
 use PVE::INotify;
 use PVE::ProcFSTools;
 use PVE::Tools qw(get_host_arch);
