@@ -176,16 +176,13 @@ sub generate_format_blockdev {
         $format = $drive->{format} // 'raw';
     }
 
-    # define cache option on both format && file node like libvirt does
-    my $cache = generate_blockdev_drive_cache($drive, $scfg);
-
     my $node_name = get_node_name('fmt', $drive_id, $drive->{file}, $options->{'snapshot-name'});
 
     return {
         'node-name' => "$node_name",
         driver => "$format",
         file => $child,
-        cache => $cache,
+        cache => $child->{cache}, # define cache option on both format && file node like libvirt
         'read-only' => read_only_json_option($drive, $options),
     };
 }
