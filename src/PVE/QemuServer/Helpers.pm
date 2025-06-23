@@ -190,12 +190,12 @@ sub version_cmp {
     }
 
     for (my $i = 0; $i < $size; $i += 2) {
-        my ($a, $b) = splice(@versions, 0, 2);
-        $a //= 0;
-        $b //= 0;
+        my ($left, $right) = splice(@versions, 0, 2);
+        $left //= 0;
+        $right //= 0;
 
-        return 1 if $a > $b;
-        return -1 if $a < $b;
+        return 1 if $left > $right;
+        return -1 if $left < $right;
     }
     return 0;
 }
