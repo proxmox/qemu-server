@@ -185,13 +185,20 @@ sub generate_format_blockdev {
 
     my $node_name = get_node_name('fmt', $drive_id, $drive->{file}, $options->{'snapshot-name'});
 
-    return {
+    my $blockdev = {
         'node-name' => "$node_name",
         driver => "$format",
         file => $child,
         cache => $child->{cache}, # define cache option on both format && file node like libvirt
         'read-only' => read_only_json_option($drive, $options),
     };
+
+    if (defined($options->{size})) {
+        die "blockdev: 'size' is only supported for 'raw' format" if $format ne 'raw';
+        $blockdev->{size} = int($options->{size});
+    }
+
+    return $blockdev;
 }
 
 sub generate_drive_blockdev {
