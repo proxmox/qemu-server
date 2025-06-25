@@ -35,6 +35,8 @@ use PVE::GuestHelpers qw(safe_string_ne safe_num_ne safe_boolean_ne);
 use PVE::Mapping::Dir;
 use PVE::Mapping::PCI;
 use PVE::Mapping::USB;
+use PVE::Network::SDN::Vnets;
+use PVE::Network::SDN::Zones;
 use PVE::INotify;
 use PVE::JSONSchema qw(get_standard_option parse_property_string);
 use PVE::ProcFSTools;
@@ -79,13 +81,6 @@ use PVE::QemuServer::RNG qw(parse_rng print_rng_device_commandline print_rng_obj
 use PVE::QemuServer::StateFile;
 use PVE::QemuServer::USB;
 use PVE::QemuServer::Virtiofs qw(max_virtiofs start_all_virtiofsd);
-
-my $have_sdn;
-eval {
-    require PVE::Network::SDN::Zones;
-    require PVE::Network::SDN::Vnets;
-    $have_sdn = 1;
-};
 
 my $have_ha_config;
 eval {
@@ -5011,14 +5006,12 @@ sub vmconfig_hotplug_pending {
             } elsif ($opt =~ m/^net(\d+)$/) {
                 die "skip\n" if !$hotplug_features->{network};
                 vm_deviceunplug($vmid, $conf, $opt);
-                if ($have_sdn) {
-                    my $net = PVE::QemuServer::parse_net($conf->{$opt});
-                    PVE::Network::SDN::Vnets::del_ips_from_mac(
-                        $net->{bridge},
-                        $net->{macaddr},
-                        $conf->{name},
-                    );
-                }
+                my $net = PVE::QemuServer::parse_net($conf->{$opt});
+                PVE::Network::SDN::Vnets::del_ips_from_mac(
+                    $net->{bridge},
+                    $net->{macaddr},
+                    $conf->{name},
+                );
             } elsif (is_valid_drivename($opt)) {
                 die "skip\n"
                     if !$hotplug_features->{disk} || $opt =~ m/(efidisk|ide|sata|tpmstate)(\d+)/;
@@ -5252,17 +5245,15 @@ sub vmconfig_apply_pending {
             } elsif (defined($conf->{$opt}) && is_valid_drivename($opt)) {
                 vmconfig_delete_or_detach_drive($vmid, $storecfg, $conf, $opt, $force);
             } elsif (defined($conf->{$opt}) && $opt =~ m/^net\d+$/) {
-                if ($have_sdn) {
-                    my $net = PVE::QemuServer::parse_net($conf->{$opt});
-                    eval {
-                        PVE::Network::SDN::Vnets::del_ips_from_mac(
-                            $net->{bridge},
-                            $net->{macaddr},
-                            $conf->{name},
-                        );
-                    };
-                    warn if $@;
-                }
+                my $net = PVE::QemuServer::parse_net($conf->{$opt});
+                eval {
+                    PVE::Network::SDN::Vnets::del_ips_from_mac(
+                        $net->{bridge},
+                        $net->{macaddr},
+                        $conf->{name},
+                    );
+                };
+                warn if $@;
             }
         };
         if (my $err = $@) {
@@ -5288,8 +5279,6 @@ sub vmconfig_apply_pending {
                     parse_drive($opt, $conf->{$opt}),
                 );
             } elsif (defined($conf->{pending}->{$opt}) && $opt =~ m/^net\d+$/) {
-                return if !$have_sdn; # return from eval if SDN is not available
-
                 my $new_net = PVE::QemuServer::parse_net($conf->{pending}->{$opt});
                 if ($conf->{$opt}) {
                     my $old_net = PVE::QemuServer::parse_net($conf->{$opt});
@@ -5370,14 +5359,11 @@ sub vmconfig_update_net {
             die "skip\n" if !$hotplug;
             vm_deviceunplug($vmid, $conf, $opt);
 
-            if ($have_sdn) {
-                PVE::Network::SDN::Vnets::del_ips_from_mac(
-                    $oldnet->{bridge},
-                    $oldnet->{macaddr},
-                    $conf->{name},
-                );
-            }
-
+            PVE::Network::SDN::Vnets::del_ips_from_mac(
+                $oldnet->{bridge},
+                $oldnet->{macaddr},
+                $conf->{name},
+            );
         } else {
 
             die "internal error" if $opt !~ m/net(\d+)/;
@@ -5400,42 +5386,29 @@ sub vmconfig_update_net {
                 }
 
                 if (safe_string_ne($oldnet->{bridge}, $newnet->{bridge})) {
-                    if ($have_sdn) {
-                        PVE::Network::SDN::Vnets::del_ips_from_mac(
-                            $oldnet->{bridge},
-                            $oldnet->{macaddr},
-                            $conf->{name},
-                        );
-                        PVE::Network::SDN::Vnets::add_next_free_cidr(
-                            $newnet->{bridge},
-                            $conf->{name},
-                            $newnet->{macaddr},
-                            $vmid,
-                            undef,
-                            1,
-                        );
-                    }
+                    PVE::Network::SDN::Vnets::del_ips_from_mac(
+                        $oldnet->{bridge},
+                        $oldnet->{macaddr},
+                        $conf->{name},
+                    );
+                    PVE::Network::SDN::Vnets::add_next_free_cidr(
+                        $newnet->{bridge},
+                        $conf->{name},
+                        $newnet->{macaddr},
+                        $vmid,
+                        undef,
+                        1,
+                    );
                 }
 
-                if ($have_sdn) {
-                    PVE::Network::SDN::Zones::tap_plug(
-                        $iface,
-                        $newnet->{bridge},
-                        $newnet->{tag},
-                        $newnet->{firewall},
-                        $newnet->{trunks},
-                        $newnet->{rate},
-                    );
-                } else {
-                    PVE::Network::tap_plug(
-                        $iface,
-                        $newnet->{bridge},
-                        $newnet->{tag},
-                        $newnet->{firewall},
-                        $newnet->{trunks},
-                        $newnet->{rate},
-                    );
-                }
+                PVE::Network::SDN::Zones::tap_plug(
+                    $iface,
+                    $newnet->{bridge},
+                    $newnet->{tag},
+                    $newnet->{firewall},
+                    $newnet->{trunks},
+                    $newnet->{rate},
+                );
 
             } elsif (safe_num_ne($oldnet->{rate}, $newnet->{rate})) {
                 # Rate can be applied on its own but any change above needs to
@@ -5458,14 +5431,12 @@ sub vmconfig_update_net {
     }
 
     if ($hotplug) {
-        if ($have_sdn) {
-            PVE::Network::SDN::Vnets::add_next_free_cidr(
-                $newnet->{bridge}, $conf->{name}, $newnet->{macaddr}, $vmid, undef, 1,
-            );
-            PVE::Network::SDN::Vnets::add_dhcp_mapping(
-                $newnet->{bridge}, $newnet->{macaddr}, $vmid, $conf->{name},
-            );
-        }
+        PVE::Network::SDN::Vnets::add_next_free_cidr(
+            $newnet->{bridge}, $conf->{name}, $newnet->{macaddr}, $vmid, undef, 1,
+        );
+        PVE::Network::SDN::Vnets::add_dhcp_mapping(
+            $newnet->{bridge}, $newnet->{macaddr}, $vmid, $conf->{name},
+        );
         vm_deviceplug($storecfg, $conf, $vmid, $opt, $newnet, $arch, $machine_type);
     } else {
         die "skip\n";
@@ -9147,11 +9118,7 @@ sub add_nets_bridge_fdb {
             log_warn("Interface '$iface' not attached to any bridge.");
             next;
         }
-        if ($have_sdn) {
-            PVE::Network::SDN::Zones::add_bridge_fdb($iface, $mac, $bridge);
-        } elsif (-d "/sys/class/net/$bridge/bridge") { # avoid fdb management with OVS for now
-            PVE::Network::add_bridge_fdb($iface, $mac);
-        }
+        PVE::Network::SDN::Zones::add_bridge_fdb($iface, $mac, $bridge);
     }
 }
 
@@ -9166,18 +9133,12 @@ sub del_nets_bridge_fdb {
         my $mac = $net->{macaddr} or next;
 
         my $bridge = $net->{bridge};
-        if ($have_sdn) {
-            PVE::Network::SDN::Zones::del_bridge_fdb($iface, $mac, $bridge);
-        } elsif (-d "/sys/class/net/$bridge/bridge") { # avoid fdb management with OVS for now
-            PVE::Network::del_bridge_fdb($iface, $mac);
-        }
+        PVE::Network::SDN::Zones::del_bridge_fdb($iface, $mac, $bridge);
     }
 }
 
 sub create_ifaces_ipams_ips {
     my ($conf, $vmid) = @_;
-
-    return if !$have_sdn;
 
     foreach my $opt (keys %$conf) {
         if ($opt =~ m/^net(\d+)$/) {
@@ -9195,8 +9156,6 @@ sub create_ifaces_ipams_ips {
 
 sub delete_ifaces_ipams_ips {
     my ($conf, $vmid) = @_;
-
-    return if !$have_sdn;
 
     foreach my $opt (keys %$conf) {
         if ($opt =~ m/^net(\d+)$/) {
