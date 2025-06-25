@@ -3,10 +3,12 @@ package PVE::QemuServer::Agent;
 use strict;
 use warnings;
 
+use JSON;
+use MIME::Base64 qw(decode_base64 encode_base64);
+
 use PVE::QemuServer;
 use PVE::QemuServer::Monitor;
-use MIME::Base64 qw(decode_base64 encode_base64);
-use JSON;
+
 use base 'Exporter';
 
 our @EXPORT_OK = qw(
