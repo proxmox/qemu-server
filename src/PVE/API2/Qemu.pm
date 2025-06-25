@@ -3922,7 +3922,7 @@ __PACKAGE__->register_method({
             if (!$statestorage) {
                 # get statestorage from config if none is given
                 my $storecfg = PVE::Storage::config();
-                $statestorage = PVE::QemuServer::find_vmstate_storage($conf, $storecfg);
+                $statestorage = PVE::QemuConfig::find_vmstate_storage($conf, $storecfg);
             }
 
             $rpcenv->check($authuser, "/storage/$statestorage", ['Datastore.AllocateSpace']);

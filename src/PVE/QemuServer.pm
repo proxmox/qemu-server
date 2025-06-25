@@ -6322,7 +6322,7 @@ sub vm_suspend {
                 my $date = strftime("%Y-%m-%d", localtime(time()));
                 $storecfg = PVE::Storage::config();
                 if (!$statestorage) {
-                    $statestorage = find_vmstate_storage($conf, $storecfg);
+                    $statestorage = PVE::QemuConfig::find_vmstate_storage($conf, $storecfg);
                     # check permissions for the storage
                     my $rpcenv = PVE::RPCEnvironment::get();
                     if ($rpcenv->{type} ne 'cli') {
@@ -7877,29 +7877,6 @@ sub restore_tar_archive {
     warn $@ if $@;
 }
 
-sub foreach_storage_used_by_vm {
-    my ($conf, $func) = @_;
-
-    my $sidhash = {};
-
-    PVE::QemuConfig->foreach_volume(
-        $conf,
-        sub {
-            my ($ds, $drive) = @_;
-            return if drive_is_cdrom($drive);
-
-            my $volid = $drive->{file};
-
-            my ($sid, $volname) = PVE::Storage::parse_volume_id($volid, 1);
-            $sidhash->{$sid} = $sid if $sid;
-        },
-    );
-
-    foreach my $sid (sort keys %$sidhash) {
-        &$func($sid);
-    }
-}
-
 my $qemu_snap_storage = {
     rbd => 1,
 };
@@ -8556,33 +8533,6 @@ sub resolve_dst_disk_format {
     my $supported = grep { $_ eq $format } @$validFormats;
     $format = $defFormat if !$supported;
     return $format;
-}
-
-# NOTE: if this logic changes, please update docs & possibly gui logic
-sub find_vmstate_storage {
-    my ($conf, $storecfg) = @_;
-
-    # first, return storage from conf if set
-    return $conf->{vmstatestorage} if $conf->{vmstatestorage};
-
-    my ($target, $shared, $local);
-
-    foreach_storage_used_by_vm(
-        $conf,
-        sub {
-            my ($sid) = @_;
-            my $scfg = PVE::Storage::storage_config($storecfg, $sid);
-            my $dst = $scfg->{shared} ? \$shared : \$local;
-            $$dst = $sid if !$$dst || $scfg->{path}; # prefer file based storage
-        },
-    );
-
-    # second, use shared storage where VM has at least one disk
-    # third, use local storage where VM has at least one disk
-    # fall back to local storage
-    $target = $shared // $local // 'local';
-
-    return $target;
 }
 
 sub generate_uuid {
