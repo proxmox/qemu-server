@@ -6,6 +6,7 @@ use warnings;
 use PVE::Storage;
 use PVE::Tools qw(run_command extract_param);
 
+use PVE::QemuConfig;
 use PVE::QemuServer;
 use PVE::QemuServer::QemuImage;
 
