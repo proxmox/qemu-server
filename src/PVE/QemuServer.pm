@@ -3465,11 +3465,12 @@ my sub should_disable_smm {
 }
 
 my sub print_ovmf_drive_commandlines {
-    my ($conf, $storecfg, $vmid, $arch, $q35, $version_guard) = @_;
+    my ($conf, $storecfg, $vmid, $hw_info, $version_guard) = @_;
+
+    my ($amd_sev_type, $arch, $q35) = $hw_info->@{qw(amd-sev-type arch q35)};
 
     my $d = $conf->{efidisk0} ? parse_drive('efidisk0', $conf->{efidisk0}) : undef;
 
-    my $amd_sev_type = get_amd_sev_type($conf);
     die "Attempting to configure SEV-SNP with pflash devices instead of using `-bios`\n"
         if $amd_sev_type && $amd_sev_type eq 'snp';
 
@@ -3690,8 +3691,13 @@ sub config_to_command {
             }
             push $cmd->@*, '-bios', get_ovmf_files($arch, undef, undef, $amd_sev_type);
         } else {
+            my $hw_info = {
+                'amd-sev-type' => $amd_sev_type,
+                arch => $arch,
+                q35 => $q35,
+            };
             my ($code_drive_str, $var_drive_str) =
-                print_ovmf_drive_commandlines($conf, $storecfg, $vmid, $arch, $q35, $version_guard);
+                print_ovmf_drive_commandlines($conf, $storecfg, $vmid, $hw_info, $version_guard);
             push $cmd->@*, '-drive', $code_drive_str;
             push $cmd->@*, '-drive', $var_drive_str;
         }
