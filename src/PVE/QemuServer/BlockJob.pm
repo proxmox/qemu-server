@@ -212,6 +212,33 @@ sub qemu_drive_mirror_monitor {
     }
 }
 
+my sub common_mirror_qmp_options {
+    my ($device_id, $qemu_target, $src_bitmap, $bwlimit) = @_;
+
+    my $opts = {
+        timeout => 10,
+        device => "$device_id",
+        sync => "full",
+        target => $qemu_target,
+        'auto-dismiss' => JSON::false,
+    };
+
+    if (defined($src_bitmap)) {
+        $opts->{sync} = 'incremental';
+        $opts->{bitmap} = $src_bitmap;
+        print "drive mirror re-using dirty bitmap '$src_bitmap'\n";
+    }
+
+    if (defined($bwlimit)) {
+        $opts->{speed} = $bwlimit * 1024;
+        print "drive mirror is starting for $device_id with bandwidth limit: ${bwlimit} KB/s\n";
+    } else {
+        print "drive mirror is starting for $device_id\n";
+    }
+
+    return $opts;
+}
+
 sub qemu_drive_mirror {
     my (
         $vmid,
@@ -247,28 +274,9 @@ sub qemu_drive_mirror {
         $qemu_target = $is_zero_initialized ? "zeroinit:$dst_path" : $dst_path;
     }
 
-    my $opts = {
-        timeout => 10,
-        device => "$device_id",
-        mode => "existing",
-        sync => "full",
-        target => $qemu_target,
-        'auto-dismiss' => JSON::false,
-    };
+    my $opts = common_mirror_qmp_options($device_id, $qemu_target, $src_bitmap, $bwlimit);
+    $opts->{mode} = "existing";
     $opts->{format} = $format if $format;
-
-    if (defined($src_bitmap)) {
-        $opts->{sync} = 'incremental';
-        $opts->{bitmap} = $src_bitmap;
-        print "drive mirror re-using dirty bitmap '$src_bitmap'\n";
-    }
-
-    if (defined($bwlimit)) {
-        $opts->{speed} = $bwlimit * 1024;
-        print "drive mirror is starting for $device_id with bandwidth limit: ${bwlimit} KB/s\n";
-    } else {
-        print "drive mirror is starting for $device_id\n";
-    }
 
     # if a job already runs for this device we get an error, catch it for cleanup
     eval { mon_cmd($vmid, "drive-mirror", %$opts); };
