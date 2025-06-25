@@ -7701,7 +7701,7 @@ sub qemu_drive_mirror {
     # if a job already runs for this device we get an error, catch it for cleanup
     eval { mon_cmd($vmid, "drive-mirror", %$opts); };
     if (my $err = $@) {
-        eval { PVE::QemuServer::qemu_blockjobs_cancel($vmid, $jobs) };
+        eval { qemu_blockjobs_cancel($vmid, $jobs) };
         warn "$@\n" if $@;
         die "mirroring error: $err\n";
     }
@@ -7805,7 +7805,7 @@ sub qemu_drive_mirror_monitor {
                     }
 
                     # if we clone a disk for a new target vm, we don't switch the disk
-                    PVE::QemuServer::qemu_blockjobs_cancel($vmid, $jobs);
+                    qemu_blockjobs_cancel($vmid, $jobs);
 
                     if ($agent_running) {
                         print "unfreeze filesystem\n";
@@ -7852,7 +7852,7 @@ sub qemu_drive_mirror_monitor {
     my $err = $@;
 
     if ($err) {
-        eval { PVE::QemuServer::qemu_blockjobs_cancel($vmid, $jobs) };
+        eval { qemu_blockjobs_cancel($vmid, $jobs) };
         die "block job ($op) error: $err";
     }
 }
