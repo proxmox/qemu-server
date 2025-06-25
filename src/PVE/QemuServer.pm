@@ -1026,7 +1026,6 @@ If cloud-init is enabled and neither an IPv4 nor an IPv6 address is specified, i
 dhcp on IPv4.
 EODESCR
 };
-PVE::JSONSchema::register_standard_option("pve-qm-ipconfig", $netdesc);
 
 for (my $i = 0; $i < $MAX_NETS; $i++) {
     $confdesc->{"net$i"} = $netdesc;
