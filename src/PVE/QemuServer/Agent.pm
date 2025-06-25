@@ -11,7 +11,6 @@ use base 'Exporter';
 
 our @EXPORT_OK = qw(
     check_agent_error
-    agent_available
     agent_cmd
 );
 
@@ -36,33 +35,23 @@ sub check_agent_error {
     return 1;
 }
 
-sub agent_available {
-    my ($vmid, $conf, $noerr) = @_;
+sub assert_agent_available {
+    my ($vmid, $conf) = @_;
 
-    eval {
-        die "No QEMU guest agent configured\n" if !defined($conf->{agent});
-        die "VM $vmid is not running\n" if !PVE::QemuServer::check_running($vmid);
-        die "QEMU guest agent is not running\n"
-            if !PVE::QemuServer::qga_check_running($vmid, 1);
-    };
-
-    if (my $err = $@) {
-        die $err if !$noerr;
-        return;
-    }
-
-    return 1;
+    die "No QEMU guest agent configured\n" if !defined($conf->{agent});
+    die "VM $vmid is not running\n" if !PVE::QemuServer::check_running($vmid);
+    die "QEMU guest agent is not running\n" if !PVE::QemuServer::qga_check_running($vmid, 1);
 }
 
 # loads config, checks if available, executes command, checks for errors
 sub agent_cmd {
-    my ($vmid, $cmd, $params, $errormsg, $noerr) = @_;
+    my ($vmid, $cmd, $params, $errormsg) = @_;
 
     my $conf = PVE::QemuConfig->load_config($vmid); # also checks if VM exists
-    agent_available($vmid, $conf, $noerr);
+    assert_agent_available($vmid, $conf);
 
     my $res = PVE::QemuServer::Monitor::mon_cmd($vmid, "guest-$cmd", %$params);
-    check_agent_error($res, $errormsg, $noerr);
+    check_agent_error($res, $errormsg);
 
     return $res;
 }

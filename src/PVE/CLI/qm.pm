@@ -32,7 +32,7 @@ use PVE::API2::Qemu;
 use PVE::QemuConfig;
 use PVE::QemuServer::Drive qw(is_valid_drivename);
 use PVE::QemuServer::Helpers;
-use PVE::QemuServer::Agent qw(agent_available);
+use PVE::QemuServer::Agent;
 use PVE::QemuServer::ImportDisk;
 use PVE::QemuServer::Monitor qw(mon_cmd);
 use PVE::QemuServer::QMPHelpers;

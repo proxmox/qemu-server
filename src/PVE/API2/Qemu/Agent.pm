@@ -6,7 +6,7 @@ use warnings;
 use PVE::RESTHandler;
 use PVE::JSONSchema qw(get_standard_option);
 use PVE::QemuServer;
-use PVE::QemuServer::Agent qw(agent_available agent_cmd check_agent_error);
+use PVE::QemuServer::Agent qw(agent_cmd check_agent_error);
 use PVE::QemuServer::Monitor qw(mon_cmd);
 use MIME::Base64 qw(encode_base64 decode_base64);
 use JSON;
@@ -195,7 +195,7 @@ sub register_command {
 
             my $conf = PVE::QemuConfig->load_config($vmid); # check if VM exists
 
-            agent_available($vmid, $conf);
+            PVE::QemuServer::Agent::assert_agent_available($vmid, $conf);
 
             my $cmd = $param->{command} // $command;
             my $res = mon_cmd($vmid, "guest-$cmd");
