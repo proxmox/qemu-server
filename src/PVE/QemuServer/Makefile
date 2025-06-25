@@ -20,6 +20,7 @@ SOURCES=Agent.pm	\
 	QemuImage.pm	\
 	QMPHelpers.pm	\
 	RNG.pm		\
+	RunState.pm	\
 	StateFile.pm	\
 	USB.pm		\
 	Virtiofs.pm

@@ -36,6 +36,7 @@ use PVE::QemuServer::Agent;
 use PVE::QemuServer::ImportDisk;
 use PVE::QemuServer::Monitor qw(mon_cmd);
 use PVE::QemuServer::QMPHelpers;
+use PVE::QemuServer::RunState;
 use PVE::QemuServer;
 
 use PVE::CLIHandler;
@@ -465,7 +466,7 @@ __PACKAGE__->register_method({
                 # check_running and vm_resume with nocheck, since local node
                 # might not have processed config move/rename yet
                 if (PVE::QemuServer::check_running($vmid, 1)) {
-                    eval { PVE::QemuServer::vm_resume($vmid, 1, 1); };
+                    eval { PVE::QemuServer::RunState::vm_resume($vmid, 1, 1); };
                     if ($@) {
                         $tunnel_write->("ERR: resume failed - $@");
                     } else {

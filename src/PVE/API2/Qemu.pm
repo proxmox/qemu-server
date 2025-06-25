@@ -42,6 +42,7 @@ use PVE::QemuServer::OVMF;
 use PVE::QemuServer::PCI;
 use PVE::QemuServer::QMPHelpers;
 use PVE::QemuServer::RNG;
+use PVE::QemuServer::RunState;
 use PVE::QemuServer::USB;
 use PVE::QemuServer::Virtiofs qw(max_virtiofs);
 use PVE::QemuMigrate;
@@ -3934,7 +3935,7 @@ __PACKAGE__->register_method({
 
             syslog('info', "suspend VM $vmid: $upid\n");
 
-            PVE::QemuServer::vm_suspend($vmid, $skiplock, $todisk, $statestorage);
+            PVE::QemuServer::RunState::vm_suspend($vmid, $skiplock, $todisk, $statestorage);
 
             return;
         };
@@ -4011,7 +4012,7 @@ __PACKAGE__->register_method({
             syslog('info', "resume VM $vmid: $upid\n");
 
             if (!$to_disk_suspended) {
-                PVE::QemuServer::vm_resume($vmid, $skiplock, $nocheck);
+                PVE::QemuServer::RunState::vm_resume($vmid, $skiplock, $nocheck);
             } else {
                 my $storecfg = PVE::Storage::config();
                 PVE::QemuServer::vm_start($storecfg, $vmid, { skiplock => $skiplock });
@@ -6642,7 +6643,7 @@ __PACKAGE__->register_method({
                 },
                 'resume' => sub {
                     if (PVE::QemuServer::Helpers::vm_running_locally($state->{vmid})) {
-                        PVE::QemuServer::vm_resume($state->{vmid}, 1, 1);
+                        PVE::QemuServer::RunState::vm_resume($state->{vmid}, 1, 1);
                     } else {
                         die "VM $state->{vmid} not running\n";
                     }
