@@ -202,6 +202,7 @@ sub print_ovmf_commandline {
     my $amd_sev_type = $hw_info->{'amd-sev-type'};
 
     my $cmd = [];
+    my $machine_flags = [];
 
     if ($amd_sev_type && $amd_sev_type eq 'snp') {
         if (defined($conf->{efidisk0})) {
@@ -215,7 +216,7 @@ sub print_ovmf_commandline {
         push $cmd->@*, '-drive', $var_drive_str;
     }
 
-    return $cmd;
+    return ($cmd, $machine_flags);
 }
 
 1;

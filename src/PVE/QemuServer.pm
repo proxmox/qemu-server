@@ -3582,10 +3582,11 @@ sub config_to_command {
             arch => $arch,
             q35 => $q35,
         };
-        my $ovmf_cmd = PVE::QemuServer::OVMF::print_ovmf_commandline(
+        my ($ovmf_cmd, $ovmf_machine_flags) = PVE::QemuServer::OVMF::print_ovmf_commandline(
             $conf, $storecfg, $vmid, $hw_info, $version_guard,
         );
         push $cmd->@*, $ovmf_cmd->@*;
+        push $machineFlags->@*, $ovmf_machine_flags->@*;
     }
 
     if ($q35) { # tell QEMU to load q35 config early
