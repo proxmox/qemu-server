@@ -84,7 +84,7 @@ sub do_import {
             local $SIG{PIPE} = sub { die "interrupted by signal $!\n"; };
 
         PVE::Storage::activate_volumes($storecfg, [$dst_volid]);
-        PVE::QemuImage::convert(
+        PVE::QemuServer::QemuImage::convert(
             $src_path,
             $dst_volid,
             $src_size,
