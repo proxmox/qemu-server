@@ -132,6 +132,20 @@ $MigrationTest::Shared::qemu_server_module->mock(
     },
 );
 
+my sub common_mirror_mock {
+    my ($vmid, $drive_id) = @_;
+
+    die "drive_mirror with wrong vmid: '$vmid'\n" if $vmid ne $test_vmid;
+    die "qemu_drive_mirror '$drive_id' error\n"
+        if $fail_config->{qemu_drive_mirror} && $fail_config->{qemu_drive_mirror} eq $drive_id;
+
+    my $nbd_info = decode_json(file_get_contents("${RUN_DIR_PATH}/nbd_info"));
+    die "target does not expect drive mirror for '$drive_id'\n"
+        if !defined($nbd_info->{$drive_id});
+    delete $nbd_info->{$drive_id};
+    file_set_contents("${RUN_DIR_PATH}/nbd_info", to_json($nbd_info));
+}
+
 my $qemu_server_blockjob_module = Test::MockModule->new("PVE::QemuServer::BlockJob");
 $qemu_server_blockjob_module->mock(
     qemu_blockjobs_cancel => sub {
@@ -151,15 +165,7 @@ $qemu_server_blockjob_module->mock(
             $src_bitmap,
         ) = @_;
 
-        die "drive_mirror with wrong vmid: '$vmid'\n" if $vmid ne $test_vmid;
-        die "qemu_drive_mirror '$drive_id' error\n"
-            if $fail_config->{qemu_drive_mirror} && $fail_config->{qemu_drive_mirror} eq $drive_id;
-
-        my $nbd_info = decode_json(file_get_contents("${RUN_DIR_PATH}/nbd_info"));
-        die "target does not expect drive mirror for '$drive_id'\n"
-            if !defined($nbd_info->{$drive_id});
-        delete $nbd_info->{$drive_id};
-        file_set_contents("${RUN_DIR_PATH}/nbd_info", to_json($nbd_info));
+        common_mirror_mock($vmid, $drive_id);
     },
     qemu_drive_mirror_monitor => sub {
         my ($vmid, $vmiddst, $jobs, $completion, $qga) = @_;
