@@ -135,6 +135,13 @@ $qemu_config_module->mock(
     },
 );
 
+our $qemu_migrate_helpers_module = Test::MockModule->new("PVE::QemuMigrate::Helpers");
+$qemu_migrate_helpers_module->mock(
+    set_migration_caps => sub {
+        return;
+    },
+);
+
 our $qemu_server_cloudinit_module = Test::MockModule->new("PVE::QemuServer::Cloudinit");
 $qemu_server_cloudinit_module->mock(
     generate_cloudinitconfig => sub {

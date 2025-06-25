@@ -167,9 +167,6 @@ $MigrationTest::Shared::qemu_server_module->mock(
     qemu_drive_mirror_switch_to_active_mode => sub {
         return;
     },
-    set_migration_caps => sub {
-        return;
-    },
     vm_stop => sub {
         $vm_stop_executed = 1;
         delete $expected_calls->{'vm_stop'};

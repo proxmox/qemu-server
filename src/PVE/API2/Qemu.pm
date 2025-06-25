@@ -45,6 +45,7 @@ use PVE::QemuServer::RNG;
 use PVE::QemuServer::USB;
 use PVE::QemuServer::Virtiofs qw(max_virtiofs);
 use PVE::QemuMigrate;
+use PVE::QemuMigrate::Helpers;
 use PVE::RPCEnvironment;
 use PVE::AccessControl;
 use PVE::INotify;
@@ -5167,7 +5168,7 @@ __PACKAGE__->register_method({
         $res->{running} = PVE::QemuServer::check_running($vmid) ? 1 : 0;
 
         my ($local_resources, $mapped_resources, $missing_mappings_by_node) =
-            PVE::QemuServer::check_local_resources($vmconf, $res->{running}, 1);
+            PVE::QemuMigrate::Helpers::check_local_resources($vmconf, $res->{running}, 1);
 
         my $vga = PVE::QemuServer::parse_vga($vmconf->{vga});
         if ($res->{running} && $vga->{'clipboard'} && $vga->{'clipboard'} eq 'vnc') {
@@ -5903,7 +5904,8 @@ __PACKAGE__->register_method({
             if lc($snapname) eq 'pending';
 
         my $vmconf = PVE::QemuConfig->load_config($vmid);
-        PVE::QemuServer::check_non_migratable_resources($vmconf, $param->{vmstate}, 0);
+        PVE::QemuMigrate::Helpers::check_non_migratable_resources($vmconf, $param->{vmstate},
+            0);
 
         my $realcmd = sub {
             PVE::Cluster::log_msg('info', $authuser, "snapshot VM $vmid: $snapname");

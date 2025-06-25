@@ -16,4 +16,5 @@ install:
 	$(MAKE) -C API2 install
 	$(MAKE) -C CLI install
 	$(MAKE) -C QemuConfig install
+	$(MAKE) -C QemuMigrate install
 	$(MAKE) -C QemuServer install

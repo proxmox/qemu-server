@@ -142,9 +142,6 @@ $MigrationTest::Shared::qemu_server_module->mock(
         }
         die "run_command (mocked) - implement me: ${cmd_msg}";
     },
-    set_migration_caps => sub {
-        return;
-    },
     vm_migrate_alloc_nbd_disks => sub {
         my $nbd =
             $MigrationTest::Shared::qemu_server_module->original('vm_migrate_alloc_nbd_disks')

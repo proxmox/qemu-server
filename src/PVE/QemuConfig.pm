@@ -8,6 +8,7 @@ use Scalar::Util qw(blessed);
 use PVE::AbstractConfig;
 use PVE::INotify;
 use PVE::JSONSchema;
+use PVE::QemuMigrate::Helpers;
 use PVE::QemuServer::Agent;
 use PVE::QemuServer::CPUConfig;
 use PVE::QemuServer::Drive;
@@ -211,7 +212,7 @@ sub get_backup_volumes {
 
 sub __snapshot_assert_no_blockers {
     my ($class, $vmconf, $save_vmstate) = @_;
-    PVE::QemuServer::check_non_migratable_resources($vmconf, $save_vmstate, 0);
+    PVE::QemuMigrate::Helpers::check_non_migratable_resources($vmconf, $save_vmstate, 0);
 }
 
 sub __snapshot_save_vmstate {
@@ -325,7 +326,7 @@ sub __snapshot_create_vol_snapshots_hook {
                 PVE::Storage::activate_volumes($storecfg, [$snap->{vmstate}]);
                 my $state_storage_id = PVE::Storage::parse_volume_id($snap->{vmstate});
 
-                PVE::QemuServer::set_migration_caps($vmid, 1);
+                PVE::QemuMigrate::Helpers::set_migration_caps($vmid, 1);
                 mon_cmd($vmid, "savevm-start", statefile => $path);
                 print "saving VM state and RAM using storage '$state_storage_id'\n";
                 my $render_state = sub {

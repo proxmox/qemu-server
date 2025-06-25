@@ -25,6 +25,7 @@ use PVE::Tools;
 use PVE::Tunnel;
 
 use PVE::QemuConfig;
+use PVE::QemuMigrate::Helpers;
 use PVE::QemuServer::CPUConfig;
 use PVE::QemuServer::Drive qw(checked_volume_format);
 use PVE::QemuServer::Helpers qw(min_version);
@@ -239,7 +240,7 @@ sub prepare {
     }
 
     my ($loc_res, $mapped_res, $missing_mappings_by_node) =
-        PVE::QemuServer::check_local_resources($conf, $running, 1);
+        PVE::QemuMigrate::Helpers::check_local_resources($conf, $running, 1);
     my $blocking_resources = [];
     for my $res ($loc_res->@*) {
         if (!defined($mapped_res->{$res})) {
@@ -1235,7 +1236,7 @@ sub phase2 {
     my $defaults = PVE::QemuServer::load_defaults();
 
     $self->log('info', "set migration capabilities");
-    eval { PVE::QemuServer::set_migration_caps($vmid) };
+    eval { PVE::QemuMigrate::Helpers::set_migration_caps($vmid) };
     warn $@ if $@;
 
     my $qemu_migrate_params = {};

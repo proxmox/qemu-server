@@ -390,6 +390,12 @@ sub qmp_cmd {
 }
 
 # END mocked PVE::QemuServer::Monitor methods
+#
+# BEGIN mocked PVE::QemuMigrate::Helpers methods
+
+sub set_migration_caps { } # ignored
+
+# END mocked PVE::QemuMigrate::Helpers methods
 
 # BEGIN redefine PVE::QemuServer methods
 
@@ -429,12 +435,13 @@ sub vm_stop {
     return;
 }
 
-sub set_migration_caps { } # ignored
-
 # END redefine PVE::QemuServer methods
 
 PVE::Tools::run_command("rm -rf snapshot-working");
 PVE::Tools::run_command("cp -a snapshot-input snapshot-working");
+
+my $qemu_migrate_helpers_module = Test::MockModule->new('PVE::QemuMigrate::Helpers');
+$qemu_migrate_helpers_module->mock('set_migration_caps', \&set_migration_caps);
 
 my $qemu_helpers_module = Test::MockModule->new('PVE::QemuServer::Helpers');
 $qemu_helpers_module->mock('vm_running_locally', \&vm_running_locally);
