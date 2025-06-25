@@ -31,6 +31,7 @@ use PVE::QemuServer::Helpers qw(min_version);
 use PVE::QemuServer::Machine;
 use PVE::QemuServer::Monitor qw(mon_cmd);
 use PVE::QemuServer::Memory qw(get_current_memory);
+use PVE::QemuServer::Network;
 use PVE::QemuServer::QMPHelpers;
 use PVE::QemuServer;
 
@@ -809,7 +810,7 @@ sub map_bridges {
         next if $opt !~ m/^net\d+$/;
 
         next if !$conf->{$opt};
-        my $d = PVE::QemuServer::parse_net($conf->{$opt});
+        my $d = PVE::QemuServer::Network::parse_net($conf->{$opt});
         next if !$d || !$d->{bridge};
 
         my $target_bridge = PVE::JSONSchema::map_id($map, $d->{bridge});
@@ -818,7 +819,7 @@ sub map_bridges {
         next if $scan_only;
 
         $d->{bridge} = $target_bridge;
-        $conf->{$opt} = PVE::QemuServer::print_net($d);
+        $conf->{$opt} = PVE::QemuServer::Network::print_net($d);
     }
 
     return $bridges;
@@ -1623,7 +1624,7 @@ sub phase3_cleanup {
         }
 
         # deletes local FDB entries if learning is disabled, they'll be re-added on target on resume
-        PVE::QemuServer::del_nets_bridge_fdb($conf, $vmid);
+        PVE::QemuServer::Network::del_nets_bridge_fdb($conf, $vmid);
 
         if (!$self->{vm_was_paused}) {
             # config moved and nbd server stopped - now we can resume vm on target

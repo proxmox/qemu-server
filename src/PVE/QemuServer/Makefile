@@ -14,6 +14,7 @@ SOURCES=Agent.pm	\
 	Memory.pm	\
 	MetaInfo.pm	\
 	Monitor.pm	\
+	Network.pm	\
 	OVMF.pm		\
 	PCI.pm		\
 	QemuImage.pm	\

@@ -36,6 +36,7 @@ use PVE::QemuServer::Monitor qw(mon_cmd);
 use PVE::QemuServer::Machine;
 use PVE::QemuServer::Memory qw(get_current_memory);
 use PVE::QemuServer::MetaInfo;
+use PVE::QemuServer::Network;
 use PVE::QemuServer::OVMF;
 use PVE::QemuServer::PCI;
 use PVE::QemuServer::QMPHelpers;
@@ -1277,7 +1278,7 @@ __PACKAGE__->register_method({
 
             $check_drive_param->($param, $storecfg);
 
-            PVE::QemuServer::add_random_macs($param);
+            PVE::QemuServer::Network::add_random_macs($param);
         }
 
         my $emsg = $is_restore ? "unable to restore VM $vmid -" : "unable to create VM $vmid -";
@@ -1354,7 +1355,8 @@ __PACKAGE__->register_method({
                     warn $@ if $@;
                 }
 
-                PVE::QemuServer::create_ifaces_ipams_ips($restored_conf, $vmid) if $unique;
+                PVE::QemuServer::Network::create_ifaces_ipams_ips($restored_conf, $vmid)
+                    if $unique;
             };
 
             # ensure no old replication state are exists
@@ -1445,7 +1447,7 @@ __PACKAGE__->register_method({
 
                 PVE::AccessControl::add_vm_to_pool($vmid, $pool) if $pool;
 
-                PVE::QemuServer::create_ifaces_ipams_ips($conf, $vmid);
+                PVE::QemuServer::Network::create_ifaces_ipams_ips($conf, $vmid);
             };
 
             PVE::QemuConfig->lock_config_full($vmid, 1, $realcmd);
@@ -2062,8 +2064,8 @@ my $update_vm_api = sub {
     foreach my $opt (keys %$param) {
         if ($opt =~ m/^net(\d+)$/) {
             # add macaddr
-            my $net = PVE::QemuServer::parse_net($param->{$opt});
-            $param->{$opt} = PVE::QemuServer::print_net($net);
+            my $net = PVE::QemuServer::Network::parse_net($param->{$opt});
+            $param->{$opt} = PVE::QemuServer::Network::print_net($net);
         } elsif ($opt eq 'vmgenid') {
             if ($param->{$opt} eq '1') {
                 $param->{$opt} = PVE::QemuServer::generate_uuid();
@@ -4332,10 +4334,10 @@ __PACKAGE__->register_method({
 
                 # always change MAC! address
                 if ($opt =~ m/^net(\d+)$/) {
-                    my $net = PVE::QemuServer::parse_net($value);
+                    my $net = PVE::QemuServer::Network::parse_net($value);
                     my $dc = PVE::Cluster::cfs_read_file('datacenter.cfg');
                     $net->{macaddr} = PVE::Tools::random_ether_addr($dc->{mac_prefix});
-                    $newconf->{$opt} = PVE::QemuServer::print_net($net);
+                    $newconf->{$opt} = PVE::QemuServer::Network::print_net($net);
                 } elsif (PVE::QemuServer::is_valid_drivename($opt)) {
                     my $drive = PVE::QemuServer::parse_drive($opt, $value);
                     die "unable to parse drive options for '$opt'\n" if !$drive;
@@ -4488,7 +4490,7 @@ __PACKAGE__->register_method({
 
                 PVE::QemuConfig->write_config($newid, $newconf);
 
-                PVE::QemuServer::create_ifaces_ipams_ips($newconf, $newid);
+                PVE::QemuServer::Network::create_ifaces_ipams_ips($newconf, $newid);
 
                 if ($target) {
                     if (!$running) {

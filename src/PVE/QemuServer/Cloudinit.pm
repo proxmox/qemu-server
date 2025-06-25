@@ -12,9 +12,9 @@ use JSON;
 
 use PVE::Tools qw(run_command file_set_contents);
 use PVE::Storage;
-use PVE::QemuServer;
 use PVE::QemuServer::Drive qw(checked_volume_format);
 use PVE::QemuServer::Helpers;
+use PVE::QemuServer::Network;
 
 use constant CLOUDINIT_DISK_SIZE => 4 * 1024 * 1024; # 4MiB in bytes
 
@@ -191,7 +191,7 @@ sub configdrive2_network {
     foreach my $iface (sort @ifaces) {
         (my $id = $iface) =~ s/^net//;
         next if !$conf->{"ipconfig$id"};
-        my $net = PVE::QemuServer::parse_ipconfig($conf->{"ipconfig$id"});
+        my $net = PVE::QemuServer::Network::parse_ipconfig($conf->{"ipconfig$id"});
         $id = "eth$id";
 
         $content .= "auto $id\n";
@@ -291,7 +291,7 @@ sub cloudbase_network_eni {
     foreach my $iface (sort @ifaces) {
         (my $id = $iface) =~ s/^net//;
         next if !$conf->{"ipconfig$id"};
-        my $net = PVE::QemuServer::parse_ipconfig($conf->{"ipconfig$id"});
+        my $net = PVE::QemuServer::Network::parse_ipconfig($conf->{"ipconfig$id"});
         $id = "eth$id";
 
         $content .= "auto $id\n";
@@ -383,9 +383,9 @@ sub generate_opennebula {
     my @ifaces = grep { /^net(\d+)$/ } keys %$conf;
     foreach my $iface (sort @ifaces) {
         (my $id = $iface) =~ s/^net//;
-        my $net = PVE::QemuServer::parse_net($conf->{$iface});
+        my $net = PVE::QemuServer::Network::parse_net($conf->{$iface});
         next if !$conf->{"ipconfig$id"};
-        my $ipconfig = PVE::QemuServer::parse_ipconfig($conf->{"ipconfig$id"});
+        my $ipconfig = PVE::QemuServer::Network::parse_ipconfig($conf->{"ipconfig$id"});
         my $ethid = "ETH$id";
 
         my $mac = lc $net->{hwaddr};
@@ -445,8 +445,8 @@ sub nocloud_network_v2 {
         # indentation - network interfaces are inside an 'ethernets' hash
         my $i = '    ';
 
-        my $net = PVE::QemuServer::parse_net($conf->{$iface});
-        my $ipconfig = PVE::QemuServer::parse_ipconfig($conf->{"ipconfig$id"});
+        my $net = PVE::QemuServer::Network::parse_net($conf->{$iface});
+        my $ipconfig = PVE::QemuServer::Network::parse_ipconfig($conf->{"ipconfig$id"});
 
         my $mac = $net->{macaddr}
             or die "network interface '$iface' has no mac address\n";
@@ -513,8 +513,8 @@ sub nocloud_network {
         # indentation - network interfaces are inside an 'ethernets' hash
         my $i = '    ';
 
-        my $net = PVE::QemuServer::parse_net($conf->{$iface});
-        my $ipconfig = PVE::QemuServer::parse_ipconfig($conf->{"ipconfig$id"});
+        my $net = PVE::QemuServer::Network::parse_net($conf->{$iface});
+        my $ipconfig = PVE::QemuServer::Network::parse_ipconfig($conf->{"ipconfig$id"});
 
         my $mac = lc($net->{macaddr})
             or die "network interface '$iface' has no mac address\n";
