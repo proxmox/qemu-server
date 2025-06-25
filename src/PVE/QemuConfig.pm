@@ -8,6 +8,7 @@ use Scalar::Util qw(blessed);
 use PVE::AbstractConfig;
 use PVE::INotify;
 use PVE::JSONSchema;
+use PVE::QemuServer::Agent;
 use PVE::QemuServer::CPUConfig;
 use PVE::QemuServer::Drive;
 use PVE::QemuServer::Helpers;
@@ -293,7 +294,7 @@ sub __snapshot_check_freeze_needed {
             $running,
             $running
                 && PVE::QemuServer::parse_guest_agent($config)->{enabled}
-                && PVE::QemuServer::qga_check_running($vmid),
+                && PVE::QemuServer::Agent::qga_check_running($vmid),
         );
     } else {
         return ($running, 0);

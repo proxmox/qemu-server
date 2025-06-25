@@ -29,6 +29,7 @@ use PVE::Format qw(render_duration render_bytes);
 
 use PVE::QemuConfig;
 use PVE::QemuServer;
+use PVE::QemuServer::Agent;
 use PVE::QemuServer::Drive qw(checked_volume_format);
 use PVE::QemuServer::Helpers;
 use PVE::QemuServer::Machine;
@@ -1082,7 +1083,7 @@ sub qga_fs_freeze {
         || !$self->{vm_was_running}
         || $self->{vm_was_paused};
 
-    if (!PVE::QemuServer::qga_check_running($vmid, 1)) {
+    if (!PVE::QemuServer::Agent::qga_check_running($vmid, 1)) {
         $self->loginfo("skipping guest-agent 'fs-freeze', agent configured but not running?");
         return;
     }

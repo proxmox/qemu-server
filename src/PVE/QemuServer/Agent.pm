@@ -6,7 +6,6 @@ use warnings;
 use JSON;
 use MIME::Base64 qw(decode_base64 encode_base64);
 
-use PVE::QemuServer;
 use PVE::QemuServer::Helpers;
 use PVE::QemuServer::Monitor;
 
@@ -15,7 +14,19 @@ use base 'Exporter';
 our @EXPORT_OK = qw(
     check_agent_error
     agent_cmd
+    qga_check_running
 );
+
+sub qga_check_running {
+    my ($vmid, $nowarn) = @_;
+
+    eval { PVE::QemuServer::Monitor::mon_cmd($vmid, "guest-ping", timeout => 3); };
+    if ($@) {
+        warn "QEMU Guest Agent is not running - $@" if !$nowarn;
+        return 0;
+    }
+    return 1;
+}
 
 sub check_agent_error {
     my ($result, $errmsg, $noerr) = @_;
@@ -43,7 +54,7 @@ sub assert_agent_available {
 
     die "No QEMU guest agent configured\n" if !defined($conf->{agent});
     die "VM $vmid is not running\n" if !PVE::QemuServer::Helpers::vm_running_locally($vmid);
-    die "QEMU guest agent is not running\n" if !PVE::QemuServer::qga_check_running($vmid, 1);
+    die "QEMU guest agent is not running\n" if !qga_check_running($vmid, 1);
 }
 
 # loads config, checks if available, executes command, checks for errors

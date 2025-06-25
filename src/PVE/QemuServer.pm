@@ -53,6 +53,7 @@ use PVE::Tools
 use PVE::QMPClient;
 use PVE::QemuConfig;
 use PVE::QemuConfig::NoWrite;
+use PVE::QemuServer::Agent qw(qga_check_running);
 use PVE::QemuServer::Helpers
     qw(config_aware_timeout get_iscsi_initiator_name min_version kvm_user_version windows_version);
 use PVE::QemuServer::Cloudinit;
@@ -7921,17 +7922,6 @@ sub do_snapshots_with_qemu {
     }
 
     return;
-}
-
-sub qga_check_running {
-    my ($vmid, $nowarn) = @_;
-
-    eval { mon_cmd($vmid, "guest-ping", timeout => 3); };
-    if ($@) {
-        warn "QEMU Guest Agent is not running - $@" if !$nowarn;
-        return 0;
-    }
-    return 1;
 }
 
 =head3 template_create($vmid, $conf [, $disk])

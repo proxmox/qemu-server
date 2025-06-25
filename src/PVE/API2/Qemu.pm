@@ -27,6 +27,7 @@ use PVE::GuestHelpers qw(assert_tag_permissions);
 use PVE::GuestImport;
 use PVE::QemuConfig;
 use PVE::QemuServer;
+use PVE::QemuServer::Agent;
 use PVE::QemuServer::Cloudinit;
 use PVE::QemuServer::CPUConfig;
 use PVE::QemuServer::Drive qw(checked_volume_format checked_parse_volname);
@@ -4761,7 +4762,7 @@ __PACKAGE__->register_method({
                 PVE::QemuConfig->write_config($vmid, $conf);
 
                 my $do_trim = PVE::QemuServer::get_qga_key($conf, 'fstrim_cloned_disks');
-                if ($running && $do_trim && PVE::QemuServer::qga_check_running($vmid)) {
+                if ($running && $do_trim && PVE::QemuServer::Agent::qga_check_running($vmid)) {
                     eval { mon_cmd($vmid, "guest-fstrim") };
                 }
 
@@ -6623,7 +6624,7 @@ __PACKAGE__->register_method({
                     return $info;
                 },
                 'fstrim' => sub {
-                    if (PVE::QemuServer::qga_check_running($state->{vmid})) {
+                    if (PVE::QemuServer::Agent::qga_check_running($state->{vmid})) {
                         eval { mon_cmd($state->{vmid}, "guest-fstrim") };
                         warn "fstrim failed: $@\n" if $@;
                     }
