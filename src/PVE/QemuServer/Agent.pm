@@ -7,6 +7,7 @@ use JSON;
 use MIME::Base64 qw(decode_base64 encode_base64);
 
 use PVE::QemuServer;
+use PVE::QemuServer::Helpers;
 use PVE::QemuServer::Monitor;
 
 use base 'Exporter';
@@ -41,7 +42,7 @@ sub assert_agent_available {
     my ($vmid, $conf) = @_;
 
     die "No QEMU guest agent configured\n" if !defined($conf->{agent});
-    die "VM $vmid is not running\n" if !PVE::QemuServer::check_running($vmid);
+    die "VM $vmid is not running\n" if !PVE::QemuServer::Helpers::vm_running_locally($vmid);
     die "QEMU guest agent is not running\n" if !PVE::QemuServer::qga_check_running($vmid, 1);
 }
 
