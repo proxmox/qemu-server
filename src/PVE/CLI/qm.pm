@@ -962,7 +962,9 @@ __PACKAGE__->register_method({
         my $args = $param->{'extra-args'};
         $args = undef if !$args || !@$args;
 
-        my $res = PVE::QemuServer::Agent::qemu_exec($vmid, $input_data, $args);
+        my $conf = PVE::QemuConfig->load_config($vmid);
+
+        my $res = PVE::QemuServer::Agent::qemu_exec($vmid, $conf, $input_data, $args);
 
         if ($sync) {
             my $pid = $res->{pid};
@@ -970,7 +972,7 @@ __PACKAGE__->register_method({
             my $starttime = time();
 
             while ($timeout == 0 || (time() - $starttime) < $timeout) {
-                my $out = PVE::QemuServer::Agent::qemu_exec_status($vmid, $pid);
+                my $out = PVE::QemuServer::Agent::qemu_exec_status($vmid, $conf, $pid);
                 if ($out->{exited}) {
                     $res = $out;
                     last;

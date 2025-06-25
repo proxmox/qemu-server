@@ -257,6 +257,7 @@ __PACKAGE__->register_method({
         my ($param) = @_;
 
         my $vmid = $param->{vmid};
+        my $conf = PVE::QemuConfig->load_config($vmid);
 
         my $crypted = $param->{crypted} // 0;
         my $args = {
@@ -264,7 +265,8 @@ __PACKAGE__->register_method({
             password => encode_base64($param->{password}),
             crypted => $crypted ? JSON::true : JSON::false,
         };
-        my $res = agent_cmd($vmid, "set-user-password", $args, 'cannot set user password');
+        my $res =
+            agent_cmd($vmid, $conf, "set-user-password", $args, 'cannot set user password');
 
         return { result => $res };
     },
@@ -317,9 +319,11 @@ __PACKAGE__->register_method({
         my ($param) = @_;
 
         my $vmid = $param->{vmid};
+        my $conf = PVE::QemuConfig->load_config($vmid);
+
         my $cmd = $param->{command};
 
-        my $res = PVE::QemuServer::Agent::qemu_exec($vmid, $param->{'input-data'}, $cmd);
+        my $res = PVE::QemuServer::Agent::qemu_exec($vmid, $conf, $param->{'input-data'}, $cmd);
         return $res;
     },
 });
@@ -390,9 +394,11 @@ __PACKAGE__->register_method({
         my ($param) = @_;
 
         my $vmid = $param->{vmid};
+        my $conf = PVE::QemuConfig->load_config($vmid);
+
         my $pid = int($param->{pid});
 
-        my $res = PVE::QemuServer::Agent::qemu_exec_status($vmid, $pid);
+        my $res = PVE::QemuServer::Agent::qemu_exec_status($vmid, $conf, $pid);
 
         return $res;
     },
@@ -439,9 +445,10 @@ __PACKAGE__->register_method({
         my ($param) = @_;
 
         my $vmid = $param->{vmid};
+        my $conf = PVE::QemuConfig->load_config($vmid);
 
         my $qgafh =
-            agent_cmd($vmid, "file-open", { path => $param->{file} }, "can't open file");
+            agent_cmd($vmid, $conf, "file-open", { path => $param->{file} }, "can't open file");
 
         my $bytes_left = $MAX_READ_SIZE;
         my $eof = 0;
@@ -516,23 +523,28 @@ __PACKAGE__->register_method({
         my ($param) = @_;
 
         my $vmid = $param->{vmid};
+        my $conf = PVE::QemuConfig->load_config($vmid);
 
         my $buf =
             ($param->{encode} // 1) ? encode_base64($param->{content}) : $param->{content};
 
         my $qgafh = agent_cmd(
             $vmid,
+            $conf,
             "file-open",
             { path => $param->{file}, mode => 'wb' },
             "can't open file",
         );
-        my $write = agent_cmd(
+
+        agent_cmd(
             $vmid,
+            $conf,
             "file-write",
             { handle => $qgafh, 'buf-b64' => $buf },
             "can't write to file",
         );
-        my $res = agent_cmd($vmid, "file-close", { handle => $qgafh }, "can't close file");
+
+        agent_cmd($vmid, $conf, "file-close", { handle => $qgafh }, "can't close file");
 
         return;
     },

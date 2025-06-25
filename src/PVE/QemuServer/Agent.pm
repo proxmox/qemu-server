@@ -47,9 +47,8 @@ sub assert_agent_available {
 
 # loads config, checks if available, executes command, checks for errors
 sub agent_cmd {
-    my ($vmid, $cmd, $params, $errormsg) = @_;
+    my ($vmid, $conf, $cmd, $params, $errormsg) = @_;
 
-    my $conf = PVE::QemuConfig->load_config($vmid); # also checks if VM exists
     assert_agent_available($vmid, $conf);
 
     my $res = PVE::QemuServer::Monitor::mon_cmd($vmid, "guest-$cmd", %$params);
@@ -59,7 +58,7 @@ sub agent_cmd {
 }
 
 sub qemu_exec {
-    my ($vmid, $input_data, $cmd) = @_;
+    my ($vmid, $conf, $input_data, $cmd) = @_;
 
     my $args = {
         'capture-output' => JSON::true,
@@ -83,15 +82,16 @@ sub qemu_exec {
         $errmsg .= " (input-data given)";
     }
 
-    my $res = agent_cmd($vmid, "exec", $args, $errmsg);
+    my $res = agent_cmd($vmid, $conf, "exec", $args, $errmsg);
 
     return $res;
 }
 
 sub qemu_exec_status {
-    my ($vmid, $pid) = @_;
+    my ($vmid, $conf, $pid) = @_;
 
-    my $res = agent_cmd($vmid, "exec-status", { pid => $pid }, "can't get exec status for '$pid'");
+    my $res =
+        agent_cmd($vmid, $conf, "exec-status", { pid => $pid }, "can't get exec status for '$pid'");
 
     if ($res->{'out-data'}) {
         my $decoded = eval { decode_base64($res->{'out-data'}) };
