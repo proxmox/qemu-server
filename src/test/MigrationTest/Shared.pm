@@ -150,6 +150,10 @@ $qemu_server_module->mock(
     vm_stop_cleanup => sub {
         return;
     },
+);
+
+our $qemu_server_ovmf_module = Test::MockModule->new("PVE::QemuServer::OVMF");
+$qemu_server_ovmf_module->mock(
     get_efivars_size => sub {
         return 128 * 1024;
     },

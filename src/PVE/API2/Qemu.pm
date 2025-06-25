@@ -36,6 +36,7 @@ use PVE::QemuServer::Monitor qw(mon_cmd);
 use PVE::QemuServer::Machine;
 use PVE::QemuServer::Memory qw(get_current_memory);
 use PVE::QemuServer::MetaInfo;
+use PVE::QemuServer::OVMF;
 use PVE::QemuServer::PCI;
 use PVE::QemuServer::QMPHelpers;
 use PVE::QemuServer::RNG;
@@ -612,7 +613,7 @@ my sub create_disks : prototype($$$$$$$$$$$) {
                         "SEV-SNP uses consolidated read-only firmware and does not require an EFI disk\n"
                         if $amd_sev_type && $amd_sev_type eq 'snp';
 
-                    ($volid, $size) = PVE::QemuServer::create_efidisk(
+                    ($volid, $size) = PVE::QemuServer::OVMF::create_efidisk(
                         $storecfg, $storeid, $vmid, $fmt, $arch, $disk, $smm, $amd_sev_type,
                     );
                 } elsif ($ds eq 'tpmstate0') {
