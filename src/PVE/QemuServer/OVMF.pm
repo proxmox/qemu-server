@@ -3,10 +3,13 @@ package PVE::QemuServer::OVMF;
 use strict;
 use warnings;
 
+use JSON;
+
 use PVE::RESTEnvironment qw(log_warn);
 use PVE::Storage;
 use PVE::Tools;
 
+use PVE::QemuServer::Blockdev;
 use PVE::QemuServer::Drive qw(checked_volume_format drive_is_read_only parse_drive print_drive);
 use PVE::QemuServer::QemuImage;
 
@@ -139,6 +142,58 @@ sub create_efidisk($$$$$$$$) {
     my $size = PVE::Storage::volume_size_info($storecfg, $volid, 3);
 
     return ($volid, $size / 1024);
+}
+
+my sub generate_ovmf_blockdev {
+    my ($conf, $storecfg, $vmid, $hw_info) = @_;
+
+    my ($amd_sev_type, $arch, $q35) = $hw_info->@{qw(amd-sev-type arch q35)};
+
+    my $drive = $conf->{efidisk0} ? parse_drive('efidisk0', $conf->{efidisk0}) : undef;
+
+    die "Attempting to configure SEV-SNP with pflash devices instead of using `-bios`\n"
+        if $amd_sev_type && $amd_sev_type eq 'snp';
+
+    my ($ovmf_code, $ovmf_vars) = get_ovmf_files($arch, $drive, $q35, $amd_sev_type);
+
+    my $ovmf_code_blockdev = {
+        driver => 'raw',
+        file => { driver => 'file', filename => "$ovmf_code" },
+        'node-name' => 'pflash0',
+        'read-only' => JSON::true,
+    };
+
+    my $format;
+
+    if ($drive) {
+        my ($storeid, $volname) = PVE::Storage::parse_volume_id($drive->{file}, 1);
+        $format = $drive->{format};
+        if ($storeid) {
+            $format //= checked_volume_format($storecfg, $drive->{file});
+        } elsif (!defined($format)) {
+            die "efidisk format must be specified\n";
+        }
+    } else {
+        log_warn("no efidisk configured! Using temporary efivars disk.");
+        my $path = "/tmp/$vmid-ovmf.fd";
+        PVE::Tools::file_copy($ovmf_vars, $path, -s $ovmf_vars);
+        $drive = { file => $path };
+        $format = 'raw';
+    }
+
+    my $extra_blockdev_options = {};
+    # extra protection for templates, but SATA and IDE don't support it..
+    $extra_blockdev_options->{'read-only'} = 1 if drive_is_read_only($conf, $drive);
+
+    $extra_blockdev_options->{size} = -s $ovmf_vars if $format eq 'raw';
+
+    my $throttle_group = PVE::QemuServer::Blockdev::generate_throttle_group($drive);
+
+    my $ovmf_vars_blockdev = PVE::QemuServer::Blockdev::generate_drive_blockdev(
+        $storecfg, $drive, $extra_blockdev_options,
+    );
+
+    return ($ovmf_code_blockdev, $ovmf_vars_blockdev, $throttle_group);
 }
 
 sub print_ovmf_commandline {
