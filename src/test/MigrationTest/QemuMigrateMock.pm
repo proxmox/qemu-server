@@ -126,6 +126,14 @@ $MigrationTest::Shared::qemu_server_module->mock(
     kvm_user_version => sub {
         return "5.0.0";
     },
+    vm_stop => sub {
+        $vm_stop_executed = 1;
+        delete $expected_calls->{'vm_stop'};
+    },
+);
+
+my $qemu_server_blockjob_module = Test::MockModule->new("PVE::QemuServer::BlockJob");
+$qemu_server_blockjob_module->mock(
     qemu_blockjobs_cancel => sub {
         return;
     },
@@ -166,10 +174,6 @@ $MigrationTest::Shared::qemu_server_module->mock(
     },
     qemu_drive_mirror_switch_to_active_mode => sub {
         return;
-    },
-    vm_stop => sub {
-        $vm_stop_executed = 1;
-        delete $expected_calls->{'vm_stop'};
     },
 );
 

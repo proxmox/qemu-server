@@ -26,6 +26,7 @@ use PVE::Tunnel;
 
 use PVE::QemuConfig;
 use PVE::QemuMigrate::Helpers;
+use PVE::QemuServer::BlockJob;
 use PVE::QemuServer::CPUConfig;
 use PVE::QemuServer::Drive qw(checked_volume_format);
 use PVE::QemuServer::Helpers qw(min_version);
@@ -1206,7 +1207,7 @@ sub phase2 {
             my $bitmap = $target->{bitmap};
 
             $self->log('info', "$drive: start migration to $nbd_uri");
-            PVE::QemuServer::qemu_drive_mirror(
+            PVE::QemuServer::BlockJob::qemu_drive_mirror(
                 $vmid,
                 $drive,
                 $nbd_uri,
@@ -1222,7 +1223,7 @@ sub phase2 {
 
         if (PVE::QemuServer::QMPHelpers::runs_at_least_qemu_version($vmid, 8, 2)) {
             $self->log('info', "switching mirror jobs to actively synced mode");
-            PVE::QemuServer::qemu_drive_mirror_switch_to_active_mode(
+            PVE::QemuServer::BlockJob::qemu_drive_mirror_switch_to_active_mode(
                 $vmid,
                 $self->{storage_migration_jobs},
             );
@@ -1474,7 +1475,7 @@ sub phase2 {
         # to avoid it trying to re-establish it. We are in blockjob ready state,
         # thus, this command changes to it to blockjob complete (see qapi docs)
         eval {
-            PVE::QemuServer::qemu_drive_mirror_monitor(
+            PVE::QemuServer::BlockJob::qemu_drive_mirror_monitor(
                 $vmid, undef, $self->{storage_migration_jobs}, 'cancel',
             );
         };
@@ -1520,7 +1521,12 @@ sub phase2_cleanup {
 
     # cleanup resources on target host
     if ($self->{storage_migration}) {
-        eval { PVE::QemuServer::qemu_blockjobs_cancel($vmid, $self->{storage_migration_jobs}) };
+        eval {
+            PVE::QemuServer::BlockJob::qemu_blockjobs_cancel(
+                $vmid,
+                $self->{storage_migration_jobs},
+            );
+        };
         if (my $err = $@) {
             $self->log('err', $err);
         }
