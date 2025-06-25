@@ -841,6 +841,10 @@ sub print_drive {
 
 sub get_drive_id {
     my ($drive) = @_;
+
+    die "get_drive_id: no interface" if !defined($drive->{interface});
+    die "get_drive_id: no index" if !defined($drive->{index});
+
     return "$drive->{interface}$drive->{index}";
 }
 
