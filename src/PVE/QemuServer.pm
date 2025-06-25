@@ -871,7 +871,6 @@ my $nic_model_list = [
     'virtio',
     'vmxnet3',
 ];
-my $nic_model_list_txt = join(' ', sort @$nic_model_list);
 
 my $net_fmt_bridge_descr = <<__EOD__;
 Bridge to attach the network device to. The Proxmox VE standard bridge
