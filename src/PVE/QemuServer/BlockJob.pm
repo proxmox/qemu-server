@@ -330,4 +330,24 @@ sub qemu_drive_mirror_switch_to_active_mode {
     }
 }
 
+sub mirror {
+    my ($source, $dest, $jobs, $completion, $options) = @_;
+
+    # for the switch to -blockdev
+
+    my $drive_id = PVE::QemuServer::Drive::get_drive_id($source->{drive});
+    qemu_drive_mirror(
+        $source->{vmid},
+        $drive_id,
+        $dest->{volid},
+        $dest->{vmid},
+        $dest->{'zero-initialized'},
+        $jobs,
+        $completion,
+        $options->{'guest-agent'},
+        $options->{bwlimit},
+        $source->{bitmap},
+    );
+}
+
 1;

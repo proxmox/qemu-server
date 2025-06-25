@@ -1207,17 +1207,18 @@ sub phase2 {
             my $bitmap = $target->{bitmap};
 
             $self->log('info', "$drive: start migration to $nbd_uri");
-            PVE::QemuServer::BlockJob::qemu_drive_mirror(
-                $vmid,
-                $drive,
-                $nbd_uri,
-                $vmid,
-                undef,
+
+            my $source_info = { vmid => $vmid, drive => $source_drive };
+            $source_info->{bitmap} = $bitmap if defined($bitmap);
+            my $dest_info = { volid => $nbd_uri };
+            my $mirror_opts = {};
+            $mirror_opts->{bwlimit} = $bwlimit if defined($bwlimit);
+            PVE::QemuServer::BlockJob::mirror(
+                $source_info,
+                $dest_info,
                 $self->{storage_migration_jobs},
                 'skip',
-                undef,
-                $bwlimit,
-                $bitmap,
+                $mirror_opts,
             );
         }
 

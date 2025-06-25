@@ -7761,16 +7761,19 @@ sub clone_disk {
 
         my $sparseinit = PVE::Storage::volume_has_feature($storecfg, 'sparseinit', $newvolid);
         if ($use_drive_mirror) {
-            PVE::QemuServer::BlockJob::qemu_drive_mirror(
-                $vmid,
-                $src_drivename,
-                $newvolid,
-                $newvmid,
-                $sparseinit,
+            my $source_info = { vmid => $vmid, drive => $drive };
+            my $dest_info = { volid => $newvolid };
+            $dest_info->{'zero-initialized'} = 1 if $sparseinit;
+            $dest_info->{vmid} = $newvmid if defined($newvmid);
+            my $mirror_opts = {};
+            $mirror_opts->{'guest-agent'} = 1 if $qga;
+            $mirror_opts->{bwlimit} = $bwlimit if defined($bwlimit);
+            PVE::QemuServer::BlockJob::mirror(
+                $source_info,
+                $dest_info,
                 $jobs,
                 $completion,
-                $qga,
-                $bwlimit,
+                $mirror_opts,
             );
         } else {
             if ($dst_drivename eq 'efidisk0') {
