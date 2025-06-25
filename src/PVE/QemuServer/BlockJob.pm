@@ -215,7 +215,7 @@ sub qemu_drive_mirror_monitor {
 sub qemu_drive_mirror {
     my (
         $vmid,
-        $drive,
+        $drive_id,
         $dst_volid,
         $vmiddst,
         $is_zero_initialized,
@@ -226,11 +226,13 @@ sub qemu_drive_mirror {
         $src_bitmap,
     ) = @_;
 
+    my $device_id = "drive-$drive_id";
+
     $jobs = {} if !$jobs;
 
     my $qemu_target;
     my $format;
-    $jobs->{"drive-$drive"} = {};
+    $jobs->{$device_id} = {};
 
     if ($dst_volid =~ /^nbd:/) {
         $qemu_target = $dst_volid;
@@ -247,7 +249,7 @@ sub qemu_drive_mirror {
 
     my $opts = {
         timeout => 10,
-        device => "drive-$drive",
+        device => "$device_id",
         mode => "existing",
         sync => "full",
         target => $qemu_target,
@@ -263,9 +265,9 @@ sub qemu_drive_mirror {
 
     if (defined($bwlimit)) {
         $opts->{speed} = $bwlimit * 1024;
-        print "drive mirror is starting for drive-$drive with bandwidth limit: ${bwlimit} KB/s\n";
+        print "drive mirror is starting for $device_id with bandwidth limit: ${bwlimit} KB/s\n";
     } else {
-        print "drive mirror is starting for drive-$drive\n";
+        print "drive mirror is starting for $device_id\n";
     }
 
     # if a job already runs for this device we get an error, catch it for cleanup

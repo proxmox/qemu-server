@@ -140,7 +140,7 @@ $qemu_server_blockjob_module->mock(
     qemu_drive_mirror => sub {
         my (
             $vmid,
-            $drive,
+            $drive_id,
             $dst_volid,
             $vmiddst,
             $is_zero_initialized,
@@ -152,13 +152,13 @@ $qemu_server_blockjob_module->mock(
         ) = @_;
 
         die "drive_mirror with wrong vmid: '$vmid'\n" if $vmid ne $test_vmid;
-        die "qemu_drive_mirror '$drive' error\n"
-            if $fail_config->{qemu_drive_mirror} && $fail_config->{qemu_drive_mirror} eq $drive;
+        die "qemu_drive_mirror '$drive_id' error\n"
+            if $fail_config->{qemu_drive_mirror} && $fail_config->{qemu_drive_mirror} eq $drive_id;
 
         my $nbd_info = decode_json(file_get_contents("${RUN_DIR_PATH}/nbd_info"));
-        die "target does not expect drive mirror for '$drive'\n"
-            if !defined($nbd_info->{$drive});
-        delete $nbd_info->{$drive};
+        die "target does not expect drive mirror for '$drive_id'\n"
+            if !defined($nbd_info->{$drive_id});
+        delete $nbd_info->{$drive_id};
         file_set_contents("${RUN_DIR_PATH}/nbd_info", to_json($nbd_info));
     },
     qemu_drive_mirror_monitor => sub {
