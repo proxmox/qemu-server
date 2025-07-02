@@ -28,7 +28,7 @@
   -device 'virtio-balloon-pci,id=balloon0,bus=pci.0,addr=0x3,free-page-reporting=on' \
   -iscsi 'initiator-name=iqn.1993-08.org.debian:01:aabbccddeeff' \
   -drive 'if=none,id=drive-ide2,media=cdrom,aio=io_uring' \
-  -device 'ide-cd,bus=ide.1,unit=0,drive=drive-ide2,id=ide2,bootindex=103' \
+  -device 'ide-cd,bus=ide.1,unit=0,id=ide2,bootindex=103' \
   -device 'lsi,id=scsihw0,bus=pci.0,addr=0x5' \
   -drive 'file=/var/lib/vz/images/8006/vm-8006-disk-0.qcow2,if=none,id=drive-scsi4,discard=on,format=qcow2,cache=none,aio=io_uring,detect-zeroes=unmap' \
   -device 'scsi-hd,bus=scsihw0.0,scsi-id=4,drive=drive-scsi4,id=scsi4,bootindex=102,write-cache=on' \

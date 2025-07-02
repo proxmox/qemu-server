@@ -1208,7 +1208,12 @@ sub print_drivedevice_full {
     my $drive_id = PVE::QemuServer::Drive::get_drive_id($drive);
     if ($drive->{interface} eq 'virtio') {
         my $pciaddr = print_pci_addr("$drive_id", $bridges, $arch);
-        $device = "virtio-blk-pci,drive=drive-$drive_id,id=${drive_id}${pciaddr}";
+        $device = 'virtio-blk-pci';
+        # for the switch to -blockdev, there is no blockdev for 'none'
+        if (!min_version($machine_version, 10, 0) || $drive->{file} ne 'none') {
+            $device .= ",drive=drive-$drive_id";
+        }
+        $device .= ",id=${drive_id}${pciaddr}";
         $device .= ",iothread=iothread-$drive_id" if $drive->{iothread};
     } elsif ($drive->{interface} eq 'scsi') {
 
@@ -1224,7 +1229,11 @@ sub print_drivedevice_full {
             $device = "scsi-$device_type,bus=$controller_prefix$controller.0,channel=0,scsi-id=0"
                 . ",lun=$drive->{index}";
         }
-        $device .= ",drive=drive-$drive_id,id=$drive_id";
+        # for the switch to -blockdev, there is no blockdev for 'none'
+        if (!min_version($machine_version, 10, 0) || $drive->{file} ne 'none') {
+            $device .= ",drive=drive-$drive_id";
+        }
+        $device .= ",id=$drive_id";
 
         if ($drive->{ssd} && ($device_type eq 'block' || $device_type eq 'hd')) {
             $device .= ",rotation_rate=1";
@@ -1264,7 +1273,10 @@ sub print_drivedevice_full {
         } else {
             $device .= ",bus=ahci$controller.$unit";
         }
-        $device .= ",drive=drive-$drive_id,id=$drive_id";
+        if (!min_version($machine_version, 10, 0) || $drive->{file} ne 'none') {
+            $device .= ",drive=drive-$drive_id";
+        }
+        $device .= ",id=$drive_id";
 
         if ($device_type eq 'hd') {
             if (my $model = $drive->{model}) {
