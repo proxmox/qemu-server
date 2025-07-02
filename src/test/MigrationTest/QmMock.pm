@@ -50,21 +50,6 @@ $inotify_module->mock(
     },
 );
 
-$MigrationTest::Shared::qemu_server_module->mock(
-    nodename => sub {
-        return $nodename;
-    },
-    config_to_command => sub {
-        return ['mocked_kvm_command'];
-    },
-    vm_start_nolock => sub {
-        my ($storecfg, $vmid, $conf, $params, $migrate_opts) = @_;
-        $forcemachine = $params->{forcemachine}
-            or die "mocked vm_start_nolock - expected 'forcemachine' parameter\n";
-        $MigrationTest::Shared::qemu_server_module->original('vm_start_nolock')->(@_);
-    },
-);
-
 my $qemu_server_helpers_module = Test::MockModule->new("PVE::QemuServer::Helpers");
 $qemu_server_helpers_module->mock(
     vm_running_locally => sub {
@@ -113,6 +98,9 @@ $MigrationTest::Shared::storage_module->mock(
 );
 
 $MigrationTest::Shared::qemu_server_module->mock(
+    config_to_command => sub {
+        return ['mocked_kvm_command'];
+    },
     mon_cmd => sub {
         my ($vmid, $command, %params) = @_;
 
@@ -126,6 +114,9 @@ $MigrationTest::Shared::qemu_server_module->mock(
             return;
         }
         die "mon_cmd (mocked) - implement me: $command";
+    },
+    nodename => sub {
+        return $nodename;
     },
     run_command => sub {
         my ($cmd_full, %param) = @_;
@@ -148,6 +139,12 @@ $MigrationTest::Shared::qemu_server_module->mock(
             ->(@_);
         file_set_contents("${RUN_DIR_PATH}/nbd_info", to_json($nbd));
         return $nbd;
+    },
+    vm_start_nolock => sub {
+        my ($storecfg, $vmid, $conf, $params, $migrate_opts) = @_;
+        $forcemachine = $params->{forcemachine}
+            or die "mocked vm_start_nolock - expected 'forcemachine' parameter\n";
+        $MigrationTest::Shared::qemu_server_module->original('vm_start_nolock')->(@_);
     },
 );
 
