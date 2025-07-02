@@ -14,8 +14,30 @@ use PVE::Storage;
 use PVE::QemuServer::Drive qw(drive_is_cdrom);
 use PVE::QemuServer::Monitor qw(mon_cmd);
 
+my sub fleecing_node_name {
+    my ($type, $drive_id) = @_;
+
+    if ($type eq 'fmt') {
+        return "drive-$drive_id-fleecing"; # this is the top node for fleecing
+    } elsif ($type eq 'file') {
+        return "$drive_id-fleecing-file"; # drop the "drive-" prefix to be sure, max length is 31
+    }
+
+    die "unknown node type '$type' for fleecing";
+}
+
+my sub is_fleecing_top_node {
+    my ($node_name) = @_;
+
+    return $node_name =~ m/-fleecing$/ ? 1 : 0;
+}
+
 my sub get_node_name {
-    my ($type, $drive_id, $volid, $snap) = @_;
+    my ($type, $drive_id, $volid, $options) = @_;
+
+    return fleecing_node_name($type, $drive_id) if $options->{fleecing};
+
+    my $snap = $options->{'snapshot-name'};
 
     my $info = "drive=$drive_id,";
     $info .= "snap=$snap," if defined($snap);
@@ -174,8 +196,7 @@ sub generate_file_blockdev {
         $blockdev->{'detect-zeroes'} = PVE::QemuServer::Drive::detect_zeroes_cmdline_option($drive);
     }
 
-    $blockdev->{'node-name'} =
-        get_node_name('file', $drive_id, $drive->{file}, $options->{'snapshot-name'});
+    $blockdev->{'node-name'} = get_node_name('file', $drive_id, $drive->{file}, $options);
 
     $blockdev->{'read-only'} = read_only_json_option($drive, $options);
 
@@ -208,7 +229,7 @@ sub generate_format_blockdev {
         $format = $drive->{format} // 'raw';
     }
 
-    my $node_name = get_node_name('fmt', $drive_id, $drive->{file}, $options->{'snapshot-name'});
+    my $node_name = get_node_name('fmt', $drive_id, $drive->{file}, $options);
 
     my $blockdev = {
         'node-name' => "$node_name",
@@ -236,6 +257,8 @@ sub generate_drive_blockdev {
 
     my $child = generate_file_blockdev($storecfg, $drive, $options);
     $child = generate_format_blockdev($storecfg, $drive, $child, $options);
+
+    return $child if $options->{fleecing}; # for fleecing, this is already the top node
 
     # this is the top filter entry point, use $drive-drive_id as nodename
     return {
@@ -280,6 +303,8 @@ Parameters:
 =item C<$options>: A hash reference with additional options.
 
 =over
+
+=item C<< $options->{fleecing} >>: Generate and attach a block device for backup fleecing.
 
 =item C<< $options->{'read-only'} >>: Attach the image as read-only irrespective of the
 configuration in C<$drive>.
@@ -384,6 +409,20 @@ sub detach {
     }
 
     return;
+}
+
+sub detach_fleecing_block_nodes {
+    my ($vmid, $log_func) = @_;
+
+    my $block_info = mon_cmd($vmid, "query-named-block-nodes");
+    for my $info ($block_info->@*) {
+        my $node_name = $info->{'node-name'};
+        next if !is_fleecing_top_node($node_name);
+
+        $log_func->('info', "detaching (old) fleecing image '$node_name'");
+        eval { detach($vmid, $node_name) };
+        $log_func->('warn', "error detaching (old) fleecing image '$node_name' - $@") if $@;
+    }
 }
 
 1;

@@ -10,6 +10,7 @@ use PVE::INotify;
 use PVE::JSONSchema;
 use PVE::QemuMigrate::Helpers;
 use PVE::QemuServer::Agent;
+use PVE::QemuServer::Blockdev;
 use PVE::QemuServer::CPUConfig;
 use PVE::QemuServer::Drive;
 use PVE::QemuServer::Helpers;
@@ -675,16 +676,7 @@ sub cleanup_fleecing_images {
         };
         $log_func->('warn', "checking/canceling old backup job failed - $@") if $@;
 
-        my $block_info = mon_cmd($vmid, "query-block");
-        for my $info ($block_info->@*) {
-            my $device_id = $info->{device};
-            next if $device_id !~ m/-fleecing$/;
-
-            $log_func->('info', "detaching (old) fleecing image for '$device_id'");
-            $device_id =~ s/^drive-//; # re-added by qemu_drivedel()
-            eval { PVE::QemuServer::qemu_drivedel($vmid, $device_id) };
-            $log_func->('warn', "error detaching (old) fleecing image '$device_id' - $@") if $@;
-        }
+        PVE::QemuServer::Blockdev::detach_fleecing_block_nodes($vmid, $log_func);
     }
 
     PVE::QemuConfig->lock_config(

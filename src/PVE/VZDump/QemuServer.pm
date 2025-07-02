@@ -30,6 +30,7 @@ use PVE::Format qw(render_duration render_bytes);
 use PVE::QemuConfig;
 use PVE::QemuServer;
 use PVE::QemuServer::Agent;
+use PVE::QemuServer::Blockdev;
 use PVE::QemuServer::Drive qw(checked_volume_format);
 use PVE::QemuServer::Helpers;
 use PVE::QemuServer::Machine;
@@ -626,9 +627,8 @@ my sub detach_fleecing_images {
 
     for my $di ($disks->@*) {
         if (my $volid = $di->{'fleece-volid'}) {
-            my $devid = "$di->{qmdevice}-fleecing";
-            $devid =~ s/^drive-//; # re-added by qemu_drivedel()
-            eval { PVE::QemuServer::qemu_drivedel($vmid, $devid) };
+            my $node_name = "$di->{qmdevice}-fleecing";
+            eval { PVE::QemuServer::Blockdev::detach($vmid, $node_name) };
         }
     }
 }
@@ -646,15 +646,21 @@ my sub attach_fleecing_images {
         if (my $volid = $di->{'fleece-volid'}) {
             $self->loginfo("$di->{qmdevice}: attaching fleecing image $volid to QEMU");
 
-            my $path = PVE::Storage::path($self->{storecfg}, $volid);
-            my $devid = "$di->{qmdevice}-fleecing";
-            my $drive = "file=$path,if=none,id=$devid,format=$format,discard=unmap";
+            my ($interface, $index) = PVE::QemuServer::Drive::parse_drive_interface($di->{virtdev});
+            my $drive = {
+                file => $volid,
+                interface => $interface,
+                index => $index,
+                format => $format,
+                discard => 'on',
+            };
+
+            my $options = { 'fleecing' => 1 };
             # Specify size explicitly, to make it work if storage backend rounded up size for
             # fleecing image when allocating.
-            $drive .= ",size=$di->{'block-node-size'}" if $format eq 'raw';
-            $drive =~ s/\\/\\\\/g;
-            my $ret = PVE::QemuServer::Monitor::hmp_cmd($vmid, "drive_add auto \"$drive\"", 60);
-            die "attaching fleecing image $volid failed - $ret\n" if $ret !~ m/OK/s;
+            $options->{size} = $di->{'block-node-size'} if $format eq 'raw';
+
+            PVE::QemuServer::Blockdev::attach($self->{storecfg}, $vmid, $drive, $options);
         }
     }
 }
