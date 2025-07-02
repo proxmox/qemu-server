@@ -33,6 +33,23 @@ my sub get_node_name {
     return "${prefix}${hash}";
 }
 
+sub parse_top_node_name {
+    my ($node_name) = @_;
+
+    if ($node_name =~ m/^drive-(.+)$/) {
+        my $drive_id = $1;
+        return $drive_id if PVE::QemuServer::Drive::is_valid_drivename($drive_id);
+    }
+
+    return;
+}
+
+sub top_node_name {
+    my ($drive_id) = @_;
+
+    return "drive-$drive_id";
+}
+
 my sub read_only_json_option {
     my ($drive, $options) = @_;
 
@@ -221,7 +238,7 @@ sub generate_drive_blockdev {
     # this is the top filter entry point, use $drive-drive_id as nodename
     return {
         driver => "throttle",
-        'node-name' => "drive-$drive_id",
+        'node-name' => top_node_name($drive_id),
         'throttle-group' => throttle_group_id($drive_id),
         file => $child,
     };
