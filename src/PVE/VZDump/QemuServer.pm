@@ -1122,14 +1122,13 @@ sub qga_fs_thaw {
 sub query_block_node_sizes {
     my ($self, $vmid, $disks) = @_;
 
-    my $block_info = mon_cmd($vmid, "query-block");
-    $block_info = { map { $_->{device} => $_ } $block_info->@* };
+    my $block_info = PVE::QemuServer::Blockdev::get_block_info($vmid);
 
     for my $diskinfo ($disks->@*) {
         my $drive_key = $diskinfo->{virtdev};
         $drive_key .= "-backup" if $drive_key eq 'tpmstate0';
         my $block_node_size =
-            eval { $block_info->{"drive-$drive_key"}->{inserted}->{image}->{'virtual-size'}; };
+            eval { $block_info->{$drive_key}->{inserted}->{image}->{'virtual-size'}; };
         if (!$block_node_size) {
             $self->loginfo(
                 "could not determine block node size of drive '$drive_key' - using fallback");

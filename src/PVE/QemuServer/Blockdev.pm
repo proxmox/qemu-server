@@ -58,6 +58,43 @@ sub qdev_id_to_drive_id {
     return $qdev_id; # for SCSI/SATA/IDE it's the same
 }
 
+=pod
+
+=head3 get_block_info
+
+    my $block_info = get_block_info($vmid);
+    my $inserted = $block_info->{$drive_key}->{inserted};
+    my $node_name = $inserted->{'node-name'};
+    my $block_node_size = $inserted->{image}->{'virtual-size'};
+
+Returns a hash reference with the information from the C<query-block> QMP command indexed by
+configuration drive keys like C<scsi2>. See the QMP documentation for details.
+
+Parameters:
+
+=over
+
+=item C<$vmid>: The ID of the virtual machine to query.
+
+=back
+
+=cut
+
+sub get_block_info {
+    my ($vmid) = @_;
+
+    my $block_info = {};
+
+    my $qmp_block_info = mon_cmd($vmid, "query-block");
+    for my $info ($qmp_block_info->@*) {
+        my $qdev_id = $info->{qdev} or next;
+        my $drive_id = qdev_id_to_drive_id($qdev_id);
+        $block_info->{$drive_id} = $info;
+    }
+
+    return $block_info;
+}
+
 my sub get_node_name {
     my ($type, $drive_id, $volid, $options) = @_;
 

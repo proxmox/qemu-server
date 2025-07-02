@@ -5732,14 +5732,13 @@ sub vm_start_nolock {
             $migrate_storage_uri = "nbd:${localip}:${storage_migrate_port}";
         }
 
-        my $block_info = mon_cmd($vmid, "query-block");
-        $block_info = { map { $_->{device} => $_ } $block_info->@* };
+        my $block_info = PVE::QemuServer::Blockdev::get_block_info($vmid);
 
         foreach my $opt (sort keys %$nbd) {
             my $drivestr = $nbd->{$opt}->{drivestr};
             my $volid = $nbd->{$opt}->{volid};
 
-            my $block_node = $block_info->{"drive-$opt"}->{inserted}->{'node-name'};
+            my $block_node = $block_info->{$opt}->{inserted}->{'node-name'};
 
             mon_cmd(
                 $vmid,
