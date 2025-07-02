@@ -1,3 +1,13 @@
+qemu-server (8.3.14) bookworm; urgency=medium
+
+  * d/control: record libpve-network-perl dependency
+
+  * d/control: replace outdated pkg-config with pkgconf dependency
+
+  * net: use pve-firewall helper for deciding whether to create fw bridges
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 02 Jul 2025 15:37:48 +0200
+
 qemu-server (8.3.13) bookworm; urgency=medium
 
   * fix #6317: backup: properly cleanup fleecing images after the backup of a
