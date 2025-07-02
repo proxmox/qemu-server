@@ -12,6 +12,7 @@ use PVE::JSONSchema qw(json_bool);
 use PVE::Storage;
 
 use PVE::QemuServer::Drive qw(drive_is_cdrom);
+use PVE::QemuServer::Helpers;
 use PVE::QemuServer::Monitor qw(mon_cmd);
 
 my sub tpm_backup_node_name {
@@ -497,6 +498,27 @@ sub detach_fleecing_block_nodes {
         eval { detach($vmid, $node_name) };
         $log_func->('warn', "error detaching (old) fleecing image '$node_name' - $@") if $@;
     }
+}
+
+sub resize {
+    my ($vmid, $deviceid, $storecfg, $volid, $size) = @_;
+
+    my $running = PVE::QemuServer::Helpers::vm_running_locally($vmid);
+
+    PVE::Storage::volume_resize($storecfg, $volid, $size, $running);
+
+    return if !$running;
+
+    my $padding = (1024 - $size % 1024) % 1024;
+    $size = $size + $padding;
+
+    mon_cmd(
+        $vmid,
+        "block_resize",
+        device => $deviceid,
+        size => int($size),
+        timeout => 60,
+    );
 }
 
 1;

@@ -4341,27 +4341,6 @@ sub qemu_block_set_io_throttle {
 
 }
 
-sub qemu_block_resize {
-    my ($vmid, $deviceid, $storecfg, $volid, $size) = @_;
-
-    my $running = check_running($vmid);
-
-    PVE::Storage::volume_resize($storecfg, $volid, $size, $running);
-
-    return if !$running;
-
-    my $padding = (1024 - $size % 1024) % 1024;
-    $size = $size + $padding;
-
-    mon_cmd(
-        $vmid,
-        "block_resize",
-        device => $deviceid,
-        size => int($size),
-        timeout => 60,
-    );
-}
-
 sub qemu_volume_snapshot {
     my ($vmid, $deviceid, $storecfg, $volid, $snap) = @_;
 

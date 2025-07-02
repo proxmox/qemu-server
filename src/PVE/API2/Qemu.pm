@@ -28,6 +28,7 @@ use PVE::GuestImport;
 use PVE::QemuConfig;
 use PVE::QemuServer;
 use PVE::QemuServer::Agent;
+use PVE::QemuServer::Blockdev;
 use PVE::QemuServer::BlockJob;
 use PVE::QemuServer::Cloudinit;
 use PVE::QemuServer::CPUConfig;
@@ -5745,7 +5746,7 @@ __PACKAGE__->register_method({
                 "update VM $vmid: resize --disk $disk --size $sizestr",
             );
 
-            PVE::QemuServer::qemu_block_resize(
+            PVE::QemuServer::Blockdev::resize(
                 $vmid, "drive-$disk", $storecfg, $volid, $newsize,
             );
 
