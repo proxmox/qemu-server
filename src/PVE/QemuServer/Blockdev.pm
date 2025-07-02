@@ -562,4 +562,22 @@ sub resize {
     );
 }
 
+sub change_medium {
+    my ($storecfg, $vmid, $qdev_id, $drive) = @_;
+
+    # force eject if locked
+    mon_cmd($vmid, "eject", force => JSON::true, id => "$qdev_id");
+
+    my ($path, $format) = PVE::QemuServer::Drive::get_path_and_format($storecfg, $drive);
+
+    if ($path) { # no path for 'none'
+        mon_cmd(
+            $vmid, "blockdev-change-medium",
+            id => "$qdev_id",
+            filename => "$path",
+            format => "$format",
+        );
+    }
+}
+
 1;

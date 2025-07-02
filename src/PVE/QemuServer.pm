@@ -5170,29 +5170,14 @@ sub vmconfig_update_disk {
             }
 
         } else { # cdrom
+            eval { PVE::QemuServer::Blockdev::change_medium($storecfg, $vmid, $opt, $drive); };
+            my $err = $@;
 
-            if ($drive->{file} eq 'none') {
-                mon_cmd($vmid, "eject", force => JSON::true, id => "$opt");
-                if (drive_is_cloudinit($old_drive)) {
-                    vmconfig_register_unused_drive($storecfg, $vmid, $conf, $old_drive);
-                }
-            } else {
-                my ($path, $format) =
-                    PVE::QemuServer::Drive::get_path_and_format($storecfg, $drive);
-
-                # force eject if locked
-                mon_cmd($vmid, "eject", force => JSON::true, id => "$opt");
-
-                if ($path) {
-                    mon_cmd(
-                        $vmid,
-                        "blockdev-change-medium",
-                        id => "$opt",
-                        filename => "$path",
-                        format => "$format",
-                    );
-                }
+            if ($drive->{file} eq 'none' && drive_is_cloudinit($old_drive)) {
+                vmconfig_register_unused_drive($storecfg, $vmid, $conf, $old_drive);
             }
+
+            die $err if $err;
 
             return 1;
         }
@@ -5230,18 +5215,7 @@ sub vmconfig_update_cloudinit_drive {
     my $running = PVE::QemuServer::check_running($vmid);
 
     if ($running) {
-        my ($path, $format) =
-            PVE::QemuServer::Drive::get_path_and_format($storecfg, $cloudinit_drive);
-        if ($path) {
-            mon_cmd($vmid, "eject", force => JSON::true, id => "$cloudinit_ds");
-            mon_cmd(
-                $vmid,
-                "blockdev-change-medium",
-                id => "$cloudinit_ds",
-                filename => "$path",
-                format => "$format",
-            );
-        }
+        PVE::QemuServer::Blockdev::change_medium($storecfg, $vmid, $cloudinit_ds, $cloudinit_drive);
     }
 }
 
