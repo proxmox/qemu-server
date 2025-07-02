@@ -139,6 +139,30 @@ sub top_node_name {
     return "drive-$drive_id";
 }
 
+sub get_node_name_below_throttle {
+    my ($vmid, $device_id, $assert_top_is_throttle) = @_;
+
+    my $block_info = get_block_info($vmid);
+    my $drive_id = $device_id =~ s/^drive-//r;
+    my $inserted = $block_info->{$drive_id}->{inserted}
+        or die "no block node inserted for drive '$drive_id'\n";
+
+    if ($inserted->{drv} ne 'throttle') {
+        die "$device_id: unexpected top node $inserted->{'node-name'} ($inserted->{drv})\n"
+            if $assert_top_is_throttle;
+        # before the switch to -blockdev, the top node was not throttle
+        return $inserted->{'node-name'};
+    }
+
+    my $children = { map { $_->{child} => $_ } $inserted->{children}->@* };
+
+    if (my $node_name = $children->{file}->{'node-name'}) {
+        return $node_name;
+    }
+
+    die "$device_id: throttle node without file child node name!\n";
+}
+
 my sub read_only_json_option {
     my ($drive, $options) = @_;
 
