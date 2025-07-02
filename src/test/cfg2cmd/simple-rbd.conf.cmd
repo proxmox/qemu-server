@@ -15,6 +15,14 @@
   -vnc 'unix:/var/run/qemu-server/8006.vnc,password=on' \
   -cpu kvm64,enforce,+kvm_pv_eoi,+kvm_pv_unhalt,+lahf_lm,+sep \
   -m 768 \
+  -object '{"id":"throttle-drive-scsi0","limits":{},"qom-type":"throttle-group"}' \
+  -object '{"id":"throttle-drive-scsi1","limits":{},"qom-type":"throttle-group"}' \
+  -object '{"id":"throttle-drive-scsi2","limits":{},"qom-type":"throttle-group"}' \
+  -object '{"id":"throttle-drive-scsi3","limits":{},"qom-type":"throttle-group"}' \
+  -object '{"id":"throttle-drive-scsi4","limits":{},"qom-type":"throttle-group"}' \
+  -object '{"id":"throttle-drive-scsi5","limits":{},"qom-type":"throttle-group"}' \
+  -object '{"id":"throttle-drive-scsi6","limits":{},"qom-type":"throttle-group"}' \
+  -object '{"id":"throttle-drive-scsi7","limits":{},"qom-type":"throttle-group"}' \
   -global 'PIIX4_PM.disable_s3=1' \
   -global 'PIIX4_PM.disable_s4=1' \
   -device 'pci-bridge,id=pci.1,chassis_nr=1,bus=pci.0,addr=0x1e' \
@@ -25,24 +33,23 @@
   -device 'VGA,id=vga,bus=pci.0,addr=0x2' \
   -device 'virtio-balloon-pci,id=balloon0,bus=pci.0,addr=0x3,free-page-reporting=on' \
   -iscsi 'initiator-name=iqn.1993-08.org.debian:01:aabbccddeeff' \
-  -drive 'if=none,id=drive-ide2,media=cdrom,aio=io_uring' \
   -device 'ide-cd,bus=ide.1,unit=0,id=ide2,bootindex=200' \
   -device 'virtio-scsi-pci,id=scsihw0,bus=pci.0,addr=0x5' \
-  -drive 'file=rbd:cpool/vm-8006-disk-0:mon_host=127.0.0.42;127.0.0.21;[\:\:1]:auth_supported=none,if=none,id=drive-scsi0,discard=on,format=raw,cache=none,aio=io_uring,detect-zeroes=unmap' \
+  -blockdev '{"driver":"throttle","file":{"cache":{"direct":true,"no-flush":false},"driver":"raw","file":{"auth-client-required":["none"],"cache":{"direct":true,"no-flush":false},"detect-zeroes":"unmap","discard":"unmap","driver":"rbd","image":"vm-8006-disk-0","node-name":"e8e1af6f55c6a2466f178045aa79710","pool":"cpool","read-only":false,"server":[{"host":"127.0.0.42","port":"3300"},{"host":"127.0.0.21","port":"3300"},{"host":"::1","port":"3300"}]},"node-name":"f8e1af6f55c6a2466f178045aa79710","read-only":false},"node-name":"drive-scsi0","throttle-group":"throttle-drive-scsi0"}' \
   -device 'scsi-hd,bus=scsihw0.0,channel=0,scsi-id=0,lun=0,drive=drive-scsi0,id=scsi0,bootindex=100,write-cache=on' \
-  -drive 'file=rbd:cpool/vm-8006-disk-0:mon_host=127.0.0.42;127.0.0.21;[\:\:1]:auth_supported=none,if=none,id=drive-scsi1,cache=writeback,discard=on,format=raw,aio=io_uring,detect-zeroes=unmap' \
+  -blockdev '{"driver":"throttle","file":{"cache":{"direct":false,"no-flush":false},"driver":"raw","file":{"auth-client-required":["none"],"cache":{"direct":false,"no-flush":false},"detect-zeroes":"unmap","discard":"unmap","driver":"rbd","image":"vm-8006-disk-0","node-name":"e3990bba2ed1f48c5bb23e9f37b4cec","pool":"cpool","read-only":false,"server":[{"host":"127.0.0.42","port":"3300"},{"host":"127.0.0.21","port":"3300"},{"host":"::1","port":"3300"}]},"node-name":"f3990bba2ed1f48c5bb23e9f37b4cec","read-only":false},"node-name":"drive-scsi1","throttle-group":"throttle-drive-scsi1"}' \
   -device 'scsi-hd,bus=scsihw0.0,channel=0,scsi-id=0,lun=1,drive=drive-scsi1,id=scsi1,write-cache=on' \
-  -drive 'file=rbd:cpool/vm-8006-disk-0:mon_host=127.0.0.42;127.0.0.21;[\:\:1]:auth_supported=none,if=none,id=drive-scsi2,cache=writethrough,discard=on,format=raw,aio=io_uring,detect-zeroes=unmap' \
+  -blockdev '{"driver":"throttle","file":{"cache":{"direct":false,"no-flush":false},"driver":"raw","file":{"auth-client-required":["none"],"cache":{"direct":false,"no-flush":false},"detect-zeroes":"unmap","discard":"unmap","driver":"rbd","image":"vm-8006-disk-0","node-name":"e3beccc2a8f2eacb8b5df8055a7d093","pool":"cpool","read-only":false,"server":[{"host":"127.0.0.42","port":"3300"},{"host":"127.0.0.21","port":"3300"},{"host":"::1","port":"3300"}]},"node-name":"f3beccc2a8f2eacb8b5df8055a7d093","read-only":false},"node-name":"drive-scsi2","throttle-group":"throttle-drive-scsi2"}' \
   -device 'scsi-hd,bus=scsihw0.0,channel=0,scsi-id=0,lun=2,drive=drive-scsi2,id=scsi2,write-cache=off' \
-  -drive 'file=rbd:cpool/vm-8006-disk-0:mon_host=127.0.0.42;127.0.0.21;[\:\:1]:auth_supported=none,if=none,id=drive-scsi3,cache=directsync,discard=on,format=raw,aio=io_uring,detect-zeroes=unmap' \
+  -blockdev '{"driver":"throttle","file":{"cache":{"direct":true,"no-flush":false},"driver":"raw","file":{"auth-client-required":["none"],"cache":{"direct":true,"no-flush":false},"detect-zeroes":"unmap","discard":"unmap","driver":"rbd","image":"vm-8006-disk-0","node-name":"eef923d5dfcee93fbc712b03f9f21af","pool":"cpool","read-only":false,"server":[{"host":"127.0.0.42","port":"3300"},{"host":"127.0.0.21","port":"3300"},{"host":"::1","port":"3300"}]},"node-name":"fef923d5dfcee93fbc712b03f9f21af","read-only":false},"node-name":"drive-scsi3","throttle-group":"throttle-drive-scsi3"}' \
   -device 'scsi-hd,bus=scsihw0.0,channel=0,scsi-id=0,lun=3,drive=drive-scsi3,id=scsi3,write-cache=off' \
-  -drive 'file=/dev/rbd-pve/fc4181a6-56eb-4f68-b452-8ba1f381ca2a/cpool/vm-8006-disk-0,if=none,id=drive-scsi4,discard=on,format=raw,cache=none,aio=io_uring,detect-zeroes=unmap' \
+  -blockdev '{"driver":"throttle","file":{"cache":{"direct":true,"no-flush":false},"driver":"raw","file":{"aio":"io_uring","cache":{"direct":true,"no-flush":false},"detect-zeroes":"unmap","discard":"unmap","driver":"host_device","filename":"/dev/rbd-pve/fc4181a6-56eb-4f68-b452-8ba1f381ca2a/cpool/vm-8006-disk-0","node-name":"eb2c7a292f03b9f6d015cf83ae79730","read-only":false},"node-name":"fb2c7a292f03b9f6d015cf83ae79730","read-only":false},"node-name":"drive-scsi4","throttle-group":"throttle-drive-scsi4"}' \
   -device 'scsi-hd,bus=scsihw0.0,channel=0,scsi-id=0,lun=4,drive=drive-scsi4,id=scsi4,write-cache=on' \
-  -drive 'file=/dev/rbd-pve/fc4181a6-56eb-4f68-b452-8ba1f381ca2a/cpool/vm-8006-disk-0,if=none,id=drive-scsi5,cache=writeback,discard=on,format=raw,aio=threads,detect-zeroes=unmap' \
+  -blockdev '{"driver":"throttle","file":{"cache":{"direct":false,"no-flush":false},"driver":"raw","file":{"aio":"threads","cache":{"direct":false,"no-flush":false},"detect-zeroes":"unmap","discard":"unmap","driver":"host_device","filename":"/dev/rbd-pve/fc4181a6-56eb-4f68-b452-8ba1f381ca2a/cpool/vm-8006-disk-0","node-name":"e5258ec75558b1f102af1e20e677fd0","read-only":false},"node-name":"f5258ec75558b1f102af1e20e677fd0","read-only":false},"node-name":"drive-scsi5","throttle-group":"throttle-drive-scsi5"}' \
   -device 'scsi-hd,bus=scsihw0.0,channel=0,scsi-id=0,lun=5,drive=drive-scsi5,id=scsi5,write-cache=on' \
-  -drive 'file=/dev/rbd-pve/fc4181a6-56eb-4f68-b452-8ba1f381ca2a/cpool/vm-8006-disk-0,if=none,id=drive-scsi6,cache=writethrough,discard=on,format=raw,aio=threads,detect-zeroes=unmap' \
+  -blockdev '{"driver":"throttle","file":{"cache":{"direct":false,"no-flush":false},"driver":"raw","file":{"aio":"threads","cache":{"direct":false,"no-flush":false},"detect-zeroes":"unmap","discard":"unmap","driver":"host_device","filename":"/dev/rbd-pve/fc4181a6-56eb-4f68-b452-8ba1f381ca2a/cpool/vm-8006-disk-0","node-name":"edb33cdcea8ec3e2225509c4945227e","read-only":false},"node-name":"fdb33cdcea8ec3e2225509c4945227e","read-only":false},"node-name":"drive-scsi6","throttle-group":"throttle-drive-scsi6"}' \
   -device 'scsi-hd,bus=scsihw0.0,channel=0,scsi-id=0,lun=6,drive=drive-scsi6,id=scsi6,write-cache=off' \
-  -drive 'file=/dev/rbd-pve/fc4181a6-56eb-4f68-b452-8ba1f381ca2a/cpool/vm-8006-disk-0,if=none,id=drive-scsi7,cache=directsync,discard=on,format=raw,aio=io_uring,detect-zeroes=unmap' \
+  -blockdev '{"driver":"throttle","file":{"cache":{"direct":true,"no-flush":false},"driver":"raw","file":{"aio":"io_uring","cache":{"direct":true,"no-flush":false},"detect-zeroes":"unmap","discard":"unmap","driver":"host_device","filename":"/dev/rbd-pve/fc4181a6-56eb-4f68-b452-8ba1f381ca2a/cpool/vm-8006-disk-0","node-name":"eb0b017124a47505c97a5da052e0141","read-only":false},"node-name":"fb0b017124a47505c97a5da052e0141","read-only":false},"node-name":"drive-scsi7","throttle-group":"throttle-drive-scsi7"}' \
   -device 'scsi-hd,bus=scsihw0.0,channel=0,scsi-id=0,lun=7,drive=drive-scsi7,id=scsi7,write-cache=off' \
   -netdev 'type=tap,id=net0,ifname=tap8006i0,script=/usr/libexec/qemu-server/pve-bridge,downscript=/usr/libexec/qemu-server/pve-bridgedown,vhost=on' \
   -device 'virtio-net-pci,mac=A2:C0:43:77:08:A0,netdev=net0,bus=pci.0,addr=0x12,id=net0,rx_queue_size=1024,tx_queue_size=256,bootindex=300' \

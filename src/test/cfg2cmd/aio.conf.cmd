@@ -14,6 +14,20 @@
   -vnc 'unix:/var/run/qemu-server/8006.vnc,password=on' \
   -cpu kvm64,enforce,+kvm_pv_eoi,+kvm_pv_unhalt,+lahf_lm,+sep \
   -m 512 \
+  -object '{"id":"throttle-drive-scsi0","limits":{},"qom-type":"throttle-group"}' \
+  -object '{"id":"throttle-drive-scsi1","limits":{},"qom-type":"throttle-group"}' \
+  -object '{"id":"throttle-drive-scsi2","limits":{},"qom-type":"throttle-group"}' \
+  -object '{"id":"throttle-drive-scsi3","limits":{},"qom-type":"throttle-group"}' \
+  -object '{"id":"throttle-drive-scsi4","limits":{},"qom-type":"throttle-group"}' \
+  -object '{"id":"throttle-drive-scsi5","limits":{},"qom-type":"throttle-group"}' \
+  -object '{"id":"throttle-drive-scsi6","limits":{},"qom-type":"throttle-group"}' \
+  -object '{"id":"throttle-drive-scsi7","limits":{},"qom-type":"throttle-group"}' \
+  -object '{"id":"throttle-drive-scsi8","limits":{},"qom-type":"throttle-group"}' \
+  -object '{"id":"throttle-drive-scsi9","limits":{},"qom-type":"throttle-group"}' \
+  -object '{"id":"throttle-drive-scsi10","limits":{},"qom-type":"throttle-group"}' \
+  -object '{"id":"throttle-drive-scsi11","limits":{},"qom-type":"throttle-group"}' \
+  -object '{"id":"throttle-drive-scsi12","limits":{},"qom-type":"throttle-group"}' \
+  -object '{"id":"throttle-drive-scsi13","limits":{},"qom-type":"throttle-group"}' \
   -global 'PIIX4_PM.disable_s3=1' \
   -global 'PIIX4_PM.disable_s4=1' \
   -device 'pci-bridge,id=pci.1,chassis_nr=1,bus=pci.0,addr=0x1e' \
@@ -24,33 +38,33 @@
   -device 'virtio-balloon-pci,id=balloon0,bus=pci.0,addr=0x3,free-page-reporting=on' \
   -iscsi 'initiator-name=iqn.1993-08.org.debian:01:aabbccddeeff' \
   -device 'lsi,id=scsihw0,bus=pci.0,addr=0x5' \
-  -drive 'file=/var/lib/vz/images/8006/vm-8006-disk-0.raw,if=none,id=drive-scsi0,discard=on,format=raw,cache=none,aio=threads,detect-zeroes=unmap' \
+  -blockdev '{"driver":"throttle","file":{"cache":{"direct":true,"no-flush":false},"driver":"raw","file":{"aio":"threads","cache":{"direct":true,"no-flush":false},"detect-zeroes":"unmap","discard":"unmap","driver":"file","filename":"/var/lib/vz/images/8006/vm-8006-disk-0.raw","node-name":"e3b2553803d55d43b9986a0aac3e9a7","read-only":false},"node-name":"f3b2553803d55d43b9986a0aac3e9a7","read-only":false},"node-name":"drive-scsi0","throttle-group":"throttle-drive-scsi0"}' \
   -device 'scsi-hd,bus=scsihw0.0,scsi-id=0,drive=drive-scsi0,id=scsi0,write-cache=on' \
-  -drive 'file=/var/lib/vz/images/8006/vm-8006-disk-1.raw,if=none,id=drive-scsi1,discard=on,format=raw,cache=none,aio=native,detect-zeroes=unmap' \
+  -blockdev '{"driver":"throttle","file":{"cache":{"direct":true,"no-flush":false},"driver":"raw","file":{"aio":"native","cache":{"direct":true,"no-flush":false},"detect-zeroes":"unmap","discard":"unmap","driver":"file","filename":"/var/lib/vz/images/8006/vm-8006-disk-1.raw","node-name":"e08707d013893852b3d4d42301a4298","read-only":false},"node-name":"f08707d013893852b3d4d42301a4298","read-only":false},"node-name":"drive-scsi1","throttle-group":"throttle-drive-scsi1"}' \
   -device 'scsi-hd,bus=scsihw0.0,scsi-id=1,drive=drive-scsi1,id=scsi1,write-cache=on' \
-  -drive 'file=/var/lib/vz/images/8006/vm-8006-disk-2.raw,if=none,id=drive-scsi2,discard=on,format=raw,cache=none,aio=io_uring,detect-zeroes=unmap' \
+  -blockdev '{"driver":"throttle","file":{"cache":{"direct":true,"no-flush":false},"driver":"raw","file":{"aio":"io_uring","cache":{"direct":true,"no-flush":false},"detect-zeroes":"unmap","discard":"unmap","driver":"file","filename":"/var/lib/vz/images/8006/vm-8006-disk-2.raw","node-name":"edb0854bba55e8b2544ad937c9f5afc","read-only":false},"node-name":"fdb0854bba55e8b2544ad937c9f5afc","read-only":false},"node-name":"drive-scsi2","throttle-group":"throttle-drive-scsi2"}' \
   -device 'scsi-hd,bus=scsihw0.0,scsi-id=2,drive=drive-scsi2,id=scsi2,write-cache=on' \
-  -drive 'file=/var/lib/vz/images/8006/vm-8006-disk-3.raw,if=none,id=drive-scsi3,discard=on,format=raw,cache=none,aio=io_uring,detect-zeroes=unmap' \
+  -blockdev '{"driver":"throttle","file":{"cache":{"direct":true,"no-flush":false},"driver":"raw","file":{"aio":"io_uring","cache":{"direct":true,"no-flush":false},"detect-zeroes":"unmap","discard":"unmap","driver":"file","filename":"/var/lib/vz/images/8006/vm-8006-disk-3.raw","node-name":"e9c170cb9491763cad3f31718205efc","read-only":false},"node-name":"f9c170cb9491763cad3f31718205efc","read-only":false},"node-name":"drive-scsi3","throttle-group":"throttle-drive-scsi3"}' \
   -device 'scsi-hd,bus=scsihw0.0,scsi-id=3,drive=drive-scsi3,id=scsi3,write-cache=on' \
-  -drive 'file=/mnt/pve/cifs-store/images/8006/vm-8006-disk-4.raw,if=none,id=drive-scsi4,discard=on,format=raw,cache=none,aio=native,detect-zeroes=unmap' \
+  -blockdev '{"driver":"throttle","file":{"cache":{"direct":true,"no-flush":false},"driver":"raw","file":{"aio":"native","cache":{"direct":true,"no-flush":false},"detect-zeroes":"unmap","discard":"unmap","driver":"file","filename":"/mnt/pve/cifs-store/images/8006/vm-8006-disk-4.raw","node-name":"ea34ecc24c40da0d53420ef344ced37","read-only":false},"node-name":"fa34ecc24c40da0d53420ef344ced37","read-only":false},"node-name":"drive-scsi4","throttle-group":"throttle-drive-scsi4"}' \
   -device 'scsi-hd,bus=scsihw0.0,scsi-id=4,drive=drive-scsi4,id=scsi4,write-cache=on' \
-  -drive 'file=/mnt/pve/cifs-store/images/8006/vm-8006-disk-5.raw,if=none,id=drive-scsi5,discard=on,format=raw,cache=none,aio=io_uring,detect-zeroes=unmap' \
+  -blockdev '{"driver":"throttle","file":{"cache":{"direct":true,"no-flush":false},"driver":"raw","file":{"aio":"io_uring","cache":{"direct":true,"no-flush":false},"detect-zeroes":"unmap","discard":"unmap","driver":"file","filename":"/mnt/pve/cifs-store/images/8006/vm-8006-disk-5.raw","node-name":"e39cacf47a4f4877072601505d90949","read-only":false},"node-name":"f39cacf47a4f4877072601505d90949","read-only":false},"node-name":"drive-scsi5","throttle-group":"throttle-drive-scsi5"}' \
   -device 'scsi-hd,bus=scsihw0.0,scsi-id=5,drive=drive-scsi5,id=scsi5,write-cache=on' \
-  -drive 'file=/dev/rbd-pve/fc4181a6-56eb-4f68-b452-8ba1f381ca2a/cpool/vm-8006-disk-6,if=none,id=drive-scsi6,discard=on,format=raw,cache=none,aio=io_uring,detect-zeroes=unmap' \
+  -blockdev '{"driver":"throttle","file":{"cache":{"direct":true,"no-flush":false},"driver":"raw","file":{"aio":"io_uring","cache":{"direct":true,"no-flush":false},"detect-zeroes":"unmap","discard":"unmap","driver":"host_device","filename":"/dev/rbd-pve/fc4181a6-56eb-4f68-b452-8ba1f381ca2a/cpool/vm-8006-disk-6","node-name":"e7db1ee70981087e4a2861bc7da417b","read-only":false},"node-name":"f7db1ee70981087e4a2861bc7da417b","read-only":false},"node-name":"drive-scsi6","throttle-group":"throttle-drive-scsi6"}' \
   -device 'scsi-hd,bus=scsihw0.0,scsi-id=6,drive=drive-scsi6,id=scsi6,write-cache=on' \
   -device 'lsi,id=scsihw1,bus=pci.0,addr=0x6' \
-  -drive 'file=/dev/rbd-pve/fc4181a6-56eb-4f68-b452-8ba1f381ca2a/cpool/vm-8006-disk-7,if=none,id=drive-scsi7,discard=on,format=raw,cache=none,aio=io_uring,detect-zeroes=unmap' \
+  -blockdev '{"driver":"throttle","file":{"cache":{"direct":true,"no-flush":false},"driver":"raw","file":{"aio":"io_uring","cache":{"direct":true,"no-flush":false},"detect-zeroes":"unmap","discard":"unmap","driver":"host_device","filename":"/dev/rbd-pve/fc4181a6-56eb-4f68-b452-8ba1f381ca2a/cpool/vm-8006-disk-7","node-name":"e2d2deac808301140a96c862fe3ea85","read-only":false},"node-name":"f2d2deac808301140a96c862fe3ea85","read-only":false},"node-name":"drive-scsi7","throttle-group":"throttle-drive-scsi7"}' \
   -device 'scsi-hd,bus=scsihw1.0,scsi-id=0,drive=drive-scsi7,id=scsi7,write-cache=on' \
-  -drive 'file=/dev/rbd-pve/fc4181a6-56eb-4f68-b452-8ba1f381ca2a/cpool/vm-8006-disk-8,if=none,id=drive-scsi8,cache=writeback,discard=on,format=raw,aio=threads,detect-zeroes=unmap' \
+  -blockdev '{"driver":"throttle","file":{"cache":{"direct":false,"no-flush":false},"driver":"raw","file":{"aio":"threads","cache":{"direct":false,"no-flush":false},"detect-zeroes":"unmap","discard":"unmap","driver":"host_device","filename":"/dev/rbd-pve/fc4181a6-56eb-4f68-b452-8ba1f381ca2a/cpool/vm-8006-disk-8","node-name":"e9796b73db57b8943746ede7d0d3060","read-only":false},"node-name":"f9796b73db57b8943746ede7d0d3060","read-only":false},"node-name":"drive-scsi8","throttle-group":"throttle-drive-scsi8"}' \
   -device 'scsi-hd,bus=scsihw1.0,scsi-id=1,drive=drive-scsi8,id=scsi8,write-cache=on' \
-  -drive 'file=/dev/rbd-pve/fc4181a6-56eb-4f68-b452-8ba1f381ca2a/cpool/vm-8006-disk-9,if=none,id=drive-scsi9,cache=writeback,discard=on,format=raw,aio=io_uring,detect-zeroes=unmap' \
+  -blockdev '{"driver":"throttle","file":{"cache":{"direct":false,"no-flush":false},"driver":"raw","file":{"aio":"io_uring","cache":{"direct":false,"no-flush":false},"detect-zeroes":"unmap","discard":"unmap","driver":"host_device","filename":"/dev/rbd-pve/fc4181a6-56eb-4f68-b452-8ba1f381ca2a/cpool/vm-8006-disk-9","node-name":"efa538892acc012edbdc5810035bf7d","read-only":false},"node-name":"ffa538892acc012edbdc5810035bf7d","read-only":false},"node-name":"drive-scsi9","throttle-group":"throttle-drive-scsi9"}' \
   -device 'scsi-hd,bus=scsihw1.0,scsi-id=2,drive=drive-scsi9,id=scsi9,write-cache=on' \
-  -drive 'file=rbd:cpool/vm-8006-disk-8:mon_host=127.0.0.42;127.0.0.21;[\:\:1]:auth_supported=none,if=none,id=drive-scsi10,discard=on,format=raw,cache=none,aio=io_uring,detect-zeroes=unmap' \
+  -blockdev '{"driver":"throttle","file":{"cache":{"direct":true,"no-flush":false},"driver":"raw","file":{"auth-client-required":["none"],"cache":{"direct":true,"no-flush":false},"detect-zeroes":"unmap","discard":"unmap","driver":"rbd","image":"vm-8006-disk-8","node-name":"e6f4cbffa741d16bba69304eb2800ef","pool":"cpool","read-only":false,"server":[{"host":"127.0.0.42","port":"3300"},{"host":"127.0.0.21","port":"3300"},{"host":"::1","port":"3300"}]},"node-name":"f6f4cbffa741d16bba69304eb2800ef","read-only":false},"node-name":"drive-scsi10","throttle-group":"throttle-drive-scsi10"}' \
   -device 'scsi-hd,bus=scsihw1.0,scsi-id=3,drive=drive-scsi10,id=scsi10,write-cache=on' \
-  -drive 'file=rbd:cpool/vm-8006-disk-8:mon_host=127.0.0.42;127.0.0.21;[\:\:1]:auth_supported=none,if=none,id=drive-scsi11,discard=on,format=raw,cache=none,aio=io_uring,detect-zeroes=unmap' \
+  -blockdev '{"driver":"throttle","file":{"cache":{"direct":true,"no-flush":false},"driver":"raw","file":{"auth-client-required":["none"],"cache":{"direct":true,"no-flush":false},"detect-zeroes":"unmap","discard":"unmap","driver":"rbd","image":"vm-8006-disk-8","node-name":"e42375c54de70f5f4be966d98c90255","pool":"cpool","read-only":false,"server":[{"host":"127.0.0.42","port":"3300"},{"host":"127.0.0.21","port":"3300"},{"host":"::1","port":"3300"}]},"node-name":"f42375c54de70f5f4be966d98c90255","read-only":false},"node-name":"drive-scsi11","throttle-group":"throttle-drive-scsi11"}' \
   -device 'scsi-hd,bus=scsihw1.0,scsi-id=4,drive=drive-scsi11,id=scsi11,write-cache=on' \
-  -drive 'file=/dev/veegee/vm-8006-disk-9,if=none,id=drive-scsi12,discard=on,format=raw,cache=none,aio=native,detect-zeroes=unmap' \
+  -blockdev '{"driver":"throttle","file":{"cache":{"direct":true,"no-flush":false},"driver":"raw","file":{"aio":"native","cache":{"direct":true,"no-flush":false},"detect-zeroes":"unmap","discard":"unmap","driver":"host_device","filename":"/dev/veegee/vm-8006-disk-9","node-name":"ed7b2c9e0133619fcf6cb8ce5903502","read-only":false},"node-name":"fd7b2c9e0133619fcf6cb8ce5903502","read-only":false},"node-name":"drive-scsi12","throttle-group":"throttle-drive-scsi12"}' \
   -device 'scsi-hd,bus=scsihw1.0,scsi-id=5,drive=drive-scsi12,id=scsi12,write-cache=on' \
-  -drive 'file=/dev/veegee/vm-8006-disk-9,if=none,id=drive-scsi13,discard=on,format=raw,cache=none,aio=io_uring,detect-zeroes=unmap' \
+  -blockdev '{"driver":"throttle","file":{"cache":{"direct":true,"no-flush":false},"driver":"raw","file":{"aio":"io_uring","cache":{"direct":true,"no-flush":false},"detect-zeroes":"unmap","discard":"unmap","driver":"host_device","filename":"/dev/veegee/vm-8006-disk-9","node-name":"ed85420a880203ca1401d00a8edf132","read-only":false},"node-name":"fd85420a880203ca1401d00a8edf132","read-only":false},"node-name":"drive-scsi13","throttle-group":"throttle-drive-scsi13"}' \
   -device 'scsi-hd,bus=scsihw1.0,scsi-id=6,drive=drive-scsi13,id=scsi13,write-cache=on' \
   -machine 'type=pc+pve0'

@@ -266,6 +266,18 @@ $storage_module->mock(
     },
 );
 
+my $file_stat_module = Test::MockModule->new("File::stat");
+$file_stat_module->mock(
+    stat => sub {
+        my ($path) = @_;
+        if ($path =~ m!/dev/!) {
+            return $file_stat_module->original('stat')->('/dev/null');
+        } else {
+            return $file_stat_module->original('stat')->('./run_config2command_tests.pl');
+        }
+    },
+);
+
 my $zfsplugin_module = Test::MockModule->new("PVE::Storage::ZFSPlugin");
 $zfsplugin_module->mock(
     zfs_get_lu_name => sub {
@@ -273,6 +285,13 @@ $zfsplugin_module->mock(
     },
     zfs_get_lun_number => sub {
         return "0";
+    },
+);
+
+my $rbdplugin_module = Test::MockModule->new("PVE::Storage::RBDPlugin");
+$rbdplugin_module->mock(
+    rbd_volume_config_set => sub {
+        return;
     },
 );
 

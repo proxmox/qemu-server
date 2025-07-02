@@ -631,18 +631,24 @@ my sub blockdev_change_medium {
 sub change_medium {
     my ($storecfg, $vmid, $qdev_id, $drive) = @_;
 
-    # force eject if locked
-    mon_cmd($vmid, "eject", force => JSON::true, id => "$qdev_id");
+    my $machine_type = PVE::QemuServer::Machine::get_current_qemu_machine($vmid);
+    # for the switch to -blockdev
+    if (PVE::QemuServer::Machine::is_machine_version_at_least($machine_type, 10, 0)) {
+        blockdev_change_medium($storecfg, $vmid, $qdev_id, $drive);
+    } else {
+        # force eject if locked
+        mon_cmd($vmid, "eject", force => JSON::true, id => "$qdev_id");
 
-    my ($path, $format) = PVE::QemuServer::Drive::get_path_and_format($storecfg, $drive);
+        my ($path, $format) = PVE::QemuServer::Drive::get_path_and_format($storecfg, $drive);
 
-    if ($path) { # no path for 'none'
-        mon_cmd(
-            $vmid, "blockdev-change-medium",
-            id => "$qdev_id",
-            filename => "$path",
-            format => "$format",
-        );
+        if ($path) { # no path for 'none'
+            mon_cmd(
+                $vmid, "blockdev-change-medium",
+                id => "$qdev_id",
+                filename => "$path",
+                format => "$format",
+            );
+        }
     }
 }
 
@@ -672,28 +678,59 @@ sub set_io_throttle {
 
     return if !PVE::QemuServer::Helpers::vm_running_locally($vmid);
 
-    mon_cmd(
-        $vmid, "block_set_io_throttle",
-        device => $deviceid,
-        bps => int($bps),
-        bps_rd => int($bps_rd),
-        bps_wr => int($bps_wr),
-        iops => int($iops),
-        iops_rd => int($iops_rd),
-        iops_wr => int($iops_wr),
-        bps_max => int($bps_max),
-        bps_rd_max => int($bps_rd_max),
-        bps_wr_max => int($bps_wr_max),
-        iops_max => int($iops_max),
-        iops_rd_max => int($iops_rd_max),
-        iops_wr_max => int($iops_wr_max),
-        bps_max_length => int($bps_max_length),
-        bps_rd_max_length => int($bps_rd_max_length),
-        bps_wr_max_length => int($bps_wr_max_length),
-        iops_max_length => int($iops_max_length),
-        iops_rd_max_length => int($iops_rd_max_length),
-        iops_wr_max_length => int($iops_wr_max_length),
-    );
+    my $machine_type = PVE::QemuServer::Machine::get_current_qemu_machine($vmid);
+    # for the switch to -blockdev
+    if (PVE::QemuServer::Machine::is_machine_version_at_least($machine_type, 10, 0)) {
+        mon_cmd(
+            $vmid,
+            'qom-set',
+            path => "throttle-$deviceid",
+            property => "limits",
+            value => {
+                'bps-total' => int($bps),
+                'bps-read' => int($bps_rd),
+                'bps-write' => int($bps_wr),
+                'iops-total' => int($iops),
+                'iops-read' => int($iops_rd),
+                'iops-write' => int($iops_wr),
+                'bps-total-max' => int($bps_max),
+                'bps-read-max' => int($bps_rd_max),
+                'bps-write-max' => int($bps_wr_max),
+                'iops-total-max' => int($iops_max),
+                'iops-read-max' => int($iops_rd_max),
+                'iops-write-max' => int($iops_wr_max),
+                'bps-total-max-length' => int($bps_max_length),
+                'bps-read-max-length' => int($bps_rd_max_length),
+                'bps-write-max-length' => int($bps_wr_max_length),
+                'iops-total-max-length' => int($iops_max_length),
+                'iops-read-max-length' => int($iops_rd_max_length),
+                'iops-write-max-length' => int($iops_wr_max_length),
+            },
+        );
+    } else {
+        mon_cmd(
+            $vmid, "block_set_io_throttle",
+            device => $deviceid,
+            bps => int($bps),
+            bps_rd => int($bps_rd),
+            bps_wr => int($bps_wr),
+            iops => int($iops),
+            iops_rd => int($iops_rd),
+            iops_wr => int($iops_wr),
+            bps_max => int($bps_max),
+            bps_rd_max => int($bps_rd_max),
+            bps_wr_max => int($bps_wr_max),
+            iops_max => int($iops_max),
+            iops_rd_max => int($iops_rd_max),
+            iops_wr_max => int($iops_wr_max),
+            bps_max_length => int($bps_max_length),
+            bps_rd_max_length => int($bps_rd_max_length),
+            bps_wr_max_length => int($bps_wr_max_length),
+            iops_max_length => int($iops_max_length),
+            iops_rd_max_length => int($iops_rd_max_length),
+            iops_wr_max_length => int($iops_wr_max_length),
+        );
+    }
 }
 
 1;

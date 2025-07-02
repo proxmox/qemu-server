@@ -3,7 +3,7 @@ package PVE::QemuServer::OVMF;
 use strict;
 use warnings;
 
-use JSON;
+use JSON qw(to_json);
 
 use PVE::RESTEnvironment qw(log_warn);
 use PVE::Storage;
@@ -210,10 +210,21 @@ sub print_ovmf_commandline {
         }
         push $cmd->@*, '-bios', get_ovmf_files($hw_info->{arch}, undef, undef, $amd_sev_type);
     } else {
-        my ($code_drive_str, $var_drive_str) =
-            print_ovmf_drive_commandlines($conf, $storecfg, $vmid, $hw_info, $version_guard);
-        push $cmd->@*, '-drive', $code_drive_str;
-        push $cmd->@*, '-drive', $var_drive_str;
+        if ($version_guard->(10, 0, 0)) { # for the switch to -blockdev
+            my ($code_blockdev, $vars_blockdev, $throttle_group) =
+                generate_ovmf_blockdev($conf, $storecfg, $vmid, $hw_info);
+
+            push $cmd->@*, '-object', to_json($throttle_group, { canonical => 1 });
+            push $cmd->@*, '-blockdev', to_json($code_blockdev, { canonical => 1 });
+            push $cmd->@*, '-blockdev', to_json($vars_blockdev, { canonical => 1 });
+            push $machine_flags->@*, "pflash0=$code_blockdev->{'node-name'}",
+                "pflash1=$vars_blockdev->{'node-name'}";
+        } else {
+            my ($code_drive_str, $var_drive_str) =
+                print_ovmf_drive_commandlines($conf, $storecfg, $vmid, $hw_info, $version_guard);
+            push $cmd->@*, '-drive', $code_drive_str;
+            push $cmd->@*, '-drive', $var_drive_str;
+        }
     }
 
     return ($cmd, $machine_flags);

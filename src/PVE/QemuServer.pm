@@ -3640,19 +3640,40 @@ sub config_to_command {
             }
 
             my $live_restore = $live_restore_backing->{$ds};
-            my $live_blockdev_name = undef;
-            if ($live_restore) {
-                $live_blockdev_name = $live_restore->{name};
-                push @$devices, '-blockdev', $live_restore->{blockdev};
+
+            if (min_version($machine_version, 10, 0)) { # for the switch to -blockdev
+                if ($drive->{file} ne 'none') {
+                    my $throttle_group =
+                        PVE::QemuServer::Blockdev::generate_throttle_group($drive);
+                    push @$cmd, '-object', to_json($throttle_group, { canonical => 1 });
+
+                    my $extra_blockdev_options = {};
+                    $extra_blockdev_options->{'live-restore'} = $live_restore if $live_restore;
+                    # extra protection for templates, but SATA and IDE don't support it..
+                    $extra_blockdev_options->{'read-only'} = 1
+                        if drive_is_read_only($conf, $drive);
+
+                    my $blockdev = PVE::QemuServer::Blockdev::generate_drive_blockdev(
+                        $storecfg, $drive, $extra_blockdev_options,
+                    );
+                    push @$devices, '-blockdev', to_json($blockdev, { canonical => 1 });
+                }
+            } else {
+                my $live_blockdev_name = undef;
+                if ($live_restore) {
+                    $live_blockdev_name = $live_restore->{name};
+                    push @$devices, '-blockdev', $live_restore->{blockdev};
+                }
+
+                my $drive_cmd =
+                    print_drive_commandline_full($storecfg, $vmid, $drive, $live_blockdev_name);
+
+                # extra protection for templates, but SATA and IDE don't support it..
+                $drive_cmd .= ',readonly=on' if drive_is_read_only($conf, $drive);
+
+                push @$devices, '-drive', $drive_cmd;
             }
 
-            my $drive_cmd =
-                print_drive_commandline_full($storecfg, $vmid, $drive, $live_blockdev_name);
-
-            # extra protection for templates, but SATA and IDE don't support it..
-            $drive_cmd .= ',readonly=on' if drive_is_read_only($conf, $drive);
-
-            push @$devices, '-drive', $drive_cmd;
             push @$devices, '-device',
                 print_drivedevice_full(
                     $storecfg, $conf, $vmid, $drive, $bridges, $arch, $machine_type,
@@ -4050,28 +4071,44 @@ sub qemu_iothread_del {
 sub qemu_driveadd {
     my ($storecfg, $vmid, $device) = @_;
 
-    my $drive = print_drive_commandline_full($storecfg, $vmid, $device, undef);
-    $drive =~ s/\\/\\\\/g;
-    my $ret = PVE::QemuServer::Monitor::hmp_cmd($vmid, "drive_add auto \"$drive\"", 60);
+    my $machine_type = PVE::QemuServer::Machine::get_current_qemu_machine($vmid);
 
-    # If the command succeeds qemu prints: "OK"
-    return 1 if $ret =~ m/OK/s;
+    # for the switch to -blockdev
+    if (PVE::QemuServer::Machine::is_machine_version_at_least($machine_type, 10, 0)) {
+        PVE::QemuServer::Blockdev::attach($storecfg, $vmid, $device, {});
+        return 1;
+    } else {
+        my $drive = print_drive_commandline_full($storecfg, $vmid, $device, undef);
+        $drive =~ s/\\/\\\\/g;
+        my $ret = PVE::QemuServer::Monitor::hmp_cmd($vmid, "drive_add auto \"$drive\"", 60);
 
-    die "adding drive failed: $ret\n";
+        # If the command succeeds qemu prints: "OK"
+        return 1 if $ret =~ m/OK/s;
+
+        die "adding drive failed: $ret\n";
+    }
 }
 
 sub qemu_drivedel {
     my ($vmid, $deviceid) = @_;
 
-    my $ret = PVE::QemuServer::Monitor::hmp_cmd($vmid, "drive_del drive-$deviceid", 10 * 60);
-    $ret =~ s/^\s+//;
+    my $machine_type = PVE::QemuServer::Machine::get_current_qemu_machine($vmid);
 
-    return 1 if $ret eq "";
+    # for the switch to -blockdev
+    if (PVE::QemuServer::Machine::is_machine_version_at_least($machine_type, 10, 0)) {
+        PVE::QemuServer::Blockdev::detach($vmid, "drive-$deviceid");
+        return 1;
+    } else {
+        my $ret = PVE::QemuServer::Monitor::hmp_cmd($vmid, "drive_del drive-$deviceid", 10 * 60);
+        $ret =~ s/^\s+//;
 
-    # NB: device not found errors mean the drive was auto-deleted and we ignore the error
-    return 1 if $ret =~ m/Device \'.*?\' not found/s;
+        return 1 if $ret eq "";
 
-    die "deleting drive $deviceid failed : $ret\n";
+        # NB: device not found errors mean the drive was auto-deleted and we ignore the error
+        return 1 if $ret =~ m/Device \'.*?\' not found/s;
+
+        die "deleting drive $deviceid failed : $ret\n";
+    }
 }
 
 sub qemu_deviceaddverify {
@@ -7006,10 +7043,22 @@ sub pbs_live_restore {
         print "restoring '$ds' to '$drive->{file}'\n";
 
         my $pbs_name = "drive-${confname}-pbs";
-        $live_restore_backing->{$confname} = {
-            name => $pbs_name,
-            blockdev => print_pbs_blockdev($pbs_conf, $pbs_name),
-        };
+
+        $live_restore_backing->{$confname} = { name => $pbs_name };
+
+        # add blockdev information
+        my $machine_type = PVE::QemuServer::Machine::get_vm_machine($conf, undef, $conf->{arch});
+        my $machine_version = PVE::QemuServer::Machine::extract_version(
+            $machine_type,
+            PVE::QemuServer::Helpers::kvm_user_version(),
+        );
+        if (min_version($machine_version, 10, 0)) { # for the switch to -blockdev
+            $live_restore_backing->{$confname}->{blockdev} =
+                PVE::QemuServer::Blockdev::generate_pbs_blockdev($pbs_conf, $pbs_name);
+        } else {
+            $live_restore_backing->{$confname}->{blockdev} =
+                print_pbs_blockdev($pbs_conf, $pbs_name);
+        }
     }
 
     my $drives_streamed = 0;
@@ -7086,6 +7135,8 @@ sub pbs_live_restore {
 sub live_import_from_files {
     my ($mapping, $vmid, $conf, $restore_options) = @_;
 
+    my $storecfg = PVE::Storage::config();
+
     my $live_restore_backing = {};
     my $sources_to_remove = [];
     for my $dev (keys %$mapping) {
@@ -7103,18 +7154,30 @@ sub live_import_from_files {
         die "invalid format '$format' for '$dev' mapping\n"
             if !grep { $format eq $_ } qw(raw qcow2 vmdk);
 
-        $live_restore_backing->{$dev} = {
-            name => "drive-$dev-restore",
-            blockdev => "driver=$format,node-name=drive-$dev-restore"
+        $live_restore_backing->{$dev} = { name => "drive-$dev-restore" };
+
+        my $machine_type = PVE::QemuServer::Machine::get_vm_machine($conf, undef, $conf->{arch});
+        my $machine_version = PVE::QemuServer::Machine::extract_version(
+            $machine_type,
+            PVE::QemuServer::Helpers::kvm_user_version(),
+        );
+        if (min_version($machine_version, 10, 0)) { # for the switch to -blockdev
+            my ($interface, $index) = PVE::QemuServer::Drive::parse_drive_interface($dev);
+            my $drive = { file => $volid, interface => $interface, index => $index };
+            my $blockdev =
+                PVE::QemuServer::Blockdev::generate_drive_blockdev($storecfg, $drive, {});
+            $live_restore_backing->{$dev}->{blockdev} = $blockdev;
+        } else {
+            $live_restore_backing->{$dev}->{blockdev} =
+                "driver=$format,node-name=drive-$dev-restore"
                 . ",read-only=on"
-                . ",file.driver=file,file.filename=$path",
-        };
+                . ",file.driver=file,file.filename=$path";
+        }
 
         my $source_volid = $info->{'delete-after-finish'};
         push $sources_to_remove->@*, $source_volid if defined($source_volid);
     }
 
-    my $storecfg = PVE::Storage::config();
     eval {
 
         # make sure HA doesn't interrupt our restore by stopping the VM

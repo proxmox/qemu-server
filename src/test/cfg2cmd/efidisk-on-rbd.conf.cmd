@@ -9,8 +9,9 @@
   -pidfile /var/run/qemu-server/8006.pid \
   -daemonize \
   -smbios 'type=1,uuid=3dd750ce-d910-44d0-9493-525c0be4e688' \
-  -drive 'if=pflash,unit=0,format=raw,readonly=on,file=/usr/share/pve-edk2-firmware//OVMF_CODE.fd' \
-  -drive 'if=pflash,unit=1,id=drive-efidisk0,cache=writeback,format=raw,file=rbd:cpool/vm-100-disk-1:mon_host=127.0.0.42;127.0.0.21;[\:\:1]:auth_supported=none:rbd_cache_policy=writeback,size=131072' \
+  -object '{"id":"throttle-drive-efidisk0","limits":{},"qom-type":"throttle-group"}' \
+  -blockdev '{"driver":"raw","file":{"driver":"file","filename":"/usr/share/pve-edk2-firmware//OVMF_CODE.fd"},"node-name":"pflash0","read-only":true}' \
+  -blockdev '{"driver":"throttle","file":{"cache":{"direct":false,"no-flush":false},"driver":"raw","file":{"auth-client-required":["none"],"cache":{"direct":false,"no-flush":false},"detect-zeroes":"on","discard":"ignore","driver":"rbd","image":"vm-100-disk-1","node-name":"eeb8f022b5551ad1d795611f112c767","pool":"cpool","read-only":false,"server":[{"host":"127.0.0.42","port":"3300"},{"host":"127.0.0.21","port":"3300"},{"host":"::1","port":"3300"}]},"node-name":"feb8f022b5551ad1d795611f112c767","read-only":false,"size":131072},"node-name":"drive-efidisk0","throttle-group":"throttle-drive-efidisk0"}' \
   -smp '1,sockets=1,cores=1,maxcpus=1' \
   -nodefaults \
   -boot 'menu=on,strict=on,reboot-timeout=1000,splash=/usr/share/qemu-server/bootsplash.jpg' \
@@ -31,4 +32,4 @@
   -iscsi 'initiator-name=iqn.1993-08.org.debian:01:aabbccddeeff' \
   -netdev 'type=tap,id=net0,ifname=tap8006i0,script=/usr/libexec/qemu-server/pve-bridge,downscript=/usr/libexec/qemu-server/pve-bridgedown,vhost=on' \
   -device 'virtio-net-pci,mac=2E:01:68:F9:9C:87,netdev=net0,bus=pci.0,addr=0x12,id=net0,rx_queue_size=1024,tx_queue_size=256,bootindex=300' \
-  -machine 'type=pc+pve0'
+  -machine 'pflash0=pflash0,pflash1=drive-efidisk0,type=pc+pve0'

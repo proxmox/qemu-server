@@ -15,6 +15,7 @@
   -vnc 'unix:/var/run/qemu-server/8006.vnc,password=on' \
   -cpu 'Icelake-Server,enforce,+kvm_pv_eoi,+kvm_pv_unhalt,vendor=GenuineIntel' \
   -m 768 \
+  -object '{"id":"throttle-drive-scsi0","limits":{},"qom-type":"throttle-group"}' \
   -global 'PIIX4_PM.disable_s3=1' \
   -global 'PIIX4_PM.disable_s4=1' \
   -device 'pci-bridge,id=pci.1,chassis_nr=1,bus=pci.0,addr=0x1e' \
@@ -25,9 +26,8 @@
   -device 'VGA,id=vga,bus=pci.0,addr=0x2' \
   -device 'virtio-balloon-pci,id=balloon0,bus=pci.0,addr=0x3,free-page-reporting=on' \
   -iscsi 'initiator-name=iqn.1993-08.org.debian:01:aabbccddeeff' \
-  -drive 'if=none,id=drive-ide2,media=cdrom,aio=io_uring' \
   -device 'ide-cd,bus=ide.1,unit=0,id=ide2,bootindex=200' \
   -device 'virtio-scsi-pci,id=scsihw0,bus=pci.0,addr=0x5' \
-  -drive 'file=/var/lib/vz/images/8006/base-8006-disk-0.qcow2,if=none,id=drive-scsi0,discard=on,format=qcow2,cache=none,aio=io_uring,detect-zeroes=unmap' \
+  -blockdev '{"driver":"throttle","file":{"cache":{"direct":true,"no-flush":false},"driver":"qcow2","file":{"aio":"io_uring","cache":{"direct":true,"no-flush":false},"detect-zeroes":"unmap","discard":"unmap","driver":"file","filename":"/var/lib/vz/images/8006/base-8006-disk-0.qcow2","node-name":"e417d5947e69c5890b1e3ddf8a68167","read-only":false},"node-name":"f417d5947e69c5890b1e3ddf8a68167","read-only":false},"node-name":"drive-scsi0","throttle-group":"throttle-drive-scsi0"}' \
   -device 'scsi-hd,bus=scsihw0.0,channel=0,scsi-id=0,lun=0,drive=drive-scsi0,id=scsi0,bootindex=100,write-cache=on' \
   -machine 'type=pc+pve0'

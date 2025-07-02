@@ -14,6 +14,10 @@
   -vnc 'unix:/var/run/qemu-server/8006.vnc,password=on' \
   -cpu kvm64,enforce,+kvm_pv_eoi,+kvm_pv_unhalt,+lahf_lm,+sep \
   -m 512 \
+  -object '{"id":"throttle-drive-scsi0","limits":{},"qom-type":"throttle-group"}' \
+  -object '{"id":"throttle-drive-scsi1","limits":{},"qom-type":"throttle-group"}' \
+  -object '{"id":"throttle-drive-scsi2","limits":{},"qom-type":"throttle-group"}' \
+  -object '{"id":"throttle-drive-scsi3","limits":{},"qom-type":"throttle-group"}' \
   -global 'PIIX4_PM.disable_s3=1' \
   -global 'PIIX4_PM.disable_s4=1' \
   -device 'pci-bridge,id=pci.1,chassis_nr=1,bus=pci.0,addr=0x1e' \
@@ -24,12 +28,12 @@
   -device 'virtio-balloon-pci,id=balloon0,bus=pci.0,addr=0x3,free-page-reporting=on' \
   -iscsi 'initiator-name=iqn.1993-08.org.debian:01:aabbccddeeff' \
   -device 'virtio-scsi-pci,id=scsihw0,bus=pci.0,addr=0x5' \
-  -drive 'file=/dev/veegee/vm-8006-disk-0,if=none,id=drive-scsi0,discard=on,format=raw,cache=none,aio=native,detect-zeroes=unmap' \
+  -blockdev '{"driver":"throttle","file":{"cache":{"direct":true,"no-flush":false},"driver":"raw","file":{"aio":"native","cache":{"direct":true,"no-flush":false},"detect-zeroes":"unmap","discard":"unmap","driver":"host_device","filename":"/dev/veegee/vm-8006-disk-0","node-name":"e0378a375d635b0f473569544c7c207","read-only":false},"node-name":"f0378a375d635b0f473569544c7c207","read-only":false},"node-name":"drive-scsi0","throttle-group":"throttle-drive-scsi0"}' \
   -device 'scsi-hd,bus=scsihw0.0,channel=0,scsi-id=0,lun=0,drive=drive-scsi0,id=scsi0,bootindex=100,write-cache=on' \
-  -drive 'file=/dev/veegee/vm-8006-disk-0,if=none,id=drive-scsi1,cache=writeback,discard=on,format=raw,aio=threads,detect-zeroes=unmap' \
+  -blockdev '{"driver":"throttle","file":{"cache":{"direct":false,"no-flush":false},"driver":"raw","file":{"aio":"threads","cache":{"direct":false,"no-flush":false},"detect-zeroes":"unmap","discard":"unmap","driver":"host_device","filename":"/dev/veegee/vm-8006-disk-0","node-name":"e2fbae024c8a771f708f4a5391211b0","read-only":false},"node-name":"f2fbae024c8a771f708f4a5391211b0","read-only":false},"node-name":"drive-scsi1","throttle-group":"throttle-drive-scsi1"}' \
   -device 'scsi-hd,bus=scsihw0.0,channel=0,scsi-id=0,lun=1,drive=drive-scsi1,id=scsi1,write-cache=on' \
-  -drive 'file=/dev/veegee/vm-8006-disk-0,if=none,id=drive-scsi2,cache=writethrough,discard=on,format=raw,aio=threads,detect-zeroes=unmap' \
+  -blockdev '{"driver":"throttle","file":{"cache":{"direct":false,"no-flush":false},"driver":"raw","file":{"aio":"threads","cache":{"direct":false,"no-flush":false},"detect-zeroes":"unmap","discard":"unmap","driver":"host_device","filename":"/dev/veegee/vm-8006-disk-0","node-name":"e4328c26b141e3efe1564cb60bf1155","read-only":false},"node-name":"f4328c26b141e3efe1564cb60bf1155","read-only":false},"node-name":"drive-scsi2","throttle-group":"throttle-drive-scsi2"}' \
   -device 'scsi-hd,bus=scsihw0.0,channel=0,scsi-id=0,lun=2,drive=drive-scsi2,id=scsi2,write-cache=off' \
-  -drive 'file=/dev/veegee/vm-8006-disk-0,if=none,id=drive-scsi3,cache=directsync,discard=on,format=raw,aio=native,detect-zeroes=unmap' \
+  -blockdev '{"driver":"throttle","file":{"cache":{"direct":true,"no-flush":false},"driver":"raw","file":{"aio":"native","cache":{"direct":true,"no-flush":false},"detect-zeroes":"unmap","discard":"unmap","driver":"host_device","filename":"/dev/veegee/vm-8006-disk-0","node-name":"e68e10f8128f05fe5f7e85cc1f9922b","read-only":false},"node-name":"f68e10f8128f05fe5f7e85cc1f9922b","read-only":false},"node-name":"drive-scsi3","throttle-group":"throttle-drive-scsi3"}' \
   -device 'scsi-hd,bus=scsihw0.0,channel=0,scsi-id=0,lun=3,drive=drive-scsi3,id=scsi3,write-cache=off' \
   -machine 'type=pc+pve0'

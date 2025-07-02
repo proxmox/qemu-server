@@ -215,6 +215,11 @@ $qemu_server_machine_module->mock(
             if !defined($vm_status->{runningmachine});
         return $vm_status->{runningmachine};
     },
+    get_current_qemu_machine => sub {
+        die "invalid test: no runningmachine specified\n"
+            if !defined($vm_status->{runningmachine});
+        return $vm_status->{runningmachine};
+    },
 );
 
 my $qemu_server_network_module = Test::MockModule->new("PVE::QemuServer::Network");

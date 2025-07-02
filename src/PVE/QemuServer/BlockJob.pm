@@ -492,20 +492,24 @@ sub mirror {
     my ($source, $dest, $jobs, $completion, $options) = @_;
 
     # for the switch to -blockdev
-
-    my $drive_id = PVE::QemuServer::Drive::get_drive_id($source->{drive});
-    qemu_drive_mirror(
-        $source->{vmid},
-        $drive_id,
-        $dest->{volid},
-        $dest->{vmid},
-        $dest->{'zero-initialized'},
-        $jobs,
-        $completion,
-        $options->{'guest-agent'},
-        $options->{bwlimit},
-        $source->{bitmap},
-    );
+    my $machine_type = PVE::QemuServer::Machine::get_current_qemu_machine($source->{vmid});
+    if (PVE::QemuServer::Machine::is_machine_version_at_least($machine_type, 10, 0)) {
+        blockdev_mirror($source, $dest, $jobs, $completion, $options);
+    } else {
+        my $drive_id = PVE::QemuServer::Drive::get_drive_id($source->{drive});
+        qemu_drive_mirror(
+            $source->{vmid},
+            $drive_id,
+            $dest->{volid},
+            $dest->{vmid},
+            $dest->{'zero-initialized'},
+            $jobs,
+            $completion,
+            $options->{'guest-agent'},
+            $options->{bwlimit},
+            $source->{bitmap},
+        );
+    }
 }
 
 1;
