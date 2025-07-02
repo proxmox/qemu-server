@@ -562,6 +562,21 @@ sub resize {
     );
 }
 
+my sub blockdev_change_medium {
+    my ($storecfg, $vmid, $qdev_id, $drive) = @_;
+
+    # force eject if locked
+    mon_cmd($vmid, "blockdev-open-tray", force => JSON::true, id => "$qdev_id");
+    mon_cmd($vmid, "blockdev-remove-medium", id => "$qdev_id");
+    detach($vmid, "drive-$qdev_id");
+
+    return if $drive->{file} eq 'none';
+
+    attach($storecfg, $vmid, $drive, {});
+    mon_cmd($vmid, "blockdev-insert-medium", id => "$qdev_id", 'node-name' => "drive-$qdev_id");
+    mon_cmd($vmid, "blockdev-close-tray", id => "$qdev_id");
+}
+
 sub change_medium {
     my ($storecfg, $vmid, $qdev_id, $drive) = @_;
 
