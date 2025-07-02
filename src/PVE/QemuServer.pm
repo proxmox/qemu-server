@@ -7037,11 +7037,12 @@ sub pbs_live_restore {
         # removes itself once all backing images vanish with 'auto-remove=on')
         my $jobs = {};
         for my $ds (sort keys %$restored_disks) {
+            my $node_name = PVE::QemuServer::Blockdev::get_node_name_below_throttle($vmid, $ds);
             my $job_id = "restore-$ds";
             mon_cmd(
                 $vmid, 'block-stream',
                 'job-id' => $job_id,
-                device => "$ds",
+                device => "$node_name",
                 'auto-dismiss' => JSON::false,
             );
             $jobs->{$job_id} = {};
@@ -7138,11 +7139,13 @@ sub live_import_from_files {
         # removes itself once all backing images vanish with 'auto-remove=on')
         my $jobs = {};
         for my $ds (sort keys %$live_restore_backing) {
+            my $node_name =
+                PVE::QemuServer::Blockdev::get_node_name_below_throttle($vmid, "drive-$ds");
             my $job_id = "restore-$ds";
             mon_cmd(
                 $vmid, 'block-stream',
                 'job-id' => $job_id,
-                device => "drive-$ds",
+                device => "$node_name",
                 'auto-dismiss' => JSON::false,
             );
             $jobs->{$job_id} = {};
