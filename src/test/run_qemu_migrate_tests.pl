@@ -267,7 +267,7 @@ my $vm_configs = {
                 'numa' => 0,
                 'ostype' => 'l26',
                 'runningcpu' => 'kvm64,enforce,+kvm_pv_eoi,+kvm_pv_unhalt,+lahf_lm,+sep',
-                'runningmachine' => 'pc-i440fx-5.0+pve0',
+                'runningmachine' => 'pc-i440fx-10.0+pve0',
                 'scsi0' => 'local-dir:4567/vm-4567-disk-0.qcow2,size=4G',
                 'scsihw' => 'virtio-scsi-pci',
                 'smbios1' => 'uuid=2925fdec-a066-4228-b46b-eef8662f5e74',
@@ -288,7 +288,7 @@ my $vm_configs = {
                 'ostype' => 'l26',
                 'parent' => 'snap1',
                 'runningcpu' => 'kvm64,enforce,+kvm_pv_eoi,+kvm_pv_unhalt,+lahf_lm,+sep',
-                'runningmachine' => 'pc-i440fx-5.0+pve0',
+                'runningmachine' => 'pc-i440fx-10.0+pve0',
                 'scsi0' => 'local-dir:4567/vm-4567-disk-0.qcow2,size=4G',
                 'scsi1' => 'local-zfs:vm-4567-disk-0,size=1G',
                 'scsihw' => 'virtio-scsi-pci',
@@ -769,7 +769,7 @@ my $tests = [
         vmid => 4567,
         vm_status => {
             running => 1,
-            runningmachine => 'pc-i440fx-5.0+pve0',
+            runningmachine => 'pc-i440fx-10.0+pve0',
         },
         opts => {
             online => 1,
@@ -783,7 +783,7 @@ my $tests = [
             vm_config => $vm_configs->{4567},
             vm_status => {
                 running => 1,
-                runningmachine => 'pc-i440fx-5.0+pve0',
+                runningmachine => 'pc-i440fx-10.0+pve0',
             },
         },
     },
@@ -1358,7 +1358,7 @@ my $tests = [
         vmid => 105,
         vm_status => {
             running => 1,
-            runningmachine => 'pc-i440fx-5.0+pve0',
+            runningmachine => 'pc-i440fx-10.0+pve0',
         },
         opts => {
             online => 1,
@@ -1376,7 +1376,7 @@ my $tests = [
             vm_config => $vm_configs->{105},
             vm_status => {
                 running => 1,
-                runningmachine => 'pc-i440fx-5.0+pve0',
+                runningmachine => 'pc-i440fx-10.0+pve0',
             },
         },
     },
@@ -1404,7 +1404,7 @@ my $tests = [
         vmid => 105,
         vm_status => {
             running => 1,
-            runningmachine => 'pc-i440fx-5.0+pve0',
+            runningmachine => 'pc-i440fx-10.0+pve0',
         },
         config_patch => {
             snapshots => undef,
@@ -1427,7 +1427,7 @@ my $tests = [
             }),
             vm_status => {
                 running => 1,
-                runningmachine => 'pc-i440fx-5.0+pve0',
+                runningmachine => 'pc-i440fx-10.0+pve0',
             },
         },
     },
