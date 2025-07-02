@@ -14,6 +14,18 @@ use PVE::Storage;
 use PVE::QemuServer::Drive qw(drive_is_cdrom);
 use PVE::QemuServer::Monitor qw(mon_cmd);
 
+my sub tpm_backup_node_name {
+    my ($type, $drive_id) = @_;
+
+    if ($type eq 'fmt') {
+        return "drive-$drive_id-backup"; # this is the top node
+    } elsif ($type eq 'file') {
+        return "$drive_id-backup-file"; # drop the "drive-" prefix to be sure, max length is 31
+    }
+
+    die "unknown node type '$type' for TPM backup node";
+}
+
 my sub fleecing_node_name {
     my ($type, $drive_id) = @_;
 
@@ -36,6 +48,7 @@ my sub get_node_name {
     my ($type, $drive_id, $volid, $options) = @_;
 
     return fleecing_node_name($type, $drive_id) if $options->{fleecing};
+    return tpm_backup_node_name($type, $drive_id) if $options->{'tpm-backup'};
 
     my $snap = $options->{'snapshot-name'};
 
@@ -258,7 +271,8 @@ sub generate_drive_blockdev {
     my $child = generate_file_blockdev($storecfg, $drive, $options);
     $child = generate_format_blockdev($storecfg, $drive, $child, $options);
 
-    return $child if $options->{fleecing}; # for fleecing, this is already the top node
+    # for fleecing and TPM backup, this is already the top node
+    return $child if $options->{fleecing} || $options->{'tpm-backup'};
 
     # this is the top filter entry point, use $drive-drive_id as nodename
     return {
@@ -314,6 +328,9 @@ actual size of the image. The image format must be C<raw>.
 
 =item C<< $options->{'snapshot-name'} >>: Attach this snapshot of the volume C<< $drive->{file} >>,
 rather than the volume itself.
+
+=item C<< $options->{'tpm-backup'} >>: Generate and attach a block device for backing up the TPM
+state image.
 
 =back
 
@@ -409,6 +426,12 @@ sub detach {
     }
 
     return;
+}
+
+sub detach_tpm_backup_node {
+    my ($vmid) = @_;
+
+    detach($vmid, "drive-tpmstate0-backup");
 }
 
 sub detach_fleecing_block_nodes {

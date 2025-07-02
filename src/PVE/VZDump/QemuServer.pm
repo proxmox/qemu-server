@@ -158,7 +158,7 @@ sub prepare {
         if ($ds eq 'tpmstate0') {
             # TPM drive only exists for backup, which is reflected in the name
             $diskinfo->{qmdevice} = 'drive-tpmstate0-backup';
-            $task->{tpmpath} = $path;
+            $task->{'tpm-volid'} = $volid;
         }
 
         if (-b $path) {
@@ -474,24 +474,25 @@ my $query_backup_status_loop = sub {
 my $attach_tpmstate_drive = sub {
     my ($self, $task, $vmid) = @_;
 
-    return if !$task->{tpmpath};
+    return if !$task->{'tpm-volid'};
 
     # unconditionally try to remove the tpmstate-named drive - it only exists
     # for backing up, and avoids errors if left over from some previous event
-    eval { PVE::QemuServer::qemu_drivedel($vmid, "tpmstate0-backup"); };
+    eval { PVE::QemuServer::Blockdev::detach_tpm_backup_node($vmid); };
 
     $self->loginfo('attaching TPM drive to QEMU for backup');
 
-    my $drive = "file=$task->{tpmpath},if=none,read-only=on,id=drive-tpmstate0-backup";
-    $drive =~ s/\\/\\\\/g;
-    my $ret = PVE::QemuServer::Monitor::hmp_cmd($vmid, "drive_add auto \"$drive\"", 60);
-    die "attaching TPM drive failed - $ret\n" if $ret !~ m/OK/s;
+    my $drive = { file => $task->{'tpm-volid'}, interface => 'tpmstate', index => 0 };
+    my $extra_options = { 'tpm-backup' => 1, 'read-only' => 1 };
+    PVE::QemuServer::Blockdev::attach($self->{storecfg}, $vmid, $drive, $extra_options);
 };
 
 my $detach_tpmstate_drive = sub {
     my ($task, $vmid) = @_;
-    return if !$task->{tpmpath} || !PVE::QemuServer::check_running($vmid);
-    eval { PVE::QemuServer::qemu_drivedel($vmid, "tpmstate0-backup"); };
+
+    return if !$task->{'tpm-volid'} || !PVE::QemuServer::Helpers::vm_running_locally($vmid);
+
+    eval { PVE::QemuServer::Blockdev::detach_tpm_backup_node($vmid); };
 };
 
 my sub add_backup_performance_options {
