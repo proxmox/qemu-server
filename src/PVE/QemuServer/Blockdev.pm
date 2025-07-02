@@ -387,6 +387,23 @@ sub generate_drive_blockdev {
     };
 }
 
+sub generate_pbs_blockdev {
+    my ($pbs_conf, $pbs_name) = @_;
+
+    my $blockdev = {
+        driver => 'pbs',
+        'node-name' => "$pbs_name",
+        'read-only' => JSON::true,
+        archive => "$pbs_conf->{archive}",
+        repository => "$pbs_conf->{repository}",
+        snapshot => "$pbs_conf->{snapshot}",
+    };
+    $blockdev->{namespace} = "$pbs_conf->{namespace}" if $pbs_conf->{namespace};
+    $blockdev->{keyfile} = "$pbs_conf->{keyfile}" if $pbs_conf->{keyfile};
+
+    return $blockdev;
+}
+
 my sub blockdev_add {
     my ($vmid, $blockdev) = @_;
 
