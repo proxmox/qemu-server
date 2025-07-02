@@ -21,7 +21,6 @@ our @EXPORT_OK = qw(
     drive_is_cloudinit
     drive_is_cdrom
     drive_is_read_only
-    get_scsi_devicetype
     parse_drive
     print_drive
     storage_allows_io_uring_default
