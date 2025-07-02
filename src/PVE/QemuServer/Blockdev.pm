@@ -213,7 +213,7 @@ sub generate_throttle_group {
     };
 }
 
-sub generate_blockdev_drive_cache {
+my sub generate_blockdev_drive_cache {
     my ($drive, $scfg) = @_;
 
     my $cache_direct = PVE::QemuServer::Drive::drive_uses_cache_direct($drive, $scfg);
@@ -223,7 +223,7 @@ sub generate_blockdev_drive_cache {
     };
 }
 
-sub generate_file_blockdev {
+my sub generate_file_blockdev {
     my ($storecfg, $drive, $options) = @_;
 
     my $blockdev = {};
@@ -294,7 +294,7 @@ sub generate_file_blockdev {
     return $blockdev;
 }
 
-sub generate_format_blockdev {
+my sub generate_format_blockdev {
     my ($storecfg, $drive, $child, $options) = @_;
 
     die "generate_format_blockdev called without volid/path\n" if !$drive->{file};
