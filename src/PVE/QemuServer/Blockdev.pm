@@ -6,6 +6,7 @@ use warnings;
 use Digest::SHA;
 use Fcntl qw(S_ISBLK S_ISCHR);
 use File::stat;
+use JSON;
 
 use PVE::JSONSchema qw(json_bool);
 use PVE::Storage;
