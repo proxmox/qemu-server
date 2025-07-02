@@ -18,13 +18,20 @@ use PVE::QemuServer::RunState;
 # option is useful to get the error for failed jobs here. QEMU's job lock should make it impossible
 # to see a job in 'concluded' state when auto-dismiss=true.
 # $info is the 'BlockJobInfo' for the job returned by query-block-jobs.
+# $job is the information about the job recorded on the PVE-side.
+# A block node $job->{'detach-node-name'} will be detached if present.
 sub qemu_handle_concluded_blockjob {
-    my ($vmid, $job_id, $info) = @_;
+    my ($vmid, $job_id, $qmp_info, $job) = @_;
 
     eval { mon_cmd($vmid, 'job-dismiss', id => $job_id); };
     log_warn("$job_id: failed to dismiss job - $@") if $@;
 
-    die "$job_id: $info->{error} (io-status: $info->{'io-status'})\n" if $info->{error};
+    if (my $node_name = $job->{'detach-node-name'}) {
+        eval { PVE::QemuServer::Blockdev::detach($vmid, $node_name); };
+        log_warn($@) if $@;
+    }
+
+    die "$job_id: $qmp_info->{error} (io-status: $qmp_info->{'io-status'})\n" if $qmp_info->{error};
 }
 
 sub qemu_blockjobs_cancel {
@@ -47,7 +54,7 @@ sub qemu_blockjobs_cancel {
         foreach my $job (keys %$jobs) {
             my $info = $running_jobs->{$job};
             eval {
-                qemu_handle_concluded_blockjob($vmid, $job, $info)
+                qemu_handle_concluded_blockjob($vmid, $job, $info, $jobs->{$job})
                     if $info && $info->{status} eq 'concluded';
             };
             log_warn($@) if $@; # only warn and proceed with canceling other jobs
@@ -106,7 +113,7 @@ sub qemu_drive_mirror_monitor {
 
                 die "$job_id: '$op' has been cancelled\n" if !defined($job);
 
-                qemu_handle_concluded_blockjob($vmid, $job_id, $job)
+                qemu_handle_concluded_blockjob($vmid, $job_id, $job, $jobs->{$job_id})
                     if $job && $job->{status} eq 'concluded';
 
                 my $busy = $job->{busy};
@@ -322,7 +329,7 @@ sub qemu_drive_mirror_switch_to_active_mode {
 
             my $info = $running_jobs->{$job};
             if ($info->{status} eq 'concluded') {
-                qemu_handle_concluded_blockjob($vmid, $job, $info);
+                qemu_handle_concluded_blockjob($vmid, $job, $info, $jobs->{$job});
                 # The 'concluded' state should occur here if and only if the job failed, so the
                 # 'die' below should be unreachable, but play it safe.
                 die "$job: expected job to have failed, but no error was set\n";
