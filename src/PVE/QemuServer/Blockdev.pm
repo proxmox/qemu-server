@@ -123,10 +123,12 @@ my sub get_node_name {
     my $hash = substr(Digest::SHA::sha256_hex($info), 0, 30);
 
     my $prefix = "";
-    if ($type eq 'fmt') {
-        $prefix = 'f';
+    if ($type eq 'alloc-track') {
+        $prefix = 'a';
     } elsif ($type eq 'file') {
         $prefix = 'e';
+    } elsif ($type eq 'fmt') {
+        $prefix = 'f';
     } elsif ($type eq 'zeroinit') {
         $prefix = 'z';
     } else {
@@ -373,6 +375,17 @@ sub generate_drive_blockdev {
     if ($options->{'zero-initialized'}) {
         my $node_name = get_node_name('zeroinit', $drive_id, $drive->{file}, $options);
         $child = { driver => 'zeroinit', file => $child, 'node-name' => "$node_name" };
+    }
+
+    if (my $live_restore = $options->{'live-restore'}) {
+        my $node_name = get_node_name('alloc-track', $drive_id, $drive->{file}, $options);
+        $child = {
+            driver => 'alloc-track',
+            'auto-remove' => JSON::true,
+            backing => $live_restore->{blockdev},
+            file => $child,
+            'node-name' => "$node_name",
+        };
     }
 
     # for fleecing and TPM backup, this is already the top node
