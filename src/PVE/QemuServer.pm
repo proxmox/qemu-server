@@ -7095,8 +7095,9 @@ sub live_import_from_files {
             if !exists($conf->{$dev});
 
         my $info = $mapping->{$dev};
-        my ($format, $path) = $info->@{qw(format path)};
+        my ($format, $path, $volid) = $info->@{qw(format path volid)};
         die "missing path for '$dev' mapping\n" if !$path;
+        die "missing volid for '$dev' mapping\n" if !$volid;
         die "missing format for '$dev' mapping\n" if !$format;
         die "invalid format '$format' for '$dev' mapping\n"
             if !grep { $format eq $_ } qw(raw qcow2 vmdk);

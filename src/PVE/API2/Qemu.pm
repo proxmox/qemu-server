@@ -530,6 +530,7 @@ my sub create_disks : prototype($$$$$$$$$$$) {
                         $live_import_mapping->{$ds} = {
                             path => $path,
                             format => $source_format,
+                            volid => $source,
                         };
                         $live_import_mapping->{$ds}->{'delete-after-finish'} = $source
                             if $needs_extraction;
@@ -574,6 +575,7 @@ my sub create_disks : prototype($$$$$$$$$$$) {
                         $live_import_mapping->{$ds} = {
                             path => $source,
                             format => $source_format,
+                            volid => $source,
                         };
                     } else {
                         (undef, $dst_volid) = PVE::QemuServer::ImportDisk::do_import(
