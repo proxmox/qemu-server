@@ -179,15 +179,15 @@ sub qemu_drive_mirror_monitor {
                         # try to switch the disk if source and destination are on the same guest
                         print "$job_id: Completing block job...\n";
 
-                        my $op;
+                        my $completion_command;
                         if ($completion eq 'complete') {
-                            $op = 'block-job-complete';
+                            $completion_command = 'block-job-complete';
                         } elsif ($completion eq 'cancel') {
-                            $op = 'block-job-cancel';
+                            $completion_command = 'block-job-cancel';
                         } else {
                             die "invalid completion value: $completion\n";
                         }
-                        eval { mon_cmd($vmid, $op, device => $job_id) };
+                        eval { mon_cmd($vmid, $completion_command, device => $job_id) };
                         my $err = $@;
                         if ($err && $err =~ m/cannot be completed/) {
                             print "$job_id: block job cannot be completed, trying again.\n";
