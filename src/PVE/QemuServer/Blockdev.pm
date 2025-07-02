@@ -115,6 +115,8 @@ my sub get_node_name {
         $prefix = 'f';
     } elsif ($type eq 'file') {
         $prefix = 'e';
+    } elsif ($type eq 'zeroinit') {
+        $prefix = 'z';
     } else {
         die "unknown node type '$type'";
     }
@@ -346,6 +348,11 @@ sub generate_drive_blockdev {
 
     my $child = generate_file_blockdev($storecfg, $drive, $options);
     $child = generate_format_blockdev($storecfg, $drive, $child, $options);
+
+    if ($options->{'zero-initialized'}) {
+        my $node_name = get_node_name('zeroinit', $drive_id, $drive->{file}, $options);
+        $child = { driver => 'zeroinit', file => $child, 'node-name' => "$node_name" };
+    }
 
     # for fleecing and TPM backup, this is already the top node
     return $child if $options->{fleecing} || $options->{'tpm-backup'};
