@@ -745,6 +745,16 @@ sub drive_is_read_only {
     return $drive->{interface} ne 'sata' && $drive->{interface} ne 'ide';
 }
 
+sub parse_drive_interface {
+    my ($key) = @_;
+
+    if ($key =~ m/^([^\d]+)(\d+)$/) {
+        return ($1, $2);
+    }
+
+    die "unable to parse drive interface $key\n";
+}
+
 # ideX = [volume=]volume-id[,media=d]
 #        [,snapshot=on|off][,cache=on|off][,format=f][,backup=yes|no]
 #        [,rerror=ignore|report|stop][,werror=enospc|ignore|report|stop]
@@ -754,14 +764,8 @@ sub drive_is_read_only {
 sub parse_drive {
     my ($key, $data, $with_alloc) = @_;
 
-    my ($interface, $index);
-
-    if ($key =~ m/^([^\d]+)(\d+)$/) {
-        $interface = $1;
-        $index = $2;
-    } else {
-        return;
-    }
+    my ($interface, $index) = eval { parse_drive_interface($key) };
+    return if $@;
 
     my $desc_hash = $with_alloc ? $drivedesc_hash_with_alloc : $drivedesc_hash;
 
