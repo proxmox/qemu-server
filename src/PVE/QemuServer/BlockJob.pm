@@ -455,6 +455,24 @@ sub blockdev_mirror {
     my $attach_dest_opts = { 'no-throttle' => 1 };
     $attach_dest_opts->{'zero-initialized'} = 1 if $dest->{'zero-initialized'};
 
+    # Source and target need to have the exact same virtual size, see bug #3227.
+    # However, it won't be possible to resize a disk with 'size' explicitly set afterwards, so only
+    # set it for EFI disks.
+    if ($drive_id eq 'efidisk0' && !PVE::QemuServer::Blockdev::is_nbd($dest_drive)) {
+        my ($storeid) = PVE::Storage::parse_volume_id($dest_drive->{file}, 1);
+        if (
+            $storeid
+            && PVE::QemuServer::Drive::checked_volume_format($storecfg, $dest->{volid}) eq 'raw'
+        ) {
+            my $block_info = PVE::QemuServer::Blockdev::get_block_info($vmid);
+            if (my $size = $block_info->{$drive_id}->{inserted}->{image}->{'virtual-size'}) {
+                $attach_dest_opts->{size} = $size;
+            } else {
+                log_warn("unable to determine source block node size - continuing anyway");
+            }
+        }
+    }
+
     # Note that if 'aio' is not explicitly set, i.e. default, it can change if source and target
     # don't both allow or both not allow 'io_uring' as the default.
     my $target_node_name =

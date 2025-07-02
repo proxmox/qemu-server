@@ -19,7 +19,7 @@ use PVE::QemuServer::Monitor qw(mon_cmd);
 my $NBD_TCP_PATH_RE_3 = qr/nbd:(\S+):(\d+):exportname=(\S+)/;
 my $NBD_UNIX_PATH_RE_2 = qr/nbd:unix:(\S+):exportname=(\S+)/;
 
-my sub is_nbd {
+sub is_nbd {
     my ($drive) = @_;
 
     return 1 if $drive->{file} =~ $NBD_TCP_PATH_RE_3;
