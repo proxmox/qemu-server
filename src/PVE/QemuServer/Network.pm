@@ -4,6 +4,7 @@ use strict;
 use warnings;
 
 use PVE::Cluster;
+use PVE::Firewall::Helpers;
 use PVE::JSONSchema qw(get_standard_option parse_property_string);
 use PVE::Network::SDN::Vnets;
 use PVE::Network::SDN::Zones;
@@ -319,6 +320,13 @@ sub delete_ifaces_ipams_ips {
             warn $@ if $@;
         }
     }
+}
+
+sub tap_plug {
+    my ($iface, $bridge, $tag, $firewall, $trunks, $rate) = @_;
+
+    $firewall = $firewall && PVE::Firewall::Helpers::needs_fwbr($bridge);
+    PVE::Network::SDN::Zones::tap_plug($iface, $bridge, $tag, $firewall, $trunks, $rate);
 }
 
 1;

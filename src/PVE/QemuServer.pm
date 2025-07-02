@@ -36,7 +36,6 @@ use PVE::Mapping::Dir;
 use PVE::Mapping::PCI;
 use PVE::Mapping::USB;
 use PVE::Network::SDN::Vnets;
-use PVE::Network::SDN::Zones;
 use PVE::INotify;
 use PVE::JSONSchema qw(get_standard_option parse_property_string);
 use PVE::ProcFSTools;
@@ -5013,7 +5012,7 @@ sub vmconfig_update_net {
                     );
                 }
 
-                PVE::Network::SDN::Zones::tap_plug(
+                PVE::QemuServer::Network::tap_plug(
                     $iface,
                     $newnet->{bridge},
                     $newnet->{tag},
