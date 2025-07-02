@@ -50,7 +50,7 @@ Depends: dbus,
 # TODO: make legacy edk2 optional (suggests) for PVE 9 and warn explicitly about it
          pve-edk2-firmware-legacy | pve-edk2-firmware (<< 4~),
          pve-edk2-firmware-ovmf (>= 4.2025.02-3),
-         pve-firewall (>= 5.0.4),
+         pve-firewall (>= 5.1.2),
          pve-ha-manager (>= 3.0-9),
          pve-qemu-kvm (>= 7.1~),
          socat,

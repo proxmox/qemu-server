@@ -30,6 +30,7 @@ use PVE::CGroup;
 use PVE::CpuSet;
 use PVE::DataCenterConfig;
 use PVE::Exception qw(raise raise_param_exc);
+use PVE::Firewall::Helpers;
 use PVE::Format qw(render_duration render_bytes);
 use PVE::GuestHelpers qw(safe_string_ne safe_num_ne safe_boolean_ne);
 use PVE::HA::Config;
@@ -5520,6 +5521,13 @@ sub vmconfig_apply_pending {
     }
 }
 
+sub tap_plug {
+    my ($iface, $bridge, $tag, $firewall, $trunks, $rate) = @_;
+
+    $firewall = $firewall && PVE::Firewall::Helpers::needs_fwbr($bridge);
+    PVE::Network::SDN::Zones::tap_plug($iface, $bridge, $tag, $firewall, $trunks, $rate);
+}
+
 sub vmconfig_update_net {
     my ($storecfg, $conf, $hotplug, $vmid, $opt, $value, $arch, $machine_type) = @_;
 
@@ -5587,25 +5595,14 @@ sub vmconfig_update_net {
                     }
                 }
 
-                if ($have_sdn) {
-                    PVE::Network::SDN::Zones::tap_plug(
-                        $iface,
-                        $newnet->{bridge},
-                        $newnet->{tag},
-                        $newnet->{firewall},
-                        $newnet->{trunks},
-                        $newnet->{rate},
-                    );
-                } else {
-                    PVE::Network::tap_plug(
-                        $iface,
-                        $newnet->{bridge},
-                        $newnet->{tag},
-                        $newnet->{firewall},
-                        $newnet->{trunks},
-                        $newnet->{rate},
-                    );
-                }
+                tap_plug(
+                    $iface,
+                    $newnet->{bridge},
+                    $newnet->{tag},
+                    $newnet->{firewall},
+                    $newnet->{trunks},
+                    $newnet->{rate},
+                );
 
             } elsif (safe_num_ne($oldnet->{rate}, $newnet->{rate})) {
                 # Rate can be applied on its own but any change above needs to
