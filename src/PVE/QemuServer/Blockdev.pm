@@ -15,6 +15,18 @@ use PVE::QemuServer::Drive qw(drive_is_cdrom);
 use PVE::QemuServer::Helpers;
 use PVE::QemuServer::Monitor qw(mon_cmd);
 
+# gives ($host, $port, $export)
+my $NBD_TCP_PATH_RE_3 = qr/nbd:(\S+):(\d+):exportname=(\S+)/;
+my $NBD_UNIX_PATH_RE_2 = qr/nbd:unix:(\S+):exportname=(\S+)/;
+
+my sub is_nbd {
+    my ($drive) = @_;
+
+    return 1 if $drive->{file} =~ $NBD_TCP_PATH_RE_3;
+    return 1 if $drive->{file} =~ $NBD_UNIX_PATH_RE_2;
+    return 0;
+}
+
 my sub tpm_backup_node_name {
     my ($type, $drive_id) = @_;
 
@@ -236,7 +248,13 @@ my sub generate_file_blockdev {
 
     my $drive_id = PVE::QemuServer::Drive::get_drive_id($drive);
 
-    if ($drive->{file} eq 'cdrom') {
+    if ($drive->{file} =~ m/^$NBD_UNIX_PATH_RE_2$/) {
+        my $server = { type => 'unix', path => "$1" };
+        $blockdev = { driver => 'nbd', server => $server, export => "$2" };
+    } elsif ($drive->{file} =~ m/^$NBD_TCP_PATH_RE_3$/) {
+        my $server = { type => 'inet', host => "$1", port => "$2" }; # port is also a string in QAPI
+        $blockdev = { driver => 'nbd', server => $server, export => "$3" };
+    } elsif ($drive->{file} eq 'cdrom') {
         my $path = PVE::QemuServer::Drive::get_iso_path($storecfg, $drive->{file});
         $blockdev = { driver => 'host_cdrom', filename => "$path" };
     } elsif ($drive->{file} =~ m|^/|) {
@@ -299,6 +317,7 @@ my sub generate_format_blockdev {
 
     die "generate_format_blockdev called without volid/path\n" if !$drive->{file};
     die "generate_format_blockdev called with 'none'\n" if $drive->{file} eq 'none';
+    die "generate_format_blockdev called with NBD path\n" if is_nbd($drive);
 
     my $scfg;
     my $format;
@@ -347,7 +366,9 @@ sub generate_drive_blockdev {
     die "generate_drive_blockdev called with 'none'\n" if $drive->{file} eq 'none';
 
     my $child = generate_file_blockdev($storecfg, $drive, $options);
-    $child = generate_format_blockdev($storecfg, $drive, $child, $options);
+    if (!is_nbd($drive)) {
+        $child = generate_format_blockdev($storecfg, $drive, $child, $options);
+    }
 
     if ($options->{'zero-initialized'}) {
         my $node_name = get_node_name('zeroinit', $drive_id, $drive->{file}, $options);
