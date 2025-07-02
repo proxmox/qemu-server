@@ -7546,7 +7546,7 @@ sub template_create : prototype($$;$) {
 # Check for bug #4525: drive-mirror will open the target drive with the same aio setting as the
 # source, but some storages have problems with io_uring, sometimes even leading to crashes.
 my sub clone_disk_check_io_uring {
-    my ($src_drive, $storecfg, $src_storeid, $dst_storeid, $use_drive_mirror) = @_;
+    my ($vmid, $src_drive, $storecfg, $src_storeid, $dst_storeid, $use_drive_mirror) = @_;
 
     return if !$use_drive_mirror;
 
@@ -7563,6 +7563,11 @@ my sub clone_disk_check_io_uring {
     if ($src_drive->{aio}) {
         $src_uses_io_uring = $src_drive->{aio} eq 'io_uring';
     } else {
+        # With the switch to -blockdev and blockdev-mirror, the aio setting will be changed on the
+        # fly if not explicitly set.
+        my $machine_type = PVE::QemuServer::Machine::get_current_qemu_machine($vmid);
+        return if PVE::QemuServer::Machine::is_machine_version_at_least($machine_type, 10, 0);
+
         $src_uses_io_uring = storage_allows_io_uring_default($src_scfg, $cache_direct);
     }
 
@@ -7627,7 +7632,9 @@ sub clone_disk {
             $dst_format = 'raw';
             $size = PVE::QemuServer::Drive::TPMSTATE_DISK_SIZE;
         } else {
-            clone_disk_check_io_uring($drive, $storecfg, $src_storeid, $storeid, $use_drive_mirror);
+            clone_disk_check_io_uring(
+                $vmid, $drive, $storecfg, $src_storeid, $storeid, $use_drive_mirror,
+            );
 
             $size = PVE::Storage::volume_size_info($storecfg, $drive->{file}, 10);
         }
