@@ -39,6 +39,12 @@ my sub read_only_json_option {
     return json_bool($drive->{ro} || drive_is_cdrom($drive) || $options->{'read-only'});
 }
 
+my sub throttle_group_id {
+    my ($drive_id) = @_;
+
+    return "throttle-drive-$drive_id";
+}
+
 sub generate_throttle_group {
     my ($drive) = @_;
 
@@ -69,7 +75,7 @@ sub generate_throttle_group {
     }
 
     return {
-        id => "throttle-drive-$drive_id",
+        id => throttle_group_id($drive_id),
         limits => $limits,
         'qom-type' => 'throttle-group',
     };
@@ -216,7 +222,7 @@ sub generate_drive_blockdev {
     return {
         driver => "throttle",
         'node-name' => "drive-$drive_id",
-        'throttle-group' => "throttle-drive-$drive_id",
+        'throttle-group' => throttle_group_id($drive_id),
         file => $child,
     };
 }
