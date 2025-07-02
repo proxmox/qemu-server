@@ -4290,57 +4290,6 @@ sub qemu_cpu_hotplug {
     }
 }
 
-sub qemu_block_set_io_throttle {
-    my (
-        $vmid,
-        $deviceid,
-        $bps,
-        $bps_rd,
-        $bps_wr,
-        $iops,
-        $iops_rd,
-        $iops_wr,
-        $bps_max,
-        $bps_rd_max,
-        $bps_wr_max,
-        $iops_max,
-        $iops_rd_max,
-        $iops_wr_max,
-        $bps_max_length,
-        $bps_rd_max_length,
-        $bps_wr_max_length,
-        $iops_max_length,
-        $iops_rd_max_length,
-        $iops_wr_max_length,
-    ) = @_;
-
-    return if !check_running($vmid);
-
-    mon_cmd(
-        $vmid, "block_set_io_throttle",
-        device => $deviceid,
-        bps => int($bps),
-        bps_rd => int($bps_rd),
-        bps_wr => int($bps_wr),
-        iops => int($iops),
-        iops_rd => int($iops_rd),
-        iops_wr => int($iops_wr),
-        bps_max => int($bps_max),
-        bps_rd_max => int($bps_rd_max),
-        bps_wr_max => int($bps_wr_max),
-        iops_max => int($iops_max),
-        iops_rd_max => int($iops_rd_max),
-        iops_wr_max => int($iops_wr_max),
-        bps_max_length => int($bps_max_length),
-        bps_rd_max_length => int($bps_rd_max_length),
-        bps_wr_max_length => int($bps_wr_max_length),
-        iops_max_length => int($iops_max_length),
-        iops_rd_max_length => int($iops_rd_max_length),
-        iops_wr_max_length => int($iops_wr_max_length),
-    );
-
-}
-
 sub qemu_volume_snapshot {
     my ($vmid, $deviceid, $storecfg, $volid, $snap) = @_;
 
@@ -5141,7 +5090,7 @@ sub vmconfig_update_disk {
                         $old_drive->{iops_wr_max_length})
                 ) {
 
-                    qemu_block_set_io_throttle(
+                    PVE::QemuServer::Blockdev::set_io_throttle(
                         $vmid,
                         "drive-$opt",
                         ($drive->{mbps} || 0) * 1024 * 1024,
