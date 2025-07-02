@@ -20,13 +20,14 @@ die "please run as root\n" if $> != 0;
 my @std_opts = ('storage=s', 'pool=s', 'info', 'prealloc');
 
 sub print_usage {
-    print STDERR "usage: $0 [--storage=<storeid>] [--pool=<poolid>] [--info] [--prealloc] <archive> <vmid>\n\n";
+    print STDERR
+        "usage: $0 [--storage=<storeid>] [--pool=<poolid>] [--info] [--prealloc] <archive> <vmid>\n\n";
 }
 
 my $opts = {};
-if (!GetOptions ($opts, @std_opts)) {
-    print_usage ();
-    exit (-1);
+if (!GetOptions($opts, @std_opts)) {
+    print_usage();
+    exit(-1);
 }
 
 PVE::INotify::inotify_init();
@@ -35,13 +36,13 @@ my $rpcenv = PVE::RPCEnvironment->init('cli');
 
 $rpcenv->init_request();
 $rpcenv->set_language($ENV{LANG});
-$rpcenv->set_user('root@pam'); 
+$rpcenv->set_user('root@pam');
 
 sub extract_archive {
     # NOTE: this is run as tar subprocess (--to-command)
 
     $SIG{INT} = $SIG{TERM} = $SIG{QUIT} = $SIG{HUP} = $SIG{PIPE} = sub {
-	die "interrupted by signal\n";
+        die "interrupted by signal\n";
     };
 
     my $filename = $ENV{TAR_FILENAME};
@@ -63,139 +64,135 @@ sub extract_archive {
     $rpcenv->check_user_enabled($user);
 
     if ($opts->{info}) {
-	print STDERR "reading archive member '$filename'\n";
+        print STDERR "reading archive member '$filename'\n";
     } else {
-	print STDERR "extracting '$filename' from archive\n";
+        print STDERR "extracting '$filename' from archive\n";
     }
 
     my $conffile = "$tmpdir/qemu-server.conf";
     my $statfile = "$tmpdir/qmrestore.stat";
 
     if ($filename eq 'qemu-server.conf') {
-	my $outfd = IO::File->new($conffile, "w") ||
-	    die "unable to write file '$conffile'\n";
+        my $outfd = IO::File->new($conffile, "w")
+            || die "unable to write file '$conffile'\n";
 
-	while (defined(my $line = <>)) {
-	    print $outfd $line;
-	    print STDERR "CONFIG: $line" if $opts->{info};
-	}
+        while (defined(my $line = <>)) {
+            print $outfd $line;
+            print STDERR "CONFIG: $line" if $opts->{info};
+        }
 
-	$outfd->close();
+        $outfd->close();
 
-	exit(0);
+        exit(0);
     }
 
     if ($opts->{info}) {
-	exec 'dd', 'bs=256K', "of=/dev/null";
-	die "couldn't exec dd: $!\n";
+        exec 'dd', 'bs=256K', "of=/dev/null";
+        die "couldn't exec dd: $!\n";
     }
 
-    my $conffd = IO::File->new($conffile, "r") ||
-	die "unable to read file '$conffile'\n";
+    my $conffd = IO::File->new($conffile, "r")
+        || die "unable to read file '$conffile'\n";
 
     my $map;
     while (defined(my $line = <$conffd>)) {
-	if ($line =~ m/^\#vzdump\#map:(\S+):(\S+):(\d+):(\S*):$/) {
-	    $map->{$2} = { virtdev => $1, size => $3, storeid => $4 };
-	}
+        if ($line =~ m/^\#vzdump\#map:(\S+):(\S+):(\d+):(\S*):$/) {
+            $map->{$2} = { virtdev => $1, size => $3, storeid => $4 };
+        }
     }
     close($conffd);
 
-    my $statfd = IO::File->new($statfile, "a") ||
-	die "unable to open file '$statfile'\n";
+    my $statfd = IO::File->new($statfile, "a")
+        || die "unable to open file '$statfile'\n";
 
-    if ($filename !~ m/^.*\.([^\.]+)$/){
-	die "got strange filename '$filename'\n";
+    if ($filename !~ m/^.*\.([^\.]+)$/) {
+        die "got strange filename '$filename'\n";
     }
     my $format = $1;
 
     my $path;
 
     if (!$map) {
-	print STDERR "restoring old style vzdump archive - " .
-	    "no device map inside archive\n";
-	die "can't restore old style archive to storage '$opts->{storage}'\n" 
-	    if defined($opts->{storage}) && $opts->{storage} ne 'local';
+        print STDERR "restoring old style vzdump archive - " . "no device map inside archive\n";
+        die "can't restore old style archive to storage '$opts->{storage}'\n"
+            if defined($opts->{storage}) && $opts->{storage} ne 'local';
 
-	my $dir = "/var/lib/vz/images/$vmid";
-	mkpath $dir;
+        my $dir = "/var/lib/vz/images/$vmid";
+        mkpath $dir;
 
-	$path = "$dir/$filename";
+        $path = "$dir/$filename";
 
-	print $statfd "vzdump::$path\n";
-	$statfd->close();
+        print $statfd "vzdump::$path\n";
+        $statfd->close();
 
     } else {
 
-	my $info = $map->{$filename};
-	die "no vzdump info for '$filename'\n" if !$info;
+        my $info = $map->{$filename};
+        die "no vzdump info for '$filename'\n" if !$info;
 
-	if ($filename !~ m/^vm-disk-$info->{virtdev}\.([^\.]+)$/){
-	    die "got strange filename '$filename'\n";
-	}
+        if ($filename !~ m/^vm-disk-$info->{virtdev}\.([^\.]+)$/) {
+            die "got strange filename '$filename'\n";
+        }
 
-	if ($filesize != $info->{size}) {
-	    die "detected size difference for '$filename' " .
-		"($filesize != $info->{size})\n";
-	}	
+        if ($filesize != $info->{size}) {
+            die "detected size difference for '$filename' " . "($filesize != $info->{size})\n";
+        }
 
-	# check permission for all used storages 
-	my $pool = $opts->{pool};
-	if ($user ne 'root@pam') {
-	    if (defined($opts->{storage})) {
-		my $sid = $opts->{storage} || 'local';
-		$rpcenv->check($user, "/storage/$sid", ['Datastore.AllocateSpace']);
-	    } else {	
-		foreach my $fn (keys %$map) {
-		    my $fi = $map->{$fn};
-		    my $sid = $fi->{storeid} || 'local';
-		    $rpcenv->check($user, "/storage/$sid", ['Datastore.AllocateSpace']);
-		}
-	    }
-	}
+        # check permission for all used storages
+        my $pool = $opts->{pool};
+        if ($user ne 'root@pam') {
+            if (defined($opts->{storage})) {
+                my $sid = $opts->{storage} || 'local';
+                $rpcenv->check($user, "/storage/$sid", ['Datastore.AllocateSpace']);
+            } else {
+                foreach my $fn (keys %$map) {
+                    my $fi = $map->{$fn};
+                    my $sid = $fi->{storeid} || 'local';
+                    $rpcenv->check($user, "/storage/$sid", ['Datastore.AllocateSpace']);
+                }
+            }
+        }
 
-	my $storeid;
-	if (defined($opts->{storage})) {
-	    $storeid = $opts->{storage} || 'local';
-	} else {
-	    $storeid = $info->{storeid} || 'local';
-	}
+        my $storeid;
+        if (defined($opts->{storage})) {
+            $storeid = $opts->{storage} || 'local';
+        } else {
+            $storeid = $info->{storeid} || 'local';
+        }
 
-	my $cfg = PVE::Storage::config();
-	my $scfg = PVE::Storage::storage_config($cfg, $storeid);
+        my $cfg = PVE::Storage::config();
+        my $scfg = PVE::Storage::storage_config($cfg, $storeid);
 
-	my $alloc_size = int(($filesize + 1024 - 1)/1024);
-	if ($scfg->{type} eq 'dir' || $scfg->{type} eq 'nfs') {
-	    # hack: we just alloc a small file (32K) - we overwrite it anyways
-	    $alloc_size = 32;
-	} else {
-	    die "unable to restore '$filename' to storage '$storeid'\n" . 
-		"storage type '$scfg->{type}' does not support format '$format\n"
-		if $format ne 'raw';
-	}
+        my $alloc_size = int(($filesize + 1024 - 1) / 1024);
+        if ($scfg->{type} eq 'dir' || $scfg->{type} eq 'nfs') {
+            # hack: we just alloc a small file (32K) - we overwrite it anyways
+            $alloc_size = 32;
+        } else {
+            die "unable to restore '$filename' to storage '$storeid'\n"
+                . "storage type '$scfg->{type}' does not support format '$format\n"
+                if $format ne 'raw';
+        }
 
-	my $volid = PVE::Storage::vdisk_alloc($cfg, $storeid, $vmid,
-					      $format, undef, $alloc_size);
+        my $volid = PVE::Storage::vdisk_alloc($cfg, $storeid, $vmid, $format, undef, $alloc_size);
 
-	print STDERR "new volume ID is '$volid'\n";
+        print STDERR "new volume ID is '$volid'\n";
 
-	print $statfd "vzdump:$info->{virtdev}:$volid\n";
-	$statfd->close();
+        print $statfd "vzdump:$info->{virtdev}:$volid\n";
+        $statfd->close();
 
-	$path = PVE::Storage::path($cfg, $volid);
+        $path = PVE::Storage::path($cfg, $volid);
     }
 
     print STDERR "restore data to '$path' ($filesize bytes)\n";
 
     if ($opts->{prealloc} || $format ne 'raw' || (-b $path)) {
-	exec 'dd', 'ibs=256K', 'obs=256K', "of=$path";
-	die "couldn't exec dd: $!\n";
+        exec 'dd', 'ibs=256K', 'obs=256K', "of=$path";
+        die "couldn't exec dd: $!\n";
     } else {
-	exec '/bin/cp', '--sparse=always', '/dev/stdin', $path;
-	die "couldn't exec cp: $!\n";
+        exec '/bin/cp', '--sparse=always', '/dev/stdin', $path;
+        die "couldn't exec cp: $!\n";
     }
 }
-
 
 if (scalar(@ARGV) == 2) {
     my $archive = shift;
@@ -207,14 +204,13 @@ if (scalar(@ARGV) == 2) {
     PVE::Cluster::check_cfs_quorum();
 
     PVE::QemuServer::restore_archive($archive, $vmid, 'root@pam', $opts);
- 
+
 } elsif (scalar(@ARGV) == 0 && $ENV{TAR_FILENAME}) {
-    extract_archive();    
+    extract_archive();
 } else {
-    print_usage ();
+    print_usage();
     exit(-1);
-} 
+}
 
 exit(0);
-
 
