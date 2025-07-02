@@ -44,6 +44,20 @@ my sub is_fleecing_top_node {
     return $node_name =~ m/-fleecing$/ ? 1 : 0;
 }
 
+sub qdev_id_to_drive_id {
+    my ($qdev_id) = @_;
+
+    if ($qdev_id =~ m|^/machine/peripheral/(virtio(\d+))/virtio-backend$|) {
+        return $1;
+    } elsif ($qdev_id =~ m|^/machine/system\.flash0$|) {
+        return 'pflash0';
+    } elsif ($qdev_id =~ m|^/machine/system\.flash1$|) {
+        return 'efidisk0';
+    }
+
+    return $qdev_id; # for SCSI/SATA/IDE it's the same
+}
+
 my sub get_node_name {
     my ($type, $drive_id, $volid, $options) = @_;
 

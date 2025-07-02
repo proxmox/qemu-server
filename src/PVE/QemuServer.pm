@@ -55,6 +55,7 @@ use PVE::QemuConfig;
 use PVE::QemuConfig::NoWrite;
 use PVE::QemuMigrate::Helpers;
 use PVE::QemuServer::Agent qw(qga_check_running);
+use PVE::QemuServer::Blockdev;
 use PVE::QemuServer::BlockJob;
 use PVE::QemuServer::Helpers
     qw(config_aware_timeout get_iscsi_initiator_name min_version kvm_user_version windows_version);
@@ -3813,14 +3814,8 @@ sub vm_devices_list {
     my $resblock = mon_cmd($vmid, 'query-block');
     for my $block ($resblock->@*) {
         my $qdev_id = $block->{qdev} or next;
-        if ($qdev_id =~ m|^/machine/peripheral/(virtio(\d+))/virtio-backend$|) {
-            $qdev_id = $1;
-        } elsif ($qdev_id =~ m|^/machine/system\.flash0$|) {
-            $qdev_id = 'pflash0';
-        } elsif ($qdev_id =~ m|^/machine/system\.flash1$|) {
-            $qdev_id = 'efidisk0';
-        }
-        $devices->{$qdev_id} = 1;
+        my $drive_id = PVE::QemuServer::Blockdev::qdev_id_to_drive_id($qdev_id);
+        $devices->{$drive_id} = 1;
     }
 
     my $resmice = mon_cmd($vmid, 'query-mice');
