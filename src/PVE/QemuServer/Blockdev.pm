@@ -533,13 +533,21 @@ sub resize {
 
     return if !$running;
 
+    my $block_info = get_block_info($vmid);
+    my $drive_id = $deviceid =~ s/^drive-//r;
+    my $inserted = $block_info->{$drive_id}->{inserted}
+        or die "no block node inserted for drive '$drive_id'\n";
+
     my $padding = (1024 - $size % 1024) % 1024;
     $size = $size + $padding;
 
     mon_cmd(
         $vmid,
         "block_resize",
-        device => $deviceid,
+        # Need to use the top throttle node, not the node below, because QEMU won't update the size
+        # of the top node otherwise, even though it's a filter node (as of QEMU 10.0). For legacy
+        # -drive, there is no top throttle node, so this also is the correct node.
+        'node-name' => "$inserted->{'node-name'}",
         size => int($size),
         timeout => 60,
     );
