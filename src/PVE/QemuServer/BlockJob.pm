@@ -4,12 +4,14 @@ use strict;
 use warnings;
 
 use JSON;
+use Storable qw(dclone);
 
 use PVE::Format qw(render_duration render_bytes);
 use PVE::RESTEnvironment qw(log_warn);
 use PVE::Storage;
 
 use PVE::QemuServer::Agent qw(qga_check_running);
+use PVE::QemuServer::Blockdev;
 use PVE::QemuServer::Drive qw(checked_volume_format);
 use PVE::QemuServer::Monitor qw(mon_cmd);
 use PVE::QemuServer::RunState;
@@ -187,10 +189,17 @@ sub qemu_drive_mirror_monitor {
                         print "$job_id: Completing block job...\n";
 
                         my $completion_command;
+                        # For blockdev, need to detach appropriate node. QEMU will only drop it if
+                        # it was implicitly added (e.g. as the child of a top throttle node), but
+                        # not if it was explicitly added via blockdev-add (e.g. as a previous mirror
+                        # target).
+                        my $detach_node_name;
                         if ($completion eq 'complete') {
                             $completion_command = 'block-job-complete';
+                            $detach_node_name = $jobs->{$job_id}->{'source-node-name'};
                         } elsif ($completion eq 'cancel') {
                             $completion_command = 'block-job-cancel';
+                            $detach_node_name = $jobs->{$job_id}->{'target-node-name'};
                         } else {
                             die "invalid completion value: $completion\n";
                         }
@@ -202,6 +211,9 @@ sub qemu_drive_mirror_monitor {
                         } elsif ($err) {
                             die "$job_id: block job cannot be completed - $err\n";
                         } else {
+                            $jobs->{$job_id}->{'detach-node-name'} = $detach_node_name
+                                if $detach_node_name;
+
                             print "$job_id: Completed successfully.\n";
                             $jobs->{$job_id}->{complete} = 1;
                         }
@@ -345,6 +357,135 @@ sub qemu_drive_mirror_switch_to_active_mode {
 
         sleep 1;
     }
+}
+
+=pod
+
+=head3 blockdev_mirror
+
+    blockdev_mirror($source, $dest, $jobs, $completion, $options)
+
+Mirrors the volume of a running VM specified by C<$source> to destination C<$dest>.
+
+=over
+
+=item C<$source>: The source information consists of:
+
+=over
+
+=item C<< $source->{vmid} >>: The ID of the running VM the source volume belongs to.
+
+=item C<< $source->{drive} >>: The drive configuration of the source volume as currently attached to
+the VM.
+
+=item C<< $source->{bitmap} >>: (optional) Use incremental mirroring based on the specified bitmap.
+
+=back
+
+=item C<$dest>: The destination information consists of:
+
+=over
+
+=item C<< $dest->{volid} >>: The volume ID of the target volume.
+
+=item C<< $dest->{vmid} >>: (optional) The ID of the VM the target volume belongs to. Defaults to
+C<< $source->{vmid} >>.
+
+=item C<< $dest->{'zero-initialized'} >>: (optional) True, if the target volume is zero-initialized.
+
+=back
+
+=item C<$jobs>: (optional) Other jobs in the transaction when multiple volumes should be mirrored.
+All jobs must be ready before completion can happen.
+
+=item C<$completion>: Completion mode, default is C<complete>:
+
+=over
+
+=item C<complete>: Wait until all jobs are ready, block-job-complete them (default). This means
+switching the orignal drive to use the new target.
+
+=item C<cancel>: Wait until all jobs are ready, block-job-cancel them. This means not switching thex
+original drive to use the new target.
+
+=item C<skip>: Wait until all jobs are ready, return with block jobs in ready state.
+
+=item C<auto>: Wait until all jobs disappear, only use for jobs which complete automatically.
+
+=back
+
+=item C<$options>: Further options:
+
+=over
+
+=item C<< $options->{'guest-agent'} >>: If the guest agent is configured for the VM. It will be used
+to freeze and thaw the filesystems for consistency when the target belongs to a different VM.
+
+=item C<< $options->{'bwlimit'} >>: The bandwidth limit to use for the mirroring operation, in
+KiB/s.
+
+=back
+
+=back
+
+=cut
+
+sub blockdev_mirror {
+    my ($source, $dest, $jobs, $completion, $options) = @_;
+
+    my $vmid = $source->{vmid};
+
+    my $drive_id = PVE::QemuServer::Drive::get_drive_id($source->{drive});
+    my $device_id = "drive-$drive_id";
+
+    my $storecfg = PVE::Storage::config();
+
+    # Need to replace the node below the top node. This is not necessarily a format node, for
+    # example, it can also be a zeroinit node by a previous mirror! So query QEMU itself.
+    my $source_node_name =
+        PVE::QemuServer::Blockdev::get_node_name_below_throttle($vmid, $device_id, 1);
+
+    # Copy original drive config (aio, cache, discard, ...):
+    my $dest_drive = dclone($source->{drive});
+    delete($dest_drive->{format}); # cannot use the source's format
+    $dest_drive->{file} = $dest->{volid};
+
+    # Mirror happens below the throttle filter, so if the target is for the same VM, it will end up
+    # below the source's throttle filter, which is inserted for the drive device.
+    my $attach_dest_opts = { 'no-throttle' => 1 };
+    $attach_dest_opts->{'zero-initialized'} = 1 if $dest->{'zero-initialized'};
+
+    # Note that if 'aio' is not explicitly set, i.e. default, it can change if source and target
+    # don't both allow or both not allow 'io_uring' as the default.
+    my $target_node_name =
+        PVE::QemuServer::Blockdev::attach($storecfg, $vmid, $dest_drive, $attach_dest_opts);
+
+    $jobs = {} if !$jobs;
+    my $jobid = "mirror-$drive_id";
+    $jobs->{$jobid} = {
+        'source-node-name' => $source_node_name,
+        'target-node-name' => $target_node_name,
+    };
+
+    my $qmp_opts = common_mirror_qmp_options(
+        $device_id, $target_node_name, $source->{bitmap}, $options->{bwlimit},
+    );
+
+    $qmp_opts->{'job-id'} = "$jobid";
+    $qmp_opts->{replaces} = "$source_node_name";
+
+    # if a job already runs for this device we get an error, catch it for cleanup
+    eval { mon_cmd($vmid, "blockdev-mirror", $qmp_opts->%*); };
+    if (my $err = $@) {
+        eval { qemu_blockjobs_cancel($vmid, $jobs) };
+        log_warn("unable to cancel block jobs - $@");
+        eval { PVE::QemuServer::Blockdev::detach($vmid, $target_node_name); };
+        log_warn("unable to delete blockdev '$target_node_name' - $@");
+        die "error starting blockdev mirrror - $err";
+    }
+    qemu_drive_mirror_monitor(
+        $vmid, $dest->{vmid}, $jobs, $completion, $options->{'guest-agent'}, 'mirror',
+    );
 }
 
 sub mirror {

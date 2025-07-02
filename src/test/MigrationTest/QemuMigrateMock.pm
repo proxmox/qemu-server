@@ -9,6 +9,7 @@ use Test::MockModule;
 use MigrationTest::Shared;
 
 use PVE::API2::Qemu;
+use PVE::QemuServer::Drive;
 use PVE::Storage;
 use PVE::Tools qw(file_set_contents file_get_contents);
 
@@ -166,6 +167,13 @@ $qemu_server_blockjob_module->mock(
         ) = @_;
 
         common_mirror_mock($vmid, $drive_id);
+    },
+    blockdev_mirror => sub {
+        my ($source, $dest, $jobs, $completion, $options) = @_;
+
+        my $drive_id = PVE::QemuServer::Drive::get_drive_id($source->{drive});
+
+        common_mirror_mock($source->{vmid}, $drive_id);
     },
     qemu_drive_mirror_monitor => sub {
         my ($vmid, $vmiddst, $jobs, $completion, $qga) = @_;
