@@ -11,6 +11,7 @@ use PVE::JSONSchema qw(json_bool);
 use PVE::Storage;
 
 use PVE::QemuServer::Drive qw(drive_is_cdrom);
+use PVE::QemuServer::Monitor qw(mon_cmd);
 
 my sub get_node_name {
     my ($type, $drive_id, $volid, $snap) = @_;
@@ -242,6 +243,146 @@ sub generate_drive_blockdev {
         'throttle-group' => throttle_group_id($drive_id),
         file => $child,
     };
+}
+
+my sub blockdev_add {
+    my ($vmid, $blockdev) = @_;
+
+    eval { mon_cmd($vmid, 'blockdev-add', $blockdev->%*); };
+    if (my $err = $@) {
+        my $node_name = $blockdev->{'node-name'} // 'undefined';
+        die "adding blockdev '$node_name' failed : $err\n" if $@;
+    }
+
+    return;
+}
+
+=pod
+
+=head3 attach
+
+    my $node_name = attach($storecfg, $vmid, $drive, $options);
+
+Attach the drive C<$drive> to the VM C<$vmid> considering the additional options C<$options>.
+Returns the node name of the (topmost) attached block device node.
+
+Parameters:
+
+=over
+
+=item C<$storecfg>: The storage configuration.
+
+=item C<$vmid>: The ID of the virtual machine.
+
+=item C<$drive>: The drive as parsed from a virtual machine configuration.
+
+=item C<$options>: A hash reference with additional options.
+
+=over
+
+=item C<< $options->{'read-only'} >>: Attach the image as read-only irrespective of the
+configuration in C<$drive>.
+
+=item C<< $options->{size} >>: Attach the image with this virtual size. Must be smaller than the
+actual size of the image. The image format must be C<raw>.
+
+=item C<< $options->{'snapshot-name'} >>: Attach this snapshot of the volume C<< $drive->{file} >>,
+rather than the volume itself.
+
+=back
+
+=back
+
+=cut
+
+sub attach {
+    my ($storecfg, $vmid, $drive, $options) = @_;
+
+    my $blockdev = generate_drive_blockdev($storecfg, $drive, $options);
+
+    my $throttle_group_id;
+    if (parse_top_node_name($blockdev->{'node-name'})) { # device top nodes need a throttle group
+        my $drive_id = PVE::QemuServer::Drive::get_drive_id($drive);
+        $throttle_group_id = throttle_group_id($drive_id);
+    }
+
+    eval {
+        if ($throttle_group_id) {
+            # Try to remove potential left-over.
+            eval { mon_cmd($vmid, 'object-del', id => $throttle_group_id); };
+
+            my $throttle_group = generate_throttle_group($drive);
+            mon_cmd($vmid, 'object-add', $throttle_group->%*);
+        }
+
+        blockdev_add($vmid, $blockdev);
+    };
+    if (my $err = $@) {
+        if ($throttle_group_id) {
+            eval { mon_cmd($vmid, 'object-del', id => $throttle_group_id); };
+        }
+        die $err;
+    }
+
+    return $blockdev->{'node-name'};
+}
+
+=pod
+
+=head3 detach
+
+    detach($vmid, $node_name);
+
+Detach the block device C<$node_name> from the VM C<$vmid>. Also removes associated child block
+nodes.
+
+Parameters:
+
+=over
+
+=item C<$vmid>: The ID of the virtual machine.
+
+=item C<$node_name>: The node name identifying the block node in QEMU.
+
+=back
+
+=cut
+
+sub detach {
+    my ($vmid, $node_name) = @_;
+
+    die "Blockdev::detach - no node name\n" if !$node_name;
+
+    my $block_info = mon_cmd($vmid, "query-named-block-nodes");
+    $block_info = { map { $_->{'node-name'} => $_ } $block_info->@* };
+
+    my $remove_throttle_group_id;
+    if ((my $drive_id = parse_top_node_name($node_name)) && $block_info->{$node_name}) {
+        $remove_throttle_group_id = throttle_group_id($drive_id);
+    }
+
+    while ($node_name) {
+        last if !$block_info->{$node_name}; # already gone
+
+        eval { mon_cmd($vmid, 'blockdev-del', 'node-name' => "$node_name"); };
+        if (my $err = $@) {
+            last if $err =~ m/Failed to find node with node-name/; # already gone
+            die "deleting blockdev '$node_name' failed : $err\n";
+        }
+
+        my $children = { map { $_->{child} => $_ } $block_info->{$node_name}->{children}->@* };
+        # Recursively remove 'file' child nodes. QEMU will auto-remove implicitly added child nodes,
+        # but e.g. the child of the top throttle node might have been explicitly added as a mirror
+        # target, and needs to be removed manually.
+        $node_name = $children->{file}->{'node-name'};
+    }
+
+    if ($remove_throttle_group_id) {
+        eval { mon_cmd($vmid, 'object-del', id => $remove_throttle_group_id); };
+        die "removing throttle group failed - $@\n" if $@;
+    }
+
+    return;
 }
 
 1;
