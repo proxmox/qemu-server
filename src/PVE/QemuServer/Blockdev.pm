@@ -238,7 +238,7 @@ my sub generate_blockdev_drive_cache {
 }
 
 my sub generate_file_blockdev {
-    my ($storecfg, $drive, $options) = @_;
+    my ($storecfg, $drive, $machine_version, $options) = @_;
 
     my $blockdev = {};
     my $scfg = undef;
@@ -282,7 +282,8 @@ my sub generate_file_blockdev {
         $storage_opts->{hints}->{'efi-disk'} = 1 if $drive->{interface} eq 'efidisk';
         $storage_opts->{'snapshot-name'} = $options->{'snapshot-name'}
             if defined($options->{'snapshot-name'});
-        $blockdev = PVE::Storage::qemu_blockdev_options($storecfg, $volid, $storage_opts);
+        $blockdev =
+            PVE::Storage::qemu_blockdev_options($storecfg, $volid, $machine_version, $storage_opts);
         $scfg = PVE::Storage::storage_config($storecfg, $storeid);
     }
 
@@ -360,14 +361,14 @@ my sub generate_format_blockdev {
 }
 
 sub generate_drive_blockdev {
-    my ($storecfg, $drive, $options) = @_;
+    my ($storecfg, $drive, $machine_version, $options) = @_;
 
     my $drive_id = PVE::QemuServer::Drive::get_drive_id($drive);
 
     die "generate_drive_blockdev called without volid/path\n" if !$drive->{file};
     die "generate_drive_blockdev called with 'none'\n" if $drive->{file} eq 'none';
 
-    my $child = generate_file_blockdev($storecfg, $drive, $options);
+    my $child = generate_file_blockdev($storecfg, $drive, $machine_version, $options);
     if (!is_nbd($drive)) {
         $child = generate_format_blockdev($storecfg, $drive, $child, $options);
     }
@@ -477,7 +478,9 @@ state image.
 sub attach {
     my ($storecfg, $vmid, $drive, $options) = @_;
 
-    my $blockdev = generate_drive_blockdev($storecfg, $drive, $options);
+    my $machine_version = PVE::QemuServer::Machine::get_current_qemu_machine($vmid);
+
+    my $blockdev = generate_drive_blockdev($storecfg, $drive, $machine_version, $options);
 
     my $throttle_group_id;
     if (parse_top_node_name($blockdev->{'node-name'})) { # device top nodes need a throttle group

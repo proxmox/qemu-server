@@ -3258,6 +3258,7 @@ sub config_to_command {
         my $hw_info = {
             'amd-sev-type' => get_amd_sev_type($conf),
             arch => $arch,
+            'machine-version' => $machine_version,
             q35 => $q35,
         };
         my ($ovmf_cmd, $ovmf_machine_flags) = PVE::QemuServer::OVMF::print_ovmf_commandline(
@@ -3654,7 +3655,7 @@ sub config_to_command {
                         if drive_is_read_only($conf, $drive);
 
                     my $blockdev = PVE::QemuServer::Blockdev::generate_drive_blockdev(
-                        $storecfg, $drive, $extra_blockdev_options,
+                        $storecfg, $drive, $machine_version, $extra_blockdev_options,
                     );
                     push @$devices, '-blockdev', to_json($blockdev, { canonical => 1 });
                 }
@@ -7164,8 +7165,9 @@ sub live_import_from_files {
         if (min_version($machine_version, 10, 0)) { # for the switch to -blockdev
             my ($interface, $index) = PVE::QemuServer::Drive::parse_drive_interface($dev);
             my $drive = { file => $volid, interface => $interface, index => $index };
-            my $blockdev =
-                PVE::QemuServer::Blockdev::generate_drive_blockdev($storecfg, $drive, {});
+            my $blockdev = PVE::QemuServer::Blockdev::generate_drive_blockdev(
+                $storecfg, $drive, $machine_version, {},
+            );
             $live_restore_backing->{$dev}->{blockdev} = $blockdev;
         } else {
             $live_restore_backing->{$dev}->{blockdev} =

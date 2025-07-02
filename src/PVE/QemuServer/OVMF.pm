@@ -147,7 +147,8 @@ sub create_efidisk($$$$$$$$) {
 my sub generate_ovmf_blockdev {
     my ($conf, $storecfg, $vmid, $hw_info) = @_;
 
-    my ($amd_sev_type, $arch, $q35) = $hw_info->@{qw(amd-sev-type arch q35)};
+    my ($amd_sev_type, $arch, $machine_version, $q35) =
+        $hw_info->@{qw(amd-sev-type arch machine-version q35)};
 
     my $drive = $conf->{efidisk0} ? parse_drive('efidisk0', $conf->{efidisk0}) : undef;
 
@@ -190,7 +191,7 @@ my sub generate_ovmf_blockdev {
     my $throttle_group = PVE::QemuServer::Blockdev::generate_throttle_group($drive);
 
     my $ovmf_vars_blockdev = PVE::QemuServer::Blockdev::generate_drive_blockdev(
-        $storecfg, $drive, $extra_blockdev_options,
+        $storecfg, $drive, $machine_version, $extra_blockdev_options,
     );
 
     return ($ovmf_code_blockdev, $ovmf_vars_blockdev, $throttle_group);
