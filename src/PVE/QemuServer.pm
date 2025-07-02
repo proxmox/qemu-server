@@ -7057,7 +7057,7 @@ sub pbs_live_restore {
             . " to disconnect from Proxmox Backup Server\n";
 
         for my $ds (sort keys %$restored_disks) {
-            mon_cmd($vmid, 'blockdev-del', 'node-name' => "$ds-pbs");
+            PVE::QemuServer::Blockdev::detach($vmid, "$ds-pbs");
         }
 
         close($qmeventd_fd);
@@ -7159,7 +7159,7 @@ sub live_import_from_files {
         print "restore-drive jobs finished successfully, removing all tracking block devices\n";
 
         for my $ds (sort keys %$live_restore_backing) {
-            mon_cmd($vmid, 'blockdev-del', 'node-name' => "drive-$ds-restore");
+            PVE::QemuServer::Blockdev::detach($vmid, "drive-$ds-restore");
         }
 
         close($qmeventd_fd);
