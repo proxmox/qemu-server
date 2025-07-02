@@ -355,7 +355,7 @@ sub generate_drive_blockdev {
     }
 
     # for fleecing and TPM backup, this is already the top node
-    return $child if $options->{fleecing} || $options->{'tpm-backup'};
+    return $child if $options->{fleecing} || $options->{'tpm-backup'} || $options->{'no-throttle'};
 
     # this is the top filter entry point, use $drive-drive_id as nodename
     return {
@@ -402,6 +402,8 @@ Parameters:
 =over
 
 =item C<< $options->{fleecing} >>: Generate and attach a block device for backup fleecing.
+
+=item C<< $options->{'no-throttle'} >>: Do not insert a throttle node as the top node.
 
 =item C<< $options->{'read-only'} >>: Attach the image as read-only irrespective of the
 configuration in C<$drive>.
