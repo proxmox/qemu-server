@@ -1,3 +1,60 @@
+qemu-server (9.0.1) trixie; urgency=medium
+
+  * cfg2cmd: require at least QEMU binary version 6.0
+
+  * drive: remove geometry options gone since QEMU 3.1
+
+  * vm start: assert that migration type is set for 'tcp' migration
+
+  * various code refactoring and cleanup, introducing:
+
+      BlockDev module
+      BlockJob module
+      Network module
+      OVMF module
+      QemuImage module
+      QemuMigrate::Helpers module
+      RunState module
+      StateFile module
+
+  * vm start/commandline: also clean up pci reservation when config_to_command() fails
+
+  * vm start/commandline: activate volumes before config_to_command()
+
+  * qm: showcmd: never reserve PCI devices
+
+  * fix #5985: qmp client: increase timeout for {device, netdev, object}_{add, del} commands
+
+  * qmp client: add default timeouts for more blockdev commands
+
+  * switch to blockdev and block-mirror with machine version >= 10.0
+
+  * blockdev: add workaround for issue #3229
+
+  * assume that SDN is available
+
+  * schema: remove unused pve-qm-ipconfig standard option
+
+  * move find_vmstate_storage() helper to QemuConfig module
+
+  * adopt perltidy also for executables without perl extension
+
+  * backup: use blockdev for fleecing images
+
+  * backup: use blockdev for TPM state file
+
+  * clone disk: skip check for aio=default (io_uring) compatibility starting with machine version 10.0
+
+  * test: migration: update running machine to 10.0
+
+  * partially fix #3227: ensure that target image for mirror has the same size for EFI disks
+
+  * blockdev: pass along machine version to storage layer
+
+  * net: use pve-firewall helper for deciding whether to create fw bridges
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 03 Jul 2025 13:40:14 +0200
+
 qemu-server (9.0.0) trixie; urgency=medium
 
   * re-build for Debian 13 Trixie based Proxmox VE 9 releases.
