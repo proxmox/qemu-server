@@ -5882,7 +5882,7 @@ sub cleanup_pci_devices {
     my $reservations = PVE::QemuServer::PCI::get_reservations($vmid);
     # clean up nvidia devices
     for my $id ($reservations->@*) {
-        $id = '0000:' . $id if $id !~ m/^0000:/;
+        $id = PVE::SysFSTools::normalize_pci_id($id);
 
         my $create_path = "/sys/bus/pci/devices/$id/nvidia/current_vgpu_type";
 

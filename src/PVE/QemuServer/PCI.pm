@@ -540,7 +540,7 @@ sub parse_hostpci_devices {
 my sub create_nvidia_device {
     my ($id, $model) = @_;
 
-    $id = '0000:' . $id if $id !~ m/^0000:/;
+    $id = PVE::SysFSTools::normalize_pci_id($id);
 
     my $creation = "/sys/bus/pci/devices/$id/nvidia/current_vgpu_type";
 
