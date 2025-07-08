@@ -405,10 +405,12 @@ my $query_backup_status_loop = sub {
         my $target_h = render_bytes($target, 1);
         my $transferred_h = render_bytes($transferred, 1);
 
-        my $statusline =
-            sprintf("%3d%% ($transferred_h of $target_h) in %s"
+        my $statusline = sprintf(
+            "%3d%% ($transferred_h of $target_h) in %s"
                 . ", read: $mbps_read, write: $mbps_write",
-                $percent, render_duration($duration));
+            $percent,
+            render_duration($duration),
+        );
 
         my $res = $status->{status} || 'unknown';
         if ($res ne 'active') {

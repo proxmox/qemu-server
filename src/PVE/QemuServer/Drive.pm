@@ -405,21 +405,37 @@ $add_throttle_desc->(
 # burst lengths
 $add_throttle_desc->('bps_max_length', 'integer', 'length of I/O bursts', 'seconds', 'seconds', 1);
 $add_throttle_desc->(
-    'bps_rd_max_length', 'integer', 'length of read I/O bursts',
-    'seconds', 'seconds', 1,
+    'bps_rd_max_length',
+    'integer',
+    'length of read I/O bursts',
+    'seconds',
+    'seconds',
+    1,
 );
 $add_throttle_desc->(
-    'bps_wr_max_length', 'integer', 'length of write I/O bursts',
-    'seconds', 'seconds', 1,
+    'bps_wr_max_length',
+    'integer',
+    'length of write I/O bursts',
+    'seconds',
+    'seconds',
+    1,
 );
 $add_throttle_desc->('iops_max_length', 'integer', 'length of I/O bursts', 'seconds', 'seconds', 1);
 $add_throttle_desc->(
-    'iops_rd_max_length', 'integer', 'length of read I/O bursts',
-    'seconds', 'seconds', 1,
+    'iops_rd_max_length',
+    'integer',
+    'length of read I/O bursts',
+    'seconds',
+    'seconds',
+    1,
 );
 $add_throttle_desc->(
-    'iops_wr_max_length', 'integer', 'length of write I/O bursts',
-    'seconds', 'seconds', 1,
+    'iops_wr_max_length',
+    'integer',
+    'length of write I/O bursts',
+    'seconds',
+    'seconds',
+    1,
 );
 
 # legacy support
