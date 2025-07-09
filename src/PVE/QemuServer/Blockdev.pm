@@ -360,6 +360,46 @@ my sub generate_format_blockdev {
     return $blockdev;
 }
 
+my sub generate_backing_blockdev;
+
+sub generate_backing_blockdev {
+    my ($storecfg, $snapshots, $deviceid, $drive, $machine_version, $options) = @_;
+
+    my $snap_id = $options->{'snapshot-name'};
+    my $snapshot = $snapshots->{$snap_id};
+    my $parentid = $snapshot->{parent};
+
+    my $volid = $drive->{file};
+
+    my $snap_file_blockdev = generate_file_blockdev($storecfg, $drive, $machine_version, $options);
+    $snap_file_blockdev->{filename} = $snapshot->{file};
+
+    my $snap_fmt_blockdev =
+        generate_format_blockdev($storecfg, $drive, $snap_file_blockdev, $options);
+
+    if ($parentid) {
+        my $options = { 'snapshot-name' => $parentid };
+        $snap_fmt_blockdev->{backing} = generate_backing_blockdev(
+            $storecfg, $snapshots, $deviceid, $drive, $machine_version, $options,
+        );
+    }
+    return $snap_fmt_blockdev;
+}
+
+my sub generate_backing_chain_blockdev {
+    my ($storecfg, $deviceid, $drive, $machine_version) = @_;
+
+    my $volid = $drive->{file};
+
+    my $snapshots = PVE::Storage::volume_snapshot_info($storecfg, $volid);
+    my $parentid = $snapshots->{'current'}->{parent};
+    return undef if !$parentid;
+    my $options = { 'snapshot-name' => $parentid };
+    return generate_backing_blockdev(
+        $storecfg, $snapshots, $deviceid, $drive, $machine_version, $options,
+    );
+}
+
 sub generate_drive_blockdev {
     my ($storecfg, $drive, $machine_version, $options) = @_;
 
@@ -371,6 +411,15 @@ sub generate_drive_blockdev {
     my $child = generate_file_blockdev($storecfg, $drive, $machine_version, $options);
     if (!is_nbd($drive)) {
         $child = generate_format_blockdev($storecfg, $drive, $child, $options);
+
+        my $support_qemu_snapshots =
+            PVE::Storage::volume_support_qemu_snapshot($storecfg, $drive->{file});
+        if ($support_qemu_snapshots && $support_qemu_snapshots eq 'external') {
+            my $backing_chain = generate_backing_chain_blockdev(
+                $storecfg, "drive-$drive_id", $drive, $machine_version,
+            );
+            $child->{backing} = $backing_chain if $backing_chain;
+        }
     }
 
     if ($options->{'zero-initialized'}) {

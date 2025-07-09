@@ -21,6 +21,7 @@ use PVE::QemuServer::Helpers;
 use PVE::QemuServer::Monitor;
 use PVE::QemuServer::QMPHelpers;
 use PVE::QemuServer::CPUConfig;
+use PVE::Storage;
 
 my $base_env = {
     storage_config => {
@@ -33,6 +34,15 @@ my $base_env = {
                 path => '/var/lib/vz',
                 type => 'dir',
                 shared => 0,
+            },
+            localsnapext => {
+                content => {
+                    images => 1,
+                },
+                path => '/var/lib/vzsnapext',
+                type => 'dir',
+                shared => 0,
+                snapext => 1,
             },
             noimages => {
                 content => {
@@ -263,6 +273,43 @@ $storage_module->mock(
     },
     deactivate_volumes => sub {
         return;
+    },
+    volume_snapshot_info => sub {
+        my ($cfg, $volid) = @_;
+
+        my ($storeid, $volname) = PVE::Storage::parse_volume_id($volid);
+
+        my $snapshots = {};
+        if ($storeid eq 'localsnapext') {
+            $snapshots = {
+                current => {
+                    file => 'var/lib/vzsnapext/images/8006/vm-8006-disk-0.qcow2',
+                    parent => 'snap2',
+                },
+                snap2 => {
+                    file => '/var/lib/vzsnapext/images/8006/snap2-vm-8006-disk-0.qcow2',
+                    parent => 'snap1',
+                },
+                snap1 => {
+                    file => '/var/lib/vzsnapext/images/8006/snap1-vm-8006-disk-0.qcow2',
+                },
+            };
+        } elsif ($storeid eq 'lvm-store') {
+            $snapshots = {
+                current => {
+                    file => '/dev/veegee/vm-8006-disk-0.qcow2',
+                    parent => 'snap2',
+                },
+                snap2 => {
+                    file => '/dev/veegee/snap2-vm-8006-disk-0.qcow2',
+                    parent => 'snap1',
+                },
+                snap1 => {
+                    file => '/dev/veegee/snap1-vm-8006-disk-0.qcow2',
+                },
+            };
+        }
+        return $snapshots;
     },
 );
 
