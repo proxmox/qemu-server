@@ -11,6 +11,7 @@ use JSON;
 use PVE::JSONSchema qw(json_bool);
 use PVE::Storage;
 
+use PVE::QemuServer::BlockJob;
 use PVE::QemuServer::Drive qw(drive_is_cdrom);
 use PVE::QemuServer::Helpers;
 use PVE::QemuServer::Monitor qw(mon_cmd);
@@ -243,6 +244,9 @@ my sub generate_file_blockdev {
     my $blockdev = {};
     my $scfg = undef;
 
+    delete $options->{'snapshot-name'}
+        if $options->{'snapshot-name'} && $options->{'snapshot-name'} eq 'current';
+
     die "generate_file_blockdev called without volid/path\n" if !$drive->{file};
     die "generate_file_blockdev called with 'none'\n" if $drive->{file} eq 'none';
     # FIXME use overlay and new config option to define storage for temp write device
@@ -322,6 +326,9 @@ my sub generate_format_blockdev {
     die "generate_format_blockdev called with 'none'\n" if $drive->{file} eq 'none';
     die "generate_format_blockdev called with NBD path\n" if is_nbd($drive);
 
+    delete($options->{'snapshot-name'})
+        if $options->{'snapshot-name'} && $options->{'snapshot-name'} eq 'current';
+
     my $scfg;
     my $format;
     my $volid = $drive->{file};
@@ -400,6 +407,17 @@ my sub generate_backing_chain_blockdev {
     );
 }
 
+sub generate_throttle_blockdev {
+    my ($drive_id, $child) = @_;
+
+    return {
+        driver => "throttle",
+        'node-name' => top_node_name($drive_id),
+        'throttle-group' => throttle_group_id($drive_id),
+        file => $child,
+    };
+}
+
 sub generate_drive_blockdev {
     my ($storecfg, $drive, $machine_version, $options) = @_;
 
@@ -442,12 +460,7 @@ sub generate_drive_blockdev {
     return $child if $options->{fleecing} || $options->{'tpm-backup'} || $options->{'no-throttle'};
 
     # this is the top filter entry point, use $drive-drive_id as nodename
-    return {
-        driver => "throttle",
-        'node-name' => top_node_name($drive_id),
-        'throttle-group' => throttle_group_id($drive_id),
-        file => $child,
-    };
+    return generate_throttle_blockdev($drive_id, $child);
 }
 
 sub generate_pbs_blockdev {
@@ -783,6 +796,277 @@ sub set_io_throttle {
             iops_wr_max_length => int($iops_wr_max_length),
         );
     }
+}
+
+sub blockdev_external_snapshot {
+    my ($storecfg, $vmid, $machine_version, $deviceid, $drive, $snap, $size) = @_;
+
+    print "Creating a new current volume with $snap as backing snap\n";
+
+    my $volid = $drive->{file};
+
+    #preallocate add a new current file with reference to backing-file
+    PVE::Storage::volume_snapshot($storecfg, $volid, $snap, 1);
+
+    #be sure to add drive in write mode
+    delete($drive->{ro});
+
+    my $new_file_blockdev = generate_file_blockdev($storecfg, $drive);
+    my $new_fmt_blockdev = generate_format_blockdev($storecfg, $drive, $new_file_blockdev);
+
+    my $snap_file_blockdev = generate_file_blockdev($storecfg, $drive, $snap);
+    my $snap_fmt_blockdev = generate_format_blockdev(
+        $storecfg,
+        $drive,
+        $snap_file_blockdev,
+        { 'snapshot-name' => $snap },
+    );
+
+    #backing need to be forced to undef in blockdev, to avoid reopen of backing-file on blockdev-add
+    $new_fmt_blockdev->{backing} = undef;
+
+    mon_cmd($vmid, 'blockdev-add', %$new_fmt_blockdev);
+
+    mon_cmd(
+        $vmid, 'blockdev-snapshot',
+        node => $snap_fmt_blockdev->{'node-name'},
+        overlay => $new_fmt_blockdev->{'node-name'},
+    );
+}
+
+sub blockdev_delete {
+    my ($storecfg, $vmid, $drive, $file_blockdev, $fmt_blockdev, $snap) = @_;
+
+    #add eval as reopen is auto removing the old nodename automatically only if it was created at vm start in command line argument
+    eval { mon_cmd($vmid, 'blockdev-del', 'node-name' => $file_blockdev->{'node-name'}) };
+    eval { mon_cmd($vmid, 'blockdev-del', 'node-name' => $fmt_blockdev->{'node-name'}) };
+
+    #delete the file (don't use vdisk_free as we don't want to delete all snapshot chain)
+    print "delete old $file_blockdev->{filename}\n";
+
+    my $storage_name = PVE::Storage::parse_volume_id($drive->{file});
+
+    my $volid = $drive->{file};
+    PVE::Storage::volume_snapshot_delete($storecfg, $volid, $snap, 1);
+}
+
+sub blockdev_rename {
+    my (
+        $storecfg,
+        $vmid,
+        $machine_version,
+        $deviceid,
+        $drive,
+        $src_snap,
+        $target_snap,
+        $parent_snap,
+    ) = @_;
+
+    print "rename $src_snap to $target_snap\n";
+
+    my $volid = $drive->{file};
+
+    my $src_file_blockdev = generate_file_blockdev(
+        $storecfg,
+        $drive,
+        $machine_version,
+        { 'snapshot-name' => $src_snap },
+    );
+    my $src_fmt_blockdev = generate_format_blockdev(
+        $storecfg,
+        $drive,
+        $src_file_blockdev,
+        { 'snapshot-name' => $src_snap },
+    );
+
+    #rename the snapshot
+    PVE::Storage::rename_snapshot($storecfg, $volid, $src_snap, $target_snap);
+
+    my $target_file_blockdev = generate_file_blockdev(
+        $storecfg,
+        $drive,
+        $machine_version,
+        { 'snapshot-name' => $target_snap },
+    );
+    my $target_fmt_blockdev = generate_format_blockdev(
+        $storecfg,
+        $drive,
+        $target_file_blockdev,
+        { 'snapshot-name' => $target_snap },
+    );
+
+    if ($target_snap eq 'current' || $src_snap eq 'current') {
+        #rename from|to current
+        my $drive_id = PVE::QemuServer::Drive::get_drive_id($drive);
+
+        #add backing to target
+        if ($parent_snap) {
+            my $parent_fmt_nodename =
+                get_node_name('fmt', $drive_id, $volid, { 'snapshot-name' => $parent_snap });
+            $target_fmt_blockdev->{backing} = $parent_fmt_nodename;
+        }
+        mon_cmd($vmid, 'blockdev-add', %$target_fmt_blockdev);
+
+        #reopen the current throttlefilter nodename with the target fmt nodename
+        my $throttle_blockdev =
+            generate_throttle_blockdev($drive_id, $target_fmt_blockdev->{'node-name'});
+        mon_cmd($vmid, 'blockdev-reopen', options => [$throttle_blockdev]);
+    } else {
+        rename($src_file_blockdev->{filename}, $target_file_blockdev->{filename});
+
+        #intermediate snapshot
+        mon_cmd($vmid, 'blockdev-add', %$target_fmt_blockdev);
+
+        #reopen the parent node with the new target fmt backing node
+        my $parent_file_blockdev = generate_file_blockdev(
+            $storecfg,
+            $drive,
+            $machine_version,
+            { 'snapshot-name' => $parent_snap },
+        );
+        my $parent_fmt_blockdev = generate_format_blockdev(
+            $storecfg,
+            $drive,
+            $parent_file_blockdev,
+            { 'snapshot-name' => $parent_snap },
+        );
+        $parent_fmt_blockdev->{backing} = $target_fmt_blockdev->{'node-name'};
+        mon_cmd($vmid, 'blockdev-reopen', options => [$parent_fmt_blockdev]);
+
+        #change backing-file in qcow2 metadatas
+        mon_cmd(
+            $vmid, 'change-backing-file',
+            device => $deviceid,
+            'image-node-name' => $parent_fmt_blockdev->{'node-name'},
+            'backing-file' => $target_file_blockdev->{filename},
+        );
+    }
+
+    # delete old file|fmt nodes
+    # add eval as reopen is auto removing the old nodename automatically only if it was created at vm start in command line argument
+    eval { mon_cmd($vmid, 'blockdev-del', 'node-name' => $src_file_blockdev->{'node-name'}) };
+    eval { mon_cmd($vmid, 'blockdev-del', 'node-name' => $src_fmt_blockdev->{'node-name'}) };
+}
+
+sub blockdev_commit {
+    my ($storecfg, $vmid, $machine_version, $deviceid, $drive, $src_snap, $target_snap) = @_;
+
+    my $volid = $drive->{file};
+
+    print "block-commit $src_snap to base:$target_snap\n";
+
+    my $target_file_blockdev = generate_file_blockdev(
+        $storecfg,
+        $drive,
+        $machine_version,
+        { 'snapshot-name' => $target_snap },
+    );
+    my $target_fmt_blockdev = generate_format_blockdev(
+        $storecfg,
+        $drive,
+        $target_file_blockdev,
+        { 'snapshot-name' => $target_snap },
+    );
+
+    my $src_file_blockdev = generate_file_blockdev(
+        $storecfg,
+        $drive,
+        $machine_version,
+        { 'snapshot-name' => $src_snap },
+    );
+    my $src_fmt_blockdev = generate_format_blockdev(
+        $storecfg,
+        $drive,
+        $src_file_blockdev,
+        { 'snapshot-name' => $src_snap },
+    );
+
+    my $job_id = "commit-$deviceid";
+    my $jobs = {};
+    my $opts = { 'job-id' => $job_id, device => $deviceid };
+
+    $opts->{'base-node'} = $target_fmt_blockdev->{'node-name'};
+    $opts->{'top-node'} = $src_fmt_blockdev->{'node-name'};
+
+    mon_cmd($vmid, "block-commit", %$opts);
+    $jobs->{$job_id} = {};
+
+    # if we commit the current, the blockjob need to be in 'complete' mode
+    my $complete = $src_snap && $src_snap ne 'current' ? 'auto' : 'complete';
+
+    eval {
+        PVE::QemuServer::BlockJob::qemu_drive_mirror_monitor(
+            $vmid, undef, $jobs, $complete, 0, 'commit',
+        );
+    };
+    if ($@) {
+        die "Failed to complete block commit: $@\n";
+    }
+
+    blockdev_delete($storecfg, $vmid, $drive, $src_file_blockdev, $src_fmt_blockdev, $src_snap);
+}
+
+sub blockdev_stream {
+    my ($storecfg, $vmid, $machine_version, $deviceid, $drive, $snap, $parent_snap, $target_snap) =
+        @_;
+
+    my $volid = $drive->{file};
+    $target_snap = undef if $target_snap eq 'current';
+
+    my $parent_file_blockdev = generate_file_blockdev(
+        $storecfg,
+        $drive,
+        $machine_version,
+        { 'snapshot-name' => $parent_snap },
+    );
+    my $parent_fmt_blockdev = generate_format_blockdev(
+        $storecfg,
+        $drive,
+        $parent_file_blockdev,
+        { 'snapshot-name' => $parent_snap },
+    );
+
+    my $target_file_blockdev = generate_file_blockdev(
+        $storecfg,
+        $drive,
+        $machine_version,
+        { 'snapshot-name' => $target_snap },
+    );
+    my $target_fmt_blockdev = generate_format_blockdev(
+        $storecfg,
+        $drive,
+        $target_file_blockdev,
+        { 'snapshot-name' => $target_snap },
+    );
+
+    my $snap_file_blockdev =
+        generate_file_blockdev($storecfg, $drive, $machine_version, { 'snapshot-name' => $snap });
+    my $snap_fmt_blockdev = generate_format_blockdev(
+        $storecfg,
+        $drive,
+        $snap_file_blockdev,
+        { 'snapshot-name' => $snap },
+    );
+
+    my $job_id = "stream-$deviceid";
+    my $jobs = {};
+    my $options = { 'job-id' => $job_id, device => $target_fmt_blockdev->{'node-name'} };
+    $options->{'base-node'} = $parent_fmt_blockdev->{'node-name'};
+    $options->{'backing-file'} = $parent_file_blockdev->{filename};
+
+    mon_cmd($vmid, 'block-stream', %$options);
+    $jobs->{$job_id} = {};
+
+    eval {
+        PVE::QemuServer::BlockJob::qemu_drive_mirror_monitor(
+            $vmid, undef, $jobs, 'auto', 0, 'stream',
+        );
+    };
+    if ($@) {
+        die "Failed to complete block stream: $@\n";
+    }
+
+    blockdev_delete($storecfg, $vmid, $drive, $snap_file_blockdev, $snap_fmt_blockdev, $snap);
 }
 
 1;

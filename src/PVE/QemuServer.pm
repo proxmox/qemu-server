@@ -4340,20 +4340,64 @@ sub qemu_cpu_hotplug {
 }
 
 sub qemu_volume_snapshot {
-    my ($vmid, $deviceid, $storecfg, $volid, $snap) = @_;
+    my ($vmid, $deviceid, $storecfg, $drive, $snap) = @_;
 
+    my $volid = $drive->{file};
     my $running = check_running($vmid);
 
-    if ($running && do_snapshots_with_qemu($storecfg, $volid, $deviceid)) {
+    my $do_snapshots_type = do_snapshots_type($storecfg, $volid, $deviceid, $running);
+
+    if ($do_snapshots_type eq 'internal') {
+        print "internal qemu snapshot\n";
         mon_cmd($vmid, 'blockdev-snapshot-internal-sync', device => $deviceid, name => $snap);
-    } else {
+    } elsif ($do_snapshots_type eq 'external') {
+        my $storeid = (PVE::Storage::parse_volume_id($volid))[0];
+        my $scfg = PVE::Storage::storage_config($storecfg, $storeid);
+        print "external qemu snapshot\n";
+        my $snapshots = PVE::Storage::volume_snapshot_info($storecfg, $volid);
+        my $parent_snap = $snapshots->{'current'}->{parent};
+        my $machine_version = PVE::QemuServer::Machine::get_current_qemu_machine($vmid);
+
+        PVE::QemuServer::Blockdev::blockdev_rename(
+            $storecfg,
+            $vmid,
+            $machine_version,
+            $deviceid,
+            $drive,
+            'current',
+            $snap,
+            $parent_snap,
+        );
+        eval {
+            PVE::QemuServer::Blockdev::blockdev_external_snapshot(
+                $storecfg, $vmid, $machine_version, $deviceid, $drive, $snap,
+            );
+        };
+        if ($@) {
+            warn $@ if $@;
+            print "Error creating snapshot. Revert rename\n";
+            eval {
+                PVE::QemuServer::Blockdev::blockdev_rename(
+                    $storecfg,
+                    $vmid,
+                    $machine_version,
+                    $deviceid,
+                    $drive,
+                    $snap,
+                    'current',
+                    $parent_snap,
+                );
+            };
+        }
+    } elsif ($do_snapshots_type eq 'storage') {
         PVE::Storage::volume_snapshot($storecfg, $volid, $snap);
     }
 }
 
 sub qemu_volume_snapshot_delete {
-    my ($vmid, $storecfg, $volid, $snap) = @_;
+    my ($vmid, $storecfg, $drive, $snap) = @_;
 
+    my $volid = $drive->{file};
     my $running = check_running($vmid);
     my $attached_deviceid;
 
@@ -4368,14 +4412,62 @@ sub qemu_volume_snapshot_delete {
         );
     }
 
-    if ($attached_deviceid && do_snapshots_with_qemu($storecfg, $volid, $attached_deviceid)) {
+    my $do_snapshots_type = do_snapshots_type($storecfg, $volid, $attached_deviceid, $running);
+
+    if ($do_snapshots_type eq 'internal') {
         mon_cmd(
             $vmid,
             'blockdev-snapshot-delete-internal-sync',
             device => $attached_deviceid,
             name => $snap,
         );
-    } else {
+    } elsif ($do_snapshots_type eq 'external') {
+        print "delete qemu external snapshot\n";
+
+        my $path = PVE::Storage::path($storecfg, $volid);
+        my $snapshots = PVE::Storage::volume_snapshot_info($storecfg, $volid);
+        my $parentsnap = $snapshots->{$snap}->{parent};
+        my $childsnap = $snapshots->{$snap}->{child};
+        my $machine_version = PVE::QemuServer::Machine::get_current_qemu_machine($vmid);
+
+        # if we delete the first snasphot, we commit because the first snapshot original base image, it should be big.
+        # improve-me: if firstsnap > child : commit, if firstsnap < child do a stream.
+        if (!$parentsnap) {
+            print "delete first snapshot $snap\n";
+            PVE::QemuServer::Blockdev::blockdev_commit(
+                $storecfg,
+                $vmid,
+                $machine_version,
+                $attached_deviceid,
+                $drive,
+                $childsnap,
+                $snap,
+            );
+            PVE::QemuServer::Blockdev::blockdev_rename(
+                $storecfg,
+                $vmid,
+                $machine_version,
+                $attached_deviceid,
+                $drive,
+                $snap,
+                $childsnap,
+                $snapshots->{$childsnap}->{child},
+            );
+        } else {
+            #intermediate snapshot, we always stream the snapshot to child snapshot
+            print "stream intermediate snapshot $snap to $childsnap\n";
+            PVE::QemuServer::Blockdev::blockdev_stream(
+                $storecfg,
+                $vmid,
+                $machine_version,
+                $attached_deviceid,
+                $drive,
+                $snap,
+                $parentsnap,
+                $childsnap,
+            );
+        }
+    } elsif ($do_snapshots_type eq 'storage') {
         PVE::Storage::volume_snapshot_delete(
             $storecfg,
             $volid,
@@ -7563,28 +7655,20 @@ sub restore_tar_archive {
     warn $@ if $@;
 }
 
-my $qemu_snap_storage = {
-    rbd => 1,
-};
+sub do_snapshots_type {
+    my ($storecfg, $volid, $deviceid, $running) = @_;
 
-sub do_snapshots_with_qemu {
-    my ($storecfg, $volid, $deviceid) = @_;
+    #always use storage snapshot for tpmstate
+    return 'storage' if $deviceid && $deviceid =~ m/tpmstate0/;
 
-    return if $deviceid =~ m/tpmstate0/;
+    #we use storage snapshot if vm is not running or if disk is unused;
+    return 'storage' if !$running || !$deviceid;
 
-    my $storage_name = PVE::Storage::parse_volume_id($volid);
-    my $scfg = $storecfg->{ids}->{$storage_name};
-    die "could not find storage '$storage_name'\n" if !defined($scfg);
+    my $qemu_snapshot_type = PVE::Storage::volume_support_qemu_snapshot($storecfg, $volid);
+    # if running, but don't support qemu snapshot, we use storage snapshot
+    return 'storage' if !$qemu_snapshot_type;
 
-    if ($qemu_snap_storage->{ $scfg->{type} } && !$scfg->{krbd}) {
-        return 1;
-    }
-
-    if ($volid =~ m/\.(qcow2|qed)$/) {
-        return 1;
-    }
-
-    return;
+    return $qemu_snapshot_type;
 }
 
 =head3 template_create($vmid, $conf [, $disk])

@@ -398,7 +398,7 @@ sub __snapshot_create_vol_snapshot {
 
     print "snapshotting '$device' ($drive->{file})\n";
 
-    PVE::QemuServer::qemu_volume_snapshot($vmid, $device, $storecfg, $volid, $snapname);
+    PVE::QemuServer::qemu_volume_snapshot($vmid, $device, $storecfg, $drive, $snapname);
 }
 
 sub __snapshot_delete_remove_drive {
@@ -435,7 +435,7 @@ sub __snapshot_delete_vol_snapshot {
     my $storecfg = PVE::Storage::config();
     my $volid = $drive->{file};
 
-    PVE::QemuServer::qemu_volume_snapshot_delete($vmid, $storecfg, $volid, $snapname);
+    PVE::QemuServer::qemu_volume_snapshot_delete($vmid, $storecfg, $drive, $snapname);
 
     push @$unused, $volid;
 }
