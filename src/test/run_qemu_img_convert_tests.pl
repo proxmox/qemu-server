@@ -21,6 +21,15 @@ my $storage_config = {
             type => "dir",
             shared => 0,
         },
+        localsnapext => {
+            content => {
+                images => 1,
+            },
+            path => "/var/lib/vzsnapext",
+            type => "dir",
+            'external-snapshots' => 1,
+            shared => 0,
+        },
         btrfs => {
             content => {
                 images => 1,
@@ -57,6 +66,13 @@ my $storage_config = {
             bwlimit => "restore=1024",
             type => "lvmthin",
             thinpool => "data",
+            content => {
+                images => 1,
+            },
+        },
+        "lvm-store" => {
+            vgname => "pve",
+            type => "lvm",
             content => {
                 images => 1,
             },
@@ -469,6 +485,49 @@ my $tests = [
             "/var/lib/vz/images/$vmid/vm-$vmid-disk-0.raw",
         ],
     },
+    {
+        name => "qcow2_external_snapshot",
+        parameters => [
+            "localsnapext:$vmid/vm-$vmid-disk-0.qcow2",
+            "local:$vmid/vm-$vmid-disk-0.raw",
+            1024 * 10,
+            { snapname => 'foo' },
+        ],
+        expected => [
+            "/usr/bin/qemu-img",
+            "convert",
+            "-p",
+            "-n",
+            "-f",
+            "qcow2",
+            "-O",
+            "raw",
+            "/var/lib/vzsnapext/images/$vmid/snap-foo-vm-$vmid-disk-0.qcow2",
+            "/var/lib/vz/images/$vmid/vm-$vmid-disk-0.raw",
+        ],
+    },
+    {
+        name => "lvmqcow2_external_snapshot",
+        parameters => [
+            "lvm-store:vm-$vmid-disk-0.qcow2",
+            "local:$vmid/vm-$vmid-disk-0.raw",
+            1024 * 10,
+            { snapname => 'foo' },
+        ],
+        expected => [
+            "/usr/bin/qemu-img",
+            "convert",
+            "-p",
+            "-n",
+            "-f",
+            "qcow2",
+            "-O",
+            "raw",
+            "/dev/pve/snap_vm-8006-disk-0_foo.qcow2",
+            "/var/lib/vz/images/$vmid/vm-$vmid-disk-0.raw",
+        ],
+    },
+
 ];
 
 my $command;
