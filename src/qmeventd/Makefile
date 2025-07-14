@@ -1,7 +1,8 @@
 DESTDIR=
 PREFIX=/usr
 SBINDIR=$(PREFIX)/sbin
-SERVICEDIR=$(PREFIX)/lib/systemd/system
+# bookworm's systemd debhelper do not understand unit files shiped in /usr yet.
+SERVICEDIR=/lib/systemd/system
 MANDIR=$(PREFIX)/share/man
 
 -include /usr/share/pve-doc-generator/pve-doc-generator.mk
