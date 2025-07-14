@@ -1,3 +1,10 @@
+qemu-server (8.4.1) bookworm; urgency=medium
+
+  * revert shipping systemd unit in /usr for Bookworm to ensure all services
+    are started on installation.
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 14 Jul 2025 13:51:53 +0200
+
 qemu-server (8.4.0) bookworm; urgency=medium
 
   * fix #6400: PCI passthrough: support PCI domains other than 0000, like,
