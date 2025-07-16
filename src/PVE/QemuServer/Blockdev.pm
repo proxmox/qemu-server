@@ -912,8 +912,6 @@ sub blockdev_rename {
             generate_throttle_blockdev($drive_id, $target_fmt_blockdev->{'node-name'});
         mon_cmd($vmid, 'blockdev-reopen', options => [$throttle_blockdev]);
     } else {
-        rename($src_file_blockdev->{filename}, $target_file_blockdev->{filename});
-
         #intermediate snapshot
         mon_cmd($vmid, 'blockdev-add', %$target_fmt_blockdev);
 
