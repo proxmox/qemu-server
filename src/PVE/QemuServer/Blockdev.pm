@@ -367,9 +367,8 @@ my sub generate_format_blockdev {
     return $blockdev;
 }
 
-my sub generate_backing_blockdev;
-
-sub generate_backing_blockdev {
+my sub generate_backing_blockdev {
+    use feature 'current_sub';
     my ($storecfg, $snapshots, $deviceid, $drive, $machine_version, $options) = @_;
 
     my $snap_id = $options->{'snapshot-name'};
@@ -386,7 +385,7 @@ sub generate_backing_blockdev {
 
     if ($parentid) {
         my $options = { 'snapshot-name' => $parentid };
-        $snap_fmt_blockdev->{backing} = generate_backing_blockdev(
+        $snap_fmt_blockdev->{backing} = __SUB__->(
             $storecfg, $snapshots, $deviceid, $drive, $machine_version, $options,
         );
     }
