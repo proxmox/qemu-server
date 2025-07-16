@@ -71,7 +71,7 @@ sub convert {
     my $dst_format = checked_volume_format($storecfg, $dst_volid);
     my $dst_path = PVE::Storage::path($storecfg, $dst_volid);
     my $dst_is_iscsi = ($dst_path =~ m|^iscsi://|);
-    my $support_qemu_snapshots = PVE::Storage::volume_support_qemu_snapshot($storecfg, $src_volid);
+    my $support_qemu_snapshots = PVE::Storage::volume_qemu_snapshot_method($storecfg, $src_volid);
 
     my $cmd = [];
     push @$cmd, '/usr/bin/qemu-img', 'convert', '-p', '-n';
@@ -79,7 +79,7 @@ sub convert {
         if $snapname
         && $src_format eq 'qcow2'
         && $support_qemu_snapshots
-        && $support_qemu_snapshots eq 'internal';
+        && $support_qemu_snapshots eq 'qemu';
     push @$cmd, '-t', 'none' if $dst_scfg->{type} eq 'zfspool';
     push @$cmd, '-T', $cachemode if defined($cachemode);
     push @$cmd, '-r', "${bwlimit}K" if defined($bwlimit);

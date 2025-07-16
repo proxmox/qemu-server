@@ -7638,11 +7638,11 @@ sub do_snapshots_type {
     #we use storage snapshot if vm is not running or if disk is unused;
     return 'storage' if !$running || !$deviceid;
 
-    my $qemu_snapshot_type = PVE::Storage::volume_support_qemu_snapshot($storecfg, $volid);
-    # if running, but don't support qemu snapshot, we use storage snapshot
-    return 'storage' if !$qemu_snapshot_type;
-
-    return $qemu_snapshot_type;
+    if (my $method = PVE::Storage::volume_qemu_snapshot_method($storecfg, $volid)) {
+        return 'internal' if $method eq 'qemu';
+        return 'external' if $method eq 'mixed';
+    }
+    return 'storage';
 }
 
 =head3 template_create($vmid, $conf [, $disk])

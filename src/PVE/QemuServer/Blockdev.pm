@@ -430,8 +430,8 @@ sub generate_drive_blockdev {
         $child = generate_format_blockdev($storecfg, $drive, $child, $options);
 
         my $support_qemu_snapshots =
-            PVE::Storage::volume_support_qemu_snapshot($storecfg, $drive->{file});
-        if ($support_qemu_snapshots && $support_qemu_snapshots eq 'external') {
+            PVE::Storage::volume_qemu_snapshot_method($storecfg, $drive->{file});
+        if ($support_qemu_snapshots && $support_qemu_snapshots eq 'mixed') {
             my $backing_chain = generate_backing_chain_blockdev(
                 $storecfg, "drive-$drive_id", $drive, $machine_version,
             );
