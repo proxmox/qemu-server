@@ -4677,11 +4677,8 @@ __PACKAGE__->register_method({
             die "you can't move a cdrom\n" if PVE::QemuServer::drive_is_cdrom($drive, 1);
 
             my $old_volid = $drive->{file};
-            my $oldfmt;
             my ($oldstoreid, $oldvolname) = PVE::Storage::parse_volume_id($old_volid);
-            if ($oldvolname =~ m/\.(raw|qcow2|vmdk)$/) {
-                $oldfmt = $1;
-            }
+            my $oldfmt = (PVE::Storage::parse_volname($storecfg, $old_volid))[6];
 
             die "you can't move to the same storage with same format\n"
                 if $oldstoreid eq $storeid && (!$format || !$oldfmt || $oldfmt eq $format);
