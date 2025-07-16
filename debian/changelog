@@ -1,3 +1,13 @@
+qemu-server (9.0.2) trixie; urgency=medium
+
+  * fix #6400: pci: allow other pci domains than 0000 for NVIDIA vGPUs.
+
+  * fix #6466: aarch64: pci: properly print higher-index PCI bridge addresses.
+
+  * add initial support for storage managed external snapshots.
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 17 Jul 2025 01:20:05 +0200
+
 qemu-server (9.0.1) trixie; urgency=medium
 
   * cfg2cmd: require at least QEMU binary version 6.0
