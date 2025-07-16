@@ -798,14 +798,26 @@ sub set_io_throttle {
 }
 
 sub blockdev_external_snapshot {
-    my ($storecfg, $vmid, $machine_version, $deviceid, $drive, $snap, $size) = @_;
+    my ($storecfg, $vmid, $machine_version, $deviceid, $drive, $snap, $parent_snap) = @_;
 
     print "Creating a new current volume with $snap as backing snap\n";
 
     my $volid = $drive->{file};
 
-    #preallocate add a new current file with reference to backing-file
-    PVE::Storage::volume_snapshot($storecfg, $volid, $snap, 1);
+    #rename current to snap && preallocate add a new current file with reference to snap1 backing-file
+    PVE::Storage::volume_snapshot($storecfg, $volid, $snap);
+
+    #reopen current to snap
+    blockdev_replace(
+        $storecfg,
+        $vmid,
+        $machine_version,
+        $deviceid,
+        $drive,
+        'current',
+        $snap,
+        $parent_snap,
+    );
 
     #be sure to add drive in write mode
     delete($drive->{ro});
@@ -826,6 +838,7 @@ sub blockdev_external_snapshot {
 
     mon_cmd($vmid, 'blockdev-add', %$new_fmt_blockdev);
 
+    print "blockdev-snapshot: reopen current with $snap backing image\n";
     mon_cmd(
         $vmid, 'blockdev-snapshot',
         node => $snap_fmt_blockdev->{'node-name'},
@@ -849,7 +862,7 @@ sub blockdev_delete {
     PVE::Storage::volume_snapshot_delete($storecfg, $volid, $snap, 1);
 }
 
-sub blockdev_rename {
+sub blockdev_replace {
     my (
         $storecfg,
         $vmid,
@@ -861,7 +874,7 @@ sub blockdev_rename {
         $parent_snap,
     ) = @_;
 
-    print "rename $src_snap to $target_snap\n";
+    print "blockdev replace $src_snap by $target_snap\n";
 
     my $volid = $drive->{file};
 
@@ -877,9 +890,6 @@ sub blockdev_rename {
         $src_file_blockdev,
         { 'snapshot-name' => $src_snap },
     );
-
-    #rename the snapshot
-    PVE::Storage::rename_snapshot($storecfg, $volid, $src_snap, $target_snap);
 
     my $target_file_blockdev = generate_file_blockdev(
         $storecfg,

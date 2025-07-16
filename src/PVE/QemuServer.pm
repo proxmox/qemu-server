@@ -4357,38 +4357,9 @@ sub qemu_volume_snapshot {
         my $snapshots = PVE::Storage::volume_snapshot_info($storecfg, $volid);
         my $parent_snap = $snapshots->{'current'}->{parent};
         my $machine_version = PVE::QemuServer::Machine::get_current_qemu_machine($vmid);
-
-        PVE::QemuServer::Blockdev::blockdev_rename(
-            $storecfg,
-            $vmid,
-            $machine_version,
-            $deviceid,
-            $drive,
-            'current',
-            $snap,
-            $parent_snap,
+        PVE::QemuServer::Blockdev::blockdev_external_snapshot(
+            $storecfg, $vmid, $machine_version, $deviceid, $drive, $snap, $parent_snap,
         );
-        eval {
-            PVE::QemuServer::Blockdev::blockdev_external_snapshot(
-                $storecfg, $vmid, $machine_version, $deviceid, $drive, $snap,
-            );
-        };
-        if ($@) {
-            warn $@ if $@;
-            print "Error creating snapshot. Revert rename\n";
-            eval {
-                PVE::QemuServer::Blockdev::blockdev_rename(
-                    $storecfg,
-                    $vmid,
-                    $machine_version,
-                    $deviceid,
-                    $drive,
-                    $snap,
-                    'current',
-                    $parent_snap,
-                );
-            };
-        }
     } elsif ($do_snapshots_type eq 'storage') {
         PVE::Storage::volume_snapshot($storecfg, $volid, $snap);
     }
@@ -4443,7 +4414,10 @@ sub qemu_volume_snapshot_delete {
                 $childsnap,
                 $snap,
             );
-            PVE::QemuServer::Blockdev::blockdev_rename(
+
+            PVE::Storage::rename_snapshot($storecfg, $volid, $snap, $childsnap);
+
+            PVE::QemuServer::Blockdev::blockdev_replace(
                 $storecfg,
                 $vmid,
                 $machine_version,
