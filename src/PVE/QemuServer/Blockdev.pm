@@ -825,7 +825,8 @@ sub blockdev_external_snapshot {
     my $new_file_blockdev = generate_file_blockdev($storecfg, $drive);
     my $new_fmt_blockdev = generate_format_blockdev($storecfg, $drive, $new_file_blockdev);
 
-    my $snap_file_blockdev = generate_file_blockdev($storecfg, $drive, $snap);
+    my $snap_file_blockdev =
+        generate_file_blockdev($storecfg, $drive, $machine_version, { 'snapshot-name' => $snap });
     my $snap_fmt_blockdev = generate_format_blockdev(
         $storecfg,
         $drive,
