@@ -5584,7 +5584,7 @@ __PACKAGE__->register_method({
     description => "Execute QEMU monitor commands.",
     permissions => {
         description => PVE::API2::Qemu::HMPPerms::generate_description(),
-        check => ['perm', '/vms/{vmid}', ['VM.Monitor']],
+        check => ['perm', '/vms/{vmid}', ['Sys.Audit', 'Sys.Modify'], any => 1],
     },
     parameters => {
         additionalProperties => 0,
