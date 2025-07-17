@@ -1,3 +1,15 @@
+qemu-server (9.0.3) trixie; urgency=medium
+
+  * net: default to the bridge MTU for the MTU of virtio network devices
+
+  * api: agent: use more specific guest agent privileges
+
+  * api: monitor: improve permission handling
+
+  * api: monitor: require Sys.Audit or Sys.Modify privilege
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 17 Jul 2025 22:09:41 +0200
+
 qemu-server (9.0.2) trixie; urgency=medium
 
   * fix #6400: pci: allow other pci domains than 0000 for NVIDIA vGPUs.
