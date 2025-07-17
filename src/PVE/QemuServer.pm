@@ -1452,21 +1452,23 @@ sub print_netdevice_full {
 
     $tmpstr .= ",bootindex=$net->{bootindex}" if $net->{bootindex};
 
-    if (my $mtu = $net->{mtu}) {
-        if ($net->{model} eq 'virtio' && $net->{bridge}) {
-            my $bridge_mtu = PVE::Network::read_bridge_mtu($net->{bridge});
-            if ($mtu == 1) {
-                $mtu = $bridge_mtu;
-            } elsif ($mtu < 576) {
-                die "netdev $netid: MTU '$mtu' is smaller than the IP minimum MTU '576'\n";
-            } elsif ($mtu > $bridge_mtu) {
-                die "netdev $netid: MTU '$mtu' is bigger than the bridge MTU '$bridge_mtu'\n";
-            }
-            $tmpstr .= ",host_mtu=$mtu";
-        } else {
-            warn
-                "WARN: netdev $netid: ignoring MTU '$mtu', not using VirtIO or no bridge configured.\n";
+    my $mtu = $net->{mtu};
+
+    if ($net->{model} eq 'virtio' && $net->{bridge}) {
+        my $bridge_mtu = PVE::Network::read_bridge_mtu($net->{bridge});
+
+        if (!defined($mtu) || $mtu == 1) {
+            $mtu = $bridge_mtu;
+        } elsif ($mtu < 576) {
+            die "netdev $netid: MTU '$mtu' is smaller than the IP minimum MTU '576'\n";
+        } elsif ($mtu > $bridge_mtu) {
+            die "netdev $netid: MTU '$mtu' is bigger than the bridge MTU '$bridge_mtu'\n";
         }
+
+        $tmpstr .= ",host_mtu=$mtu" if $mtu != 1500;
+    } elsif (defined($mtu)) {
+        warn
+            "WARN: netdev $netid: ignoring MTU '$mtu', not using VirtIO or no bridge configured.\n";
     }
 
     if ($use_old_bios_files) {

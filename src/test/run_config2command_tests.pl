@@ -439,6 +439,12 @@ my $pve_common_network;
 $pve_common_network = Test::MockModule->new('PVE::Network');
 $pve_common_network->mock(
     read_bridge_mtu => sub {
+        my ($bridge_name) = @_;
+
+        if ($bridge_name eq 'vxlan_bridge') {
+            return 1450;
+        }
+
         return 1500;
     },
 );

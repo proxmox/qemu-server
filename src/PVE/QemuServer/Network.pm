@@ -110,7 +110,8 @@ my $net_fmt = {
         type => 'integer',
         minimum => 1,
         maximum => 65520,
-        description => "Force MTU, for VirtIO only. Set to '1' to use the bridge MTU",
+        description =>
+            "Force MTU of network device (VirtIO only). Setting to '1' or empty will use the bridge MTU",
         optional => 1,
     },
 };
