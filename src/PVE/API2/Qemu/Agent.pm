@@ -18,68 +18,99 @@ my $MAX_READ_SIZE = 16 * 1024 * 1024; # 16 MiB
 
 # list of commands
 # will generate one api endpoint per command
-# needs a 'method' property and optionally a 'perms' property (default VM.Monitor)
+# needs a 'method' property and a 'perms' property
 my $guest_agent_commands = {
     'ping' => {
         method => 'POST',
+        perms => 'VM.GuestAgent.Audit',
     },
     'get-time' => {
         method => 'GET',
+        perms => 'VM.GuestAgent.Audit',
     },
     'info' => {
         method => 'GET',
+        perms => 'VM.GuestAgent.Audit',
     },
     'fsfreeze-status' => {
         method => 'POST',
+        perms => {
+            check => [
+                'perm',
+                '/vms/{vmid}',
+                [
+                    'VM.GuestAgent.Audit',
+                    'VM.GuestAgent.FileSystemMgmt',
+                    'VM.GuestAgent.Unrestricted',
+                ],
+                any => 1,
+            ],
+        },
     },
     'fsfreeze-freeze' => {
         method => 'POST',
+        perms => 'VM.GuestAgent.FileSystemMgmt',
     },
     'fsfreeze-thaw' => {
         method => 'POST',
+        perms => 'VM.GuestAgent.FileSystemMgmt',
     },
     'fstrim' => {
         method => 'POST',
+        perms => 'VM.GuestAgent.FileSystemMgmt',
     },
     'network-get-interfaces' => {
         method => 'GET',
+        perms => 'VM.GuestAgent.Audit',
     },
     'get-vcpus' => {
         method => 'GET',
+        perms => 'VM.GuestAgent.Audit',
     },
     'get-fsinfo' => {
         method => 'GET',
+        perms => 'VM.GuestAgent.Audit',
     },
     'get-memory-blocks' => {
         method => 'GET',
+        perms => 'VM.GuestAgent.Audit',
     },
     'get-memory-block-info' => {
         method => 'GET',
+        perms => 'VM.GuestAgent.Audit',
     },
     'suspend-hybrid' => {
         method => 'POST',
+        perms => 'VM.PowerMgmt',
     },
     'suspend-ram' => {
         method => 'POST',
+        perms => 'VM.PowerMgmt',
     },
     'suspend-disk' => {
         method => 'POST',
+        perms => 'VM.PowerMgmt',
     },
     'shutdown' => {
         method => 'POST',
+        perms => 'VM.PowerMgmt',
     },
     # added since qemu 2.9
     'get-host-name' => {
         method => 'GET',
+        perms => 'VM.GuestAgent.Audit',
     },
     'get-osinfo' => {
         method => 'GET',
+        perms => 'VM.GuestAgent.Audit',
     },
     'get-users' => {
         method => 'GET',
+        perms => 'VM.GuestAgent.Audit',
     },
     'get-timezone' => {
         method => 'GET',
+        perms => 'VM.GuestAgent.Audit',
     },
 };
 
@@ -144,8 +175,11 @@ sub register_command {
     if (ref($perm) eq 'HASH') {
         $permission = $perm;
     } else {
-        $perm //= 'VM.Monitor';
-        $permission = { check => ['perm', '/vms/{vmid}', [$perm]] };
+        die "internal error: missing permission for $command" if !$perm;
+
+        $permission = {
+            check => ['perm', '/vms/{vmid}', [$perm, 'VM.GuestAgent.Unrestricted'], any => 1],
+        };
     }
 
     my $parameters = {
@@ -206,7 +240,7 @@ sub register_command {
 }
 
 # old {vmid}/agent POST endpoint, here for compatibility
-__PACKAGE__->register_command('', 'POST');
+__PACKAGE__->register_command('', 'POST', 'VM.GuestAgent.Unrestricted');
 
 for my $cmd (sort keys %$guest_agent_commands) {
     my $props = $guest_agent_commands->{$cmd};
@@ -221,7 +255,7 @@ __PACKAGE__->register_method({
     protected => 1,
     proxyto => 'node',
     description => "Sets the password for the given user to the given password",
-    permissions => { check => ['perm', '/vms/{vmid}', ['VM.Monitor']] },
+    permissions => { check => ['perm', '/vms/{vmid}', ['VM.GuestAgent.Unrestricted']] },
     parameters => {
         additionalProperties => 0,
         properties => {
@@ -280,7 +314,7 @@ __PACKAGE__->register_method({
     proxyto => 'node',
     description =>
         "Executes the given command in the vm via the guest-agent and returns an object with the pid.",
-    permissions => { check => ['perm', '/vms/{vmid}', ['VM.Monitor']] },
+    permissions => { check => ['perm', '/vms/{vmid}', ['VM.GuestAgent.Unrestricted']] },
     parameters => {
         additionalProperties => 0,
         properties => {
@@ -335,7 +369,7 @@ __PACKAGE__->register_method({
     protected => 1,
     proxyto => 'node',
     description => "Gets the status of the given pid started by the guest-agent",
-    permissions => { check => ['perm', '/vms/{vmid}', ['VM.Monitor']] },
+    permissions => { check => ['perm', '/vms/{vmid}', ['VM.GuestAgent.Unrestricted']] },
     parameters => {
         additionalProperties => 0,
         properties => {
@@ -411,7 +445,14 @@ __PACKAGE__->register_method({
     protected => 1,
     proxyto => 'node',
     description => "Reads the given file via guest agent. Is limited to $MAX_READ_SIZE bytes.",
-    permissions => { check => ['perm', '/vms/{vmid}', ['VM.Monitor']] },
+    permissions => {
+        check => [
+            'perm',
+            '/vms/{vmid}',
+            ['VM.GuestAgent.FileRead', 'VM.GuestAgent.Unrestricted'],
+            any => 1,
+        ],
+    },
     parameters => {
         additionalProperties => 0,
         properties => {
@@ -490,7 +531,14 @@ __PACKAGE__->register_method({
     protected => 1,
     proxyto => 'node',
     description => "Writes the given file via guest agent.",
-    permissions => { check => ['perm', '/vms/{vmid}', ['VM.Monitor']] },
+    permissions => {
+        check => [
+            'perm',
+            '/vms/{vmid}',
+            ['VM.GuestAgent.FileWrite', 'VM.GuestAgent.Unrestricted'],
+            any => 1,
+        ],
+    },
     parameters => {
         additionalProperties => 0,
         properties => {
