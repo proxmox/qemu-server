@@ -56,6 +56,7 @@ use PVE::Network;
 use PVE::Firewall;
 use PVE::API2::Firewall::VM;
 use PVE::API2::Qemu::Agent;
+use PVE::API2::Qemu::HMPPerms;
 use PVE::VZDump::Plugin;
 use PVE::DataCenterConfig;
 use PVE::ProcFSTools;
@@ -5582,8 +5583,7 @@ __PACKAGE__->register_method({
     proxyto => 'node',
     description => "Execute QEMU monitor commands.",
     permissions => {
-        description =>
-            "Sys.Modify is required for (sub)commands which are not read-only ('info *' and 'help')",
+        description => PVE::API2::Qemu::HMPPerms::generate_description(),
         check => ['perm', '/vms/{vmid}', ['VM.Monitor']],
     },
     parameters => {
@@ -5604,14 +5604,28 @@ __PACKAGE__->register_method({
         my $rpcenv = PVE::RPCEnvironment::get();
         my $authuser = $rpcenv->get_user();
 
-        my $is_ro = sub {
-            my $command = shift;
-            return $command =~ m/^\s*info(\s+|$)/
-                || $command =~ m/^\s*help\s*$/;
-        };
+        my $command = $param->{command} or die "no command specified\n";
+        die "unexpected command '$command'\n" if $command !~ m/^\s*(\S+)/;
+        my $command_name = $1;
+        my $required_perm = $PVE::API2::Qemu::HMPPerms::hmp_command_perms->{$command_name};
+        if (!$required_perm) {
+            my $msg =
+                "command '$command_name' non-existent or not assigned a required permission"
+                . " yet, limiting to root user\n";
+            die $msg if $authuser ne 'root@pam';
+            warn $msg;
+            $required_perm = 'root';
+        }
 
-        $rpcenv->check_full($authuser, "/", ['Sys.Modify'])
-            if !&$is_ro($param->{command});
+        if ($required_perm eq 'root') {
+            die "root-only command '$command_name'\n" if $authuser ne 'root@pam';
+        } elsif ($required_perm eq 'Sys.Modify') {
+            $rpcenv->check_full($authuser, "/", ['Sys.Modify']);
+        } elsif ($required_perm eq 'none') {
+            # nothing to check
+        } else {
+            die "unexpected required permission '$required_perm' for command '$command_name'\n";
+        }
 
         my $vmid = $param->{vmid};
 
