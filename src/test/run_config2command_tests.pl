@@ -42,7 +42,7 @@ my $base_env = {
                 path => '/var/lib/vzsnapext',
                 type => 'dir',
                 shared => 0,
-                'external-snapshots' => 1,
+                'snapshot-as-volume-chain' => 1,
             },
             noimages => {
                 content => {

@@ -27,7 +27,7 @@ my $storage_config = {
             },
             path => "/var/lib/vzsnapext",
             type => "dir",
-            'external-snapshots' => 1,
+            'snapshot-as-volume-chain' => 1,
             shared => 0,
         },
         btrfs => {
