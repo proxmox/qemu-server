@@ -454,6 +454,10 @@ sub scan_local_volumes {
 
                 # we cannot migrate snapshots on local storage
                 # exceptions: 'zfspool' or 'qcow2' files (on directory storage)
+                #
+                # Note that only qcow2 with in-qcow2 snapshots work - for
+                # backing-chain snapshots we'd need to copy the entire snapshot
+                # list (or support replication)
 
                 die "online storage migration not possible if non-replicated snapshot exists\n"
                     if $self->{running} && !$local_volumes->{$volid}->{replicated};
@@ -464,7 +468,8 @@ sub scan_local_volumes {
                 if (!(
                     $scfg->{type} eq 'zfspool'
                     || ($scfg->{type} eq 'btrfs' && $local_volumes->{$volid}->{format} eq 'raw')
-                    || $local_volumes->{$volid}->{format} eq 'qcow2'
+                    || ($local_volumes->{$volid}->{format} eq 'qcow2'
+                        && !$scfg->{'snapshot-as-volume-chain'})
                 )) {
                     die "non-migratable snapshot exists\n";
                 }
