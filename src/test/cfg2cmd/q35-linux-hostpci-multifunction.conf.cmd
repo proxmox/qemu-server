@@ -11,7 +11,7 @@
   -smbios 'type=1,uuid=3dd750ce-d910-44d0-9493-525c0be4e687' \
   -object '{"id":"throttle-drive-efidisk0","limits":{},"qom-type":"throttle-group"}' \
   -blockdev '{"driver":"raw","file":{"driver":"file","filename":"/usr/share/pve-edk2-firmware//OVMF_CODE.fd"},"node-name":"pflash0","read-only":true}' \
-  -blockdev '{"driver":"throttle","file":{"cache":{"direct":true,"no-flush":false},"driver":"qcow2","file":{"aio":"io_uring","cache":{"direct":true,"no-flush":false},"detect-zeroes":"on","discard":"ignore","driver":"file","filename":"/var/lib/vz/images/100/vm-100-disk-1.qcow2","node-name":"e70e3017c5a79fdee5a04aa92ac1e9c","read-only":false},"node-name":"f70e3017c5a79fdee5a04aa92ac1e9c","read-only":false},"node-name":"drive-efidisk0","throttle-group":"throttle-drive-efidisk0"}' \
+  -blockdev '{"driver":"throttle","file":{"cache":{"direct":true,"no-flush":false},"driver":"qcow2","file":{"aio":"io_uring","cache":{"direct":true,"no-flush":false},"detect-zeroes":"on","discard":"ignore","driver":"file","filename":"/var/lib/vz/images/100/vm-100-disk-1.qcow2","node-name":"e70e3017c5a79fdee5a04aa92ac1e9c","read-only":false},"node-name":"f70e3017c5a79fdee5a04aa92ac1e9c","read-only":false},"node-name":"drive-efidisk0","read-only":false,"throttle-group":"throttle-drive-efidisk0"}' \
   -global 'ICH9-LPC.acpi-pci-hotplug-with-bridge-support=off' \
   -smp '2,sockets=2,cores=1,maxcpus=2' \
   -nodefaults \

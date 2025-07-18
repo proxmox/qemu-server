@@ -28,6 +28,6 @@
   -iscsi 'initiator-name=iqn.1993-08.org.debian:01:aabbccddeeff' \
   -device 'ide-cd,bus=ide.1,unit=0,id=ide2,bootindex=200' \
   -device 'virtio-scsi-pci,id=scsihw0,bus=pci.0,addr=0x5' \
-  -blockdev '{"driver":"throttle","file":{"cache":{"direct":true,"no-flush":false},"driver":"qcow2","file":{"aio":"io_uring","cache":{"direct":true,"no-flush":false},"detect-zeroes":"unmap","discard":"unmap","driver":"file","filename":"/var/lib/vz/images/8006/base-8006-disk-0.qcow2","node-name":"e417d5947e69c5890b1e3ddf8a68167","read-only":false},"node-name":"f417d5947e69c5890b1e3ddf8a68167","read-only":false},"node-name":"drive-scsi0","throttle-group":"throttle-drive-scsi0"}' \
+  -blockdev '{"driver":"throttle","file":{"cache":{"direct":true,"no-flush":false},"driver":"qcow2","file":{"aio":"io_uring","cache":{"direct":true,"no-flush":false},"detect-zeroes":"unmap","discard":"unmap","driver":"file","filename":"/var/lib/vz/images/8006/base-8006-disk-0.qcow2","node-name":"e417d5947e69c5890b1e3ddf8a68167","read-only":false},"node-name":"f417d5947e69c5890b1e3ddf8a68167","read-only":false},"node-name":"drive-scsi0","read-only":false,"throttle-group":"throttle-drive-scsi0"}' \
   -device 'scsi-hd,bus=scsihw0.0,channel=0,scsi-id=0,lun=0,drive=drive-scsi0,id=scsi0,bootindex=100,write-cache=on' \
   -machine 'type=pc+pve0'

@@ -407,13 +407,16 @@ my sub generate_backing_chain_blockdev {
 }
 
 sub generate_throttle_blockdev {
-    my ($drive_id, $child) = @_;
+    my ($drive, $child, $options) = @_;
+
+    my $drive_id = PVE::QemuServer::Drive::get_drive_id($drive);
 
     return {
         driver => "throttle",
         'node-name' => top_node_name($drive_id),
         'throttle-group' => throttle_group_id($drive_id),
         file => $child,
+        'read-only' => read_only_json_option($drive, $options),
     };
 }
 
@@ -459,7 +462,7 @@ sub generate_drive_blockdev {
     return $child if $options->{fleecing} || $options->{'tpm-backup'} || $options->{'no-throttle'};
 
     # this is the top filter entry point, use $drive-drive_id as nodename
-    return generate_throttle_blockdev($drive_id, $child);
+    return generate_throttle_blockdev($drive, $child, $options);
 }
 
 sub generate_pbs_blockdev {
@@ -919,7 +922,7 @@ sub blockdev_replace {
 
         #reopen the current throttlefilter nodename with the target fmt nodename
         my $throttle_blockdev =
-            generate_throttle_blockdev($drive_id, $target_fmt_blockdev->{'node-name'});
+            generate_throttle_blockdev($drive, $target_fmt_blockdev->{'node-name'}, {});
         mon_cmd($vmid, 'blockdev-reopen', options => [$throttle_blockdev]);
     } else {
         #intermediate snapshot
