@@ -7964,7 +7964,6 @@ sub resolve_dst_disk_format {
     if (!$format) {
         # if no target format is specified, use the source disk format as hint
         if ($src_volid) {
-            my $scfg = PVE::Storage::storage_config($storecfg, $storeid);
             $format = checked_volume_format($storecfg, $src_volid);
         } else {
             return $defFormat;
