@@ -185,7 +185,10 @@ our $hmp_command_perms = {
 sub generate_description {
     my $cmd_by_priv = {};
     for my $cmd (sort keys $hmp_command_perms->%*) {
-        push $cmd_by_priv->{$hmp_command_perms->{$cmd}}->@*, $cmd;
+        my $priv = $hmp_command_perms->{$cmd};
+        $cmd_by_priv->{$priv} = [] if !exists($cmd_by_priv->{$priv});
+
+        push $cmd_by_priv->{$priv}->@*, $cmd;
     }
     my $none_cmds = delete($cmd_by_priv->{none})
         or die "internal error - no commands for 'none' found";
