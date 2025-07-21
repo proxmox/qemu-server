@@ -5337,8 +5337,7 @@ sub vm_migrate_alloc_nbd_disks {
         # order of precedence, filtered by whether storage supports it:
         # 1. explicit requested format
         # 2. default format of storage
-        my ($defFormat, $validFormats) = PVE::Storage::storage_default_format($storecfg, $storeid);
-        $format = $defFormat if !$format || !grep { $format eq $_ } $validFormats->@*;
+        $format = PVE::Storage::resolve_format_hint($storecfg, $storeid, $format);
 
         my $size = $drive->{size} / 1024;
         my $newvolid = PVE::Storage::vdisk_alloc($storecfg, $storeid, $vmid, $format, undef, $size);
@@ -6452,11 +6451,8 @@ my $restore_allocate_devices = sub {
         my $storeid = $d->{storeid};
         my $scfg = PVE::Storage::storage_config($storecfg, $storeid);
 
-        # test if requested format is supported
-        my ($defFormat, $validFormats) =
-            PVE::Storage::storage_default_format($storecfg, $storeid);
-        my $supported = grep { $_ eq $d->{format} } @$validFormats;
-        $d->{format} = $defFormat if !$supported;
+        # falls back to default format if requested format is not supported
+        $d->{format} = PVE::Storage::resolve_format_hint($storecfg, $storeid, $d->{format});
 
         my $name;
         if ($d->{is_cloudinit}) {
@@ -7959,21 +7955,13 @@ sub scsihw_infos {
 sub resolve_dst_disk_format {
     my ($storecfg, $storeid, $src_volid, $format) = @_;
 
-    my ($defFormat, $validFormats) = PVE::Storage::storage_default_format($storecfg, $storeid);
-
-    if (!$format) {
-        # if no target format is specified, use the source disk format as hint
-        if ($src_volid) {
-            $format = checked_volume_format($storecfg, $src_volid);
-        } else {
-            return $defFormat;
-        }
+    # if no target format is specified, use the source disk format as hint
+    if (!$format && $src_volid) {
+        $format = checked_volume_format($storecfg, $src_volid);
     }
 
-    # test if requested format is supported - else use default
-    my $supported = grep { $_ eq $format } @$validFormats;
-    $format = $defFormat if !$supported;
-    return $format;
+    # falls back to default format if requested format is not supported
+    return PVE::Storage::resolve_format_hint($storecfg, $storeid, $format);
 }
 
 sub generate_uuid {

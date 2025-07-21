@@ -698,9 +698,8 @@ my sub check_and_prepare_fleecing {
     if ($use_fleecing) {
         $self->query_block_node_sizes($vmid, $disks);
 
-        my ($default_format, $valid_formats) =
-            PVE::Storage::storage_default_format($self->{storecfg}, $fleecing_opts->{storage});
-        my $format = scalar(grep { $_ eq 'qcow2' } $valid_formats->@*) ? 'qcow2' : 'raw';
+        my $format = PVE::Storage::resolve_format_hint($self->{storecfg}, $fleecing_opts->{storage},
+            'qcow2');
 
         allocate_fleecing_images(
             $self,
