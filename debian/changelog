@@ -1,3 +1,10 @@
+qemu-server (9.0.5) trixie; urgency=medium
+
+  * ovmf: use proper drive properties for temporary efivars drive to avoid an
+    error from get_drive_id about no interface being found.
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 21 Jul 2025 21:37:10 +0200
+
 qemu-server (9.0.4) trixie; urgency=medium
 
   * refuse storage-migration for guests with volume-chain-snapshots for now.
