@@ -4028,7 +4028,7 @@ sub vm_deviceunplug {
         qemu_iothread_del($vmid, $deviceid, $device);
     } elsif ($deviceid =~ m/^(virtioscsi|scsihw)(\d+)$/) {
         qemu_devicedel($vmid, $deviceid);
-        qemu_devicedelverify($vmid, $deviceid);
+        qemu_devicedelverify($vmid, $deviceid, 15);
     } elsif ($deviceid =~ m/^(scsi)(\d+)$/) {
         my $device = parse_drive($deviceid, $conf->{$deviceid});
 
