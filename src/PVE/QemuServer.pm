@@ -4143,12 +4143,14 @@ sub qemu_deviceaddverify {
 }
 
 sub qemu_devicedelverify {
-    my ($vmid, $deviceid) = @_;
+    my ($vmid, $deviceid, $timeout) = @_;
+
+    $timeout //= 5;
 
     # need to verify that the device is correctly removed as device_del
     # is async and empty return is not reliable
 
-    for (my $i = 0; $i <= 5; $i++) {
+    for (my $i = 0; $i <= $timeout; $i++) {
         my $devices_list = vm_devices_list($vmid);
         return 1 if !defined($devices_list->{$deviceid});
         sleep 1;
