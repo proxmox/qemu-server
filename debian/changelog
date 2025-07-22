@@ -1,3 +1,13 @@
+qemu-server (9.0.6) trixie; urgency=medium
+
+  * use storage layer's helper to query the allowed formats and the best
+    possible default format for a specific storage config entry.
+
+  * blockdev: also set read-only flag on top throttle node, fixing backup of
+    VM templates with the recently adopted blockdev interface.
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 22 Jul 2025 18:13:51 +0200
+
 qemu-server (9.0.5) trixie; urgency=medium
 
   * ovmf: use proper drive properties for temporary efivars drive to avoid an
