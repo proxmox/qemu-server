@@ -11,7 +11,7 @@
   -smbios 'type=1,uuid=7b10d7af-b932-4c66-b2c3-3996152ec465' \
   -object '{"id":"throttle-drive-efidisk0","limits":{},"qom-type":"throttle-group"}' \
   -blockdev '{"driver":"raw","file":{"driver":"file","filename":"/usr/share/pve-edk2-firmware//OVMF_CODE.fd"},"node-name":"pflash0","read-only":true}' \
-  -blockdev '{"driver":"throttle","file":{"cache":{"direct":true,"no-flush":false},"driver":"raw","file":{"aio":"io_uring","cache":{"direct":true,"no-flush":false},"detect-zeroes":"on","discard":"ignore","driver":"file","filename":"/tmp/8006-ovmf.fd","node-name":"e5b5f7a29888341a35f0f1428e70ba5","read-only":false},"node-name":"f5b5f7a29888341a35f0f1428e70ba5","read-only":false,"size":131072},"node-name":"drive-efidisk0","throttle-group":"throttle-drive-efidisk0"}' \
+  -blockdev '{"driver":"throttle","file":{"cache":{"direct":true,"no-flush":false},"driver":"raw","file":{"aio":"io_uring","cache":{"direct":true,"no-flush":false},"detect-zeroes":"on","discard":"ignore","driver":"file","filename":"/tmp/8006-ovmf.fd","node-name":"e5b5f7a29888341a35f0f1428e70ba5","read-only":false},"node-name":"f5b5f7a29888341a35f0f1428e70ba5","read-only":false,"size":131072},"node-name":"drive-efidisk0","read-only":false,"throttle-group":"throttle-drive-efidisk0"}' \
   -smp '1,sockets=1,cores=1,maxcpus=1' \
   -nodefaults \
   -boot 'menu=on,strict=on,reboot-timeout=1000,splash=/usr/share/qemu-server/bootsplash.jpg' \
