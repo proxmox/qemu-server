@@ -2705,8 +2705,20 @@ sub vmstatus {
             $totalrdbytes = $totalrdbytes + $blockstat->{stats}->{rd_bytes};
             $totalwrbytes = $totalwrbytes + $blockstat->{stats}->{wr_bytes};
 
-            $blockstat->{device} =~ s/drive-//;
-            $res->{$vmid}->{blockstat}->{ $blockstat->{device} } = $blockstat->{stats};
+            # With the switch to -blockdev, the block backend in QEMU has no name, so need to also
+            # consider the qdev ID. Note that empty CD-ROM drives do not have a node name, so that
+            # cannot be used as a fallback instead of the qdev ID.
+            my $drive_id;
+            if ($blockstat->{device}) {
+                $drive_id = $blockstat->{device} =~ s/drive-//r;
+            } elsif ($blockstat->{qdev}) {
+                $drive_id = PVE::QemuServer::Blockdev::qdev_id_to_drive_id($blockstat->{qdev});
+            } else {
+                print "blockstats callback: unexpected missing drive ID\n";
+                next;
+            }
+
+            $res->{$vmid}->{blockstat}->{$drive_id} = $blockstat->{stats};
         }
         $res->{$vmid}->{diskread} = $totalrdbytes;
         $res->{$vmid}->{diskwrite} = $totalwrbytes;
