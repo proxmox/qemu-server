@@ -1234,6 +1234,11 @@ sub print_drivedevice_full {
         }
         $device .= ",id=$drive_id";
 
+        # for the switch to -blockdev, the SCSI device ID needs to be explicitly specified
+        if (min_version($machine_version, 10, 0)) {
+            $device .= ",device_id=drive-${drive_id}";
+        }
+
         if ($drive->{ssd} && ($device_type eq 'block' || $device_type eq 'hd')) {
             $device .= ",rotation_rate=1";
         }

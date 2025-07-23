@@ -29,6 +29,6 @@
   -iscsi 'initiator-name=iqn.1993-08.org.debian:01:aabbccddeeff' \
   -device 'virtio-scsi-pci,id=scsihw0,bus=pci.0,addr=0x5' \
   -blockdev '{"driver":"throttle","file":{"cache":{"direct":true,"no-flush":false},"driver":"raw","file":{"aio":"io_uring","cache":{"direct":true,"no-flush":false},"detect-zeroes":"on","discard":"ignore","driver":"file","filename":"/var/lib/vz/images/100/base-100-disk-2.raw","node-name":"e24dfe239201bb9924fc4cfb899ca70","read-only":true},"node-name":"f24dfe239201bb9924fc4cfb899ca70","read-only":true},"node-name":"drive-scsi0","read-only":true,"throttle-group":"throttle-drive-scsi0"}' \
-  -device 'scsi-hd,bus=scsihw0.0,channel=0,scsi-id=0,lun=0,drive=drive-scsi0,id=scsi0,write-cache=on' \
+  -device 'scsi-hd,bus=scsihw0.0,channel=0,scsi-id=0,lun=0,drive=drive-scsi0,id=scsi0,device_id=drive-scsi0,write-cache=on' \
   -machine 'pflash0=pflash0,pflash1=drive-efidisk0,accel=tcg,type=pc+pve0' \
   -snapshot
