@@ -14,6 +14,7 @@ use PVE::Storage;
 use PVE::QemuServer::BlockJob;
 use PVE::QemuServer::Drive qw(drive_is_cdrom);
 use PVE::QemuServer::Helpers;
+use PVE::QemuServer::Machine;
 use PVE::QemuServer::Monitor qw(mon_cmd);
 
 # gives ($host, $port, $export)
