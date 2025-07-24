@@ -76,6 +76,7 @@ my $storage_config = {
             content => {
                 images => 1,
             },
+            'snapshot-as-volume-chain' => 1,
         },
         "zfs-over-iscsi" => {
             type => "zfs",
