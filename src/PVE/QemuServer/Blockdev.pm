@@ -947,8 +947,8 @@ sub blockdev_replace {
 
     # delete old file|fmt nodes
     # add eval as reopen is auto removing the old nodename automatically only if it was created at vm start in command line argument
-    eval { mon_cmd($vmid, 'blockdev-del', 'node-name' => $src_file_blockdev_name) };
     eval { mon_cmd($vmid, 'blockdev-del', 'node-name' => $src_fmt_blockdev_name) };
+    eval { mon_cmd($vmid, 'blockdev-del', 'node-name' => $src_file_blockdev_name) };
 }
 
 sub blockdev_commit {
