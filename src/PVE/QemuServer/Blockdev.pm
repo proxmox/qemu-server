@@ -882,19 +882,11 @@ sub blockdev_replace {
     print "blockdev replace $src_snap by $target_snap\n";
 
     my $volid = $drive->{file};
+    my $drive_id = PVE::QemuServer::Drive::get_drive_id($drive);
 
-    my $src_file_blockdev = generate_file_blockdev(
-        $storecfg,
-        $drive,
-        $machine_version,
-        { 'snapshot-name' => $src_snap },
-    );
-    my $src_fmt_blockdev = generate_format_blockdev(
-        $storecfg,
-        $drive,
-        $src_file_blockdev,
-        { 'snapshot-name' => $src_snap },
-    );
+    my $src_name_options = $src_snap eq 'current' ? {} : { 'snapshot-name' => $src_snap };
+    my $src_file_blockdev_name = get_node_name('file', $drive_id, $volid, $src_name_options);
+    my $src_fmt_blockdev_name = get_node_name('fmt', $drive_id, $volid, $src_name_options);
 
     my $target_file_blockdev = generate_file_blockdev(
         $storecfg,
@@ -911,7 +903,6 @@ sub blockdev_replace {
 
     if ($target_snap eq 'current' || $src_snap eq 'current') {
         #rename from|to current
-        my $drive_id = PVE::QemuServer::Drive::get_drive_id($drive);
 
         #add backing to target
         if ($parent_snap) {
@@ -956,8 +947,8 @@ sub blockdev_replace {
 
     # delete old file|fmt nodes
     # add eval as reopen is auto removing the old nodename automatically only if it was created at vm start in command line argument
-    eval { mon_cmd($vmid, 'blockdev-del', 'node-name' => $src_file_blockdev->{'node-name'}) };
-    eval { mon_cmd($vmid, 'blockdev-del', 'node-name' => $src_fmt_blockdev->{'node-name'}) };
+    eval { mon_cmd($vmid, 'blockdev-del', 'node-name' => $src_file_blockdev_name) };
+    eval { mon_cmd($vmid, 'blockdev-del', 'node-name' => $src_fmt_blockdev_name) };
 }
 
 sub blockdev_commit {
