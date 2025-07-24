@@ -373,6 +373,13 @@ my sub generate_format_blockdev {
         $blockdev->{size} = int($options->{size});
     }
 
+    # see bug #6543: without this option, fragmentation can lead to the qcow2 file growing larger
+    # than what qemu-img measure reports, which is problematic for qcow2-on-top-of-LVM
+    # TODO test and consider enabling this in general
+    if ($scfg && $scfg->{'snapshot-as-volume-chain'}) {
+        $blockdev->{'discard-no-unref'} = JSON::true if $format eq 'qcow2';
+    }
+
     return $blockdev;
 }
 

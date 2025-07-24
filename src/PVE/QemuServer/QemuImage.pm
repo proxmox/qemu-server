@@ -3,6 +3,9 @@ package PVE::QemuServer::QemuImage;
 use strict;
 use warnings;
 
+use Fcntl qw(S_ISBLK);
+use File::stat;
+
 use PVE::Format qw(render_bytes);
 use PVE::Storage;
 use PVE::Tools;
@@ -25,6 +28,18 @@ sub convert_iscsi_path {
     }
 
     die "cannot convert iscsi path '$path', unknown format\n";
+}
+
+my sub qcow2_target_image_opts {
+    my ($path, @qcow2_opts) = @_;
+
+    my $st = File::stat::stat($path) or die "stat for '$path' failed - $!\n";
+
+    my $driver = S_ISBLK($st->mode) ? 'host_device' : 'file';
+
+    my $qcow2_opts_str = ',' . join(',', @qcow2_opts);
+
+    return "driver=qcow2$qcow2_opts_str,file.driver=$driver,file.filename=$path";
 }
 
 # The possible options are:
@@ -71,6 +86,8 @@ sub convert {
     my $dst_format = checked_volume_format($storecfg, $dst_volid);
     my $dst_path = PVE::Storage::path($storecfg, $dst_volid);
     my $dst_is_iscsi = ($dst_path =~ m|^iscsi://|);
+    my $dst_needs_discard_no_unref =
+        $dst_scfg->{'snapshot-as-volume-chain'} && $dst_format eq 'qcow2';
     my $support_qemu_snapshots = PVE::Storage::volume_qemu_snapshot_method($storecfg, $src_volid);
 
     my $cmd = [];
@@ -94,6 +111,9 @@ sub convert {
     if ($dst_is_iscsi) {
         push @$cmd, '--target-image-opts';
         $dst_path = convert_iscsi_path($dst_path);
+    } elsif ($dst_needs_discard_no_unref) {
+        push @$cmd, '--target-image-opts';
+        $dst_path = qcow2_target_image_opts($dst_path, 'discard-no-unref=true');
     } else {
         push @$cmd, '-O', $dst_format;
     }

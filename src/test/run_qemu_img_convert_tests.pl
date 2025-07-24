@@ -542,10 +542,10 @@ my $tests = [
             "-n",
             "-f",
             "raw",
-            "-O",
-            "qcow2",
+            "--target-image-opts",
             "/var/lib/vz/images/$vmid/vm-$vmid-disk-0.raw",
-            "/var/lib/vzsnapext/images/$vmid/vm-$vmid-disk-0.qcow2",
+            "driver=qcow2,discard-no-unref=true,file.driver=file,"
+                . "file.filename=/var/lib/vzsnapext/images/$vmid/vm-$vmid-disk-0.qcow2",
         ],
     },
     {
@@ -560,15 +560,25 @@ my $tests = [
             "-n",
             "-f",
             "raw",
-            "-O",
-            "qcow2",
+            "--target-image-opts",
             "/var/lib/vz/images/$vmid/vm-$vmid-disk-0.raw",
-            "/dev/pve/vm-$vmid-disk-0.qcow2",
+            "driver=qcow2,discard-no-unref=true,file.driver=host_device,"
+                . "file.filename=/dev/pve/vm-$vmid-disk-0.qcow2",
         ],
     },
 ];
 
 my $command;
+
+my $file_stat_module = Test::MockModule->new("File::stat");
+$file_stat_module->mock(
+    stat => sub {
+        my ($path) = @_;
+        my $st = $file_stat_module->original('stat')->('./run_qemu_img_convert_tests.pl');
+        $st->[2] = 25008 if $path =~ m!/dev/!; # block device
+        return $st;
+    },
+);
 
 my $storage_module = Test::MockModule->new("PVE::Storage");
 $storage_module->mock(
