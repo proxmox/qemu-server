@@ -523,7 +523,7 @@ my $tests = [
             "qcow2",
             "-O",
             "raw",
-            "/dev/pve/snap_vm-8006-disk-0_foo.qcow2",
+            "/dev/pve/snap_vm-$vmid-disk-0_foo.qcow2",
             "/var/lib/vz/images/$vmid/vm-$vmid-disk-0.raw",
         ],
     },
