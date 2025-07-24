@@ -187,6 +187,13 @@ my sub read_only_json_option {
     return json_bool($drive->{ro} || drive_is_cdrom($drive) || $options->{'read-only'});
 }
 
+# Common blockdev options that need to be set across the whole throttle->fmt->file chain.
+my sub add_common_options {
+    my ($blockdev, $drive, $options) = @_;
+
+    $blockdev->{'read-only'} = read_only_json_option($drive, $options);
+}
+
 my sub throttle_group_id {
     my ($drive_id) = @_;
 
@@ -315,7 +322,7 @@ my sub generate_file_blockdev {
 
     $blockdev->{'node-name'} = get_node_name('file', $drive_id, $drive->{file}, $options);
 
-    $blockdev->{'read-only'} = read_only_json_option($drive, $options);
+    add_common_options($blockdev, $drive, $options);
 
     return $blockdev;
 }
@@ -357,8 +364,9 @@ my sub generate_format_blockdev {
         driver => "$format",
         file => $child,
         cache => $child->{cache}, # define cache option on both format && file node like libvirt
-        'read-only' => read_only_json_option($drive, $options),
     };
+
+    add_common_options($blockdev, $drive, $options);
 
     if (defined($options->{size})) {
         die "blockdev: 'size' is only supported for 'raw' format" if $format ne 'raw';
@@ -412,13 +420,16 @@ sub generate_throttle_blockdev {
 
     my $drive_id = PVE::QemuServer::Drive::get_drive_id($drive);
 
-    return {
+    my $blockdev = {
         driver => "throttle",
         'node-name' => top_node_name($drive_id),
         'throttle-group' => throttle_group_id($drive_id),
         file => $child,
-        'read-only' => read_only_json_option($drive, $options),
     };
+
+    add_common_options($blockdev, $drive, $options);
+
+    return $blockdev;
 }
 
 sub generate_drive_blockdev {
