@@ -528,7 +528,44 @@ my $tests = [
             "/var/lib/vz/images/$vmid/vm-$vmid-disk-0.raw",
         ],
     },
-
+    {
+        name => "qcow2_external_snapshot_target",
+        parameters => [
+            "local:$vmid/vm-$vmid-disk-0.raw",
+            "localsnapext:$vmid/vm-$vmid-disk-0.qcow2",
+            1024 * 10,
+        ],
+        expected => [
+            "/usr/bin/qemu-img",
+            "convert",
+            "-p",
+            "-n",
+            "-f",
+            "raw",
+            "-O",
+            "qcow2",
+            "/var/lib/vz/images/$vmid/vm-$vmid-disk-0.raw",
+            "/var/lib/vzsnapext/images/$vmid/vm-$vmid-disk-0.qcow2",
+        ],
+    },
+    {
+        name => "lvmqcow2_external_snapshot_target",
+        parameters => [
+            "local:$vmid/vm-$vmid-disk-0.raw", "lvm-store:vm-$vmid-disk-0.qcow2", 1024 * 10,
+        ],
+        expected => [
+            "/usr/bin/qemu-img",
+            "convert",
+            "-p",
+            "-n",
+            "-f",
+            "raw",
+            "-O",
+            "qcow2",
+            "/var/lib/vz/images/$vmid/vm-$vmid-disk-0.raw",
+            "/dev/pve/vm-$vmid-disk-0.qcow2",
+        ],
+    },
 ];
 
 my $command;
