@@ -10,7 +10,7 @@
   -daemonize \
   -object '{"id":"throttle-drive-efidisk0","limits":{},"qom-type":"throttle-group"}' \
   -blockdev '{"driver":"raw","file":{"driver":"file","filename":"/usr/share/pve-edk2-firmware//OVMF_CODE.fd"},"node-name":"pflash0","read-only":true}' \
-  -blockdev '{"driver":"throttle","file":{"cache":{"direct":true,"no-flush":false},"driver":"qcow2","file":{"aio":"io_uring","cache":{"direct":true,"no-flush":false},"detect-zeroes":"on","discard":"ignore","driver":"file","filename":"/var/lib/vz/images/100/base-100-disk-1.qcow2","node-name":"eb6bec0e3c391fabb7fb7dd73ced9bf","read-only":true},"node-name":"fb6bec0e3c391fabb7fb7dd73ced9bf","read-only":true},"node-name":"drive-efidisk0","read-only":true,"throttle-group":"throttle-drive-efidisk0"}' \
+  -blockdev '{"detect-zeroes":"on","discard":"ignore","driver":"throttle","file":{"cache":{"direct":true,"no-flush":false},"detect-zeroes":"on","discard":"ignore","driver":"qcow2","file":{"aio":"io_uring","cache":{"direct":true,"no-flush":false},"detect-zeroes":"on","discard":"ignore","driver":"file","filename":"/var/lib/vz/images/100/base-100-disk-1.qcow2","node-name":"eb6bec0e3c391fabb7fb7dd73ced9bf","read-only":true},"node-name":"fb6bec0e3c391fabb7fb7dd73ced9bf","read-only":true},"node-name":"drive-efidisk0","read-only":true,"throttle-group":"throttle-drive-efidisk0"}' \
   -smp '1,sockets=1,cores=1,maxcpus=1' \
   -nodefaults \
   -boot 'menu=on,strict=on,reboot-timeout=1000,splash=/usr/share/qemu-server/bootsplash.jpg' \
@@ -28,7 +28,7 @@
   -device 'virtio-balloon-pci,id=balloon0,bus=pci.0,addr=0x3,free-page-reporting=on' \
   -iscsi 'initiator-name=iqn.1993-08.org.debian:01:aabbccddeeff' \
   -device 'virtio-scsi-pci,id=scsihw0,bus=pci.0,addr=0x5' \
-  -blockdev '{"driver":"throttle","file":{"cache":{"direct":true,"no-flush":false},"driver":"raw","file":{"aio":"io_uring","cache":{"direct":true,"no-flush":false},"detect-zeroes":"on","discard":"ignore","driver":"file","filename":"/var/lib/vz/images/100/base-100-disk-2.raw","node-name":"e24dfe239201bb9924fc4cfb899ca70","read-only":true},"node-name":"f24dfe239201bb9924fc4cfb899ca70","read-only":true},"node-name":"drive-scsi0","read-only":true,"throttle-group":"throttle-drive-scsi0"}' \
+  -blockdev '{"detect-zeroes":"on","discard":"ignore","driver":"throttle","file":{"cache":{"direct":true,"no-flush":false},"detect-zeroes":"on","discard":"ignore","driver":"raw","file":{"aio":"io_uring","cache":{"direct":true,"no-flush":false},"detect-zeroes":"on","discard":"ignore","driver":"file","filename":"/var/lib/vz/images/100/base-100-disk-2.raw","node-name":"e24dfe239201bb9924fc4cfb899ca70","read-only":true},"node-name":"f24dfe239201bb9924fc4cfb899ca70","read-only":true},"node-name":"drive-scsi0","read-only":true,"throttle-group":"throttle-drive-scsi0"}' \
   -device 'scsi-hd,bus=scsihw0.0,channel=0,scsi-id=0,lun=0,drive=drive-scsi0,id=scsi0,device_id=drive-scsi0,write-cache=on' \
   -machine 'pflash0=pflash0,pflash1=drive-efidisk0,accel=tcg,type=pc+pve0' \
   -snapshot

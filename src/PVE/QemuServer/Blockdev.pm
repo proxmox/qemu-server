@@ -191,6 +191,11 @@ my sub read_only_json_option {
 my sub add_common_options {
     my ($blockdev, $drive, $options) = @_;
 
+    if (!drive_is_cdrom($drive)) {
+        $blockdev->{discard} = $drive->{discard} && $drive->{discard} eq 'on' ? 'unmap' : 'ignore';
+        $blockdev->{'detect-zeroes'} = PVE::QemuServer::Drive::detect_zeroes_cmdline_option($drive);
+    }
+
     $blockdev->{'read-only'} = read_only_json_option($drive, $options);
 }
 
@@ -313,11 +318,6 @@ my sub generate_file_blockdev {
     if ($driver eq 'file' || $driver eq 'host_cdrom' || $driver eq 'host_device') {
         $blockdev->{aio} =
             PVE::QemuServer::Drive::aio_cmdline_option($scfg, $drive, $blockdev->{cache}->{direct});
-    }
-
-    if (!drive_is_cdrom($drive)) {
-        $blockdev->{discard} = $drive->{discard} && $drive->{discard} eq 'on' ? 'unmap' : 'ignore';
-        $blockdev->{'detect-zeroes'} = PVE::QemuServer::Drive::detect_zeroes_cmdline_option($drive);
     }
 
     $blockdev->{'node-name'} = get_node_name('file', $drive_id, $drive->{file}, $options);
