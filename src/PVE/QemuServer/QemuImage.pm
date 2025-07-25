@@ -33,6 +33,7 @@ sub convert_iscsi_path {
 my sub qcow2_target_image_opts {
     my ($path, @qcow2_opts) = @_;
 
+    # FIXME this duplicates logic from qemu_blockdev_options
     my $st = File::stat::stat($path) or die "stat for '$path' failed - $!\n";
 
     my $driver = S_ISBLK($st->mode) ? 'host_device' : 'file';
