@@ -317,11 +317,9 @@ my $file_stat_module = Test::MockModule->new("File::stat");
 $file_stat_module->mock(
     stat => sub {
         my ($path) = @_;
-        if ($path =~ m!/dev/!) {
-            return $file_stat_module->original('stat')->('/dev/null');
-        } else {
-            return $file_stat_module->original('stat')->('./run_config2command_tests.pl');
-        }
+        my $st = $file_stat_module->original('stat')->('./run_config2command_tests.pl');
+        $st->[2] = 25008 if $path =~ m!/dev/!; # block device
+        return $st;
     },
 );
 
