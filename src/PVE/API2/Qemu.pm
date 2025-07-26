@@ -1630,9 +1630,9 @@ __PACKAGE__->register_method({
     code => sub {
         my ($param) = @_;
 
-        return PVE::RRD::create_rrd_graph(
-            "pve2-vm/$param->{vmid}", $param->{timeframe}, $param->{ds}, $param->{cf},
-        );
+        my $path = "pve-vm-9.0/$param->{vmid}";
+        $path = "pve2-vm/$param->{vmid}" if !-e "/var/lib/rrdcached/db/${path}";
+        return PVE::RRD::create_rrd_graph($path, $param->{timeframe}, $param->{cf});
 
     },
 });
@@ -1674,8 +1674,9 @@ __PACKAGE__->register_method({
     code => sub {
         my ($param) = @_;
 
-        return PVE::RRD::create_rrd_data("pve2-vm/$param->{vmid}", $param->{timeframe},
-            $param->{cf});
+        my $path = "pve-vm-9.0/$param->{vmid}";
+        $path = "pve2-vm/$param->{vmid}" if !-e "/var/lib/rrdcached/db/${path}";
+        return PVE::RRD::create_rrd_data($path, $param->{timeframe}, $param->{cf});
     },
 });
 
