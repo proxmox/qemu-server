@@ -2708,11 +2708,9 @@ sub vmstatus {
 
         $d->{uptime} = int(($uptime - $pstat->{starttime}) / $cpuinfo->{user_hz});
 
-        if ($pstat->{vsize}) {
-            $d->{mem} = int(($pstat->{rss} / $pstat->{vsize}) * $d->{maxmem});
-        }
-
         $d->{memhost} = get_vmid_total_cgroup_memory_usage($vmid);
+
+        $d->{mem} = $d->{memhost}; # default to cgroup PSS sum, balloon info can override this below
 
         my $pressures = PVE::ProcFSTools::read_cgroup_pressure("qemu.slice/${vmid}.scope");
         $d->{pressurecpusome} = $pressures->{cpu}->{some}->{avg10} * 1;
