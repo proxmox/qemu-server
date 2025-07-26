@@ -2434,6 +2434,12 @@ our $vmstatus_return_properties = {
         optional => 1,
         renderer => 'bytes',
     },
+    memhost => {
+        description => "Current memory usage on the host.",
+        type => 'integer',
+        optional => 1,
+        renderer => 'bytes',
+    },
     maxdisk => {
         description => "Root disk size in bytes.",
         type => 'integer',
@@ -2624,6 +2630,7 @@ sub vmstatus {
         $d->{uptime} = 0;
         $d->{cpu} = 0;
         $d->{mem} = 0;
+        $d->{memhost} = 0;
 
         $d->{netout} = 0;
         $d->{netin} = 0;
@@ -2676,6 +2683,24 @@ sub vmstatus {
             $d->{mem} = int(($pstat->{rss} / $pstat->{vsize}) * $d->{maxmem});
         }
 
+        my $fh = IO::File->new("/sys/fs/cgroup/qemu.slice/${vmid}.scope/cgroup.procs", "r");
+        if ($fh) {
+            while (my $childPid = <$fh>) {
+                chomp($childPid);
+                open(my $SMAPS_FH, '<', "/proc/$childPid/smaps_rollup")
+                    or die "failed to open PSS memory-stat from process - $!\n";
+
+                while (my $line = <$SMAPS_FH>) {
+                    if ($line =~ m/^Pss:\s+([0-9]+) kB$/) {
+                        $d->{memhost} = $d->{memhost} + int($1) * 1024;
+                        last;
+                    }
+                }
+                close $SMAPS_FH;
+            }
+        }
+        close($fh);
+
         my $pressures = PVE::ProcFSTools::read_cgroup_pressure("qemu.slice/${vmid}.scope");
         $d->{pressurecpusome} = $pressures->{cpu}->{some}->{avg10} * 1;
         $d->{pressurecpufull} = $pressures->{cpu}->{full}->{avg10} * 1;
@@ -2708,7 +2733,6 @@ sub vmstatus {
         } else {
             $d->{cpu} = $old->{cpu};
         }
-
     }
 
     return $res if !$full;
