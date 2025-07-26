@@ -2534,6 +2534,36 @@ our $vmstatus_return_properties = {
         type => 'boolean',
         optional => 1,
     },
+    pressurecpusome => {
+        description => "CPU Some pressure average over the last 10 seconds.",
+        type => 'number',
+        optional => 1,
+    },
+    pressurecpufull => {
+        description => "CPU Full pressure average over the last 10 seconds.",
+        type => 'number',
+        optional => 1,
+    },
+    pressureiosome => {
+        description => "IO Some pressure average over the last 10 seconds.",
+        type => 'number',
+        optional => 1,
+    },
+    pressureiofull => {
+        description => "IO Full pressure average over the last 10 seconds.",
+        type => 'number',
+        optional => 1,
+    },
+    pressurememorysome => {
+        description => "Memory Some pressure average over the last 10 seconds.",
+        type => 'number',
+        optional => 1,
+    },
+    pressurememoryfull => {
+        description => "Memory Full pressure average over the last 10 seconds.",
+        type => 'number',
+        optional => 1,
+    },
 };
 
 my $last_proc_pid_stat;
@@ -2646,6 +2676,14 @@ sub vmstatus {
             $d->{mem} = int(($pstat->{rss} / $pstat->{vsize}) * $d->{maxmem});
         }
 
+        my $pressures = PVE::ProcFSTools::read_cgroup_pressure("qemu.slice/${vmid}.scope");
+        $d->{pressurecpusome} = $pressures->{cpu}->{some}->{avg10} * 1;
+        $d->{pressurecpufull} = $pressures->{cpu}->{full}->{avg10} * 1;
+        $d->{pressureiosome} = $pressures->{io}->{some}->{avg10} * 1;
+        $d->{pressureiofull} = $pressures->{io}->{full}->{avg10} * 1;
+        $d->{pressurememorysome} = $pressures->{memory}->{some}->{avg10} * 1;
+        $d->{pressurememoryfull} = $pressures->{memory}->{full}->{avg10} * 1;
+
         my $old = $last_proc_pid_stat->{$pid};
         if (!$old) {
             $last_proc_pid_stat->{$pid} = {
@@ -2670,6 +2708,7 @@ sub vmstatus {
         } else {
             $d->{cpu} = $old->{cpu};
         }
+
     }
 
     return $res if !$full;
