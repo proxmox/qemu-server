@@ -10,7 +10,7 @@
   -daemonize \
   -object '{"id":"throttle-drive-efidisk0","limits":{},"qom-type":"throttle-group"}' \
   -blockdev '{"driver":"raw","file":{"driver":"file","filename":"/usr/share/pve-edk2-firmware//OVMF_CODE.fd"},"node-name":"pflash0","read-only":true}' \
-  -blockdev '{"detect-zeroes":"on","discard":"ignore","driver":"throttle","file":{"cache":{"direct":true,"no-flush":false},"detect-zeroes":"on","discard":"ignore","driver":"qcow2","file":{"aio":"io_uring","cache":{"direct":true,"no-flush":false},"detect-zeroes":"on","discard":"ignore","driver":"file","filename":"/var/lib/vz/images/100/base-100-disk-1.qcow2","node-name":"eb6bec0e3c391fabb7fb7dd73ced9bf","read-only":true},"node-name":"fb6bec0e3c391fabb7fb7dd73ced9bf","read-only":true},"node-name":"drive-efidisk0","read-only":true,"throttle-group":"throttle-drive-efidisk0"}' \
+  -blockdev '{"detect-zeroes":"on","discard":"ignore","driver":"throttle","file":{"cache":{"direct":false,"no-flush":false},"detect-zeroes":"on","discard":"ignore","driver":"qcow2","file":{"aio":"io_uring","cache":{"direct":false,"no-flush":false},"detect-zeroes":"on","discard":"ignore","driver":"file","filename":"/var/lib/vz/images/100/base-100-disk-1.qcow2","node-name":"eb6bec0e3c391fabb7fb7dd73ced9bf","read-only":true},"node-name":"fb6bec0e3c391fabb7fb7dd73ced9bf","read-only":true},"node-name":"drive-efidisk0","read-only":true,"throttle-group":"throttle-drive-efidisk0"}' \
   -smp '1,sockets=1,cores=1,maxcpus=1' \
   -nodefaults \
   -boot 'menu=on,strict=on,reboot-timeout=1000,splash=/usr/share/qemu-server/bootsplash.jpg' \

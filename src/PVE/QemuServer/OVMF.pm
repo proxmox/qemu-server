@@ -182,6 +182,10 @@ my sub generate_ovmf_blockdev {
         $format = 'raw';
     }
 
+    # Prior to -blockdev, QEMU's default 'writeback' cache mode was used for EFI disks, rather than
+    # the Proxmox VE default 'none'. Use that for -blockdev too, to avoid bug #3329.
+    $drive->{cache} = 'writeback' if !$drive->{cache};
+
     my $extra_blockdev_options = {};
     # extra protection for templates, but SATA and IDE don't support it..
     $extra_blockdev_options->{'read-only'} = 1 if drive_is_read_only($conf, $drive);
