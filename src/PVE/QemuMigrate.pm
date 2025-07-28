@@ -1354,7 +1354,7 @@ sub phase2 {
             next;
         }
 
-        if (!defined($status) || $status !~ m/^(active|completed|failed|cancelled)$/im) {
+        if (!defined($status) || $status !~ m/^(active|cancelled|completed|failed)$/im) {
             die $merr if $merr;
             die "unable to parse migration status '$status' - aborting\n";
         }
