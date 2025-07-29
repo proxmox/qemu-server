@@ -5,6 +5,7 @@ use warnings;
 
 use Digest::SHA;
 use Fcntl qw(S_ISBLK S_ISCHR);
+use File::Basename qw(basename dirname);
 use File::stat;
 use JSON;
 
@@ -885,6 +886,20 @@ sub blockdev_delete {
     PVE::Storage::volume_snapshot_delete($storecfg, $volid, $snap, 1);
 }
 
+my sub blockdev_relative_backing_file {
+    my ($backing, $backed) = @_;
+
+    my $backing_file = $backing->{filename};
+    my $backed_file = $backed->{filename};
+
+    if (dirname($backing_file) eq dirname($backed_file)) {
+        # make backing file relative if in same directory
+        return basename($backing_file);
+    }
+
+    return $backing_file;
+}
+
 sub blockdev_replace {
     my (
         $storecfg,
@@ -954,12 +969,15 @@ sub blockdev_replace {
         $parent_fmt_blockdev->{backing} = $target_fmt_blockdev->{'node-name'};
         mon_cmd($vmid, 'blockdev-reopen', options => [$parent_fmt_blockdev]);
 
+        my $backing_file =
+            blockdev_relative_backing_file($target_file_blockdev, $parent_file_blockdev);
+
         #change backing-file in qcow2 metadatas
         mon_cmd(
             $vmid, 'change-backing-file',
             device => $deviceid,
             'image-node-name' => $parent_fmt_blockdev->{'node-name'},
-            'backing-file' => $target_file_blockdev->{filename},
+            'backing-file' => $backing_file,
         );
     }
 
@@ -1069,11 +1087,13 @@ sub blockdev_stream {
         { 'snapshot-name' => $snap },
     );
 
+    my $backing_file = blockdev_relative_backing_file($parent_file_blockdev, $target_file_blockdev);
+
     my $job_id = "stream-$deviceid";
     my $jobs = {};
     my $options = { 'job-id' => $job_id, device => $target_fmt_blockdev->{'node-name'} };
     $options->{'base-node'} = $parent_fmt_blockdev->{'node-name'};
-    $options->{'backing-file'} = $parent_file_blockdev->{filename};
+    $options->{'backing-file'} = $backing_file;
 
     mon_cmd($vmid, 'block-stream', %$options);
     $jobs->{$job_id} = {};
