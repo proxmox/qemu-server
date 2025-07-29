@@ -1,3 +1,21 @@
+qemu-server (9.0.9) trixie; urgency=medium
+
+  * blockdev: ovmf: use correct cache mode for EFI disk to avoid slowness when
+    booting on certain storages like kRBD.
+
+  * migration: fix handling of status reported by QEMU to cover all relevant
+    cases with QEMU binary version 10.0 and avoid aborted migrations.
+
+  * disk mirror: avoid left-over block node attached to QEMU in error
+    scenario. Not detaching would also make subsequent live-migration fail after
+    an earlier error.
+
+  * snapshot-as-volume-chain: ensure backing file references are kept relative
+    upon snapshot deletion. This ensures the backing chain stays intact should
+    the volumes be moved to a different path.
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 29 Jul 2025 16:53:45 +0200
+
 qemu-server (9.0.8) trixie; urgency=medium
 
   * fix #6562: fix online-removal of an intermediate snapshot for
