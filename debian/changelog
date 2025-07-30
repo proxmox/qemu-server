@@ -1,3 +1,23 @@
+qemu-server (9.0.10) trixie; urgency=medium
+
+  * delete snapshot: exit delete early if we cannot find a snapshot
+
+  * api: add module exposing node migration capabilities
+
+  * fix #5180: dbus-vmstate: add daemon for QEMUs dbus-vmstate interface and
+    integrate helper for live-migrating connection-tracking info to better
+    ensure currently active connections can continue to work seamlessly if the
+    network environment supports it.
+
+  * migrate: flush old VM conntrack entries after successful migration.
+
+  * image convert (clone): avoid combining target image options and zeroinit
+    filter.
+
+  * image convert (clone): make using zeroinit with target-image-opts work.
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 30 Jul 2025 23:06:51 +0200
+
 qemu-server (9.0.9) trixie; urgency=medium
 
   * blockdev: ovmf: use correct cache mode for EFI disk to avoid slowness when
