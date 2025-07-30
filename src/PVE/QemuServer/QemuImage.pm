@@ -33,16 +33,16 @@ sub convert_iscsi_path {
 }
 
 my sub qcow2_target_image_opts {
-    my ($storecfg, $drive, @qcow2_opts) = @_;
+    my ($storecfg, $drive, $qcow2_opts, $zeroinit) = @_;
 
     # There is no machine version, the qemu-img binary version is what's important.
     my $version = PVE::QemuServer::Helpers::kvm_user_version();
 
+    my $blockdev_opts = { 'no-throttle' => 1 };
+    $blockdev_opts->{'zero-initialized'} = 1 if $zeroinit;
+
     my $blockdev = PVE::QemuServer::Blockdev::generate_drive_blockdev(
-        $storecfg,
-        $drive,
-        $version,
-        { 'no-throttle' => 1 },
+        $storecfg, $drive, $version, $blockdev_opts,
     );
 
     my $opts = [];
@@ -166,7 +166,12 @@ sub convert {
         # don't use any other drive options, those are intended for use with a running VM and just
         # use scsi0 as a dummy interface+index for now
         my $dst_drive = { file => $dst_volid, interface => 'scsi', index => 0 };
-        $dst_path = qcow2_target_image_opts($storecfg, $dst_drive, 'discard-no-unref=true');
+        $dst_path = qcow2_target_image_opts(
+            $storecfg,
+            $dst_drive,
+            ['discard-no-unref=true'],
+            $opts->{'is-zero-initialized'},
+        );
     } else {
         push @$cmd, '-O', $dst_format;
     }

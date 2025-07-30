@@ -549,6 +549,27 @@ my $tests = [
         ],
     },
     {
+        name => "qcow2_external_snapshot_target_zeroinit",
+        parameters => [
+            "local:$vmid/vm-$vmid-disk-0.raw",
+            "localsnapext:$vmid/vm-$vmid-disk-target.qcow2",
+            1024 * 10,
+            { 'is-zero-initialized' => 1 },
+        ],
+        expected => [
+            "/usr/bin/qemu-img",
+            "convert",
+            "-p",
+            "-n",
+            "-f",
+            "raw",
+            "--target-image-opts",
+            "/var/lib/vz/images/$vmid/vm-$vmid-disk-0.raw",
+            "driver=zeroinit,file.discard-no-unref=true,file.driver=qcow2,file.file.driver=file"
+                . ",file.file.filename=/var/lib/vzsnapext/images/$vmid/vm-$vmid-disk-target.qcow2",
+        ],
+    },
+    {
         name => "lvmqcow2_external_snapshot_target",
         parameters => [
             "local:$vmid/vm-$vmid-disk-0.raw", "lvm-store:vm-$vmid-disk-target.qcow2",
