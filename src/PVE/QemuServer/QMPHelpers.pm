@@ -36,9 +36,9 @@ sub qemu_devicedel {
 }
 
 sub qemu_objectadd {
-    my ($vmid, $objectid, $qomtype) = @_;
+    my ($vmid, $objectid, $qomtype, %args) = @_;
 
-    mon_cmd($vmid, "object-add", id => $objectid, "qom-type" => $qomtype);
+    mon_cmd($vmid, "object-add", id => $objectid, "qom-type" => $qomtype, %args);
 
     return 1;
 }
