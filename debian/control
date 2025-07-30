@@ -3,9 +3,11 @@ Section: admin
 Priority: optional
 Maintainer: Proxmox Support Team <support@proxmox.com>
 Build-Depends: debhelper-compat (= 13),
+               libclass-methodmaker-perl,
                libglib2.0-dev,
                libio-multiplex-perl,
                libjson-c-dev,
+               libnet-dbus-perl,
                libpve-apiclient-perl,
                libpve-cluster-perl,
                libpve-common-perl (>= 9.0.3),
@@ -29,11 +31,14 @@ Homepage: https://www.proxmox.com
 
 Package: qemu-server
 Architecture: any
-Depends: dbus,
+Depends: conntrack,
+         dbus,
          genisoimage,
+         libclass-methodmaker-perl,
          libio-multiplex-perl,
          libjson-perl,
          libjson-xs-perl,
+         libnet-dbus-perl,
          libnet-ssleay-perl,
          libpve-access-control (>= 9.0.2~),
          libpve-apiclient-perl,

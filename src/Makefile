@@ -6,6 +6,7 @@ install:
 	$(MAKE) -C bin install
 	$(MAKE) -C qmeventd install
 	$(MAKE) -C query-machine-capabilities install
+	$(MAKE) -C dbus-vmstate install
 	$(MAKE) -C usr install
 
 .PHONY: test

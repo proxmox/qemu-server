@@ -1,7 +1,9 @@
 include /usr/share/dpkg/default.mk
 
-PACKAGE=qemu-server
+export PACKAGE=qemu-server
 BUILDDIR ?= $(PACKAGE)-$(DEB_VERSION_UPSTREAM)
+
+export DESTDIR ?=
 
 GITVERSION:=$(shell git rev-parse HEAD)
 

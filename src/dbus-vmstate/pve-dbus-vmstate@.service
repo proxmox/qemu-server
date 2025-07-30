@@ -1,0 +1,10 @@
+[Unit]
+Description=PVE DBus VMState Helper (VM %i)
+Requires=dbus.socket
+After=dbus.socket
+PartOf=%i.scope
+
+[Service]
+Slice=qemu.slice
+Type=simple
+ExecStart=/usr/libexec/qemu-server/dbus-vmstate %i

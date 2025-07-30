@@ -1,0 +1,168 @@
+#!/usr/bin/perl
+
+# Exports an DBus object implementing
+# https://www.qemu.org/docs/master/interop/dbus-vmstate.html
+
+package PVE::QemuServer::DBusVMState;
+
+use warnings;
+use strict;
+
+use Carp;
+use Net::DBus;
+use Net::DBus::Exporter qw(org.qemu.VMState1);
+use Net::DBus::Reactor;
+use PVE::QemuServer::Helpers;
+use PVE::QemuServer::QMPHelpers qw(qemu_objectadd qemu_objectdel);
+use PVE::SafeSyslog;
+use PVE::Tools;
+
+use base qw(Net::DBus::Object);
+
+use Class::MethodMaker [ scalar => [ qw(Id NumMigratedEntries) ]];
+dbus_property('Id', 'string', 'read');
+dbus_property('NumMigratedEntries', 'uint32', 'read', 'com.proxmox.VMStateHelper');
+
+sub new {
+    my ($class, $service, $vmid) = @_;
+
+    my $self = $class->SUPER::new($service, '/org/qemu/VMState1');
+    $self->{vmid} = $vmid;
+    $self->Id("pve-vmstate-$vmid");
+    $self->NumMigratedEntries(0);
+
+    bless $self, $class;
+    return $self;
+}
+
+sub Load {
+    my ($self, $bytes) = @_;
+
+    my $len = scalar(@$bytes);
+    return if $len <= 1; # see also the `Save` method
+
+    my $text = pack('c*', @$bytes);
+
+    eval {
+	PVE::Tools::run_command(
+	    ['conntrack', '--load-file', '-'],
+	    input => $text,
+	);
+    };
+    if (my $err = $@) {
+	syslog('warn', "failed to restore conntrack state: $err\n");
+    } else {
+	syslog('info', "restored $len bytes of conntrack state\n");
+    }
+}
+dbus_method('Load', [['array', 'byte']], []);
+
+use constant {
+    # From the documentation:
+    #   https://www.qemu.org/docs/master/interop/dbus-vmstate.html),
+    # > For now, the data amount to be transferred is arbitrarily limited to 1Mb.
+    #
+    # See also qemu/backends/dbus-vmstate.c:DBUS_VMSTATE_SIZE_LIMIT
+    DBUS_VMSTATE_SIZE_LIMIT => 1024 * 1024,
+};
+
+sub Save {
+    my ($self) = @_;
+
+    my $text = '';
+    my $truncated = 0;
+    my $num_entries = 0;
+    eval {
+	PVE::Tools::run_command(
+	    ['conntrack', '--dump', '--mark', $self->{vmid}, '--output', 'save'],
+	    outfunc => sub {
+		my ($line) = @_;
+		return if $truncated;
+
+		if ((length($text) + length($line)) > DBUS_VMSTATE_SIZE_LIMIT) {
+		   syslog('warn', 'conntrack state too large, ignoring further entries');
+		   $truncated = 1;
+		   return;
+		}
+
+		# conntrack(8) apparently does not preserve the `--mark` option,
+		# add it back ourselves
+		$text .= "$line --mark $self->{vmid}\n";
+	    },
+	    errfunc => sub {
+		my ($line) = @_;
+
+		if ($line =~ /(\d) flow entries/) {
+		    syslog('info', "received $1 conntrack entries");
+		    # conntrack reports the number of displayed entries on stderr,
+		    # which shouldn't be considered an error.
+		    $self->NumMigratedEntries($1);
+		    return;
+		}
+		syslog('err', $line);
+	    }
+	);
+    };
+    if (my $err = $@) {
+	syslog('warn', "failed to save conntrack state: $err\n");
+
+	# Apparently either Net::DBus does not correctly zero-sized (byte)
+	# arrays correctly - returning [] yields QEMU failing with
+	#
+	#   "kvm: dbus_save_state_proxy: Failed to Save: not a byte array"
+	#
+	# Thus, just return an array with a single element and detect that
+	# appropriately in the `Load`. A valid conntrack state can *never* be
+	# just a single byte, so it is safe to rely on that.
+	return [0];
+    }
+
+    my @bytes = unpack('c*', $text);
+    my $len = scalar(@bytes);
+
+    syslog('info', "transferring $len bytes of conntrack state\n");
+
+    # Same as above w.r.t. returning as single-element array.
+    return $len == 0 ? [0] : \@bytes;
+}
+dbus_method('Save', [], [['array', 'byte']]);
+
+# Additional method for cleanly shutting down the service.
+sub Quit {
+    my ($self) = @_;
+
+    syslog('info', "shutting down gracefully ..\n");
+
+    # On the source side, the VM won't exist anymore, so no need to remove
+    # anything.
+    if (PVE::QemuServer::Helpers::vm_running_locally($self->{vmid})) {
+	eval { qemu_objectdel($self->{vmid}, 'pve-vmstate') };
+	if (my $err = $@) {
+	    syslog('warn', "failed to remove object: $err\n");
+	}
+    }
+
+    Net::DBus::Reactor->main()->shutdown();
+}
+dbus_method('Quit', [], [], 'com.proxmox.VMStateHelper', { no_return => 1 });
+
+my $vmid = shift;
+
+my $dbus = Net::DBus->system();
+my $service = $dbus->export_service('org.qemu.VMState1');
+my $obj = PVE::QemuServer::DBusVMState->new($service, $vmid);
+
+$SIG{TERM} = sub {
+    $obj->Quit();
+};
+
+my $addr = $dbus->get_unique_name();
+syslog('info', "pve-vmstate-$vmid listening on $addr\n");
+
+# Inform QEMU about our running dbus-vmstate helper
+qemu_objectadd($vmid, 'pve-vmstate', 'dbus-vmstate',
+    addr => 'unix:path=/run/dbus/system_bus_socket',
+    'id-list' => "pve-vmstate-$vmid",
+);
+
+Net::DBus::Reactor->main()->run();
