@@ -109,11 +109,12 @@ sub convert {
         push @$cmd, '-f', $src_format;
     }
 
+    my $dst_uses_target_image_opts = $dst_is_iscsi || $dst_needs_discard_no_unref;
+    push @$cmd, '--target-image-opts' if $dst_uses_target_image_opts;
+
     if ($dst_is_iscsi) {
-        push @$cmd, '--target-image-opts';
         $dst_path = convert_iscsi_path($dst_path);
     } elsif ($dst_needs_discard_no_unref) {
-        push @$cmd, '--target-image-opts';
         $dst_path = qcow2_target_image_opts($dst_path, 'discard-no-unref=true');
     } else {
         push @$cmd, '-O', $dst_format;
@@ -121,7 +122,7 @@ sub convert {
 
     push @$cmd, $src_path;
 
-    if (!$dst_is_iscsi && $opts->{'is-zero-initialized'}) {
+    if (!$dst_uses_target_image_opts && $opts->{'is-zero-initialized'}) {
         push @$cmd, "zeroinit:$dst_path";
     } else {
         push @$cmd, $dst_path;
