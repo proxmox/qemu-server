@@ -35,6 +35,7 @@ use PVE::QemuServer::Monitor qw(mon_cmd);
 use PVE::QemuServer::Memory qw(get_current_memory);
 use PVE::QemuServer::Network;
 use PVE::QemuServer::QMPHelpers;
+use PVE::QemuServer::DBusVMState;
 use PVE::QemuServer;
 
 use PVE::AbstractMigrate;
@@ -238,6 +239,27 @@ sub prepare {
         # Do not treat a suspended VM as paused, as it might wake up
         # during migration and remain paused after migration finishes.
         $self->{vm_was_paused} = 1 if PVE::QemuServer::vm_is_paused($vmid, 0);
+
+        if ($self->{opts}->{'with-conntrack-state'}) {
+            if ($self->{opts}->{remote}) {
+                # shouldn't be reached in normal circumstances anyway, as we prevent it on
+                # an API level
+                $self->log(
+                    'warn',
+                    'conntrack state migration not supported for remote migrations, '
+                        . 'active connections might get dropped',
+                );
+                $self->{opts}->{'with-conntrack-state'} = 0;
+            } else {
+                PVE::QemuServer::DBusVMState::qemu_add_dbus_vmstate($vmid);
+            }
+        } else {
+            $self->log(
+                'warn',
+                'conntrack state migration not supported or disabled, '
+                    . 'active connections might get dropped',
+            );
+        }
     }
 
     my ($loc_res, $mapped_res, $missing_mappings_by_node) =
@@ -925,6 +947,14 @@ sub phase1_cleanup {
     if (my $err = $@) {
         $self->log('err', $err);
     }
+
+    if ($self->{running} && $self->{opts}->{'with-conntrack-state'}) {
+        # if the VM is running, that means we also tried to migrate additional
+        # state via our dbus-vmstate helper
+        # only need to locally stop it, on the target the VM cleanup will
+        # handle it
+        PVE::QemuServer::DBusVMState::qemu_del_dbus_vmstate($vmid);
+    }
 }
 
 sub phase2_start_local_cluster {
@@ -969,6 +999,10 @@ sub phase2_start_local_cluster {
 
     if ($self->{storage_migration}) {
         push @$cmd, '--targetstorage', ($self->{opts}->{targetstorage} // '1');
+    }
+
+    if ($self->{opts}->{'with-conntrack-state'}) {
+        push @$cmd, '--with-conntrack-state';
     }
 
     my $spice_port;
@@ -1566,6 +1600,14 @@ sub phase2_cleanup {
         $self->log('err', $err);
     }
 
+    if ($self->{running} && $self->{opts}->{'with-conntrack-state'}) {
+        # if the VM is running, that means we also tried to migrate additional
+        # state via our dbus-vmstate helper
+        # only need to locally stop it, on the target the VM cleanup will
+        # handle it
+        PVE::QemuServer::DBusVMState::qemu_del_dbus_vmstate($vmid);
+    }
+
     if ($self->{tunnel}) {
         eval { PVE::Tunnel::finish_tunnel($self->{tunnel}); };
         if (my $err = $@) {
@@ -1687,6 +1729,37 @@ sub phase3_cleanup {
                 }
             } else {
                 $self->log('info', "skipping guest fstrim, because VM is paused");
+            }
+        }
+
+        if ($self->{running} && $self->{opts}->{'with-conntrack-state'}) {
+            # if the VM is running, that means we also migrated additional
+            # state via our dbus-vmstate helper
+            $self->log('info', 'stopping migration dbus-vmstate helpers');
+
+            # first locally
+            my $num = PVE::QemuServer::DBusVMState::qemu_del_dbus_vmstate($vmid);
+            if (defined($num)) {
+                my $plural = $num != 1 ? "entries" : "entry";
+                $self->log('info', "migrated $num conntrack state $plural");
+            }
+
+            # .. and then remote
+            my $targetnode = $self->{node};
+            eval {
+                # FIXME: introduce proper way to call API methods on another node?
+                # See also e.g. pve-network/src/PVE/API2/Network/SDN.pm, which
+                # does something similar.
+                PVE::Tools::run_command([
+                    'pvesh',
+                    'create',
+                    "/nodes/$targetnode/qemu/$vmid/dbus-vmstate",
+                    '--action',
+                    'stop',
+                ]);
+            };
+            if (my $err = $@) {
+                $self->log('warn', "failed to stop dbus-vmstate on $targetnode: $err\n");
             }
         }
     }

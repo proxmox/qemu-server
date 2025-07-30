@@ -8,6 +8,7 @@ SOURCES=Agent.pm	\
 	CGroup.pm	\
 	Cloudinit.pm	\
 	CPUConfig.pm	\
+	DBusVMState.pm	\
 	Drive.pm	\
 	Helpers.pm	\
 	ImportDisk.pm	\

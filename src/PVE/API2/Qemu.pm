@@ -47,6 +47,7 @@ use PVE::QemuServer::RNG;
 use PVE::QemuServer::RunState;
 use PVE::QemuServer::USB;
 use PVE::QemuServer::Virtiofs qw(max_virtiofs);
+use PVE::QemuServer::DBusVMState;
 use PVE::QemuMigrate;
 use PVE::QemuMigrate::Helpers;
 use PVE::RPCEnvironment;
@@ -3375,6 +3376,12 @@ __PACKAGE__->register_method({
                 default => 'max(30, vm memory in GiB)',
                 optional => 1,
             },
+            'with-conntrack-state' => {
+                type => 'boolean',
+                optional => 1,
+                default => 0,
+                description => 'Whether to migrate conntrack entries for running VMs.',
+            },
         },
     },
     returns => {
@@ -3405,6 +3412,7 @@ __PACKAGE__->register_method({
         my $migration_network = $get_root_param->('migration_network');
         my $targetstorage = $get_root_param->('targetstorage');
         my $force_cpu = $get_root_param->('force-cpu');
+        my $with_conntrack_state = $get_root_param->('with-conntrack-state');
 
         my $storagemap;
 
@@ -3483,6 +3491,7 @@ __PACKAGE__->register_method({
                     nbd_proto_version => $nbd_protocol_version,
                     replicated_volumes => $replicated_volumes,
                     offline_volumes => $offline_volumes,
+                    with_conntrack_state => $with_conntrack_state,
                 };
 
                 my $params = {
@@ -5144,6 +5153,11 @@ __PACKAGE__->register_method({
                 description =>
                     "Object of mapped resources with additional information such if they're live migratable.",
             },
+            'has-dbus-vmstate' => {
+                type => 'boolean',
+                description => 'Whether the VM host supports migrating additional VM state, '
+                    . 'such as conntrack entries.',
+            },
         },
     },
     code => sub {
@@ -5212,6 +5226,7 @@ __PACKAGE__->register_method({
         $res->{local_resources} = $local_resources;
         $res->{'mapped-resources'} = [sort keys $mapped_resources->%*];
         $res->{'mapped-resource-info'} = $mapped_resources;
+        $res->{'has-dbus-vmstate'} = 1;
 
         return $res;
 
@@ -5284,6 +5299,12 @@ __PACKAGE__->register_method({
                 minimum => '0',
                 default => 'migrate limit from datacenter or storage config',
             },
+            'with-conntrack-state' => {
+                type => 'boolean',
+                optional => 1,
+                default => 0,
+                description => 'Whether to migrate conntrack entries for running VMs.',
+            },
         },
     },
     returns => {
@@ -5340,6 +5361,7 @@ __PACKAGE__->register_method({
         } else {
             warn "VM isn't running. Doing offline migration instead.\n" if $param->{online};
             $param->{online} = 0;
+            $param->{'with-conntrack-state'} = 0;
         }
 
         my $storecfg = PVE::Storage::config();
@@ -6696,6 +6718,7 @@ __PACKAGE__->register_method({
                             warn $@ if $@;
                         }
 
+                        PVE::QemuServer::DBusVMState::qemu_del_dbus_vmstate($state->{vmid});
                         PVE::QemuServer::destroy_vm($state->{storecfg}, $state->{vmid}, 1);
                     }
 
@@ -6876,6 +6899,58 @@ __PACKAGE__->register_method({
             "/socket/$socket");
 
         return { socket => $socket };
+    },
+});
+
+__PACKAGE__->register_method({
+    name => 'dbus_vmstate',
+    path => '{vmid}/dbus-vmstate',
+    method => 'POST',
+    proxyto => 'node',
+    description => 'Stop the dbus-vmstate helper for the given VM if running.',
+    permissions => {
+        check => ['perm', '/vms/{vmid}', ['VM.Migrate']],
+    },
+    parameters => {
+        additionalProperties => 0,
+        properties => {
+            node => get_standard_option('pve-node'),
+            vmid =>
+                get_standard_option('pve-vmid', { completion => \&PVE::QemuServer::complete_vmid }),
+            action => {
+                type => 'string',
+                enum => [qw(start stop)],
+                description => 'Action to perform on the DBus VMState helper.',
+                optional => 0,
+            },
+        },
+    },
+    returns => {
+        type => 'null',
+    },
+    code => sub {
+        my ($param) = @_;
+        my ($node, $vmid, $action) = $param->@{qw(node vmid action)};
+
+        my $nodename = PVE::INotify::nodename();
+        if ($node ne 'localhost' && $node ne $nodename) {
+            raise_param_exc(
+                { node => "node needs to be 'localhost' or local hostname '$nodename'" });
+        }
+
+        if (!PVE::QemuServer::Helpers::vm_running_locally($vmid)) {
+            raise_param_exc({ node => "VM $vmid not running locally on node '$nodename'" });
+        }
+
+        if ($action eq 'start') {
+            syslog('info', "starting dbus-vmstate helper for VM $vmid\n");
+            PVE::QemuServer::DBusVMState::qemu_add_dbus_vmstate($vmid);
+        } elsif ($action eq 'stop') {
+            syslog('info', "stopping dbus-vmstate helper for VM $vmid\n");
+            PVE::QemuServer::DBusVMState::qemu_del_dbus_vmstate($vmid);
+        } else {
+            die "unknown action $action\n";
+        }
     },
 });
 

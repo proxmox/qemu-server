@@ -37,6 +37,7 @@ use PVE::QemuServer::ImportDisk;
 use PVE::QemuServer::Monitor qw(mon_cmd);
 use PVE::QemuServer::QMPHelpers;
 use PVE::QemuServer::RunState;
+use PVE::QemuServer::DBusVMState;
 use PVE::QemuServer;
 
 use PVE::CLIHandler;
@@ -1054,6 +1055,10 @@ __PACKAGE__->register_method({
                     # vm was shutdown from inside the guest or crashed, doing api cleanup
                     PVE::QemuServer::vm_stop_cleanup($storecfg, $vmid, $conf, 0, 0, 1);
                 }
+
+                # ensure that no dbus-vmstate helper is left running in any case
+                PVE::QemuServer::DBusVMState::qemu_del_dbus_vmstate($vmid);
+
                 PVE::GuestHelpers::exec_hookscript($conf, $vmid, 'post-stop');
 
                 $restart = eval { PVE::QemuServer::clear_reboot_request($vmid) };

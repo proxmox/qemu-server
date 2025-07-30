@@ -86,6 +86,7 @@ use PVE::QemuServer::RunState;
 use PVE::QemuServer::StateFile;
 use PVE::QemuServer::USB;
 use PVE::QemuServer::Virtiofs qw(max_virtiofs start_all_virtiofsd);
+use PVE::QemuServer::DBusVMState;
 
 my $have_ha_config;
 eval {
@@ -5449,6 +5450,7 @@ sub vm_start {
 #   replicated_volumes => which volids should be re-used with bitmaps for nbd migration
 #   offline_volumes => new volids of offline migrated disks like tpmstate and cloudinit, not yet
 #       contained in config
+#   with_conntrack_state => whether to start the dbus-vmstate helper for conntrack state migration
 sub vm_start_nolock {
     my ($storecfg, $vmid, $conf, $params, $migrate_opts) = @_;
 
@@ -5818,6 +5820,10 @@ sub vm_start_nolock {
             }
         }
 
+        # conntrack migration is only supported for intra-cluster migrations
+        if ($migrate_opts->{with_conntrack_state} && !$migrate_opts->{remote_node}) {
+            PVE::QemuServer::DBusVMState::qemu_add_dbus_vmstate($vmid);
+        }
     } else {
         mon_cmd($vmid, "balloon", value => $conf->{balloon} * 1024 * 1024)
             if !$statefile && $conf->{balloon};
