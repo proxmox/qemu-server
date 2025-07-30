@@ -532,7 +532,7 @@ my $tests = [
         name => "qcow2_external_snapshot_target",
         parameters => [
             "local:$vmid/vm-$vmid-disk-0.raw",
-            "localsnapext:$vmid/vm-$vmid-disk-0.qcow2",
+            "localsnapext:$vmid/vm-$vmid-disk-target.qcow2",
             1024 * 10,
         ],
         expected => [
@@ -544,14 +544,15 @@ my $tests = [
             "raw",
             "--target-image-opts",
             "/var/lib/vz/images/$vmid/vm-$vmid-disk-0.raw",
-            "driver=qcow2,discard-no-unref=true,file.driver=file,"
-                . "file.filename=/var/lib/vzsnapext/images/$vmid/vm-$vmid-disk-0.qcow2",
+            "discard-no-unref=true,driver=qcow2,file.driver=file"
+                . ",file.filename=/var/lib/vzsnapext/images/$vmid/vm-$vmid-disk-target.qcow2",
         ],
     },
     {
         name => "lvmqcow2_external_snapshot_target",
         parameters => [
-            "local:$vmid/vm-$vmid-disk-0.raw", "lvm-store:vm-$vmid-disk-0.qcow2", 1024 * 10,
+            "local:$vmid/vm-$vmid-disk-0.raw", "lvm-store:vm-$vmid-disk-target.qcow2",
+            1024 * 10,
         ],
         expected => [
             "/usr/bin/qemu-img",
@@ -562,8 +563,8 @@ my $tests = [
             "raw",
             "--target-image-opts",
             "/var/lib/vz/images/$vmid/vm-$vmid-disk-0.raw",
-            "driver=qcow2,discard-no-unref=true,file.driver=host_device,"
-                . "file.filename=/dev/pve/vm-$vmid-disk-0.qcow2",
+            "discard-no-unref=true,driver=qcow2,file.driver=host_device"
+                . ",file.filename=/dev/pve/vm-$vmid-disk-target.qcow2",
         ],
     },
 ];
@@ -587,6 +588,17 @@ $storage_module->mock(
     },
     activate_volumes => sub {
         return 1;
+    },
+    volume_snapshot_info => sub {
+        my ($cfg, $volid) = @_;
+        if (
+            $volid eq "lvm-store:vm-$vmid-disk-target.qcow2"
+            || $volid eq "localsnapext:$vmid/vm-$vmid-disk-target.qcow2"
+        ) {
+            # target volumes don't have snapshots
+            return {};
+        }
+        die "mocked volume_snapshot_info called with unexpected volid $volid\n";
     },
 );
 

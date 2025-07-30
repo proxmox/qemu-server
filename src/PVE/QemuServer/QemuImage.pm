@@ -5,11 +5,13 @@ use warnings;
 
 use Fcntl qw(S_ISBLK);
 use File::stat;
+use JSON;
 
 use PVE::Format qw(render_bytes);
 use PVE::Storage;
 use PVE::Tools;
 
+use PVE::QemuServer::Blockdev;
 use PVE::QemuServer::Drive qw(checked_volume_format);
 use PVE::QemuServer::Helpers;
 
@@ -31,16 +33,62 @@ sub convert_iscsi_path {
 }
 
 my sub qcow2_target_image_opts {
-    my ($path, @qcow2_opts) = @_;
+    my ($storecfg, $drive, @qcow2_opts) = @_;
 
-    # FIXME this duplicates logic from qemu_blockdev_options
-    my $st = File::stat::stat($path) or die "stat for '$path' failed - $!\n";
+    # There is no machine version, the qemu-img binary version is what's important.
+    my $version = PVE::QemuServer::Helpers::kvm_user_version();
 
-    my $driver = S_ISBLK($st->mode) ? 'host_device' : 'file';
+    my $blockdev = PVE::QemuServer::Blockdev::generate_drive_blockdev(
+        $storecfg,
+        $drive,
+        $version,
+        { 'no-throttle' => 1 },
+    );
 
-    my $qcow2_opts_str = ',' . join(',', @qcow2_opts);
+    my $opts = [];
+    my $opt_prefix = '';
+    my $next_child = $blockdev;
+    while ($next_child) {
+        my $current = $next_child;
+        $next_child = delete($current->{file});
 
-    return "driver=qcow2$qcow2_opts_str,file.driver=$driver,file.filename=$path";
+        # TODO should cache settings be configured here (via appropriate drive configuration) rather
+        # than via dedicated qemu-img options?
+        delete($current->{cache});
+        # TODO e.g. can't use aio 'native' without cache.direct, just use QEMU default like for
+        # other targets for now
+        delete($current->{aio});
+
+        # no need for node names
+        delete($current->{'node-name'});
+
+        # it's the write target, while the flag should be 'false' anyways, remove to be sure
+        delete($current->{'read-only'});
+
+        # TODO should those be set (via appropriate drive configuration)?
+        delete($current->{'detect-zeroes'});
+        delete($current->{'discard'});
+
+        for my $key (sort keys $current->%*) {
+            my $value;
+            if (ref($current->{$key})) {
+                if ($current->{$key} eq JSON::false) {
+                    $value = 'false';
+                } elsif ($current->{$key} eq JSON::true) {
+                    $value = 'true';
+                } else {
+                    die "target image options: unhandled structured key: $key\n";
+                }
+            } else {
+                $value = $current->{$key};
+            }
+            push $opts->@*, "$opt_prefix$key=$value";
+        }
+
+        $opt_prefix .= 'file.';
+    }
+
+    return join(',', $opts->@*);
 }
 
 # The possible options are:
@@ -115,7 +163,10 @@ sub convert {
     if ($dst_is_iscsi) {
         $dst_path = convert_iscsi_path($dst_path);
     } elsif ($dst_needs_discard_no_unref) {
-        $dst_path = qcow2_target_image_opts($dst_path, 'discard-no-unref=true');
+        # don't use any other drive options, those are intended for use with a running VM and just
+        # use scsi0 as a dummy interface+index for now
+        my $dst_drive = { file => $dst_volid, interface => 'scsi', index => 0 };
+        $dst_path = qcow2_target_image_opts($storecfg, $dst_drive, 'discard-no-unref=true');
     } else {
         push @$cmd, '-O', $dst_format;
     }
