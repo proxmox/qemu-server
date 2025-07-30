@@ -5102,6 +5102,28 @@ __PACKAGE__->register_method({
                             description => 'A storage',
                         },
                     },
+                    'blocking-ha-resources' => {
+                        description => "HA resources, which are blocking the"
+                            . " VM from being migrated to the node.",
+                        type => 'array',
+                        optional => 1,
+                        items => {
+                            description => "A blocking HA resource",
+                            type => 'object',
+                            properties => {
+                                sid => {
+                                    type => 'string',
+                                    description => "The blocking HA resource id",
+                                },
+                                cause => {
+                                    type => 'string',
+                                    description => "The reason why the HA"
+                                        . " resource is blocking the migration.",
+                                    enum => ['resource-affinity'],
+                                },
+                            },
+                        },
+                    },
                 },
                 description => "List of not allowed nodes with additional information.",
             },
@@ -5159,6 +5181,17 @@ __PACKAGE__->register_method({
                 description => 'Whether the VM host supports migrating additional VM state, '
                     . 'such as conntrack entries.',
             },
+            'comigrated-ha-resources' => {
+                description => "HA resources, which will be migrated to the"
+                    . " same target node as the VM, because these are in"
+                    . " positive affinity with the VM.",
+                type => 'array',
+                optional => 1,
+                items => {
+                    type => 'string',
+                    description => "A comigrated HA resource",
+                },
+            },
         },
     },
     code => sub {
@@ -5199,6 +5232,14 @@ __PACKAGE__->register_method({
         my $storage_nodehash =
             PVE::QemuServer::check_local_storage_availability($vmconf, $storecfg);
 
+        my $comigrated_ha_resources = {};
+        my $blocking_ha_resources_by_node = {};
+
+        if (PVE::HA::Config::vm_is_ha_managed($vmid)) {
+            ($comigrated_ha_resources, $blocking_ha_resources_by_node) =
+                PVE::HA::Config::get_resource_motion_info("vm:$vmid");
+        }
+
         my $nodelist = PVE::Cluster::get_nodelist();
         for my $node ($nodelist->@*) {
             next if $node eq $localnode;
@@ -5215,6 +5256,12 @@ __PACKAGE__->register_method({
                     $missing_mappings;
             }
 
+            # extracting blocking resources for current node
+            if (my $blocking_ha_resources = $blocking_ha_resources_by_node->{$node}) {
+                $res->{not_allowed_nodes}->{$node}->{'blocking-ha-resources'} =
+                    $blocking_ha_resources;
+            }
+
             # if nothing came up, add it to the allowed nodes
             if (scalar($res->{not_allowed_nodes}->{$node}->%*) == 0) {
                 push $res->{allowed_nodes}->@*, $node;
@@ -5228,6 +5275,8 @@ __PACKAGE__->register_method({
         $res->{'mapped-resources'} = [sort keys $mapped_resources->%*];
         $res->{'mapped-resource-info'} = $mapped_resources;
         $res->{'has-dbus-vmstate'} = 1;
+
+        $res->{'comigrated-ha-resources'} = $comigrated_ha_resources;
 
         return $res;
 
