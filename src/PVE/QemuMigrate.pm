@@ -11,6 +11,7 @@ use Time::HiRes qw( usleep );
 use PVE::AccessControl;
 use PVE::Cluster;
 use PVE::Format qw(render_bytes);
+use PVE::Firewall::Helpers;
 use PVE::GuestHelpers qw(safe_boolean_ne safe_string_ne);
 use PVE::INotify;
 use PVE::JSONSchema;
@@ -1761,6 +1762,10 @@ sub phase3_cleanup {
             if (my $err = $@) {
                 $self->log('warn', "failed to stop dbus-vmstate on $targetnode: $err\n");
             }
+
+            # also flush now-old local conntrack entries for the migrated VM
+            $self->log('info', 'flushing conntrack state for guest on source node');
+            PVE::Firewall::Helpers::flush_fw_ct_entries_by_mark($vmid);
         }
     }
 
