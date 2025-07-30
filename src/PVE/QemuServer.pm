@@ -4418,6 +4418,10 @@ sub qemu_volume_snapshot_delete {
 
         my $path = PVE::Storage::path($storecfg, $volid);
         my $snapshots = PVE::Storage::volume_snapshot_info($storecfg, $volid);
+
+        die "could not find snapshot '$snap' for volume '$volid'\n"
+            if !defined($snapshots->{$snap});
+
         my $parentsnap = $snapshots->{$snap}->{parent};
         my $childsnap = $snapshots->{$snap}->{child};
         my $machine_version = PVE::QemuServer::Machine::get_current_qemu_machine($vmid);
