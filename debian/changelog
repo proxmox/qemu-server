@@ -1,3 +1,10 @@
+qemu-server (9.0.12) trixie; urgency=medium
+
+  * api: migration preconditions: add checks for ha resource affinity
+    rules
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 31 Jul 2025 11:33:45 +0200
+
 qemu-server (9.0.11) trixie; urgency=medium
 
   * metrics: add pressure stall information to status.
