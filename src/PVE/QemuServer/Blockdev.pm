@@ -991,6 +991,7 @@ sub blockdev_commit {
     my ($storecfg, $vmid, $machine_version, $deviceid, $drive, $src_snap, $target_snap) = @_;
 
     my $volid = $drive->{file};
+    my $target_was_read_only;
 
     print "block-commit $src_snap to base:$target_snap\n";
 
@@ -1020,29 +1021,52 @@ sub blockdev_commit {
         { 'snapshot-name' => $src_snap },
     );
 
-    my $job_id = "commit-$deviceid";
-    my $jobs = {};
-    my $opts = { 'job-id' => $job_id, device => $deviceid };
-
-    $opts->{'base-node'} = $target_fmt_blockdev->{'node-name'};
-    $opts->{'top-node'} = $src_fmt_blockdev->{'node-name'};
-
-    mon_cmd($vmid, "block-commit", %$opts);
-    $jobs->{$job_id} = {};
-
-    # if we commit the current, the blockjob need to be in 'complete' mode
-    my $complete = $src_snap && $src_snap ne 'current' ? 'auto' : 'complete';
-
-    eval {
-        PVE::QemuServer::BlockJob::qemu_drive_mirror_monitor(
-            $vmid, undef, $jobs, $complete, 0, 'commit',
-        );
-    };
-    if ($@) {
-        die "Failed to complete block commit: $@\n";
+    if ($target_was_read_only = $target_fmt_blockdev->{'read-only'}) {
+        print "reopening internal read-only block node for '$target_snap' as writable\n";
+        $target_fmt_blockdev->{'read-only'} = JSON::false;
+        $target_file_blockdev->{'read-only'} = JSON::false;
+        mon_cmd($vmid, 'blockdev-reopen', options => [$target_fmt_blockdev]);
+        # For the guest, the drive is still read-only, because the top throttle node is.
     }
 
-    blockdev_delete($storecfg, $vmid, $drive, $src_file_blockdev, $src_fmt_blockdev, $src_snap);
+    eval {
+        my $job_id = "commit-$deviceid";
+        my $jobs = {};
+        my $opts = { 'job-id' => $job_id, device => $deviceid };
+
+        $opts->{'base-node'} = $target_fmt_blockdev->{'node-name'};
+        $opts->{'top-node'} = $src_fmt_blockdev->{'node-name'};
+
+        mon_cmd($vmid, "block-commit", %$opts);
+        $jobs->{$job_id} = {};
+
+        # if we commit the current, the blockjob need to be in 'complete' mode
+        my $complete = $src_snap && $src_snap ne 'current' ? 'auto' : 'complete';
+
+        eval {
+            PVE::QemuServer::BlockJob::qemu_drive_mirror_monitor(
+                $vmid, undef, $jobs, $complete, 0, 'commit',
+            );
+        };
+        if ($@) {
+            die "Failed to complete block commit: $@\n";
+        }
+
+        blockdev_delete($storecfg, $vmid, $drive, $src_file_blockdev, $src_fmt_blockdev, $src_snap);
+    };
+    my $err = $@;
+
+    if ($target_was_read_only) {
+        # Even when restoring the read-only flag on the format and file nodes fails, the top
+        # throttle node still has it, ensuring it is read-only for the guest.
+        print "re-applying read-only flag for internal block node for '$target_snap'\n";
+        $target_fmt_blockdev->{'read-only'} = JSON::true;
+        $target_file_blockdev->{'read-only'} = JSON::true;
+        eval { mon_cmd($vmid, 'blockdev-reopen', options => [$target_fmt_blockdev]); };
+        print "failed to re-apply read-only flag - $@\n" if $@;
+    }
+
+    die $err if $err;
 }
 
 sub blockdev_stream {
