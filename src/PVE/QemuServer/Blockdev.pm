@@ -874,8 +874,8 @@ sub blockdev_delete {
     my ($storecfg, $vmid, $drive, $file_blockdev, $fmt_blockdev, $snap) = @_;
 
     #add eval as reopen is auto removing the old nodename automatically only if it was created at vm start in command line argument
-    eval { mon_cmd($vmid, 'blockdev-del', 'node-name' => $file_blockdev->{'node-name'}) };
     eval { mon_cmd($vmid, 'blockdev-del', 'node-name' => $fmt_blockdev->{'node-name'}) };
+    eval { mon_cmd($vmid, 'blockdev-del', 'node-name' => $file_blockdev->{'node-name'}) };
 
     #delete the file (don't use vdisk_free as we don't want to delete all snapshot chain)
     print "delete old $file_blockdev->{filename}\n";
