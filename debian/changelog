@@ -1,3 +1,18 @@
+qemu-server (9.0.11) trixie; urgency=medium
+
+  * metrics: add pressure stall information to status.
+
+  * vm status: add memhost as accumulated PSS for all processes in a VMs cgroup
+    for complete host view of VM memory consumption.
+
+  * vm status: switch 'mem' stat to PSS of VM cgroup if there is no balloon
+    info.
+
+  * RRD metrics: use new pve-storage-9.0 format RRD file location, if it
+    exists.
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 31 Jul 2025 04:50:09 +0200
+
 qemu-server (9.0.10) trixie; urgency=medium
 
   * delete snapshot: exit delete early if we cannot find a snapshot
