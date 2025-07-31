@@ -28,8 +28,10 @@ sub qemu_handle_concluded_blockjob {
     eval { mon_cmd($vmid, 'job-dismiss', id => $job_id); };
     log_warn("$job_id: failed to dismiss job - $@") if $@;
 
-    # If there was an error, always detach the target.
-    $job->{'detach-node-name'} = $job->{'target-node-name'} if $qmp_info->{error};
+    # If there was an error or if the job was cancelled, always detach the target. This is correct
+    # even when the job was cancelled after completion, because then the disk is not switched over
+    # to use the target.
+    $job->{'detach-node-name'} = $job->{'target-node-name'} if $qmp_info->{error} || $job->{cancel};
 
     if (my $node_name = $job->{'detach-node-name'}) {
         eval { PVE::QemuServer::Blockdev::detach($vmid, $node_name); };
