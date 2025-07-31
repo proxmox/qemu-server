@@ -2570,32 +2570,32 @@ our $vmstatus_return_properties = {
         optional => 1,
     },
     pressurecpusome => {
-        description => "CPU Some pressure average over the last 10 seconds.",
+        description => "CPU Some pressure stall average over the last 10 seconds.",
         type => 'number',
         optional => 1,
     },
     pressurecpufull => {
-        description => "CPU Full pressure average over the last 10 seconds.",
+        description => "CPU Full pressure stall average over the last 10 seconds.",
         type => 'number',
         optional => 1,
     },
     pressureiosome => {
-        description => "IO Some pressure average over the last 10 seconds.",
+        description => "IO Some pressure stall average over the last 10 seconds.",
         type => 'number',
         optional => 1,
     },
     pressureiofull => {
-        description => "IO Full pressure average over the last 10 seconds.",
+        description => "IO Full pressure stall average over the last 10 seconds.",
         type => 'number',
         optional => 1,
     },
     pressurememorysome => {
-        description => "Memory Some pressure average over the last 10 seconds.",
+        description => "Memory Some pressure stall average over the last 10 seconds.",
         type => 'number',
         optional => 1,
     },
     pressurememoryfull => {
-        description => "Memory Full pressure average over the last 10 seconds.",
+        description => "Memory Full pressure stall average over the last 10 seconds.",
         type => 'number',
         optional => 1,
     },
