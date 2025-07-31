@@ -1,3 +1,12 @@
+qemu-server (9.0.13) trixie; urgency=medium
+
+  * fix #6580: blockdev: commit: re-open target format node as writable
+    if necessary.
+
+  * blockdev: delete: delete format block node first.
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 31 Jul 2025 14:26:03 +0200
+
 qemu-server (9.0.12) trixie; urgency=medium
 
   * api: migration preconditions: add checks for ha resource affinity
