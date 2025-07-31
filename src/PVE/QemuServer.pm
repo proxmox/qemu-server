@@ -2415,6 +2415,35 @@ sub vzlist {
     return $vzlist;
 }
 
+# Iterate over all PIDs inside a VMID's cgroup slice and accumulate their PSS (proportional set
+# size) to get a relatively telling effective memory usage of all processes involved with a VM.
+my sub get_vmid_total_cgroup_memory_usage {
+    my ($vmid) = @_;
+
+    my $memory_usage = 0;
+    if (my $procs_fh = IO::File->new("/sys/fs/cgroup/qemu.slice/${vmid}.scope/cgroup.procs", "r")) {
+        while (my $pid = <$procs_fh>) {
+            chomp($pid);
+
+            open(my $smaps_fh, '<', "/proc/${pid}/smaps_rollup")
+                or $!{ENOENT}
+                or die "failed to open PSS memory-stat from process - $!\n";
+            next if !defined($smaps_fh);
+
+            while (my $line = <$smaps_fh>) {
+                if ($line =~ m/^Pss:\s+([0-9]+) kB$/) {
+                    $memory_usage += int($1) * 1024;
+                    last; # end inner while loop, go to next $pid
+                }
+            }
+            close $smaps_fh;
+        }
+        close($procs_fh);
+    }
+
+    return $memory_usage;
+}
+
 our $vmstatus_return_properties = {
     vmid => get_standard_option('pve-vmid'),
     status => {
@@ -2683,23 +2712,7 @@ sub vmstatus {
             $d->{mem} = int(($pstat->{rss} / $pstat->{vsize}) * $d->{maxmem});
         }
 
-        my $fh = IO::File->new("/sys/fs/cgroup/qemu.slice/${vmid}.scope/cgroup.procs", "r");
-        if ($fh) {
-            while (my $childPid = <$fh>) {
-                chomp($childPid);
-                open(my $SMAPS_FH, '<', "/proc/$childPid/smaps_rollup")
-                    or die "failed to open PSS memory-stat from process - $!\n";
-
-                while (my $line = <$SMAPS_FH>) {
-                    if ($line =~ m/^Pss:\s+([0-9]+) kB$/) {
-                        $d->{memhost} = $d->{memhost} + int($1) * 1024;
-                        last;
-                    }
-                }
-                close $SMAPS_FH;
-            }
-        }
-        close($fh);
+        $d->{memhost} = get_vmid_total_cgroup_memory_usage($vmid);
 
         my $pressures = PVE::ProcFSTools::read_cgroup_pressure("qemu.slice/${vmid}.scope");
         $d->{pressurecpusome} = $pressures->{cpu}->{some}->{avg10} * 1;
