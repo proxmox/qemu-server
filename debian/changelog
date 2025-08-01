@@ -1,3 +1,13 @@
+qemu-server (9.0.14) trixie; urgency=medium
+
+  * api: migration preconditions: fix default value for "comigrated" HA
+    resources,
+
+  * api: migration checks: rename return prop to dependent-ha-resources and
+    improve description.
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 01 Aug 2025 18:37:51 +0200
+
 qemu-server (9.0.13) trixie; urgency=medium
 
   * fix #6580: blockdev: commit: re-open target format node as writable
