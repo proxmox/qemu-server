@@ -1052,7 +1052,9 @@ sub blockdev_commit {
             die "Failed to complete block commit: $@\n";
         }
 
-        blockdev_delete($storecfg, $vmid, $drive, $src_file_blockdev, $src_fmt_blockdev, $src_snap);
+        blockdev_delete(
+            $storecfg, $vmid, $drive, $src_file_blockdev, $src_fmt_blockdev, $src_snap,
+        );
     };
     my $err = $@;
 
