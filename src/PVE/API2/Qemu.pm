@@ -5181,15 +5181,15 @@ __PACKAGE__->register_method({
                 description => 'Whether the VM host supports migrating additional VM state, '
                     . 'such as conntrack entries.',
             },
-            'comigrated-ha-resources' => {
-                description => "HA resources, which will be migrated to the"
-                    . " same target node as the VM, because these are in"
-                    . " positive affinity with the VM.",
+            'dependent-ha-resources' => {
+                description => "HA resources, which will be migrated to the same target node as"
+                    . " the VM, because these are in positive affinity with the VM.",
                 type => 'array',
                 optional => 1,
                 items => {
                     type => 'string',
-                    description => "A comigrated HA resource",
+                    description => "The '<ty>:<id>' resource IDs of a HA resource with a"
+                        . " positive affinity rule to this VM.",
                 },
             },
         },
@@ -5232,12 +5232,13 @@ __PACKAGE__->register_method({
         my $storage_nodehash =
             PVE::QemuServer::check_local_storage_availability($vmconf, $storecfg);
 
-        my $comigrated_ha_resources = [];
         my $blocking_ha_resources_by_node = {};
 
         if (PVE::HA::Config::vm_is_ha_managed($vmid)) {
-            ($comigrated_ha_resources, $blocking_ha_resources_by_node) =
+            (my $dependent_ha_resource, $blocking_ha_resources_by_node) =
                 PVE::HA::Config::get_resource_motion_info("vm:$vmid");
+
+            $res->{'dependent-ha-resources'} = $dependent_ha_resource // [];
         }
 
         my $nodelist = PVE::Cluster::get_nodelist();
@@ -5275,8 +5276,6 @@ __PACKAGE__->register_method({
         $res->{'mapped-resources'} = [sort keys $mapped_resources->%*];
         $res->{'mapped-resource-info'} = $mapped_resources;
         $res->{'has-dbus-vmstate'} = 1;
-
-        $res->{'comigrated-ha-resources'} = $comigrated_ha_resources;
 
         return $res;
 
