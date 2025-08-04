@@ -1,3 +1,10 @@
+qemu-server (9.0.15) trixie; urgency=medium
+
+  * vm state: improve cleaning up dbus-vmstate and avoid spurious warning if
+    guest gets shutdown from the inside.
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 04 Aug 2025 16:02:28 +0200
+
 qemu-server (9.0.14) trixie; urgency=medium
 
   * api: migration preconditions: fix default value for "comigrated" HA
