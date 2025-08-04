@@ -6102,6 +6102,8 @@ sub vm_stop_cleanup {
     my ($storecfg, $vmid, $conf, $keepActive, $apply_pending_changes, $noerr) = @_;
 
     eval {
+        # ensure that no dbus-vmstate helper is left running in any case
+        PVE::QemuServer::DBusVMState::qemu_del_dbus_vmstate($vmid, quiet => $noerr);
 
         if (!$keepActive) {
             my $vollist = get_vm_volumes($conf);

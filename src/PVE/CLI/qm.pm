@@ -1056,9 +1056,6 @@ __PACKAGE__->register_method({
                     PVE::QemuServer::vm_stop_cleanup($storecfg, $vmid, $conf, 0, 0, 1);
                 }
 
-                # ensure that no dbus-vmstate helper is left running in any case
-                PVE::QemuServer::DBusVMState::qemu_del_dbus_vmstate($vmid);
-
                 PVE::GuestHelpers::exec_hookscript($conf, $vmid, 'post-stop');
 
                 $restart = eval { PVE::QemuServer::clear_reboot_request($vmid) };
