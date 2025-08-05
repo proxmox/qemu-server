@@ -1,3 +1,12 @@
+qemu-server (9.0.16) trixie; urgency=medium
+
+  * vmstate: always quiesce warnings on VM stop cleanup as at this point, the
+    dbus-vmstate helper is not expected to be running anymore, stopping it
+    here is just done out of precaution to ensure it will be cleaned up in any
+    case.
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 05 Aug 2025 12:21:02 +0200
+
 qemu-server (9.0.15) trixie; urgency=medium
 
   * vm state: improve cleaning up dbus-vmstate and avoid spurious warning if
