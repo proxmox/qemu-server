@@ -4447,12 +4447,17 @@ sub qemu_volume_snapshot {
         print "internal qemu snapshot\n";
         mon_cmd($vmid, 'blockdev-snapshot-internal-sync', device => $deviceid, name => $snap);
     } elsif ($do_snapshots_type eq 'external') {
+        my $machine_version = PVE::QemuServer::Machine::get_current_qemu_machine($vmid);
+        if (!PVE::QemuServer::Machine::is_machine_version_at_least($machine_version, 10, 0)) {
+            die "storage for '$volid' is configured for snapshots as a volume chain - this requires"
+                . " QEMU machine version >= 10.0. See"
+                . " https://pve.proxmox.com/wiki/QEMU_Machine_Version_Upgrade\n";
+        }
         my $storeid = (PVE::Storage::parse_volume_id($volid))[0];
         my $scfg = PVE::Storage::storage_config($storecfg, $storeid);
         print "external qemu snapshot\n";
         my $snapshots = PVE::Storage::volume_snapshot_info($storecfg, $volid);
         my $parent_snap = $snapshots->{'current'}->{parent};
-        my $machine_version = PVE::QemuServer::Machine::get_current_qemu_machine($vmid);
         PVE::QemuServer::Blockdev::blockdev_external_snapshot(
             $storecfg, $vmid, $machine_version, $deviceid, $drive, $snap, $parent_snap,
         );
@@ -4489,6 +4494,13 @@ sub qemu_volume_snapshot_delete {
             name => $snap,
         );
     } elsif ($do_snapshots_type eq 'external') {
+        my $machine_version = PVE::QemuServer::Machine::get_current_qemu_machine($vmid);
+        if (!PVE::QemuServer::Machine::is_machine_version_at_least($machine_version, 10, 0)) {
+            die "storage for '$volid' is configured for snapshots as a volume chain - this requires"
+                . " QEMU machine version >= 10.0. See"
+                . " https://pve.proxmox.com/wiki/QEMU_Machine_Version_Upgrade\n";
+        }
+
         print "delete qemu external snapshot\n";
 
         my $path = PVE::Storage::path($storecfg, $volid);
@@ -4499,7 +4511,6 @@ sub qemu_volume_snapshot_delete {
 
         my $parentsnap = $snapshots->{$snap}->{parent};
         my $childsnap = $snapshots->{$snap}->{child};
-        my $machine_version = PVE::QemuServer::Machine::get_current_qemu_machine($vmid);
 
         # if we delete the first snasphot, we commit because the first snapshot original base image, it should be big.
         # improve-me: if firstsnap > child : commit, if firstsnap < child do a stream.
