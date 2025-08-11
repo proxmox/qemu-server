@@ -156,19 +156,37 @@ sub get_current_qemu_machine {
     return current_from_query_machines($res);
 }
 
+=head3 extract_version_parts
+
+    my ($major, $minor, $pve) = extract_version_parts($machine_type);
+
+Returns the major, minor and pve versions from the given C<$machine_type> string. Returns nothing if
+the string did not contain any version or if parsing failed.
+
+=cut
+
+my sub extract_version_parts {
+    my ($machine_type) = @_;
+
+    if ($machine_type =~
+        m/^(?:pc(?:-i440fx|-q35)?|virt)-(\d+)\.(\d+)(?:\.(\d+))?(?:\+pve(\d+))?(?:\.pxe)?/
+    ) {
+        return ($1, $2, $4);
+    }
+    return;
+}
+
 # returns a string with major.minor+pve<VERSION>, patch version-part is ignored
 # as it's seldom resembling a real QEMU machine type, so it would be '0' 99% of
 # the time anyway.. This explicitly separates pveversion from the machine.
 sub extract_version {
     my ($machine_type, $kvmversion) = @_;
 
-    if (
-        defined($machine_type)
-        && $machine_type =~
-        m/^(?:pc(?:-i440fx|-q35)?|virt)-(\d+)\.(\d+)(?:\.(\d+))?(\+pve\d+)?(?:\.pxe)?/
-    ) {
-        my $versionstr = "$1.$2";
-        $versionstr .= $4 if $4;
+    my ($major, $minor, $pve);
+    ($major, $minor, $pve) = extract_version_parts($machine_type) if defined($machine_type);
+    if (defined($major) && defined($minor)) {
+        my $versionstr = "${major}.${minor}";
+        $versionstr .= "+pve${pve}" if $pve;
         return $versionstr;
     } elsif (defined($kvmversion)) {
         if ($kvmversion =~ m/^(\d+)\.(\d+)/) {
