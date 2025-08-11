@@ -198,6 +198,30 @@ sub extract_version {
     return;
 }
 
+=head3 machine_version_cmp
+
+    sort { machine_version_cmp($a, $b) } @machine_types
+
+Comparision function for sorting machine types by version.
+
+=cut
+
+sub machine_version_cmp {
+    my ($machine_type_a, $machine_type_b) = @_;
+
+    my ($major_a, $minor_a, $pve_a) = extract_version_parts($machine_type_a);
+    my ($major_b, $minor_b, $pve_b) = extract_version_parts($machine_type_b);
+
+    return PVE::QemuServer::Helpers::version_cmp(
+        $major_a,
+        $major_b,
+        $minor_a,
+        $minor_b,
+        $pve_a,
+        $pve_b,
+    );
+}
+
 sub is_machine_version_at_least {
     my ($machine_type, $major, $minor, $pve) = @_;
 

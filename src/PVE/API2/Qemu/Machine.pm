@@ -81,7 +81,11 @@ __PACKAGE__->register_method({
                 }
             }
 
-            return [sort { $b->{id} cmp $a->{id} } ($machines->@*, $pve_machines->@*)]; # merge & sort
+            return [
+                sort {
+                    PVE::QemuServer::Machine::machine_version_cmp($b->{id}, $a->{id})
+                } ($machines->@*, $pve_machines->@*)
+            ]; # merge & sort
         };
         die "could not load supported machine versions - $@\n" if $@;
         return $supported_machine_list;
