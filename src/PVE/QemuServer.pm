@@ -1335,6 +1335,13 @@ sub print_drive_commandline_full {
     my ($path, $format) =
         PVE::QemuServer::Drive::get_path_and_format($storecfg, $drive, $live_restore_name);
 
+    if ($scfg && $scfg->{'snapshot-as-volume-chain'} && $format && $format eq 'qcow2') {
+        # the print_drive_commandline_full() function is only used if machine version is < 10.0
+        die "storage for '$drive->{file}' is configured for snapshots as a volume chain - this"
+            . " requires QEMU machine version >= 10.0. See"
+            . " https://pve.proxmox.com/wiki/QEMU_Machine_Version_Upgrade\n";
+    }
+
     my $is_rbd = $path =~ m/^rbd:/;
 
     my $opts = '';
