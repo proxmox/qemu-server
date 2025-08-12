@@ -67,7 +67,6 @@ use PVE::QemuServer::Drive qw(
     checked_volume_format
     drive_is_cloudinit
     drive_is_cdrom
-    drive_is_read_only
     parse_drive
     print_drive
     storage_allows_io_uring_default
@@ -3778,8 +3777,10 @@ sub config_to_command {
                 my $drive_cmd =
                     print_drive_commandline_full($storecfg, $vmid, $drive, $live_blockdev_name);
 
-                # extra protection for templates, but SATA and IDE don't support it..
-                $drive_cmd .= ',readonly=on' if drive_is_read_only($conf, $drive);
+                if ($is_template) {
+                    my $interface = $drive->{interface};
+                    $drive_cmd .= ',readonly=on' if $interface ne 'ide' && $interface ne 'sata';
+                }
 
                 push @$devices, '-drive', $drive_cmd;
             }

@@ -20,7 +20,6 @@ our @EXPORT_OK = qw(
     checked_volume_format
     drive_is_cloudinit
     drive_is_cdrom
-    drive_is_read_only
     parse_drive
     print_drive
     storage_allows_io_uring_default
@@ -749,15 +748,6 @@ sub drive_is_cdrom {
     return 0 if $exclude_cloudinit && drive_is_cloudinit($drive);
 
     return $drive && $drive->{media} && ($drive->{media} eq 'cdrom');
-}
-
-sub drive_is_read_only {
-    my ($conf, $drive) = @_;
-
-    return 0 if !PVE::QemuConfig->is_template($conf);
-
-    # don't support being marked read-only
-    return $drive->{interface} ne 'sata' && $drive->{interface} ne 'ide';
 }
 
 sub parse_drive_interface {
