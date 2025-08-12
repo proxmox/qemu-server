@@ -86,7 +86,7 @@ sub queue_cmd {
 
 # execute a single command
 sub cmd {
-    my ($self, $vmid, $cmd, $timeout) = @_;
+    my ($self, $vmid, $cmd, $timeout, $noerr) = @_;
 
     my $result;
 
@@ -155,8 +155,10 @@ sub cmd {
 
     $self->queue_execute($timeout, 2);
 
-    die "VM $vmid qmp command '$cmd->{execute}' failed - $queue_info->{error}"
-        if defined($queue_info->{error});
+    if (defined($queue_info->{error})) {
+        die "VM $vmid qmp command '$cmd->{execute}' failed - $queue_info->{error}" if !$noerr;
+        $result = { error => $queue_info->{error} };
+    }
 
     return $result;
 }
