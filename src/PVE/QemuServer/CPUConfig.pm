@@ -223,6 +223,13 @@ my $cpu_fmt = {
         pattern => qr/$cpu_flag_any_re(;$cpu_flag_any_re)*/,
         optional => 1,
     },
+    'guest-phys-bits' => {
+        type => 'integer',
+        minimum => 32, # see target/i386/cpu.c in QEMU
+        maximum => 64,
+        description => "Number of physical address bits available to the guest.",
+        optional => 1,
+    },
     'phys-bits' => {
         type => 'string',
         format => 'pve-phys-bits',
@@ -680,18 +687,22 @@ sub get_cpu_options {
         $pve_forced_flags,
     );
 
-    my $phys_bits = '';
-    foreach my $conf ($custom_cpu, $cpu) {
-        next if !defined($conf);
-        my $conf_val = $conf->{'phys-bits'};
-        next if !$conf_val;
-        if ($conf_val eq 'host') {
-            $phys_bits = ",host-phys-bits=true";
-        } else {
-            $phys_bits = ",phys-bits=$conf_val";
+    for my $phys_bits_opt (qw(guest-phys-bits phys-bits)) {
+        my $phys_bits = '';
+        foreach my $conf ($custom_cpu, $cpu) {
+            next if !defined($conf);
+            my $conf_val = $conf->{$phys_bits_opt};
+            next if !$conf_val;
+            if ($conf_val eq 'host') {
+                die "unexpected value 'host' for guest-phys-bits"
+                    if $phys_bits_opt eq 'guest-phys-bits';
+                $phys_bits = ",host-phys-bits=true";
+            } else {
+                $phys_bits = ",${phys_bits_opt}=${conf_val}";
+            }
         }
+        $cpu_str .= $phys_bits;
     }
-    $cpu_str .= $phys_bits;
 
     return ('-cpu', $cpu_str);
 }
