@@ -46,6 +46,7 @@ handle the error that is returned as a structured result.
 =back
 
 =cut
+
 sub qmp_cmd {
     my ($vmid, $cmd) = @_;
 
