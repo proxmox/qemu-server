@@ -575,7 +575,7 @@ sub attach {
     eval {
         if ($throttle_group_id) {
             # Try to remove potential left-over.
-            eval { mon_cmd($vmid, 'object-del', id => $throttle_group_id); };
+            mon_cmd($vmid, 'object-del', id => $throttle_group_id, noerr => 1);
 
             my $throttle_group = generate_throttle_group($drive);
             mon_cmd($vmid, 'object-add', $throttle_group->%*);
@@ -630,8 +630,8 @@ sub detach {
     while ($node_name) {
         last if !$block_info->{$node_name}; # already gone
 
-        eval { mon_cmd($vmid, 'blockdev-del', 'node-name' => "$node_name"); };
-        if (my $err = $@) {
+        my $res = mon_cmd($vmid, 'blockdev-del', 'node-name' => "$node_name", noerr => 1);
+        if (my $err = $res->{error}) {
             last if $err =~ m/Failed to find node with node-name/; # already gone
             die "deleting blockdev '$node_name' failed : $err\n";
         }
