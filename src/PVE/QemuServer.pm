@@ -3205,9 +3205,11 @@ sub config_to_command {
     my ($forcemachine, $forcecpu, $live_restore_backing, $dry_run) =
         $options->@{qw(force-machine force-cpu live-restore-backing dry-run)};
 
+    my $is_template = PVE::QemuConfig->is_template($conf);
+
     # minimize config for templates, they can only start for backup,
     # so most options besides the disks are irrelevant
-    if (PVE::QemuConfig->is_template($conf)) {
+    if ($is_template) {
         my $newconf = {
             template => 1, # in case below code checks that
             kvm => 0, # to prevent an error on hosts without virtualization extensions
@@ -3361,7 +3363,6 @@ sub config_to_command {
             'machine-version' => $machine_version,
             q35 => $q35,
         };
-        my $is_template = PVE::QemuConfig->is_template($conf);
         my ($ovmf_cmd, $ovmf_machine_flags) = PVE::QemuServer::OVMF::print_ovmf_commandline(
             $conf, $storecfg, $vmid, $hw_info, $version_guard, $is_template,
         );
@@ -3463,7 +3464,7 @@ sub config_to_command {
 
     # Add a TPM only if the VM is not a template,
     # to support backing up template VMs even if the TPM disk is write-protected.
-    add_tpm_device($vmid, $devices, $conf) if (!PVE::QemuConfig->is_template($conf));
+    add_tpm_device($vmid, $devices, $conf) if !$is_template;
 
     my $sockets = 1;
     $sockets = $conf->{smp} if $conf->{smp}; # old style - no longer iused
@@ -3900,7 +3901,7 @@ sub config_to_command {
         print "activating and using '$vmstate' as vmstate\n";
     }
 
-    if (PVE::QemuConfig->is_template($conf)) {
+    if ($is_template) {
         # needed to workaround base volumes being read-only
         push @$cmd, '-snapshot';
     }
