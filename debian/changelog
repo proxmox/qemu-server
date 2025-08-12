@@ -1,3 +1,17 @@
+qemu-server (9.0.17) trixie; urgency=medium
+
+  * fix #6648: api: machine versions: fix ordering
+
+  * prohibit using snapshot-as-volume-chain qcow2 images with pre-10.0 machines
+
+  * qmp client: add $noerr argument
+
+  * blockdev: attach/detach: silence errors for QMP commands for which failure may be expected
+
+  * blockdev: delete/replace: re-use detach() helper
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 12 Aug 2025 15:10:38 +0200
+
 qemu-server (9.0.16) trixie; urgency=medium
 
   * vmstate: always quiesce warnings on VM stop cleanup as at this point, the
