@@ -1272,6 +1272,15 @@ sub print_drivedevice_full {
 
         my $device_type = ($drive->{media} && $drive->{media} eq 'cdrom') ? "cd" : "hd";
 
+        # With ide-hd, the inserted block node needs to be marked as writable too, but -blockdev
+        # will complain if it's marked as writable but the actual backing device is read-only (e.g.
+        # read-only base LV). IDE/SATA do not support being configured as read-only, the most
+        # similar is using ide-cd instead of ide-hd, with most of the code and configuration shared
+        # in QEMU. Since a template is never actually started, the front-end device is never
+        # accessed. The backup only accesses the inserted block node, so it does not matter for the
+        # backup if the type is 'ide-cd' instead.
+        $device_type = 'cd' if $conf->{template};
+
         $device = "ide-$device_type";
         if ($drive->{interface} eq 'ide') {
             $device .= ",bus=ide.$controller,unit=$unit";
@@ -3752,9 +3761,7 @@ sub config_to_command {
 
                     my $extra_blockdev_options = {};
                     $extra_blockdev_options->{'live-restore'} = $live_restore if $live_restore;
-                    # extra protection for templates, but SATA and IDE don't support it..
-                    $extra_blockdev_options->{'read-only'} = 1
-                        if drive_is_read_only($conf, $drive);
+                    $extra_blockdev_options->{'read-only'} = 1 if $is_template;
 
                     my $blockdev = PVE::QemuServer::Blockdev::generate_drive_blockdev(
                         $storecfg, $drive, $machine_version, $extra_blockdev_options,
