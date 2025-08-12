@@ -873,9 +873,8 @@ sub blockdev_external_snapshot {
 sub blockdev_delete {
     my ($storecfg, $vmid, $drive, $file_blockdev, $fmt_blockdev, $snap) = @_;
 
-    #add eval as reopen is auto removing the old nodename automatically only if it was created at vm start in command line argument
-    eval { mon_cmd($vmid, 'blockdev-del', 'node-name' => $fmt_blockdev->{'node-name'}) };
-    eval { mon_cmd($vmid, 'blockdev-del', 'node-name' => $file_blockdev->{'node-name'}) };
+    eval { detach($vmid, $fmt_blockdev->{'node-name'}); };
+    warn "detaching block node for $file_blockdev->{filename} failed - $@" if $@;
 
     #delete the file (don't use vdisk_free as we don't want to delete all snapshot chain)
     print "delete old $file_blockdev->{filename}\n";
@@ -982,9 +981,8 @@ sub blockdev_replace {
     }
 
     # delete old file|fmt nodes
-    # add eval as reopen is auto removing the old nodename automatically only if it was created at vm start in command line argument
-    eval { mon_cmd($vmid, 'blockdev-del', 'node-name' => $src_fmt_blockdev_name) };
-    eval { mon_cmd($vmid, 'blockdev-del', 'node-name' => $src_file_blockdev_name) };
+    eval { detach($vmid, $src_fmt_blockdev_name); };
+    warn "detaching block node for $src_snap failed - $@" if $@;
 }
 
 sub blockdev_commit {
