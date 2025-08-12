@@ -10,7 +10,7 @@ use PVE::Storage;
 use PVE::Tools;
 
 use PVE::QemuServer::Blockdev;
-use PVE::QemuServer::Drive qw(checked_volume_format drive_is_read_only parse_drive print_drive);
+use PVE::QemuServer::Drive qw(checked_volume_format parse_drive print_drive);
 use PVE::QemuServer::QemuImage;
 
 my $EDK2_FW_BASE = '/usr/share/pve-edk2-firmware/';
@@ -79,7 +79,7 @@ my sub get_ovmf_files($$$$) {
 }
 
 my sub print_ovmf_drive_commandlines {
-    my ($conf, $storecfg, $vmid, $hw_info, $version_guard) = @_;
+    my ($conf, $storecfg, $vmid, $hw_info, $version_guard, $is_template) = @_;
 
     my ($amd_sev_type, $arch, $q35) = $hw_info->@{qw(amd-sev-type arch q35)};
 
@@ -109,7 +109,7 @@ my sub print_ovmf_drive_commandlines {
 
         $var_drive_str .= ",size=" . (-s $ovmf_vars)
             if $format eq 'raw' && $version_guard->(4, 1, 2);
-        $var_drive_str .= ',readonly=on' if drive_is_read_only($conf, $d);
+        $var_drive_str .= ',readonly=on' if $is_template;
     } else {
         log_warn("no efidisk configured! Using temporary efivars disk.");
         my $path = "/tmp/$vmid-ovmf.fd";
@@ -145,7 +145,7 @@ sub create_efidisk($$$$$$$$) {
 }
 
 my sub generate_ovmf_blockdev {
-    my ($conf, $storecfg, $vmid, $hw_info) = @_;
+    my ($conf, $storecfg, $vmid, $hw_info, $is_template) = @_;
 
     my ($amd_sev_type, $arch, $machine_version, $q35) =
         $hw_info->@{qw(amd-sev-type arch machine-version q35)};
@@ -187,8 +187,7 @@ my sub generate_ovmf_blockdev {
     $drive->{cache} = 'writeback' if !$drive->{cache};
 
     my $extra_blockdev_options = {};
-    # extra protection for templates, but SATA and IDE don't support it..
-    $extra_blockdev_options->{'read-only'} = 1 if drive_is_read_only($conf, $drive);
+    $extra_blockdev_options->{'read-only'} = 1 if $is_template;
 
     $extra_blockdev_options->{size} = -s $ovmf_vars if $format eq 'raw';
 
@@ -202,7 +201,7 @@ my sub generate_ovmf_blockdev {
 }
 
 sub print_ovmf_commandline {
-    my ($conf, $storecfg, $vmid, $hw_info, $version_guard) = @_;
+    my ($conf, $storecfg, $vmid, $hw_info, $version_guard, $is_template) = @_;
 
     my $amd_sev_type = $hw_info->{'amd-sev-type'};
 
@@ -217,7 +216,7 @@ sub print_ovmf_commandline {
     } else {
         if ($version_guard->(10, 0, 0)) { # for the switch to -blockdev
             my ($code_blockdev, $vars_blockdev, $throttle_group) =
-                generate_ovmf_blockdev($conf, $storecfg, $vmid, $hw_info);
+                generate_ovmf_blockdev($conf, $storecfg, $vmid, $hw_info, $is_template);
 
             push $cmd->@*, '-object', to_json($throttle_group, { canonical => 1 });
             push $cmd->@*, '-blockdev', to_json($code_blockdev, { canonical => 1 });
@@ -225,8 +224,9 @@ sub print_ovmf_commandline {
             push $machine_flags->@*, "pflash0=$code_blockdev->{'node-name'}",
                 "pflash1=$vars_blockdev->{'node-name'}";
         } else {
-            my ($code_drive_str, $var_drive_str) =
-                print_ovmf_drive_commandlines($conf, $storecfg, $vmid, $hw_info, $version_guard);
+            my ($code_drive_str, $var_drive_str) = print_ovmf_drive_commandlines(
+                $conf, $storecfg, $vmid, $hw_info, $version_guard, $is_template,
+            );
             push $cmd->@*, '-drive', $code_drive_str;
             push $cmd->@*, '-drive', $var_drive_str;
         }

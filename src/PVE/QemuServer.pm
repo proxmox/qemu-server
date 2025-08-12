@@ -3361,8 +3361,9 @@ sub config_to_command {
             'machine-version' => $machine_version,
             q35 => $q35,
         };
+        my $is_template = PVE::QemuConfig->is_template($conf);
         my ($ovmf_cmd, $ovmf_machine_flags) = PVE::QemuServer::OVMF::print_ovmf_commandline(
-            $conf, $storecfg, $vmid, $hw_info, $version_guard,
+            $conf, $storecfg, $vmid, $hw_info, $version_guard, $is_template,
         );
         push $cmd->@*, $ovmf_cmd->@*;
         push $machineFlags->@*, $ovmf_machine_flags->@*;
