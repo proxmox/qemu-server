@@ -3778,6 +3778,9 @@ sub config_to_command {
                     print_drive_commandline_full($storecfg, $vmid, $drive, $live_blockdev_name);
 
                 if ($is_template) {
+                    # TODO PVE 10.x - since the temporary config for starting templates for backup
+                    # uses the latest machine version, this should already be dead code. It's kept
+                    # for now if for whatever reason an older QEMU build is used (e.g. bisecting).
                     my $interface = $drive->{interface};
                     $drive_cmd .= ',readonly=on' if $interface ne 'ide' && $interface ne 'sata';
                 }
@@ -3910,6 +3913,10 @@ sub config_to_command {
     }
 
     if ($is_template) {
+        # TODO PVE 10.x - since the temporary config for starting templates for backup uses the
+        # latest machine version, this should already be dead code. It's kept for now if for
+        # whatever reason an older QEMU build is used (e.g. bisecting).
+
         # needed to workaround base volumes being read-only
         push @$cmd, '-snapshot';
     }
