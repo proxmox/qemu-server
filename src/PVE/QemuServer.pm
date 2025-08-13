@@ -1203,6 +1203,7 @@ sub print_drivedevice_full {
     my $maxdev = 0;
 
     my $machine_version = extract_version($machine_type, kvm_user_version());
+    my $has_write_cache = 1; # whether the device has a 'write-cache' option
 
     my $drive_id = PVE::QemuServer::Drive::get_drive_id($drive);
     if ($drive->{interface} eq 'virtio') {
@@ -1244,7 +1245,8 @@ sub print_drivedevice_full {
         }
         $device .= ",wwn=$drive->{wwn}" if $drive->{wwn};
 
-        # only scsi-hd and scsi-cd support passing vendor and product information
+        # only scsi-hd and scsi-cd support passing vendor and product information and have a
+        # 'write-cache' option
         if ($device_type eq 'hd' || $device_type eq 'cd') {
             if (my $vendor = $drive->{vendor}) {
                 $device .= ",vendor=$vendor";
@@ -1252,6 +1254,10 @@ sub print_drivedevice_full {
             if (my $product = $drive->{product}) {
                 $device .= ",product=$product";
             }
+
+            $has_write_cache = 1;
+        } else {
+            $has_write_cache = 0;
         }
 
     } elsif ($drive->{interface} eq 'ide' || $drive->{interface} eq 'sata') {
@@ -1316,7 +1322,7 @@ sub print_drivedevice_full {
     }
 
     if (min_version($machine_version, 10, 0)) { # for the switch to -blockdev
-        if (!drive_is_cdrom($drive)) {
+        if (!drive_is_cdrom($drive) && $has_write_cache) {
             my $write_cache = 'on';
             if (my $cache = $drive->{cache}) {
                 $write_cache = 'off' if $cache eq 'writethrough' || $cache eq 'directsync';
