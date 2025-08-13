@@ -1235,8 +1235,11 @@ sub print_drivedevice_full {
         }
         $device .= ",id=$drive_id";
 
-        # for the switch to -blockdev, the SCSI device ID needs to be explicitly specified
-        if (min_version($machine_version, 10, 0)) {
+        # For the switch to -blockdev, the SCSI device ID needs to be explicitly specified. Note
+        # that only ide-cd and ide-hd have a 'device_id' option.
+        if (
+            min_version($machine_version, 10, 0) && ($device_type eq 'cd' || $device_type eq 'hd')
+        ) {
             $device .= ",device_id=drive-${drive_id}";
         }
 
