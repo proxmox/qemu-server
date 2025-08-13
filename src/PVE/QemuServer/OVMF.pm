@@ -79,7 +79,7 @@ my sub get_ovmf_files($$$$) {
 }
 
 my sub print_ovmf_drive_commandlines {
-    my ($conf, $storecfg, $vmid, $hw_info, $version_guard, $is_template) = @_;
+    my ($conf, $storecfg, $vmid, $hw_info, $version_guard, $readonly) = @_;
 
     my ($amd_sev_type, $arch, $q35) = $hw_info->@{qw(amd-sev-type arch q35)};
 
@@ -109,7 +109,7 @@ my sub print_ovmf_drive_commandlines {
 
         $var_drive_str .= ",size=" . (-s $ovmf_vars)
             if $format eq 'raw' && $version_guard->(4, 1, 2);
-        $var_drive_str .= ',readonly=on' if $is_template;
+        $var_drive_str .= ',readonly=on' if $readonly;
     } else {
         log_warn("no efidisk configured! Using temporary efivars disk.");
         my $path = "/tmp/$vmid-ovmf.fd";
@@ -145,7 +145,7 @@ sub create_efidisk($$$$$$$$) {
 }
 
 my sub generate_ovmf_blockdev {
-    my ($conf, $storecfg, $vmid, $hw_info, $is_template) = @_;
+    my ($conf, $storecfg, $vmid, $hw_info, $readonly) = @_;
 
     my ($amd_sev_type, $arch, $machine_version, $q35) =
         $hw_info->@{qw(amd-sev-type arch machine-version q35)};
@@ -187,7 +187,7 @@ my sub generate_ovmf_blockdev {
     $drive->{cache} = 'writeback' if !$drive->{cache};
 
     my $extra_blockdev_options = {};
-    $extra_blockdev_options->{'read-only'} = 1 if $is_template;
+    $extra_blockdev_options->{'read-only'} = 1 if $readonly;
 
     $extra_blockdev_options->{size} = -s $ovmf_vars if $format eq 'raw';
 
@@ -201,7 +201,7 @@ my sub generate_ovmf_blockdev {
 }
 
 sub print_ovmf_commandline {
-    my ($conf, $storecfg, $vmid, $hw_info, $version_guard, $is_template) = @_;
+    my ($conf, $storecfg, $vmid, $hw_info, $version_guard, $readonly) = @_;
 
     my $amd_sev_type = $hw_info->{'amd-sev-type'};
 
@@ -216,7 +216,7 @@ sub print_ovmf_commandline {
     } else {
         if ($version_guard->(10, 0, 0)) { # for the switch to -blockdev
             my ($code_blockdev, $vars_blockdev, $throttle_group) =
-                generate_ovmf_blockdev($conf, $storecfg, $vmid, $hw_info, $is_template);
+                generate_ovmf_blockdev($conf, $storecfg, $vmid, $hw_info, $readonly);
 
             push $cmd->@*, '-object', to_json($throttle_group, { canonical => 1 });
             push $cmd->@*, '-blockdev', to_json($code_blockdev, { canonical => 1 });
@@ -225,7 +225,7 @@ sub print_ovmf_commandline {
                 "pflash1=$vars_blockdev->{'node-name'}";
         } else {
             my ($code_drive_str, $var_drive_str) = print_ovmf_drive_commandlines(
-                $conf, $storecfg, $vmid, $hw_info, $version_guard, $is_template,
+                $conf, $storecfg, $vmid, $hw_info, $version_guard, $readonly,
             );
             push $cmd->@*, '-drive', $code_drive_str;
             push $cmd->@*, '-drive', $var_drive_str;
