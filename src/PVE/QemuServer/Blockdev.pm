@@ -478,6 +478,14 @@ sub generate_drive_blockdev {
         };
     }
 
+    if ($drive->{scsiblock}) {
+        # When using scsi-block for the front-end device, throttling would not work in any case, and
+        # the throttle block driver doesn't allow doing the necessary ioctls(), so don't attach a
+        # throttle filter. Implementing live mirroring for such disks would require special care!
+        $child->{'node-name'} = top_node_name($drive_id);
+        return $child;
+    }
+
     # for fleecing and TPM backup, this is already the top node
     return $child if $options->{fleecing} || $options->{'tpm-backup'} || $options->{'no-throttle'};
 
