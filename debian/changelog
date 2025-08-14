@@ -1,3 +1,16 @@
+qemu-server (9.0.18) trixie; urgency=medium
+
+  * close #6378: expose guest-phys-bits CPU option.
+
+  * fix #6675: template backup: fix regression with IDE/SATA and blockdev.
+
+  * fix #6680: avoid setting nonexistent 'write-cache' and 'drive_id' options
+    for passed-through disks using SCSI with machine version >= 10.0.
+
+  * dbus-vmstate: fix installation path for script.
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 14 Aug 2025 12:33:11 +0200
+
 qemu-server (9.0.17) trixie; urgency=medium
 
   * fix #6648: api: machine versions: fix ordering
