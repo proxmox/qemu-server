@@ -6956,7 +6956,7 @@ __PACKAGE__->register_method({
     path => '{vmid}/dbus-vmstate',
     method => 'POST',
     proxyto => 'node',
-    description => 'Stop the dbus-vmstate helper for the given VM if running.',
+    description => 'Control the dbus-vmstate helper for a given running VM.',
     permissions => {
         check => ['perm', '/vms/{vmid}', ['VM.Migrate']],
     },
