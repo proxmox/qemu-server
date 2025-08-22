@@ -10,6 +10,7 @@ SOURCES=Agent.pm	\
 	CPUConfig.pm	\
 	DBusVMState.pm	\
 	Drive.pm	\
+	DriveDevice.pm	\
 	Helpers.pm	\
 	ImportDisk.pm	\
 	Machine.pm	\
