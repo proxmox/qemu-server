@@ -3,13 +3,17 @@ qemu-server (9.0.19) trixie; urgency=medium
   * fix generating block-dev option on VM live import.
 
   * fix #6680: do not use a top throttle node when using scsi-block, like for
-    passthrough of SCSI devices.
+    passthrough of SCSI devices and 10+ machine version, as passed through
+    disks do not support bandwidth limitations.
 
  -- Proxmox Support Team <support@proxmox.com>  Tue, 26 Aug 2025 09:35:28 +0200
 
 qemu-server (9.0.18) trixie; urgency=medium
 
-  * close #6378: expose guest-phys-bits CPU option.
+  * close #6378: expose guest-phys-bits CPU option to cope with using the host
+    CPU type on CPU models where the CPU address width and the IOMMU address
+    width are different. On such systems the guest-phys-bits option needs to
+    be set to properly support huge pages and/or VFIO.
 
   * fix #6675: template backup: fix regression with IDE/SATA and blockdev.
 
@@ -22,15 +26,18 @@ qemu-server (9.0.18) trixie; urgency=medium
 
 qemu-server (9.0.17) trixie; urgency=medium
 
-  * fix #6648: api: machine versions: fix ordering
+  * fix #6648: api: available machine versions: ensure array of versions is
+    correctly ordered numerically.
 
-  * prohibit using snapshot-as-volume-chain qcow2 images with pre-10.0 machines
+  * prohibit using snapshot-as-volume-chain qcow2 images with VMs that use a
+    pre-10.0 machine version.
 
-  * qmp client: add $noerr argument
+  * blockdev: attach/detach: silence errors for QMP commands for which failure
+    may be expected.
 
-  * blockdev: attach/detach: silence errors for QMP commands for which failure may be expected
-
-  * blockdev: delete/replace: re-use detach() helper
+  * blockdev: delete/replace: re-use common detach helper to avoid
+    false-positive errors in the syslog for devices that QEMU already
+    auto-removes itself.
 
  -- Proxmox Support Team <support@proxmox.com>  Tue, 12 Aug 2025 15:10:38 +0200
 
