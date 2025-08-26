@@ -1,3 +1,12 @@
+qemu-server (9.0.19) trixie; urgency=medium
+
+  * fix generating block-dev option on VM live import.
+
+  * fix #6680: do not use a top throttle node when using scsi-block, like for
+    passthrough of SCSI devices.
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 26 Aug 2025 09:35:28 +0200
+
 qemu-server (9.0.18) trixie; urgency=medium
 
   * close #6378: expose guest-phys-bits CPU option.
