@@ -416,7 +416,10 @@ EODESC
     hugepages => {
         optional => 1,
         type => 'string',
-        description => "Enable/disable hugepages memory.",
+        description =>
+            "Enables hugepages memory.\n\nSets the size of hugepages in MiB. If the value "
+            . "is set to 'any' then 1 GiB hugepages will be used if possible, "
+            . "otherwise the size will fall back to 2 MiB.",
         enum => [qw(any 2 1024)],
     },
     keephugepages => {
