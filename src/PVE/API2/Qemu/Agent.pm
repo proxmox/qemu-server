@@ -327,7 +327,7 @@ __PACKAGE__->register_method({
                 type => 'array',
                 description => 'The command as a list of program + arguments.',
                 items => {
-                    format => 'string',
+                    type => 'string',
                     description => 'A single part of the program + arguments.',
                 },
             },
