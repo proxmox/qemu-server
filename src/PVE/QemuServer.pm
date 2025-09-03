@@ -7379,7 +7379,10 @@ sub live_import_from_files {
             my ($interface, $index) = PVE::QemuServer::Drive::parse_drive_interface($dev);
             my $drive = { file => $volid, interface => $interface, index => $index };
             my $blockdev = PVE::QemuServer::Blockdev::generate_drive_blockdev(
-                $storecfg, $drive, $machine_version, { 'no-throttle' => 1 },
+                $storecfg,
+                $drive,
+                $machine_version,
+                { 'no-throttle' => 1 },
             );
             $live_restore_backing->{$dev}->{blockdev} = $blockdev;
         } else {
