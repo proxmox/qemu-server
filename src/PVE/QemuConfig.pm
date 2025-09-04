@@ -244,7 +244,7 @@ sub __snapshot_save_vmstate {
 
     # get current QEMU -cpu argument to ensure consistency of custom CPU models
     my $runningcpu;
-    if (my $pid = PVE::QemuServer::check_running($vmid)) {
+    if (my $pid = PVE::QemuServer::Helpers::vm_running_locally($vmid)) {
         $runningcpu = PVE::QemuServer::CPUConfig::get_cpu_from_running_vm($pid);
     }
 
