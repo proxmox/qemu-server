@@ -1647,7 +1647,17 @@ sub print_pbs_blockdev {
 }
 
 sub print_netdevice_full {
-    my ($vmid, $conf, $net, $netid, $bridges, $use_old_bios_files, $arch, $machine_version) = @_;
+    my (
+        $vmid,
+        $conf,
+        $net,
+        $netid,
+        $bridges,
+        $use_old_bios_files,
+        $arch,
+        $machine_version,
+        $host_mtu_migration, # force this value for host_mtu, 0 means force absence of param
+    ) = @_;
 
     my $device = $net->{model};
     if ($net->{model} eq 'virtio') {
@@ -1673,19 +1683,37 @@ sub print_netdevice_full {
     $tmpstr .= ",bootindex=$net->{bootindex}" if $net->{bootindex};
 
     if (my $mtu = $net->{mtu}) {
-        if ($net->{model} eq 'virtio' && $net->{bridge}) {
+        my $migration_skip_host_mtu = defined($host_mtu_migration) && $host_mtu_migration == 0;
+        print "netdev $netid: not adding 'host_mtu' parameter for migration compat\n"
+            if $migration_skip_host_mtu;
+
+        if ($net->{model} eq 'virtio' && $net->{bridge} && !$migration_skip_host_mtu) {
             my $bridge_mtu = PVE::Network::read_bridge_mtu($net->{bridge});
+
+            if ($host_mtu_migration) {
+                print "netdev $netid: using 'host_mtu=$host_mtu_migration' for migration compat\n";
+                $mtu = $host_mtu_migration;
+            }
+
             if ($mtu == 1) {
                 $mtu = $bridge_mtu;
             } elsif ($mtu < 576) {
                 die "netdev $netid: MTU '$mtu' is smaller than the IP minimum MTU '576'\n";
             } elsif ($mtu > $bridge_mtu) {
-                die "netdev $netid: MTU '$mtu' is bigger than the bridge MTU '$bridge_mtu'\n";
+                die "netdev $netid: MTU '$mtu' is bigger than the bridge MTU '$bridge_mtu'"
+                    . " - adjust the MTU for the network device in the VM configuration, while ensuring"
+                    . " that the bridge is configured as desired.\n";
             }
             $tmpstr .= ",host_mtu=$mtu";
         } else {
-            warn
-                "WARN: netdev $netid: ignoring MTU '$mtu', not using VirtIO or no bridge configured.\n";
+            my $msg_prefix = "netdev $netid: ignoring MTU '$mtu'";
+            if ($migration_skip_host_mtu) {
+                log_warn("$msg_prefix, not used on the source side according to migration parameters");
+            } elsif (!$net->{bridge}) {
+                log_warn("$msg_prefix, no bridge configured");
+            } else {
+                log_warn("$msg_prefix, not using VirtIO");
+            }
         }
     }
 
@@ -3557,7 +3585,16 @@ my sub get_vga_properties {
 }
 
 sub config_to_command {
-    my ($storecfg, $vmid, $conf, $defaults, $forcemachine, $forcecpu, $live_restore_backing) = @_;
+    my (
+        $storecfg,
+        $vmid,
+        $conf,
+        $defaults,
+        $forcemachine,
+        $forcecpu,
+        $live_restore_backing,
+        $nets_host_mtu,
+    ) = @_;
 
     # minimize config for templates, they can only start for backup,
     # so most options besides the disks are irrelevant
@@ -4127,6 +4164,7 @@ sub config_to_command {
         },
     );
 
+    my $nets_host_mtu_hash = { map { split('=', $_) } PVE::Tools::split_list($nets_host_mtu) };
     for (my $i = 0; $i < $MAX_NETS; $i++) {
         my $netname = "net$i";
 
@@ -4151,6 +4189,7 @@ sub config_to_command {
             $use_old_bios_files,
             $arch,
             $machine_version,
+            $nets_host_mtu_hash->{$netname},
         );
 
         push @$devices, '-device', $netdevicefull;
@@ -5929,6 +5968,8 @@ sub vm_start {
 #      },
 #      virtio2 => ...
 #   }
+#   nets-host-mtu => Used for migration compat. List of VirtIO network devices and their effective
+#       host_mtu setting according to the QEMU object model on the source side of the migration.
 # migrate_opts:
 #   nbd => volumes for NBD exports (vm_migrate_alloc_nbd_disks)
 #   migratedfrom => source node
@@ -6008,6 +6049,7 @@ sub vm_start_nolock {
         $forcemachine,
         $forcecpu,
         $params->{'live-restore-backing'},
+        $params->{'nets-host-mtu'},
     );
 
     my $migration_ip;
