@@ -243,10 +243,9 @@ sub __snapshot_save_vmstate {
     my $runningmachine = PVE::QemuServer::Machine::get_current_qemu_machine($vmid);
 
     # get current QEMU -cpu argument to ensure consistency of custom CPU models
-    my $runningcpu;
-    if (my $pid = PVE::QemuServer::Helpers::vm_running_locally($vmid)) {
-        $runningcpu = PVE::QemuServer::CPUConfig::get_cpu_from_running_vm($pid);
-    }
+    my $pid = PVE::QemuServer::Helpers::vm_running_locally($vmid)
+        or die "cannot obtain PID for VM $vmid!\n";
+    my $runningcpu = PVE::QemuServer::CPUConfig::get_cpu_from_running_vm($pid);
 
     if (!$suspend) {
         $conf = $conf->{snapshots}->{$snapname};
