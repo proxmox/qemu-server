@@ -1495,7 +1495,13 @@ sub print_netdevice_full {
             die "netdev $netid: MTU '$mtu' is bigger than the bridge MTU '$bridge_mtu'\n";
         }
 
-        $tmpstr .= ",host_mtu=$mtu" if $mtu != 1500;
+        if (min_version($machine_version, 10, 0, 1)) {
+            # Always add host_mtu for migration compatibility, because the presence of host_mtu
+            # means that the virtual hardware is generated differently (at least for i440fx)
+            $tmpstr .= ",host_mtu=$mtu";
+        } else {
+            $tmpstr .= ",host_mtu=$mtu" if $mtu != 1500;
+        }
     } elsif (defined($mtu)) {
         warn
             "WARN: netdev $netid: ignoring MTU '$mtu', not using VirtIO or no bridge configured.\n";
@@ -3819,6 +3825,8 @@ sub config_to_command {
         my $netdevfull = print_netdev_full($vmid, $conf, $arch, $d, $netname);
         push @$devices, '-netdev', $netdevfull;
 
+        # force +pve1 if machine version 10.0, for host_mtu differentiation
+        $version_guard->(10, 0, 1);
         my $netdevicefull = print_netdevice_full(
             $vmid,
             $conf,

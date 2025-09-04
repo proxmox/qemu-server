@@ -40,5 +40,5 @@
   -blockdev '{"detect-zeroes":"unmap","discard":"unmap","driver":"throttle","file":{"cache":{"direct":true,"no-flush":false},"detect-zeroes":"unmap","discard":"unmap","driver":"raw","file":{"cache":{"direct":true,"no-flush":false},"detect-zeroes":"unmap","discard":"unmap","driver":"iscsi","lun":0,"node-name":"e915a332310039f7a3feed6901eb5da","portal":"127.0.0.1","read-only":false,"target":"iqn.2019-10.org.test:foobar","transport":"tcp"},"node-name":"f915a332310039f7a3feed6901eb5da","read-only":false},"node-name":"drive-scsi3","read-only":false,"throttle-group":"throttle-drive-scsi3"}' \
   -device 'scsi-hd,bus=scsihw0.0,channel=0,scsi-id=0,lun=3,drive=drive-scsi3,id=scsi3,device_id=drive-scsi3,write-cache=off' \
   -netdev 'type=tap,id=net0,ifname=tap8006i0,script=/usr/libexec/qemu-server/pve-bridge,downscript=/usr/libexec/qemu-server/pve-bridgedown,vhost=on' \
-  -device 'virtio-net-pci,mac=A2:C0:43:77:08:A0,netdev=net0,bus=pci.0,addr=0x12,id=net0,rx_queue_size=1024,tx_queue_size=256,bootindex=300' \
-  -machine 'type=pc+pve0'
+  -device 'virtio-net-pci,mac=A2:C0:43:77:08:A0,netdev=net0,bus=pci.0,addr=0x12,id=net0,rx_queue_size=1024,tx_queue_size=256,bootindex=300,host_mtu=1500' \
+  -machine 'type=pc+pve1'

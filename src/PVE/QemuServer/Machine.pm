@@ -37,6 +37,12 @@ our $PVE_MACHINE_VERSION = {
             '+pve1' => 'Disables S3/S4 power states by default.',
         },
     },
+    '10.0' => {
+        highest => 1,
+        revisions => {
+            '+pve1' => 'Set host_mtu vNIC option even with default value for migration compat.',
+        },
+    },
 };
 
 my $machine_fmt = {

@@ -39,5 +39,5 @@
   -blockdev '{"detect-zeroes":"unmap","discard":"unmap","driver":"throttle","file":{"cache":{"direct":true,"no-flush":false},"detect-zeroes":"unmap","discard":"unmap","driver":"qcow2","file":{"aio":"io_uring","cache":{"direct":true,"no-flush":false},"detect-zeroes":"unmap","discard":"unmap","driver":"file","filename":"/var/lib/vz/images/8006/vm-8006-disk-0.qcow2","node-name":"eeb683fb9c516c1a8707c917f0d7a38","read-only":false},"node-name":"feb683fb9c516c1a8707c917f0d7a38","read-only":false},"node-name":"drive-virtio1","read-only":false,"throttle-group":"throttle-drive-virtio1"}' \
   -device 'virtio-blk-pci,drive=drive-virtio1,id=virtio1,bus=pci.0,addr=0xb,iothread=iothread-virtio1,write-cache=on' \
   -netdev 'type=tap,id=net0,ifname=tap8006i0,script=/usr/libexec/qemu-server/pve-bridge,downscript=/usr/libexec/qemu-server/pve-bridgedown,vhost=on' \
-  -device 'virtio-net-pci,mac=A2:C0:43:77:08:A0,netdev=net0,bus=pci.0,addr=0x12,id=net0,rx_queue_size=1024,tx_queue_size=256' \
-  -machine 'type=pc+pve0'
+  -device 'virtio-net-pci,mac=A2:C0:43:77:08:A0,netdev=net0,bus=pci.0,addr=0x12,id=net0,rx_queue_size=1024,tx_queue_size=256,host_mtu=1500' \
+  -machine 'type=pc+pve1'
