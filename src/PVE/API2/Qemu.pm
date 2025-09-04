@@ -3383,6 +3383,16 @@ __PACKAGE__->register_method({
                 default => 0,
                 description => 'Whether to migrate conntrack entries for running VMs.',
             },
+            'nets-host-mtu' => {
+                type => 'string',
+                pattern => 'net\d+=\d+(,net\d+=\d+)*',
+                optional => 1,
+                description =>
+                    'Used for migration compat. List of VirtIO network devices and their effective'
+                    . ' host_mtu setting according to the QEMU object model on the source side of'
+                    . ' the migration. A value of 0 means that the host_mtu parameter is to be'
+                    . ' avoided for the corresponding device.',
+            },
         },
     },
     returns => {
@@ -3414,6 +3424,7 @@ __PACKAGE__->register_method({
         my $targetstorage = $get_root_param->('targetstorage');
         my $force_cpu = $get_root_param->('force-cpu');
         my $with_conntrack_state = $get_root_param->('with-conntrack-state');
+        my $nets_host_mtu = $get_root_param->('nets-host-mtu');
 
         my $storagemap;
 
@@ -3501,6 +3512,7 @@ __PACKAGE__->register_method({
                     forcemachine => $machine,
                     timeout => $timeout,
                     forcecpu => $force_cpu,
+                    'nets-host-mtu' => $nets_host_mtu,
                 };
 
                 PVE::QemuServer::vm_start($storecfg, $vmid, $params, $migrate_opts);
