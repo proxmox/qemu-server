@@ -225,6 +225,21 @@ $qemu_server_machine_module->mock(
 my $qemu_server_network_module = Test::MockModule->new("PVE::QemuServer::Network");
 $qemu_server_network_module->mock(
     del_nets_bridge_fdb => sub { return; },
+    mon_cmd => sub {
+        my ($vmid, $command, %params) = @_;
+
+        if ($command eq 'qom-get') {
+            if (
+                $params{path} =~ m|^/machine/peripheral/net\d+$|
+                && $params{property} eq 'host_mtu'
+            ) {
+                return 1500;
+            }
+            die "mon_cmd (mocked) - implement me: $command for path '$params{path}' property"
+                . " '$params{property}'";
+        }
+        die "mon_cmd (mocked) - implement me: $command";
+    },
 );
 
 my $qemu_server_qmphelpers_module = Test::MockModule->new("PVE::QemuServer::QMPHelpers");

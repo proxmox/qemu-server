@@ -998,6 +998,10 @@ sub phase2_start_local_cluster {
         push @$cmd, '--force-cpu', $start->{forcecpu};
     }
 
+    if ($start->{'nets-host-mtu'}) {
+        push @$cmd, '--nets-host-mtu', $start->{'nets-host-mtu'};
+    }
+
     if ($self->{storage_migration}) {
         push @$cmd, '--targetstorage', ($self->{opts}->{targetstorage} // '1');
     }
@@ -1186,6 +1190,10 @@ sub phase2 {
             nbd => $self->{nbd},
         },
     };
+
+    if (my $nets_host_mtu = PVE::QemuServer::Network::get_nets_host_mtu($vmid, $conf)) {
+        $params->{start_params}->{'nets-host-mtu'} = $nets_host_mtu;
+    }
 
     my ($tunnel_info, $spice_port);
 
