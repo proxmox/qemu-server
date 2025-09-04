@@ -1,3 +1,16 @@
+qemu-server (9.0.20) trixie; urgency=medium
+
+  * api: rrd: add missing ds parameter for generating PNG graph.
+
+  * virtio-net: fix migration between default/non-default MTUs starting with
+    machine version 10.0+pve1.
+
+  * api: vm start: introduce nets-host-mtu parameter for migration compat.
+
+  * snapshot: introduce running-nets-host-mtu property.
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 04 Sep 2025 19:49:27 +0200
+
 qemu-server (9.0.19) trixie; urgency=medium
 
   * fix generating block-dev option on VM live import.
