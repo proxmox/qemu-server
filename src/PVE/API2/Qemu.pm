@@ -2113,6 +2113,7 @@ my $update_vm_api = sub {
             }
             push @delete, 'runningmachine' if $conf->{runningmachine};
             push @delete, 'runningcpu' if $conf->{runningcpu};
+            push @delete, 'running-nets-host-mtu' if $conf->{'running-nets-host-mtu'};
         }
 
         PVE::QemuConfig->check_lock($conf) if !$skiplock;

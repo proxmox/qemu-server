@@ -104,7 +104,8 @@ sub vm_suspend {
                         warn $@ if $@;
                         PVE::Storage::deactivate_volumes($storecfg, [$vmstate]);
                         PVE::Storage::vdisk_free($storecfg, $vmstate);
-                        delete $conf->@{qw(vmstate runningmachine runningcpu)};
+                        delete $conf->@{
+                            qw(vmstate runningmachine runningcpu running-nets-host-mtu)};
                         PVE::QemuConfig->write_config($vmid, $conf);
                     };
                     warn $@ if $@;

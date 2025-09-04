@@ -635,6 +635,15 @@ EODESCR
         pattern => $PVE::QemuServer::CPUConfig::qemu_cmdline_cpu_re,
         format_description => 'QEMU -cpu parameter',
     },
+    'running-nets-host-mtu' => {
+        type => 'string',
+        pattern => 'net\d+=\d+(,net\d+=\d+)*',
+        optional => 1,
+        description =>
+            'List of VirtIO network devices and their effective host_mtu setting. A value of 0'
+            . ' means that the host_mtu parameter is to be avoided for the corresponding device.'
+            . ' This is used internally for snapshots.',
+    },
     machine => get_standard_option('pve-qemu-machine'),
     arch => {
         description => "Virtual processor architecture. Defaults to the host.",
