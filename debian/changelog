@@ -1,3 +1,17 @@
+qemu-server (8.4.2) bookworm; urgency=medium
+
+  * fix #6466: aarch64: pci: properly print higher-index PCI bridge addresses.
+
+  * api: vm start: introduce nets-host-mtu parameter for live-migration
+    compat. This fixes some issues with migrating to a Proxmox VE 9 host, e.g.
+    during major upgrade, as that version started to inherit the MTU from the
+    underlying Linux bridge if it's not explicitly set, this the chosen MTU
+    for a virtual NIC might differ on source and target, which can result in a
+    different (incompatible) virtual hardware layout, at least for i440fx
+    machines.
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 04 Sep 2025 20:02:48 +0200
+
 qemu-server (8.4.1) bookworm; urgency=medium
 
   * revert shipping systemd unit in /usr for Bookworm to ensure all services
