@@ -9533,4 +9533,31 @@ sub delete_ifaces_ipams_ips {
     }
 }
 
+sub get_nets_host_mtu {
+    my ($vmid, $conf) = @_;
+
+    my $nets_host_mtu = [];
+    for my $opt (sort keys $conf->%*) {
+        next if $opt !~ m/^net(\d+)$/;
+        my $net = parse_net($conf->{$opt});
+        next if $net->{model} ne 'virtio';
+
+        my $host_mtu = eval {
+            mon_cmd(
+                $vmid, 'qom-get',
+                path => "/machine/peripheral/$opt",
+                property => 'host_mtu',
+            );
+        };
+        if (my $err = $@) {
+            log_warn("$opt: could not query host_mtu - $err");
+        } elsif (defined($host_mtu)) {
+            push $nets_host_mtu->@*, "${opt}=${host_mtu}";
+        } else {
+            log_warn("$opt: got undefined value when querying host_mtu");
+        }
+    }
+    return join(',', $nets_host_mtu->@*);
+}
+
 1;

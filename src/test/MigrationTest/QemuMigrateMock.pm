@@ -175,6 +175,21 @@ $MigrationTest::Shared::qemu_server_module->mock(
         delete $expected_calls->{'vm_stop'};
     },
     del_nets_bridge_fdb => sub { return; },
+    mon_cmd => sub {
+        my ($vmid, $command, %params) = @_;
+
+        if ($command eq 'qom-get') {
+            if (
+                $params{path} =~ m|^/machine/peripheral/net\d+$|
+                && $params{property} eq 'host_mtu'
+            ) {
+                return 1500;
+            }
+            die "mon_cmd (mocked) - implement me: $command for path '$params{path}' property"
+                . " '$params{property}'";
+        }
+        die "mon_cmd (mocked) - implement me: $command";
+    },
 );
 
 my $qemu_server_cpuconfig_module = Test::MockModule->new("PVE::QemuServer::CPUConfig");
