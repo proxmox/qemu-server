@@ -3943,11 +3943,16 @@ sub config_to_command {
     PVE::QemuServer::Machine::assert_valid_machine_property($machine_conf);
 
     if (my $viommu = $machine_conf->{viommu}) {
+        my $viommu_devstr = '';
+        $viommu_devstr .= ",aw-bits=$machine_conf->{'aw-bits'}" if $machine_conf->{'aw-bits'};
+
         if ($viommu eq 'intel') {
-            unshift @$devices, '-device', 'intel-iommu,intremap=on,caching-mode=on';
+            $viommu_devstr = "intel-iommu,intremap=on,caching-mode=on$viommu_devstr";
+            unshift @$devices, '-device', $viommu_devstr;
             push @$machineFlags, 'kernel-irqchip=split';
         } elsif ($viommu eq 'virtio') {
-            push @$devices, '-device', 'virtio-iommu-pci';
+            $viommu_devstr = "virtio-iommu-pci$viommu_devstr";
+            push @$devices, '-device', $viommu_devstr;
         }
     }
 

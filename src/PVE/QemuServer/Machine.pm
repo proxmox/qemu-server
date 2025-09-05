@@ -64,6 +64,16 @@ my $machine_fmt = {
         enum => ['intel', 'virtio'],
         optional => 1,
     },
+    'aw-bits' => {
+        type => 'number',
+        description => "Specifies the vIOMMU address space bit width.",
+        verbose_description => "Specifies the vIOMMU address space bit width.\n\n"
+            . "Intel vIOMMU supports a bit width of either 39 or 48 bits and"
+            . " VirtIO vIOMMU supports any bit width between 32 and 64 bits.",
+        minimum => 32,
+        maximum => 64,
+        optional => 1,
+    },
     'enable-s3' => {
         type => 'boolean',
         description =>
@@ -118,10 +128,18 @@ sub default_machine_for_arch {
 
 sub assert_valid_machine_property {
     my ($machine_conf) = @_;
-    my $q35 = $machine_conf->{type} && ($machine_conf->{type} =~ m/q35/) ? 1 : 0;
-    if ($machine_conf->{viommu} && $machine_conf->{viommu} eq "intel" && !$q35) {
-        die "to use Intel vIOMMU please set the machine type to q35\n";
+    if ($machine_conf->{viommu} && $machine_conf->{viommu} eq "intel") {
+        my $q35 = $machine_conf->{type} && ($machine_conf->{type} =~ m/q35/) ? 1 : 0;
+        die "to use Intel vIOMMU please set the machine type to q35\n" if !$q35;
+
+        die "Intel vIOMMU supports only 39 or 48 bits as address width\n"
+            if $machine_conf->{'aw-bits'}
+            && $machine_conf->{'aw-bits'} != 39
+            && $machine_conf->{'aw-bits'} != 48;
     }
+
+    die "cannot set aw-bits if no vIOMMU is configured\n"
+        if $machine_conf->{'aw-bits'} && !$machine_conf->{viommu};
 }
 
 sub machine_type_is_q35 {
