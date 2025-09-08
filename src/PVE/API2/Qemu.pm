@@ -1632,7 +1632,8 @@ __PACKAGE__->register_method({
 
         my $path = "pve-vm-9.0/$param->{vmid}";
         $path = "pve2-vm/$param->{vmid}" if !-e "/var/lib/rrdcached/db/${path}";
-        return PVE::RRD::create_rrd_graph($path, $param->{timeframe}, $param->{ds}, $param->{cf});
+        return PVE::RRD::create_rrd_graph($path, $param->{timeframe}, $param->{ds},
+            $param->{cf});
 
     },
 });
