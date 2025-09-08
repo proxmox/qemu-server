@@ -3944,7 +3944,13 @@ sub config_to_command {
 
     if (my $viommu = $machine_conf->{viommu}) {
         my $viommu_devstr = '';
-        $viommu_devstr .= ",aw-bits=$machine_conf->{'aw-bits'}" if $machine_conf->{'aw-bits'};
+        if ($machine_conf->{'aw-bits'}) {
+            $viommu_devstr .= ",aw-bits=$machine_conf->{'aw-bits'}";
+
+            # TODO remove message once this gets properly checked/warned about in QEMU itself.
+            print "vIOMMU 'aw-bits' set to $machine_conf->{'aw-bits'}. Sometimes it is necessary to"
+                . " set the CPU's 'guest-phys-bits' to the same value.\n";
+        }
 
         if ($viommu eq 'intel') {
             $viommu_devstr = "intel-iommu,intremap=on,caching-mode=on$viommu_devstr";
