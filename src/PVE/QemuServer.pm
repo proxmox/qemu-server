@@ -53,7 +53,7 @@ use PVE::QMPClient;
 use PVE::QemuConfig;
 use PVE::QemuConfig::NoWrite;
 use PVE::QemuMigrate::Helpers;
-use PVE::QemuServer::Agent qw(qga_check_running);
+use PVE::QemuServer::Agent qw(get_qga_key parse_guest_agent qga_check_running);
 use PVE::QemuServer::Blockdev;
 use PVE::QemuServer::BlockJob;
 use PVE::QemuServer::Helpers
@@ -147,35 +147,6 @@ my $watchdog_fmt = {
     },
 };
 PVE::JSONSchema::register_format('pve-qm-watchdog', $watchdog_fmt);
-
-my $agent_fmt = {
-    enabled => {
-        description =>
-            "Enable/disable communication with a QEMU Guest Agent (QGA) running in the VM.",
-        type => 'boolean',
-        default => 0,
-        default_key => 1,
-    },
-    fstrim_cloned_disks => {
-        description => "Run fstrim after moving a disk or migrating the VM.",
-        type => 'boolean',
-        optional => 1,
-        default => 0,
-    },
-    'freeze-fs-on-backup' => {
-        description => "Freeze/thaw guest filesystems on backup for consistency.",
-        type => 'boolean',
-        optional => 1,
-        default => 1,
-    },
-    type => {
-        description => "Select the agent type",
-        type => 'string',
-        default => 'virtio',
-        optional => 1,
-        enum => [qw(virtio isa)],
-    },
-};
 
 my $vga_fmt = {
     type => {
@@ -472,7 +443,7 @@ EODESC
         description =>
             "Enable/disable communication with the QEMU Guest Agent and its properties.",
         type => 'string',
-        format => $agent_fmt,
+        format => $PVE::QemuServer::Agent::agent_fmt,
     },
     kvm => {
         optional => 1,
@@ -1646,27 +1617,6 @@ sub parse_watchdog {
     my $res = eval { parse_property_string($watchdog_fmt, $value) };
     warn $@ if $@;
     return $res;
-}
-
-sub parse_guest_agent {
-    my ($conf) = @_;
-
-    return {} if !defined($conf->{agent});
-
-    my $res = eval { parse_property_string($agent_fmt, $conf->{agent}) };
-    warn $@ if $@;
-
-    # if the agent is disabled ignore the other potentially set properties
-    return {} if !$res->{enabled};
-    return $res;
-}
-
-sub get_qga_key {
-    my ($conf, $key) = @_;
-    return undef if !defined($conf->{agent});
-
-    my $agent = parse_guest_agent($conf);
-    return $agent->{$key};
 }
 
 sub parse_vga {

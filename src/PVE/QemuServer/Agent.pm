@@ -6,6 +6,8 @@ use warnings;
 use JSON;
 use MIME::Base64 qw(decode_base64 encode_base64);
 
+use PVE::JSONSchema;
+
 use PVE::QemuServer::Helpers;
 use PVE::QemuServer::Monitor;
 
@@ -14,8 +16,60 @@ use base 'Exporter';
 our @EXPORT_OK = qw(
     check_agent_error
     agent_cmd
+    get_qga_key
+    parse_guest_agent
     qga_check_running
 );
+
+our $agent_fmt = {
+    enabled => {
+        description =>
+            "Enable/disable communication with a QEMU Guest Agent (QGA) running in the VM.",
+        type => 'boolean',
+        default => 0,
+        default_key => 1,
+    },
+    fstrim_cloned_disks => {
+        description => "Run fstrim after moving a disk or migrating the VM.",
+        type => 'boolean',
+        optional => 1,
+        default => 0,
+    },
+    'freeze-fs-on-backup' => {
+        description => "Freeze/thaw guest filesystems on backup for consistency.",
+        type => 'boolean',
+        optional => 1,
+        default => 1,
+    },
+    type => {
+        description => "Select the agent type",
+        type => 'string',
+        default => 'virtio',
+        optional => 1,
+        enum => [qw(virtio isa)],
+    },
+};
+
+sub parse_guest_agent {
+    my ($conf) = @_;
+
+    return {} if !defined($conf->{agent});
+
+    my $res = eval { PVE::JSONSchema::parse_property_string($agent_fmt, $conf->{agent}) };
+    warn $@ if $@;
+
+    # if the agent is disabled ignore the other potentially set properties
+    return {} if !$res->{enabled};
+    return $res;
+}
+
+sub get_qga_key {
+    my ($conf, $key) = @_;
+    return undef if !defined($conf->{agent});
+
+    my $agent = parse_guest_agent($conf);
+    return $agent->{$key};
+}
 
 sub qga_check_running {
     my ($vmid, $nowarn) = @_;

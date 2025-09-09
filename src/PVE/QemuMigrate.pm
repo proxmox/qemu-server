@@ -27,6 +27,7 @@ use PVE::Tunnel;
 
 use PVE::QemuConfig;
 use PVE::QemuMigrate::Helpers;
+use PVE::QemuServer::Agent;
 use PVE::QemuServer::BlockJob;
 use PVE::QemuServer::CPUConfig;
 use PVE::QemuServer::Drive qw(checked_volume_format);
@@ -1723,7 +1724,7 @@ sub phase3_cleanup {
 
         if (
             $self->{storage_migration}
-            && PVE::QemuServer::get_qga_key($conf, 'fstrim_cloned_disks')
+            && PVE::QemuServer::Agent::get_qga_key($conf, 'fstrim_cloned_disks')
             && $self->{running}
         ) {
             if (!$self->{vm_was_paused}) {

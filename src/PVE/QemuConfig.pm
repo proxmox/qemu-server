@@ -297,7 +297,7 @@ sub __snapshot_check_freeze_needed {
         return (
             $running,
             $running
-                && PVE::QemuServer::get_qga_key($config, 'enabled')
+                && PVE::QemuServer::Agent::get_qga_key($config, 'enabled')
                 && PVE::QemuServer::Agent::qga_check_running($vmid),
         );
     } else {

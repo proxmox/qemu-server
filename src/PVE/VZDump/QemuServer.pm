@@ -1096,7 +1096,8 @@ sub qga_fs_freeze {
         return;
     }
 
-    my $freeze = PVE::QemuServer::get_qga_key($self->{vmlist}->{$vmid}, 'freeze-fs-on-backup') // 1;
+    my $freeze =
+        PVE::QemuServer::Agent::get_qga_key($self->{vmlist}->{$vmid}, 'freeze-fs-on-backup') // 1;
     if (!$freeze) {
         $self->loginfo("skipping guest-agent 'fs-freeze', disabled in VM options");
         return;
