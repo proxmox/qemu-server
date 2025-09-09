@@ -1010,6 +1010,7 @@ sub phase2_start_local_cluster {
     };
 
     my $target_replicated_volumes = {};
+    my $target_nets_host_mtu_not_supported;
 
     # Note: We try to keep $spice_ticket secret (do not pass via command line parameter)
     # instead we pipe it through STDIN
@@ -1067,10 +1068,15 @@ sub phase2_start_local_cluster {
         },
         errfunc => sub {
             my $line = shift;
+            $target_nets_host_mtu_not_supported = 1
+                if $line =~ m/^Unknown option: nets-host-mtu/;
             $self->log('info', "[$self->{node}] $line");
         },
         noerr => 1,
     );
+
+    die "node $self->{node} is too old for preserving VirtIO-net MTU, please upgrade\n"
+        if $target_nets_host_mtu_not_supported;
 
     die "remote command failed with exit code $exitcode\n" if $exitcode;
 
