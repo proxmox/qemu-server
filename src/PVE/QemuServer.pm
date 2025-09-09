@@ -1708,7 +1708,8 @@ sub print_netdevice_full {
         } else {
             my $msg_prefix = "netdev $netid: ignoring MTU '$mtu'";
             if ($migration_skip_host_mtu) {
-                log_warn("$msg_prefix, not used on the source side according to migration parameters");
+                log_warn(
+                    "$msg_prefix, not used on the source side according to migration parameters");
             } elsif (!$net->{bridge}) {
                 log_warn("$msg_prefix, no bridge configured");
             } else {
