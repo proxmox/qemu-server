@@ -479,7 +479,6 @@ sub mux_input {
     &$check_queue($self);
 }
 
-# This gets called every second to update player info, etc...
 sub mux_timeout {
     my ($self, $mux, $fh) = @_;
 
