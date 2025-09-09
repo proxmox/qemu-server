@@ -3,13 +3,16 @@ package PVE::API2::Qemu::Agent;
 use strict;
 use warnings;
 
-use PVE::RESTHandler;
+use JSON;
+use MIME::Base64 qw(encode_base64 decode_base64);
+
 use PVE::JSONSchema qw(get_standard_option);
+use PVE::RESTHandler;
+
+use PVE::QemuConfig;
 use PVE::QemuServer;
 use PVE::QemuServer::Agent qw(agent_cmd check_agent_error);
 use PVE::QemuServer::Monitor qw(mon_cmd);
-use MIME::Base64 qw(encode_base64 decode_base64);
-use JSON;
 
 use base qw(PVE::RESTHandler);
 
