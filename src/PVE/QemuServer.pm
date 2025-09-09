@@ -9535,13 +9535,14 @@ sub delete_ifaces_ipams_ips {
 }
 
 sub get_nets_host_mtu {
-    my ($vmid, $conf) = @_;
+    my ($vmid, $conf, $only_inherited_mtus) = @_;
 
     my $nets_host_mtu = [];
     for my $opt (sort keys $conf->%*) {
         next if $opt !~ m/^net(\d+)$/;
         my $net = parse_net($conf->{$opt});
         next if $net->{model} ne 'virtio';
+        next if $only_inherited_mtus && !($net->{mtu} && $net->{mtu} == 1);
 
         my $host_mtu = eval {
             mon_cmd(

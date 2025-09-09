@@ -1148,9 +1148,11 @@ sub phase2 {
         },
     };
 
-    if (my $nets_host_mtu = PVE::QemuServer::get_nets_host_mtu($vmid, $conf)) {
-        $params->{start_params}->{'nets-host-mtu'} = $nets_host_mtu;
-    }
+    my $target_version = PVE::QemuServer::Helpers::get_node_pvecfg_version($self->{node});
+    my $only_inherited_mtus =
+        $target_version && !PVE::QemuServer::Helpers::pvecfg_min_version($target_version, 9, 0, 0);
+    my $nets_host_mtu = PVE::QemuServer::get_nets_host_mtu($vmid, $conf, $only_inherited_mtus);
+    $params->{start_params}->{'nets-host-mtu'} = $nets_host_mtu if $nets_host_mtu;
 
     my ($tunnel_info, $spice_port);
 
