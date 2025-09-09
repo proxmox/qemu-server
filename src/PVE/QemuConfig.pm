@@ -312,8 +312,8 @@ sub __snapshot_freeze {
         eval { mon_cmd($vmid, "guest-fsfreeze-thaw"); };
         warn "guest-fsfreeze-thaw problems - $@" if $@;
     } else {
-        eval { mon_cmd($vmid, "guest-fsfreeze-freeze"); };
-        warn "guest-fsfreeze-freeze problems - $@" if $@;
+        eval { PVE::QemuServer::Agent::guest_fsfreeze($vmid); };
+        warn $@ if $@;
     }
 }
 

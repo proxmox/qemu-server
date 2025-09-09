@@ -110,6 +110,8 @@ sub cmd {
         } elsif ($cmd->{execute} =~ m/^(eject|change)/) {
             $timeout = 60; # note: cdrom mount command is slow
         } elsif ($cmd->{execute} eq 'guest-fsfreeze-freeze') {
+            # consider using the guest_fsfreeze() helper in Agent.pm
+            #
             # freeze syncs all guest FS, if we kill it it stays in an unfreezable
             # locked state with high probability, so use an generous timeout
             $timeout = 60 * 60; # 1 hour
@@ -158,6 +160,7 @@ sub cmd {
     if (defined($queue_info->{error})) {
         die "VM $vmid qmp command '$cmd->{execute}' failed - $queue_info->{error}" if !$noerr;
         $result = { error => $queue_info->{error} };
+        $result->{'error-is-timeout'} = 1 if $queue_info->{'error-is-timeout'};
     }
 
     return $result;
@@ -484,6 +487,7 @@ sub mux_timeout {
 
     if (my $queue_info = &$lookup_queue_info($self, $fh)) {
         $queue_info->{error} = "got timeout\n";
+        $queue_info->{'error-is-timeout'} = 1;
         $self->{mux}->inbuffer($fh, ''); # clear to avoid warnings
     }
 

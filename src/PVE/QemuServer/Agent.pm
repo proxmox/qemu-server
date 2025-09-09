@@ -131,4 +131,72 @@ sub qemu_exec_status {
     return $res;
 }
 
+=head3 guest_fsfreeze
+
+    guest_fsfreeze($vmid);
+
+Freeze the file systems of the guest C<$vmid>. Check that the guest agent is enabled and running
+before calling this function. Dies if the file systems cannot be frozen.
+
+With C<mon_cmd()>, it can happen that a guest agent command is read, but then the guest agent never
+sends an answer, because the service in the guest is stopped/killed. For example, if a guest reboot
+happens before the command can be successfully executed. This is usually not problematic, but the
+fsfreeze-freeze command should use a timeout of 1 hour, so the guest agent socket would be blocked
+for that amount of time, waiting on a command that is not being executed anymore.
+
+This function uses a lower timeout for the initial fsfreeze-freeze command, and issues an
+fsfreeze-status command afterwards, which will return immediately if the fsfreeze-freeze command
+already finished, and which will be queued if not. This is used as a proxy to determine whether the
+fsfreeze-freeze command is still running and to check whether it was successful. Using a too low
+timeout would mean stuffing/queuing many fsfreeze-status commands while the guest agent might still
+be busy actually doing the freeze. In total, fsfreeze-freeze is still allowed to take 1 hour, but
+the time the socket is blocked after a lost command is at most 10 minutes.
+
+=cut
+
+sub guest_fsfreeze {
+    my ($vmid) = @_;
+
+    my $timeout = 10 * 60;
+
+    my $result = eval {
+        PVE::QemuServer::Monitor::mon_cmd($vmid, 'guest-fsfreeze-freeze', timeout => $timeout);
+    };
+    if ($result && ref($result) eq 'HASH' && $result->{error}) {
+        my $error = $result->{error}->{desc} // 'unknown';
+        die "unable to freeze guest fs - $error\n";
+    } elsif (defined($result)) {
+        return; # command successful
+    }
+
+    my $status;
+    eval {
+        my ($i, $last_iteration) = (0, 5);
+        while ($i < $last_iteration && !defined($status)) {
+            print "still waiting on guest fs freeze - timeout in "
+                . ($timeout * ($last_iteration - $i) / 60)
+                . " minutes\n";
+            $i++;
+
+            $status = PVE::QemuServer::Monitor::mon_cmd(
+                $vmid, 'guest-fsfreeze-status',
+                timeout => $timeout,
+                noerr => 1,
+            );
+
+            if ($status && ref($status) eq 'HASH' && $status->{'error-is-timeout'}) {
+                $status = undef;
+            } else {
+                check_agent_error($status, 'unknown error');
+            }
+        }
+        if (!defined($status)) {
+            die "timeout after " . ($timeout * ($last_iteration + 1) / 60) . " minutes\n";
+        }
+    };
+    die "querying status after freezing guest fs failed - $@" if $@;
+
+    die "unable to freeze guest fs - unexpected status '$status'\n" if $status ne 'frozen';
+}
+
 1;

@@ -165,7 +165,7 @@ sub qemu_drive_mirror_monitor {
                     my $agent_running = $qga && qga_check_running($vmid);
                     if ($agent_running) {
                         print "freeze filesystem\n";
-                        eval { mon_cmd($vmid, "guest-fsfreeze-freeze"); };
+                        eval { PVE::QemuServer::Agent::guest_fsfreeze($vmid); };
                         warn $@ if $@;
                     } else {
                         print "suspend vm\n";
