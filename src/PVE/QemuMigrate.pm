@@ -1723,7 +1723,7 @@ sub phase3_cleanup {
 
         if (
             $self->{storage_migration}
-            && PVE::QemuServer::parse_guest_agent($conf)->{fstrim_cloned_disks}
+            && PVE::QemuServer::get_qga_key($conf, 'fstrim_cloned_disks')
             && $self->{running}
         ) {
             if (!$self->{vm_was_paused}) {
