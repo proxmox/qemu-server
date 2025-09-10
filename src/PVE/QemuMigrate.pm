@@ -1116,7 +1116,7 @@ sub phase2_start_local_cluster {
         noerr => 1,
     );
 
-    die "node $self->{node} is too old for preserving VirtIO-net MTU, please upgrade\n"
+    die "target node $self->{node} is too old for preserving VirtIO-net MTU, please upgrade\n"
         if $target_nets_host_mtu_not_supported;
 
     die "remote command failed with exit code $exitcode\n" if $exitcode;
