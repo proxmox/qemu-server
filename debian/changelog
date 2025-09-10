@@ -1,3 +1,15 @@
+qemu-server (8.4.3) bookworm; urgency=medium
+
+  * migration: only use nets-host-mtu for PVE 8 target if actually required.
+
+  * migration: tell users to upgrade the target node if nets-host-mtu is
+    required but not supported by the target qemu-server.
+    Note, while PVE generally only guarantees migration support from
+    target-version >= source-version, it's relatively easy here to avoid
+    having to leverage that requirement.
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 10 Sep 2025 13:32:30 +0200
+
 qemu-server (8.4.2) bookworm; urgency=medium
 
   * fix #6466: aarch64: pci: properly print higher-index PCI bridge addresses.
