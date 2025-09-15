@@ -4637,8 +4637,8 @@ __PACKAGE__->register_method({
             digest => {
                 type => 'string',
                 description =>
-                    'Prevent changes if current configuration file has different SHA1"
-		    ." digest. This can be used to prevent concurrent modifications.',
+                    'Prevent changes if current configuration file has different SHA1'
+                    . ' digest. This can be used to prevent concurrent modifications.',
                 maxLength => 40,
                 optional => 1,
             },
@@ -4659,8 +4659,8 @@ __PACKAGE__->register_method({
             'target-digest' => {
                 type => 'string',
                 description =>
-                    'Prevent changes if the current config file of the target VM has a"
-		    ." different SHA1 digest. This can be used to detect concurrent modifications.',
+                    'Prevent changes if the current config file of the target VM has a'
+                    . ' different SHA1 digest. This can be used to detect concurrent modifications.',
                 maxLength => 40,
                 optional => 1,
             },

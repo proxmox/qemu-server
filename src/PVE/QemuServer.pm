@@ -747,8 +747,8 @@ my $cicustom_fmt = {
     meta => {
         type => 'string',
         optional => 1,
-        description => 'Specify a custom file containing all meta data passed to the VM via"
-	    ." cloud-init. This is provider specific meaning configdrive2 and nocloud differ.',
+        description => 'Specify a custom file containing all meta data passed to the VM via'
+            . ' cloud-init. This is provider specific meaning configdrive2 and nocloud differ.',
         format => 'pve-volume-id',
         format_description => 'volume',
     },
