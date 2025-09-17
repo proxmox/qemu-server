@@ -6068,6 +6068,7 @@ sub vm_commandline {
         # check for machine or CPU overrides in snapshot
         $options->{'force-machine'} = $snapshot->{runningmachine};
         $options->{'force-cpu'} = $snapshot->{runningcpu};
+        $options->{'nets-host-mtu'} = $snapshot->{'running-nets-host-mtu'};
 
         $snapshot->{digest} = $conf->{digest}; # keep file digest for API
 
