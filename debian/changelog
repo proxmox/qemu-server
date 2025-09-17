@@ -1,3 +1,23 @@
+qemu-server (9.0.22) trixie; urgency=medium
+
+  * partially fix #6805:
+    - api: modify vm config: privilege checks for VM-state-related
+      properties.
+    - api: clone: properly remove all snapshot-related info.
+
+  * api: create/update: disallow setting 'running-nets-host-mtu' via API.
+
+  * resume from suspended: properly handle 'nets-host-mtu'.
+
+  * vm command line: handle 'nets-host-mtu' property in snapshot.
+
+  * vm start: remove left-over VM-state-related properties.
+
+  * api schema: fix broken line continuation in the description for three
+    properties.
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 17 Sep 2025 18:37:06 +0200
+
 qemu-server (9.0.21) trixie; urgency=medium
 
   * fix #6608: expose vIOMMU driver address space bit width 'aw-bits' option.
