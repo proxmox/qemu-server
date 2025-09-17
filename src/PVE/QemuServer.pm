@@ -1856,6 +1856,7 @@ sub json_config_properties {
         parent => 1,
         snaptime => 1,
         vmstate => 1,
+        'running-nets-host-mtu' => 1,
         runningmachine => 1,
         runningcpu => 1,
         meta => 1,
