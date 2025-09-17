@@ -5553,6 +5553,20 @@ sub vm_migrate_alloc_nbd_disks {
     return $nbd;
 }
 
+my sub remove_left_over_vmstate_opts {
+    my ($vmid, $conf) = @_;
+
+    my $found;
+    for my $opt (qw(running-nets-host-mtu runningmachine runningcpu)) {
+        if (defined($conf->{$opt})) {
+            print "No VM state set, removing left-over option '$opt'\n";
+            delete $conf->{$opt};
+            $found = 1;
+        }
+    }
+    PVE::QemuConfig->write_config($vmid, $conf) if $found;
+}
+
 # see vm_start_nolock for parameters, additionally:
 # migrate_opts:
 #   storagemap = parsed storage map for allocating NBD disks
@@ -6039,6 +6053,8 @@ sub vm_start_nolock {
         }
         delete $conf->@{qw(lock vmstate running-nets-host-mtu runningmachine runningcpu)};
         PVE::QemuConfig->write_config($vmid, $conf);
+    } elsif (!$conf->{vmstate}) {
+        remove_left_over_vmstate_opts($vmid, $conf);
     }
 
     PVE::GuestHelpers::exec_hookscript($conf, $vmid, 'post-start');
