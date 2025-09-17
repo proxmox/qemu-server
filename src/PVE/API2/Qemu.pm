@@ -732,6 +732,7 @@ my $check_cpu_model_access = sub {
 my $cpuoptions = {
     'cores' => 1,
     'cpu' => 1,
+    'runningcpu' => 1,
     'cpulimit' => 1,
     'cpuunits' => 1,
     'numa' => 1,
@@ -751,6 +752,7 @@ my $hwtypeoptions = {
     'hotplug' => 1,
     'kvm' => 1,
     'machine' => 1,
+    'runningmachine' => 1,
     'scsihw' => 1,
     'smbios1' => 1,
     'tablet' => 1,
@@ -957,7 +959,7 @@ my $check_vm_modify_config_perm = sub {
             $rpcenv->check_vm_perm($authuser, $vmid, $pool, ['VM.PowerMgmt']);
         } elsif ($diskoptions->{$opt}) {
             $rpcenv->check_vm_perm($authuser, $vmid, $pool, ['VM.Config.Disk']);
-        } elsif ($opt =~ m/^net\d+$/) {
+        } elsif ($opt =~ m/^net\d+$/ || $opt eq 'running-nets-host-mtu') {
             $rpcenv->check_vm_perm($authuser, $vmid, $pool, ['VM.Config.Network']);
         } elsif ($cloudinitoptions->{$opt} || $opt =~ m/^ipconfig\d+$/) {
             $rpcenv->check_vm_perm(
