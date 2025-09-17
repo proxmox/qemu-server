@@ -5681,10 +5681,12 @@ sub vm_start_nolock {
 
     my $forcemachine = $params->{forcemachine};
     my $forcecpu = $params->{forcecpu};
+    my $nets_host_mtu = $params->{'nets-host-mtu'};
     if ($resume) {
         # enforce machine and CPU type on suspended vm to ensure HW compatibility
         $forcemachine = $conf->{runningmachine};
         $forcecpu = $conf->{runningcpu};
+        $nets_host_mtu = $conf->{'running-nets-host-mtu'};
         print "Resuming suspended VM\n";
     }
 
@@ -5731,7 +5733,7 @@ sub vm_start_nolock {
                 'force-machine' => $forcemachine,
                 'force-cpu' => $forcecpu,
                 'live-restore-backing' => $params->{'live-restore-backing'},
-                'nets-host-mtu' => $params->{'nets-host-mtu'},
+                'nets-host-mtu' => $nets_host_mtu,
             },
         );
 
@@ -6035,7 +6037,7 @@ sub vm_start_nolock {
             PVE::Storage::deactivate_volumes($storecfg, [$vmstate]);
             PVE::Storage::vdisk_free($storecfg, $vmstate);
         }
-        delete $conf->@{qw(lock vmstate runningmachine runningcpu)};
+        delete $conf->@{qw(lock vmstate running-nets-host-mtu runningmachine runningcpu)};
         PVE::QemuConfig->write_config($vmid, $conf);
     }
 
