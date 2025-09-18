@@ -4333,7 +4333,9 @@ __PACKAGE__->register_method({
                     || $opt eq 'parent'
                     || $opt eq 'snaptime'
                     || $opt eq 'vmstate'
-                    || $opt eq 'snapstate';
+                    || $opt eq 'snapstate'
+                    || $opt eq 'runningcpu'
+                    || $opt eq 'runningmachine';
 
                 # no need to copy unused images, because VMID(owner) changes anyways
                 next if $opt =~ m/^unused\d+$/;
