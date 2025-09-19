@@ -924,9 +924,15 @@ sub blockdev_replace {
     my $volid = $drive->{file};
     my $drive_id = PVE::QemuServer::Drive::get_drive_id($drive);
 
-    my $src_name_options = $src_snap eq 'current' ? {} : { 'snapshot-name' => $src_snap };
-    my $src_file_blockdev_name = get_node_name('file', $drive_id, $volid, $src_name_options);
-    my $src_fmt_blockdev_name = get_node_name('fmt', $drive_id, $volid, $src_name_options);
+    my $src_name_options = {};
+    my $src_blockdev_name;
+    if ($src_snap eq 'current') {
+        # there might be other nodes on top like zeroinit, look up the current node below throttle
+        $src_blockdev_name = get_node_name_below_throttle($vmid, $deviceid, 1);
+    } else {
+        $src_name_options = { 'snapshot-name' => $src_snap };
+        $src_blockdev_name = get_node_name('fmt', $drive_id, $volid, $src_name_options);
+    }
 
     my $target_file_blockdev = generate_file_blockdev(
         $storecfg,
@@ -989,7 +995,7 @@ sub blockdev_replace {
     }
 
     # delete old file|fmt nodes
-    eval { detach($vmid, $src_fmt_blockdev_name); };
+    eval { detach($vmid, $src_blockdev_name); };
     warn "detaching block node for $src_snap failed - $@" if $@;
 }
 
