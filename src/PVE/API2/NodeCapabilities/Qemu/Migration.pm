@@ -29,7 +29,7 @@ __PACKAGE__->register_method({
         type => 'object',
         additionalProperties => 0,
         properties => {
-            'dbus-vmstate' => {
+            'has-dbus-vmstate' => {
                 type => 'boolean',
                 description => 'Whether the host supports live-migrating additional'
                     . ' VM state via the dbus-vmstate helper.',
