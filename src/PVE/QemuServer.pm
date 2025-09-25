@@ -3005,8 +3005,8 @@ sub vmstatus {
         $d->{netout} = 0;
         $d->{netin} = 0;
 
-        $d->{diskread} = 0;
-        $d->{diskwrite} = 0;
+        $d->{diskread} = undef;
+        $d->{diskwrite} = undef;
 
         $d->{template} = 1 if PVE::QemuConfig->is_template($conf);
 
