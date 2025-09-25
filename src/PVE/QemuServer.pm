@@ -2886,9 +2886,15 @@ sub vmstatus {
         $res->{$vmid}->{'running-qemu'} = $version;
     };
 
+    my $proxmox_support_cb = sub {
+        my ($vmid, $resp) = @_;
+        $res->{$vmid}->{'proxmox-support'} = $resp->{'return'} // {};
+    };
+
     my $statuscb = sub {
         my ($vmid, $resp) = @_;
 
+        $qmpclient->queue_cmd($vmid, $proxmox_support_cb, 'query-proxmox-support');
         $qmpclient->queue_cmd($vmid, $blockstatscb, 'query-blockstats');
         $qmpclient->queue_cmd($vmid, $machinecb, 'query-machines');
         $qmpclient->queue_cmd($vmid, $versioncb, 'query-version');
@@ -2912,16 +2918,6 @@ sub vmstatus {
     }
 
     $qmpclient->queue_execute(undef, 2);
-
-    foreach my $vmid (keys %$list) {
-        next if $opt_vmid && ($vmid ne $opt_vmid);
-        next if !$res->{$vmid}->{pid}; #not running
-
-        # we can't use the $qmpclient since it might have already aborted on
-        # 'query-balloon', but this might also fail for older versions...
-        my $qemu_support = eval { mon_cmd($vmid, "query-proxmox-support") };
-        $res->{$vmid}->{'proxmox-support'} = $qemu_support // {};
-    }
 
     foreach my $vmid (keys %$list) {
         next if $opt_vmid && ($vmid ne $opt_vmid);
