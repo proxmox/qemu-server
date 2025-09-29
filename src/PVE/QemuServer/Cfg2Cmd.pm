@@ -7,15 +7,16 @@ use PVE::QemuServer::Cfg2Cmd::Timer;
 use PVE::QemuServer::Helpers;
 
 sub new {
-    my ($class, $conf, $defaults) = @_;
+    my ($class, $conf, $defaults, $version_guard) = @_;
 
     my $self = bless {
         conf => $conf,
         defaults => $defaults,
+        'version-guard' => $version_guard,
     }, $class;
 
-    my $ostype = $self->get_prop('ostype');
-    $self->{'windows-version'} = PVE::QemuServer::Helpers::windows_version($ostype);
+    $self->{ostype} = $self->get_prop('ostype');
+    $self->{'windows-version'} = PVE::QemuServer::Helpers::windows_version($self->{ostype});
 
     return $self;
 }
@@ -74,10 +75,33 @@ sub rtc_flags {
     return $self->{'rtc-flags'};
 }
 
+=head3 is_linux
+
+    if ($self->is_linux()) {
+        do_something_for_linux_vms();
+    }
+
+Check if the virtual machine is configured for running Linux. Does not include the C<l24> os type
+by default. Specify C<$include_l24> if that is desired.
+
+=cut
+
+sub is_linux {
+    my ($self, $include_l24) = @_;
+
+    return $self->{ostype} eq 'l26' || ($include_l24 && $self->{ostype} eq 'l24');
+}
+
 sub windows_version {
     my ($self) = @_;
 
     return $self->{'windows-version'};
+}
+
+sub version_guard {
+    my ($self, $major, $minor, $pve) = @_;
+
+    $self->{'version-guard'}->($major, $minor, $pve);
 }
 
 sub generate {
