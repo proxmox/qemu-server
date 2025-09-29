@@ -348,6 +348,7 @@ my $confdesc = {
         type => 'string',
         # NOTE: When extending, also consider extending `%guest_types` in `Import/ESXi.pm`.
         enum => [qw(other wxp w2k w2k3 w2k8 wvista win7 win8 win10 win11 l24 l26 solaris)],
+        default => 'other',
         description => "Specify guest operating system.",
         verbose_description => <<EODESC,
 Specify guest operating system. This is used to enable special
