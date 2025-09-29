@@ -5613,6 +5613,12 @@ sub vm_start_nolock {
     }
 
     my %silence_std_outs = (outfunc => sub { }, errfunc => sub { });
+    eval { # See systemd GH #39141, need to reset failed PartOf units too, or scope might be blocked
+        run_command(
+            ['/bin/systemctl', 'reset-failed', "pve-dbus-vmstate\@$vmid.service"],
+            %silence_std_outs,
+        );
+    };
     eval { run_command(['/bin/systemctl', 'reset-failed', "$vmid.scope"], %silence_std_outs) };
     eval { run_command(['/bin/systemctl', 'stop', "$vmid.scope"], %silence_std_outs) };
     # Issues with the above 'stop' not being fully completed are extremely rare, a very low
