@@ -3,9 +3,14 @@ package PVE::QemuServer::DBusVMState;
 use strict;
 use warnings;
 
+use Net::DBus;
+use Net::DBus::RemoteService;
+
 use PVE::SafeSyslog;
 use PVE::Systemd;
 use PVE::Tools;
+
+use PVE::QemuServer::Helpers;
 
 use constant {
     DBUS_VMSTATE_EXE => '/usr/libexec/qemu-server/dbus-vmstate',
