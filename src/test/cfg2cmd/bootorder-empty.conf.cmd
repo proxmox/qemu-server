@@ -40,4 +40,4 @@
   -device 'virtio-blk-pci,drive=drive-virtio1,id=virtio1,bus=pci.0,addr=0xb,iothread=iothread-virtio1,write-cache=on' \
   -netdev 'type=tap,id=net0,ifname=tap8006i0,script=/usr/libexec/qemu-server/pve-bridge,downscript=/usr/libexec/qemu-server/pve-bridgedown,vhost=on' \
   -device 'virtio-net-pci,mac=A2:C0:43:77:08:A0,netdev=net0,bus=pci.0,addr=0x12,id=net0,rx_queue_size=1024,tx_queue_size=256,host_mtu=1500' \
-  -machine 'type=pc+pve1'
+  -machine 'hpet=off,type=pc+pve0'

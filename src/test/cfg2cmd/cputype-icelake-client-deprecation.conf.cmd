@@ -30,4 +30,4 @@
   -device 'virtio-scsi-pci,id=scsihw0,bus=pci.0,addr=0x5' \
   -blockdev '{"detect-zeroes":"unmap","discard":"unmap","driver":"throttle","file":{"cache":{"direct":true,"no-flush":false},"detect-zeroes":"unmap","discard":"unmap","driver":"qcow2","file":{"aio":"io_uring","cache":{"direct":true,"no-flush":false},"detect-zeroes":"unmap","discard":"unmap","driver":"file","filename":"/var/lib/vz/images/8006/base-8006-disk-0.qcow2","node-name":"e417d5947e69c5890b1e3ddf8a68167","read-only":false},"node-name":"f417d5947e69c5890b1e3ddf8a68167","read-only":false},"node-name":"drive-scsi0","read-only":false,"throttle-group":"throttle-drive-scsi0"}' \
   -device 'scsi-hd,bus=scsihw0.0,channel=0,scsi-id=0,lun=0,drive=drive-scsi0,id=scsi0,device_id=drive-scsi0,bootindex=100,write-cache=on' \
-  -machine 'type=pc+pve0'
+  -machine 'hpet=off,type=pc+pve0'

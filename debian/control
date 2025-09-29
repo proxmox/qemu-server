@@ -25,7 +25,7 @@ Build-Depends: debhelper-compat (= 13),
                pve-edk2-firmware-ovmf (>= 4.2025.02-3),
                pve-firewall,
                pve-ha-manager <!nocheck>,
-               pve-qemu-kvm (>= 9.2~),
+               pve-qemu-kvm (>= 10.1~),
 Standards-Version: 4.5.1
 Homepage: https://www.proxmox.com
 

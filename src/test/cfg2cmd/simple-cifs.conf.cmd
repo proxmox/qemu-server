@@ -37,4 +37,4 @@
   -device 'scsi-hd,bus=scsihw0.0,channel=0,scsi-id=0,lun=2,drive=drive-scsi2,id=scsi2,device_id=drive-scsi2,write-cache=off' \
   -blockdev '{"detect-zeroes":"unmap","discard":"unmap","driver":"throttle","file":{"cache":{"direct":true,"no-flush":false},"detect-zeroes":"unmap","discard":"unmap","driver":"raw","file":{"aio":"native","cache":{"direct":true,"no-flush":false},"detect-zeroes":"unmap","discard":"unmap","driver":"file","filename":"/mnt/pve/cifs-store/images/8006/vm-8006-disk-0.raw","node-name":"e7042ee58e764b1296ad54014cb9a03","read-only":false},"node-name":"f7042ee58e764b1296ad54014cb9a03","read-only":false},"node-name":"drive-scsi3","read-only":false,"throttle-group":"throttle-drive-scsi3"}' \
   -device 'scsi-hd,bus=scsihw0.0,channel=0,scsi-id=0,lun=3,drive=drive-scsi3,id=scsi3,device_id=drive-scsi3,write-cache=off' \
-  -machine 'type=pc+pve0'
+  -machine 'hpet=off,type=pc+pve0'
