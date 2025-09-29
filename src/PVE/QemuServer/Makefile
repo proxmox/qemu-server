@@ -5,6 +5,7 @@ PERLDIR=$(PREFIX)/share/perl5
 SOURCES=Agent.pm	\
 	Blockdev.pm	\
 	BlockJob.pm	\
+	Cfg2Cmd.pm	\
 	CGroup.pm	\
 	Cloudinit.pm	\
 	CPUConfig.pm	\
@@ -31,3 +32,4 @@ SOURCES=Agent.pm	\
 .PHONY: install
 install: $(SOURCES)
 	for i in $(SOURCES); do install -D -m 0644 $$i $(DESTDIR)$(PERLDIR)/PVE/QemuServer/$$i; done
+	$(MAKE) -C Cfg2Cmd install

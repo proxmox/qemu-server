@@ -56,6 +56,7 @@ use PVE::QemuMigrate::Helpers;
 use PVE::QemuServer::Agent qw(get_qga_key parse_guest_agent qga_check_running);
 use PVE::QemuServer::Blockdev;
 use PVE::QemuServer::BlockJob;
+use PVE::QemuServer::Cfg2Cmd;
 use PVE::QemuServer::Helpers
     qw(config_aware_timeout get_iscsi_initiator_name min_version kvm_user_version windows_version);
 use PVE::QemuServer::Cloudinit;
@@ -3379,31 +3380,12 @@ sub config_to_command {
         push @$cmd, '-nographic';
     }
 
-    # time drift fix
-    my $tdf = defined($conf->{tdf}) ? $conf->{tdf} : $defaults->{tdf};
-    my $useLocaltime = $conf->{localtime};
-
-    if ($winversion >= 5) { # windows
-        $useLocaltime = 1 if !defined($conf->{localtime});
-
-        # use time drift fix when acpi is enabled
-        if (!(defined($conf->{acpi}) && $conf->{acpi} == 0)) {
-            $tdf = 1 if !defined($conf->{tdf});
-        }
-    }
-
-    if ($winversion >= 6) {
-        push $cmd->@*, '-global', 'kvm-pit.lost_tick_policy=discard';
-        push @$machineFlags, 'hpet=off';
-    }
-
-    push @$rtcFlags, 'driftfix=slew' if $tdf;
-
-    if ($conf->{startdate} && $conf->{startdate} ne 'now') {
-        push @$rtcFlags, "base=$conf->{startdate}";
-    } elsif ($useLocaltime) {
-        push @$rtcFlags, 'base=localtime';
-    }
+    # For now, handles only specific parts, but the final goal is to cover everything.
+    my $cfg2cmd = PVE::QemuServer::Cfg2Cmd->new($conf, $defaults);
+    my $generated = $cfg2cmd->generate();
+    push $cmd->@*, '-global', $_ for ($generated->global_flags() // [])->@*;
+    push $machineFlags->@*, ($generated->machine_flags() // [])->@*;
+    push $rtcFlags->@*, ($generated->rtc_flags() // [])->@*;
 
     if ($forcecpu) {
         push @$cmd, '-cpu', $forcecpu;
