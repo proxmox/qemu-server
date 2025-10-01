@@ -1721,13 +1721,17 @@ __PACKAGE__->register_method({
     returns => {
         description => "The VM configuration.",
         type => "object",
-        properties => PVE::QemuServer::json_config_properties({
-            digest => {
-                type => 'string',
-                description =>
-                    'SHA1 digest of configuration file. This can be used to prevent concurrent modifications.',
+        properties => PVE::QemuServer::json_config_properties(
+            {
+                digest => {
+                    type => 'string',
+                    description =>
+                        'SHA1 digest of configuration file. This can be used to prevent concurrent modifications.',
+                },
             },
-        }),
+            0,
+            1,
+        ),
     },
     code => sub {
         my ($param) = @_;

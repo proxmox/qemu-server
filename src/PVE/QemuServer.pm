@@ -1850,17 +1850,20 @@ sub qemu_created_version_fixups {
 
 # add JSON properties for create and set function
 sub json_config_properties {
-    my ($prop, $with_disk_alloc) = @_;
+    my ($prop, $with_disk_alloc, $with_snapshot_info) = @_;
 
-    my $skip_json_config_opts = {
-        parent => 1,
-        snaptime => 1,
-        vmstate => 1,
-        'running-nets-host-mtu' => 1,
-        runningmachine => 1,
-        runningcpu => 1,
-        meta => 1,
-    };
+    my $skip_json_config_opts;
+    if (!$with_snapshot_info) {
+        $skip_json_config_opts = {
+            parent => 1,
+            snaptime => 1,
+            vmstate => 1,
+            'running-nets-host-mtu' => 1,
+            runningmachine => 1,
+            runningcpu => 1,
+            meta => 1,
+        };
+    }
 
     foreach my $opt (keys %$confdesc) {
         next if $skip_json_config_opts->{$opt};
