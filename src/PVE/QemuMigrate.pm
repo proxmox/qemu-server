@@ -893,7 +893,7 @@ sub phase1_remote {
         'firewall-config' => $fw_conf_str,
     };
 
-    PVE::Tunnel::write_tunnel($self->{tunnel}, 10, 'config', $params);
+    PVE::Tunnel::write_tunnel($self->{tunnel}, 120, 'config', $params);
 }
 
 sub phase1_cleanup {
