@@ -3611,7 +3611,8 @@ sub config_to_command {
 
             if ($drive->{interface} eq 'scsi') {
 
-                my ($maxdev, $controller, $controller_prefix) = scsihw_infos($conf, $drive);
+                my ($maxdev, $controller, $controller_prefix) =
+                    scsihw_infos($conf->{scsihw}, $drive->{index});
 
                 die
                     "scsi$drive->{index}: machine version 4.1~pve2 or higher is required to use more than 14 SCSI disks\n"
@@ -4185,7 +4186,7 @@ sub qemu_devicedelverify {
 sub qemu_findorcreatescsihw {
     my ($storecfg, $conf, $vmid, $device, $arch, $machine_type) = @_;
 
-    my ($maxdev, $controller, $controller_prefix) = scsihw_infos($conf, $device);
+    my ($maxdev, $controller, $controller_prefix) = scsihw_infos($conf->{scsihw}, $device->{index});
 
     my $scsihwid = "$controller_prefix$controller";
     my $devices_list = vm_devices_list($vmid);
@@ -4207,7 +4208,7 @@ sub qemu_deletescsihw {
         return 1;
     }
 
-    my ($maxdev, $controller, $controller_prefix) = scsihw_infos($conf, $device);
+    my ($maxdev, $controller, $controller_prefix) = scsihw_infos($conf->{scsihw}, $device->{index});
 
     my $devices_list = vm_devices_list($vmid);
     foreach my $opt (keys %{$devices_list}) {

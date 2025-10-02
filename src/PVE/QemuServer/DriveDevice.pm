@@ -18,21 +18,21 @@ our @EXPORT_OK = qw(
 );
 
 sub scsihw_infos {
-    my ($conf, $drive) = @_;
+    my ($scsihw, $drive_index) = @_;
 
     my $maxdev = 0;
 
-    if (!$conf->{scsihw} || ($conf->{scsihw} =~ m/^lsi/)) {
+    if (!$scsihw || ($scsihw =~ m/^lsi/)) {
         $maxdev = 7;
-    } elsif ($conf->{scsihw} && ($conf->{scsihw} eq 'virtio-scsi-single')) {
+    } elsif ($scsihw && ($scsihw eq 'virtio-scsi-single')) {
         $maxdev = 1;
     } else {
         $maxdev = 256;
     }
 
-    my $controller = int($drive->{index} / $maxdev);
+    my $controller = int($drive_index / $maxdev);
     my $controller_prefix =
-        ($conf->{scsihw} && $conf->{scsihw} eq 'virtio-scsi-single')
+        ($scsihw && $scsihw eq 'virtio-scsi-single')
         ? "virtioscsi"
         : "scsihw";
 
@@ -61,7 +61,8 @@ sub print_drivedevice_full {
         $device .= ",iothread=iothread-$drive_id" if $drive->{iothread};
     } elsif ($drive->{interface} eq 'scsi') {
 
-        my ($maxdev, $controller, $controller_prefix) = scsihw_infos($conf, $drive);
+        my ($maxdev, $controller, $controller_prefix) =
+            scsihw_infos($conf->{scsihw}, $drive->{index});
         my $unit = $drive->{index} % $maxdev;
 
         my $device_type =
