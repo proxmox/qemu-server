@@ -1,3 +1,38 @@
+qemu-server (9.0.23) trixie; urgency=medium
+
+  * fix #6713: snapshot volume chain: fix snapshot after disk move with
+    zeroinit.
+
+  * api: dbus-vmstate: fix return property name in schema.
+
+  * vm status: also queue query-proxmox-support QMP commands to avoid stacking
+    timeouts.
+
+  * api: add missing snapshot info to get-config return schema.
+
+  * agent: implement fsfreeze helper to better handle lost commands to avoid
+    unnecessarily blocking the QMP socket for a prolonged time.
+
+  * migration: conntrack: work around systemd issue where scope for VM might
+    become blocked.
+
+  * fix #6828: remote migration: bump timeout for writing configuration to
+    accommodate volume activation. Allow for up to 2 minutes instead of just
+    10 seconds.
+
+  * fix #6882: backup provider api: fix backup with TPM state by correctly
+    generating node name.
+
+  * backup: fleecing: avoid warning when querying block node size for TPM
+    state.
+
+  * cfg2cmd: turn off the high-precision event timer (HPET) for Linux VMs
+    running at least kernel 2.6 and machine type >= 10.1, which will avoid
+    slightly increased CPU usage with newer QEMU versions. Further, Linux
+    kernel since v2.6.26+ (from July 2008!) can use the kvm-clock timer.
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 03 Oct 2025 22:12:22 +0200
+
 qemu-server (9.0.22) trixie; urgency=medium
 
   * partially fix #6805:
