@@ -659,6 +659,7 @@ my sub attach_fleecing_images {
             };
 
             my $options = { 'fleecing' => 1 };
+            $options->{'tpm-backup'} = 1 if $interface eq 'tpmstate';
             # Specify size explicitly, to make it work if storage backend rounded up size for
             # fleecing image when allocating.
             $options->{size} = $di->{'block-node-size'} if $format eq 'raw';

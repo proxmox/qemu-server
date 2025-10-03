@@ -43,7 +43,9 @@ my sub tpm_backup_node_name {
 }
 
 my sub fleecing_node_name {
-    my ($type, $drive_id) = @_;
+    my ($type, $drive_id, $options) = @_;
+
+    $drive_id .= '-backup' if $options->{'tpm-backup'};
 
     if ($type eq 'fmt') {
         return "drive-$drive_id-fleecing"; # this is the top node for fleecing
@@ -114,7 +116,7 @@ sub get_block_info {
 my sub get_node_name {
     my ($type, $drive_id, $volid, $options) = @_;
 
-    return fleecing_node_name($type, $drive_id) if $options->{fleecing};
+    return fleecing_node_name($type, $drive_id, $options) if $options->{fleecing};
     return tpm_backup_node_name($type, $drive_id) if $options->{'tpm-backup'};
 
     my $snap = $options->{'snapshot-name'};
