@@ -1129,9 +1129,22 @@ sub query_block_node_sizes {
 
     for my $diskinfo ($disks->@*) {
         my $drive_key = $diskinfo->{virtdev};
-        $drive_key .= "-backup" if $drive_key eq 'tpmstate0';
-        my $block_node_size =
-            eval { $block_info->{$drive_key}->{inserted}->{image}->{'virtual-size'}; };
+
+        my $block_node_size;
+        if ($drive_key eq 'tpmstate0') {
+            # There is no front-end device for TPM state, so it's not included in the result of
+            # get_block_info(). Note that it is always attached with the same explicit node name.
+            my $named_block_node_info = mon_cmd($vmid, 'query-named-block-nodes');
+            for my $info ($named_block_node_info->@*) {
+                next if $info->{'node-name'} ne 'drive-tpmstate0-backup';
+                $block_node_size = $info->{image}->{'virtual-size'};
+                last;
+            }
+        } else {
+            $block_node_size =
+                eval { $block_info->{$drive_key}->{inserted}->{image}->{'virtual-size'}; };
+        }
+
         if (!$block_node_size) {
             $self->loginfo(
                 "could not determine block node size of drive '$drive_key' - using fallback");
