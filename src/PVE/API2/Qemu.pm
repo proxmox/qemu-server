@@ -1170,6 +1170,12 @@ __PACKAGE__->register_method({
                     default => 0,
                     description => "Start VM after it was created successfully.",
                 },
+                'ha-managed' => {
+                    optional => 1,
+                    type => 'boolean',
+                    default => 0,
+                    description => "Add the VM as a HA resource after it was created.",
+                },
                 'import-working-storage' => get_standard_option(
                     'pve-storage-id',
                     {
@@ -1204,6 +1210,7 @@ __PACKAGE__->register_method({
         my $force = extract_param($param, 'force');
         my $pool = extract_param($param, 'pool');
         my $start_after_create = extract_param($param, 'start');
+        my $ha_managed = extract_param($param, 'ha-managed');
         my $storage = extract_param($param, 'storage');
         my $unique = extract_param($param, 'unique');
         my $live_restore = extract_param($param, 'live-restore');
@@ -1380,6 +1387,15 @@ __PACKAGE__->register_method({
                 eval { PVE::API2::Qemu->vm_start({ vmid => $vmid, node => $node }) };
                 warn $@ if $@;
             }
+
+            if ($ha_managed) {
+                print "Add as HA resource\n";
+                my $state = $start_after_create ? 'started' : 'stopped';
+                eval {
+                    PVE::API2::HA::Resources->create({ sid => "vm:$vmid", state => $state });
+                };
+                warn $@ if $@;
+            }
         };
 
         my $createfn = sub {
@@ -1462,6 +1478,15 @@ __PACKAGE__->register_method({
             };
 
             PVE::QemuConfig->lock_config_full($vmid, 1, $realcmd);
+
+            if ($ha_managed) {
+                print "Add as HA resource\n";
+                my $state = $start_after_create ? 'started' : 'stopped';
+                eval {
+                    PVE::API2::HA::Resources->create({ sid => "vm:$vmid", state => $state });
+                };
+                warn $@ if $@;
+            }
 
             if ($start_after_create && !$live_restore) {
                 print "Execute autostart\n";
