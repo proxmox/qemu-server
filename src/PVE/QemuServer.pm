@@ -6237,6 +6237,7 @@ sub check_bridge_access {
         next if $opt !~ m/^net\d+$/;
         my $net = PVE::QemuServer::Network::parse_net($conf->{$opt});
         my ($bridge, $tag, $trunks) = $net->@{ 'bridge', 'tag', 'trunks' };
+        next if !defined($bridge); # no vnet to check for
         PVE::GuestHelpers::check_vnet_access($rpcenv, $authuser, $bridge, $tag, $trunks);
     }
     return 1;
