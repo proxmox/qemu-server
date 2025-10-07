@@ -1,3 +1,21 @@
+qemu-server (8.4.4) bookworm; urgency=medium
+
+  * fix #6207: vm status: return undefined value when disk{read, write} cannot
+    be queried rather than 0 to avoid spikes in RRD graph.
+
+  * vm status: also queue query-proxmox-support QMP commands to avoid stacking
+    timeouts.
+
+  * fix #6828: remote migration: bump timeout for writing configuration to
+    accommodate volume activation. Allow for up to 2 minutes instead of just
+    10 seconds.
+
+  * partially fix #6805:
+    - api: modify vm config: privilege checks for VM-state-related properties.
+    - api: clone: properly remove all snapshot-related info.
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 07 Oct 2025 10:12:06 +0200
+
 qemu-server (8.4.3) bookworm; urgency=medium
 
   * migration: only use nets-host-mtu for PVE 8 target if actually required.
