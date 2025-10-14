@@ -4714,9 +4714,9 @@ sub vmconfig_hotplug_pending {
         eval {
             if ($opt eq 'hotplug') {
                 die "skip\n"
-                    if ($value =~ /memory/) || ($value !~ /memory/ && $conf->{hotplug} =~ /memory/);
+                    if ($value =~ /memory/) || ($conf->{hotplug} && $conf->{hotplug} =~ /memory/);
                 die "skip\n"
-                    if ($value =~ /cpu/) || ($value !~ /cpu/ && $conf->{hotplug} =~ /cpu/);
+                    if ($value =~ /cpu/) || ($conf->{hotplug} && $conf->{hotplug} =~ /cpu/);
             } elsif ($opt eq 'tablet') {
                 die "skip\n" if !$hotplug_features->{usb};
                 if ($value == 1) {
