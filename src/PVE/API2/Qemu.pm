@@ -3146,7 +3146,7 @@ __PACKAGE__->register_method({
         description => "You also need to pass a valid ticket (vncticket).",
         check => ['perm', '/vms/{vmid}', ['VM.Console']],
     },
-    description => "Opens a weksocket for VNC traffic.",
+    description => "Opens a websocket for VNC traffic.",
     parameters => {
         additionalProperties => 0,
         properties => {
