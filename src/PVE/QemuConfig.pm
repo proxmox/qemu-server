@@ -582,12 +582,10 @@ sub load_current_config {
 sub get_derived_property {
     my ($class, $conf, $name) = @_;
 
-    my $defaults = PVE::QemuServer::load_defaults();
-
     if ($name eq 'max-cpu') {
-        my $cpus =
-            ($conf->{sockets} || $defaults->{sockets}) * ($conf->{cores} || $defaults->{cores});
-        return $conf->{vcpus} || $cpus;
+        my $sockets = $conf->{sockets} || PVE::QemuServer::get_default_property_value('sockets');
+        my $cores = $conf->{cores} || PVE::QemuServer::get_default_property_value('cores');
+        return $conf->{vcpus} || ($sockets * $cores);
     } elsif ($name eq 'max-memory') { # current usage maximum, not maximum hotpluggable
         return get_current_memory($conf->{memory}) * 1024 * 1024;
     } else {
