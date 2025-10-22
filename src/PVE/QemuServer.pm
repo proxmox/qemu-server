@@ -2549,9 +2549,6 @@ sub vmstatus {
         $d->{netout} = 0;
         $d->{netin} = 0;
 
-        $d->{diskread} = undef;
-        $d->{diskwrite} = undef;
-
         $d->{template} = 1 if PVE::QemuConfig->is_template($conf);
 
         $d->{serial} = 1 if conf_has_serial($conf);
