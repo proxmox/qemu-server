@@ -4,6 +4,8 @@
 #include <sys/stat.h>
 #include <errno.h>
 #include <string.h>
+#include <unistd.h>
+#include <fcntl.h>
 
 #define eprintf(...) fprintf(stderr, __VA_ARGS__)
 
@@ -18,17 +20,56 @@ typedef struct {
 
     uint8_t cbitpos;
     uint8_t reduced_phys_bits;
-} cpu_caps_t;
+} cpu_caps_amd_sev_t;
 
-void query_cpu_capabilities(cpu_caps_t *res) {
+typedef struct {
+    bool tdx_support;
+} cpu_caps_intel_tdx_t;
+
+int read_msr(uint32_t msr_index, uint64_t *value) {
+    uint64_t data;
+    char* msr_file_name = "/dev/cpu/0/msr";
+    int fd;
+
+    fd = open(msr_file_name, O_RDONLY);
+    if (fd < 0) {
+        if (errno == ENXIO) {
+            eprintf("rdmsr: No CPU 0\n");
+            return -1;
+        } else if (errno == EIO) {
+            eprintf("rdmsr: CPU doesn't support MSRs\n");
+            return -1;
+        } else {
+            perror("rdmsr: failed to open MSR");
+            return -1;
+        }
+    }
+
+    if (pread(fd, &data, sizeof(data), msr_index) != sizeof(data)) {
+        if (errno == EIO) {
+            eprintf("rdmsr: CPU cannot read MSR 0x%08x\n", msr_index);
+            return -1;
+        } else {
+            perror("rdmsr: pread");
+            return -1;
+        }
+    }
+
+    *value = data;
+
+    close(fd);
+    return 0;
+}
+
+void query_cpu_capabilities_sev(cpu_caps_amd_sev_t *res) {
     uint32_t eax, ebx, ecx, edx;
 
     // query Encrypted Memory Capabilities, see:
     // https://en.wikipedia.org/wiki/CPUID#EAX=8000001Fh:_Encrypted_Memory_Capabilities
     uint32_t query_function = 0x8000001F;
     asm volatile("cpuid"
-         : "=a"(eax), "=b"(ebx), "=c"(ecx), "=d"(edx)
-         : "0"(query_function)
+        : "=a"(eax), "=b"(ebx), "=c"(ecx), "=d"(edx)
+        : "0"(query_function)
     );
 
     res->sev_support = (eax & (1<<1)) != 0;
@@ -37,6 +78,19 @@ void query_cpu_capabilities(cpu_caps_t *res) {
 
     res->cbitpos = ebx & 0x3f;
     res->reduced_phys_bits = (ebx >> 6) & 0x3f;
+}
+
+int query_cpu_capabilities_tdx(cpu_caps_intel_tdx_t *res) {
+    uint64_t tme_value, sgx_value, tdx_value;
+
+    if (read_msr(0x982, &tme_value) == 0 && read_msr(0xa0, &sgx_value) == 0 &&
+        read_msr(0x1401, &tdx_value) == 0) {
+        res->tdx_support = ((tme_value >> 1) & 1ULL) & (!sgx_value) & ((tdx_value >> 11) & 1ULL);
+    } else {
+        eprintf("Intel TDX support undetermined\n");
+        return -1;
+    }
+    return 0;
 }
 
 int prepare_output_directory() {
@@ -65,8 +119,8 @@ int main() {
         return 1;
     }
 
-    cpu_caps_t caps;
-    query_cpu_capabilities(&caps);
+    cpu_caps_amd_sev_t caps_sev;
+    query_cpu_capabilities_sev(&caps_sev);
 
     FILE *file = fopen(OUTPUT_PATH, "w");
     if (file == NULL) {
@@ -82,14 +136,32 @@ int main() {
         " \"sev-support\": %s,"
         " \"sev-support-es\": %s,"
         " \"sev-support-snp\": %s"
-        " }"
-        " }\n",
-        caps.cbitpos,
-        caps.reduced_phys_bits,
-        caps.sev_support ? "true" : "false",
-        caps.sev_es_support ? "true" : "false",
-        caps.sev_snp_support ? "true" : "false"
+        " }",
+        caps_sev.cbitpos,
+        caps_sev.reduced_phys_bits,
+        caps_sev.sev_support ? "true" : "false",
+        caps_sev.sev_es_support ? "true" : "false",
+        caps_sev.sev_snp_support ? "true" : "false"
     );
+    if (ret < 0) {
+        eprintf("Error writing to file '" OUTPUT_PATH "': %s\n", strerror(errno));
+    }
+
+    cpu_caps_intel_tdx_t caps_tdx;
+    if (query_cpu_capabilities_tdx(&caps_tdx) == 0) {
+        ret = fprintf(file,
+            ","
+            " \"intel-tdx\": {"
+            " \"tdx-support\": %s"
+            " }",
+            caps_tdx.tdx_support ? "true" : "false"
+        );
+        if (ret < 0) {
+            eprintf("Error writing to file '" OUTPUT_PATH "': %s\n", strerror(errno));
+        }
+    }
+
+    ret = fprintf(file, " }\n");
     if (ret < 0) {
         eprintf("Error writing to file '" OUTPUT_PATH "': %s\n", strerror(errno));
     }
