@@ -34,6 +34,9 @@ my $OVMF = {
         '4m-snp' => [
             "$EDK2_FW_BASE/OVMF_SEV_4M.fd",
         ],
+        '4m-tdx' => [
+            "$EDK2_FW_BASE/OVMF_TDX_4M.ms.fd",
+        ],
         # FIXME: These are legacy 2MB-sized images that modern OVMF doesn't supports to build
         # anymore. how can we deperacate this sanely without breaking existing instances, or using
         # older backups and snapshot?
@@ -63,6 +66,11 @@ my sub get_ovmf_files($$$$) {
             return ($ovmf);
         } elsif ($cvm_type && ($cvm_type eq 'std' || $cvm_type eq 'es')) {
             $type = "4m-sev";
+        } elsif ($cvm_type && $cvm_type eq 'tdx') {
+            $type = "4m-tdx";
+            my ($ovmf) = $types->{$type}->@*;
+            die "EFI base image '$ovmf' not found\n" if !-f $ovmf;
+            return ($ovmf);
         } elsif (defined($efidisk->{efitype}) && $efidisk->{efitype} eq '4m') {
             $type = $smm ? "4m" : "4m-no-smm";
             $type .= '-ms' if $efidisk->{'pre-enrolled-keys'};
@@ -87,6 +95,9 @@ my sub print_ovmf_drive_commandlines {
 
     die "Attempting to configure SEV-SNP with pflash devices instead of using `-bios`\n"
         if $cvm_type && $cvm_type eq 'snp';
+
+    die "Attempting to configure TDX with pflash devices instead of using `-bios`\n"
+        if $cvm_type && $cvm_type eq 'tdx';
 
     my ($ovmf_code, $ovmf_vars) = get_ovmf_files($arch, $d, $q35, $cvm_type);
 
@@ -208,7 +219,7 @@ sub print_ovmf_commandline {
     my $cmd = [];
     my $machine_flags = [];
 
-    if ($cvm_type && $cvm_type eq 'snp') {
+    if ($cvm_type && ($cvm_type eq 'snp' || $cvm_type eq 'tdx')) {
         if (defined($conf->{efidisk0})) {
             log_warn(
                 "EFI disks are not supported with Confidential Virtual Machines and will be ignored"

@@ -20,6 +20,7 @@ sub check_non_migratable_resources {
     my @blockers = ();
     if ($state) {
         push @blockers, "amd-sev" if $conf->{"amd-sev"};
+        push @blockers, "intel-tdx" if $conf->{"intel-tdx"};
         push @blockers, "virtiofs" if PVE::QemuServer::Virtiofs::virtiofs_enabled($conf);
     }
 

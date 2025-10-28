@@ -61,8 +61,15 @@ use PVE::QemuServer::Helpers
     qw(config_aware_timeout get_iscsi_initiator_name min_version kvm_user_version windows_version);
 use PVE::QemuServer::Cloudinit;
 use PVE::QemuServer::CGroup;
-use PVE::QemuServer::CPUConfig
-    qw(print_cpu_device get_cpu_options get_cpu_bitness is_native_arch get_amd_sev_object get_cvm_type);
+use PVE::QemuServer::CPUConfig qw(
+    print_cpu_device
+    get_cpu_options
+    get_cpu_bitness
+    is_native_arch
+    get_amd_sev_object
+    get_intel_tdx_object
+    get_cvm_type
+);
 use PVE::QemuServer::Drive qw(
     is_valid_drivename
     checked_volume_format
@@ -294,6 +301,12 @@ my $confdesc = {
         description => "Secure Encrypted Virtualization (SEV) features by AMD CPUs",
         optional => 1,
         format => 'pve-qemu-sev-fmt',
+        type => 'string',
+    },
+    'intel-tdx' => {
+        description => "Trusted Domain Extension (TDX) features by Intel CPUs",
+        optional => 1,
+        format => 'pve-qemu-tdx-fmt',
         type => 'string',
     },
     balloon => {
@@ -3762,6 +3775,10 @@ sub config_to_command {
     if ($conf->{'amd-sev'}) {
         push @$devices, '-object', get_amd_sev_object($conf->{'amd-sev'}, $conf->{bios});
         push @$machineFlags, 'confidential-guest-support=sev0';
+    } elsif ($conf->{'intel-tdx'}) {
+        push @$devices, '-object', get_intel_tdx_object($conf->{'intel-tdx'}, $conf->{bios});
+        push @$machineFlags, 'confidential-guest-support=tdx0';
+        push @$machineFlags, 'kernel_irqchip=split';
     }
 
     PVE::QemuServer::Virtiofs::config($conf, $vmid, $devices);

@@ -18,6 +18,7 @@ our @EXPORT_OK = qw(
     get_cpu_bitness
     is_native_arch
     get_amd_sev_object
+    get_intel_tdx_object
     get_cvm_type
 );
 
@@ -281,6 +282,17 @@ my $sev_fmt = {
     },
 };
 PVE::JSONSchema::register_format('pve-qemu-sev-fmt', $sev_fmt);
+
+my $tdx_fmt = {
+    type => {
+        description => "Enable TDX",
+        type => 'string',
+        default_key => 1,
+        format_description => "tdx-type",
+        enum => ['tdx'],
+    },
+};
+PVE::JSONSchema::register_format('pve-qemu-tdx-fmt', $tdx_fmt);
 
 PVE::JSONSchema::register_format('pve-phys-bits', \&parse_phys_bits);
 
@@ -893,6 +905,9 @@ sub get_cvm_type {
     if ($conf->{'amd-sev'}) {
         my $sev = PVE::JSONSchema::parse_property_string($sev_fmt, $conf->{'amd-sev'});
         return $sev->{type};
+    } elsif ($conf->{'intel-tdx'}) {
+        my $tdx = PVE::JSONSchema::parse_property_string($tdx_fmt, $conf->{'intel-tdx'});
+        return $tdx->{type};
     } else {
         return undef;
     }
@@ -949,6 +964,20 @@ sub get_amd_sev_object {
     $sev_mem_object .= ',policy=' . sprintf("%#x", $policy);
     $sev_mem_object .= ',kernel-hashes=on' if ($amd_sev_conf->{'kernel-hashes'});
     return $sev_mem_object;
+}
+
+sub get_intel_tdx_object {
+    my ($intel_tdx, $bios) = @_;
+    my $intel_tdx_conf = PVE::JSONSchema::parse_property_string($tdx_fmt, $intel_tdx);
+    my $tdx_hw_caps = get_hw_capabilities()->{'intel-tdx'};
+
+    if (!$tdx_hw_caps->{'tdx-support'}) {
+        die "Your CPU does not support Intel TDX.\n";
+    }
+    if (!$bios || $bios ne 'ovmf') {
+        die "To use Intel TDX, you need to change the BIOS to OVMF.\n";
+    }
+    return 'tdx-guest,id=tdx0';
 }
 
 __PACKAGE__->register();
