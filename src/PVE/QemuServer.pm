@@ -62,7 +62,7 @@ use PVE::QemuServer::Helpers
 use PVE::QemuServer::Cloudinit;
 use PVE::QemuServer::CGroup;
 use PVE::QemuServer::CPUConfig
-    qw(print_cpu_device get_cpu_options get_cpu_bitness is_native_arch get_amd_sev_object get_amd_sev_type);
+    qw(print_cpu_device get_cpu_options get_cpu_bitness is_native_arch get_amd_sev_object get_cvm_type);
 use PVE::QemuServer::Drive qw(
     is_valid_drivename
     checked_volume_format
@@ -3232,7 +3232,7 @@ sub config_to_command {
             if !$forcecpu && get_cpu_bitness($conf->{cpu}, $arch) == 32;
 
         my $hw_info = {
-            'amd-sev-type' => get_amd_sev_type($conf),
+            'cvm-type' => get_cvm_type($conf),
             arch => $arch,
             'machine-version' => $machine_version,
             q35 => $q35,
@@ -7933,9 +7933,9 @@ sub get_efivars_size {
     my $arch = PVE::QemuServer::Helpers::get_vm_arch($conf);
     $efidisk //= $conf->{efidisk0} ? parse_drive('efidisk0', $conf->{efidisk0}) : undef;
     my $smm = PVE::QemuServer::Machine::machine_type_is_q35($conf);
-    my $amd_sev_type = get_amd_sev_type($conf);
+    my $cvm_type = get_cvm_type($conf);
 
-    return PVE::QemuServer::OVMF::get_efivars_size($arch, $efidisk, $smm, $amd_sev_type);
+    return PVE::QemuServer::OVMF::get_efivars_size($arch, $efidisk, $smm, $cvm_type);
 }
 
 sub update_efidisk_size {

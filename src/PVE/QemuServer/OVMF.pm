@@ -29,10 +29,10 @@ my $OVMF = {
             "$EDK2_FW_BASE/OVMF_CODE_4M.secboot.fd", "$EDK2_FW_BASE/OVMF_VARS_4M.ms.fd",
         ],
         '4m-sev' => [
-            "$EDK2_FW_BASE/OVMF_CVM_CODE_4M.fd", "$EDK2_FW_BASE/OVMF_CVM_VARS_4M.fd",
+            "$EDK2_FW_BASE/OVMF_SEV_CODE_4M.fd", "$EDK2_FW_BASE/OVMF_SEV_VARS_4M.fd",
         ],
         '4m-snp' => [
-            "$EDK2_FW_BASE/OVMF_CVM_4M.fd",
+            "$EDK2_FW_BASE/OVMF_SEV_4M.fd",
         ],
         # FIXME: These are legacy 2MB-sized images that modern OVMF doesn't supports to build
         # anymore. how can we deperacate this sanely without breaking existing instances, or using
@@ -49,19 +49,19 @@ my $OVMF = {
 };
 
 my sub get_ovmf_files($$$$) {
-    my ($arch, $efidisk, $smm, $amd_sev_type) = @_;
+    my ($arch, $efidisk, $smm, $cvm_type) = @_;
 
     my $types = $OVMF->{$arch}
         or die "no OVMF images known for architecture '$arch'\n";
 
     my $type = 'default';
     if ($arch eq 'x86_64') {
-        if ($amd_sev_type && $amd_sev_type eq 'snp') {
+        if ($cvm_type && $cvm_type eq 'snp') {
             $type = "4m-snp";
             my ($ovmf) = $types->{$type}->@*;
             die "EFI base image '$ovmf' not found\n" if !-f $ovmf;
             return ($ovmf);
-        } elsif ($amd_sev_type) {
+        } elsif ($cvm_type && ($cvm_type eq 'std' || $cvm_type eq 'es')) {
             $type = "4m-sev";
         } elsif (defined($efidisk->{efitype}) && $efidisk->{efitype} eq '4m') {
             $type = $smm ? "4m" : "4m-no-smm";
@@ -81,14 +81,14 @@ my sub get_ovmf_files($$$$) {
 my sub print_ovmf_drive_commandlines {
     my ($conf, $storecfg, $vmid, $hw_info, $version_guard, $readonly) = @_;
 
-    my ($amd_sev_type, $arch, $q35) = $hw_info->@{qw(amd-sev-type arch q35)};
+    my ($cvm_type, $arch, $q35) = $hw_info->@{qw(cvm-type arch q35)};
 
     my $d = $conf->{efidisk0} ? parse_drive('efidisk0', $conf->{efidisk0}) : undef;
 
     die "Attempting to configure SEV-SNP with pflash devices instead of using `-bios`\n"
-        if $amd_sev_type && $amd_sev_type eq 'snp';
+        if $cvm_type && $cvm_type eq 'snp';
 
-    my ($ovmf_code, $ovmf_vars) = get_ovmf_files($arch, $d, $q35, $amd_sev_type);
+    my ($ovmf_code, $ovmf_vars) = get_ovmf_files($arch, $d, $q35, $cvm_type);
 
     my $var_drive_str = "if=pflash,unit=1,id=drive-efidisk0";
     if ($d) {
@@ -122,16 +122,16 @@ my sub print_ovmf_drive_commandlines {
 }
 
 sub get_efivars_size {
-    my ($arch, $efidisk, $smm, $amd_sev_type) = @_;
+    my ($arch, $efidisk, $smm, $cvm_type) = @_;
 
-    my (undef, $ovmf_vars) = get_ovmf_files($arch, $efidisk, $smm, $amd_sev_type);
+    my (undef, $ovmf_vars) = get_ovmf_files($arch, $efidisk, $smm, $cvm_type);
     return -s $ovmf_vars;
 }
 
 sub create_efidisk($$$$$$$$) {
-    my ($storecfg, $storeid, $vmid, $fmt, $arch, $efidisk, $smm, $amd_sev_type) = @_;
+    my ($storecfg, $storeid, $vmid, $fmt, $arch, $efidisk, $smm, $cvm_type) = @_;
 
-    my (undef, $ovmf_vars) = get_ovmf_files($arch, $efidisk, $smm, $amd_sev_type);
+    my (undef, $ovmf_vars) = get_ovmf_files($arch, $efidisk, $smm, $cvm_type);
 
     my $vars_size_b = -s $ovmf_vars;
     my $vars_size = PVE::Tools::convert_size($vars_size_b, 'b' => 'kb');
@@ -147,15 +147,15 @@ sub create_efidisk($$$$$$$$) {
 my sub generate_ovmf_blockdev {
     my ($conf, $storecfg, $vmid, $hw_info, $readonly) = @_;
 
-    my ($amd_sev_type, $arch, $machine_version, $q35) =
-        $hw_info->@{qw(amd-sev-type arch machine-version q35)};
+    my ($cvm_type, $arch, $machine_version, $q35) =
+        $hw_info->@{qw(cvm-type arch machine-version q35)};
 
     my $drive = $conf->{efidisk0} ? parse_drive('efidisk0', $conf->{efidisk0}) : undef;
 
     die "Attempting to configure SEV-SNP with pflash devices instead of using `-bios`\n"
-        if $amd_sev_type && $amd_sev_type eq 'snp';
+        if $cvm_type && $cvm_type eq 'snp';
 
-    my ($ovmf_code, $ovmf_vars) = get_ovmf_files($arch, $drive, $q35, $amd_sev_type);
+    my ($ovmf_code, $ovmf_vars) = get_ovmf_files($arch, $drive, $q35, $cvm_type);
 
     my $ovmf_code_blockdev = {
         driver => 'raw',
@@ -203,16 +203,18 @@ my sub generate_ovmf_blockdev {
 sub print_ovmf_commandline {
     my ($conf, $storecfg, $vmid, $hw_info, $version_guard, $readonly) = @_;
 
-    my $amd_sev_type = $hw_info->{'amd-sev-type'};
+    my $cvm_type = $hw_info->{'cvm-type'};
 
     my $cmd = [];
     my $machine_flags = [];
 
-    if ($amd_sev_type && $amd_sev_type eq 'snp') {
+    if ($cvm_type && $cvm_type eq 'snp') {
         if (defined($conf->{efidisk0})) {
-            log_warn("EFI disks are not supported with SEV-SNP and will be ignored");
+            log_warn(
+                "EFI disks are not supported with Confidential Virtual Machines and will be ignored"
+            );
         }
-        push $cmd->@*, '-bios', get_ovmf_files($hw_info->{arch}, undef, undef, $amd_sev_type);
+        push $cmd->@*, '-bios', get_ovmf_files($hw_info->{arch}, undef, undef, $cvm_type);
     } else {
         if ($version_guard->(10, 0, 0)) { # for the switch to -blockdev
             my ($code_blockdev, $vars_blockdev, $throttle_group) =

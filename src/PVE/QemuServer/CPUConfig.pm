@@ -18,7 +18,7 @@ our @EXPORT_OK = qw(
     get_cpu_bitness
     is_native_arch
     get_amd_sev_object
-    get_amd_sev_type
+    get_cvm_type
 );
 
 # under certain race-conditions, this module might be loaded before pve-cluster
@@ -887,14 +887,15 @@ sub get_hw_capabilities {
     return $hw_capabilities;
 }
 
-sub get_amd_sev_type {
+sub get_cvm_type {
     my ($conf) = @_;
 
-    return undef if !$conf->{'amd-sev'};
-
-    my $sev = PVE::JSONSchema::parse_property_string($sev_fmt, $conf->{'amd-sev'});
-
-    return $sev->{type};
+    if ($conf->{'amd-sev'}) {
+        my $sev = PVE::JSONSchema::parse_property_string($sev_fmt, $conf->{'amd-sev'});
+        return $sev->{type};
+    } else {
+        return undef;
+    }
 }
 
 sub get_amd_sev_object {
