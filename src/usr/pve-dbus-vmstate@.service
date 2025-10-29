@@ -6,5 +6,5 @@ PartOf=%i.scope
 
 [Service]
 Slice=qemu.slice
-Type=simple
+Type=notify
 ExecStart=/usr/libexec/qemu-server/dbus-vmstate %i

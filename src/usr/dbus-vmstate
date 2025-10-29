@@ -15,6 +15,7 @@ use Net::DBus::Reactor;
 use PVE::QemuServer::Helpers;
 use PVE::QemuServer::QMPHelpers qw(qemu_objectadd qemu_objectdel);
 use PVE::SafeSyslog;
+use PVE::Systemd;
 use PVE::Tools;
 
 use base qw(Net::DBus::Object);
@@ -164,5 +165,7 @@ qemu_objectadd($vmid, 'pve-vmstate', 'dbus-vmstate',
     addr => 'unix:path=/run/dbus/system_bus_socket',
     'id-list' => "pve-vmstate-$vmid",
 );
+
+PVE::Systemd::notify("READY=1\n");
 
 Net::DBus::Reactor->main()->run();
