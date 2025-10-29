@@ -5530,7 +5530,7 @@ sub vm_start_nolock {
         PVE::QemuServer::QSD::quit($vmid);
     }
 
-    if (!$statefile && scalar(keys %{ $conf->{pending} })) {
+    if (!$statefile && !$resume && scalar(keys %{ $conf->{pending} })) {
         vmconfig_apply_pending($vmid, $conf, $storecfg);
         $conf = PVE::QemuConfig->load_config($vmid); # update/reload
     }
