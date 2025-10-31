@@ -326,19 +326,19 @@ sub validate_vm_cpu_conf {
     if (is_custom_model($cputype)) {
         # dies on unknown model
         get_custom_model($cputype);
-    } else {
-        die "Built-in cputype '$cputype' is not defined (missing 'custom-' prefix?)\n"
-            if !defined($cpu_vendor_list->{$cputype}) && !defined($builtin_models->{$cputype});
+    } elsif (!defined($cpu_vendor_list->{$cputype}) && !defined($builtin_models->{$cputype})) {
+        die "Built-in cputype '$cputype' is not defined (missing 'custom-' prefix?)\n";
     }
 
     # in a VM-specific config, certain properties are limited/forbidden
 
-    die "VM-specific CPU flags must be a subset of: @{[join(', ', @supported_cpu_flags)]}\n"
-        if ($cpu->{flags}
-            && $cpu->{flags} !~ m/^$cpu_flag_supported_re(;$cpu_flag_supported_re)*$/);
+    if ($cpu->{flags} && $cpu->{flags} !~ m/^$cpu_flag_supported_re(;$cpu_flag_supported_re)*$/) {
+        die "VM-specific CPU flags must be a subset of: @{[join(', ', @supported_cpu_flags)]}\n";
+    }
 
-    die "Property 'reported-model' not allowed in VM-specific CPU config.\n"
-        if defined($cpu->{'reported-model'});
+    if (defined($cpu->{'reported-model'})) {
+        die "Property 'reported-model' not allowed in VM-specific CPU config.\n";
+    }
 
     return $cpu;
 }
@@ -387,13 +387,15 @@ sub write_config {
     for my $model (keys %{ $cfg->{ids} }) {
         my $model_conf = $cfg->{ids}->{$model};
 
-        die
-            "internal error: tried saving built-in CPU model (or missing prefix): $model_conf->{cputype}\n"
-            if !is_custom_model($model_conf->{cputype});
+        if (!is_custom_model($model_conf->{cputype})) {
+            die "internal error: tried saving built-in CPU model (or missing prefix):"
+                . " $model_conf->{cputype}\n";
+        }
 
-        die
-            "internal error: tried saving custom cpumodel with cputype (ignoring prefix: $model_conf->{cputype}) not equal to \$cfg->ids entry ($model)\n"
-            if "custom-$model" ne $model_conf->{cputype};
+        if ("custom-$model" ne $model_conf->{cputype}) {
+            die "internal error: tried saving custom cpumodel with cputype (ignoring prefix:"
+                . " $model_conf->{cputype}) not equal to \$cfg->ids entry ($model)\n";
+        }
 
         # saved in section header
         delete $model_conf->{cputype};
@@ -654,23 +656,23 @@ sub get_cpu_options {
     my $vm_flags = parse_cpuflag_list($cpu_flag_supported_re, "manually set for VM", $cpu->{flags});
 
     my $pve_forced_flags = {};
-    $pve_forced_flags->{'enforce'} = {
-        reason => "error if requested CPU settings not available",
-        }
-        if $cputype ne 'host' && $kvm && $arch eq 'x86_64';
-    $pve_forced_flags->{'kvm'} = {
-        value => "off",
-        reason => "hide KVM virtualization from guest",
-        }
-        if $kvm_off;
+    if ($cputype ne 'host' && $kvm && $arch eq 'x86_64') {
+        $pve_forced_flags->{'enforce'} = {
+            reason => "error if requested CPU settings not available",
+        };
+    }
+    if ($kvm_off) {
+        $pve_forced_flags->{'kvm'} = {
+            value => "off",
+            reason => "hide KVM virtualization from guest",
+        };
+    }
 
     # $cputype is the "reported-model" for custom types, so we can just look up
     # the vendor in the default list
     my $cpu_vendor = $cpu_vendor_list->{$cputype};
     if ($cpu_vendor) {
-        $pve_forced_flags->{'vendor'} = {
-            value => $cpu_vendor,
-        } if $cpu_vendor ne 'default';
+        $pve_forced_flags->{'vendor'} = { value => $cpu_vendor } if $cpu_vendor ne 'default';
     } elsif ($arch ne 'aarch64') {
         die "internal error"; # should not happen
     }
@@ -714,29 +716,33 @@ sub get_pve_cpu_flags {
     my $pve_flags = {};
     my $pve_msg = "set by PVE;";
 
-    $pve_flags->{'lahf_lm'} = {
-        op => '+',
-        reason => "$pve_msg to support Windows 8.1+",
-        }
-        if $cputype eq 'kvm64' && $arch eq 'x86_64';
+    if ($cputype eq 'kvm64' && $arch eq 'x86_64') {
+        $pve_flags->{'lahf_lm'} = {
+            op => '+',
+            reason => "$pve_msg to support Windows 8.1+",
+        };
+    }
 
-    $pve_flags->{'x2apic'} = {
-        op => '-',
-        reason => "$pve_msg incompatible with Solaris",
-        }
-        if $conf->{ostype} && $conf->{ostype} eq 'solaris';
+    if ($conf->{ostype} && $conf->{ostype} eq 'solaris') {
+        $pve_flags->{'x2apic'} = {
+            op => '-',
+            reason => "$pve_msg incompatible with Solaris",
+        };
+    }
 
-    $pve_flags->{'sep'} = {
-        op => '+',
-        reason => "$pve_msg to support Windows 8+ and improve Windows XP+",
-        }
-        if $cputype eq 'kvm64' || $cputype eq 'kvm32';
+    if ($cputype eq 'kvm64' || $cputype eq 'kvm32') {
+        $pve_flags->{'sep'} = {
+            op => '+',
+            reason => "$pve_msg to support Windows 8+ and improve Windows XP+",
+        };
+    }
 
-    $pve_flags->{'rdtscp'} = {
-        op => '-',
-        reason => "$pve_msg broken on AMD Opteron",
-        }
-        if $cputype =~ m/^Opteron/;
+    if ($cputype =~ m/^Opteron/) {
+        $pve_flags->{'rdtscp'} = {
+            op => '-',
+            reason => "$pve_msg broken on AMD Opteron",
+        };
+    }
 
     if (min_version($machine_version, 2, 3) && $kvm && $arch eq 'x86_64') {
         $pve_flags->{'kvm_pv_unhalt'} = {
