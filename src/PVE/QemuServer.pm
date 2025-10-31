@@ -5381,6 +5381,21 @@ my sub remove_left_over_vmstate_opts {
     PVE::QemuConfig->write_config($vmid, $conf) if $found;
 }
 
+sub generate_storage_hints {
+    my ($conf, $plugin_may_deactivate_volume) = @_;
+
+    my $hints = {};
+
+    if (PVE::Storage::Plugin::is_hint_supported('guest-is-windows')) {
+        $hints->{'guest-is-windows'} = int(!!windows_version($conf->{ostype}));
+    }
+    if (PVE::Storage::Plugin::is_hint_supported('plugin-may-deactivate-volume')) {
+        $hints->{'plugin-may-deactivate-volume'} = $plugin_may_deactivate_volume || 0;
+    }
+
+    return $hints;
+}
+
 # see vm_start_nolock for parameters, additionally:
 # migrate_opts:
 #   storagemap = parsed storage map for allocating NBD disks
@@ -5548,7 +5563,9 @@ sub vm_start_nolock {
     my $pci_reserve_list = [];
     eval {
         # With -blockdev, it is necessary to activate the volumes before generating the command line
-        PVE::Storage::activate_volumes($storecfg, $vollist);
+        # Plugins can safely deactivate already-active volumes here if needed
+        my $storage_hints = generate_storage_hints($conf, 1);
+        PVE::Storage::activate_volumes($storecfg, $vollist, undef, $storage_hints);
 
         # Note that for certain cases like templates, the configuration is minimized, so need to ensure
         # the rest of the function here uses the same configuration that was used to build the command
