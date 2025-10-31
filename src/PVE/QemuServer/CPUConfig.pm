@@ -636,16 +636,16 @@ sub get_cpu_options {
 
     my $pve_flags = get_pve_cpu_flags($conf, $kvm, $cputype, $arch, $machine_version);
 
-    my $hv_flags =
-        $kvm
-        ? get_hyperv_enlightenments(
+    my $hv_flags;
+    if ($kvm) {
+        $hv_flags = get_hyperv_enlightenments(
             $winversion,
             $machine_version,
             $conf->{bios},
             $gpu_passthrough,
             $hv_vendor_id,
-        )
-        : undef;
+        );
+    }
 
     my $builtin_cputype_flags =
         parse_cpuflag_list($cpu_flag_any_re, "set by builtin CPU model", $builtin_cpu->{flags});
