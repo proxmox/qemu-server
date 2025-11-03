@@ -53,7 +53,7 @@ sub commit_cloudinit_disk {
     print "generating cloud-init ISO\n";
     eval {
         run_command([
-            ['genisoimage', '-quiet', '-iso-level', '3', '-R', '-V', $label, $path],
+            ['genisoimage', '-quiet', '-iso-level', '3', '-J', '-R', '-V', $label, $path],
             [
                 'qemu-img',
                 'dd',
