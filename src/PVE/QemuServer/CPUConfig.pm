@@ -579,6 +579,31 @@ sub print_cpu_device {
     return "$cpu-x86_64-cpu,id=cpu$id,socket-id=$current_socket,core-id=$current_core,thread-id=0";
 }
 
+=head3 is_abstracted
+
+    if (is_abstracted($conf->{cpu})) {
+        # better check running CPU of QEMU instance
+    }
+
+Check if the configured CPU is abstracted in any way, meaning that the actual CPU model cannot be
+determined from the configuration alone. Possible abstractions:
+
+=over
+
+=item custom model: can change with updates to the custom model configuration
+
+=back
+
+=cut
+
+sub is_abstracted {
+    my ($cpu_property_string) = @_;
+
+    my $cpu_conf = PVE::JSONSchema::parse_property_string('pve-cpu-conf', $cpu_property_string);
+
+    return is_custom_model($cpu_conf->{cputype});
+}
+
 # Resolves multiple arrays of hashes representing CPU flags with metadata to a
 # single string in QEMU "-cpu" compatible format. Later arrays have higher
 # priority.

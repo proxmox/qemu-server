@@ -226,14 +226,9 @@ sub prepare {
 
         $self->{forcemachine} = PVE::QemuServer::Machine::qemu_machine_pxe($vmid, $conf);
 
-        # To support custom CPU types, we keep QEMU's "-cpu" parameter intact.
-        # Since the parameter itself contains no reference to a custom model,
-        # this makes migration independent of changes to "cpu-models.conf".
-        if ($conf->{cpu}) {
-            my $cpuconf = PVE::JSONSchema::parse_property_string('pve-cpu-conf', $conf->{cpu});
-            if ($cpuconf && PVE::QemuServer::CPUConfig::is_custom_model($cpuconf->{cputype})) {
-                $self->{forcecpu} = PVE::QemuServer::CPUConfig::get_cpu_from_running_vm($pid);
-            }
+        # To support abstracted CPU configurations, keep QEMU's "-cpu" parameter intact.
+        if ($conf->{cpu} && PVE::QemuServer::CPUConfig::is_abstracted($conf->{cpu})) {
+            $self->{forcecpu} = PVE::QemuServer::CPUConfig::get_cpu_from_running_vm($pid);
         }
 
         # Do not treat a suspended VM as paused, as it might wake up
