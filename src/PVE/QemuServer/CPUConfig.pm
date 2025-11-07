@@ -7,7 +7,10 @@ use JSON;
 
 use PVE::JSONSchema;
 use PVE::Cluster qw(cfs_register_file cfs_read_file);
+use PVE::ProcFSTools;
+use PVE::RESTEnvironment qw(log_warn);
 use PVE::Tools qw(run_command get_host_arch);
+
 use PVE::QemuServer::Helpers qw(min_version);
 
 use base qw(PVE::SectionConfig Exporter);
@@ -164,6 +167,11 @@ my $cpu_vendor_list = {
 
 my $supported_cpu_flags = [
     {
+        name => 'nested-virt',
+        description => "Controls nested virtualization, namely 'svm' for AMD CPUs and 'vmx' for"
+            . " Intel CPUs. Live migration still only works if it's the same flag on both sides.",
+    },
+    {
         name => 'md-clear',
         description => "Required to let the guest OS know if MDS is mitigated correctly.",
     },
@@ -262,8 +270,10 @@ my $cpu_fmt = {
     },
     flags => {
         description => "List of additional CPU flags separated by ';'. Use '+FLAG' to enable,"
-            . " '-FLAG' to disable a flag. Custom CPU models can specify any flag supported by"
-            . " QEMU/KVM, VM-specific flags must be from the following set for security reasons: "
+            . " '-FLAG' to disable a flag. There is a special 'nested-virt' shorthand which"
+            . " controls nested virtualization for the current CPU ('svm' for AMD and 'vmx' for"
+            . " Intel). Custom CPU models can specify any flag supported by QEMU/KVM, VM-specific"
+            . " flags must be from the following set for security reasons: "
             . join(', ', @supported_cpu_flags_names),
         format_description => '+FLAG[;-FLAG...]',
         type => 'string',
@@ -592,6 +602,8 @@ determined from the configuration alone. Possible abstractions:
 
 =item custom model: can change with updates to the custom model configuration
 
+=item abstract flag: for example, nested-virt changes with the host
+
 =back
 
 =cut
@@ -601,7 +613,15 @@ sub is_abstracted {
 
     my $cpu_conf = PVE::JSONSchema::parse_property_string('pve-cpu-conf', $cpu_property_string);
 
-    return is_custom_model($cpu_conf->{cputype});
+    return 1 if is_custom_model($cpu_conf->{cputype});
+
+    return if !$cpu_conf->{flags};
+    for my $flag (split(";", $cpu_conf->{flags})) {
+        if ($flag =~ $cpu_flag_supported_re) {
+            return 1 if $2 eq 'nested-virt';
+        }
+    }
+    return;
 }
 
 # Resolves multiple arrays of hashes representing CPU flags with metadata to a
@@ -622,8 +642,34 @@ sub resolve_cpu_flags {
 
     my $flags = {};
 
+    my $nested_flag;
+    my $nested_flag_resolved;
+    my $resolve_nested_flag = sub {
+        if (!$nested_flag_resolved) {
+            my $host_cpu_flags = PVE::ProcFSTools::read_cpuinfo()->{flags};
+            if ($host_cpu_flags =~ m/\s(svm|vmx)\s/) {
+                $nested_flag = $1;
+            } else {
+                log_warn("ignoring 'nested-virt' CPU flag - unable to resolve from host CPU flags");
+            }
+            $nested_flag_resolved = 1;
+        }
+        return $nested_flag;
+    };
+
     for my $hash (@flag_hashes) {
         for my $flag_name (keys %$hash) {
+            if ($flag_name eq 'nested-virt') {
+                my $nested_flag_name = $resolve_nested_flag->() or next;
+                if ($hash->{$nested_flag_name}) {
+                    warn "warning: CPU flag '$flag_name' overrides '$nested_flag_name'\n";
+                } else {
+                    print "CPU flag '$flag_name' resolved to '$nested_flag_name'\n";
+                }
+                $hash->{$nested_flag_name} = delete($hash->{$flag_name});
+                $flag_name = $nested_flag_name;
+            }
+
             my $flag = $hash->{$flag_name};
             my $old_flag = $flags->{$flag_name};
 
