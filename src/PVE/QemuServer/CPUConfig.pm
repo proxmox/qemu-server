@@ -162,21 +162,67 @@ my $cpu_vendor_list = {
     max => 'default',
 };
 
-my @supported_cpu_flags = (
-    'pcid',
-    'spec-ctrl',
-    'ibpb',
-    'ssbd',
-    'virt-ssbd',
-    'amd-ssbd',
-    'amd-no-ssb',
-    'pdpe1gb',
-    'md-clear',
-    'hv-tlbflush',
-    'hv-evmcs',
-    'aes',
-);
-my $cpu_flag_supported_re = qr/([+-])(@{[join('|', @supported_cpu_flags)]})/;
+my $supported_cpu_flags = [
+    {
+        name => 'md-clear',
+        description => "Required to let the guest OS know if MDS is mitigated correctly.",
+    },
+    {
+        name => 'pcid',
+        description =>
+            "Meltdown fix cost reduction on Westmere, Sandy-, and IvyBridge Intel CPUs.",
+    },
+    {
+        name => 'spec-ctrl',
+        description => "Allows improved Spectre mitigation with Intel CPUs.",
+    },
+    {
+        name => 'ssbd',
+        description => "Protection for 'Speculative Store Bypass' for Intel models.",
+    },
+    {
+        name => 'ibpb',
+        description => "Allows improved Spectre mitigation with AMD CPUs.",
+    },
+    {
+        name => 'virt-ssbd',
+        description => "Basis for 'Speculative Store Bypass' protection for AMD models.",
+    },
+    {
+        name => 'amd-ssbd',
+        description => "Improves Spectre mitigation performance with AMD CPUs, best used with"
+            . " 'virt-ssbd'.",
+    },
+    {
+        name => 'amd-no-ssb',
+        description => "Notifies guest OS that host is not vulnerable for Spectre on AMD CPUs.",
+    },
+    {
+        name => 'pdpe1gb',
+        description => "Allow guest OS to use 1GB size pages, if host HW supports it.",
+    },
+    {
+        name => 'hv-tlbflush',
+        description => "Improve performance in overcommitted Windows guests. May lead to guest"
+            . " bluescreens on old CPUs.",
+    },
+    {
+        name => 'hv-evmcs',
+        description => "Improve performance for nested virtualization. Only supported on Intel"
+            . " CPUs.",
+    },
+    {
+        name => 'aes',
+        description => "Activate AES instruction set for HW acceleration.",
+    },
+];
+
+sub get_supported_cpu_flags {
+    return $supported_cpu_flags;
+}
+
+my @supported_cpu_flags_names = map { $_->{name} } $supported_cpu_flags->@*;
+my $cpu_flag_supported_re = qr/([+-])(@{[join('|', @supported_cpu_flags_names)]})/;
 my $cpu_flag_any_re = qr/([+-])([a-zA-Z0-9\-_\.]+)/;
 
 our $qemu_cmdline_cpu_re = qr/^((?>[+-]?[\w\-\._=]+,?)+)$/;
@@ -218,7 +264,7 @@ my $cpu_fmt = {
         description => "List of additional CPU flags separated by ';'. Use '+FLAG' to enable,"
             . " '-FLAG' to disable a flag. Custom CPU models can specify any flag supported by"
             . " QEMU/KVM, VM-specific flags must be from the following set for security reasons: "
-            . join(', ', @supported_cpu_flags),
+            . join(', ', @supported_cpu_flags_names),
         format_description => '+FLAG[;-FLAG...]',
         type => 'string',
         pattern => qr/$cpu_flag_any_re(;$cpu_flag_any_re)*/,
@@ -345,7 +391,8 @@ sub validate_vm_cpu_conf {
     # in a VM-specific config, certain properties are limited/forbidden
 
     if ($cpu->{flags} && $cpu->{flags} !~ m/^$cpu_flag_supported_re(;$cpu_flag_supported_re)*$/) {
-        die "VM-specific CPU flags must be a subset of: @{[join(', ', @supported_cpu_flags)]}\n";
+        die "VM-specific CPU flags must be a subset of: "
+            . join(', ', @supported_cpu_flags_names) . "\n";
     }
 
     if (defined($cpu->{'reported-model'})) {

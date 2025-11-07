@@ -2,7 +2,7 @@ DESTDIR=
 PREFIX=/usr
 PERLDIR=$(PREFIX)/share/perl5
 
-SOURCES=Agent.pm CPU.pm HMPPerms.pm Machine.pm
+SOURCES=Agent.pm CPU.pm CPUFlags.pm HMPPerms.pm Machine.pm
 
 .PHONY: install
 install:
