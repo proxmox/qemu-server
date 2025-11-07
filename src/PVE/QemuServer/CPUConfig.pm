@@ -546,9 +546,11 @@ sub print_cpu_device {
 #     ...
 # }
 sub resolve_cpu_flags {
+    my @flag_hashes = @_;
+
     my $flags = {};
 
-    for my $hash (@_) {
+    for my $hash (@flag_hashes) {
         for my $flag_name (keys %$hash) {
             my $flag = $hash->{$flag_name};
             my $old_flag = $flags->{$flag_name};
