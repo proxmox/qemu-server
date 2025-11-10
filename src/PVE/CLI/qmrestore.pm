@@ -72,6 +72,12 @@ __PACKAGE__->register_method({
                 description =>
                     "Start the VM immediately from the backup and restore in background. PBS only.",
             },
+            start => {
+                optional => 1,
+                type => 'boolean',
+                default => 0,
+                description => "Start VM after it was restored successfully.",
+            },
         },
     },
     returns => {
