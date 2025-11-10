@@ -1,3 +1,26 @@
+qemu-server (9.0.24) trixie; urgency=medium
+
+  * api: create/store: allow adding newly created VM to be managed as HA
+    resource.
+
+  * pending config: avoid warning about accessing an uninitialized value when
+    comparing new hotplug configuration with the existing one.
+
+  * improve performance of helper to query some config properties that is used
+    in a hot-path of the HA stack and can impact the performance of the
+    cluster resource scheduler when there are many VMs managed by HA.
+
+  * vm status: make sure disk{read, write} adhere to return schema to fix
+    temporary regression for PDM.
+
+  * config schema: document hugepages option.
+
+  * fix #6989: cloudinit: enable joliet ISO extension for the generated config
+    disks to improve compatibility with file names mandated by the nocloud ISO
+    image disk format and Windows guests.
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 10 Nov 2025 17:29:52 +0100
+
 qemu-server (9.0.23) trixie; urgency=medium
 
   * fix #6713: snapshot volume chain: fix snapshot after disk move with
