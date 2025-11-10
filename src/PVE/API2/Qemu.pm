@@ -1388,9 +1388,8 @@ __PACKAGE__->register_method({
             if ($ha_managed) {
                 print "Add as HA resource\n";
                 my $state = $start_after_create ? 'started' : 'stopped';
-                eval {
-                    PVE::API2::HA::Resources->create({ sid => "vm:$vmid", state => $state });
-                };
+                my $cmd = ['ha-manager', 'add', "vm:$vmid", '--state', $state];
+                eval { PVE::Tools::run_command($cmd); };
                 warn $@ if $@;
             }
         };
@@ -1479,9 +1478,8 @@ __PACKAGE__->register_method({
             if ($ha_managed) {
                 print "Add as HA resource\n";
                 my $state = $start_after_create ? 'started' : 'stopped';
-                eval {
-                    PVE::API2::HA::Resources->create({ sid => "vm:$vmid", state => $state });
-                };
+                my $cmd = ['ha-manager', 'add', "vm:$vmid", '--state', $state];
+                eval { PVE::Tools::run_command($cmd); };
                 warn $@ if $@;
             }
 
