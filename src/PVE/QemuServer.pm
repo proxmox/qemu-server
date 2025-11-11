@@ -7869,7 +7869,11 @@ sub clone_disk {
                 if ($src_format eq 'qcow2' && $snapname) {
                     die "cannot clone qcow2 EFI disk snapshot - requires QEMU >= 6.2\n"
                         if !min_version(kvm_user_version(), 6, 2);
-                    push $cmd->@*, '-l', $snapname;
+
+                    my $method =
+                        PVE::Storage::volume_qemu_snapshot_method($storecfg, $drive->{file});
+                    # in case of snapshot-as-volume-chain, $src_path points to the snapshot volume
+                    push $cmd->@*, '-l', $snapname if $method eq 'qemu';
                 }
                 push $cmd->@*, "bs=$bs", "osize=$size", "if=$src_path", "of=$dst_path";
                 run_command($cmd);
