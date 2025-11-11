@@ -85,6 +85,20 @@ sub add_fuse_export($id, $drive, $name) {
     return $fuse_path;
 }
 
+=head3 remove_fuse_export
+
+    PVE::QemuServer::QSD::remove_fuse_export($id, $name);
+
+Remove the export with name C<$name> from the storage daemon with ID C<$id>.
+
+=cut
+
+sub remove_fuse_export($id, $name) {
+    PVE::QemuServer::Monitor::qsd_cmd($id, 'block-export-del', id => "$name");
+
+    return;
+}
+
 =head3 quit
 
     PVE::QemuServer::QSD::quit($id);
