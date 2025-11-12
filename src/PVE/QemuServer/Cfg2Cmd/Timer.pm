@@ -20,9 +20,9 @@ sub generate {
 
     if ($cfg2cmd->windows_version() >= 6) {
         $cfg2cmd->add_global_flag('kvm-pit.lost_tick_policy=discard');
-        $cfg2cmd->add_machine_flag('hpet=off');
+        $cfg2cmd->add_machine_flag_if_supported('hpet', 'off');
     } elsif ($cfg2cmd->is_linux() && $cfg2cmd->version_guard(10, 1, 0)) {
-        $cfg2cmd->add_machine_flag('hpet=off');
+        $cfg2cmd->add_machine_flag_if_supported('hpet', 'off');
     }
 
     $cfg2cmd->add_rtc_flag('driftfix=slew') if $time_drift_fix;

@@ -5,9 +5,10 @@ use strict;
 
 use PVE::QemuServer::Cfg2Cmd::Timer;
 use PVE::QemuServer::Helpers;
+use PVE::QemuServer::Machine;
 
 sub new {
-    my ($class, $conf, $defaults, $version_guard) = @_;
+    my ($class, $conf, $defaults, $version_guard, $opts) = @_;
 
     my $self = bless {
         conf => $conf,
@@ -17,6 +18,10 @@ sub new {
 
     $self->{ostype} = $self->get_prop('ostype');
     $self->{'windows-version'} = PVE::QemuServer::Helpers::windows_version($self->{ostype});
+
+    my $arch = PVE::QemuServer::Helpers::get_vm_arch($conf);
+    $self->{'machine-type'} =
+        PVE::QemuServer::Machine::get_vm_machine($conf, $opts->{forcemachine}, $arch);
 
     return $self;
 }
@@ -51,10 +56,23 @@ sub global_flags {
     return $self->{'global-flags'};
 }
 
-sub add_machine_flag {
-    my ($self, $flag) = @_;
+=head3 add_machine_flag_if_supported
 
-    push $self->{'machine-flags'}->@*, $flag;
+    my $success = $self->add_machine_flag_if_supported($flag_name, $value);
+
+Add flag C<$flag_name> with value C<$value> to the machine flags if the current machine type
+supports it. Returns whether the flag was added or not.
+
+=cut
+
+sub add_machine_flag_if_supported {
+    my ($self, $flag_name, $value) = @_;
+
+    return if !PVE::QemuServer::Machine::machine_supports_flag($self->{'machine-type'}, $flag_name);
+
+    push $self->{'machine-flags'}->@*, "${flag_name}=${value}";
+
+    return 1;
 }
 
 sub machine_flags {

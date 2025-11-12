@@ -3401,7 +3401,8 @@ sub config_to_command {
     }
 
     # For now, handles only specific parts, but the final goal is to cover everything.
-    my $cfg2cmd = PVE::QemuServer::Cfg2Cmd->new($conf, $defaults, $version_guard);
+    my $cfg2cmd_opts = { forcemachine => $forcemachine };
+    my $cfg2cmd = PVE::QemuServer::Cfg2Cmd->new($conf, $defaults, $version_guard, $cfg2cmd_opts);
     my $generated = $cfg2cmd->generate();
     push $cmd->@*, '-global', $_ for ($generated->global_flags() // [])->@*;
     push $machineFlags->@*, ($generated->machine_flags() // [])->@*;
