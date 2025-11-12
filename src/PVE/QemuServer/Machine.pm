@@ -142,11 +142,34 @@ sub assert_valid_machine_property {
         if $machine_conf->{'aw-bits'} && !$machine_conf->{viommu};
 }
 
+=head3 machine_base_type
+
+    my $base_type = machine_base_type($machine_type);
+
+Returns the base type of the machine, currently either C<i440fx>, C<q35> or C<virt>. A value must be
+passed in. Dies if the machine type cannot be determined, but should not happen if it is valid for
+the C<$machine_fmt> schema.
+
+=cut
+
+my sub machine_base_type {
+    my ($machine_type) = @_;
+
+    die "unable to determine machine base type - no value\n" if !$machine_type;
+
+    return 'q35' if $machine_type =~ m/q35/;
+    return 'i440fx' if $machine_type =~ m/^pc/;
+    return 'virt' if $machine_type =~ m/^virt/;
+
+    die "unable to determine machine base type '$machine_type'\n";
+}
+
 sub machine_type_is_q35 {
     my ($conf) = @_;
 
     my $machine_conf = parse_machine($conf->{machine});
-    return $machine_conf->{type} && ($machine_conf->{type} =~ m/q35/) ? 1 : 0;
+    return 0 if !$machine_conf || !$machine_conf->{type};
+    return machine_base_type($machine_conf->{type}) eq 'q35' ? 1 : 0;
 }
 
 # In list context, also returns whether the current machine is deprecated or not.
