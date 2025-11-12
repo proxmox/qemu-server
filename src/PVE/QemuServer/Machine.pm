@@ -172,6 +172,38 @@ sub machine_type_is_q35 {
     return machine_base_type($machine_conf->{type}) eq 'q35' ? 1 : 0;
 }
 
+# When you need to check a new flag, extend here and the POD for machine_supports_flag().
+my $supported_machine_flags = {
+    i440fx => {
+        hpet => 1,
+    },
+    q35 => {
+        hpet => 1,
+    },
+    virt => {},
+};
+
+=head3 machine_supports_flag
+
+    if (machine_supports_flag($machine_type, $flag)) {
+        push $machine_flags->@*, $flag;
+    }
+
+Check whether the machine type C<$machine_type> supports the machine flag C<$flag>. Both arguments
+must have a value. Flags which can be checked currently: C<hpet>.
+
+=cut
+
+sub machine_supports_flag {
+    my ($machine_type, $flag) = @_;
+
+    die "cannot check machine flag support - no machine type provided\n" if !$machine_type;
+    die "cannot check machine flag support - no flag provided\n" if !$flag;
+
+    my $base_type = machine_base_type($machine_type);
+    return $supported_machine_flags->{$base_type}->{$flag};
+}
+
 # In list context, also returns whether the current machine is deprecated or not.
 sub current_from_query_machines {
     my ($machines) = @_;
