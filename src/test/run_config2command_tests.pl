@@ -525,7 +525,6 @@ $qemu_monitor_module->mock(
         die "unexpected QMP command: '$cmd'";
     },
 );
-$qemu_monitor_module->mock('qmp_cmd', \&qmp_cmd);
 
 my $mapping_usb_module = Test::MockModule->new("PVE::Mapping::USB");
 $mapping_usb_module->mock(
