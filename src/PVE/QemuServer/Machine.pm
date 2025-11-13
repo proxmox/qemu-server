@@ -363,11 +363,17 @@ sub qemu_machine_pxe {
     return $machine;
 }
 
-sub get_installed_machine_version {
+sub latest_installed_machine_version {
     my ($kvmversion) = @_;
+
     $kvmversion = PVE::QemuServer::Helpers::kvm_user_version() if !defined($kvmversion);
-    $kvmversion =~ m/^(\d+\.\d+)/;
-    return $1;
+
+    my ($version) = ($kvmversion =~ m/^(\d+\.\d+)/);
+
+    my $pvever = get_pve_version($version);
+    $version .= "+pve$pvever" if $pvever > 0;
+
+    return $version;
 }
 
 sub windows_get_pinned_machine_version {
@@ -375,12 +381,7 @@ sub windows_get_pinned_machine_version {
 
     my $pin_version = $base_version;
     if (!defined($base_version) || !can_run_pve_machine_version($base_version, $kvmversion)) {
-        $pin_version = get_installed_machine_version($kvmversion);
-        # pin to the current pveX version to make use of most current features if > 0
-        my $pvever = get_pve_version($pin_version);
-        if ($pvever > 0) {
-            $pin_version .= "+pve$pvever";
-        }
+        $pin_version = latest_installed_machine_version($kvmversion);
     }
     if (!$machine || $machine eq 'pc') {
         $machine = "pc-i440fx-$pin_version";
