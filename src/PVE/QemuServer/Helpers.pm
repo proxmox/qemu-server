@@ -89,6 +89,39 @@ sub qsd_pidfile_name {
     return "${var_run_tmpdir}/qsd-${id}.pid";
 }
 
+sub qsd_fuse_export_cleanup_files {
+    my ($id) = @_;
+
+    # Usually, /var/run is a symlink to /run. It needs to be the exact path for checking if mounted
+    # below. Note that Cwd::realpath() needs to be done on the directory already. Doing it on the
+    # file does not work if the storage daemon is not running and the FUSE is still mounted.
+    my ($real_dir) = Cwd::realpath($var_run_tmpdir) =~ m/^(.*)$/; # untaint
+    if (!$real_dir) {
+        warn "error resolving $var_run_tmpdir - not checking for left-over QSD files\n";
+        return;
+    }
+
+    my $mounts = PVE::ProcFSTools::parse_proc_mounts();
+
+    PVE::Tools::dir_glob_foreach(
+        $real_dir,
+        "qsd-${id}-.*\.fuse",
+        sub {
+            my ($file) = @_;
+            my $path = "${real_dir}/${file}";
+            if (grep { $_->[1] eq $path } $mounts->@*) {
+                PVE::Tools::run_command(['umount', $path]);
+            }
+            unlink $path;
+        },
+    );
+}
+
+sub qsd_fuse_export_path {
+    my ($id, $export_name) = @_;
+    return "${var_run_tmpdir}/qsd-${id}-${export_name}.fuse";
+}
+
 sub vm_pidfile_name {
     my ($vmid) = @_;
     return "${var_run_tmpdir}/$vmid.pid";

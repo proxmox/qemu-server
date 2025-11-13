@@ -23,6 +23,7 @@ SOURCES=Agent.pm	\
 	PCI.pm		\
 	QemuImage.pm	\
 	QMPHelpers.pm	\
+	QSD.pm		\
 	RNG.pm		\
 	RunState.pm	\
 	StateFile.pm	\
