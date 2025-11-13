@@ -732,6 +732,13 @@ EODESCR
             "List of host cores used to execute guest processes, for example: 0,5,8-11",
         optional => 1,
     },
+    'allow-ksm' => {
+        type => 'boolean',
+        description => "Allow memory pages of this guest to be merged via KSM (Kernel Samepage"
+            . " Merging).",
+        optional => 1,
+        default => 1,
+    },
 };
 
 my $cicustom_fmt = {
@@ -3791,6 +3798,8 @@ sub config_to_command {
         push @$machineFlags, 'confidential-guest-support=tdx0';
         push @$machineFlags, 'kernel_irqchip=split';
     }
+
+    push @$machineFlags, 'mem-merge=off' if defined($conf->{'allow-ksm'}) && !$conf->{'allow-ksm'};
 
     PVE::QemuServer::Virtiofs::config($conf, $vmid, $devices);
 
