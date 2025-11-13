@@ -19,11 +19,12 @@ our @EXPORT_OK = qw(
     my $result = qmp_cmd($peer, $cmd);
 
 Execute the C<$qmp_command_name> with arguments C<%params> for the peer C<$peer>. The type C<$type>
-of the peer can be C<qmp> for the QEMU instance of the VM or C<qga> for the guest agent of the VM.
-Dies if the VM is not running or the monitor socket cannot be reached, even if the C<noerr> argument
-is used. Returns the structured result from the QMP side converted from JSON to structured Perl
-data. In case the C<noerr> argument is used and the QMP command failed or timed out, the result is a
-hash reference with an C<error> key containing the error message.
+of the peer can be C<qmp> for the QEMU instance of the VM,  C<qga> for the guest agent of the VM or
+C<qsd> for the QEMU storage daemon associated to the VM. Dies if the VM is not running or the
+monitor socket cannot be reached, even if the C<noerr> argument is used. Returns the structured
+result from the QMP side converted from JSON to structured Perl data. In case the C<noerr> argument
+is used and the QMP command failed or timed out, the result is a hash reference with an C<error> key
+containing the error message.
 
 Parameters:
 
@@ -37,8 +38,8 @@ Parameters:
 
 =item C<$id>: Identifier for the peer. The pair C<($id, $type)> uniquely identifies a peer.
 
-=item C<$type>: Type of the peer to communicate with. This can be C<qmp> for the VM's QEMU instance
-or C<qga> for the VM's guest agent.
+=item C<$type>: Type of the peer to communicate with. This can be C<qmp> for the VM's QEMU instance,
+C<qga> for the VM's guest agent or C<qsd> for the QEMU storage daemon assoicated to the VM.
 
 =back
 
@@ -74,6 +75,9 @@ sub qmp_cmd {
         if ($peer->{type} eq 'qmp' || $peer->{type} eq 'qga') {
             die "$peer->{name} not running\n"
                 if !PVE::QemuServer::Helpers::vm_running_locally($peer->{id});
+        } elsif ($peer->{type} eq 'qsd') {
+            die "$peer->{name} not running\n"
+                if !PVE::QemuServer::Helpers::qsd_running_locally($peer->{id});
         } else {
             die "qmp_cmd - unknown peer type $peer->{type}\n";
         }
@@ -93,6 +97,14 @@ sub qmp_cmd {
     }
 
     return $res;
+}
+
+sub qsd_cmd {
+    my ($id, $execute, %params) = @_;
+
+    my $cmd = { execute => $execute, arguments => \%params };
+
+    return qmp_cmd({ name => "QEMU storage daemon $id", id => $id, type => 'qsd' }, $cmd);
 }
 
 sub mon_cmd {
