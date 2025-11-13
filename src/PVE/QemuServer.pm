@@ -2963,7 +2963,7 @@ sub query_supported_cpu_flags {
     my $kvm_supported = defined(kvm_version());
     my $qemu_cmd = PVE::QemuServer::Helpers::get_command_for_arch($arch);
     my $fakevmid = -1;
-    my $pidfile = PVE::QemuServer::Helpers::pidfile_name($fakevmid);
+    my $pidfile = PVE::QemuServer::Helpers::vm_pidfile_name($fakevmid);
 
     # Start a temporary (frozen) VM with vmid -1 to allow sending a QMP command
     my $query_supported_run_qemu = sub {
@@ -3217,7 +3217,7 @@ sub config_to_command {
         push @$cmd, '-mon', "chardev=qmp-event,mode=control";
     }
 
-    push @$cmd, '-pidfile', PVE::QemuServer::Helpers::pidfile_name($vmid);
+    push @$cmd, '-pidfile', PVE::QemuServer::Helpers::vm_pidfile_name($vmid);
 
     push @$cmd, '-daemonize';
 

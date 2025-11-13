@@ -84,7 +84,12 @@ sub qmp_socket {
     return "${var_run_tmpdir}/${id}.${type}";
 }
 
-sub pidfile_name {
+sub qsd_pidfile_name {
+    my ($id) = @_;
+    return "${var_run_tmpdir}/qsd-${id}.pid";
+}
+
+sub vm_pidfile_name {
     my ($vmid) = @_;
     return "${var_run_tmpdir}/$vmid.pid";
 }
@@ -94,7 +99,7 @@ sub vnc_socket {
     return "${var_run_tmpdir}/$vmid.vnc";
 }
 
-# Parse the cmdline of a running kvm/qemu process and return arguments as hash
+# Parse the cmdline of a running kvm/qemu-* process and return arguments as hash
 sub parse_cmdline {
     my ($pid) = @_;
 
@@ -106,7 +111,7 @@ sub parse_cmdline {
         my @param = split(/\0/, $line);
 
         my $cmd = $param[0];
-        return if !$cmd || ($cmd !~ m|kvm$| && $cmd !~ m@(?:^|/)qemu-system-[^/]+$@);
+        return if !$cmd || ($cmd !~ m|kvm$| && $cmd !~ m@(?:^|/)qemu-[^/]+$@);
 
         my $phash = {};
         my $pending_cmd;
@@ -130,10 +135,8 @@ sub parse_cmdline {
     return;
 }
 
-sub vm_running_locally {
-    my ($vmid) = @_;
-
-    my $pidfile = pidfile_name($vmid);
+my sub instance_running_locally {
+    my ($pidfile) = @_;
 
     if (my $fd = IO::File->new("<$pidfile")) {
         my $st = stat($fd);
@@ -162,6 +165,22 @@ sub vm_running_locally {
     }
 
     return;
+}
+
+sub qsd_running_locally {
+    my ($id) = @_;
+
+    my $pidfile = qsd_pidfile_name($id);
+
+    return instance_running_locally($pidfile);
+}
+
+sub vm_running_locally {
+    my ($vmid) = @_;
+
+    my $pidfile = vm_pidfile_name($vmid);
+
+    return instance_running_locally($pidfile);
 }
 
 sub min_version {
