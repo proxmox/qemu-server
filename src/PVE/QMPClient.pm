@@ -53,15 +53,13 @@ my $qga_allow_close_cmds = {
 };
 
 my $push_cmd_to_queue = sub {
-    my ($self, $vmid, $cmd) = @_;
+    my ($self, $peer, $cmd) = @_;
 
     my $execute = $cmd->{execute} || die "no command name specified";
 
-    my $qga = ($execute =~ /^guest\-+/) ? 1 : 0;
+    my $sname = PVE::QemuServer::Helpers::qmp_socket($peer);
 
-    my $sname = PVE::QemuServer::Helpers::qmp_socket($vmid, $qga);
-
-    $self->{queue_info}->{$sname} = { qga => $qga, vmid => $vmid, sname => $sname, cmds => [] }
+    $self->{queue_info}->{$sname} = { peer => $peer, sname => $sname, cmds => [] }
         if !$self->{queue_info}->{$sname};
 
     push @{ $self->{queue_info}->{$sname}->{cmds} }, $cmd;
@@ -72,26 +70,26 @@ my $push_cmd_to_queue = sub {
 # add a single command to the queue for later execution
 # with queue_execute()
 sub queue_cmd {
-    my ($self, $vmid, $callback, $execute, %params) = @_;
+    my ($self, $peer, $callback, $execute, %params) = @_;
 
     my $cmd = {};
     $cmd->{execute} = $execute;
     $cmd->{arguments} = \%params;
     $cmd->{callback} = $callback;
 
-    &$push_cmd_to_queue($self, $vmid, $cmd);
+    &$push_cmd_to_queue($self, $peer, $cmd);
 
     return;
 }
 
 # execute a single command
 sub cmd {
-    my ($self, $vmid, $cmd, $timeout, $noerr) = @_;
+    my ($self, $peer, $cmd, $timeout, $noerr) = @_;
 
     my $result;
 
     my $callback = sub {
-        my ($vmid, $resp) = @_;
+        my ($id, $resp) = @_;
         $result = $resp->{'return'};
         $result = { error => $resp->{'error'} } if !defined($result) && $resp->{'error'};
     };
@@ -101,7 +99,7 @@ sub cmd {
     $cmd->{callback} = $callback;
     $cmd->{arguments} = {} if !defined($cmd->{arguments});
 
-    my $queue_info = &$push_cmd_to_queue($self, $vmid, $cmd);
+    my $queue_info = &$push_cmd_to_queue($self, $peer, $cmd);
 
     if (!$timeout) {
         # hack: monitor sometime blocks
@@ -158,7 +156,8 @@ sub cmd {
     $self->queue_execute($timeout, 2);
 
     if (defined($queue_info->{error})) {
-        die "VM $vmid qmp command '$cmd->{execute}' failed - $queue_info->{error}" if !$noerr;
+        die "$peer->{name} $peer->{type} command '$cmd->{execute}' failed - $queue_info->{error}"
+            if !$noerr;
         $result = { error => $queue_info->{error} };
         $result->{'error-is-timeout'} = 1 if $queue_info->{'error-is-timeout'};
     }
@@ -206,10 +205,10 @@ my $open_connection = sub {
 
     die "duplicate call to open" if defined($queue_info->{fh});
 
-    my $vmid = $queue_info->{vmid};
-    my $qga = $queue_info->{qga};
+    my $peer = $queue_info->{peer};
+    my ($peer_name, $sotype) = $peer->@{qw(name type)};
 
-    my $sname = PVE::QemuServer::Helpers::qmp_socket($vmid, $qga);
+    my $sname = PVE::QemuServer::Helpers::qmp_socket($peer);
 
     $timeout = 1 if !$timeout;
 
@@ -217,18 +216,17 @@ my $open_connection = sub {
     my $starttime = [gettimeofday];
     my $count = 0;
 
-    my $sotype = $qga ? 'qga' : 'qmp';
-
     for (;;) {
         $count++;
         $fh = IO::Socket::UNIX->new(Peer => $sname, Blocking => 0, Timeout => 1);
         last if $fh;
         if ($! != EINTR && $! != EAGAIN) {
-            die "unable to connect to VM $vmid $sotype socket - $!\n";
+            die "unable to connect to $peer_name $sotype socket - $!\n";
         }
         my $elapsed = tv_interval($starttime, [gettimeofday]);
         if ($elapsed >= $timeout) {
-            die "unable to connect to VM $vmid $sotype socket - timeout after $count retries\n";
+            die
+                "unable to connect to $peer_name $sotype socket - timeout after $count retries\n";
         }
         usleep(100000);
     }
@@ -253,7 +251,7 @@ my $check_queue = sub {
         my $fh = $queue_info->{fh};
         next if !$fh;
 
-        my $qga = $queue_info->{qga};
+        my $qga = $queue_info->{peer}->{type} eq 'qga';
 
         if ($queue_info->{error}) {
             &$close_connection($self, $queue_info);
@@ -339,7 +337,7 @@ sub queue_execute {
         eval {
             &$open_connection($self, $queue_info, $timeout);
 
-            if (!$queue_info->{qga}) {
+            if ($queue_info->{peer}->{type} ne 'qga') {
                 my $cap_cmd = { execute => 'qmp_capabilities', arguments => {} };
                 unshift @{ $queue_info->{cmds} }, $cap_cmd;
             }
@@ -397,11 +395,11 @@ sub mux_input {
     return if !$queue_info;
 
     my $sname = $queue_info->{sname};
-    my $vmid = $queue_info->{vmid};
-    my $qga = $queue_info->{qga};
+    my ($id, $peer_name) = $queue_info->{peer}->@{qw(id name)};
+    my $qga = $queue_info->{peer}->{type} eq 'qga';
 
     my $curcmd = $queue_info->{current};
-    die "unable to lookup current command for VM $vmid ($sname)\n" if !$curcmd;
+    die "unable to lookup current command for $peer_name ($sname)\n" if !$curcmd;
 
     my $raw;
 
@@ -437,7 +435,7 @@ sub mux_input {
             $obj = from_json($jsons[1]);
 
             if (my $callback = $curcmd->{callback}) {
-                &$callback($vmid, $obj);
+                &$callback($id, $obj);
             }
 
             return;
@@ -471,7 +469,7 @@ sub mux_input {
             delete $queue_info->{current};
 
             if (my $callback = $curcmd->{callback}) {
-                &$callback($vmid, $obj);
+                &$callback($id, $obj);
             }
         }
     };
@@ -501,11 +499,11 @@ sub mux_eof {
     return if !$queue_info;
 
     my $sname = $queue_info->{sname};
-    my $vmid = $queue_info->{vmid};
-    my $qga = $queue_info->{qga};
+    my ($id, $peer_name) = $queue_info->{peer}->@{qw(id name)};
+    my $qga = $queue_info->{peer}->{type} eq 'qga';
 
     my $curcmd = $queue_info->{current};
-    die "unable to lookup current command for VM $vmid ($sname)\n" if !$curcmd;
+    die "unable to lookup current command for $peer_name ($sname)\n" if !$curcmd;
 
     if ($qga && $qga_allow_close_cmds->{ $curcmd->{execute} }) {
 
@@ -522,7 +520,7 @@ sub mux_eof {
             delete $queue_info->{current};
 
             if (my $callback = $curcmd->{callback}) {
-                &$callback($vmid, undef);
+                &$callback($id, undef);
             }
         };
         if (my $err = $@) {

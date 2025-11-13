@@ -15,19 +15,32 @@ our @EXPORT_OK = qw(
 =head3 qmp_cmd
 
     my $cmd = { execute => $qmp_command_name, arguments => \%params };
-    my $result = qmp_cmd($vmid, $cmd);
+    my $peer = { name => $name, id => $id, type => $type };
+    my $result = qmp_cmd($peer, $cmd);
 
-Execute the C<$qmp_command_name> with arguments C<%params> for VM C<$vmid>. Dies if the VM is not
-running or the monitor socket cannot be reached, even if the C<noerr> argument is used. Returns the
-structured result from the QMP side converted from JSON to structured Perl data. In case the
-C<noerr> argument is used and the QMP command failed or timed out, the result is a hash reference
-with an C<error> key containing the error message.
+Execute the C<$qmp_command_name> with arguments C<%params> for the peer C<$peer>. The type C<$type>
+of the peer can be C<qmp> for the QEMU instance of the VM or C<qga> for the guest agent of the VM.
+Dies if the VM is not running or the monitor socket cannot be reached, even if the C<noerr> argument
+is used. Returns the structured result from the QMP side converted from JSON to structured Perl
+data. In case the C<noerr> argument is used and the QMP command failed or timed out, the result is a
+hash reference with an C<error> key containing the error message.
 
 Parameters:
 
 =over
 
-=item C<$vmid>: The ID of the virtual machine.
+=item C<$peer>: The peer to communicate with. A hash reference with:
+
+=over
+
+=item C<$name>: Name of the peer used in error messages.
+
+=item C<$id>: Identifier for the peer. The pair C<($id, $type)> uniquely identifies a peer.
+
+=item C<$type>: Type of the peer to communicate with. This can be C<qmp> for the VM's QEMU instance
+or C<qga> for the VM's guest agent.
+
+=back
 
 =item C<$cmd>: Hash reference containing the QMP command name for the C<execute> key and additional
 arguments for the QMP command under the C<arguments> key. The following custom arguments are not
@@ -48,7 +61,7 @@ handle the error that is returned as a structured result.
 =cut
 
 sub qmp_cmd {
-    my ($vmid, $cmd) = @_;
+    my ($peer, $cmd) = @_;
 
     my $res;
 
@@ -58,18 +71,24 @@ sub qmp_cmd {
     }
 
     eval {
-        die "VM $vmid not running\n" if !PVE::QemuServer::Helpers::vm_running_locally($vmid);
-        my $sname = PVE::QemuServer::Helpers::qmp_socket($vmid);
+        if ($peer->{type} eq 'qmp' || $peer->{type} eq 'qga') {
+            die "$peer->{name} not running\n"
+                if !PVE::QemuServer::Helpers::vm_running_locally($peer->{id});
+        } else {
+            die "qmp_cmd - unknown peer type $peer->{type}\n";
+        }
+
+        my $sname = PVE::QemuServer::Helpers::qmp_socket($peer);
         if (-e $sname) { # test if VM is reasonably new and supports qmp/qga
             my $qmpclient = PVE::QMPClient->new();
 
-            $res = $qmpclient->cmd($vmid, $cmd, $timeout, $noerr);
+            $res = $qmpclient->cmd($peer, $cmd, $timeout, $noerr);
         } else {
             die "unable to open monitor socket\n";
         }
     };
     if (my $err = $@) {
-        syslog("err", "VM $vmid qmp command failed - $err");
+        syslog("err", "$peer->{name} $peer->{type} command failed - $err");
         die $err;
     }
 
@@ -81,7 +100,9 @@ sub mon_cmd {
 
     my $cmd = { execute => $execute, arguments => \%params };
 
-    return qmp_cmd($vmid, $cmd);
+    my $type = ($execute =~ /^guest\-+/) ? 'qga' : 'qmp';
+
+    return qmp_cmd({ name => "VM $vmid", id => $vmid, type => $type }, $cmd);
 }
 
 sub hmp_cmd {
@@ -92,7 +113,7 @@ sub hmp_cmd {
         arguments => { 'command-line' => $cmdline, timeout => $timeout },
     };
 
-    return qmp_cmd($vmid, $cmd);
+    return qmp_cmd({ name => "VM $vmid", id => $vmid, type => 'qmp' }, $cmd);
 }
 
 1;

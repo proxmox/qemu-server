@@ -79,9 +79,9 @@ our $var_run_tmpdir = "/var/run/qemu-server";
 mkdir $var_run_tmpdir;
 
 sub qmp_socket {
-    my ($vmid, $qga) = @_;
-    my $sockettype = $qga ? 'qga' : 'qmp';
-    return "${var_run_tmpdir}/$vmid.$sockettype";
+    my ($peer) = @_;
+    my ($id, $type) = $peer->@{qw(id type)};
+    return "${var_run_tmpdir}/${id}.${type}";
 }
 
 sub pidfile_name {

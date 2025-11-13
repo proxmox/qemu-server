@@ -995,6 +995,7 @@ sub archive_vma {
         }
 
         my $qmpclient = PVE::QMPClient->new();
+        my $qmp_peer = { name => "VM $vmid", id => $vmid, type => 'qmp' };
         my $backup_cb = sub {
             my ($vmid, $resp) = @_;
             $backup_job_uuid = $resp->{return}->{UUID};
@@ -1012,10 +1013,14 @@ sub archive_vma {
             $params->{fleecing} = JSON::true if $task->{'use-fleecing'};
             add_backup_performance_options($params, $opts->{performance}, $qemu_support);
 
-            $qmpclient->queue_cmd($vmid, $backup_cb, 'backup', %$params);
+            $qmpclient->queue_cmd($qmp_peer, $backup_cb, 'backup', %$params);
         };
 
-        $qmpclient->queue_cmd($vmid, $add_fd_cb, 'getfd', fd => $outfileno, fdname => "backup");
+        $qmpclient->queue_cmd(
+            $qmp_peer, $add_fd_cb, 'getfd',
+            fd => $outfileno,
+            fdname => "backup",
+        );
 
         my $fs_frozen = $self->qga_fs_freeze($task, $vmid);
 

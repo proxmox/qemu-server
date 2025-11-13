@@ -2725,13 +2725,15 @@ sub vmstatus {
     my $statuscb = sub {
         my ($vmid, $resp) = @_;
 
-        $qmpclient->queue_cmd($vmid, $proxmox_support_cb, 'query-proxmox-support');
-        $qmpclient->queue_cmd($vmid, $blockstatscb, 'query-blockstats');
-        $qmpclient->queue_cmd($vmid, $machinecb, 'query-machines');
-        $qmpclient->queue_cmd($vmid, $versioncb, 'query-version');
+        my $qmp_peer = { name => "VM $vmid", id => $vmid, type => 'qmp' };
+
+        $qmpclient->queue_cmd($qmp_peer, $proxmox_support_cb, 'query-proxmox-support');
+        $qmpclient->queue_cmd($qmp_peer, $blockstatscb, 'query-blockstats');
+        $qmpclient->queue_cmd($qmp_peer, $machinecb, 'query-machines');
+        $qmpclient->queue_cmd($qmp_peer, $versioncb, 'query-version');
         # this fails if ballon driver is not loaded, so this must be
         # the last command (following command are aborted if this fails).
-        $qmpclient->queue_cmd($vmid, $ballooncb, 'query-balloon');
+        $qmpclient->queue_cmd($qmp_peer, $ballooncb, 'query-balloon');
 
         my $status = 'unknown';
         if (!defined($status = $resp->{'return'}->{status})) {
@@ -2745,7 +2747,8 @@ sub vmstatus {
     foreach my $vmid (keys %$list) {
         next if $opt_vmid && ($vmid ne $opt_vmid);
         next if !$res->{$vmid}->{pid}; # not running
-        $qmpclient->queue_cmd($vmid, $statuscb, 'query-status');
+        my $qmp_peer = { name => "VM $vmid", id => $vmid, type => 'qmp' };
+        $qmpclient->queue_cmd($qmp_peer, $statuscb, 'query-status');
     }
 
     $qmpclient->queue_execute(undef, 2);
@@ -3199,7 +3202,8 @@ sub config_to_command {
 
     my $use_virtio = 0;
 
-    my $qmpsocket = PVE::QemuServer::Helpers::qmp_socket($vmid);
+    my $qmpsocket =
+        PVE::QemuServer::Helpers::qmp_socket({ name => "VM $vmid", id => $vmid, type => 'qmp' });
     push @$cmd, '-chardev', "socket,id=qmp,path=$qmpsocket,server=on,wait=off";
     push @$cmd, '-mon', "chardev=qmp,mode=control";
 
@@ -3437,7 +3441,8 @@ sub config_to_command {
     my $guest_agent = parse_guest_agent($conf);
 
     if ($guest_agent->{enabled}) {
-        my $qgasocket = PVE::QemuServer::Helpers::qmp_socket($vmid, 1);
+        my $qgasocket = PVE::QemuServer::Helpers::qmp_socket(
+            { name => "VM $vmid", id => $vmid, type => 'qga' });
         push @$devices, '-chardev', "socket,path=$qgasocket,server=on,wait=off,id=qga0";
 
         if (!$guest_agent->{type} || $guest_agent->{type} eq 'virtio') {
