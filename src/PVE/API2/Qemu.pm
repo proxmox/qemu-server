@@ -627,13 +627,13 @@ my sub create_disks : prototype($$$$$$$$$$$) {
                         $storecfg, $storeid, $vmid, $fmt, $arch, $disk, $smm, $cvm_type,
                     );
                 } elsif ($ds eq 'tpmstate0') {
-                    # swtpm can only use raw volumes, and uses a fixed size
+                    # A fixed size is used for TPM state volumes
                     $size = PVE::Tools::convert_size(
                         PVE::QemuServer::Drive::TPMSTATE_DISK_SIZE,
                         'b' => 'kb',
                     );
                     $volid =
-                        PVE::Storage::vdisk_alloc($storecfg, $storeid, $vmid, "raw", undef, $size);
+                        PVE::Storage::vdisk_alloc($storecfg, $storeid, $vmid, $fmt, undef, $size);
                 } else {
                     $volid =
                         PVE::Storage::vdisk_alloc($storecfg, $storeid, $vmid, $fmt, undef, $size);
@@ -675,9 +675,6 @@ my sub create_disks : prototype($$$$$$$$$$$) {
                     ) {
                         die "$ds - cloud-init drive is already attached at '$ci_key'\n";
                     }
-                } elsif ($ds eq 'tpmstate0' && $volume_format ne 'raw') {
-                    die
-                        "tpmstate0: volume format is '$volume_format', only 'raw' is supported!\n";
                 }
             }
 

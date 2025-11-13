@@ -7869,7 +7869,6 @@ sub clone_disk {
         } elsif ($dst_drivename eq 'efidisk0') {
             $size = $efisize or die "internal error - need to specify EFI disk size\n";
         } elsif ($dst_drivename eq 'tpmstate0') {
-            $dst_format = 'raw';
             $size = PVE::QemuServer::Drive::TPMSTATE_DISK_SIZE;
         } else {
             clone_disk_check_io_uring(

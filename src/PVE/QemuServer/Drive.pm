@@ -10,6 +10,7 @@ use List::Util qw(first);
 
 use PVE::RESTEnvironment qw(log_warn);
 use PVE::Storage;
+use PVE::Storage::Common;
 use PVE::JSONSchema qw(get_standard_option);
 
 use base qw(Exporter);
@@ -570,6 +571,7 @@ my $tpmstate_fmt = {
         format_description => 'volume',
         description => "The drive's backing volume.",
     },
+    format => get_standard_option('pve-vm-image-format', { optional => 1 }),
     size => {
         type => 'string',
         format => 'disk-size',
