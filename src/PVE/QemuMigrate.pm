@@ -1015,12 +1015,7 @@ sub phase2_start_local_cluster {
         my $new_volid = $self->{volume_map}->{$volid};
         next if !$new_volid || $volid eq $new_volid;
 
-        # FIXME PVE 8.x only use offline_volume variant once all targets can handle it
-        if ($drivename eq 'tpmstate0') {
-            $input .= "$drivename: $new_volid\n";
-        } else {
-            $input .= "offline_volume: $drivename: $new_volid\n";
-        }
+        $input .= "offline_volume: $drivename: $new_volid\n";
     }
 
     $input .= "spice_ticket: $migrate->{spice_ticket}\n" if $migrate->{spice_ticket};

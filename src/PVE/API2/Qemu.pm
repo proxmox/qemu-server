@@ -3491,6 +3491,7 @@ __PACKAGE__->register_method({
                 } elsif ($line =~ m/^replicated_volume: (.*)$/) {
                     $replicated_volumes->{$1} = 1;
                 } elsif ($line =~ m/^tpmstate0: (.*)$/) { # Deprecated, use offline_volume instead
+                    # TODO PVE 10.x drop special handling here
                     $offline_volumes->{tpmstate0} = $1;
                 } elsif ($line =~ m/^offline_volume: ([^:]+): (.*)$/) {
                     $offline_volumes->{$1} = $2;
