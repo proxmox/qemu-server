@@ -89,6 +89,7 @@ use PVE::QemuServer::OVMF;
 use PVE::QemuServer::PCI qw(print_pci_addr print_pcie_addr print_pcie_root_port parse_hostpci);
 use PVE::QemuServer::QemuImage;
 use PVE::QemuServer::QMPHelpers qw(qemu_deviceadd qemu_devicedel qemu_objectadd qemu_objectdel);
+use PVE::QemuServer::QSD;
 use PVE::QemuServer::RNG qw(parse_rng print_rng_device_commandline print_rng_object_commandline);
 use PVE::QemuServer::RunState;
 use PVE::QemuServer::StateFile;
@@ -2847,8 +2848,12 @@ sub start_swtpm {
     my ($storeid) = PVE::Storage::parse_volume_id($tpm->{file}, 1);
     if ($storeid) {
         my $format = checked_volume_format($storecfg, $tpm->{file});
-        die "swtpm currently only supports 'raw' state volumes\n" if $format ne 'raw';
-        $state = PVE::Storage::map_volume($storecfg, $tpm->{file});
+        if ($format eq 'raw') {
+            $state = PVE::Storage::map_volume($storecfg, $tpm->{file});
+        } else {
+            PVE::QemuServer::QSD::start($vmid);
+            $state = PVE::QemuServer::QSD::add_fuse_export($vmid, $tpm, 'tpmstate0');
+        }
     } else {
         $state = $tpm->{file};
     }
@@ -5492,6 +5497,12 @@ sub vm_start_nolock {
     eval { clear_reboot_request($vmid); };
     warn $@ if $@;
 
+    # terminate left-over storage daemon if still running
+    if (my $pid = PVE::QemuServer::Helpers::qsd_running_locally($vmid)) {
+        log_warn("left-over QEMU storage daemon for $vmid running with PID $pid - terminating now");
+        PVE::QemuServer::QSD::quit($vmid);
+    }
+
     if (!$statefile && scalar(keys %{ $conf->{pending} })) {
         vmconfig_apply_pending($vmid, $conf, $storecfg);
         $conf = PVE::QemuConfig->load_config($vmid); # update/reload
@@ -5687,6 +5698,13 @@ sub vm_start_nolock {
     }
     $systemd_properties{timeout} = 10 if $statefile; # setting up the scope should be quick
 
+    my $cleanup_qsd = sub {
+        if (PVE::QemuServer::Helpers::qsd_running_locally($vmid)) {
+            eval { PVE::QemuServer::QSD::quit($vmid); };
+            warn "stopping QEMU storage daemon failed - $@" if $@;
+        }
+    };
+
     my $run_qemu = sub {
         PVE::Tools::run_fork sub {
             PVE::Systemd::enter_systemd_scope($vmid, "Proxmox VE VM $vmid",
@@ -5697,7 +5715,11 @@ sub vm_start_nolock {
             my $tpmpid;
             if ((my $tpm = $conf->{tpmstate0}) && !PVE::QemuConfig->is_template($conf)) {
                 # start the TPM emulator so QEMU can connect on start
-                $tpmpid = start_swtpm($storecfg, $vmid, $tpm, $migratedfrom);
+                eval { $tpmpid = start_swtpm($storecfg, $vmid, $tpm, $migratedfrom); };
+                if (my $err = $@) {
+                    $cleanup_qsd->();
+                    die $err;
+                }
             }
 
             my $exitcode = run_command($cmd, %run_params);
@@ -5708,6 +5730,8 @@ sub vm_start_nolock {
                     warn "stopping swtpm instance (pid $tpmpid) due to QEMU startup error\n";
                     kill 'TERM', $tpmpid;
                 }
+                $cleanup_qsd->();
+
                 die "QEMU exited with code $exitcode\n";
             }
         };
@@ -6069,6 +6093,9 @@ sub vm_stop_cleanup {
     my ($storecfg, $vmid, $conf, $keepActive, $apply_pending_changes, $noerr) = @_;
 
     eval {
+        PVE::QemuServer::QSD::quit($vmid)
+            if PVE::QemuServer::Helpers::qsd_running_locally($vmid);
+
         # ensure that no dbus-vmstate helper is left running in any case
         # at this point, it should never be still running, so quiesce any warnings
         PVE::QemuServer::DBusVMState::qemu_del_dbus_vmstate($vmid, quiet => 1);
