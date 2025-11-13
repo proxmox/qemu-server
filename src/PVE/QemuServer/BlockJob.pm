@@ -480,7 +480,7 @@ sub blockdev_mirror {
 
     # Note that if 'aio' is not explicitly set, i.e. default, it can change if source and target
     # don't both allow or both not allow 'io_uring' as the default.
-    my $target_node_name =
+    my ($target_node_name) =
         PVE::QemuServer::Blockdev::attach($storecfg, $vmid, $dest_drive, $attach_dest_opts);
 
     $jobs = {} if !$jobs;

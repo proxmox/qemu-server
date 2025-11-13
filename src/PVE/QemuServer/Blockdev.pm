@@ -528,10 +528,10 @@ my sub blockdev_add {
 
 =head3 attach
 
-    my $node_name = attach($storecfg, $id, $drive, $options);
+    my ($node_name, $read_only) = attach($storecfg, $id, $drive, $options);
 
 Attach the drive C<$drive> to the VM C<$id> considering the additional options C<$options>.
-Returns the node name of the (topmost) attached block device node.
+Returns the node name of the (topmost) attached block device node and whether the node is read-only.
 
 Parameters:
 
@@ -615,7 +615,7 @@ sub attach {
         die $err;
     }
 
-    return $blockdev->{'node-name'};
+    return ($blockdev->{'node-name'}, $blockdev->{'read-only'});
 }
 
 =pod
