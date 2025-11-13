@@ -16,7 +16,7 @@ use PVE::QemuServer::BlockJob;
 use PVE::QemuServer::Drive qw(drive_is_cdrom);
 use PVE::QemuServer::Helpers;
 use PVE::QemuServer::Machine;
-use PVE::QemuServer::Monitor qw(mon_cmd);
+use PVE::QemuServer::Monitor qw(mon_cmd qmp_cmd);
 
 # gives ($host, $port, $export)
 my $NBD_TCP_PATH_RE_3 = qr/nbd:(\S+):(\d+):exportname=(\S+)/;
@@ -513,9 +513,9 @@ sub generate_pbs_blockdev {
 }
 
 my sub blockdev_add {
-    my ($vmid, $blockdev) = @_;
+    my ($qmp_peer, $blockdev) = @_;
 
-    eval { mon_cmd($vmid, 'blockdev-add', $blockdev->%*); };
+    eval { qmp_cmd($qmp_peer, 'blockdev-add', $blockdev->%*); };
     if (my $err = $@) {
         my $node_name = $blockdev->{'node-name'} // 'undefined';
         die "adding blockdev '$node_name' failed : $err\n" if $@;
@@ -528,9 +528,9 @@ my sub blockdev_add {
 
 =head3 attach
 
-    my $node_name = attach($storecfg, $vmid, $drive, $options);
+    my $node_name = attach($storecfg, $id, $drive, $options);
 
-Attach the drive C<$drive> to the VM C<$vmid> considering the additional options C<$options>.
+Attach the drive C<$drive> to the VM C<$id> considering the additional options C<$options>.
 Returns the node name of the (topmost) attached block device node.
 
 Parameters:
@@ -539,7 +539,7 @@ Parameters:
 
 =item C<$storecfg>: The storage configuration.
 
-=item C<$vmid>: The ID of the virtual machine.
+=item C<$id>: The ID of the virtual machine or QEMU storage daemon.
 
 =item C<$drive>: The drive as parsed from a virtual machine configuration.
 
@@ -563,6 +563,8 @@ rather than the volume itself.
 =item C<< $options->{'tpm-backup'} >>: Generate and attach a block device for backing up the TPM
 state image.
 
+=item C<< $options->{'qsd'} >>: Rather than attaching to a VM, attach to a QEMU storage daemon.
+
 =back
 
 =back
@@ -570,9 +572,22 @@ state image.
 =cut
 
 sub attach {
-    my ($storecfg, $vmid, $drive, $options) = @_;
+    my ($storecfg, $id, $drive, $options) = @_;
 
-    my $machine_version = PVE::QemuServer::Machine::get_current_qemu_machine($vmid);
+    my $qmp_peer;
+    if ($options->{qsd}) {
+        $qmp_peer = { name => "QEMU storage daemon $id", id => $id, type => 'qsd' };
+    } else {
+        $qmp_peer = { name => "VM $id", id => $id, type => 'qmp' };
+    }
+
+    my $machine_version;
+    if ($options->{qsd}) { # qemu-storage-daemon runs with the installed binary version
+        $machine_version =
+            'pc-i440fx-' . PVE::QemuServer::Machine::latest_installed_machine_version();
+    } else {
+        $machine_version = PVE::QemuServer::Machine::get_current_qemu_machine($id);
+    }
 
     my $blockdev = generate_drive_blockdev($storecfg, $drive, $machine_version, $options);
 
@@ -585,17 +600,17 @@ sub attach {
     eval {
         if ($throttle_group_id) {
             # Try to remove potential left-over.
-            mon_cmd($vmid, 'object-del', id => $throttle_group_id, noerr => 1);
+            qmp_cmd($qmp_peer, 'object-del', id => $throttle_group_id, noerr => 1);
 
             my $throttle_group = generate_throttle_group($drive);
-            mon_cmd($vmid, 'object-add', $throttle_group->%*);
+            qmp_cmd($qmp_peer, 'object-add', $throttle_group->%*);
         }
 
-        blockdev_add($vmid, $blockdev);
+        blockdev_add($qmp_peer, $blockdev);
     };
     if (my $err = $@) {
         if ($throttle_group_id) {
-            eval { mon_cmd($vmid, 'object-del', id => $throttle_group_id); };
+            eval { qmp_cmd($qmp_peer, 'object-del', id => $throttle_group_id); };
         }
         die $err;
     }

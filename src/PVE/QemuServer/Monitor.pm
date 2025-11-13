@@ -10,6 +10,7 @@ use PVE::QMPClient;
 use base 'Exporter';
 our @EXPORT_OK = qw(
     mon_cmd
+    qmp_cmd
 );
 
 =head3 qmp_cmd
