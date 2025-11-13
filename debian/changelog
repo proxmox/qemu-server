@@ -1,3 +1,26 @@
+qemu-server (9.0.25) trixie; urgency=medium
+
+  * pci: add 'driver' option for passthough of devices which cannot use the
+    default 'vfio-pci' driver.
+
+  * api: fix permission check for guest net device without bridge which was
+    accidentally restricted to root only.
+
+  * clone disk: fix handling of snapshot-as-volume-chain for EFI disks.
+
+  * status: rrddata: use fixed pve-vm-9.0 path.
+
+  * migration: conntrack: avoid crash when dbus-vmstate object cannot be added
+    or not added quickly enough.
+
+  * adapt secure virtualization code used for AMD SEV to prepare for Intel TDX.
+
+  * add initial Intel TDX support.
+
+  * query machine capabilities: only query features of matching CPU vendor.
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 13 Nov 2025 12:00:45 +0100
+
 qemu-server (9.0.24) trixie; urgency=medium
 
   * api: create/store: allow adding newly created VM to be managed as HA
