@@ -356,7 +356,9 @@ sub vm_running_locally {
 # BEGIN mocked PVE::QemuServer::Monitor methods
 
 sub qmp_cmd {
-    my ($peer, $cmd) = @_;
+    my ($peer, $execute, %arguments) = @_;
+
+    my $cmd = { execute => $execute, arguments => \%arguments };
 
     my $exec = $cmd->{execute};
     if ($exec eq "guest-ping") {

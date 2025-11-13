@@ -14,9 +14,8 @@ our @EXPORT_OK = qw(
 
 =head3 qmp_cmd
 
-    my $cmd = { execute => $qmp_command_name, arguments => \%params };
     my $peer = { name => $name, id => $id, type => $type };
-    my $result = qmp_cmd($peer, $cmd);
+    my $result = qmp_cmd($peer, $execute, %arguments);
 
 Execute the C<$qmp_command_name> with arguments C<%params> for the peer C<$peer>. The type C<$type>
 of the peer can be C<qmp> for the QEMU instance of the VM,  C<qga> for the guest agent of the VM or
@@ -43,9 +42,10 @@ C<qga> for the VM's guest agent or C<qsd> for the QEMU storage daemon assoicated
 
 =back
 
-=item C<$cmd>: Hash reference containing the QMP command name for the C<execute> key and additional
-arguments for the QMP command under the C<arguments> key. The following custom arguments are not
-part of the QMP schema and supported for all commands:
+=item C<$execute>: The QMP command name.
+
+=item C<%arguments>: Additional arguments for the QMP command. The following custom arguments are
+not part of the QMP schema and supported for all commands:
 
 =over
 
@@ -62,7 +62,9 @@ handle the error that is returned as a structured result.
 =cut
 
 sub qmp_cmd {
-    my ($peer, $cmd) = @_;
+    my ($peer, $execute, %arguments) = @_;
+
+    my $cmd = { execute => $execute, arguments => \%arguments };
 
     my $res;
 
@@ -102,30 +104,26 @@ sub qmp_cmd {
 sub qsd_cmd {
     my ($id, $execute, %params) = @_;
 
-    my $cmd = { execute => $execute, arguments => \%params };
-
-    return qmp_cmd({ name => "QEMU storage daemon $id", id => $id, type => 'qsd' }, $cmd);
+    return qmp_cmd({ name => "QEMU storage daemon $id", id => $id, type => 'qsd' },
+        $execute, %params);
 }
 
 sub mon_cmd {
     my ($vmid, $execute, %params) = @_;
 
-    my $cmd = { execute => $execute, arguments => \%params };
-
     my $type = ($execute =~ /^guest\-+/) ? 'qga' : 'qmp';
 
-    return qmp_cmd({ name => "VM $vmid", id => $vmid, type => $type }, $cmd);
+    return qmp_cmd({ name => "VM $vmid", id => $vmid, type => $type }, $execute, %params);
 }
 
 sub hmp_cmd {
     my ($vmid, $cmdline, $timeout) = @_;
 
-    my $cmd = {
-        execute => 'human-monitor-command',
-        arguments => { 'command-line' => $cmdline, timeout => $timeout },
-    };
-
-    return qmp_cmd({ name => "VM $vmid", id => $vmid, type => 'qmp' }, $cmd);
+    return qmp_cmd(
+        { name => "VM $vmid", id => $vmid, type => 'qmp' }, 'human-monitor-command',
+        'command-line' => $cmdline,
+        timeout => $timeout,
+    );
 }
 
 1;
