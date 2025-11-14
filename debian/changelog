@@ -1,3 +1,21 @@
+qemu-server (9.0.27) trixie; urgency=medium
+
+  * fix #6985: ovmf: auto-enroll newer Microsoft UEFI CA 2023 for existing
+    Windows 10 and 11, and Windows Server 2016, 2019, 2022 and 2025.
+
+  * cpu config: introduce vendor-agnostic 'nested-virt' CPU flag. The flag
+    will automatically resolve to the flag required for the current CPU vendor
+    of the host.
+    This flag should be combined with a vendor-specific vCPU type, e.g. like
+    EPYC-v4 or Cooperlake-v2, matching your host CPU vendor, otherwise nested
+    virtualization capabilities can still be limited inside the guest OS,
+    especially on Windows based VMs.
+
+  * close #5291: support disabling KSM for specific VMs through a config
+    memory option flag.
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 14 Nov 2025 21:51:59 +0100
+
 qemu-server (9.0.26) trixie; urgency=medium
 
   * fix #7014: fix regression starting aarch64 VMs with machine type >= 10.1.
