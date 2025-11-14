@@ -5406,6 +5406,24 @@ sub generate_storage_hints {
     return $hints;
 }
 
+my sub check_efi_vars {
+    my ($storecfg, $vmid, $conf) = @_;
+
+    return if PVE::QemuConfig->is_template($conf);
+    return if !$conf->{efidisk0};
+    return if $conf->{ostype} ne 'win10' && $conf->{ostype} ne 'win11';
+
+    if (
+        my $updated = PVE::QemuServer::OVMF::ensure_ms_2023_cert_enrolled(
+            $storecfg, $vmid, $conf->{efidisk0},
+        )
+    ) {
+        $conf->{efidisk0} = $updated;
+        PVE::QemuConfig->write_config($vmid, $conf);
+    }
+    return;
+}
+
 # see vm_start_nolock for parameters, additionally:
 # migrate_opts:
 #   storagemap = parsed storage map for allocating NBD disks
@@ -5582,6 +5600,8 @@ sub vm_start_nolock {
         # Plugins can safely deactivate already-active volumes here if needed
         my $storage_hints = generate_storage_hints($conf, 1);
         PVE::Storage::activate_volumes($storecfg, $vollist, undef, $storage_hints);
+
+        check_efi_vars($storecfg, $vmid, $conf) if $conf->{bios} && $conf->{bios} eq 'ovmf';
 
         # Note that for certain cases like templates, the configuration is minimized, so need to ensure
         # the rest of the function here uses the same configuration that was used to build the command

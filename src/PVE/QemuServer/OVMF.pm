@@ -11,7 +11,9 @@ use PVE::Tools;
 
 use PVE::QemuServer::Blockdev;
 use PVE::QemuServer::Drive qw(checked_volume_format parse_drive print_drive);
+use PVE::QemuServer::Helpers;
 use PVE::QemuServer::QemuImage;
+use PVE::QemuServer::QSD;
 
 my $EDK2_FW_BASE = '/usr/share/pve-edk2-firmware/';
 my $OVMF = {
@@ -139,6 +141,30 @@ sub get_efivars_size {
     return -s $ovmf_vars;
 }
 
+my sub is_ms_2023_cert_enrolled {
+    my ($path) = @_;
+
+    my $inside_db_section;
+    my $found_ms_2023_cert;
+
+    my $detect_ms_2023_cert = sub {
+        my ($line) = @_;
+        return if $found_ms_2023_cert;
+        $inside_db_section = undef if !$line;
+        $found_ms_2023_cert = 1
+            if $inside_db_section && $line =~ m/CN=Microsoft UEFI CA 2023/;
+        $inside_db_section = 1 if $line =~ m/^name=db guid=guid:EfiImageSecurityDatabase/;
+        return;
+    };
+
+    PVE::Tools::run_command(
+        ['virt-fw-vars', '--input', $path, '--print', '--verbose'],
+        outfunc => $detect_ms_2023_cert,
+    );
+
+    return $found_ms_2023_cert;
+}
+
 sub create_efidisk($$$$$$$$) {
     my ($storecfg, $storeid, $vmid, $fmt, $arch, $efidisk, $smm, $cvm_type) = @_;
 
@@ -151,6 +177,10 @@ sub create_efidisk($$$$$$$$) {
 
     PVE::QemuServer::QemuImage::convert($ovmf_vars, $volid, $vars_size_b);
     my $size = PVE::Storage::volume_size_info($storecfg, $volid, 3);
+
+    if ($efidisk->{'pre-enrolled-keys'} && is_ms_2023_cert_enrolled($ovmf_vars)) {
+        $efidisk->{'ms-cert'} = '2023'
+    }
 
     return ($volid, $size / 1024);
 }
@@ -246,6 +276,37 @@ sub print_ovmf_commandline {
     }
 
     return ($cmd, $machine_flags);
+}
+
+# May only be called as part of VM start right now, because it uses the main QSD associated to the
+# VM. If required for another scenario, change the QSD ID to something else.
+sub ensure_ms_2023_cert_enrolled {
+    my ($storecfg, $vmid, $efidisk_str) = @_;
+
+    my $efidisk = parse_drive('efidisk0', $efidisk_str);
+    return if !$efidisk->{'pre-enrolled-keys'};
+    return if $efidisk->{'ms-cert'} && $efidisk->{'ms-cert'} eq '2023';
+
+    print "efidisk0: enrolling Microsoft UEFI CA 2023\n";
+
+    my $new_qsd = !PVE::QemuServer::Helpers::qsd_running_locally($vmid);
+    PVE::QemuServer::QSD::start($vmid) if $new_qsd;
+
+    eval {
+        my $efi_vars_path =
+            PVE::QemuServer::QSD::add_fuse_export($vmid, $efidisk, 'efidisk0-enroll');
+        PVE::Tools::run_command(
+            ['virt-fw-vars', '--inplace', $efi_vars_path, '--distro-keys', 'ms-uefi']);
+        PVE::QemuServer::QSD::remove_fuse_export($vmid, 'efidisk0-enroll');
+    };
+    my $err = $@;
+
+    PVE::QemuServer::QSD::quit($vmid) if $new_qsd;
+
+    die "efidisk0: enrolling Microsoft UEFI CA 2023 failed - $err" if $err;
+
+    $efidisk->{'ms-cert'} = '2023';
+    return print_drive($efidisk);
 }
 
 1;

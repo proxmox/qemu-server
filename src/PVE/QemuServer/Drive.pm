@@ -521,6 +521,15 @@ my %efitype_fmt = (
         optional => 1,
         default => 0,
     },
+    'ms-cert' => {
+        type => 'string',
+        enum => [qw(2011 2023)],
+        description =>
+            "Informational marker indicating the version of the latest Microsof UEFI certificate"
+            . " that has been enrolled by Proxmox VE.",
+        optional => 1,
+        default => '2011',
+    },
 );
 
 my $efidisk_fmt = {
