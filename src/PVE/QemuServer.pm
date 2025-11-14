@@ -64,6 +64,7 @@ use PVE::QemuServer::Machine;
 use PVE::QemuServer::Memory qw(get_current_memory);
 use PVE::QemuServer::MetaInfo;
 use PVE::QemuServer::Monitor qw(mon_cmd);
+use PVE::QemuServer::OVMF;
 use PVE::QemuServer::PCI qw(print_pci_addr print_pcie_addr print_pcie_root_port parse_hostpci);
 use PVE::QemuServer::QMPHelpers qw(qemu_deviceadd qemu_devicedel qemu_objectadd qemu_objectdel);
 use PVE::QemuServer::RNG qw(parse_rng print_rng_device_commandline print_rng_object_commandline);
@@ -5912,6 +5913,24 @@ my sub remove_left_over_vmstate_opts {
     PVE::QemuConfig->write_config($vmid, $conf) if $found;
 }
 
+my sub check_efi_vars {
+    my ($storecfg, $vmid, $conf) = @_;
+
+    return if PVE::QemuConfig->is_template($conf);
+    return if !$conf->{efidisk0};
+    return if $conf->{ostype} ne 'win10' && $conf->{ostype} ne 'win11';
+
+    if (
+        my $updated = PVE::QemuServer::OVMF::ensure_ms_2023_cert_enrolled(
+            $storecfg, $vmid, $conf->{efidisk0},
+        )
+    ) {
+        $conf->{efidisk0} = $updated;
+        PVE::QemuConfig->write_config($vmid, $conf);
+    }
+    return;
+}
+
 # see vm_start_nolock for parameters, additionally:
 # migrate_opts:
 #   storagemap = parsed storage map for allocating NBD disks
@@ -6194,6 +6213,8 @@ sub vm_start_nolock {
     }
 
     PVE::Storage::activate_volumes($storecfg, $vollist);
+
+    check_efi_vars($storecfg, $vmid, $conf) if $conf->{bios} && $conf->{bios} eq 'ovmf';
 
     my %silence_std_outs = (outfunc => sub { }, errfunc => sub { });
     eval { run_command(['/bin/systemctl', 'reset-failed', "$vmid.scope"], %silence_std_outs) };
@@ -9102,6 +9123,13 @@ sub create_efidisk($$$$$$$$) {
 
     qemu_img_convert($ovmf_vars, $volid, $vars_size_b);
     my $size = PVE::Storage::volume_size_info($storecfg, $volid, 3);
+
+    if (
+        $efidisk->{'pre-enrolled-keys'}
+        && PVE::QemuServer::OVMF::is_ms_2023_cert_enrolled($ovmf_vars)
+    ) {
+        $efidisk->{'ms-cert'} = '2023';
+    }
 
     return ($volid, $size / 1024);
 }

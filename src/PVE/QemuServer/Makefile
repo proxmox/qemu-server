@@ -17,6 +17,7 @@ SOURCES=PCI.pm		\
 	CGroup.pm	\
 	Drive.pm	\
 	QMPHelpers.pm	\
+	OVMF.pm		\
 	Virtiofs.pm
 
 .PHONY: install
