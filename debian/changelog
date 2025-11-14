@@ -1,3 +1,22 @@
+qemu-server (9.0.26) trixie; urgency=medium
+
+  * fix #7014: fix regression starting aarch64 VMs with machine type >= 10.1.
+
+  * prepare fix for #6613: pass purge param to HA stack when removing VM.
+
+  * fix #5779: vm start: pass storage hints when activating guest volumes,
+    which, e.g., sets the rxbounce buffer option for Windows VMs on RBD
+    volumes.
+
+  * migration: offline volumes: drop deprecated special casing for TPM state.
+
+  * tpm: support non-raw volumes via FUSE exports for swtpm using the
+    qemu-storage-daemon.,
+
+  * fix #4693: drive: allow non-raw image formats for TPM state drive.
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 14 Nov 2025 01:05:04 +0100
+
 qemu-server (9.0.25) trixie; urgency=medium
 
   * pci: add 'driver' option for passthough of devices which cannot use the
