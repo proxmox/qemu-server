@@ -179,7 +179,7 @@ sub create_efidisk($$$$$$$$) {
     my $size = PVE::Storage::volume_size_info($storecfg, $volid, 3);
 
     if ($efidisk->{'pre-enrolled-keys'} && is_ms_2023_cert_enrolled($ovmf_vars)) {
-        $efidisk->{'ms-cert'} = '2023'
+        $efidisk->{'ms-cert'} = '2023';
     }
 
     return ($volid, $size / 1024);

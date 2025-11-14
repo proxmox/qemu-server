@@ -650,7 +650,8 @@ sub resolve_cpu_flags {
             if ($host_cpu_flags =~ m/\s(svm|vmx)\s/) {
                 $nested_flag = $1;
             } else {
-                log_warn("ignoring 'nested-virt' CPU flag - unable to resolve from host CPU flags");
+                log_warn(
+                    "ignoring 'nested-virt' CPU flag - unable to resolve from host CPU flags");
             }
             $nested_flag_resolved = 1;
         }
