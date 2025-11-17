@@ -5611,7 +5611,11 @@ sub vm_start_nolock {
         my $storage_hints = generate_storage_hints($conf, 1);
         PVE::Storage::activate_volumes($storecfg, $vollist, undef, $storage_hints);
 
-        check_efi_vars($storecfg, $vmid, $conf) if $conf->{bios} && $conf->{bios} eq 'ovmf';
+        # Can only exclusively access EFI disk during cold start. Also, check_efi_vars() might write
+        # the configuration, which must not be done at this stage of migration on the target.
+        if (!$statefile && !$resume && $conf->{bios} && $conf->{bios} eq 'ovmf') {
+            check_efi_vars($storecfg, $vmid, $conf);
+        }
 
         # Note that for certain cases like templates, the configuration is minimized, so need to ensure
         # the rest of the function here uses the same configuration that was used to build the command
