@@ -6214,7 +6214,11 @@ sub vm_start_nolock {
 
     PVE::Storage::activate_volumes($storecfg, $vollist);
 
-    check_efi_vars($storecfg, $vmid, $conf) if $conf->{bios} && $conf->{bios} eq 'ovmf';
+    # Can only exclusively access EFI disk during cold start. Also, check_efi_vars() might write
+    # the configuration, which must not be done at this stage of migration on the target.
+    if (!$statefile && !$resume && $conf->{bios} && $conf->{bios} eq 'ovmf') {
+        check_efi_vars($storecfg, $vmid, $conf);
+    }
 
     my %silence_std_outs = (outfunc => sub { }, errfunc => sub { });
     eval { run_command(['/bin/systemctl', 'reset-failed', "$vmid.scope"], %silence_std_outs) };
