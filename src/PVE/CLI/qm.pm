@@ -1084,47 +1084,51 @@ __PACKAGE__->register_method({
         "Import a foreign virtual guest from a supported import source, such as an ESXi storage.",
     parameters => {
         additionalProperties => 0,
-        properties => PVE::QemuServer::json_config_properties({
-            vmid => get_standard_option(
-                'pve-vmid',
-                { completion => \&PVE::Cluster::complete_next_vmid },
-            ),
-            'source' => {
-                type => 'string',
-                description => 'The import source volume id.',
-            },
-            storage => get_standard_option(
-                'pve-storage-id',
-                {
-                    description => "Default storage.",
-                    completion => \&PVE::QemuServer::complete_storage,
+        properties => PVE::QemuServer::json_config_properties(
+            {
+                vmid => get_standard_option(
+                    'pve-vmid',
+                    { completion => \&PVE::Cluster::complete_next_vmid },
+                ),
+                'source' => {
+                    type => 'string',
+                    description => 'The import source volume id.',
                 },
-            ),
-            'live-import' => {
-                type => 'boolean',
-                optional => 1,
-                default => 0,
-                description => "Immediately start the VM and copy the data in the background.",
+                storage => get_standard_option(
+                    'pve-storage-id',
+                    {
+                        description => "Default storage.",
+                        completion => \&PVE::QemuServer::complete_storage,
+                    },
+                ),
+                'live-import' => {
+                    type => 'boolean',
+                    optional => 1,
+                    default => 0,
+                    description =>
+                        "Immediately start the VM and copy the data in the background.",
+                },
+                'dryrun' => {
+                    type => 'boolean',
+                    optional => 1,
+                    default => 0,
+                    description => "Show the create command and exit without doing anything.",
+                },
+                delete => {
+                    type => 'string',
+                    format => 'pve-configid-list',
+                    description => "A list of settings you want to delete.",
+                    optional => 1,
+                },
+                format => {
+                    type => 'string',
+                    description => 'Target format',
+                    enum => ['raw', 'qcow2', 'vmdk'],
+                    optional => 1,
+                },
             },
-            'dryrun' => {
-                type => 'boolean',
-                optional => 1,
-                default => 0,
-                description => "Show the create command and exit without doing anything.",
-            },
-            delete => {
-                type => 'string',
-                format => 'pve-configid-list',
-                description => "A list of settings you want to delete.",
-                optional => 1,
-            },
-            format => {
-                type => 'string',
-                description => 'Target format',
-                enum => ['raw', 'qcow2', 'vmdk'],
-                optional => 1,
-            },
-        }),
+            1, # with_disk_alloc
+        ),
     },
     returns => { type => 'null' },
     code => sub {
