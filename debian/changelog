@@ -1,3 +1,18 @@
+qemu-server (9.0.28) trixie; urgency=medium
+
+  * fix #6934: vm start: don't apply pending changes when resuming from
+    hibernation.
+
+  * Intel TDX: add support for configuring a quote-generation-socket to enable
+    a remote attestation flow.
+
+  * vm start: fix migration regression with Windows by only enrolling EFI
+    certs on cold start.
+
+  * qm import: use schema variant with 'import-from' disk allocation support.
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 17 Nov 2025 17:14:55 +0100
+
 qemu-server (9.0.27) trixie; urgency=medium
 
   * fix #6985: ovmf: auto-enroll newer Microsoft UEFI CA 2023 for existing
