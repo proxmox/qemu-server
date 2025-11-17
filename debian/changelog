@@ -1,3 +1,15 @@
+qemu-server (9.0.29) trixie; urgency=medium
+
+  * api: create vm: use ha-manager command to add VM as an HA resource, this
+    fixes adding a VM to HA when using the qm CLI tool directly.
+
+  * qmrestore CLI tool: allow starting a VM after it was restored successfully.
+
+  * qmrestore CLI tool: allow adding a VM as an HA resource after it was
+    restored.
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 17 Nov 2025 22:31:09 +0100
+
 qemu-server (9.0.28) trixie; urgency=medium
 
   * fix #6934: vm start: don't apply pending changes when resuming from
