@@ -3794,7 +3794,8 @@ sub config_to_command {
         push @$devices, '-object', get_amd_sev_object($conf->{'amd-sev'}, $conf->{bios});
         push @$machineFlags, 'confidential-guest-support=sev0';
     } elsif ($conf->{'intel-tdx'}) {
-        push @$devices, '-object', get_intel_tdx_object($conf->{'intel-tdx'}, $conf->{bios});
+        my $tdx_object = get_intel_tdx_object($conf->{'intel-tdx'}, $conf->{bios});
+        push @$devices, '-object', to_json($tdx_object, { canonical => 1 });
         push @$machineFlags, 'confidential-guest-support=tdx0';
         push @$machineFlags, 'kernel_irqchip=split';
     }

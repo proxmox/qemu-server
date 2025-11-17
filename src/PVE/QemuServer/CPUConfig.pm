@@ -5,7 +5,7 @@ use warnings;
 
 use JSON;
 
-use PVE::JSONSchema;
+use PVE::JSONSchema qw(json_bool);
 use PVE::Cluster qw(cfs_register_file cfs_read_file);
 use PVE::ProcFSTools;
 use PVE::RESTEnvironment qw(log_warn);
@@ -347,6 +347,25 @@ my $tdx_fmt = {
         default_key => 1,
         format_description => "tdx-type",
         enum => ['tdx'],
+    },
+    'attestation' => {
+        description => "Enable TDX attestation by including quote-generation-socket",
+        type => 'boolean',
+        default => 1,
+    },
+    'vsock-cid' => {
+        type => 'integer',
+        minimum => 2,
+        default => 2,
+        optional => 1,
+        description => "CID for vsock of Quote Generation Service",
+    },
+    'vsock-port' => {
+        type => 'integer',
+        minimum => 0,
+        default => 4050,
+        optional => 1,
+        description => "Port for vsock of Quote Generation Service",
     },
 };
 PVE::JSONSchema::register_format('pve-qemu-tdx-fmt', $tdx_fmt);
@@ -1088,6 +1107,21 @@ sub get_amd_sev_object {
     return $sev_mem_object;
 }
 
+sub get_quote_generation_socket {
+    my ($conf) = @_;
+
+    my $socket = { type => 'vsock' };
+
+    die "Missing cid for vsock.\n" if !defined($conf->{'vsock-cid'});
+    die "Missing port for vsock.\n" if !defined($conf->{'vsock-port'});
+
+    # Both are strings in the QMP schema
+    $socket->{'cid'} = "$conf->{'vsock-cid'}";
+    $socket->{'port'} = "$conf->{'vsock-port'}";
+
+    return $socket;
+}
+
 sub get_intel_tdx_object {
     my ($intel_tdx, $bios) = @_;
     my $intel_tdx_conf = PVE::JSONSchema::parse_property_string($tdx_fmt, $intel_tdx);
@@ -1099,7 +1133,16 @@ sub get_intel_tdx_object {
     if (!$bios || $bios ne 'ovmf') {
         die "To use Intel TDX, you need to change the BIOS to OVMF.\n";
     }
-    return 'tdx-guest,id=tdx0';
+
+    my $tdx_object = {
+        'qom-type' => 'tdx-guest',
+        id => 'tdx0',
+    };
+
+    $tdx_object->{'quote-generation-socket'} = get_quote_generation_socket($intel_tdx_conf)
+        if $intel_tdx_conf->{'attestation'};
+
+    return $tdx_object;
 }
 
 __PACKAGE__->register();
