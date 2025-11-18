@@ -278,12 +278,22 @@ sub print_ovmf_commandline {
     return ($cmd, $machine_flags);
 }
 
-sub ensure_ms_2023_cert_enrolled {
-    my ($storecfg, $vmid, $efidisk_str) = @_;
+sub should_enroll_ms_2023_cert {
+    my ($efidisk_str) = @_;
 
     my $efidisk = parse_drive('efidisk0', $efidisk_str);
     return if !$efidisk->{'pre-enrolled-keys'};
     return if $efidisk->{'ms-cert'} && $efidisk->{'ms-cert'} eq '2023';
+
+    return 1;
+}
+
+sub ensure_ms_2023_cert_enrolled {
+    my ($storecfg, $vmid, $efidisk_str) = @_;
+
+    return if !should_enroll_ms_2023_cert($efidisk_str);
+
+    my $efidisk = parse_drive('efidisk0', $efidisk_str);
 
     print "efidisk0: enrolling Microsoft UEFI CA 2023\n";
 
