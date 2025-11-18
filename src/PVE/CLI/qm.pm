@@ -714,36 +714,51 @@ __PACKAGE__->register_method({
 
         my $vmid = extract_param($param, 'vmid');
 
-        my $enroll_fn = sub {
-            my $conf = PVE::QemuConfig->load_config($vmid);
+        my $conf = PVE::QemuConfig->load_config($vmid);
+        PVE::QemuConfig->check_lock($conf);
 
-            PVE::QemuConfig->check_lock($conf);
-            die "VM $vmid is running\n" if PVE::QemuServer::Helpers::vm_running_locally($vmid);
-            die "VM $vmid is a template\n" if PVE::QemuConfig->is_template($conf);
-            die "VM $vmid has no EFI disk configured\n" if !$conf->{efidisk0};
+        die "VM $vmid is running\n" if PVE::QemuServer::Helpers::vm_running_locally($vmid);
+        die "VM $vmid is a template\n" if PVE::QemuConfig->is_template($conf);
+        die "VM $vmid has no EFI disk configured\n" if !$conf->{efidisk0};
 
-            my $ostype = $conf->{ostype};
-            if (!defined($ostype) || ($ostype ne 'win10' && $ostype ne 'win11')) {
-                print "skipping - OS type is neither Windows 10 nor Windows 11\n";
-                return;
-            }
-
-            my $storecfg = PVE::Storage::config();
-
-            my $updated = PVE::QemuServer::OVMF::ensure_ms_2023_cert_enrolled(
-                $storecfg, $vmid, $conf->{efidisk0},
-            );
-            if ($updated) {
-                $conf->{efidisk0} = $updated;
-                PVE::QemuConfig->write_config($vmid, $conf);
-            } else {
-                print "skipping - no pre-enrolled keys or already got ms-cert=2023 marker\n";
-            }
-
+        my $ostype = $conf->{ostype};
+        if (!defined($ostype) || ($ostype ne 'win10' && $ostype ne 'win11')) {
+            print "skipping - OS type is neither Windows 10 nor Windows 11\n";
             return;
-        };
+        }
 
-        PVE::QemuConfig->lock_config($vmid, $enroll_fn);
+        my $storecfg = PVE::Storage::config();
+
+        my $updated = PVE::QemuServer::OVMF::ensure_ms_2023_cert_enrolled(
+            $storecfg, $vmid, $conf->{efidisk0},
+        );
+
+        if (!$updated) {
+            print "skipping - no pre-enrolled keys or already got ms-cert=2023 marker\n";
+            return;
+        }
+
+        PVE::QemuConfig->lock_config(
+            $vmid,
+            sub {
+                my $locked_conf = PVE::QemuConfig->load_config($vmid);
+
+                eval { PVE::Tools::assert_if_modified($conf->{digest}, $locked_conf->{digest}) };
+                if (my $err = $@) {
+                    eval {
+                        my $drive = PVE::QemuServer::Drive::parse_drive('efidisk0', $updated);
+                        PVE::Storage::vdisk_free($storecfg, $drive->{file});
+                    };
+                    warn "failed to clean-up prepared efidisk volume - $@" if $@;
+                    die "VM ${vmid}: $err";
+                }
+
+                $locked_conf->{efidisk0} = $updated;
+                PVE::QemuConfig->write_config($vmid, $locked_conf);
+                print "successfully updated efidisk\n";
+            },
+        );
+
         return;
     },
 });
