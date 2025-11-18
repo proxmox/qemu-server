@@ -1,3 +1,18 @@
+qemu-server (9.0.30) trixie; urgency=medium
+
+  * api: add 'allow-ksm' to memory options that are allowed to be configured
+    by non-root users.
+
+  * vm start: ovmf: do not auto-enroll Microsoft UEFI CA 2023 for now, as this
+    triggers an active Bitlocker inside the VM and the admin doing the restart
+    of the VM might not have the Bitlocker recovery code available.
+    Instead print a informational message in the start task log for now.
+
+  * qm cli: add enroll-efi-keys command to update the efidisk for Windows VMs
+    that do not yet have the newer Microsoft UEFI CA 2023 enrolled.
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 18 Nov 2025 15:10:24 +0100
+
 qemu-server (9.0.29) trixie; urgency=medium
 
   * api: create vm: use ha-manager command to add VM as an HA resource, this
