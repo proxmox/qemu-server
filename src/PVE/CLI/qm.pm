@@ -35,6 +35,7 @@ use PVE::QemuServer::Helpers;
 use PVE::QemuServer::Agent;
 use PVE::QemuServer::ImportDisk;
 use PVE::QemuServer::Monitor qw(mon_cmd);
+use PVE::QemuServer::OVMF;
 use PVE::QemuServer::QMPHelpers;
 use PVE::QemuServer::RunState;
 use PVE::QemuServer::DBusVMState;
@@ -694,6 +695,61 @@ __PACKAGE__->register_method({
 });
 
 __PACKAGE__->register_method({
+    name => 'enroll-efi-keys',
+    path => 'enroll-efi-keys',
+    method => 'POST',
+    description =>
+        "Enroll important updated certificates to the EFI disk with pre-enrolled-keys. Currently,"
+        . " this is only the Microsoft UEFI CA 2023. Must be called while the VM is shut down.",
+    parameters => {
+        additionalProperties => 0,
+        properties => {
+            node => get_standard_option('pve-node'),
+            vmid =>
+                get_standard_option('pve-vmid', { completion => \&PVE::QemuServer::complete_vmid }),
+        },
+    },
+    returns => { type => 'null' },
+    code => sub {
+        my ($param) = @_;
+
+        my $vmid = extract_param($param, 'vmid');
+
+        my $enroll_fn = sub {
+            my $conf = PVE::QemuConfig->load_config($vmid);
+
+            PVE::QemuConfig->check_lock($conf);
+            die "VM $vmid is running\n" if PVE::QemuServer::Helpers::vm_running_locally($vmid);
+            die "VM $vmid is a template\n" if PVE::QemuConfig->is_template($conf);
+            die "VM $vmid has no EFI disk configured\n" if !$conf->{efidisk0};
+
+            my $ostype = $conf->{ostype};
+            if (!defined($ostype) || ($ostype ne 'win10' && $ostype ne 'win11')) {
+                print "skipping - OS type is neither Windows 10 nor Windows 11\n";
+                return;
+            }
+
+            my $storecfg = PVE::Storage::config();
+
+            my $updated = PVE::QemuServer::OVMF::ensure_ms_2023_cert_enrolled(
+                $storecfg, $vmid, $conf->{efidisk0},
+            );
+            if ($updated) {
+                $conf->{efidisk0} = $updated;
+                PVE::QemuConfig->write_config($vmid, $conf);
+            } else {
+                print "skipping - no pre-enrolled keys or already got ms-cert=2023 marker\n";
+            }
+
+            return;
+        };
+
+        PVE::QemuConfig->lock_config($vmid, $enroll_fn);
+        return;
+    },
+});
+
+__PACKAGE__->register_method({
     name => 'terminal',
     path => 'terminal',
     method => 'POST',
@@ -1340,6 +1396,8 @@ our $cmddef = {
         resize => ["PVE::API2::Qemu", 'resize_vm', ['vmid', 'disk', 'size'], {%node}],
         unlink => ["PVE::API2::Qemu", 'unlink', ['vmid'], {%node}],
     },
+
+    'enroll-efi-keys' => [__PACKAGE__, 'enroll-efi-keys', ['vmid']],
 
     monitor => [__PACKAGE__, 'monitor', ['vmid']],
 
