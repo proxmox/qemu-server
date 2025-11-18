@@ -742,6 +742,7 @@ my $memoryoptions = {
     'memory' => 1,
     'balloon' => 1,
     'shares' => 1,
+    'allow-ksm' => 1,
 };
 
 my $hwtypeoptions = {
