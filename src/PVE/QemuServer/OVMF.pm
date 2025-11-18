@@ -278,8 +278,6 @@ sub print_ovmf_commandline {
     return ($cmd, $machine_flags);
 }
 
-# May only be called as part of VM start right now, because it uses the main QSD associated to the
-# VM. If required for another scenario, change the QSD ID to something else.
 sub ensure_ms_2023_cert_enrolled {
     my ($storecfg, $vmid, $efidisk_str) = @_;
 
@@ -289,19 +287,22 @@ sub ensure_ms_2023_cert_enrolled {
 
     print "efidisk0: enrolling Microsoft UEFI CA 2023\n";
 
-    my $new_qsd = !PVE::QemuServer::Helpers::qsd_running_locally($vmid);
-    PVE::QemuServer::QSD::start($vmid) if $new_qsd;
+    my $qsd_id = "vm-$vmid-efi-enroll";
+    if (my $qsd_pid = PVE::QemuServer::Helpers::qsd_running_locally($qsd_id)) {
+        die "QEMU storage daemon $qsd_id already running with PID $qsd_pid (left over process?)\n";
+    }
+    PVE::QemuServer::QSD::start($qsd_id);
 
     eval {
         my $efi_vars_path =
-            PVE::QemuServer::QSD::add_fuse_export($vmid, $efidisk, 'efidisk0-enroll');
+            PVE::QemuServer::QSD::add_fuse_export($qsd_id, $efidisk, 'efidisk0-enroll');
         PVE::Tools::run_command(
             ['virt-fw-vars', '--inplace', $efi_vars_path, '--distro-keys', 'ms-uefi']);
-        PVE::QemuServer::QSD::remove_fuse_export($vmid, 'efidisk0-enroll');
+        PVE::QemuServer::QSD::remove_fuse_export($qsd_id, 'efidisk0-enroll');
     };
     my $err = $@;
 
-    PVE::QemuServer::QSD::quit($vmid) if $new_qsd;
+    PVE::QemuServer::QSD::quit($qsd_id);
 
     die "efidisk0: enrolling Microsoft UEFI CA 2023 failed - $err" if $err;
 
