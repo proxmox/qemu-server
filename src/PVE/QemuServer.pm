@@ -5423,14 +5423,16 @@ my sub check_efi_vars {
     return if !$conf->{efidisk0};
     return if $conf->{ostype} ne 'win10' && $conf->{ostype} ne 'win11';
 
-    if (
-        my $updated = PVE::QemuServer::OVMF::ensure_ms_2023_cert_enrolled(
-            $storecfg, $vmid, $conf->{efidisk0},
-        )
-    ) {
-        $conf->{efidisk0} = $updated;
-        PVE::QemuConfig->write_config($vmid, $conf);
+    if (PVE::QemuServer::OVMF::should_enroll_ms_2023_cert($conf->{efidisk0})) {
+        # TODO: make the first print a log_warn with PVE 9.2 to make it more noticeable!
+        print "EFI disk without 'ms-cert=2023' option, suggesting that the Microsoft UEFI 2023"
+            . " certificate is not enrolled yet. The UEFI 2011 certificate expires in June 2026!";
+        print "While the VM is shut down, run 'qm enroll-efi-keys $vmid' to enroll it.\n";
+        print "If the VM uses BitLocker, run the following command inside Windows Powershell:\n";
+        print "  manage-bde -protectors -disable <drive>\n";
+        print "for each drive with BitLocker (for example, <drive> could be 'C:').\n";
     }
+
     return;
 }
 
@@ -5611,11 +5613,7 @@ sub vm_start_nolock {
         my $storage_hints = generate_storage_hints($conf, 1);
         PVE::Storage::activate_volumes($storecfg, $vollist, undef, $storage_hints);
 
-        # Can only exclusively access EFI disk during cold start. Also, check_efi_vars() might write
-        # the configuration, which must not be done at this stage of migration on the target.
-        if (!$statefile && !$resume && $conf->{bios} && $conf->{bios} eq 'ovmf') {
-            check_efi_vars($storecfg, $vmid, $conf);
-        }
+        check_efi_vars($storecfg, $vmid, $conf) if $conf->{bios} && $conf->{bios} eq 'ovmf';
 
         # Note that for certain cases like templates, the configuration is minimized, so need to ensure
         # the rest of the function here uses the same configuration that was used to build the command
