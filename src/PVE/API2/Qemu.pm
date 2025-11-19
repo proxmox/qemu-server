@@ -726,6 +726,36 @@ my $check_cpu_model_access = sub {
     }
 };
 
+# TODO switch to doing internal snapshots only for TPM? Need a way to tell the storage. Also needs
+# handling for pre-existing as-volume-chain snapshots then. Or is there a way to make QSD+swtpm
+# compatible with using volume-chain live?
+my sub assert_tpm_snapshot_compat {
+    my ($vmid, $conf, $op, $snap_conf) = @_;
+
+    return if !$conf->{tpmstate0};
+    return if !PVE::QemuServer::Helpers::vm_running_locally($vmid);
+
+    my $drive = PVE::QemuServer::Drive::parse_drive('tpmstate0', $conf->{tpmstate0});
+    my $volid = $drive->{file};
+    my $storecfg = PVE::Storage::config();
+
+    if ($snap_conf) {
+        return if !$snap_conf->{tpmstate0};
+        my $snap_drive = PVE::QemuServer::Drive::parse_drive('tpmstate0', $snap_conf->{tpmstate0});
+        return if $volid ne $snap_drive->{file};
+    }
+
+    my $format = PVE::QemuServer::Drive::checked_volume_format($storecfg, $volid);
+    my ($storeid) = PVE::Storage::parse_volume_id($volid, 1);
+    if ($storeid && $format eq 'qcow2') {
+        my $scfg = PVE::Storage::storage_config($storecfg, $storeid);
+        if ($scfg && $scfg->{'snapshot-as-volume-chain'}) {
+            die "snapshot $op of TPM state '$volid' on storage with 'snapshot-as-volume-chain' is"
+                . " not yet supported while the VM is running.\n";
+        }
+    }
+}
+
 my $cpuoptions = {
     'cores' => 1,
     'cpu' => 1,
@@ -6040,6 +6070,14 @@ __PACKAGE__->register_method({
             0);
 
         my $realcmd = sub {
+            PVE::QemuConfig->lock_config(
+                $vmid,
+                sub {
+                    my $conf = PVE::QemuConfig->load_config($vmid);
+                    assert_tpm_snapshot_compat($vmid, $conf, 'create');
+                },
+            );
+
             PVE::Cluster::log_msg('info', $authuser, "snapshot VM $vmid: $snapname");
             PVE::QemuConfig->snapshot_create(
                 $vmid, $snapname, $param->{vmstate}, $param->{description},
@@ -6291,6 +6329,20 @@ __PACKAGE__->register_method({
         my $lock_obtained;
         my $do_delete = sub {
             $lock_obtained = 1;
+
+            PVE::QemuConfig->lock_config(
+                $vmid,
+                sub {
+                    my $conf = PVE::QemuConfig->load_config($vmid);
+                    assert_tpm_snapshot_compat(
+                        $vmid,
+                        $conf,
+                        'delete',
+                        $conf->{snapshots}->{$snapname},
+                    );
+                },
+            );
+
             PVE::Cluster::log_msg('info', $authuser, "delete snapshot VM $vmid: $snapname");
             PVE::QemuConfig->snapshot_delete($vmid, $snapname, $param->{force});
         };
