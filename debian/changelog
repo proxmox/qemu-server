@@ -1,3 +1,15 @@
+qemu-server (9.1.0) trixie; urgency=medium
+
+  * vm start: check efi vars: add missing newline in print.
+
+  * cpu config: nested-virt: update description of parameter to always
+    recommend a CPU model similar to the host.
+
+  * snapshot: prohibit live snapshot (remove) of qcow2 TPM drive on storage
+    with snapshot-as-volume-chain for the time being.
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 19 Nov 2025 13:03:38 +0100
+
 qemu-server (9.0.30) trixie; urgency=medium
 
   * api: add 'allow-ksm' to memory options that are allowed to be configured
