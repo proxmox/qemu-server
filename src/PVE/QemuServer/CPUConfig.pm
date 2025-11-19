@@ -170,7 +170,7 @@ my $supported_cpu_flags = [
         name => 'nested-virt',
         description => "Controls nested virtualization, namely 'svm' for AMD CPUs and 'vmx' for"
             . " Intel CPUs. Live migration still only works if it's the same flag on both sides."
-            . " For Windows, use a CPU model similar to the host, with the same vendor!",
+            . " Use a CPU model similar to the host, with the same vendor, not x86-64-vX!",
     },
     {
         name => 'md-clear',
