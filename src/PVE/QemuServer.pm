@@ -564,7 +564,7 @@ EODESCR
         description => "Set maximum tolerated downtime (in seconds) for migrations. Should the"
             . " migration not be able to converge in the very end, because too much newly dirtied"
             . " RAM needs to be transferred, the limit will be increased automatically step-by-step"
-            . " until migration can converge.",
+            . " until migration can converge. Will be capped to 2000 seconds (maximum in QEMU).",
         minimum => 0,
         default => 0.1,
     },

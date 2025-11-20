@@ -1150,6 +1150,46 @@ sub phase2_start_remote_cluster {
     return ($res->{migrate}, $res->{spice_port});
 }
 
+my $migrate_downtime_max = 2000 * 1000; # as defined in QEMU's migration/options.c
+
+my sub cap_migrate_downtime {
+    my ($self, $migrate_downtime) = @_;
+
+    if ($migrate_downtime > $migrate_downtime_max) {
+        $self->log('info', "capping downtime limit to maximum possible: $migrate_downtime_max ms");
+        return $migrate_downtime_max;
+    }
+
+    return $migrate_downtime;
+}
+
+my sub increase_migrate_downtime {
+    my ($self, $vmid, $migrate_downtime) = @_;
+
+    return $migrate_downtime_max if $migrate_downtime >= $migrate_downtime_max;
+
+    $migrate_downtime *= 2;
+
+    $migrate_downtime = cap_migrate_downtime($self, $migrate_downtime);
+
+    $self->log(
+        'info',
+        "auto-increased downtime to continue migration: $migrate_downtime ms",
+    );
+    eval {
+        # migrate-set-parameters does not touch values not
+        # specified, so this only changes downtime-limit
+        mon_cmd(
+            $vmid,
+            "migrate-set-parameters",
+            'downtime-limit' => int($migrate_downtime),
+        );
+    };
+    $self->log('info', "migrate-set-parameters error: $@") if $@;
+
+    return $migrate_downtime;
+}
+
 sub phase2 {
     my ($self, $vmid) = @_;
 
@@ -1313,6 +1353,7 @@ sub phase2 {
     $migrate_downtime = $conf->{migrate_downtime} if defined($conf->{migrate_downtime});
     # migrate-set-parameters expects limit in ms
     $migrate_downtime *= 1000;
+    $migrate_downtime = cap_migrate_downtime($self, $migrate_downtime);
     $self->log('info', "migration downtime limit: $migrate_downtime ms");
     $qemu_migrate_params->{'downtime-limit'} = int($migrate_downtime);
 
@@ -1493,21 +1534,7 @@ sub phase2 {
 
             if ($downtimecounter > 5) {
                 $downtimecounter = 0;
-                $migrate_downtime *= 2;
-                $self->log(
-                    'info',
-                    "auto-increased downtime to continue migration: $migrate_downtime ms",
-                );
-                eval {
-                    # migrate-set-parameters does not touch values not
-                    # specified, so this only changes downtime-limit
-                    mon_cmd(
-                        $vmid,
-                        "migrate-set-parameters",
-                        'downtime-limit' => int($migrate_downtime),
-                    );
-                };
-                $self->log('info', "migrate-set-parameters error: $@") if $@;
+                $migrate_downtime = increase_migrate_downtime($self, $vmid, $migrate_downtime);
             }
         }
 
