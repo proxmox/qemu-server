@@ -1173,16 +1173,13 @@ my sub increase_migrate_downtime {
     $migrate_downtime = cap_migrate_downtime($self, $migrate_downtime);
 
     $self->log(
-        'info',
-        "auto-increased downtime to continue migration: $migrate_downtime ms",
+        'info', "auto-increased downtime to continue migration: $migrate_downtime ms",
     );
     eval {
         # migrate-set-parameters does not touch values not
         # specified, so this only changes downtime-limit
         mon_cmd(
-            $vmid,
-            "migrate-set-parameters",
-            'downtime-limit' => int($migrate_downtime),
+            $vmid, "migrate-set-parameters", 'downtime-limit' => int($migrate_downtime),
         );
     };
     $self->log('info', "migrate-set-parameters error: $@") if $@;
