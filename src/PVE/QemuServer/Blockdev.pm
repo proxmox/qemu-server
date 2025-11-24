@@ -274,8 +274,13 @@ my sub generate_file_blockdev {
         my $server = { type => 'unix', path => "$1" };
         $blockdev = { driver => 'nbd', server => $server, export => "$2" };
     } elsif ($drive->{file} =~ m/^$NBD_TCP_PATH_RE_3$/) {
-        my $server = { type => 'inet', host => "$1", port => "$2" }; # port is also a string in QAPI
-        $blockdev = { driver => 'nbd', server => $server, export => "$3" };
+        my ($host, $port, $export) = ($1, $2, $3);
+        if ($host =~ m/^\[(.*)\]$/) { # IPv6 address needs to be passed without square brackets
+            $host = $1;
+        }
+        # port is also a string in QAPI
+        my $server = { type => 'inet', host => "$host", port => "$port" };
+        $blockdev = { driver => 'nbd', server => $server, export => "$export" };
     } elsif ($drive->{file} eq 'cdrom') {
         my $path = PVE::QemuServer::Drive::get_iso_path($storecfg, $drive->{file});
         $blockdev = { driver => 'host_cdrom', filename => "$path" };
