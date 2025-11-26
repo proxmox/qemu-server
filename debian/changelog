@@ -1,3 +1,13 @@
+qemu-server (8.4.5) bookworm; urgency=medium
+
+  * fix #6934: vm start: do not try to apply pending changes when resuming
+    from hibernation.
+
+  * vm status: make sure disk{read, write} adhere to return schema to fix
+    regression for PDM.
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 26 Nov 2025 08:36:06 +0100
+
 qemu-server (8.4.4) bookworm; urgency=medium
 
   * fix #6207: vm status: return undefined value when disk{read, write} cannot
