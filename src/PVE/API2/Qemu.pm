@@ -1418,7 +1418,7 @@ __PACKAGE__->register_method({
 
             if ($ha_managed) {
                 print "Add as HA resource\n";
-                my $state = $start_after_create ? 'started' : 'stopped';
+                my $state = $start_after_create || $live_restore ? 'started' : 'stopped';
                 my $cmd = ['ha-manager', 'add', "vm:$vmid", '--state', $state];
                 eval { PVE::Tools::run_command($cmd); };
                 warn $@ if $@;
