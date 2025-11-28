@@ -1111,6 +1111,12 @@ __PACKAGE__->register_method({
                 my $pid = PVE::QemuServer::check_running($vmid);
                 die "vm still running\n" if $pid;
 
+                # Rollback already does cleanup when preparing and afterwards temporarily drops the
+                # lock on the configuration file to rollback the volumes. Deactivating volumes here
+                # again while that is happening would be problematic.
+                die "skipping cleanup - 'rollback' lock is present\n"
+                    if $conf->{lock} && $conf->{lock} eq 'rollback';
+
                 if (!$clean) {
                     # we have to cleanup the tap devices after a crash
 
