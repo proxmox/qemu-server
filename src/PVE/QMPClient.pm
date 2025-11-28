@@ -132,8 +132,6 @@ sub cmd {
             $cmd->{execute} eq 'backup-cancel'
             || $cmd->{execute} eq 'blockdev-del'
             || $cmd->{execute} eq 'blockdev-mirror'
-            || $cmd->{execute} eq 'blockdev-snapshot-delete-internal-sync'
-            || $cmd->{execute} eq 'blockdev-snapshot-internal-sync'
             || $cmd->{execute} eq 'block-job-cancel'
             || $cmd->{execute} eq 'block-job-complete'
             || $cmd->{execute} eq 'drive-mirror'
@@ -146,6 +144,11 @@ sub cmd {
             || $cmd->{execute} eq 'savevm-start'
         ) {
             $timeout = 10 * 60; # 10 mins
+        } elsif (
+            $cmd->{execute} eq 'blockdev-snapshot-delete-internal-sync'
+            || $cmd->{execute} eq 'blockdev-snapshot-internal-sync'
+        ) {
+            $timeout = 60 * 60; # 1 hour
         } else {
             #  NOTE: if you came here as user and want to change this, try using IO-Threads first
             # which move out quite some processing of the main thread, leaving more time for QMP
