@@ -1,3 +1,26 @@
+qemu-server (9.1.1) trixie; urgency=medium
+
+  * fix #7044: migration: cap the auto-increased allowed-downtime-limit to the
+    maximum value that QEMU supports.
+
+  * qmp client: bump timeout for synchronous block-dev snapshot commands to
+    one hour, as they can take quite a bit of time, especially with qcow2
+    internal snapshots.
+
+  * qm cleanup: avoid potentially problematic cleanup during rollback.
+
+  * block-dev: add NBD: fix handling of IPv6 host to unbreak TCP disk live
+    migration for such setups in PVE 9.
+
+  * create: assume HA state 'started' when live-restoring a VM, to avoid that
+    the HA manager is stopping the VM during the restore due to not knowing
+    better.
+
+  * create: set, not add, HA resource request-state when restoring a VM that
+    is already a HA resource.
+
+ -- Proxmox Support Team <support@proxmox.com>  Sat, 29 Nov 2025 23:26:50 +0100
+
 qemu-server (9.1.0) trixie; urgency=medium
 
   * vm start: check efi vars: add missing newline in print.
