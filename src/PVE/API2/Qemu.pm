@@ -1419,16 +1419,10 @@ __PACKAGE__->register_method({
             if ($ha_managed) {
                 my $resource_exists = PVE::HA::Config::service_is_configured("vm:$vmid");
                 my $state = $start_after_create || $live_restore ? 'started' : 'stopped';
-                my $cmd;
-                if ($resource_exists) {
-                    print "Update state of HA resource\n";
-                    $cmd = ['ha-manager', 'set', "vm:$vmid", '--state', $state];
-                } else {
-                    print "Add as HA resource\n";
-                    $cmd = ['ha-manager', 'add', "vm:$vmid", '--state', $state];
-                }
+                my $ha_cmd = $resource_exists ? 'set' : 'add';
 
-                eval { run_command($cmd) };
+                print ucfirst("$ha_cmd HA resource with request-state '$state'\n");
+                eval { run_command(['ha-manager', $ha_cmd, "vm:$vmid", '--state', $state]) };
                 warn $@ if $@;
             }
         };
