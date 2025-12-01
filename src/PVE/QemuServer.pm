@@ -4478,6 +4478,9 @@ sub foreach_volid {
         $volhash->{$volid}->{cdrom} //= 1;
         $volhash->{$volid}->{cdrom} = 0 if !drive_is_cdrom($drive);
 
+        $volhash->{$volid}->{is_cloudinit} //= 0;
+        $volhash->{$volid}->{is_cloudinit} = 1 if drive_is_cloudinit($drive);
+
         my $replicate = $drive->{replicate} // 1;
         $volhash->{$volid}->{replicate} //= 0;
         $volhash->{$volid}->{replicate} = 1 if $replicate;

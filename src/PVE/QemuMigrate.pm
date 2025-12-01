@@ -449,6 +449,7 @@ sub scan_local_volumes {
                 PVE::Storage::volume_size_info($storecfg, $volid);
 
             $local_volumes->{$volid}->{is_vmstate} = $attr->{is_vmstate} ? 1 : 0;
+            $local_volumes->{$volid}->{is_cloudinit} = $attr->{is_cloudinit} ? 1 : 0;
 
             $local_volumes->{$volid}->{drivename} = $attr->{drivename}
                 if $attr->{drivename};
@@ -735,11 +736,14 @@ sub sync_offline_local_volumes {
             my $bwlimit = $local_volumes->{$volid}->{bwlimit};
             $bwlimit = $bwlimit * 1024 if defined($bwlimit); # storage_migrate uses bps
 
+            my $preserve_name =
+                $local_volumes->{$volid}->{is_vmstate} || $local_volumes->{$volid}->{is_cloudinit};
+
             my $storage_migrate_opts = {
                 'ratelimit_bps' => $bwlimit,
                 'insecure' => $opts->{migration_type} eq 'insecure',
                 'with_snapshots' => $local_volumes->{$volid}->{snapshots},
-                'allow_rename' => !$local_volumes->{$volid}->{is_vmstate},
+                'allow_rename' => !$preserve_name,
             };
 
             my $logfunc = sub { $self->log('info', $_[0]); };
