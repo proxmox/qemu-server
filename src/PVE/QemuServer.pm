@@ -5421,6 +5421,7 @@ my sub check_efi_vars {
 
     return if PVE::QemuConfig->is_template($conf);
     return if !$conf->{efidisk0};
+    return if !$conf->{ostype};
     return if $conf->{ostype} ne 'win10' && $conf->{ostype} ne 'win11';
 
     if (PVE::QemuServer::OVMF::should_enroll_ms_2023_cert($conf->{efidisk0})) {
