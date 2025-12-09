@@ -137,7 +137,6 @@ int main() {
 
     char vendor[13];
     cpu_vendor(vendor);
-    printf("%s\n", vendor);
 
     int ret = fprintf(file, "{");
     if (ret < 0) {
