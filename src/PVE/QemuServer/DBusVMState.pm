@@ -16,6 +16,30 @@ use constant {
     DBUS_VMSTATE_EXE => '/usr/libexec/qemu-server/dbus-vmstate',
 };
 
+# Call a method for an object from a specific interface name.
+# In contrast to calling the method directly by using $obj->Method(), this
+# actually respects the owner of the object and thus can be used for interfaces
+# with might have multiple (queued) owners on the DBus.
+my sub dbus_call_method {
+    my ($obj, $interface, $method, $params, $timeout) = @_;
+
+    $timeout = 10 if !$timeout;
+
+    my $con = $obj->{service}->get_bus()->get_connection();
+
+    my $call = $con->make_method_call_message(
+        $obj->{service}->get_service_name(),
+        $obj->{object_path},
+        $interface,
+        $method,
+    );
+
+    $call->set_destination($obj->get_service()->get_owner_name());
+    $call->append_args_list($params->@*) if $params;
+
+    return $con->send_with_reply_and_block($call, $timeout * 1000)->get_args_list();
+}
+
 # Retrieves a property from an object from a specific interface name.
 # In contrast to accessing the property directly by using $obj->Property, this
 # actually respects the owner of the object and thus can be used for interfaces
@@ -23,19 +47,8 @@ use constant {
 my sub dbus_get_property {
     my ($obj, $interface, $name) = @_;
 
-    my $con = $obj->{service}->get_bus()->get_connection();
-
-    my $call = $con->make_method_call_message(
-        $obj->{service}->get_service_name(),
-        $obj->{object_path},
-        'org.freedesktop.DBus.Properties',
-        'Get',
-    );
-
-    $call->set_destination($obj->get_service()->get_owner_name());
-    $call->append_args_list($interface, $name);
-
-    my @reply = $con->send_with_reply_and_block($call, 10 * 1000)->get_args_list();
+    my @reply =
+        dbus_call_method($obj, 'org.freedesktop.DBus.Properties', 'Get', [$interface, $name]);
     return $reply[0];
 }
 
