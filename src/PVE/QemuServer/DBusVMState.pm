@@ -127,7 +127,8 @@ sub qemu_del_dbus_vmstate {
             $num_entries = eval {
                 dbus_get_property($object, 'com.proxmox.VMStateHelper', 'NumMigratedEntries');
             };
-            eval { $object->Quit() };
+            # Quit() does QMP object-del which has a timeout of 60 seconds
+            eval { dbus_call_method($object, 'com.proxmox.VMStateHelper', 'Quit', [], 70); };
             if (my $err = $@) {
                 syslog('warn', "failed to call quit on dbus-vmstate for VM $vmid: $err\n")
                     if !$params{quiet};
