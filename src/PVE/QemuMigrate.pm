@@ -254,6 +254,12 @@ sub prepare {
                 'conntrack state migration not supported or disabled, '
                     . 'active connections might get dropped',
             );
+
+            # In case some leftover instance is running, stop it. The target QEMU instance won't
+            # have the 'dbus-vmstate' object, so the source must not have it either.
+            if (defined(PVE::QemuServer::DBusVMState::qemu_del_dbus_vmstate($vmid, quiet => 1))) {
+                $self->log('warn', "stopped left-over dbus-vmstate helper for VM $vmid");
+            }
         }
     }
 
