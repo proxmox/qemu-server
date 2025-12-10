@@ -1,3 +1,17 @@
+qemu-server (9.1.2) trixie; urgency=medium
+
+  * check efi vars: avoid warning about accessing an undefined value from Perl
+    when no OS type is set.
+
+  * query machine capabilities: remove left-over debug print.
+
+  * dbus-vmstate: fix method call on dbus object resolving to wrong instance.
+
+  * migrate: remove left-over dbus-vmstate instance when migrating without
+    conntrack state.
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 10 Dec 2025 15:33:03 +0100
+
 qemu-server (9.1.1) trixie; urgency=medium
 
   * fix #7044: migration: cap the auto-increased allowed-downtime-limit to the
