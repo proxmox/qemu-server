@@ -5718,6 +5718,10 @@ sub vm_start_nolock {
         KillMode => 'process',
         SendSIGKILL => 0,
         TimeoutStopUSec => ULONG_MAX, # infinity
+        After => ['dbus.service'],
+        # The point is ordering the VMID.scope after these during stop.
+        # During start-up, the slice/scopes are not enabled.
+        Before => ['pve-ha-lrm.service', 'pve-guests.service'],
     );
 
     if (PVE::CGroup::cgroup_mode() == 2) {
