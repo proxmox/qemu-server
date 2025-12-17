@@ -82,8 +82,19 @@ sub qemu_del_dbus_vmstate {
     my ($vmid, %params) = @_;
 
     my $num_entries = undef;
-    my $dbus = Net::DBus->system();
-    my $dbus_obj = $dbus->get_bus_object();
+    my $dbus = eval { Net::DBus->system(); };
+    if (my $err = $@) {
+        # log fundamental error even if $params{quiet} is set
+        syslog('warn', "failed to connect to DBus system bus: $err");
+        return undef;
+    }
+
+    my $dbus_obj = eval { $dbus->get_bus_object(); };
+    if (my $err = $@) {
+        # log fundamental error even if $params{quiet} is set
+        syslog('warn', "failed to get DBus bus object: $err");
+        return undef;
+    }
 
     my $owners = eval { $dbus_obj->ListQueuedOwners('org.qemu.VMState1') };
     if (my $err = $@) {
