@@ -194,7 +194,7 @@ sub get_backup_volumes {
 
         if ($key =~ m/^efidisk/ && (!defined($conf->{bios}) || $conf->{bios} ne 'ovmf')) {
             $included = 0;
-            $reason = "efidisk but no OMVF BIOS";
+            $reason = "efidisk but no OVMF BIOS";
         }
 
         push @$return_volumes,
