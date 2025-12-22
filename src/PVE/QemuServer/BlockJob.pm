@@ -408,9 +408,9 @@ All jobs must be ready before completion can happen.
 =over
 
 =item C<complete>: Wait until all jobs are ready, block-job-complete them (default). This means
-switching the orignal drive to use the new target.
+switching the original drive to use the new target.
 
-=item C<cancel>: Wait until all jobs are ready, block-job-cancel them. This means not switching thex
+=item C<cancel>: Wait until all jobs are ready, block-job-cancel them. This means not switching the
 original drive to use the new target.
 
 =item C<skip>: Wait until all jobs are ready, return with block jobs in ready state.

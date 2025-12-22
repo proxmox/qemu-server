@@ -39,7 +39,7 @@ Parameters:
 =item C<$id>: Identifier for the peer. The pair C<($id, $type)> uniquely identifies a peer.
 
 =item C<$type>: Type of the peer to communicate with. This can be C<qmp> for the VM's QEMU instance,
-C<qga> for the VM's guest agent or C<qsd> for the QEMU storage daemon assoicated to the VM.
+C<qga> for the VM's guest agent or C<qsd> for the QEMU storage daemon associated to the VM.
 
 =back
 

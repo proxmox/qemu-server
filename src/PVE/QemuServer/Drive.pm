@@ -525,7 +525,7 @@ my %efitype_fmt = (
         type => 'string',
         enum => [qw(2011 2023)],
         description =>
-            "Informational marker indicating the version of the latest Microsof UEFI certificate"
+            "Informational marker indicating the version of the latest Microsoft UEFI certificate"
             . " that has been enrolled by Proxmox VE.",
         optional => 1,
         default => '2011',

@@ -1492,7 +1492,7 @@ my sub backup_access_to_volume_info {
             $volumes->{$device}->{'nbd-path'} = $nbd_path;
             $volumes->{$device}->{'bitmap-name'} = $bitmap_name;
         } else {
-            die "internal error - unkown mechanism '$mechanism'";
+            die "internal error - unknown mechanism '$mechanism'";
         }
     }
 
