@@ -5932,7 +5932,7 @@ sub vm_start_nolock {
         }
         delete $conf->@{qw(lock vmstate running-nets-host-mtu runningmachine runningcpu)};
         PVE::QemuConfig->write_config($vmid, $conf);
-    } elsif (!$conf->{vmstate}) {
+    } elsif (!$conf->{vmstate} && !$migratedfrom) {
         remove_left_over_vmstate_opts($vmid, $conf);
     }
 
