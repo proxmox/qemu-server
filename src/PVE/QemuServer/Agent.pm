@@ -268,4 +268,20 @@ sub guest_fsfreeze {
     die "unable to freeze guest fs - unexpected status '$status'\n" if $status ne 'frozen';
 }
 
+=head3 guest_fsthaw
+
+    guest_fsthaw($vmid);
+
+Thaws the file systems of the guest C<$vmid>. Dies if the file systems cannot be thawed.
+
+See C<$guest_fsfreeze> for more details.
+
+=cut
+
+sub guest_fsthaw {
+    my ($vmid) = @_;
+
+    PVE::QemuServer::Monitor::mon_cmd($vmid, "guest-fsfreeze-thaw");
+}
+
 1;
