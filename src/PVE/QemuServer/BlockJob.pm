@@ -178,7 +178,7 @@ sub monitor {
 
                     if ($agent_running) {
                         print "unfreeze filesystem\n";
-                        eval { mon_cmd($vmid, "guest-fsfreeze-thaw"); };
+                        eval { PVE::QemuServer::Agent::guest_fsthaw($vmid); };
                         warn $@ if $@;
                     } else {
                         print "resume vm\n";

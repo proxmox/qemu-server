@@ -310,7 +310,7 @@ sub __snapshot_freeze {
     my ($class, $vmid, $unfreeze) = @_;
 
     if ($unfreeze) {
-        eval { mon_cmd($vmid, "guest-fsfreeze-thaw"); };
+        eval { PVE::QemuServer::Agent::guest_fsthaw($vmid); };
         warn "guest-fsfreeze-thaw problems - $@" if $@;
     } else {
         eval { PVE::QemuServer::Agent::guest_fsfreeze($vmid); };

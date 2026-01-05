@@ -1124,7 +1124,7 @@ sub qga_fs_thaw {
     my ($self, $vmid) = @_;
 
     $self->loginfo("issuing guest-agent 'fs-thaw' command");
-    eval { mon_cmd($vmid, "guest-fsfreeze-thaw") };
+    eval { PVE::QemuServer::Agent::guest_fsthaw($vmid); };
     $self->logerr($@) if $@;
 }
 
