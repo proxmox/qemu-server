@@ -4556,6 +4556,9 @@ __PACKAGE__->register_method({
                     $dest_info->{efisize} = PVE::QemuServer::get_efivars_size($oldconf)
                         if $opt eq 'efidisk0';
 
+                    my $qga = $oldconf->{agent}
+                        && PVE::QemuServer::Agent::get_qga_key($oldconf, 'guest-fsfreeze') // 1;
+
                     my $newdrive = PVE::QemuServer::clone_disk(
                         $storecfg,
                         $source_info,
@@ -4564,7 +4567,7 @@ __PACKAGE__->register_method({
                         $newvollist,
                         $jobs,
                         $completion,
-                        $oldconf->{agent},
+                        $qga,
                         $clonelimit,
                     );
 
