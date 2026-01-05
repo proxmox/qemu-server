@@ -162,12 +162,19 @@ sub monitor {
                 last if $completion eq 'skip' || $completion eq 'auto';
 
                 if ($vmiddst && $vmiddst != $vmid) {
-                    my $agent_running = $qga && qga_check_running($vmid);
-                    if ($agent_running) {
+                    my $should_fsfreeze = $qga && qga_check_running($vmid);
+                    if ($should_fsfreeze) {
                         print "freeze filesystem\n";
                         eval { PVE::QemuServer::Agent::guest_fsfreeze($vmid); };
                         warn $@ if $@;
                     } else {
+                        if (!$qga) {
+                            print "skipping guest-agent 'guest-fsfreeze-freeze', disabled in VM"
+                                . " options\n";
+                        } else {
+                            print "skipping guest agent 'guest-fsfreeze-freeze' command: the"
+                                . " agent is not running inside of the guest\n";
+                        }
                         print "suspend vm\n";
                         eval { PVE::QemuServer::RunState::vm_suspend($vmid, 1); };
                         warn $@ if $@;
@@ -176,7 +183,7 @@ sub monitor {
                     # if we clone a disk for a new target vm, we don't switch the disk
                     qemu_blockjobs_cancel($vmid, $jobs);
 
-                    if ($agent_running) {
+                    if ($should_fsfreeze) {
                         print "unfreeze filesystem\n";
                         eval { PVE::QemuServer::Agent::guest_fsthaw($vmid); };
                         warn $@ if $@;
