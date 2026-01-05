@@ -41,6 +41,21 @@ our $agent_fmt = {
         optional => 1,
         default => 1,
     },
+    'guest-fsfreeze' => {
+        description =>
+            "Whether to issue the guest-fsfreeze-freeze and guest-fsfreeze-thaw QEMU guest agent"
+            . " commands.",
+        verbose_description =>
+            "Whether to issue the guest-fsfreeze-freeze and guest-fsfreeze-thaw QEMU guest agent"
+            . " commands. Backups in snapshot mode, clones, snapshots without RAM, importing"
+            . " disks from a running guest, and replications normally issue a guest-fsfreeze-freeze"
+            . " and a respective thaw command when the QEMU Guest agent option is enabled in the"
+            . " guest's configuration and the agent is running inside of the guest.\n\nWhen set, it"
+            . " will take precedence over 'freeze-fs-on-backup'.",
+        type => 'boolean',
+        optional => 1,
+        default => 1,
+    },
     type => {
         description => "Select the agent type",
         type => 'string',
