@@ -298,7 +298,8 @@ sub __snapshot_check_freeze_needed {
             $running,
             $running
                 && PVE::QemuServer::Agent::get_qga_key($config, 'enabled')
-                && PVE::QemuServer::Agent::qga_check_running($vmid),
+                && PVE::QemuServer::Agent::qga_check_running($vmid)
+                && PVE::QemuServer::Agent::get_qga_key($config, 'guest-fsfreeze') // 1,
         );
     } else {
         return ($running, 0);
