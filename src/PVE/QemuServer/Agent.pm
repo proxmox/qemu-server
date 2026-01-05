@@ -35,8 +35,10 @@ our $agent_fmt = {
         optional => 1,
         default => 0,
     },
+    # TODO Remove for Proxmox VE 10
     'freeze-fs-on-backup' => {
-        description => "Freeze/thaw guest filesystems on backup for consistency.",
+        description => "Deprecated: Use 'guest-fsfreeze' instead.\n\n"
+            . "Freeze/thaw guest filesystems on backup for consistency.",
         type => 'boolean',
         optional => 1,
         default => 1,
