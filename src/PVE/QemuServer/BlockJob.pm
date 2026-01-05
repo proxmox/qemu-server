@@ -164,7 +164,7 @@ sub monitor {
                 if ($vmiddst && $vmiddst != $vmid) {
                     my $should_fsfreeze = $qga && qga_check_running($vmid);
                     if ($should_fsfreeze) {
-                        print "freeze filesystem\n";
+                        print "issuing guest agent 'guest-fsfreeze-freeze' command\n";
                         eval { PVE::QemuServer::Agent::guest_fsfreeze($vmid); };
                         warn $@ if $@;
                     } else {
@@ -184,7 +184,7 @@ sub monitor {
                     qemu_blockjobs_cancel($vmid, $jobs);
 
                     if ($should_fsfreeze) {
-                        print "unfreeze filesystem\n";
+                        print "issuing guest agent 'guest-fsfreeze-thaw' command\n";
                         eval { PVE::QemuServer::Agent::guest_fsthaw($vmid); };
                         warn $@ if $@;
                     } else {
