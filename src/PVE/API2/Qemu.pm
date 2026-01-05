@@ -374,6 +374,9 @@ my $import_from_volid = sub {
 
         my ($src_storeid) = PVE::Storage::parse_volume_id($src_volid);
 
+        my $qga = $src_conf->{agent}
+            && PVE::QemuServer::Agent::get_qga_key($src_conf, 'guest-fsfreeze') // 1;
+
         return PVE::QemuServer::clone_disk(
             $storecfg,
             $source_info,
@@ -382,7 +385,7 @@ my $import_from_volid = sub {
             $vollist,
             undef,
             undef,
-            $src_conf->{agent},
+            $qga,
             PVE::Storage::get_bandwidth_limit('clone', [$src_storeid, $dest_info->{storage}]),
         );
     };
