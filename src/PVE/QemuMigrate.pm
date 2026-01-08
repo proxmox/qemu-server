@@ -301,7 +301,11 @@ sub prepare {
 
     my $vga = PVE::QemuServer::parse_vga($conf->{vga});
     if ($running && $vga->{'clipboard'} && $vga->{'clipboard'} eq 'vnc') {
-        die "VMs with 'clipboard' set to 'vnc' are not live migratable!\n";
+        my $machine_version = PVE::QemuServer::Machine::get_current_qemu_machine($vmid);
+        if (!PVE::QemuServer::Machine::is_machine_version_at_least($machine_version, 10, 1)) {
+            die "VMs with 'clipboard' set to 'vnc' are not live migratable with"
+                . " QEMU/machine versions older than 10.1!\n";
+        }
     }
 
     my $vollist = PVE::QemuServer::get_vm_volumes($conf);

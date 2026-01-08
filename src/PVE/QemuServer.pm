@@ -177,8 +177,9 @@ my $vga_fmt = {
     },
     clipboard => {
         description =>
-            'Enable a specific clipboard. If not set, depending on the display type the'
-            . ' SPICE one will be added. Migration with VNC clipboard is not yet supported!',
+            'Enable a specific clipboard. If not set, depending on the display type the SPICE one'
+            . ' will be added. Live migration with a VNC clipboard is not possible with QEMU'
+            . ' machine version < 10.1.',
         type => 'string',
         enum => ['vnc'],
         optional => 1,
