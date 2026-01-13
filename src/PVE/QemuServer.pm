@@ -5400,7 +5400,8 @@ my sub check_efi_vars {
     return if !$conf->{ostype};
     return if $conf->{ostype} ne 'win10' && $conf->{ostype} ne 'win11';
 
-    if (PVE::QemuServer::OVMF::should_enroll_ms_2023_cert($conf->{efidisk0})) {
+    my $efidisk = parse_drive('efidisk0', $conf->{efidisk0});
+    if (PVE::QemuServer::OVMF::should_enroll_ms_2023_cert($efidisk)) {
         # TODO: make the first print a log_warn with PVE 9.2 to make it more noticeable!
         print "EFI disk without 'ms-cert=2023' option, suggesting that the Microsoft UEFI 2023"
             . " certificate is not enrolled yet. The UEFI 2011 certificate expires in June 2026!\n";

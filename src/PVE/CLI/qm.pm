@@ -30,7 +30,7 @@ use PVE::Tools qw(extract_param file_get_contents);
 use PVE::API2::Qemu::Agent;
 use PVE::API2::Qemu;
 use PVE::QemuConfig;
-use PVE::QemuServer::Drive qw(is_valid_drivename);
+use PVE::QemuServer::Drive qw(is_valid_drivename parse_drive print_drive);
 use PVE::QemuServer::Helpers;
 use PVE::QemuServer::Agent;
 use PVE::QemuServer::ImportDisk;
@@ -729,9 +729,9 @@ __PACKAGE__->register_method({
 
         my $storecfg = PVE::Storage::config();
 
-        my $updated = PVE::QemuServer::OVMF::ensure_ms_2023_cert_enrolled(
-            $storecfg, $vmid, $conf->{efidisk0},
-        );
+        my $efidisk = parse_drive('efidisk0', $conf->{efidisk0});
+        my $updated =
+            PVE::QemuServer::OVMF::ensure_ms_2023_cert_enrolled($storecfg, $vmid, $efidisk);
 
         if (!$updated) {
             print "skipping - no pre-enrolled keys or already got ms-cert=2023 marker\n";
@@ -746,7 +746,7 @@ __PACKAGE__->register_method({
                 eval { PVE::Tools::assert_if_modified($conf->{digest}, $locked_conf->{digest}) };
                 die "VM ${vmid}: $@" if $@;
 
-                $locked_conf->{efidisk0} = $updated;
+                $locked_conf->{efidisk0} = print_drive($updated);
                 PVE::QemuConfig->write_config($vmid, $locked_conf);
                 print "successfully updated efidisk\n";
             },
