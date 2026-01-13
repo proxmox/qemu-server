@@ -180,7 +180,7 @@ sub create_efidisk($$$$$$$$) {
     my $size = PVE::Storage::volume_size_info($storecfg, $volid, 3);
 
     if ($efidisk->{'pre-enrolled-keys'} && is_ms_2023_cert_enrolled($ovmf_vars)) {
-        $efidisk->{'ms-cert'} = '2023';
+        $efidisk->{'ms-cert'} = '2023w';
     }
 
     return ($volid, $size / 1024);
@@ -283,7 +283,7 @@ sub should_enroll_ms_2023_cert {
     my ($efidisk) = @_;
 
     return if !$efidisk->{'pre-enrolled-keys'};
-    return if $efidisk->{'ms-cert'} && $efidisk->{'ms-cert'} eq '2023';
+    return if $efidisk->{'ms-cert'} && $efidisk->{'ms-cert'} eq '2023w';
 
     return 1;
 }
@@ -323,7 +323,7 @@ sub ensure_ms_2023_cert_enrolled {
 
     die "efidisk0: enrolling Microsoft UEFI CA 2023 failed - $err" if $err;
 
-    $efidisk->{'ms-cert'} = '2023';
+    $efidisk->{'ms-cert'} = '2023w';
     return $efidisk;
 }
 
@@ -334,7 +334,7 @@ sub drive_change {
         $old_drive->{file} eq $new_drive->{file} # change affecting the same volume
         && safe_string_ne($old_drive->{'ms-cert'}, $new_drive->{'ms-cert'}) # ms-cert changed
         && $new_drive->{'ms-cert'}
-        && $new_drive->{'ms-cert'} eq '2023'
+        && $new_drive->{'ms-cert'} =~ m/^2023/
     ) {
         # The ms-cert marker was newly changed to 2023, ensure it's enrolled. Clear it first to
         # avoid detecting as already enrolled.

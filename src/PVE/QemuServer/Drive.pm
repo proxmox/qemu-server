@@ -523,10 +523,12 @@ my %efitype_fmt = (
     },
     'ms-cert' => {
         type => 'string',
-        enum => [qw(2011 2023)],
+        enum => [qw(2011 2023 2023w)],
         description =>
             "Informational marker indicating the version of the latest Microsoft UEFI certificate"
-            . " that has been enrolled by Proxmox VE.",
+            . " that has been enrolled by Proxmox VE. The value '2023w' means that both the"
+            . " 'Microsoft UEFI CA 2023' and the 'Windows UEFI CA 2023' certificates are included."
+            . " The value '2023' is deprecated and for compatibility only.",
         optional => 1,
         default => '2011',
     },
