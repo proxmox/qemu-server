@@ -744,14 +744,7 @@ __PACKAGE__->register_method({
                 my $locked_conf = PVE::QemuConfig->load_config($vmid);
 
                 eval { PVE::Tools::assert_if_modified($conf->{digest}, $locked_conf->{digest}) };
-                if (my $err = $@) {
-                    eval {
-                        my $drive = PVE::QemuServer::Drive::parse_drive('efidisk0', $updated);
-                        PVE::Storage::vdisk_free($storecfg, $drive->{file});
-                    };
-                    warn "failed to clean-up prepared efidisk volume - $@" if $@;
-                    die "VM ${vmid}: $err";
-                }
+                die "VM ${vmid}: $@" if $@;
 
                 $locked_conf->{efidisk0} = $updated;
                 PVE::QemuConfig->write_config($vmid, $locked_conf);
