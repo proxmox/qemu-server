@@ -5,6 +5,7 @@ use warnings;
 
 use JSON qw(to_json);
 
+use PVE::GuestHelpers qw(safe_string_ne);
 use PVE::RESTEnvironment qw(log_warn);
 use PVE::Storage;
 use PVE::Tools;
@@ -315,6 +316,25 @@ sub ensure_ms_2023_cert_enrolled {
 
     $efidisk->{'ms-cert'} = '2023';
     return $efidisk;
+}
+
+sub drive_change {
+    my ($storecfg, $vmid, $old_drive, $new_drive) = @_;
+
+    if (
+        $old_drive->{file} eq $new_drive->{file} # change affecting the same volume
+        && safe_string_ne($old_drive->{'ms-cert'}, $new_drive->{'ms-cert'}) # ms-cert changed
+        && $new_drive->{'ms-cert'}
+        && $new_drive->{'ms-cert'} eq '2023'
+    ) {
+        # The ms-cert marker was newly changed to 2023, ensure it's enrolled. Clear it first to
+        # avoid detecting as already enrolled.
+        delete $new_drive->{'ms-cert'};
+        ensure_ms_2023_cert_enrolled($storecfg, $vmid, $new_drive);
+    }
+
+    # Otherwise, there is nothing special to do. Note that changing away from ms-cert=2023 is
+    # allowed too, the marker is not the source of truth.
 }
 
 1;

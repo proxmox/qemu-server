@@ -4964,6 +4964,15 @@ sub vmconfig_apply_pending {
             if (defined($conf->{$opt}) && is_valid_drivename($opt)) {
                 my $old_drive = parse_drive($opt, $conf->{$opt});
                 vmconfig_register_unused_drive($storecfg, $vmid, $conf, $old_drive);
+                if ($opt eq 'efidisk0') {
+                    my $new_drive = parse_drive($opt, $conf->{pending}->{$opt});
+                    PVE::QemuServer::OVMF::drive_change(
+                        $storecfg,
+                        $vmid,
+                        $old_drive,
+                        $new_drive,
+                    );
+                }
             } elsif (defined($conf->{pending}->{$opt}) && $opt =~ m/^net\d+$/) {
                 my $new_net = PVE::QemuServer::Network::parse_net($conf->{pending}->{$opt});
                 if ($conf->{$opt}) {
