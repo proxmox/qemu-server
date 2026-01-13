@@ -5455,12 +5455,8 @@ sub vmconfig_apply_pending {
         next if $opt eq 'delete'; # just to be sure
         eval {
             if (defined($conf->{$opt}) && is_valid_drivename($opt)) {
-                vmconfig_register_unused_drive(
-                    $storecfg,
-                    $vmid,
-                    $conf,
-                    parse_drive($opt, $conf->{$opt}),
-                );
+                my $old_drive = parse_drive($opt, $conf->{$opt});
+                vmconfig_register_unused_drive($storecfg, $vmid, $conf, $old_drive);
             } elsif (defined($conf->{pending}->{$opt}) && $opt =~ m/^net\d+$/) {
                 return if !$have_sdn; # return from eval if SDN is not available
 
