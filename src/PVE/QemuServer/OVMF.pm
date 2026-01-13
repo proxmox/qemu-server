@@ -54,7 +54,15 @@ sub ensure_ms_2023_cert_enrolled {
 
     eval {
         PVE::Tools::run_command([
-            'virt-fw-vars', '--inplace', $path, '--distro-keys', 'ms-uefi',
+            [
+                'virt-fw-vars',
+                '--inplace',
+                $path,
+                '--distro-keys',
+                'ms-uefi',
+                '--distro-keys',
+                'windows',
+            ],
         ]);
     };
     die "efidisk0: enrolling Microsoft UEFI CA 2023 failed - $@" if $@;
