@@ -305,7 +305,16 @@ sub ensure_ms_2023_cert_enrolled {
         my $efi_vars_path =
             PVE::QemuServer::QSD::add_fuse_export($qsd_id, $efidisk, 'efidisk0-enroll');
         PVE::Tools::run_command(
-            ['virt-fw-vars', '--inplace', $efi_vars_path, '--distro-keys', 'ms-uefi']);
+            [
+                'virt-fw-vars',
+                '--inplace',
+                $efi_vars_path,
+                '--distro-keys',
+                'ms-uefi',
+                '--distro-keys',
+                'windows',
+            ],
+        );
         PVE::QemuServer::QSD::remove_fuse_export($qsd_id, 'efidisk0-enroll');
     };
     my $err = $@;
