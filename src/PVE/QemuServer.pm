@@ -2333,7 +2333,8 @@ our $vmstatus_return_properties = {
         enum => ['stopped', 'running'],
     },
     mem => {
-        description => "Currently used memory in bytes.",
+        description => "Currently used memory in bytes. Does not take into account kernel"
+            . " same-page merging (KSM). Uses information from ballooning when available.",
         type => 'integer',
         optional => 1,
         renderer => 'bytes',
@@ -2345,7 +2346,8 @@ our $vmstatus_return_properties = {
         renderer => 'bytes',
     },
     memhost => {
-        description => "Current memory usage on the host.",
+        description => "Current memory usage on the host. Does not take into account kernel"
+            . " same-page merging (KSM).",
         type => 'integer',
         optional => 1,
         renderer => 'bytes',
