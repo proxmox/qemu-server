@@ -5413,6 +5413,17 @@ my sub check_efi_vars {
     return;
 }
 
+my $log_filter_catch_outdated_zen5_firmware = sub {
+    my ($line) = @_;
+    print "$line\n";
+    if ($line =~ m/host doesn't support requested feature:.*rdseed\s*\[bit 18\]/) {
+        log_warn("On Zen 5 systems, the rdseed CPU flag might not be available when the CPU"
+            . " firmware is outdated. See:\n"
+            . "https://security-tracker.debian.org/tracker/CVE-2025-62626\n"
+            . "https://pve.proxmox.com/pve-docs/chapter-sysadmin.html#sysadmin_firmware_cpu");
+    }
+};
+
 # see vm_start_nolock for parameters, additionally:
 # migrate_opts:
 #   storagemap = parsed storage map for allocating NBD disks
@@ -5687,6 +5698,8 @@ sub vm_start_nolock {
     if ($migratedfrom) {
         $run_params{quiet} = 1;
         $run_params{logfunc} = sub { print "QEMU: $_[0]\n" };
+    } elsif ($cpuinfo->{vendor} eq 'AuthenticAMD' && $cpuinfo->{family} == 26) {
+        $run_params{logfunc} = $log_filter_catch_outdated_zen5_firmware;
     }
 
     my %systemd_properties = (
