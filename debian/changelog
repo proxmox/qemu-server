@@ -1,3 +1,36 @@
+qemu-server (9.1.4) trixie; urgency=medium
+
+  * vga: allow live-migration with clipboard with QEMU 10.1, which gained
+    support for doing so.
+
+  * fix #6935: vmstatus: use CGroup for host memory usage to avoid performance
+    impact of reading the PSS metrics when there is a significant amount of
+    kernel same-page memory being merged.
+
+  * migration: vm start: avoid config write when there are left-over VM-state
+    related properties.
+
+  * config: fix OVMF typo in error message.
+
+  * cpu config: update CPU models for QEMU 10.1.
+
+  * VM start: catch outdated Zen 5 CPU micro-code firmware that results in the
+    RDSEED CPU feature not being available for a VM and output a more telling
+    error message.
+
+  *  enroll-efi-keys: do not remove EFI disk when config was modified during
+     operation.
+
+  * config: apply pending: efi: enroll Microsoft UEFI CA 2023 when setting
+    ms-cert=2023 option to allow updating to the newer CA via API too.
+
+  * ovmf: also enroll the Windows UEFI CA 2023 key, which is separate from the
+    Microsoft key.
+
+  * migration: prohibit renaming special cloud-init drive on storage migration.
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 20 Jan 2026 18:33:11 +0100
+
 qemu-server (9.1.3) trixie; urgency=medium
 
   * fix #7092: fix regression with DBUS cleanup when migrating during node
