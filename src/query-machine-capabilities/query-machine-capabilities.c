@@ -1,11 +1,22 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <stdlib.h>
 #include <sys/stat.h>
 #include <errno.h>
 #include <string.h>
 #include <unistd.h>
 #include <fcntl.h>
+
+#ifdef __aarch64__
+#include <sys/auxv.h>
+#ifndef HWCAP_AES
+#define HWCAP_AES (1 << 3)
+#endif
+#ifndef HWCAP_SHA2
+#define HWCAP_SHA2 (1 << 6)
+#endif
+#endif // __aarch64__
 
 #define eprintf(...) fprintf(stderr, __VA_ARGS__)
 
@@ -26,13 +37,51 @@ typedef struct {
     bool tdx_support;
 } cpu_caps_intel_tdx_t;
 
+typedef struct {
+    bool aes;
+    bool sha2;
+} cpu_caps_arm_t;
+
 static inline void cpu_vendor(char vendor[13]) {
+#ifdef __x86_64__
     uint32_t eax;
     uint32_t *vp = (uint32_t *)vendor;
     asm volatile("cpuid"
         : "=a"(eax), "=b"(*vp), "=c"(*(vp+2)), "=d"(*(vp+1))
         : "a"(0)
     );
+#elif defined(__aarch64__)
+    // just parse /proc/cpuinfo as the MIDR_EL1 mrs might not be available to read from user space
+    FILE *f = fopen("/proc/cpuinfo", "r");
+    int implementer = 0;
+    if (f) {
+        char line[256];
+        while (fgets(line, sizeof(line), f)) {
+            if (strncmp(line, "CPU implementer", 15) == 0) {
+                char *p = strchr(line, ':');
+                if (p) implementer = (int)strtol(p + 1, NULL, 0);
+                break;
+            }
+        }
+        fclose(f);
+    }
+
+    // mapping taken from arch/arm64/include/asm/cputype.h (e.g. ARM_CPU_IMP_ARM)
+    switch(implementer) {
+        case 0x41: strcpy(vendor, "ARM Limited"); break;
+        case 0x42: strcpy(vendor, "Broadcom"); break;
+        case 0x43: strcpy(vendor, "Cavium"); break;
+        case 0x48: strcpy(vendor, "HiSilicon"); break;
+        case 0x4E: strcpy(vendor, "NVIDIA"); break;
+        case 0x51: strcpy(vendor, "Qualcomm"); break;
+        case 0x53: strcpy(vendor, "Samsung"); break;
+        case 0x61: strcpy(vendor, "Apple"); break;
+        case 0xC0: strcpy(vendor, "Ampere"); break;
+        default: snprintf(vendor, 13, "ARM64:%02x", implementer); break;
+    }
+#else
+    strcpy(vendor, "Unknown");
+#endif
     vendor[12] = '\0';
 }
 
@@ -72,6 +121,7 @@ int read_msr(uint32_t msr_index, uint64_t *value) {
 }
 
 void query_cpu_capabilities_sev(cpu_caps_amd_sev_t *res) {
+#ifdef __x86_64__
     uint32_t eax, ebx, ecx, edx;
 
     // query Encrypted Memory Capabilities, see:
@@ -88,6 +138,9 @@ void query_cpu_capabilities_sev(cpu_caps_amd_sev_t *res) {
 
     res->cbitpos = ebx & 0x3f;
     res->reduced_phys_bits = (ebx >> 6) & 0x3f;
+#else
+    memset(res, 0, sizeof(*res));
+#endif
 }
 
 int query_cpu_capabilities_tdx(cpu_caps_intel_tdx_t *res) {
@@ -102,6 +155,14 @@ int query_cpu_capabilities_tdx(cpu_caps_intel_tdx_t *res) {
     }
     return 0;
 }
+
+#ifdef __aarch64__
+void query_cpu_capabilities_arm(cpu_caps_arm_t *res) {
+    unsigned long hwcaps = getauxval(AT_HWCAP);
+    res->aes = (hwcaps & HWCAP_AES);
+    res->sha2 = (hwcaps & HWCAP_SHA2);
+}
+#endif
 
 int prepare_output_directory() {
     // Check that the directory exists and create it if it does not.
@@ -161,9 +222,6 @@ int main() {
             caps_sev.sev_es_support ? "true" : "false",
             caps_sev.sev_snp_support ? "true" : "false"
         );
-        if (ret < 0) {
-            eprintf("Error writing to file '" OUTPUT_PATH "': %s\n", strerror(errno));
-        }
     } else if (strncmp(vendor, "GenuineIntel", 12) == 0) {
         cpu_caps_intel_tdx_t caps_tdx;
         if (query_cpu_capabilities_tdx(&caps_tdx) == 0) {
@@ -173,10 +231,28 @@ int main() {
                 " }",
                 caps_tdx.tdx_support ? "true" : "false"
             );
-            if (ret < 0) {
-                eprintf("Error writing to file '" OUTPUT_PATH "': %s\n", strerror(errno));
-            }
         }
+    }
+#ifdef __aarch64__
+    else {
+        cpu_caps_arm_t caps_arm;
+        query_cpu_capabilities_arm(&caps_arm);
+
+        ret = fprintf(file,
+            " \"arm-caps\": {"
+            " \"vendor\": \"%s\","
+            " \"aes\": %s,"
+            " \"sha2\": %s"
+            " }",
+            vendor,
+            caps_arm.aes ? "true" : "false",
+            caps_arm.sha2 ? "true" : "false"
+        );
+    }
+#endif
+
+    if (ret < 0) {
+        eprintf("Error writing to file '" OUTPUT_PATH "': %s\n", strerror(errno));
     }
 
     ret = fprintf(file, " }\n");
