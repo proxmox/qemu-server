@@ -2589,7 +2589,8 @@ sub vmstatus {
         $d->{uptime} = int(($uptime - $pstat->{starttime}) / $cpuinfo->{user_hz});
 
         my $cgroup = PVE::QemuServer::CGroup->new($vmid);
-        my $cgroup_mem = $cgroup->get_memory_stat();
+        my $cgroup_mem = eval { $cgroup->get_memory_stat() } // {};
+        warn "unable to get memory stat for $vmid - $@" if $@;
         $d->{memhost} = $cgroup_mem->{mem} // 0;
 
         $d->{mem} = $d->{memhost}; # default to cgroup, balloon info can override this below
