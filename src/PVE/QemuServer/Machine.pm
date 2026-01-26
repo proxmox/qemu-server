@@ -466,6 +466,10 @@ sub check_and_pin_machine_string {
 sub get_power_state_flags {
     my ($machine_conf, $version_guard) = @_;
 
+    if ($machine_conf->{type} =~ /^virt/) {
+        return; # virt machines are normally ARM64 ones which have no concept of s3/s4
+    }
+
     my $object =
         $machine_conf->{type} && ($machine_conf->{type} =~ m/q35/) ? "ICH9-LPC" : "PIIX4_PM";
 
