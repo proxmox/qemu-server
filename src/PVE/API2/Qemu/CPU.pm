@@ -3,8 +3,10 @@ package PVE::API2::Qemu::CPU;
 use strict;
 use warnings;
 
-use PVE::RESTHandler;
 use PVE::JSONSchema qw(get_standard_option);
+use PVE::RPCEnvironment;
+use PVE::RESTHandler;
+
 use PVE::QemuServer::CPUConfig;
 
 use base qw(PVE::RESTHandler);
