@@ -2936,7 +2936,8 @@ sub vga_conf_has_spice {
 sub query_supported_cpu_flags {
     my ($arch) = @_;
 
-    $arch //= get_host_arch();
+    my $host_arch = get_host_arch();
+    $arch //= $host_arch;
     my $default_machine = PVE::QemuServer::Machine::default_machine_for_arch($arch);
 
     my $flags = {};
@@ -2946,7 +2947,7 @@ sub query_supported_cpu_flags {
     die "QEMU/KVM cannot detect CPU flags on ARM (aarch64)\n"
         if $arch eq "aarch64";
 
-    my $kvm_supported = defined(kvm_version());
+    my $kvm_supported = defined(kvm_version()) && $arch eq $host_arch;
     my $qemu_cmd = PVE::QemuServer::Helpers::get_command_for_arch($arch);
     my $fakevmid = -1;
     my $pidfile = PVE::QemuServer::Helpers::vm_pidfile_name($fakevmid);
