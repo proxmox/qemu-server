@@ -2942,11 +2942,6 @@ sub query_supported_cpu_flags {
 
     my $flags = {};
 
-    # FIXME: Once this is merged, the code below should work for ARM as well:
-    # https://lists.nongnu.org/archive/html/qemu-devel/2019-06/msg04947.html
-    die "QEMU/KVM cannot detect CPU flags on ARM (aarch64)\n"
-        if $arch eq "aarch64";
-
     my $kvm_supported = defined(kvm_version()) && $arch eq $host_arch;
     my $qemu_cmd = PVE::QemuServer::Helpers::get_command_for_arch($arch);
     my $fakevmid = -1;
@@ -2975,6 +2970,8 @@ sub query_supported_cpu_flags {
 
         if (!$kvm) {
             push @$cmd, '-accel', 'tcg';
+        } else {
+            push @$cmd, '-cpu', 'host';
         }
 
         my $rc = run_command($cmd, noerr => 1, quiet => 0);
