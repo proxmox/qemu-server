@@ -2985,7 +2985,7 @@ sub query_supported_cpu_flags {
                 $fakevmid,
                 'query-cpu-model-expansion',
                 type => 'full',
-                model => { name => 'host' },
+                model => { name => $kvm ? 'host' : 'max' },
             );
 
             my $props = $cmd_result->{model}->{props};
