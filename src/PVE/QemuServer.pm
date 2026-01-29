@@ -3130,7 +3130,7 @@ sub config_to_command {
         die "Detected old QEMU binary ('$kvmver', at least 6.0 is required)\n";
     }
 
-    my $machine_type = PVE::QemuServer::Machine::get_vm_machine($conf, $forcemachine, $arch);
+    my $machine_type = PVE::QemuServer::Machine::get_vm_machine($conf, $forcemachine);
     my $machine_version = extract_version($machine_type, $kvmver);
     $kvm //= 1 if is_native_arch($arch);
 
@@ -4561,7 +4561,7 @@ sub vmconfig_hotplug_pending {
 
     my $defaults = load_defaults();
     my $arch = PVE::QemuServer::Helpers::get_vm_arch($conf);
-    my $machine_type = PVE::QemuServer::Machine::get_vm_machine($conf, undef, $arch);
+    my $machine_type = PVE::QemuServer::Machine::get_vm_machine($conf);
 
     # commit values which do not have any impact on running VM first
     # Note: those option cannot raise errors, we we do not care about
@@ -7248,7 +7248,7 @@ sub pbs_live_restore {
         $live_restore_backing->{$confname} = { name => $pbs_name };
 
         # add blockdev information
-        my $machine_type = PVE::QemuServer::Machine::get_vm_machine($conf, undef, $conf->{arch});
+        my $machine_type = PVE::QemuServer::Machine::get_vm_machine($conf);
         my $machine_version = PVE::QemuServer::Machine::extract_version(
             $machine_type,
             PVE::QemuServer::Helpers::kvm_user_version(),
@@ -7357,7 +7357,7 @@ sub live_import_from_files {
 
         $live_restore_backing->{$dev} = { name => "drive-$dev-restore" };
 
-        my $machine_type = PVE::QemuServer::Machine::get_vm_machine($conf, undef, $conf->{arch});
+        my $machine_type = PVE::QemuServer::Machine::get_vm_machine($conf);
         my $machine_version = PVE::QemuServer::Machine::extract_version(
             $machine_type,
             PVE::QemuServer::Helpers::kvm_user_version(),

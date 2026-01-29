@@ -397,7 +397,7 @@ sub windows_get_pinned_machine_version {
 }
 
 sub get_vm_machine {
-    my ($conf, $forcemachine, $arch) = @_;
+    my ($conf, $forcemachine) = @_;
 
     my $machine_conf = parse_machine($conf->{machine});
     my $machine = $forcemachine || $machine_conf->{type};
@@ -423,7 +423,7 @@ sub get_vm_machine {
             }
             $machine = windows_get_pinned_machine_version($machine, $base_version, $kvmversion);
         } else {
-            $arch //= 'x86_64';
+            my $arch = PVE::QemuServer::Helpers::get_vm_arch($conf);
             $machine ||= default_machine_for_arch($arch);
             my $pvever = get_pve_version($kvmversion);
             $machine .= "+pve$pvever";

@@ -19,9 +19,8 @@ sub new {
     $self->{ostype} = $self->get_prop('ostype');
     $self->{'windows-version'} = PVE::QemuServer::Helpers::windows_version($self->{ostype});
 
-    my $arch = PVE::QemuServer::Helpers::get_vm_arch($conf);
     $self->{'machine-type'} =
-        PVE::QemuServer::Machine::get_vm_machine($conf, $opts->{forcemachine}, $arch);
+        PVE::QemuServer::Machine::get_vm_machine($conf, $opts->{forcemachine});
 
     return $self;
 }
