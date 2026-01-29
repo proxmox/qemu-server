@@ -6,6 +6,7 @@ use warnings;
 use PVE::JSONSchema qw(get_standard_option);
 use PVE::RPCEnvironment;
 use PVE::RESTHandler;
+use PVE::Tools qw(extract_param);
 
 use PVE::QemuServer::CPUConfig;
 
@@ -25,6 +26,7 @@ __PACKAGE__->register_method({
         additionalProperties => 0,
         properties => {
             node => get_standard_option('pve-node'),
+            arch => get_standard_option('pve-qm-cpu-arch', { optional => 1 }),
         },
     },
     returns => {
@@ -53,11 +55,15 @@ __PACKAGE__->register_method({
         links => [{ rel => 'child', href => '{name}' }],
     },
     code => sub {
+        my ($param) = @_;
+
         my $rpcenv = PVE::RPCEnvironment::get();
         my $authuser = $rpcenv->get_user();
         my $include_custom = $rpcenv->check($authuser, "/nodes", ['Sys.Audit'], 1);
 
-        return PVE::QemuServer::CPUConfig::get_cpu_models($include_custom);
+        my $arch = extract_param($param, 'arch');
+
+        return PVE::QemuServer::CPUConfig::get_cpu_models($include_custom, $arch);
     },
 });
 
