@@ -9,7 +9,7 @@ use PVE::JSONSchema qw(json_bool);
 use PVE::Cluster qw(cfs_register_file cfs_read_file);
 use PVE::ProcFSTools;
 use PVE::RESTEnvironment qw(log_warn);
-use PVE::Tools qw(run_command get_host_arch);
+use PVE::Tools qw(run_command);
 
 use PVE::QemuServer::Helpers qw(min_version);
 
@@ -24,6 +24,8 @@ our @EXPORT_OK = qw(
     get_intel_tdx_object
     get_cvm_type
 );
+
+my $host_arch = PVE::Tools::get_host_arch();
 
 my $arch_desc = {
     description => "Virtual processor architecture. Defaults to the host architecture.",
@@ -1016,13 +1018,13 @@ sub get_default_cpu_type {
 
 sub is_native_arch($) {
     my ($arch) = @_;
-    return get_host_arch() eq $arch;
+    return $host_arch eq $arch;
 }
 
 sub get_cpu_bitness {
     my ($cpu_prop_str, $arch) = @_;
 
-    $arch //= get_host_arch();
+    $arch //= $host_arch;
 
     my $cputype = get_default_cpu_type($arch, 0);
 
