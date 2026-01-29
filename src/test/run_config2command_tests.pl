@@ -9,7 +9,8 @@ use Test::More;
 use Test::MockModule;
 use Socket qw(AF_INET AF_INET6);
 
-use PVE::Tools qw(file_get_contents file_set_contents run_command);
+use PVE::File qw(file_get_contents file_set_contents);
+use PVE::Tools qw(run_command);
 use PVE::INotify;
 use PVE::SysFSTools;
 
