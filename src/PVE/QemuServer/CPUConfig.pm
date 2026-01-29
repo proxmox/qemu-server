@@ -277,7 +277,9 @@ my $cpu_fmt = {
         optional => 1,
     },
     hidden => {
-        description => "Do not identify as a KVM virtual machine.",
+        description =>
+            "Do not identify as a KVM virtual machine. Only affects vCPUs with x86-64"
+            . " architecture.",
         type => 'boolean',
         optional => 1,
         default => 0,
@@ -835,7 +837,7 @@ sub get_cpu_options {
             reason => "error if requested CPU settings not available",
         };
     }
-    if ($kvm_off) {
+    if ($kvm_off && $arch eq 'x86_64') {
         $pve_forced_flags->{'kvm'} = {
             value => "off",
             reason => "hide KVM virtualization from guest",
