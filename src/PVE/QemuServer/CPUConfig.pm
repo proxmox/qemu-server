@@ -25,6 +25,13 @@ our @EXPORT_OK = qw(
     get_cvm_type
 );
 
+my $arch_desc = {
+    description => "Virtual processor architecture. Defaults to the host architecture.",
+    type => 'string',
+    enum => [qw(x86_64 aarch64)],
+};
+PVE::JSONSchema::register_standard_option("pve-qm-cpu-arch", $arch_desc);
+
 # under certain race-conditions, this module might be loaded before pve-cluster
 # has started completely, so ensure we don't prevent the FUSE mount with our dir
 if (PVE::Cluster::check_cfs_is_mounted(1)) {

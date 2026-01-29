@@ -637,12 +637,7 @@ EODESCR
             . ' This is used internally for snapshots.',
     },
     machine => get_standard_option('pve-qemu-machine'),
-    arch => {
-        description => "Virtual processor architecture. Defaults to the host.",
-        optional => 1,
-        type => 'string',
-        enum => [qw(x86_64 aarch64)],
-    },
+    arch => get_standard_option('pve-qm-cpu-arch', { optional => 1 }),
     smbios1 => {
         description => "Specify SMBIOS type 1 fields.",
         type => 'string',
