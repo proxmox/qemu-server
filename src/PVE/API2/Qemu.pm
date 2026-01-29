@@ -1483,7 +1483,7 @@ __PACKAGE__->register_method({
 
                     # always pin Windows' machine version on create, they get confused too easily
                     my $machine_string = PVE::QemuServer::Machine::check_and_pin_machine_string(
-                        $conf->{machine}, $conf->{ostype},
+                        $conf->{machine}, $conf->{ostype}, $arch,
                     );
                     $conf->{machine} = $machine_string if $machine_string;
 
@@ -2464,7 +2464,7 @@ my $update_vm_api = sub {
                         eval {
                             my $machine_string =
                                 PVE::QemuServer::Machine::check_and_pin_machine_string(
-                                    $conf->{machine}, $param->{ostype},
+                                    $conf->{machine}, $param->{ostype}, $arch,
                                 );
                             $conf->{pending}->{machine} = $machine_string if $machine_string;
                         };

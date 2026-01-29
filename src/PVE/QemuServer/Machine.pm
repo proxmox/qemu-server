@@ -379,11 +379,13 @@ sub latest_installed_machine_version {
 sub windows_get_pinned_machine_version {
     my ($machine, $base_version, $kvmversion) = @_;
 
+    die "internal error - no machine provided" if !$machine;
+
     my $pin_version = $base_version;
     if (!defined($base_version) || !can_run_pve_machine_version($base_version, $kvmversion)) {
         $pin_version = latest_installed_machine_version($kvmversion);
     }
-    if (!$machine || $machine eq 'pc') {
+    if ($machine eq 'pc') {
         $machine = "pc-i440fx-$pin_version";
     } elsif ($machine eq 'q35') {
         $machine = "pc-q35-$pin_version";
@@ -404,6 +406,9 @@ sub get_vm_machine {
 
     if (!$machine || $machine =~ m/^(?:pc|q35|virt)$/) {
         my $kvmversion = PVE::QemuServer::Helpers::kvm_user_version();
+        my $arch = PVE::QemuServer::Helpers::get_vm_arch($conf);
+        $machine ||= default_machine_for_arch($arch);
+
         # we must pin Windows VMs without a specific version and no meta info about creation QEMU to
         # 5.1, as 5.2 fixed a bug in ACPI layout which confuses windows quite a bit and may result
         # in various regressions..
@@ -423,8 +428,6 @@ sub get_vm_machine {
             }
             $machine = windows_get_pinned_machine_version($machine, $base_version, $kvmversion);
         } else {
-            my $arch = PVE::QemuServer::Helpers::get_vm_arch($conf);
-            $machine ||= default_machine_for_arch($arch);
             my $pvever = get_pve_version($kvmversion);
             $machine .= "+pve$pvever";
         }
@@ -445,13 +448,14 @@ sub get_vm_machine {
 }
 
 sub check_and_pin_machine_string {
-    my ($machine_string, $ostype) = @_;
+    my ($machine_string, $ostype, $arch) = @_;
 
     my $machine_conf = parse_machine($machine_string);
     my $machine = $machine_conf->{type};
     if (!$machine || $machine =~ m/^(?:pc|q35|virt)$/) {
         # always pin Windows' machine version on create, they get confused too easily
         if (PVE::QemuServer::Helpers::windows_version($ostype)) {
+            $machine = default_machine_for_arch($arch) if !$machine;
             $machine_conf->{type} = windows_get_pinned_machine_version($machine);
             print "pinning machine type to '$machine_conf->{type}' for Windows guest OS\n";
         }
