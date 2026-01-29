@@ -669,11 +669,15 @@ my $test_target = shift // 'cfg2cmd';
 if (-f $test_target) {
     do_test($test_target);
 } elsif (-d $test_target) {
-    PVE::File::dir_glob_foreach($test_target, qr/.+\.conf/, sub {
-        my ($file) = @_;
+    PVE::File::dir_glob_foreach(
+        $test_target,
+        qr/.+\.conf/,
+        sub {
+            my ($file) = @_;
 
-        do_test("${test_target}/${file}");
-    });
+            do_test("${test_target}/${file}");
+        },
+    );
 } else {
     die "test target '$test_target' is neither file nor directory, cannot proceed\n";
 }
