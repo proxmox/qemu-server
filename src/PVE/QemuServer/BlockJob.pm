@@ -79,7 +79,7 @@ sub qemu_blockjobs_cancel {
 }
 
 # $completion can be either
-# 'complete': wait until all jobs are ready, block-job-complete them (default)
+# 'complete': wait until all jobs are ready, job-complete them (default)
 # 'cancel': wait until all jobs are ready, block-job-cancel them
 # 'skip': wait until all jobs are ready, return with block jobs in ready state
 # 'auto': wait until all jobs disappear, only use for jobs which complete automatically
@@ -193,22 +193,22 @@ sub qemu_drive_mirror_monitor {
                         # try to switch the disk if source and destination are on the same guest
                         print "$job_id: Completing block job...\n";
 
-                        my $completion_command;
                         # For blockdev, need to detach appropriate node. QEMU will only drop it if
                         # it was implicitly added (e.g. as the child of a top throttle node), but
                         # not if it was explicitly added via blockdev-add (e.g. as a previous mirror
                         # target).
                         my $detach_node_name;
-                        if ($completion eq 'complete') {
-                            $completion_command = 'block-job-complete';
-                            $detach_node_name = $jobs->{$job_id}->{'source-node-name'};
-                        } elsif ($completion eq 'cancel') {
-                            $completion_command = 'block-job-cancel';
-                            $detach_node_name = $jobs->{$job_id}->{'target-node-name'};
-                        } else {
-                            die "invalid completion value: $completion\n";
-                        }
-                        eval { mon_cmd($vmid, $completion_command, device => $job_id) };
+                        eval {
+                            if ($completion eq 'complete') {
+                                $detach_node_name = $jobs->{$job_id}->{'source-node-name'};
+                                mon_cmd($vmid, 'job-complete', id => $job_id);
+                            } elsif ($completion eq 'cancel') {
+                                $detach_node_name = $jobs->{$job_id}->{'target-node-name'};
+                                mon_cmd($vmid, 'block-job-cancel', device => $job_id);
+                            } else {
+                                die "invalid completion value: $completion\n";
+                            }
+                        };
                         my $err = $@;
                         if ($err && $err =~ m/cannot be completed/) {
                             print "$job_id: block job cannot be completed, trying again.\n";
@@ -407,8 +407,8 @@ All jobs must be ready before completion can happen.
 
 =over
 
-=item C<complete>: Wait until all jobs are ready, block-job-complete them (default). This means
-switching the original drive to use the new target.
+=item C<complete>: Wait until all jobs are ready, job-complete them (default). This means switching
+the original drive to use the new target.
 
 =item C<cancel>: Wait until all jobs are ready, block-job-cancel them. This means not switching the
 original drive to use the new target.

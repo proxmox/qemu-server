@@ -133,7 +133,7 @@ sub cmd {
             || $cmd->{execute} eq 'blockdev-del'
             || $cmd->{execute} eq 'blockdev-mirror'
             || $cmd->{execute} eq 'block-job-cancel'
-            || $cmd->{execute} eq 'block-job-complete'
+            || $cmd->{execute} eq 'job-complete'
             || $cmd->{execute} eq 'drive-mirror'
             || $cmd->{execute} eq 'guest-fstrim'
             || $cmd->{execute} eq 'guest-shutdown'
