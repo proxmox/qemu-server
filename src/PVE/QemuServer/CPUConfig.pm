@@ -811,7 +811,7 @@ sub get_cpu_options {
     my $pve_flags = get_pve_cpu_flags($conf, $kvm, $cputype, $arch, $machine_version);
 
     my $hv_flags;
-    if ($kvm) {
+    if ($kvm && $arch eq 'x86_64') {
         $hv_flags = get_hyperv_enlightenments(
             $winversion,
             $machine_version,
