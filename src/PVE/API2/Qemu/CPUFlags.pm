@@ -2,8 +2,10 @@ package PVE::API2::Qemu::CPUFlags;
 
 use v5.36;
 
-use PVE::RESTHandler;
 use PVE::JSONSchema qw(get_standard_option);
+use PVE::RESTHandler;
+use PVE::Tools qw(extract_param);
+
 use PVE::QemuServer::CPUConfig;
 
 use base qw(PVE::RESTHandler);
@@ -18,6 +20,7 @@ __PACKAGE__->register_method({
         additionalProperties => 0,
         properties => {
             node => get_standard_option('pve-node'),
+            arch => get_standard_option('pve-qm-cpu-arch', { optional => 1 }),
         },
     },
     returns => {
@@ -37,7 +40,11 @@ __PACKAGE__->register_method({
         },
     },
     code => sub {
-        return PVE::QemuServer::CPUConfig::get_supported_cpu_flags();
+        my ($param) = @_;
+
+        my $arch = extract_param($param, 'arch');
+
+        return PVE::QemuServer::CPUConfig::get_supported_cpu_flags($arch);
     },
 });
 
