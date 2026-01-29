@@ -1,7 +1,6 @@
 #!/usr/bin/perl
 
-use strict;
-use warnings;
+use v5.36;
 
 use lib qw(..);
 
@@ -197,9 +196,7 @@ my $current_test; # = {
 #   EXPECT_WARN(ING): <warning message> that is expected
 #   HW_CAPABILITIES: <cpu-type-or-json-string> to defined the HW caps the test should expose
 # all fields are optional
-sub parse_test($) {
-    my ($config_fn) = @_;
-
+sub parse_test($config_fn) {
     $current_test = {}; # reset
 
     my $fake_config_fn = "$config_fn/qemu-server/8006.conf";
@@ -550,8 +547,7 @@ $pci_module->mock(
     },
 );
 
-sub diff($$) {
-    my ($a, $b) = @_;
+sub diff($a, $b) {
     return if $a eq $b;
 
     my ($ra, $wa) = POSIX::pipe();
@@ -599,9 +595,7 @@ $SIG{__WARN__} = sub {
     note("got unexpected warning '$warning'");
 };
 
-sub do_test($) {
-    my ($config_fn) = @_;
-
+sub do_test($config_fn) {
     die "no such input test config: $config_fn\n" if !-f $config_fn;
 
     parse_test $config_fn;
@@ -670,10 +664,10 @@ print "testing config to command stability\n";
 
 # exec tests
 if (my $file = shift) {
-    do_test $file;
+    do_test($file);
 } else {
     while (my $file = <cfg2cmd/*.conf>) {
-        do_test $file;
+        do_test($file);
     }
 }
 
