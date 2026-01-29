@@ -6,9 +6,10 @@ use warnings;
 use JSON;
 
 use PVE::JSONSchema qw(get_standard_option);
-use PVE::QemuServer::Machine;
 use PVE::RESTHandler;
-use PVE::Tools qw(file_get_contents);
+use PVE::Tools qw(extract_param file_get_contents get_host_arch);
+
+use PVE::QemuServer::Machine;
 
 use base qw(PVE::RESTHandler);
 
@@ -25,6 +26,7 @@ __PACKAGE__->register_method({
         additionalProperties => 0,
         properties => {
             node => get_standard_option('pve-node'),
+            arch => get_standard_option('pve-qm-cpu-arch', { optional => 1 }),
         },
     },
     returns => {
@@ -56,8 +58,12 @@ __PACKAGE__->register_method({
         },
     },
     code => sub {
+        my ($param) = @_;
+
+        my $arch = extract_param($param, 'arch') // get_host_arch();
+
         my $supported_machine_list = eval {
-            my $raw = file_get_contents('/usr/share/kvm/machine-versions-x86_64.json');
+            my $raw = file_get_contents("/usr/share/kvm/machine-versions-$arch.json");
             my $machines = from_json($raw, { utf8 => 1 });
 
             my $pve_machines = [];
