@@ -468,9 +468,12 @@ sub check_and_pin_machine_string {
 # disable s3/s4 by default for 9.2+pve1 machine types
 # returns an arrayref of cmdline options for qemu or undef
 sub get_power_state_flags {
-    my ($machine_conf, $version_guard) = @_;
+    my ($machine_conf, $arch, $version_guard) = @_;
 
-    if (defined($machine_conf->{type}) && $machine_conf->{type} =~ /^virt/) {
+    if (
+        defined($machine_conf->{type}) && $machine_conf->{type} =~ /^virt/
+        || !defined($machine_conf->{type}) && $arch eq 'aarch64'
+    ) {
         return; # virt machines are normally ARM64 ones which have no concept of s3/s4
     }
 
