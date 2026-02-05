@@ -316,7 +316,7 @@ my $confdesc = {
         optional => 1,
         type => 'integer',
         description =>
-            "Amount of target RAM for the VM in MiB. Using zero disables the ballon driver.",
+            "Amount of target RAM for the VM in MiB. Using zero disables the balloon driver.",
         minimum => 0,
     },
     shares => {
@@ -2712,7 +2712,7 @@ sub vmstatus {
         $qmpclient->queue_cmd($qmp_peer, $blockstatscb, 'query-blockstats');
         $qmpclient->queue_cmd($qmp_peer, $machinecb, 'query-machines');
         $qmpclient->queue_cmd($qmp_peer, $versioncb, 'query-version');
-        # this fails if ballon driver is not loaded, so this must be
+        # this fails if balloon driver is not loaded, so this must be
         # the last command (following command are aborted if this fails).
         $qmpclient->queue_cmd($qmp_peer, $ballooncb, 'query-balloon');
 
@@ -4760,7 +4760,7 @@ sub vmconfig_hotplug_pending {
                 die "skip\n" if !$hotplug_features->{cpu};
                 qemu_cpu_hotplug($vmid, $conf, $value);
             } elsif ($opt eq 'balloon') {
-                # enable/disable balloning device is not hotpluggable
+                # enable/disable ballooning device is not hotpluggable
                 my $old_balloon_enabled = !!(!defined($conf->{balloon}) || $conf->{balloon});
                 my $new_balloon_enabled =
                     !!(!defined($conf->{pending}->{balloon}) || $conf->{pending}->{balloon});
