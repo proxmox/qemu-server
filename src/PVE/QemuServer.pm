@@ -316,7 +316,8 @@ my $confdesc = {
         optional => 1,
         type => 'integer',
         description =>
-            "Amount of target RAM for the VM in MiB. Using zero disables the balloon driver.",
+            "Amount of target RAM for the VM in MiB. The balloon driver is enabled by default,"
+            . " unless it is explicitly disabled by setting the value to zero.",
         minimum => 0,
     },
     shares => {
