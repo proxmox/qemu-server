@@ -1,0 +1,59 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+
+use PVE::Tools qw(run_command);
+use PVE::Firewall;
+
+use PVE::QemuServer::Network;
+
+my $iface = shift;
+
+my $hotplug = 0;
+if ($iface eq '--hotplug') {
+    $hotplug = 1;
+    $iface = shift;
+}
+
+die "no interface specified\n" if !$iface;
+
+die "got strange interface name '$iface'\n"
+    if $iface !~ m/^tap(\d+)i(\d+)$/;
+
+my $vmid = $1;
+my $netid = "net$2";
+
+my $migratedfrom = $hotplug ? undef : $ENV{PVE_MIGRATED_FROM};
+
+my $conf = PVE::QemuConfig->load_config($vmid, $migratedfrom);
+
+my $netconf = $conf->{$netid};
+
+$netconf = $conf->{pending}->{$netid} if !$migratedfrom && defined($conf->{pending}->{$netid});
+
+die "unable to get network config '$netid'\n"
+    if !defined($netconf);
+
+my $net = PVE::QemuServer::Network::parse_net($netconf);
+die "unable to parse network config '$netid'\n" if !$net;
+
+
+# Bring up the tap interface
+run_command(['ip', 'link', 'set', $iface, 'up']);
+#set host ip if specified
+if (defined($net->{hostip})) {
+    run_command(['ip', 'addr', 'add', $net->{hostip}, 'dev', $iface]);
+}
+
+#set route to guest if specified
+if (defined($net->{guestip})) {
+run_command(['ip', 'route', 'add', $net->{guestip}, 'dev', $iface]);
+}
+
+
+
+
+
+
+exit 0;
