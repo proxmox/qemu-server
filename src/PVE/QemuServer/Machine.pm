@@ -470,15 +470,13 @@ sub check_and_pin_machine_string {
 sub get_power_state_flags {
     my ($machine_conf, $arch, $version_guard) = @_;
 
-    if (
-        defined($machine_conf->{type}) && $machine_conf->{type} =~ /^virt/
-        || !defined($machine_conf->{type}) && $arch eq 'aarch64'
-    ) {
+    my $machine = $machine_conf->{type} || default_machine_for_arch($arch);
+
+    if ($machine =~ /^virt/) {
         return; # virt machines are normally ARM64 ones which have no concept of s3/s4
     }
 
-    my $object =
-        $machine_conf->{type} && ($machine_conf->{type} =~ m/q35/) ? "ICH9-LPC" : "PIIX4_PM";
+    my $object = ($machine =~ m/q35/) ? "ICH9-LPC" : "PIIX4_PM";
 
     my $default = 1;
     if ($version_guard->(9, 2, 1)) {
