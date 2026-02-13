@@ -7294,9 +7294,7 @@ sub pbs_live_restore {
         }
 
         mon_cmd($vmid, 'cont');
-        PVE::QemuServer::BlockJob::qemu_drive_mirror_monitor(
-            $vmid, undef, $jobs, 'auto', 0, 'stream',
-        );
+        PVE::QemuServer::BlockJob::monitor($vmid, undef, $jobs, 'auto', 0, 'stream');
 
         print "restore-drive jobs finished successfully, removing all tracking block devices"
             . " to disconnect from Proxmox Backup Server\n";
@@ -7415,9 +7413,7 @@ sub live_import_from_files {
         }
 
         mon_cmd($vmid, 'cont');
-        PVE::QemuServer::BlockJob::qemu_drive_mirror_monitor(
-            $vmid, undef, $jobs, 'auto', 0, 'stream',
-        );
+        PVE::QemuServer::BlockJob::monitor($vmid, undef, $jobs, 'auto', 0, 'stream');
 
         print "restore-drive jobs finished successfully, removing all tracking block devices\n";
 
@@ -7925,9 +7921,7 @@ sub clone_disk {
             # if this is the case, we have to complete any block-jobs still there from
             # previous drive-mirrors
             if (($completion && $completion eq 'complete') && (scalar(keys %$jobs) > 0)) {
-                PVE::QemuServer::BlockJob::qemu_drive_mirror_monitor(
-                    $vmid, $newvmid, $jobs, $completion, $qga,
-                );
+                PVE::QemuServer::BlockJob::monitor($vmid, $newvmid, $jobs, $completion, $qga);
             }
             goto no_data_clone;
         }

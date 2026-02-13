@@ -175,14 +175,14 @@ $qemu_server_blockjob_module->mock(
 
         common_mirror_mock($source->{vmid}, $drive_id);
     },
-    qemu_drive_mirror_monitor => sub {
+    monitor => sub {
         my ($vmid, $vmiddst, $jobs, $completion, $qga) = @_;
 
         if (
-            $fail_config->{qemu_drive_mirror_monitor}
-            && $fail_config->{qemu_drive_mirror_monitor} eq $completion
+            $fail_config->{block_job_monitor}
+            && $fail_config->{block_job_monitor} eq $completion
         ) {
-            die "qemu_drive_mirror_monitor '$completion' error\n";
+            die "block_job_monitor '$completion' error\n";
         }
         return;
     },

@@ -83,7 +83,7 @@ sub qemu_blockjobs_cancel {
 # 'cancel': wait until all jobs are ready, block-job-cancel them
 # 'skip': wait until all jobs are ready, return with block jobs in ready state
 # 'auto': wait until all jobs disappear, only use for jobs which complete automatically
-sub qemu_drive_mirror_monitor {
+sub monitor {
     my ($vmid, $vmiddst, $jobs, $completion, $qga, $op) = @_;
 
     $completion //= 'complete';
@@ -310,7 +310,7 @@ sub qemu_drive_mirror {
         die "mirroring error: $err\n";
     }
 
-    qemu_drive_mirror_monitor($vmid, $vmiddst, $jobs, $completion, $qga);
+    monitor($vmid, $vmiddst, $jobs, $completion, $qga);
 }
 
 # Callers should version guard this (only available with a binary >= QEMU 8.2)
@@ -506,9 +506,7 @@ sub blockdev_mirror {
         log_warn("unable to delete blockdev '$target_node_name' - $@");
         die "error starting blockdev mirrror - $err";
     }
-    qemu_drive_mirror_monitor(
-        $vmid, $dest->{vmid}, $jobs, $completion, $options->{'guest-agent'}, 'mirror',
-    );
+    monitor($vmid, $dest->{vmid}, $jobs, $completion, $options->{'guest-agent'}, 'mirror');
 }
 
 sub mirror {

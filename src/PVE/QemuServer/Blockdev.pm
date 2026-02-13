@@ -1086,9 +1086,7 @@ sub blockdev_commit {
         my $complete = $src_snap && $src_snap ne 'current' ? 'auto' : 'complete';
 
         eval {
-            PVE::QemuServer::BlockJob::qemu_drive_mirror_monitor(
-                $vmid, undef, $jobs, $complete, 0, 'commit',
-            );
+            PVE::QemuServer::BlockJob::monitor($vmid, undef, $jobs, $complete, 0, 'commit');
         };
         if ($@) {
             die "Failed to complete block commit: $@\n";
@@ -1166,11 +1164,7 @@ sub blockdev_stream {
     mon_cmd($vmid, 'block-stream', %$options);
     $jobs->{$job_id} = {};
 
-    eval {
-        PVE::QemuServer::BlockJob::qemu_drive_mirror_monitor(
-            $vmid, undef, $jobs, 'auto', 0, 'stream',
-        );
-    };
+    eval { PVE::QemuServer::BlockJob::monitor($vmid, undef, $jobs, 'auto', 0, 'stream'); };
     if ($@) {
         die "Failed to complete block stream: $@\n";
     }

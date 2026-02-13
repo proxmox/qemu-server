@@ -1596,10 +1596,10 @@ my $tests = [
             unused0 => 'local-dir:149/vm-149-disk-0.qcow2',
         },
         expected_calls => {},
-        expect_die => "qemu_drive_mirror_monitor 'cancel' error",
+        expect_die => "block_job_monitor 'cancel' error",
         # note that 'cancel' is also used to finish and that's what this test is about
         fail_config => {
-            'qemu_drive_mirror_monitor' => 'cancel',
+            'block_job_monitor' => 'cancel',
         },
         expected => {
             source_volids => local_volids_for_vm(149),

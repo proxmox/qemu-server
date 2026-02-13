@@ -1558,7 +1558,7 @@ sub phase2 {
         # to avoid it trying to re-establish it. We are in blockjob ready state,
         # thus, this command changes to it to blockjob complete (see qapi docs)
         eval {
-            PVE::QemuServer::BlockJob::qemu_drive_mirror_monitor(
+            PVE::QemuServer::BlockJob::monitor(
                 $vmid, undef, $self->{storage_migration_jobs}, 'cancel',
             );
         };
