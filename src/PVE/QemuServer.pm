@@ -4130,7 +4130,7 @@ sub qemu_devicedelverify {
         sleep 1;
     }
 
-    die "error on hot-unplugging device '$deviceid'\n";
+    die "error on hot-unplugging device '$deviceid' - still busy in guest?\n";
 }
 
 sub qemu_findorcreatescsihw {
