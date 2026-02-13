@@ -1074,7 +1074,15 @@ sub blockdev_commit {
         mon_cmd($vmid, "block-commit", %$opts);
         $jobs->{$job_id} = {};
 
-        # if we commit the current, the blockjob need to be in 'complete' mode
+        # If the 'current' state is committed to its backing snapshot, the job will not complete
+        # automatically, because there is a writer, i.e. the guest. It is necessary to use the
+        # 'complete' completion mode, so that the 'current' block node is replaced with the backing
+        # node upon completion. Like that, IO after the commit operation will already land in the
+        # backing node, which will be renamed since it will be the new top of the chain (done by the
+        # caller).
+        #
+        # For other snapshots in the chain, it can be assumed that they have no writer, so
+        # 'block-commit' will complete automatically.
         my $complete = $src_snap && $src_snap ne 'current' ? 'auto' : 'complete';
 
         eval {
