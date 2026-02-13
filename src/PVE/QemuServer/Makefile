@@ -28,7 +28,8 @@ SOURCES=Agent.pm	\
 	RunState.pm	\
 	StateFile.pm	\
 	USB.pm		\
-	Virtiofs.pm
+	Virtiofs.pm	\
+	VolumeChain.pm
 
 .PHONY: install
 install: $(SOURCES)

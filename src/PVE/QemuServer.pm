@@ -95,6 +95,7 @@ use PVE::QemuServer::RunState;
 use PVE::QemuServer::StateFile;
 use PVE::QemuServer::USB;
 use PVE::QemuServer::Virtiofs qw(max_virtiofs start_all_virtiofsd);
+use PVE::QemuServer::VolumeChain;
 use PVE::QemuServer::DBusVMState;
 
 my $have_ha_config;
@@ -4356,7 +4357,7 @@ sub qemu_volume_snapshot {
         print "external qemu snapshot\n";
         my $snapshots = PVE::Storage::volume_snapshot_info($storecfg, $volid);
         my $parent_snap = $snapshots->{'current'}->{parent};
-        PVE::QemuServer::Blockdev::blockdev_external_snapshot(
+        PVE::QemuServer::VolumeChain::blockdev_external_snapshot(
             $storecfg, $vmid, $machine_version, $deviceid, $drive, $snap, $parent_snap,
         );
     } elsif ($do_snapshots_type eq 'storage') {
@@ -4414,7 +4415,7 @@ sub qemu_volume_snapshot_delete {
         # improve-me: if firstsnap > child : commit, if firstsnap < child do a stream.
         if (!$parentsnap) {
             print "delete first snapshot $snap\n";
-            PVE::QemuServer::Blockdev::blockdev_commit(
+            PVE::QemuServer::VolumeChain::blockdev_commit(
                 $storecfg,
                 $vmid,
                 $machine_version,
@@ -4426,7 +4427,7 @@ sub qemu_volume_snapshot_delete {
 
             PVE::Storage::rename_snapshot($storecfg, $volid, $snap, $childsnap);
 
-            PVE::QemuServer::Blockdev::blockdev_replace(
+            PVE::QemuServer::VolumeChain::blockdev_replace(
                 $storecfg,
                 $vmid,
                 $machine_version,
@@ -4439,7 +4440,7 @@ sub qemu_volume_snapshot_delete {
         } else {
             #intermediate snapshot, we always stream the snapshot to child snapshot
             print "stream intermediate snapshot $snap to $childsnap\n";
-            PVE::QemuServer::Blockdev::blockdev_stream(
+            PVE::QemuServer::VolumeChain::blockdev_stream(
                 $storecfg,
                 $vmid,
                 $machine_version,
