@@ -116,6 +116,25 @@ my $net_fmt = {
             "Force MTU of network device (VirtIO only). Setting to '1' or empty will use the bridge MTU",
         optional => 1,
     },
+        taprouted => {
+              type => 'boolean',
+              description => "routed network, just make tap interface and execute routing script",
+              optional => 1,
+    },
+    hostip => {
+        type => 'string',
+        format => 'ipv4',
+        format_description => 'IPv4Format',
+        description => 'IPv4 address for the host.',
+        optional => 1,
+    },
+    guestip => {
+        type => 'string',
+        format => 'ipv4',
+        format_description => 'GuestIPv4',
+        description => 'IPv4 address for the guest.',
+        optional => 1,
+    },
 };
 
 our $netdesc = {

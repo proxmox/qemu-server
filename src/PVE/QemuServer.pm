@@ -1440,10 +1440,17 @@ sub print_netdev_full {
 
     my $netdev = "";
     my $script = $hotplug ? "pve-bridge-hotplug" : "pve-bridge";
+    if ($net->{taprouted}) {
+            $script = $hotplug ? "pve-tap" : "pve-tap-hotplug";
+    }
 
     if ($net->{bridge}) {
         $netdev = "type=tap,id=$netid,ifname=${ifname},script=/usr/libexec/qemu-server/$script"
             . ",downscript=/usr/libexec/qemu-server/pve-bridgedown$vhostparam";
+    } elsif ($net->{taprouted}) {
+		    $netdev= "type=tap,id=$netid,ifname=${ifname},script=/usr/libexec/qemu-server/$script"
+            . ",downscript=/usr/libexec/qemu-server/pve-tapdown$vhostparam";
+
     } else {
         $netdev = "type=user,id=$netid,hostname=$vmname";
     }

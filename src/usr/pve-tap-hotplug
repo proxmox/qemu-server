@@ -1,0 +1,3 @@
+#!/bin/sh
+
+exec /usr/libexec/qemu-server/pve-tap --hotplug "$@"
