@@ -80,7 +80,7 @@ sub has_feature {
         sub {
             my ($ds, $drive) = @_;
 
-            return if PVE::QemuServer::drive_is_cdrom($drive);
+            return if PVE::QemuServer::Drive::drive_is_cdrom($drive);
             return if $backup_only && defined($drive->{backup}) && !$drive->{backup};
             my $volid = $drive->{file};
             $err = 1
@@ -186,7 +186,7 @@ sub get_backup_volumes {
     my $test_volume = sub {
         my ($key, $drive) = @_;
 
-        return if PVE::QemuServer::drive_is_cdrom($drive);
+        return if PVE::QemuServer::Drive::drive_is_cdrom($drive);
 
         my $included = $drive->{backup} // 1;
         my $reason = "backup=";
@@ -274,7 +274,7 @@ sub __snapshot_activate_storages {
         sub {
             my ($key, $drive) = @_;
 
-            return if PVE::QemuServer::drive_is_cdrom($drive);
+            return if PVE::QemuServer::Drive::drive_is_cdrom($drive);
 
             my ($storeid) = PVE::Storage::parse_volume_id($drive->{file});
             $storage_hash->{$storeid} = 1;
@@ -392,7 +392,7 @@ sub __snapshot_create_vol_snapshots_hook {
 sub __snapshot_create_vol_snapshot {
     my ($class, $vmid, $ds, $drive, $snapname) = @_;
 
-    return if PVE::QemuServer::drive_is_cdrom($drive);
+    return if PVE::QemuServer::Drive::drive_is_cdrom($drive);
 
     my $volid = $drive->{file};
     my $device = "drive-$ds";
@@ -410,7 +410,7 @@ sub __snapshot_delete_remove_drive {
         delete $snap->{$remove_drive};
     } else {
         my $drive = PVE::QemuServer::parse_drive($remove_drive, $snap->{$remove_drive});
-        return if PVE::QemuServer::drive_is_cdrom($drive);
+        return if PVE::QemuServer::Drive::drive_is_cdrom($drive);
 
         my $volid = $drive->{file};
         delete $snap->{$remove_drive};
@@ -433,7 +433,7 @@ sub __snapshot_delete_vmstate_file {
 sub __snapshot_delete_vol_snapshot {
     my ($class, $vmid, $ds, $drive, $snapname, $unused) = @_;
 
-    return if PVE::QemuServer::drive_is_cdrom($drive);
+    return if PVE::QemuServer::Drive::drive_is_cdrom($drive);
     my $storecfg = PVE::Storage::config();
     my $volid = $drive->{file};
 
@@ -486,7 +486,7 @@ sub __snapshot_rollback_hook {
 sub __snapshot_rollback_vol_possible {
     my ($class, $drive, $snapname, $blockers) = @_;
 
-    return if PVE::QemuServer::drive_is_cdrom($drive);
+    return if PVE::QemuServer::Drive::drive_is_cdrom($drive);
 
     my $storecfg = PVE::Storage::config();
     my $volid = $drive->{file};
@@ -497,7 +497,7 @@ sub __snapshot_rollback_vol_possible {
 sub __snapshot_rollback_vol_rollback {
     my ($class, $drive, $snapname) = @_;
 
-    return if PVE::QemuServer::drive_is_cdrom($drive);
+    return if PVE::QemuServer::Drive::drive_is_cdrom($drive);
 
     my $storecfg = PVE::Storage::config();
     PVE::Storage::volume_snapshot_rollback($storecfg, $drive->{file}, $snapname);
@@ -533,7 +533,7 @@ sub __snapshot_rollback_get_unused {
         sub {
             my ($vs, $volume) = @_;
 
-            return if PVE::QemuServer::drive_is_cdrom($volume, 1);
+            return if PVE::QemuServer::Drive::drive_is_cdrom($volume, 1);
 
             my $found = 0;
             my $volid = $volume->{file};
@@ -544,7 +544,7 @@ sub __snapshot_rollback_get_unused {
                     my ($ds, $drive) = @_;
 
                     return if $found;
-                    return if PVE::QemuServer::drive_is_cdrom($drive, 1);
+                    return if PVE::QemuServer::Drive::drive_is_cdrom($drive, 1);
 
                     $found = 1
                         if ($drive->{file} && $drive->{file} eq $volid);
