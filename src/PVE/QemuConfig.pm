@@ -409,7 +409,7 @@ sub __snapshot_delete_remove_drive {
     if ($remove_drive eq 'vmstate') {
         delete $snap->{$remove_drive};
     } else {
-        my $drive = PVE::QemuServer::parse_drive($remove_drive, $snap->{$remove_drive});
+        my $drive = PVE::QemuServer::Drive::parse_drive($remove_drive, $snap->{$remove_drive});
         return if PVE::QemuServer::Drive::drive_is_cdrom($drive);
 
         my $volid = $drive->{file};
