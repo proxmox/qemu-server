@@ -700,7 +700,8 @@ __PACKAGE__->register_method({
     method => 'POST',
     description =>
         "Enroll important updated certificates to the EFI disk with pre-enrolled-keys. Currently,"
-        . " this is only the Microsoft UEFI CA 2023. Must be called while the VM is shut down.",
+        . " these are UEFI 2023 certificates from Microsoft. Must be called while the VM is shut"
+        . " down.",
     parameters => {
         additionalProperties => 0,
         properties => {
