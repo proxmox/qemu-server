@@ -721,12 +721,6 @@ __PACKAGE__->register_method({
         die "VM $vmid is a template\n" if PVE::QemuConfig->is_template($conf);
         die "VM $vmid has no EFI disk configured\n" if !$conf->{efidisk0};
 
-        my $ostype = $conf->{ostype};
-        if (!defined($ostype) || ($ostype ne 'win10' && $ostype ne 'win11')) {
-            print "skipping - OS type is neither Windows 10 nor Windows 11\n";
-            return;
-        }
-
         my $storecfg = PVE::Storage::config();
 
         my $efidisk = parse_drive('efidisk0', $conf->{efidisk0});
