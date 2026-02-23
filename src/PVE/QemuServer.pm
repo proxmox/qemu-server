@@ -5465,6 +5465,7 @@ sub vmconfig_apply_pending {
                         $old_drive,
                         $new_drive,
                     );
+                    $conf->{pending}->{$opt} = print_drive($new_drive);
                 }
             } elsif (defined($conf->{pending}->{$opt}) && $opt =~ m/^net\d+$/) {
                 return if !$have_sdn; # return from eval if SDN is not available
