@@ -4973,6 +4973,7 @@ sub vmconfig_apply_pending {
                         $old_drive,
                         $new_drive,
                     );
+                    $conf->{pending}->{$opt} = print_drive($new_drive);
                 }
             } elsif (defined($conf->{pending}->{$opt}) && $opt =~ m/^net\d+$/) {
                 my $new_net = PVE::QemuServer::Network::parse_net($conf->{pending}->{$opt});
