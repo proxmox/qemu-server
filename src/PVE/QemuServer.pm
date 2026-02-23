@@ -5408,7 +5408,7 @@ my sub check_efi_vars {
     my $efidisk = parse_drive('efidisk0', $conf->{efidisk0});
     if (PVE::QemuServer::OVMF::should_enroll_ms_2023_cert($efidisk)) {
         # TODO: make the first print a log_warn with PVE 9.2 to make it more noticeable!
-        print "EFI disk without 'ms-cert=2023w' option, suggesting that not all UEFI 2023\n";
+        print "EFI disk without 'ms-cert=2023k' option, suggesting that not all UEFI 2023\n";
         print "certificates from Microsoft are enrolled yet. The UEFI 2011 certificates expire\n";
         print "in June 2026! The new certificates are required for secure boot update for Windows\n";
         print "and common Linux distributions. Use 'Disk Action > Enroll Updated Certificates'\n";
