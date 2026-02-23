@@ -36,7 +36,7 @@ sub should_enroll_ms_2023_cert {
     my ($efidisk) = @_;
 
     return if !$efidisk->{'pre-enrolled-keys'};
-    return if $efidisk->{'ms-cert'} && $efidisk->{'ms-cert'} eq '2023w';
+    return if $efidisk->{'ms-cert'} && $efidisk->{'ms-cert'} eq '2023k';
 
     return 1;
 }
@@ -53,7 +53,14 @@ sub ensure_ms_2023_cert_enrolled {
     my ($path) = PVE::QemuServer::Drive::get_path_and_format($storecfg, $vmid, $efidisk);
 
     eval {
-        PVE::Tools::run_command([
+        # virt-fw-vars will only apply the --microsoft-kek option when combined with
+        # --enroll-{cert,generate,redhat}. That requires also specifying a platform key, so instead
+        # use the --add-kek option.
+        my $ms_2023_kek_path = '/usr/lib/python3/dist-packages/virt/firmware/certs/'
+            . 'MicrosoftCorporationKEK2KCA2023.pem';
+        # Taken from guids.py in the virt-fw-vars sources.
+        my $ms_vendor_guid = '77fa9abd-0359-4d32-bd60-28f4e78f784b';
+        PVE::Tools::run_command(
             [
                 'virt-fw-vars',
                 '--inplace',
@@ -62,12 +69,15 @@ sub ensure_ms_2023_cert_enrolled {
                 'ms-uefi',
                 '--distro-keys',
                 'windows',
+                '--add-kek',
+                $ms_vendor_guid,
+                $ms_2023_kek_path,
             ],
-        ]);
+        );
     };
     die "efidisk0: enrolling Microsoft UEFI CA 2023 failed - $@" if $@;
 
-    $efidisk->{'ms-cert'} = '2023w';
+    $efidisk->{'ms-cert'} = '2023k';
     return $efidisk;
 }
 

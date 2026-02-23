@@ -727,7 +727,7 @@ __PACKAGE__->register_method({
             PVE::QemuServer::OVMF::ensure_ms_2023_cert_enrolled($storecfg, $vmid, $efidisk);
 
         if (!$updated) {
-            print "skipping - no pre-enrolled keys or already got ms-cert=2023w marker\n";
+            print "skipping - no pre-enrolled keys or already got ms-cert=2023k marker\n";
             return;
         }
 
