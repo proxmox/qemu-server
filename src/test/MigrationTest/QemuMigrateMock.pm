@@ -75,9 +75,6 @@ $qemu_migrate_module->mock(
     fork_tunnel => sub {
         die "fork_tunnel (mocked) - implement me\n"; # currently no call should lead here
     },
-    read_tunnel => sub {
-        die "read_tunnel (mocked) - implement me\n"; # currently no call should lead here
-    },
     start_remote_tunnel => sub {
         my ($self, $raddr, $rport, $ruri, $unix_socket_info) = @_;
         $expected_calls->{'finish_tunnel'} = 1;
