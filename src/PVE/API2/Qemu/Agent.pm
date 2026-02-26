@@ -464,6 +464,14 @@ __PACKAGE__->register_method({
                 'pve-vmid',
                 { completion => \&PVE::QemuServer::complete_vmid_running },
             ),
+            count => {
+                type => 'integer',
+                optional => 1,
+                minimum => 1,
+                maximum => $MAX_READ_SIZE,
+                default => $MAX_READ_SIZE,
+                description => "Number of bytes to read.",
+            },
             file => {
                 type => 'string',
                 description => 'The path to the file',
@@ -481,12 +489,13 @@ __PACKAGE__->register_method({
             truncated => {
                 type => 'boolean',
                 optional => 1,
-                description => "If set to 1, the output is truncated and not complete",
+                description => "If set to 1, the read did not reach the end of the file.",
             },
         },
     },
     code => sub {
         my ($param) = @_;
+        my $count = $param->{count} // $MAX_READ_SIZE;
 
         my $vmid = $param->{vmid};
         my $conf = PVE::QemuConfig->load_config($vmid);
@@ -494,18 +503,20 @@ __PACKAGE__->register_method({
         my $qgafh =
             agent_cmd($vmid, $conf, "file-open", { path => $param->{file} }, "can't open file");
 
-        my $bytes_left = $MAX_READ_SIZE;
+        my $bytes_read = 0;
         my $eof = 0;
         my $read_size = 1024 * 1024;
         my $content = "";
 
-        while ($bytes_left > 0 && !$eof) {
+        while ($bytes_read < $count && !$eof) {
+            my $bytes_left = $count - $bytes_read;
+            my $chunk_size = $bytes_left < $read_size ? $bytes_left : $read_size;
             my $read =
-                mon_cmd($vmid, "guest-file-read", handle => $qgafh, count => int($read_size));
+                mon_cmd($vmid, "guest-file-read", handle => $qgafh, count => int($chunk_size));
             check_agent_error($read, "can't read from file");
 
             $content .= decode_base64($read->{'buf-b64'});
-            $bytes_left -= $read->{count};
+            $bytes_read += $read->{count};
             $eof = $read->{eof} // 0;
         }
 
@@ -514,12 +525,14 @@ __PACKAGE__->register_method({
 
         my $result = {
             content => $content,
-            'bytes-read' => ($MAX_READ_SIZE - $bytes_left),
+            'bytes-read' => $bytes_read,
         };
 
         if (!$eof) {
-            warn
-                "agent file-read: reached maximum read size: $MAX_READ_SIZE bytes. output might be truncated.\n";
+            if (!defined($param->{count})) {
+                warn "agent file-read: reached maximum read size: $MAX_READ_SIZE bytes."
+                    . " output might be truncated.\n";
+            }
             $result->{truncated} = 1;
         }
 
