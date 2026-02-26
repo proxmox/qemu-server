@@ -485,6 +485,13 @@ __PACKAGE__->register_method({
                 type => 'string',
                 description => 'The path to the file',
             },
+            offset => {
+                type => 'integer',
+                optional => 1,
+                minimum => 0,
+                default => 0,
+                description => "Offset to start reading at",
+            },
         },
     },
     returns => {
@@ -506,12 +513,23 @@ __PACKAGE__->register_method({
         my ($param) = @_;
         my $count = $param->{count} // $MAX_READ_SIZE;
         my $decode = $param->{decode} // 1;
+        my $offset = $param->{offset} // 0;
 
         my $vmid = $param->{vmid};
         my $conf = PVE::QemuConfig->load_config($vmid);
 
         my $qgafh =
             agent_cmd($vmid, $conf, "file-open", { path => $param->{file} }, "can't open file");
+
+        if ($offset > 0) {
+            my $seek = mon_cmd(
+                $vmid, "guest-file-seek",
+                handle => $qgafh,
+                offset => int($offset),
+                whence => 'set',
+            );
+            check_agent_error($seek, "can't seek to offset position");
+        }
 
         my $bytes_read = 0;
         my $eof = 0;
