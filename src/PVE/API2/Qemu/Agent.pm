@@ -472,6 +472,15 @@ __PACKAGE__->register_method({
                 default => $MAX_READ_SIZE,
                 description => "Number of bytes to read.",
             },
+            decode => {
+                type => 'boolean',
+                optional => 1,
+                default => 1,
+                description => "Data received from the QEMU Guest-Agent is base64 encoded."
+                    . " If this is set to true, the data is decoded."
+                    . " Otherwise the content is forwarded with base64 encoding."
+                    . " Defaults to true.",
+            },
             file => {
                 type => 'string',
                 description => 'The path to the file',
@@ -496,6 +505,7 @@ __PACKAGE__->register_method({
     code => sub {
         my ($param) = @_;
         my $count = $param->{count} // $MAX_READ_SIZE;
+        my $decode = $param->{decode} // 1;
 
         my $vmid = $param->{vmid};
         my $conf = PVE::QemuConfig->load_config($vmid);
@@ -515,7 +525,10 @@ __PACKAGE__->register_method({
                 mon_cmd($vmid, "guest-file-read", handle => $qgafh, count => int($chunk_size));
             check_agent_error($read, "can't read from file");
 
-            $content .= decode_base64($read->{'buf-b64'});
+            my $chunk = $read->{'buf-b64'};
+            $chunk = decode_base64($chunk) if $decode;
+            $content .= $chunk;
+
             $bytes_read += $read->{count};
             $eof = $read->{eof} // 0;
         }
