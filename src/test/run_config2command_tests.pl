@@ -236,6 +236,8 @@ sub parse_test($config_fn) {
         $testname = "'$testname' - $desc";
     }
     $current_test->{testname} = $testname;
+
+    PVE::QemuServer::CPUConfig::initialize_cpu_models();
 }
 
 sub get_test_qemu_version {
