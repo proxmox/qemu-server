@@ -5,6 +5,7 @@ use warnings;
 
 use JSON qw(to_json);
 
+use PVE::File qw(file_exists file_get_size);
 use PVE::GuestHelpers qw(safe_string_ne);
 use PVE::RESTEnvironment qw(log_warn);
 use PVE::Storage;
@@ -65,14 +66,14 @@ my sub get_ovmf_files($$$$) {
         if ($cvm_type && $cvm_type eq 'snp') {
             $type = "4m-snp";
             my ($ovmf) = $types->{$type}->@*;
-            die "EFI base image '$ovmf' not found\n" if !-f $ovmf;
+            die "EFI base image '$ovmf' not found\n" if !file_exists($ovmf);
             return ($ovmf);
         } elsif ($cvm_type && ($cvm_type eq 'std' || $cvm_type eq 'es')) {
             $type = "4m-sev";
         } elsif ($cvm_type && $cvm_type eq 'tdx') {
             $type = "4m-tdx";
             my ($ovmf) = $types->{$type}->@*;
-            die "EFI base image '$ovmf' not found\n" if !-f $ovmf;
+            die "EFI base image '$ovmf' not found\n" if !file_exists($ovmf);
             return ($ovmf);
         } elsif (defined($efidisk->{efitype}) && $efidisk->{efitype} eq '4m') {
             $type = $smm ? "4m" : "4m-no-smm";
@@ -83,8 +84,8 @@ my sub get_ovmf_files($$$$) {
     }
 
     my ($ovmf_code, $ovmf_vars) = $types->{$type}->@*;
-    die "EFI base image '$ovmf_code' not found\n" if !-f $ovmf_code;
-    die "EFI vars image '$ovmf_vars' not found\n" if !-f $ovmf_vars;
+    die "EFI base image '$ovmf_code' not found\n" if !file_exists($ovmf_code);
+    die "EFI vars image '$ovmf_vars' not found\n" if !file_exists($ovmf_vars);
 
     return ($ovmf_code, $ovmf_vars);
 }
@@ -103,6 +104,7 @@ my sub print_ovmf_drive_commandlines {
         if $cvm_type && $cvm_type eq 'tdx';
 
     my ($ovmf_code, $ovmf_vars) = get_ovmf_files($arch, $d, $q35, $cvm_type);
+    my $ovmf_vars_size = file_get_size($ovmf_vars);
 
     my $var_drive_str = "if=pflash,unit=1,id=drive-efidisk0";
     if ($d) {
@@ -121,15 +123,15 @@ my sub print_ovmf_drive_commandlines {
         }
         $var_drive_str .= ",format=$format,file=$path";
 
-        $var_drive_str .= ",size=" . (-s $ovmf_vars)
+        $var_drive_str .= ",size=" . $ovmf_vars_size
             if $format eq 'raw' && $version_guard->(4, 1, 2);
         $var_drive_str .= ',readonly=on' if $readonly;
     } else {
         log_warn("no efidisk configured! Using temporary efivars disk.");
         my $path = "/tmp/$vmid-ovmf.fd";
-        PVE::Tools::file_copy($ovmf_vars, $path, -s $ovmf_vars);
+        PVE::Tools::file_copy($ovmf_vars, $path, $ovmf_vars_size);
         $var_drive_str .= ",format=raw,file=$path";
-        $var_drive_str .= ",size=" . (-s $ovmf_vars) if $version_guard->(4, 1, 2);
+        $var_drive_str .= ",size=" . $ovmf_vars_size if $version_guard->(4, 1, 2);
     }
 
     return ("if=pflash,unit=0,format=raw,readonly=on,file=$ovmf_code", $var_drive_str);
@@ -139,7 +141,7 @@ sub get_efivars_size {
     my ($arch, $efidisk, $smm, $cvm_type) = @_;
 
     my (undef, $ovmf_vars) = get_ovmf_files($arch, $efidisk, $smm, $cvm_type);
-    return -s $ovmf_vars;
+    return file_get_size($ovmf_vars);
 }
 
 my sub is_ms_2023_cert_enrolled {
@@ -171,7 +173,7 @@ sub create_efidisk($$$$$$$$) {
 
     my (undef, $ovmf_vars) = get_ovmf_files($arch, $efidisk, $smm, $cvm_type);
 
-    my $vars_size_b = -s $ovmf_vars;
+    my $vars_size_b = file_get_size($ovmf_vars);
     my $vars_size = PVE::Tools::convert_size($vars_size_b, 'b' => 'kb');
     my $volid = PVE::Storage::vdisk_alloc($storecfg, $storeid, $vmid, $fmt, undef, $vars_size);
     PVE::Storage::activate_volumes($storecfg, [$volid]);
@@ -219,7 +221,7 @@ my sub generate_ovmf_blockdev {
     } else {
         log_warn("no efidisk configured! Using temporary efivars disk.");
         my $path = "/tmp/$vmid-ovmf.fd";
-        PVE::Tools::file_copy($ovmf_vars, $path, -s $ovmf_vars);
+        PVE::Tools::file_copy($ovmf_vars, $path, file_get_size($ovmf_vars));
         $drive = { file => $path, interface => 'efidisk', index => 0 };
         $format = 'raw';
     }
@@ -231,7 +233,7 @@ my sub generate_ovmf_blockdev {
     my $extra_blockdev_options = {};
     $extra_blockdev_options->{'read-only'} = 1 if $readonly;
 
-    $extra_blockdev_options->{size} = -s $ovmf_vars if $format eq 'raw';
+    $extra_blockdev_options->{size} = file_get_size($ovmf_vars) if $format eq 'raw';
 
     my $throttle_group = PVE::QemuServer::Blockdev::generate_throttle_group($drive);
 

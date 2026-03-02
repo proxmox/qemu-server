@@ -19,6 +19,7 @@ use PVE::QemuServer;
 use PVE::QemuServer::Drive;
 use PVE::QemuServer::Helpers;
 use PVE::QemuServer::Monitor;
+use PVE::QemuServer::OVMF;
 use PVE::QemuServer::QMPHelpers;
 use PVE::QemuServer::CPUConfig;
 use PVE::Storage;
@@ -261,6 +262,28 @@ $qemu_server_module->mock(
     },
     cleanup_pci_devices => {
         # do nothing
+    },
+);
+
+my $qemu_server_ovmf_module = Test::MockModule->new("PVE::QemuServer::OVMF");
+$qemu_server_ovmf_module->mock(
+    file_exists => sub {
+        my ($path) = @_;
+        return 1;
+    },
+    file_get_size => sub {
+        my ($path) = @_;
+        if ($path =~ m/OVMF(32)?_(SEV_)?VARS_4M/) {
+            return 528 * 1024;
+        } elsif ($path =~ m/OVMF_VARS/) {
+            return 128 * 1024;
+        } elsif ($path =~ m/AAVMF_VARS/) {
+            return 64 * 1024 * 1024;
+        } elsif ($path =~ m/RISCV_VIRT_VARS/) {
+            return 32 * 1024 * 1024;
+        } else {
+            die "unknown ovmf vars image '$path' - implement me";
+        }
     },
 );
 
