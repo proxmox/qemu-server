@@ -11,7 +11,7 @@ use PVE::ProcFSTools;
 use PVE::RESTEnvironment qw(log_warn);
 use PVE::Tools qw(run_command);
 
-use PVE::QemuServer::Helpers qw(min_version);
+use PVE::QemuServer::Helpers qw(min_version get_host_arch);
 
 use base qw(PVE::SectionConfig Exporter);
 
@@ -25,7 +25,7 @@ our @EXPORT_OK = qw(
     get_cvm_type
 );
 
-my $host_arch = PVE::Tools::get_host_arch();
+my $host_arch = get_host_arch();
 
 my $arch_desc = {
     description => "Virtual processor architecture. Defaults to the host architecture.",
@@ -294,7 +294,7 @@ my $supported_cpu_flags_by_arch = {
 
 sub get_supported_cpu_flags {
     my ($arch) = @_;
-    $arch = $host_arch if !defined($arch);
+    $arch = get_host_arch() if !defined($arch);
     return $supported_cpu_flags_by_arch->{$arch};
 }
 
@@ -582,7 +582,7 @@ sub add_cpu_json_properties {
 sub get_cpu_models {
     my ($include_custom, $arch) = @_;
 
-    $arch = $host_arch if !defined($arch);
+    $arch = get_host_arch() if !defined($arch);
     my $cpu_vendor_list = $cpu_models_by_arch->{$arch};
 
     my $models = [];
@@ -1077,13 +1077,13 @@ sub get_default_cpu_type {
 
 sub is_native_arch($) {
     my ($arch) = @_;
-    return $host_arch eq $arch;
+    return get_host_arch() eq $arch;
 }
 
 sub get_cpu_bitness {
     my ($cpu_prop_str, $arch) = @_;
 
-    $arch //= $host_arch;
+    $arch //= get_host_arch();
 
     my $cputype = get_default_cpu_type($arch, 0);
 

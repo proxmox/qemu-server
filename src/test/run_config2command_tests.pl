@@ -254,9 +254,6 @@ $qemu_server_module->mock(
     kernel_has_vhost_net => sub {
         return 1; # TODO: make this per-test configurable?
     },
-    get_host_arch => sub() {
-        return $current_test->{host_arch} // 'x86_64';
-    },
     get_iscsi_initiator_name => sub {
         return 'iqn.1993-08.org.debian:01:aabbccddeeff';
     },
@@ -410,6 +407,9 @@ $pve_common_tools->mock(
                 socktype => 1,
             },
         );
+    },
+    get_host_arch => sub {
+        return $current_test->{host_arch} // 'x86_64';
     },
 );
 

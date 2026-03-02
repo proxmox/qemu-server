@@ -10,7 +10,7 @@ use JSON;
 use PVE::Cluster;
 use PVE::INotify;
 use PVE::ProcFSTools;
-use PVE::Tools qw(get_host_arch);
+use PVE::Tools;
 
 use base 'Exporter';
 our @EXPORT_OK = qw(
@@ -20,6 +20,7 @@ our @EXPORT_OK = qw(
     kvm_user_version
     parse_number_sets
     windows_version
+    get_host_arch
 );
 
 my $nodename = PVE::INotify::nodename();
@@ -28,6 +29,11 @@ my $arch_to_qemu_binary = {
     aarch64 => '/usr/bin/qemu-system-aarch64',
     x86_64 => '/usr/bin/qemu-system-x86_64',
 };
+
+# wrapper around the Tools helper, having it here makes it easier to mock for testing
+sub get_host_arch {
+    return PVE::Tools::get_host_arch();
+}
 
 sub get_command_for_arch($) {
     my ($arch) = @_;

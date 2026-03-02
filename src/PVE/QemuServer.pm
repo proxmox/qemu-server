@@ -46,8 +46,7 @@ use PVE::SafeSyslog;
 use PVE::Storage;
 use PVE::SysFSTools;
 use PVE::Systemd;
-use PVE::Tools
-    qw(run_command file_read_firstline file_get_contents dir_glob_foreach get_host_arch $IPV6RE);
+use PVE::Tools qw(run_command file_read_firstline file_get_contents dir_glob_foreach $IPV6RE);
 
 use PVE::QMPClient;
 use PVE::QemuConfig;
@@ -58,7 +57,7 @@ use PVE::QemuServer::Blockdev;
 use PVE::QemuServer::BlockJob;
 use PVE::QemuServer::Cfg2Cmd;
 use PVE::QemuServer::Helpers
-    qw(config_aware_timeout get_iscsi_initiator_name min_version kvm_user_version windows_version);
+    qw(config_aware_timeout get_iscsi_initiator_name get_host_arch min_version kvm_user_version windows_version);
 use PVE::QemuServer::Cloudinit;
 use PVE::QemuServer::CGroup;
 use PVE::QemuServer::CPUConfig qw(
