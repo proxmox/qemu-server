@@ -1,3 +1,50 @@
+qemu-server (9.1.5) trixie; urgency=medium
+
+  * fix #1964: add 'guest-fsfreeze' QEMU guest agent setting to control
+    whether filesystem freeze/thaw commands are issued for snapshots,
+    replications and clones — not just backups. The previous
+    'freeze-fs-on-backup' setting is deprecated in favor of the new one.
+
+  * agent: file-read: allow specifying a byte offset and maximum byte count,
+    and allow keeping the base64-encoding of the response content. This
+    enables reading large files block-by-block and avoids inflated payload
+    sizes for binary data.
+
+  * extend and improve experimental aarch64 VM support. Allow querying CPU
+    models, CPU flags and machine types for a given architecture via the API.
+    Add aarch64 CPU models. Guard x86-specific CPU options like hyperv
+    enlightenments and the 'hidden' flag by architecture. Fix S3/S4 ACPI power
+    state not being disabled for ARM-based virt machines, as ARM has no
+    concept of those. Fix machine version pinning and default architecture
+    detection on non-x86 hosts.
+
+  * vm start: check efi: extend the UEFI 2023 certificate enrollment check to
+    all VMs with pre-enrolled keys, not just Windows 10 and 11, as common
+    Linux distributions also require the updated certificates for secure boot.
+
+  * ovmf: also enroll the Microsoft Corporation KEK 2K CA 2023 key exchange
+    key, as not having it can still cause secure boot update failures.
+
+  * apply pending config changes: efi disk: fix ms-cert marker not being
+    updated in config after certificate enrollment via API, which could leave
+    a stale marker.
+
+  * vm status: guard memory stat collection with eval to avoid breaking the
+    whole VM status API call or pvestatd collection if it fails.
+
+  * verify device removal: mention that the device might still be busy in the
+    guest on timeout, which is a common cause especially on Windows with
+    ongoing IO on VirtIO block devices.
+
+  * qmp: switch from deprecated block-job-complete to job-complete command.
+
+  * blockdev: introduce dedicated module for snapshot-as-volume-chain handling
+    to resolve cyclic dependency between Blockdev and BlockJob modules.
+
+  * config: document default balloon behavior and fix 'ballon' typo.
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 06 Mar 2026 12:48:12 +0100
+
 qemu-server (9.1.4) trixie; urgency=medium
 
   * vga: allow live-migration with clipboard with QEMU 10.1, which gained
