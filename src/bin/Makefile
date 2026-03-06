@@ -61,7 +61,7 @@ test:
 
 .PHONY: clean
 clean:
-	rm -f *.xml.tmp *.1 *.5 *.8 *{synopsis,opts}.adoc docinfo.xml
+	$(MAKE) cleanup-docgen
 
 .PHONY: distclean
 distclean: clean
