@@ -5635,8 +5635,8 @@ __PACKAGE__->register_method({
 
         PVE::QemuConfig->check_lock($conf);
 
-        raise_param_exc({ vmid => "cannot migrate HA-managed VM to remote cluster" })
-            if PVE::HA::Config::vm_is_ha_managed($source_vmid);
+        raise_param_exc({ vmid => "cannot remote-migrate VM that is configured for HA" })
+            if PVE::HA::Config::service_is_configured("vm:$source_vmid");
 
         my $remote = PVE::JSONSchema::parse_property_string('proxmox-remote', $target_endpoint);
 
