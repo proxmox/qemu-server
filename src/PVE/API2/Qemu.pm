@@ -4487,6 +4487,9 @@ __PACKAGE__->register_method({
         my $clonefn = sub {
             my ($conffile, $newconf, $oldconf, $vollist, $drives, $fullclone) =
                 $load_and_check->();
+
+            print("creating a clone of VM $vmid with ID $newid\n");
+
             my $storecfg = PVE::Storage::config();
 
             # auto generate a new uuid
