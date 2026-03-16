@@ -1,3 +1,18 @@
+qemu-server (8.4.6) bookworm; urgency=medium
+
+  * fix #6985: efi: secure boot: support enrolling Microsoft's 2023 UEFI
+    certificates. The original set of Microsoft certificates from 2011, which
+    Windows and common Linux distributions use for secure boot, expires in
+    June 2026. Microsoft created replacement certificates in 2023.
+    - qm cli: add 'enroll-efi-keys' command to enroll certificates for a
+      shut-down VM.
+    - efi disk: add 'ms-cert=2023k' property which indicates that the new
+      certificates are enrolled. The property can be set via API or 'qm set'.
+      If the VM is running, as a pending change. The new certificates are
+      enrolled when the change is applied to the disk.
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 16 Mar 2026 12:06:59 +0100
+
 qemu-server (8.4.5) bookworm; urgency=medium
 
   * fix #6934: vm start: do not try to apply pending changes when resuming
