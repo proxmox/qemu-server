@@ -5938,6 +5938,8 @@ my sub check_efi_vars {
         print "For Windows with BitLocker, run the following command inside Powershell:\n";
         print "  manage-bde -protectors -disable <drive>\n";
         print "for each drive with BitLocker (for example, <drive> could be 'C:').\n";
+        print "This is required for each drive with BitLocker before proceeding with enrollment.\n";
+        print "Otherwise, you will be prompted for the BitLocker recovery key on the next boot.\n";
     }
 
     return;
