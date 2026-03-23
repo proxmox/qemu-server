@@ -778,7 +778,7 @@ sub is_abstracted {
 #     },
 #     ...
 # }
-sub resolve_cpu_flags {
+my sub resolve_cpu_flags {
     my @flag_hashes = @_;
 
     my $flags = {};
@@ -835,6 +835,12 @@ sub resolve_cpu_flags {
             $flags->{$flag_name} = $flag;
         }
     }
+
+    return $flags;
+}
+
+my sub print_cpu_flags {
+    my ($flags) = @_;
 
     my $flag_str = '';
     # sort for command line stability
@@ -957,7 +963,7 @@ sub get_cpu_options {
     my $cpu_str = $cputype;
 
     # will be resolved in parameter order
-    $cpu_str .= resolve_cpu_flags(
+    my $resolved_flags = resolve_cpu_flags(
         $pve_flags,
         $hv_flags,
         $builtin_cputype_flags,
@@ -965,6 +971,7 @@ sub get_cpu_options {
         $vm_flags,
         $pve_forced_flags,
     );
+    $cpu_str .= print_cpu_flags($resolved_flags);
 
     for my $phys_bits_opt (qw(guest-phys-bits phys-bits)) {
         my $phys_bits = '';
