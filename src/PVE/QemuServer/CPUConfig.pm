@@ -975,9 +975,9 @@ sub get_cpu_options {
 
     for my $phys_bits_opt (qw(guest-phys-bits phys-bits)) {
         my $phys_bits = '';
-        foreach my $conf ($custom_cpu, $cpu) {
-            next if !defined($conf);
-            my $conf_val = $conf->{$phys_bits_opt};
+        for my $cpu_conf ($custom_cpu, $cpu) {
+            next if !defined($cpu_conf);
+            my $conf_val = $cpu_conf->{$phys_bits_opt};
             next if !$conf_val;
             if ($conf_val eq 'host') {
                 die "unexpected value 'host' for guest-phys-bits"
