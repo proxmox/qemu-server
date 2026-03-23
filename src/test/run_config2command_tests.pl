@@ -370,6 +370,14 @@ $qemu_server_config->mock(
     },
 );
 
+my $qemu_server_helpers;
+$qemu_server_helpers = Test::MockModule->new('PVE::QemuServer::Helpers');
+$qemu_server_helpers->mock(
+    get_host_phys_address_bits => sub {
+        return 46;
+    },
+);
+
 my $qemu_server_memory;
 $qemu_server_memory = Test::MockModule->new('PVE::QemuServer::Memory');
 $qemu_server_memory->mock(
@@ -379,9 +387,6 @@ $qemu_server_memory->mock(
     host_numanode_exists => sub {
         my ($id) = @_;
         return 1;
-    },
-    get_host_phys_address_bits => sub {
-        return 46;
     },
 );
 

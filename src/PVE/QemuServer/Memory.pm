@@ -93,24 +93,6 @@ sub parse_memory {
     return $res;
 }
 
-my $_host_bits;
-
-sub get_host_phys_address_bits {
-    return $_host_bits if defined($_host_bits);
-
-    my $fh = IO::File->new('/proc/cpuinfo', "r") or return;
-    while (defined(my $line = <$fh>)) {
-        # hopefully we never need to care about mixed (big.LITTLE) archs
-        if ($line =~ m/^address sizes\s*:\s*(\d+)\s*bits physical/i) {
-            $_host_bits = int($1);
-            $fh->close();
-            return $_host_bits;
-        }
-    }
-    $fh->close();
-    return; # undef, cannot really do anything..
-}
-
 my sub get_max_mem {
     my ($conf) = @_;
 
@@ -122,14 +104,15 @@ my sub get_max_mem {
     my $bits;
     if (my $phys_bits = $cpu->{'phys-bits'}) {
         if ($phys_bits eq 'host') {
-            $bits = get_host_phys_address_bits();
+            $bits = PVE::QemuServer::Helpers::get_host_phys_address_bits();
         } elsif ($phys_bits =~ /^(\d+)$/) {
             $bits = int($phys_bits);
         }
     }
 
     if (!defined($bits)) {
-        my $host_bits = get_host_phys_address_bits() // 36; # fixme: what fallback?
+        # fixme: what fallback?
+        my $host_bits = PVE::QemuServer::Helpers::get_host_phys_address_bits() // 36;
         if ($cpu->{cputype} && $cpu->{cputype} =~ /^(host|max)$/) {
             $bits = $host_bits;
         } else {

@@ -369,4 +369,22 @@ sub get_iscsi_initiator_name {
     return $initiator;
 }
 
+my $_host_bits;
+
+sub get_host_phys_address_bits {
+    return $_host_bits if defined($_host_bits);
+
+    my $fh = IO::File->new('/proc/cpuinfo', "r") or return;
+    while (defined(my $line = <$fh>)) {
+        # hopefully we never need to care about mixed (big.LITTLE) archs
+        if ($line =~ m/^address sizes\s*:\s*(\d+)\s*bits physical/i) {
+            $_host_bits = int($1);
+            $fh->close();
+            return $_host_bits;
+        }
+    }
+    $fh->close();
+    return; # undef, cannot really do anything..
+}
+
 1;
