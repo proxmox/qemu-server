@@ -879,6 +879,21 @@ sub parse_cpuflag_list {
     return $res;
 }
 
+my sub check_phys_bits_above_40_compat {
+    my ($bios, $cpu_type, $cpu_flags) = @_;
+
+    # Would need to check CPU model expansion for others, but that information is not cheap to get
+    # right now. Checking with 'qemu64' and 'kvm64' should cover most problematic scenarios.
+    return if $cpu_type ne 'qemu64' && $cpu_type ne 'kvm64';
+
+    return if !$bios || $bios ne 'ovmf';
+
+    if (!$cpu_flags->{pdpe1gb} || $cpu_flags->{pdpe1gb}->{op} eq '-') {
+        log_warn("OVMF firmware might limit CPU 'phys-bits' to 40"
+            . " - enable the 'pdpe1gb' CPU flag to avoid this");
+    }
+}
+
 # Calculate QEMU's '-cpu' argument from a given VM configuration
 sub get_cpu_options {
     my ($conf, $arch, $kvm, $kvm_off, $machine_version, $winversion, $gpu_passthrough) = @_;
@@ -973,6 +988,8 @@ sub get_cpu_options {
     );
     $cpu_str .= print_cpu_flags($resolved_flags);
 
+    my $using_phys_bits_above_40;
+
     for my $phys_bits_opt (qw(guest-phys-bits phys-bits)) {
         my $phys_bits = '';
         for my $cpu_conf ($custom_cpu, $cpu) {
@@ -982,13 +999,22 @@ sub get_cpu_options {
             if ($conf_val eq 'host') {
                 die "unexpected value 'host' for guest-phys-bits"
                     if $phys_bits_opt eq 'guest-phys-bits';
+
                 $phys_bits = ",host-phys-bits=true";
+
+                my $host_phys_bits = PVE::QemuServer::Helpers::get_host_phys_address_bits();
+                $using_phys_bits_above_40 = 1 if defined($host_phys_bits) && $host_phys_bits > 40;
             } else {
                 $phys_bits = ",${phys_bits_opt}=${conf_val}";
+
+                $using_phys_bits_above_40 = 1 if $phys_bits_opt eq 'phys-bits' && $conf_val > 40;
             }
         }
         $cpu_str .= $phys_bits;
     }
+
+    check_phys_bits_above_40_compat($conf->{bios}, $cputype, $resolved_flags)
+        if $using_phys_bits_above_40;
 
     return ('-cpu', $cpu_str);
 }
