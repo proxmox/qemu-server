@@ -283,7 +283,10 @@ See C<$guest_fsfreeze> for more details.
 sub guest_fsthaw {
     my ($vmid) = @_;
 
-    PVE::QemuServer::Monitor::mon_cmd($vmid, "guest-fsfreeze-thaw");
+    my $res = PVE::QemuServer::Monitor::mon_cmd($vmid, "guest-fsfreeze-thaw");
+    check_agent_error($res, "unable to thaw guest filesystem");
+
+    return;
 }
 
 1;
