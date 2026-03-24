@@ -1092,19 +1092,24 @@ sub _get_task_devlist {
 sub qga_fs_freeze {
     my ($self, $task, $vmid) = @_;
     return
-        if !$self->{vmlist}->{$vmid}->{agent}
-        || $task->{mode} eq 'stop'
+        if $task->{mode} eq 'stop'
         || !$self->{vm_was_running}
         || $self->{vm_was_paused};
+
+    my $conf = $self->{vmlist}->{$vmid};
+
+    if (!PVE::QemuServer::Agent::get_qga_key($conf, 'enabled')) {
+        $self->loginfo("skipping guest-agent 'fs-freeze', agent not configured in VM options");
+        return;
+    }
 
     if (!PVE::QemuServer::Agent::qga_check_running($vmid, 1)) {
         $self->loginfo("skipping guest-agent 'fs-freeze', agent configured but not running?");
         return;
     }
 
-    my $freeze = PVE::QemuServer::Agent::get_qga_key($self->{vmlist}->{$vmid}, 'guest-fsfreeze');
-    $freeze //=
-        PVE::QemuServer::Agent::get_qga_key($self->{vmlist}->{$vmid}, 'freeze-fs-on-backup');
+    my $freeze = PVE::QemuServer::Agent::get_qga_key($conf, 'guest-fsfreeze');
+    $freeze //= PVE::QemuServer::Agent::get_qga_key($conf, 'freeze-fs-on-backup');
     $freeze //= 1;
 
     if (!$freeze) {
