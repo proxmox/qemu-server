@@ -374,7 +374,7 @@ my $import_from_volid = sub {
 
         my ($src_storeid) = PVE::Storage::parse_volume_id($src_volid);
 
-        my $qga = $src_conf->{agent}
+        my $qga = PVE::QemuServer::Agent::get_qga_key($src_conf, 'enabled')
             && (PVE::QemuServer::Agent::get_qga_key($src_conf, 'guest-fsfreeze') // 1);
 
         return PVE::QemuServer::clone_disk(
@@ -4562,7 +4562,7 @@ __PACKAGE__->register_method({
                     $dest_info->{efisize} = PVE::QemuServer::get_efivars_size($oldconf)
                         if $opt eq 'efidisk0';
 
-                    my $qga = $oldconf->{agent}
+                    my $qga = PVE::QemuServer::Agent::get_qga_key($oldconf, 'enabled')
                         && (PVE::QemuServer::Agent::get_qga_key($oldconf, 'guest-fsfreeze') // 1);
 
                     my $newdrive = PVE::QemuServer::clone_disk(
