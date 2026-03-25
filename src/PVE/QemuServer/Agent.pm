@@ -35,12 +35,11 @@ our $agent_fmt = {
         optional => 1,
         default => 0,
     },
-    'freeze-fs-on-backup' => {
-        type => 'boolean',
-        optional => 1,
-        alias => 'guest-fsfreeze', # keep for old backup restore compatibility
-    },
-    'guest-fsfreeze' => {
+    # keep for old backup restore compatibility
+    'freeze-fs-on-backup' => { alias => 'freeze-fs' },
+    # TODO: was only on test repo, drop with PVE 10.
+    'guest-fsfreeze' => { alias => 'freeze-fs' },
+    'freeze-fs' => {
         description => "Freeze guest filesystems through QGA for consistent disk state on"
             . " operations such as snapshots, backups, replications and clones.",
         verbose_description =>
@@ -210,7 +209,7 @@ sub should_fs_freeze {
 
     my $agent = parse_guest_agent($conf);
     return 0 if !$agent->{enabled};
-    return $agent->{'guest-fsfreeze'} // 1;
+    return $agent->{'freeze-fs'} // 1;
 }
 
 =head3 guest_fsfreeze
