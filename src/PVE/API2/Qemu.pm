@@ -374,8 +374,7 @@ my $import_from_volid = sub {
 
         my ($src_storeid) = PVE::Storage::parse_volume_id($src_volid);
 
-        my $qga = PVE::QemuServer::Agent::get_qga_key($src_conf, 'enabled')
-            && (PVE::QemuServer::Agent::get_qga_key($src_conf, 'guest-fsfreeze') // 1);
+        my $fs_freeze = PVE::QemuServer::Agent::should_fs_freeze($src_conf);
 
         return PVE::QemuServer::clone_disk(
             $storecfg,
@@ -385,7 +384,7 @@ my $import_from_volid = sub {
             $vollist,
             undef,
             undef,
-            $qga,
+            $fs_freeze,
             PVE::Storage::get_bandwidth_limit('clone', [$src_storeid, $dest_info->{storage}]),
         );
     };
@@ -4562,8 +4561,7 @@ __PACKAGE__->register_method({
                     $dest_info->{efisize} = PVE::QemuServer::get_efivars_size($oldconf)
                         if $opt eq 'efidisk0';
 
-                    my $qga = PVE::QemuServer::Agent::get_qga_key($oldconf, 'enabled')
-                        && (PVE::QemuServer::Agent::get_qga_key($oldconf, 'guest-fsfreeze') // 1);
+                    my $fs_freeze = PVE::QemuServer::Agent::should_fs_freeze($oldconf);
 
                     my $newdrive = PVE::QemuServer::clone_disk(
                         $storecfg,
@@ -4573,7 +4571,7 @@ __PACKAGE__->register_method({
                         $newvollist,
                         $jobs,
                         $completion,
-                        $qga,
+                        $fs_freeze,
                         $clonelimit,
                     );
 

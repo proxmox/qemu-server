@@ -202,6 +202,21 @@ sub qemu_exec_status {
     return $res;
 }
 
+=head3 should_fs_freeze
+
+Returns whether guest filesystem freeze/thaw should be attempted based on the agent configuration.
+Does B<not> check whether the agent is actually running.
+
+=cut
+
+sub should_fs_freeze {
+    my ($conf) = @_;
+
+    my $agent = parse_guest_agent($conf);
+    return 0 if !$agent->{enabled};
+    return $agent->{'guest-fsfreeze'} // 1;
+}
+
 =head3 guest_fsfreeze
 
     guest_fsfreeze($vmid);
