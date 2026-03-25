@@ -35,25 +35,21 @@ our $agent_fmt = {
         optional => 1,
         default => 0,
     },
-    # TODO Remove for Proxmox VE 10
     'freeze-fs-on-backup' => {
-        description => "Deprecated: Use 'guest-fsfreeze' instead.\n\n"
-            . "Freeze/thaw guest filesystems on backup for consistency.",
         type => 'boolean',
         optional => 1,
-        default => 1,
+        alias => 'guest-fsfreeze', # keep for old backup restore compatibility
     },
     'guest-fsfreeze' => {
-        description =>
-            "Whether to issue the guest-fsfreeze-freeze and guest-fsfreeze-thaw QEMU guest agent"
-            . " commands.",
+        description => "Freeze guest filesystems through QGA for consistent disk state on"
+            . " operations such as snapshots, backups, replications and clones.",
         verbose_description =>
             "Whether to issue the guest-fsfreeze-freeze and guest-fsfreeze-thaw QEMU guest agent"
             . " commands. Backups in snapshot mode, clones, snapshots without RAM, importing"
             . " disks from a running guest, and replications normally issue a guest-fsfreeze-freeze"
             . " and a respective thaw command when the QEMU Guest agent option is enabled in the"
-            . " guest's configuration and the agent is running inside of the guest.\n\nWhen set, it"
-            . " will take precedence over 'freeze-fs-on-backup'.",
+            . " guest's configuration and the agent is running inside of the guest.\n\nThe deprecated"
+            . " 'freeze-fs-on-backup' setting is treated as an alias for this setting.",
         type => 'boolean',
         optional => 1,
         default => 1,
