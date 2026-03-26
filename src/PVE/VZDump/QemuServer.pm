@@ -841,6 +841,7 @@ sub archive_pbs {
 
         $params->{timeout} = 125; # give some time to connect to the backup server
 
+        $self->loginfo("starting backup via QMP command");
         my $res = eval { mon_cmd($vmid, "backup", %$params) };
         my $qmperr = $@;
         $backup_job_uuid = $res->{UUID} if $res;
@@ -1024,6 +1025,7 @@ sub archive_vma {
 
         my $fs_frozen = $self->qga_fs_freeze($task, $vmid);
 
+        $self->loginfo("starting backup via QMP command");
         eval { $qmpclient->queue_execute(30) };
         my $qmperr = $@;
 
