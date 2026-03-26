@@ -1031,7 +1031,7 @@ sub archive_vma {
             $self->qga_fs_thaw($vmid);
         }
 
-        die $qmperr if $qmperr;
+        die "executing QMP command to start backup failed - $qmperr" if $qmperr;
         die $qmpclient->{errors}->{$vmid} if $qmpclient->{errors}->{$vmid};
 
         if ($cpid) {
