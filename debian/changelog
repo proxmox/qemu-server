@@ -1,3 +1,29 @@
+qemu-server (9.1.6) trixie; urgency=medium
+
+  * guest agent: rename 'guest-fsfreeze' setting to 'freeze-fs' for
+    consistency with the existing agent sub-property naming. The old name and
+    'freeze-fs-on-backup' are kept as aliases.
+
+  * guest agent: fix clone, import and backup not properly checking whether
+    the agent is actually enabled before attempting to freeze guest file
+    systems.
+
+  * guest agent: fs thaw: check command result instead of silently ignoring
+    errors.
+
+  * api: clone: log the new VMID at the start of the task, as it was not
+    recorded in the task log, system log, or inside the task worker UPID
+    before.
+
+  * external migration: block if HA is configured regardless of HA management
+    state, as migrating an HA-managed VM can confuse the HA stack even when in
+    'ignored' state.
+
+  * query cpu flags: fix KVM support detection and TCG model selection for
+    non-x86 hosts, and add support for querying CPU flags on aarch64.
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 26 Mar 2026 23:43:39 +0100
+
 qemu-server (9.1.5) trixie; urgency=medium
 
   * fix #1964: add 'guest-fsfreeze' QEMU guest agent setting to control
