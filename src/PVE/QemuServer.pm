@@ -4245,15 +4245,26 @@ sub qemu_usb_hotplug {
     vm_deviceunplug($vmid, $conf, $deviceid);
 
     # check if xhci controller is necessary and available
+    my $added_xhci;
     my $devicelist = vm_devices_list($vmid);
 
     if (!$devicelist->{xhci}) {
         my $pciaddr = print_pci_addr("xhci", undef, $arch);
         qemu_deviceadd($vmid, PVE::QemuServer::USB::print_qemu_xhci_controller($pciaddr));
+        $added_xhci = 1;
     }
 
     # add the new one
-    vm_deviceplug($storecfg, $conf, $vmid, $deviceid, $device, $arch, $machine_type);
+    eval { vm_deviceplug($storecfg, $conf, $vmid, $deviceid, $device, $arch, $machine_type); };
+    if (my $err = $@) {
+        if ($added_xhci) {
+            eval { vm_deviceunplug($vmid, $conf, 'xhci'); };
+            warn "failed to unplug xhci controller - $@" if $@;
+        }
+        die $err;
+    }
+
+    return;
 }
 
 sub qemu_cpu_hotplug {
@@ -4650,6 +4661,7 @@ sub vmconfig_hotplug_pending {
     my $version = extract_version($machine_type, get_running_qemu_version($vmid));
     my $hotplug_features =
         parse_hotplug_features(defined($conf->{hotplug}) ? $conf->{hotplug} : '1');
+    my $usb_was_unplugged = 0;
     my $usb_hotplug =
         $hotplug_features->{usb}
         && min_version($version, 7, 1)
@@ -4680,6 +4692,7 @@ sub vmconfig_hotplug_pending {
                 die "skip\n" if !$usb_hotplug;
                 vm_deviceunplug($vmid, $conf, "usbredirdev$index"); # if it's a spice port
                 vm_deviceunplug($vmid, $conf, $opt);
+                $usb_was_unplugged = 1;
             } elsif ($opt eq 'vcpus') {
                 die "skip\n" if !$hotplug_features->{cpu};
                 qemu_cpu_hotplug($vmid, $conf, undef);
@@ -4852,7 +4865,7 @@ sub vmconfig_hotplug_pending {
     }
 
     # unplug xhci controller if no usb device is left
-    if ($usb_hotplug) {
+    if ($usb_was_unplugged) {
         my $has_usb = 0;
         for (my $i = 0; $i < $PVE::QemuServer::USB::MAX_USB_DEVICES; $i++) {
             next if !defined($conf->{"usb$i"});
