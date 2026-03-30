@@ -4657,16 +4657,22 @@ sub vmconfig_hotplug_pending {
         PVE::QemuConfig->write_config($vmid, $conf);
     }
 
-    my $ostype = $conf->{ostype};
-    my $version = extract_version($machine_type, get_running_qemu_version($vmid));
     my $hotplug_features =
         parse_hotplug_features(defined($conf->{hotplug}) ? $conf->{hotplug} : '1');
+
+    my $usb_hotplug;
     my $usb_was_unplugged = 0;
-    my $usb_hotplug =
-        $hotplug_features->{usb}
-        && min_version($version, 7, 1)
-        && defined($ostype)
-        && ($ostype eq 'l26' || windows_version($ostype) > 7);
+    my $is_usb_hotplug_supported = sub {
+        return $usb_hotplug if defined($usb_hotplug);
+        my $ostype = $conf->{ostype};
+        my $version = extract_version($machine_type, get_running_qemu_version($vmid));
+        $usb_hotplug =
+            $hotplug_features->{usb}
+            && min_version($version, 7, 1)
+            && defined($ostype)
+            && ($ostype eq 'l26' || windows_version($ostype) > 7) ? 1 : 0;
+        return $usb_hotplug;
+    };
 
     my $cgroup = PVE::QemuServer::CGroup->new($vmid);
     my $pending_delete_hash = PVE::QemuConfig->parse_pending_delete($conf->{pending}->{delete});
@@ -4689,7 +4695,7 @@ sub vmconfig_hotplug_pending {
                 }
             } elsif ($opt =~ m/^usb(\d+)$/) {
                 my $index = $1;
-                die "skip\n" if !$usb_hotplug;
+                die "skip\n" if !$is_usb_hotplug_supported->();
                 vm_deviceunplug($vmid, $conf, "usbredirdev$index"); # if it's a spice port
                 vm_deviceunplug($vmid, $conf, $opt);
                 $usb_was_unplugged = 1;
@@ -4760,7 +4766,7 @@ sub vmconfig_hotplug_pending {
                 }
             } elsif ($opt =~ m/^usb(\d+)$/) {
                 my $index = $1;
-                die "skip\n" if !$usb_hotplug;
+                die "skip\n" if !$is_usb_hotplug_supported->();
                 my $d = eval { parse_property_string('pve-qm-usb', $value) };
                 my $id = $opt;
                 if ($d->{host} =~ m/^spice$/i) {
