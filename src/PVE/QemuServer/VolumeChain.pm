@@ -25,14 +25,7 @@ sub blockdev_external_snapshot {
 
     #reopen current to snap
     blockdev_replace(
-        $storecfg,
-        $vmid,
-        $machine_version,
-        $deviceid,
-        $drive,
-        'current',
-        $snap,
-        $parent_snap,
+        $storecfg, $vmid, $machine_version, $deviceid, $drive, 'current', $snap, $parent_snap,
     );
 
     #be sure to add drive in write mode

@@ -5086,12 +5086,7 @@ sub vmconfig_update_net {
                         $conf->{name},
                     );
                     PVE::Network::SDN::Vnets::add_next_free_cidr(
-                        $newnet->{bridge},
-                        $conf->{name},
-                        $newnet->{macaddr},
-                        $vmid,
-                        undef,
-                        1,
+                        $newnet->{bridge}, $conf->{name}, $newnet->{macaddr}, $vmid, undef, 1,
                     );
                 }
 
