@@ -7,8 +7,8 @@ export DESTDIR ?=
 
 GITVERSION:=$(shell git rev-parse HEAD)
 
-DEB=$(PACKAGE)_$(DEB_VERSION_UPSTREAM_REVISION)_$(DEB_BUILD_ARCH).deb
-DBG_DEB=$(PACKAGE)-dbgsym_$(DEB_VERSION_UPSTREAM_REVISION)_$(DEB_BUILD_ARCH).deb
+DEB=$(PACKAGE)_$(DEB_VERSION_UPSTREAM_REVISION)_$(DEB_HOST_ARCH).deb
+DBG_DEB=$(PACKAGE)-dbgsym_$(DEB_VERSION_UPSTREAM_REVISION)_$(DEB_HOST_ARCH).deb
 DSC=$(PACKAGE)_$(DEB_VERSION_UPSTREAM_REVISION).dsc
 
 DEBS=$(DEB) $(DBG_DEB)
@@ -50,7 +50,7 @@ sbuild: $(DSC)
 .PHONY: upload
 upload: UPLOAD_DIST ?= $(DEB_DISTRIBUTION)
 upload: $(DEB)
-	tar cf - $(DEBS) | ssh -X repoman@repo.proxmox.com upload --product pve --dist $(UPLOAD_DIST)
+	tar cf - $(DEBS) | ssh -X repoman@repo.proxmox.com upload --product pve --dist $(UPLOAD_DIST) --arch $(DEB_HOST_ARCH)
 
 .PHONY: clean
 clean:
