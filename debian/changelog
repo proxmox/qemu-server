@@ -1,3 +1,10 @@
+qemu-server (9.1.4.1) trixie; urgency=medium
+
+  * vm status: guard memory stat collection with eval to avoid breaking the
+    whole VM status API call or pvestatd collection if it fails.
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 30 Mar 2026 09:21:37 +0200
+
 qemu-server (9.1.4) trixie; urgency=medium
 
   * vga: allow live-migration with clipboard with QEMU 10.1, which gained
