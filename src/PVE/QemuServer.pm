@@ -1386,7 +1386,12 @@ sub print_netdevice_full {
     } elsif (defined($mtu)) {
         my $msg_prefix = "netdev $netid: ignoring MTU '$mtu'";
         if ($migration_skip_host_mtu) {
-            log_warn("$msg_prefix, not used on the source side according to migration parameters");
+            # When the machine version is less than 10.0+pve1 and the MTU is 1500, not having the
+            # host_mtu parameter is fully expected. Only log when not expected to avoid confusion.
+            if (min_version($machine_version, 10, 0, 1) || $mtu != 1500) {
+                log_warn(
+                    "$msg_prefix, not used on the source side according to migration parameters");
+            }
         } elsif (!$net->{bridge}) {
             log_warn("$msg_prefix, no bridge configured");
         } else {
