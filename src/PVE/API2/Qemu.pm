@@ -4802,6 +4802,9 @@ __PACKAGE__->register_method({
                 "move disk VM $vmid: move --disk $disk --storage $storeid",
             );
 
+            print("copying volume '$old_volid' from current storage '$oldstoreid' to target"
+                . " storage '$storeid'\n");
+
             my $running = PVE::QemuServer::check_running($vmid);
 
             PVE::Storage::activate_volumes($storecfg, [$drive->{file}]);
@@ -4851,7 +4854,10 @@ __PACKAGE__->register_method({
                 );
                 $conf->{$disk} = PVE::QemuServer::print_drive($newdrive);
 
-                PVE::QemuConfig->add_unused_volume($conf, $old_volid) if !$param->{delete};
+                if (!$param->{delete}) {
+                    my $unused_key = PVE::QemuConfig->add_unused_volume($conf, $old_volid);
+                    print("adding source volume '$old_volid' as '$unused_key' to config\n");
+                }
 
                 # convert moved disk to base if part of template
                 PVE::QemuServer::template_create($vmid, $conf, $disk)
@@ -4880,6 +4886,7 @@ __PACKAGE__->register_method({
             }
 
             if ($param->{delete}) {
+                print("removing source volume '$old_volid' after successful copy\n");
                 eval {
                     PVE::Storage::deactivate_volumes($storecfg, [$old_volid]);
                     PVE::Storage::vdisk_free($storecfg, $old_volid);
