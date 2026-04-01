@@ -4987,7 +4987,8 @@ __PACKAGE__->register_method({
 
                             my $source_volid = $drive->{file};
 
-                            print "moving disk '$disk' from VM '$vmid' to '$target_vmid'\n";
+                            print("reassign disk '$disk' from VM '$vmid' as '$target_disk' to"
+                                . " VM '$target_vmid'\n");
                             my ($storeid, $source_volname) =
                                 PVE::Storage::parse_volume_id($source_volid);
 
