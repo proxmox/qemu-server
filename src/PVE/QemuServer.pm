@@ -7937,6 +7937,8 @@ sub clone_disk {
         );
         push @$newvollist, $newvolid;
 
+        print("allocated target volume '$newvolid'\n");
+
         PVE::Storage::activate_volumes($storecfg, [$newvolid]);
 
         if (drive_is_cloudinit($drive)) {
