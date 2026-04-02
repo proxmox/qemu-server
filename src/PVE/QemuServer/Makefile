@@ -35,3 +35,4 @@ SOURCES=Agent.pm	\
 install: $(SOURCES)
 	for i in $(SOURCES); do install -D -m 0644 $$i $(DESTDIR)$(PERLDIR)/PVE/QemuServer/$$i; done
 	$(MAKE) -C Cfg2Cmd install
+	$(MAKE) -C PCI install

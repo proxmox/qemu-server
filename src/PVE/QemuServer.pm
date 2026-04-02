@@ -86,6 +86,7 @@ use PVE::QemuServer::Monitor qw(mon_cmd qmp_cmd vm_qmp_peer);
 use PVE::QemuServer::Network;
 use PVE::QemuServer::OVMF;
 use PVE::QemuServer::PCI qw(print_pci_addr print_pcie_addr print_pcie_root_port parse_hostpci);
+use PVE::QemuServer::PCI::Mdev;
 use PVE::QemuServer::QemuImage;
 use PVE::QemuServer::QMPHelpers qw(qemu_deviceadd qemu_devicedel qemu_objectadd qemu_objectdel);
 use PVE::QemuServer::QSD;
@@ -5680,7 +5681,7 @@ sub vm_start_nolock {
                     my $smbios_conf = parse_smbios1($conf->{smbios1});
                     $uuid = $smbios_conf->{uuid} if defined($smbios_conf->{uuid});
                 }
-                $uuid = PVE::QemuServer::PCI::generate_mdev_uuid($vmid, $index)
+                $uuid = PVE::QemuServer::PCI::Mdev::generate_mdev_uuid($vmid, $index)
                     if !defined($uuid);
             }
         }
@@ -6110,7 +6111,7 @@ sub cleanup_pci_devices {
     foreach my $key (keys %$conf) {
         next if $key !~ m/^hostpci(\d+)$/;
         my $hostpciindex = $1;
-        my $uuid = PVE::SysFSTools::generate_mdev_uuid($vmid, $hostpciindex);
+        my $uuid = PVE::QemuServer::PCI::Mdev::generate_mdev_uuid($vmid, $hostpciindex);
         my $d = parse_hostpci($conf->{$key});
         if ($d->{mdev}) {
             # NOTE: avoid PVE::SysFSTools::pci_cleanup_mdev_device as it requires PCI ID and we

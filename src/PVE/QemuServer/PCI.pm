@@ -12,6 +12,7 @@ use PVE::Tools;
 
 use PVE::QemuServer::Helpers;
 use PVE::QemuServer::Machine;
+use PVE::QemuServer::PCI::Mdev;
 
 use base 'Exporter';
 
@@ -282,11 +283,6 @@ sub get_pci_addr_map {
     return $pci_addr_map;
 }
 
-sub generate_mdev_uuid {
-    my ($vmid, $index) = @_;
-    return sprintf("%08d-0000-0000-0000-%012d", $index, $vmid);
-}
-
 my $get_addr_mapping_from_id = sub {
     my ($map, $id) = @_;
 
@@ -543,41 +539,6 @@ sub parse_hostpci_devices {
     return $parsed_devices;
 }
 
-# set vgpu type of a vf of an nvidia gpu with kernel 6.8 or newer
-my sub create_nvidia_device {
-    my ($id, $model) = @_;
-
-    $id = PVE::SysFSTools::normalize_pci_id($id);
-
-    my $creation = "/sys/bus/pci/devices/$id/nvidia/current_vgpu_type";
-
-    die "no nvidia sysfs api for '$id'\n" if !-f $creation;
-
-    my $current = PVE::Tools::file_read_firstline($creation);
-    if ($current ne "0") {
-        return 1 if $current eq $model;
-        # reset vgpu type so we can see all available and set the real device
-        die "unable to reset vgpu type for '$id'\n" if !PVE::SysFSTools::file_write($creation, "0");
-    }
-
-    my $types = PVE::SysFSTools::get_mdev_types($id);
-    my $selected;
-    for my $type_definition ($types->@*) {
-        next if $type_definition->{type} ne "nvidia-$model";
-        $selected = $type_definition;
-    }
-
-    if (!defined($selected) || $selected->{available} < 1) {
-        die "vgpu type '$model' not available for '$id'\n";
-    }
-
-    if (!PVE::SysFSTools::file_write($creation, $model)) {
-        die "could not set vgpu type to '$model' for '$id'\n";
-    }
-
-    return 1;
-}
-
 # takes the hash returned by parse_hostpci_devices and for all non mdev gpus,
 # selects one of the given alternatives by trying to reserve it
 #
@@ -612,7 +573,10 @@ sub choose_hostpci_devices {
             $add_used_device->($device->{ids});
             if ($device->{nvidia} && !$dry_run) {
                 reserve_pci_usage($device->{ids}->[0]->{id}, $vmid, 10, undef);
-                create_nvidia_device($device->{ids}->[0]->{id}, $device->{nvidia});
+                PVE::QemuServer::PCI::Mdev::create_nvidia_device(
+                    $device->{ids}->[0]->{id},
+                    $device->{nvidia},
+                );
             }
             next;
         }
@@ -628,7 +592,11 @@ sub choose_hostpci_devices {
             }
 
             if ($device->{nvidia} && !$dry_run) {
-                eval { create_nvidia_device($ids->[0], $device->{nvidia}) };
+                eval {
+                    PVE::QemuServer::PCI::Mdev::create_nvidia_device(
+                        $ids->[0], $device->{nvidia},
+                    );
+                };
                 if (my $err = $@) {
                     warn $err;
                     remove_pci_reservation($vmid, $ids);
@@ -696,7 +664,7 @@ sub print_hostpci_devices {
 
         my $sysfspath;
         if ($d->{mdev}) {
-            my $uuid = generate_mdev_uuid($vmid, $i);
+            my $uuid = PVE::QemuServer::PCI::Mdev::generate_mdev_uuid($vmid, $i);
             $sysfspath = "/sys/bus/mdev/devices/$uuid";
         }
 
@@ -748,8 +716,8 @@ sub prepare_pci_device {
     if ($device->{nvidia} || $driver eq "keep") {
         # nothing to do
     } elsif (my $mdev = $device->{mdev}) {
-        my $uuid = generate_mdev_uuid($vmid, $index);
-        PVE::SysFSTools::pci_create_mdev_device($pciid, $uuid, $mdev);
+        my $uuid = PVE::QemuServer::PCI::Mdev::generate_mdev_uuid($vmid, $index);
+        PVE::QemuServer::PCI::Mdev::pci_create_mdev_device($pciid, $uuid, $mdev);
     } else {
         die "can't unbind/bind PCI group to VFIO '$pciid'\n"
             if !PVE::SysFSTools::pci_dev_group_bind_to_vfio($pciid);
