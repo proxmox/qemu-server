@@ -2,10 +2,27 @@ package PVE::QemuServer::PCI::Mdev;
 
 use v5.36;
 
+use File::Basename;
+
+use PVE::RS::NVML;
 use PVE::SysFSTools;
 use PVE::File qw(file_read_first_line dir_glob_foreach file_get_contents);
 
 my $pcisysfs = "/sys/bus/pci";
+
+# Returns the PCI bus id of the physical function (IOW, parent device) of the
+# given device. If the device does not have a parent physical function, returns
+# the given ID unchanged.
+my sub pci_dev_physfn_id($id) {
+    $id = PVE::SysFSTools::normalize_pci_id($id);
+    my $devpath = "$pcisysfs/devices/$id";
+
+    if (-d "$devpath/physfn") {
+        return basename(readlink("$devpath/physfn"));
+    } else {
+        return $id;
+    }
+}
 
 sub generate_mdev_uuid($vmid, $index) {
     return sprintf("%08d-0000-0000-0000-%012d", $index, $vmid);
@@ -18,6 +35,7 @@ sub generate_mdev_uuid($vmid, $index) {
 #         type => 'FooType_1',
 #         description => "a longer description with custom format\nand newlines",
 #         available => 5,
+#         name => "human readable name for the type",
 #     },
 #     ...
 # ]
@@ -55,19 +73,20 @@ sub get_mdev_types($id) {
             },
         );
     } elsif (-f $nvidia_path) {
-        my $creatable = PVE::Tools::file_get_contents($nvidia_path);
-        for my $line (split("\n", $creatable)) {
-            next if $line =~ m/^ID/; # header
-            next if $line !~ m/^(.*?)\s*:\s*(.*)$/;
-            my $id = $1;
-            my $name = $2;
+        my $physfn = pci_dev_physfn_id($id);
+        my $creatable = eval { PVE::RS::NVML::creatable_vgpu_types_for_dev($physfn) };
+        die "failed to query NVIDIA vGPU types for $id - $@\n" if $@;
 
-            push $types->@*, {
-                type => "nvidia-$id", # backwards compatibility
-                description => "", # TODO, read from xml/nvidia-smi ?
-                available => 1,
-                name => $name,
-            };
+        for my $type ($creatable->@*) {
+            my $nvidia_id = $type->{id};
+            my $name = $type->{name};
+            push $types->@*,
+                {
+                    type => "nvidia-$nvidia_id",
+                    description => $type->{description},
+                    available => 1,
+                    name => $name,
+                };
         }
     }
 
