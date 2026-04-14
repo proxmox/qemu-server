@@ -125,7 +125,7 @@ sub get_dns_conf {
 }
 
 sub cloudinit_userdata {
-    my ($conf, $vmid) = @_;
+    my ($conf, $vmid, $mask_password) = @_;
 
     my ($hostname, $fqdn) = get_hostname_fqdn($conf, $vmid);
 
@@ -140,7 +140,13 @@ sub cloudinit_userdata {
 
     $content .= "user: $username\n" if defined($username);
     $content .= "disable_root: False\n" if defined($username) && $username eq 'root';
-    $content .= "password: $password\n" if defined($password);
+    if (defined($password)) {
+        if ($mask_password) {
+            $content .= "password: **********\n";
+        } else {
+            $content .= "password: $password\n";
+        }
+    }
 
     if (defined(my $keys = $conf->{sshkeys})) {
         $keys = URI::Escape::uri_unescape($keys);
@@ -715,12 +721,12 @@ sub apply_cloudinit_config {
 }
 
 sub dump_cloudinit_config {
-    my ($conf, $vmid, $type) = @_;
+    my ($conf, $vmid, $type, $mask_password) = @_;
 
     my $format = get_cloudinit_format($conf);
 
     if ($type eq 'user') {
-        return cloudinit_userdata($conf, $vmid);
+        return cloudinit_userdata($conf, $vmid, $mask_password);
     } elsif ($type eq 'network') {
         if ($format eq 'nocloud') {
             return nocloud_network($conf);
@@ -728,6 +734,7 @@ sub dump_cloudinit_config {
             return configdrive2_network($conf);
         }
     } else { # metadata config
+        # Don't mask password here to get correct uuid.
         my $user = cloudinit_userdata($conf, $vmid);
         if ($format eq 'nocloud') {
             my $network = nocloud_network($conf);

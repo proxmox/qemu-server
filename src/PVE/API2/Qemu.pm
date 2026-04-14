@@ -6342,10 +6342,20 @@ __PACKAGE__->register_method({
     code => sub {
         my ($param) = @_;
 
+        my $rpcenv = PVE::RPCEnvironment::get();
+        my $authuser = $rpcenv->get_user();
+
         my $conf = PVE::QemuConfig->load_config($param->{vmid});
 
-        return PVE::QemuServer::Cloudinit::dump_cloudinit_config($conf, $param->{vmid},
-            $param->{type});
+        my $mask_password =
+            !$rpcenv->check($authuser, '/vms/{vmid}', ['VM.Config.Cloudinit'], 1);
+
+        return PVE::QemuServer::Cloudinit::dump_cloudinit_config(
+            $conf,
+            $param->{vmid},
+            $param->{type},
+            $mask_password,
+        );
     },
 });
 
