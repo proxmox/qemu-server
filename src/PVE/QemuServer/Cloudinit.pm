@@ -112,7 +112,7 @@ sub get_dns_conf {
     # Same logic as in pve-container, but without the testcase special case
     my $host_resolv_conf = PVE::INotify::read_file('resolvconf');
 
-    my $searchdomains = [split(/\s+/, $conf->{searchdomain} // $host_resolv_conf->{search})];
+    my $searchdomains = [split(/\s+/, $conf->{searchdomain} // $host_resolv_conf->{search} // '')];
 
     my $nameserver = $conf->{nameserver};
     if (!defined($nameserver)) {
