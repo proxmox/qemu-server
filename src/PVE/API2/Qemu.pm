@@ -6,6 +6,7 @@ use Cwd 'abs_path';
 use Fcntl qw(F_GETFD F_SETFD FD_CLOEXEC);
 use Net::SSLeay;
 use IO::Socket::IP;
+use IO::Socket::SSL;
 use IO::Socket::UNIX;
 use IPC::Open3;
 use JSON;
@@ -2940,13 +2941,45 @@ __PACKAGE__->register_method({
 
                 $cmd = [@$remcmd, "/usr/sbin/qm", 'vncproxy', $vmid];
 
-                my $sock = IO::Socket::IP->new(
-                    ReuseAddr => 1,
-                    Listen => 1,
-                    LocalPort => $port,
-                    Proto => 'tcp',
-                    GetAddrInfoFlags => 0,
-                ) or die "failed to create socket: $!\n";
+                my $sock;
+
+                if ($param->{websocket}) {
+                    # listen for localhost only, no TLS
+                    my $socket_params = {
+                        ReuseAddr => 1,
+                        Listen => 1,
+                        LocalPort => $port,
+                        Proto => 'tcp',
+                        GetAddrInfoFlags => 0,
+                        LocalHost => 'localhost',
+                    };
+
+                    $sock = IO::Socket::IP->new($socket_params->%*)
+                        or die "failed to create socket: $!\n";
+                } else {
+                    my $socket_params = {
+                        ReuseAddr => 1,
+                        Listen => 1,
+                        LocalPort => $port,
+                        Proto => 'tcp',
+                        GetAddrInfoFlags => 0,
+                        SSL_server => 1,
+                    };
+
+                    my $pveproxy_cert_file = '/etc/pve/local/pveproxy-ssl.pem';
+                    my $pveproxy_key_file = '/etc/pve/local/pveproxy-ssl.key';
+                    if (-f $pveproxy_cert_file && -f $pveproxy_key_file) {
+                        $socket_params->{SSL_cert_file} = $pveproxy_cert_file;
+                        $socket_params->{SSL_key_file} = $pveproxy_key_file;
+                    } else {
+                        $socket_params->{SSL_cert_file} = '/etc/pve/local/pve-ssl.pem';
+                        $socket_params->{SSL_key_file} = '/etc/pve/local/pve-ssl.key';
+                    }
+
+                    $sock = IO::Socket::SSL->new($socket_params->%*)
+                        or die "failed to create SSL socket: $!\n";
+                }
+
                 # Inside the worker we shouldn't have any previous alarms
                 # running anyway...:
                 alarm(0);
