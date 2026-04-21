@@ -1,3 +1,24 @@
+qemu-server (8.4.7) bookworm; urgency=medium
+
+  * api: vncproxy: align the VM-specific vncproxy endpoint for non-serial
+    displays with the serial-display behavior: listen only on localhost when
+    used through the 'websocket' parameter, and use TLS otherwise. This may
+    affect external VNC clients that connect directly without going through
+    'vncwebsocket' or that do not support TLS.
+
+  * api: vnc/termproxy: bind VNC and SPICE tickets to the listen port to
+    harden authentication for interactive console sessions. Also extends to
+    the SPICE proxy ticket used during live migration.
+
+  * api: vncproxy: always use a freshly generated password when authenticating
+    via the VNC protocol, improving entropy compared to the previous
+    ticket-derived scheme.
+
+  * api: termproxy: pin the accepted ticket in the spawned termproxy process
+    as an additional defense-in-depth measure.
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 21 Apr 2026 22:33:21 +0200
+
 qemu-server (8.4.6) bookworm; urgency=medium
 
   * fix #6985: efi: secure boot: support enrolling Microsoft's 2023 UEFI
