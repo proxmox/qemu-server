@@ -1301,8 +1301,20 @@ sub phase2 {
         my $rpcenv = PVE::RPCEnvironment::get();
         my $authuser = $rpcenv->get_user();
 
-        my (undef, $proxyticket) =
-            PVE::AccessControl::assemble_spice_ticket($authuser, $vmid, $self->{node});
+        my $target_version = PVE::QemuServer::Helpers::get_node_pvecfg_version($self->{node});
+
+        my $ticket_port = undef;
+        # Check if target is new enough for having the port encoded in the proxy ticket.
+        if (
+            $target_version
+            && PVE::QemuServer::Helpers::pvecfg_min_version($target_version, 9, 1, 9)
+        ) {
+            $ticket_port = $spice_port;
+        }
+
+        my (undef, $proxyticket) = PVE::AccessControl::assemble_spice_ticket(
+            $authuser, $vmid, $self->{node}, $ticket_port,
+        );
 
         my $filename = "/etc/pve/nodes/$self->{node}/pve-ssl.pem";
         my $subject = PVE::AccessControl::read_x509_subject_spice($filename);
