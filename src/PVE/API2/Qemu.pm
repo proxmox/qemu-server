@@ -57,6 +57,7 @@ use PVE::Replication;
 use PVE::ReplicationState;
 use PVE::StorageTunnel;
 use PVE::RESTEnvironment qw(log_warn);
+use PVE::Ticket;
 
 BEGIN {
     if (!$ENV{PVE_GENERATING_DOCS}) {
@@ -2803,22 +2804,6 @@ __PACKAGE__->register_method({
 });
 
 # uses good entropy, each char is limited to 6 bit to get printable chars simply
-my $gen_rand_chars = sub {
-    my ($length) = @_;
-
-    die "invalid length $length" if $length < 1;
-
-    my $min = ord('!'); # first printable ascii
-
-    my $rand_bytes = Crypt::OpenSSL::Random::random_bytes($length);
-    die "failed to generate random bytes!\n"
-        if !$rand_bytes;
-
-    my $str = join('', map { chr((ord($_) & 0x3F) + $min) } split('', $rand_bytes));
-
-    return $str;
-};
-
 my $sslcert;
 
 __PACKAGE__->register_method({
@@ -2908,7 +2893,7 @@ __PACKAGE__->register_method({
         my $ticket = PVE::AccessControl::assemble_vnc_ticket($authuser, $authpath, $port);
         my $password = $ticket;
         if ($param->{'generate-password'}) {
-            $password = $gen_rand_chars->(8);
+            $password = PVE::Ticket::generate_vnc_password();
         }
 
         my $timeout = 10;
