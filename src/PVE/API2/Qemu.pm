@@ -2887,12 +2887,6 @@ __PACKAGE__->register_method({
 
         my $authpath = "/vms/$vmid";
 
-        my $ticket = PVE::AccessControl::assemble_vnc_ticket($authuser, $authpath);
-        my $password = $ticket;
-        if ($param->{'generate-password'}) {
-            $password = $gen_rand_chars->(8);
-        }
-
         $sslcert = PVE::Tools::file_get_contents("/etc/pve/pve-root-ca.pem", 8192)
             if !$sslcert;
 
@@ -2910,6 +2904,12 @@ __PACKAGE__->register_method({
         }
 
         my $port = PVE::Tools::next_vnc_port($family);
+
+        my $ticket = PVE::AccessControl::assemble_vnc_ticket($authuser, $authpath, $port);
+        my $password = $ticket;
+        if ($param->{'generate-password'}) {
+            $password = $gen_rand_chars->(8);
+        }
 
         my $timeout = 10;
 
@@ -2935,6 +2935,7 @@ __PACKAGE__->register_method({
                     $authpath,
                     '-perm',
                     'Sys.Console',
+                    '-verify-port',
                 ];
 
                 if ($param->{websocket}) {
@@ -3053,8 +3054,6 @@ __PACKAGE__->register_method({
 
         my $authpath = "/vms/$vmid";
 
-        my $ticket = PVE::AccessControl::assemble_vnc_ticket($authuser, $authpath);
-
         my $family;
         my $remcmd = [];
 
@@ -3068,6 +3067,7 @@ __PACKAGE__->register_method({
         }
 
         my $port = PVE::Tools::next_vnc_port($family);
+        my $ticket = PVE::AccessControl::assemble_vnc_ticket($authuser, $authpath, $port);
 
         my $termcmd = ['/usr/sbin/qm', 'terminal', $vmid, '-escape', '0'];
         push @$termcmd, '-iface', $serial if $serial;
@@ -3077,8 +3077,17 @@ __PACKAGE__->register_method({
 
             syslog('info', "starting qemu termproxy $upid\n");
 
-            my $cmd =
-                ['/usr/bin/termproxy', $port, '--path', $authpath, '--perm', 'VM.Console', '--'];
+            my $cmd = [
+                '/usr/bin/termproxy',
+                $port,
+                '--path',
+                $authpath,
+                '--perm',
+                'VM.Console',
+                '--vncticket-endpoint',
+                '--verify-port',
+                '--',
+            ];
             push @$cmd, @$remcmd, @$termcmd;
 
             PVE::Tools::run_command($cmd);
@@ -3142,15 +3151,14 @@ __PACKAGE__->register_method({
 
         my $authpath = "/vms/$vmid";
 
-        PVE::AccessControl::verify_vnc_ticket($param->{vncticket}, $authuser, $authpath);
-
-        my $conf = PVE::QemuConfig->load_config($vmid, $node); # VM exists ?
-
-        # Note: VNC ports are accessible from outside, so we do not gain any
-        # security if we verify that $param->{port} belongs to VM $vmid. This
-        # check is done by verifying the VNC ticket (inside VNC protocol).
+        # Note: VNC ports may be accessible from outside, so there is a password that needs to
+        # additionally be checked inside the VNC protocol.
 
         my $port = $param->{port};
+
+        PVE::AccessControl::verify_vnc_ticket($param->{vncticket}, $authuser, $authpath, $port);
+
+        my $conf = PVE::QemuConfig->load_config($vmid, $node); # VM exists ?
 
         return { port => $port };
     },
