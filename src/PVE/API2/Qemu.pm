@@ -9,7 +9,6 @@ use IO::Socket::UNIX;
 use IPC::Open3;
 use JSON;
 use URI::Escape;
-use Crypt::OpenSSL::Random;
 use Socket qw(SOCK_STREAM);
 
 use PVE::APIClient::LWP;
@@ -2803,7 +2802,6 @@ __PACKAGE__->register_method({
     },
 });
 
-# uses good entropy, each char is limited to 6 bit to get printable chars simply
 my $sslcert;
 
 __PACKAGE__->register_method({
@@ -2826,12 +2824,12 @@ __PACKAGE__->register_method({
                 description => "Prepare for websocket upgrade (only required when using "
                     . "serial terminal, otherwise upgrade is always possible).",
             },
+            # FIXME: MAJOR VERSION: Drop this, require always using explicit 'password' return value
             'generate-password' => {
                 optional => 1,
                 type => 'boolean',
                 default => 0,
-                description =>
-                    "Generates a random password to be used as ticket instead of the API ticket.",
+                description => "Deprecated, do not use. Password is generated when required.",
             },
         },
     },
@@ -2842,7 +2840,7 @@ __PACKAGE__->register_method({
             ticket => { type => 'string' },
             password => {
                 optional => 1,
-                description => "Returned if requested with 'generate-password' param."
+                description => "Password used for authentication within the VNC protocol."
                     . " Consists of printable ASCII characters ('!' .. '~').",
                 type => 'string',
             },
@@ -2891,10 +2889,12 @@ __PACKAGE__->register_method({
         my $port = PVE::Tools::next_vnc_port($family);
 
         my $ticket = PVE::AccessControl::assemble_vnc_ticket($authuser, $authpath, $port);
-        my $password = $ticket;
-        if ($param->{'generate-password'}) {
+        my $password;
+        if ($param->{'generate-password'} || !defined($serial) || $param->{websocket}) {
             $password = PVE::Ticket::generate_vnc_password();
-        }
+            # FIXME: MAJOR VERSION: Avoid this hack, require using explicit 'password' return value
+            $ticket = "${password}:${ticket}";
+        } # else authentication happens via ticket only, not via password in VNC protocol
 
         my $timeout = 10;
 
@@ -2924,8 +2924,10 @@ __PACKAGE__->register_method({
                 ];
 
                 if ($param->{websocket}) {
-                    $ENV{PVE_VNC_TICKET} = $password; # pass ticket to vncterm
+                    $ENV{PVE_VNC_TICKET} = $password; # pass VNC protocol password to vncterm
                     push @$cmd, '-notls', '-listen', 'localhost';
+                } else {
+                    $ENV{PVE_VNC_TICKET} = $ticket; # pass VNC ticket to vncterm
                 }
 
                 push @$cmd, '-c', @$remcmd, @$termcmd;
@@ -2933,8 +2935,7 @@ __PACKAGE__->register_method({
                 PVE::Tools::run_command($cmd);
 
             } else {
-
-                $ENV{LC_PVE_TICKET} = $password; # set ticket with "qm vncproxy"
+                $ENV{LC_PVE_TICKET} = $password; # set VNC protocol password with "qm vncproxy"
 
                 $cmd = [@$remcmd, "/usr/sbin/qm", 'vncproxy', $vmid];
 
@@ -2979,7 +2980,8 @@ __PACKAGE__->register_method({
             upid => $upid,
             cert => $sslcert,
         };
-        $res->{password} = $password if $param->{'generate-password'};
+
+        $res->{password} = $password if defined($password);
 
         return $res;
     },
