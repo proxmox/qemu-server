@@ -1,3 +1,14 @@
+qemu-server (8.4.8) bookworm; urgency=medium
+
+  * cloud-init: dns: avoid "uninitialized value in split" warning if there is
+    no 'searchdomain' cloud-init setting and also no 'search' setting in the
+    host's resolv.conf.
+
+  * api: dump cloud-init: mask password for user without VM.Config.Cloudinit
+    privilege.
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 23 Apr 2026 11:21:11 +0200
+
 qemu-server (8.4.7) bookworm; urgency=medium
 
   * api: vncproxy: align the VM-specific vncproxy endpoint for non-serial
