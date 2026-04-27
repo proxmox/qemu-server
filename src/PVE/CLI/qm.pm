@@ -391,6 +391,9 @@ __PACKAGE__->register_method({
 
         my $vmid = $param->{vmid};
 
+        # FIXME: MAJOR VERSION: switch to PVE::QemuConfig->remove_lock() to align behavior with
+        # containers. Note that remove_lock() will die when no lock is found, so that is a change in
+        # behavior.
         PVE::QemuConfig->lock_config(
             $vmid,
             sub {
