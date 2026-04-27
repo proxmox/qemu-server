@@ -401,6 +401,8 @@ __PACKAGE__->register_method({
             },
         );
 
+        syslog('info', "executed 'qm unlock $vmid'");
+
         return;
     },
 });
