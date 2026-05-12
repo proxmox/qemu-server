@@ -204,6 +204,8 @@ sub generate_description() {
     }
 
     $text .= "The following commands are root-only: " . join(', ', $root_only_cmds->@*) . "\n";
+
+    return $text;
 }
 
 1;
