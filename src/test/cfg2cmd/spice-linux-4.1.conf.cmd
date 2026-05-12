@@ -1,6 +1,6 @@
 /usr/bin/kvm \
   -id 8006 \
-  -name 'spicelinux,debug-threads=on' \
+  -name spicelinux \
   -no-shutdown \
   -chardev 'socket,id=qmp,path=/var/run/qemu-server/8006.qmp,server=on,wait=off' \
   -mon 'chardev=qmp,mode=control' \

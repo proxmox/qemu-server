@@ -1,6 +1,6 @@
 /usr/bin/kvm \
   -id 8006 \
-  -name 'customcpu-defaults,debug-threads=on' \
+  -name customcpu-defaults \
   -no-shutdown \
   -chardev 'socket,id=qmp,path=/var/run/qemu-server/8006.qmp,server=on,wait=off' \
   -mon 'chardev=qmp,mode=control' \

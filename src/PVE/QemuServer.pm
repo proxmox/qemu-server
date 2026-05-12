@@ -3183,7 +3183,12 @@ sub config_to_command {
 
     my $vmname = $conf->{name} || "vm$vmid";
 
-    push @$cmd, '-name', "$vmname,debug-threads=on";
+    # 'debug-threads' is unconditionally enabled since QEMU 11 and the option is deprecated.
+    if (min_version($kvmver, 11, 0)) {
+        push @$cmd, '-name', "$vmname";
+    } else {
+        push @$cmd, '-name', "$vmname,debug-threads=on";
+    }
 
     push @$cmd, '-no-shutdown';
 
