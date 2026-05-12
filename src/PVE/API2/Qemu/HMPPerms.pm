@@ -1,7 +1,6 @@
 package PVE::API2::Qemu::HMPPerms;
 
-use strict;
-use warnings;
+use v5.36;
 
 # List of monitor commands and associated required permission. Listed explicitly to be future-proof.
 #
@@ -182,7 +181,7 @@ our $hmp_command_perms = {
     xp => 'Sys.Modify', # physical memory dump starting at 'addr'
 };
 
-sub generate_description {
+sub generate_description() {
     my $cmd_by_priv = {};
     for my $cmd (sort keys $hmp_command_perms->%*) {
         my $priv = $hmp_command_perms->{$cmd};
