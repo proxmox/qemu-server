@@ -5841,6 +5841,10 @@ __PACKAGE__->register_method({
             die "unexpected required permission '$required_perm' for command '$command_name'\n";
         }
 
+        if ($command_name eq 'stopcapture' || $command_name eq 'wavcapture') {
+            warn "command '$command_name' is deprecated and will be dropped in a future release\n";
+        }
+
         my $vmid = $param->{vmid};
 
         my $conf = PVE::QemuConfig->load_config($vmid); # check if VM exists

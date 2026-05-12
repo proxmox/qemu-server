@@ -205,6 +205,8 @@ sub generate_description() {
 
     $text .= "The following commands are root-only: " . join(', ', $root_only_cmds->@*) . "\n";
 
+    $text .= "\nThe following commands are deprecated: stopcapture, wavcapture\n";
+
     return $text;
 }
 
