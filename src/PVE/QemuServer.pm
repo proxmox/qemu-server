@@ -6753,7 +6753,7 @@ sub scan_volids {
     my $volid_hash = {};
     foreach my $storeid (keys %$info) {
         foreach my $item (@{ $info->{$storeid} }) {
-            next if !($item->{volid} && $item->{size});
+            next if !($item->{volid} && ($item->{size} || $item->{'approximate-size'}));
             $item->{path} = PVE::Storage::path($cfg, $item->{volid});
             $volid_hash->{ $item->{volid} } = $item;
         }
@@ -6777,7 +6777,7 @@ sub update_disk_config {
 
     my $referencedpath = {};
 
-    # update size info
+    # update size info, when the exact size is available
     PVE::QemuConfig->foreach_volume(
         $conf,
         sub {
@@ -6795,6 +6795,7 @@ sub update_disk_config {
 
             return if drive_is_cdrom($drive);
             return if !$volume;
+            return if !defined($volume->{size});
 
             my ($updated, $msg) =
                 PVE::QemuServer::Drive::update_disksize($drive, $volume->{size});
