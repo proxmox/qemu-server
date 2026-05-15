@@ -2991,7 +2991,7 @@ sub query_supported_cpu_flags {
 
             my $props = $cmd_result->{model}->{props};
             foreach my $prop (keys %$props) {
-                next if $props->{$prop} ne '1';
+                next if $props->{$prop} ne JSON::true;
                 # QEMU returns some flags multiple times, with '_', '.' or '-'
                 # (e.g. lahf_lm and lahf-lm; sse4.2, sse4-2 and sse4_2; ...).
                 # We only keep those with underscores, to match /proc/cpuinfo
