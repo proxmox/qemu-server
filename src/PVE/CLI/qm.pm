@@ -1102,7 +1102,16 @@ __PACKAGE__->register_method({
             sub {
                 my $conf = PVE::QemuConfig->load_config($vmid);
                 my $pid = PVE::QemuServer::check_running($vmid);
-                die "vm still running\n" if $pid;
+
+                if ($pid) {
+                    # With a stop mode backup, we might run here into a running vm with a backup
+                    # lock, but this already did the cleanup and is an expected state, so abort
+                    # here with a good message
+                    die "skipping cleanup - 'backup' lock is present and vm is running again\n"
+                        if $clean && $conf->{lock} && $conf->{lock} eq 'backup';
+
+                    die "vm still running\n";
+                }
 
                 # Rollback already does cleanup when preparing and afterwards temporarily drops the
                 # lock on the configuration file to rollback the volumes. Deactivating volumes here
