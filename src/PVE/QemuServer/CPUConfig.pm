@@ -47,7 +47,7 @@ cfs_register_file(
     sub { PVE::QemuServer::CPUConfig->write_config(@_); },
 );
 
-sub load_custom_model_conf {
+sub load_custom_cpu_model_config {
     return cfs_read_file($cpu_models_filename);
 }
 
@@ -587,7 +587,7 @@ sub get_cpu_models {
 
     return $models if !$include_custom;
 
-    my $conf = load_custom_model_conf();
+    my $conf = load_custom_cpu_model_config();
     for my $custom_model (keys %{ $conf->{ids} }) {
         my $reported_model = $conf->{ids}->{$custom_model}->{'reported-model'};
         $reported_model //= $cpu_fmt->{'reported-model'}->{default};
@@ -614,7 +614,7 @@ sub get_custom_model {
     my ($name, $noerr) = @_;
 
     $name =~ s/^custom-//;
-    my $conf = load_custom_model_conf();
+    my $conf = load_custom_cpu_model_config();
 
     my $entry = $conf->{ids}->{$name};
     if (!defined($entry)) {

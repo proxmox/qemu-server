@@ -435,7 +435,7 @@ $pve_common_file->mock(
 my $pve_cpuconfig;
 $pve_cpuconfig = Test::MockModule->new('PVE::QemuServer::CPUConfig');
 $pve_cpuconfig->mock(
-    load_custom_model_conf => sub {
+    load_custom_cpu_model_config => sub {
         # mock custom CPU model config
         return PVE::QemuServer::CPUConfig->parse_config(
             "cpu-models.conf",
