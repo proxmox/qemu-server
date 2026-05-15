@@ -15,6 +15,7 @@ our @EXPORT_OK = qw(
     get_supported_cpu_flags
     query_understood_cpu_flags
     normalize_cpu_flag
+    query_available_cpu_flags
 );
 
 my $supported_vm_specific_cpu_flags_by_arch = {
@@ -154,6 +155,11 @@ sub supported_cpu_flags_names() {
     return @supported_cpu_flags_name_sorted;
 }
 
+sub supported_cpu_flags_names_by_arch($arch) {
+    my @res = sort map { $_->{name} } $supported_vm_specific_cpu_flags_by_arch->{$arch}->@*;
+    return @res;
+}
+
 sub cpu_flag_supported_re() {
     return qr/([+-])(@{[join('|', supported_cpu_flags_names())]})/;
 }
@@ -185,6 +191,152 @@ sub query_understood_cpu_flags($arch) {
     my @flags = split(/\s+/, $raw);
 
     return \@flags;
+}
+
+=head3 flag_is_vm_specific($flag)
+
+Return true if `$flag` may be set for a VM's CPU flags configuration.
+
+=cut
+
+sub flag_is_vm_specific($flag) {
+    return defined($all_supported_vm_specific_cpu_flags->{$flag});
+}
+
+sub flag_descriptions($arch) {
+    return { map { $_->{name} => $_->{description} }
+        $supported_vm_specific_cpu_flags_by_arch->{$arch}->@* };
+}
+
+=head3 query_available_cpu_flags($accel, $vm_specific, $arch)
+
+Retrieve a list of available flags, i.e., flags that will be accepted by PVE in a
+processor config when attempting to spawn a VM. Each flag is returned along with a list
+of nodes that support it. Flags that are not supported on any node are also returned;
+filtering them out is up to the consumer of this API.
+
+B<Parameters:>
+
+=over
+
+=item C<$accel> (C<kvm> | C<tcg>)
+
+Selects which acceleration type flag/node compatibility should be evaluated for.
+
+=item C<$vm_specific> (boolean)
+
+When set to 1, return only VM-specific flags, otherwise return all flags.
+
+=item C<$arch> (C<x86_64> | C<aarch64>)
+
+Specifies which architecture to query flags for. Note that in both scopes (VM-specific
+and all), C<aarch64> returns empty lists: this is intended for VM-specific flags, as no
+C<aarch64> flags are currently settable for a specific VM, however it is a known
+limitation for the "all" scope. PVE does not currently ship a list of understood flags
+for C<aarch64>, as it is not as trivial to obtain as for C<x86_64>, whose flags are easy
+to parse from QEMU's C<-cpu help> output.
+
+=back
+
+In order to get an accurate picture of which flags can actually be used, two sources are
+combined (see C<PVE::QemuServer::query_supported_cpu_flags> for details):
+
+=over
+
+=item 1.
+
+The B<understood> CPU flags, i.e., all flags QEMU accepts as C<-cpu> arguments in
+principle, regardless of whether the host CPU actually supports them.
+
+=item 2.
+
+The B<supported> CPU flags: the flags the host CPU actually supports, cached in the node
+KV store by C<pvestatd>. This is node-specific.
+
+=back
+
+Each flag from (1) is annotated with the subset of nodes from (2) that report supporting
+it.
+
+The PVE-internal C<nested-virt> shorthand is also included in both scopes, with its
+C<supported-on> list populated from nodes that report supporting C<svm> or C<vmx>.
+
+=cut
+
+sub query_available_cpu_flags($accel, $vm_specific, $arch) {
+    # TODO: a way to get supported flags for aarch64. This is not done because PVE
+    # does not currently ship a list of understood flags for aarch64, as it's more difficult
+    # to obtain during QEMU build - for x86_64, qemu -cpu help will just list the flags.
+    return [] if $arch eq 'aarch64';
+
+    my $descriptions = flag_descriptions($arch);
+    my $base =
+        !$vm_specific
+        ? query_understood_cpu_flags($arch)
+        : [supported_cpu_flags_names_by_arch($arch)];
+    my $available_flags = {
+        map {
+            my $entry = { name => $_, 'supported-on' => {} };
+            $entry->{description} = $descriptions->{$_} if defined($descriptions->{$_});
+            ($_ => $entry);
+        } @$base
+    };
+
+    my $kv_store = "cpuflags-$accel";
+    my $flags = PVE::Cluster::get_node_kv($kv_store);
+
+    $available_flags->{'nested-virt'} //= {
+        name => 'nested-virt',
+        'supported-on' => {},
+        description => $descriptions->{'nested-virt'},
+    };
+
+    # In cluster-wide scope, annotate the raw svm/vmx flags so users in the custom CPU model
+    # editor get nudged toward the portable 'nested-virt' shorthand instead.
+    if (!$vm_specific) {
+        for my $raw ('svm', 'vmx') {
+            next if !defined($available_flags->{$raw});
+            $available_flags->{$raw}->{description} //=
+                "Raw nested-virtualization flag. Prefer the 'nested-virt' shorthand"
+                . " for portable VM configs - it resolves to svm or vmx based on the"
+                . " host CPU.";
+        }
+    }
+
+    my $add_flag = sub($node, $name) {
+        return if !defined($available_flags->{$name});
+        $available_flags->{$name}->{'supported-on'}->{$node} = 1;
+    };
+
+    for my $node (keys %$flags) {
+        # This depends on `pvestatd` storing the flags in space-separated format, which
+        # is the case at the time of this commit.
+        for (split(' ', $flags->{$node})) {
+            # normalize as pvestatd's stored format may drift relative to the recognized
+            # flag list, e.g. across upgrades or between QEMU CPUID-flag aliases.
+            my $flag = normalize_cpu_flag($_);
+            my $pve_alias = undef;
+            $pve_alias = 'nested-virt' if $flag eq 'svm' || $flag eq 'vmx';
+            next if $vm_specific && !flag_is_vm_specific($flag) && !$pve_alias;
+            $add_flag->($node, $flag) if !($vm_specific && $pve_alias);
+            $add_flag->($node, $pve_alias) if $pve_alias;
+        }
+    }
+
+    for my $flag (values %$available_flags) {
+        $flag->{'supported-on'} = [sort keys $flag->{'supported-on'}->%*];
+    }
+
+    # Make sure 'nested-virt' is always shown first.
+    my $nested_virt = delete $available_flags->{'nested-virt'};
+
+    # Order flags that are not supported anywhere in the cluster to the end.
+    my @sorted = sort {
+        (scalar($a->{'supported-on'}->@*) == 0) <=> (scalar($b->{'supported-on'}->@*) == 0)
+            || $a->{name} cmp $b->{name}
+    } values %$available_flags;
+
+    return [defined($nested_virt) ? ($nested_virt, @sorted) : @sorted];
 }
 
 1;
