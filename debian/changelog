@@ -1,3 +1,18 @@
+qemu-server (9.1.11) trixie; urgency=medium
+
+  * qm unlock: log the operation to the system journal so manual lock removals
+    are visible when correlating later issues.
+
+  * pci: mdev: query the NVML library for NVIDIA mediated device information
+    to restore the device description that newer driver versions no longer
+    expose via sysfs.
+
+  * api: migration preconditions: also report HA node-affinity rules as a
+    blocking cause alongside resource-affinity, so callers can present the
+    actual reason migration is held up.
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 15 May 2026 11:58:27 +0200
+
 qemu-server (9.1.10) trixie; urgency=medium
 
   * fix #7383: agent: skip the 'guest-fsfreeze-freeze' QMP command when the
