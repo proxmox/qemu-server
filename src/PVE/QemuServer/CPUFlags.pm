@@ -6,13 +6,11 @@ use Exporter qw(import);
 
 use PVE::Cluster;
 use PVE::File;
-use PVE::QemuServer::Helpers qw(get_host_arch);
 
 our @EXPORT_OK = qw(
     cpu_flag_supported_re
     cpu_flag_any_re
     supported_cpu_flags_names
-    get_supported_cpu_flags
     query_understood_cpu_flags
     normalize_cpu_flag
     query_available_cpu_flags
@@ -166,18 +164,6 @@ sub cpu_flag_supported_re() {
 
 sub cpu_flag_any_re() {
     return qr/([+-])([a-zA-Z0-9\-_\.]+)/;
-}
-
-=head3 get_supported_cpu_flags($arch)
-
-Return supported VM-specific CPU flags for $arch. $arch defaults to the host architecture
-if C<undef>.
-
-=cut
-
-sub get_supported_cpu_flags($arch) {
-    $arch = get_host_arch() if !defined($arch);
-    return $supported_vm_specific_cpu_flags_by_arch->{$arch};
 }
 
 sub query_understood_cpu_flags($arch) {
