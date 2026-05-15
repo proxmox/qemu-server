@@ -14,6 +14,7 @@ our @EXPORT_OK = qw(
     supported_cpu_flags_names
     get_supported_cpu_flags
     query_understood_cpu_flags
+    normalize_cpu_flag
 );
 
 my $supported_vm_specific_cpu_flags_by_arch = {
@@ -92,6 +93,58 @@ for my $arch (keys $supported_vm_specific_cpu_flags_by_arch->%*) {
 }
 
 my @supported_cpu_flags_name_sorted = sort keys $all_supported_vm_specific_cpu_flags->%*;
+
+# qemu/target/i386/cpu.c, x86_cpu_initfn()
+my $qemu_cpu_flag_alias_map = {
+    sse3 => 'pni',
+    pclmuldq => 'pclmulqdq',
+    'sse4-1' => 'sse4.1',
+    'sse4-2' => 'sse4.2',
+    xd => 'nx',
+    ffxsr => 'fxsr-opt',
+    i64 => 'lm',
+    ds_cpl => 'ds-cpl',
+    tsc_adjust => 'tsc-adjust',
+    fxsr_opt => 'fxsr-opt',
+    lahf_lm => 'lahf-lm',
+    cmp_legacy => 'cmp-legacy',
+    nodeid_msr => 'nodeid-msr',
+    perfctr_core => 'perfctr-core',
+    perfctr_nb => 'perfctr-nb',
+    kvm_nopiodelay => 'kvm-nopiodelay',
+    kvm_mmu => 'kvm-mmu',
+    kvm_asyncpf => 'kvm-asyncpf',
+    kvm_asyncpf_int => 'kvm-asyncpf-int',
+    kvm_steal_time => 'kvm-steal-time',
+    kvm_pv_eoi => 'kvm-pv-eoi',
+    kvm_pv_unhalt => 'kvm-pv-unhalt',
+    kvm_poll_control => 'kvm-poll-control',
+    svm_lock => 'svm-lock',
+    nrip_save => 'nrip-save',
+    tsc_scale => 'tsc-scale',
+    vmcb_clean => 'vmcb-clean',
+    pause_filter => 'pause-filter',
+    sse4_1 => 'sse4.1',
+    sse4_2 => 'sse4.2',
+    'hv-apicv' => 'hv-avic',
+    lbr_fmt => 'lbr-fmt',
+};
+
+=head3 normalize_cpu_flag($flag)
+
+Normalize a CPU flag to its QEMU form.
+
+QEMU defines aliases for some CPU flags (see C<x86_cpu_initfn()> in
+C<target/i386/cpu.c>). For example, C<sse4_2> and C<sse4-2> are both aliases for
+C<sse4.2>.
+
+If C<$flag> has a known alias, return that, otherwise return C<$flag> unchanged.
+
+=cut
+
+sub normalize_cpu_flag($flag) {
+    return $qemu_cpu_flag_alias_map->{$flag} // $flag;
+}
 
 # Understood CPU flags are written to a file at 'pve-qemu' compile time and
 # shipped below this directory by the pve-qemu-kvm package.
