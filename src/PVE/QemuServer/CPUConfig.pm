@@ -39,15 +39,15 @@ if (PVE::Cluster::check_cfs_is_mounted(1)) {
     mkdir "/etc/pve/virtual-guest";
 }
 
-my $default_filename = "virtual-guest/cpu-models.conf";
+my $cpu_models_filename = "virtual-guest/cpu-models.conf";
 cfs_register_file(
-    $default_filename,
+    $cpu_models_filename,
     sub { PVE::QemuServer::CPUConfig->parse_config(@_); },
     sub { PVE::QemuServer::CPUConfig->write_config(@_); },
 );
 
 sub load_custom_model_conf {
-    return cfs_read_file($default_filename);
+    return cfs_read_file($cpu_models_filename);
 }
 
 #builtin models : reported-model is mandatory
