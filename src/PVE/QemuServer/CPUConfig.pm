@@ -362,6 +362,7 @@ my $cpu_fmt = {
         optional => 1,
     },
 };
+PVE::JSONSchema::register_standard_option('pve-qm-custom-cpu-model', $cpu_fmt);
 
 my $sev_fmt = {
     type => {
