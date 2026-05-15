@@ -2916,9 +2916,10 @@ sub vga_conf_has_spice {
     return $1 || 1;
 }
 
-# To use query_supported_cpu_flags and query_understood_cpu_flags to get flags
-# to use in a QEMU command line (-cpu element), first array_intersect the result
-# of query_supported_ with query_understood_. This is necessary because:
+# To use query_supported_cpu_flags and query_understood_cpu_flags (moved to the
+# PVE::QemuServer::CPUFlags module) to get flags to use in a QEMU command line
+# (-cpu element), first array_intersect the result of query_supported_ with
+# query_understood_. This is necessary because:
 #
 # a) query_understood_ returns flags the host cannot use and
 # b) query_supported_ (rather the QMP call) doesn't actually return CPU
@@ -3023,23 +3024,6 @@ sub query_supported_cpu_flags {
     );
 
     return $flags;
-}
-
-# Understood CPU flags are written to a file at 'pve-qemu' compile time
-my $understood_cpu_flag_dir = "/usr/share/kvm";
-
-sub query_understood_cpu_flags {
-    my $arch = get_host_arch();
-    my $filepath = "$understood_cpu_flag_dir/recognized-CPUID-flags-$arch";
-
-    die "Cannot query understood QEMU CPU flags for architecture: $arch (file not found)\n"
-        if !-e $filepath;
-
-    my $raw = file_get_contents($filepath);
-    $raw =~ s/^\s+|\s+$//g;
-    my @flags = split(/\s+/, $raw);
-
-    return \@flags;
 }
 
 # Since commit 277d33454f77ec1d1e0bc04e37621e4dd2424b67 in pve-qemu, smm is not off by default

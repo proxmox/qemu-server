@@ -6,7 +6,7 @@ use PVE::JSONSchema qw(get_standard_option);
 use PVE::RESTHandler;
 use PVE::Tools qw(extract_param);
 
-use PVE::QemuServer::CPUConfig;
+use PVE::QemuServer::CPUFlags;
 
 use base qw(PVE::RESTHandler);
 
@@ -44,7 +44,7 @@ __PACKAGE__->register_method({
 
         my $arch = extract_param($param, 'arch');
 
-        return PVE::QemuServer::CPUConfig::get_supported_cpu_flags($arch);
+        return PVE::QemuServer::CPUFlags::get_supported_cpu_flags($arch);
     },
 });
 

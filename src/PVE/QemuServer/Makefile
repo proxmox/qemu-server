@@ -9,6 +9,7 @@ SOURCES=Agent.pm	\
 	CGroup.pm	\
 	Cloudinit.pm	\
 	CPUConfig.pm	\
+	CPUFlags.pm	\
 	DBusVMState.pm	\
 	Drive.pm	\
 	DriveDevice.pm	\
