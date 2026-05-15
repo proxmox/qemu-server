@@ -7,6 +7,7 @@ use JSON;
 
 use PVE::JSONSchema qw(json_bool);
 use PVE::Cluster qw(cfs_register_file cfs_read_file);
+use PVE::File;
 use PVE::ProcFSTools;
 use PVE::RESTEnvironment qw(log_warn);
 use PVE::Tools qw(run_command);
@@ -104,119 +105,134 @@ my $all_cpu_models;
 # helper to make it easier for testing
 # initializes both '$cpu_models_by_arch' and '$all_cpu_models'
 sub initialize_cpu_models {
-    $cpu_models_by_arch = {
-        x86_64 => {
-            # Intel CPUs
-            486 => 'GenuineIntel',
-            pentium => 'GenuineIntel',
-            pentium2 => 'GenuineIntel',
-            pentium3 => 'GenuineIntel',
-            coreduo => 'GenuineIntel',
-            core2duo => 'GenuineIntel',
-            Conroe => 'GenuineIntel',
-            Penryn => 'GenuineIntel',
-            Nehalem => 'GenuineIntel',
-            'Nehalem-IBRS' => 'GenuineIntel',
-            Westmere => 'GenuineIntel',
-            'Westmere-IBRS' => 'GenuineIntel',
-            SandyBridge => 'GenuineIntel',
-            'SandyBridge-IBRS' => 'GenuineIntel',
-            IvyBridge => 'GenuineIntel',
-            'IvyBridge-IBRS' => 'GenuineIntel',
-            Haswell => 'GenuineIntel',
-            'Haswell-IBRS' => 'GenuineIntel',
-            'Haswell-noTSX' => 'GenuineIntel',
-            'Haswell-noTSX-IBRS' => 'GenuineIntel',
-            Broadwell => 'GenuineIntel',
-            'Broadwell-IBRS' => 'GenuineIntel',
-            'Broadwell-noTSX' => 'GenuineIntel',
-            'Broadwell-noTSX-IBRS' => 'GenuineIntel',
-            'Skylake-Client' => 'GenuineIntel',
-            'Skylake-Client-IBRS' => 'GenuineIntel',
-            'Skylake-Client-noTSX-IBRS' => 'GenuineIntel',
-            'Skylake-Client-v4' => 'GenuineIntel',
-            'Skylake-Server' => 'GenuineIntel',
-            'Skylake-Server-IBRS' => 'GenuineIntel',
-            'Skylake-Server-noTSX-IBRS' => 'GenuineIntel',
-            'Skylake-Server-v4' => 'GenuineIntel',
-            'Skylake-Server-v5' => 'GenuineIntel',
-            'Cascadelake-Server' => 'GenuineIntel',
-            'Cascadelake-Server-v2' => 'GenuineIntel',
-            'Cascadelake-Server-noTSX' => 'GenuineIntel',
-            'Cascadelake-Server-v4' => 'GenuineIntel',
-            'Cascadelake-Server-v5' => 'GenuineIntel',
-            'Cooperlake' => 'GenuineIntel',
-            'Cooperlake-v2' => 'GenuineIntel',
-            KnightsMill => 'GenuineIntel',
-            'Icelake-Client' => 'GenuineIntel', # depreacated, removed with QEMU 7.1
-            'Icelake-Client-noTSX' => 'GenuineIntel', # depreacated, removed with QEMU 7.1
-            'Icelake-Server' => 'GenuineIntel',
-            'Icelake-Server-noTSX' => 'GenuineIntel',
-            'Icelake-Server-v3' => 'GenuineIntel',
-            'Icelake-Server-v4' => 'GenuineIntel',
-            'Icelake-Server-v5' => 'GenuineIntel',
-            'Icelake-Server-v6' => 'GenuineIntel',
-            'Icelake-Server-v7' => 'GenuineIntel',
-            'SapphireRapids' => 'GenuineIntel',
-            'SapphireRapids-v2' => 'GenuineIntel',
-            'SapphireRapids-v3' => 'GenuineIntel',
-            'SapphireRapids-v4' => 'GenuineIntel',
-            'GraniteRapids' => 'GenuineIntel',
-            'GraniteRapids-v2' => 'GenuineIntel',
-            'GraniteRapids-v3' => 'GenuineIntel',
-            'SierraForest' => 'GenuineIntel',
-            'SierraForest-v2' => 'GenuineIntel',
-            'SierraForest-v3' => 'GenuineIntel',
-            'ClearwaterForest' => 'GenuineIntel',
+    my $cpu_models_x86_64_file = '/usr/share/kvm/cpu-models-x86_64.json';
+    my $cpu_models_aarch64_file = '/usr/share/kvm/cpu-models-aarch64.json';
 
-            # AMD CPUs
-            athlon => 'AuthenticAMD',
-            phenom => 'AuthenticAMD',
-            Opteron_G1 => 'AuthenticAMD',
-            Opteron_G2 => 'AuthenticAMD',
-            Opteron_G3 => 'AuthenticAMD',
-            Opteron_G4 => 'AuthenticAMD',
-            Opteron_G5 => 'AuthenticAMD',
-            EPYC => 'AuthenticAMD',
-            'EPYC-IBPB' => 'AuthenticAMD',
-            'EPYC-v3' => 'AuthenticAMD',
-            'EPYC-v4' => 'AuthenticAMD',
-            'EPYC-v5' => 'AuthenticAMD',
-            'EPYC-Rome' => 'AuthenticAMD',
-            'EPYC-Rome-v2' => 'AuthenticAMD',
-            'EPYC-Rome-v3' => 'AuthenticAMD',
-            'EPYC-Rome-v4' => 'AuthenticAMD',
-            'EPYC-Rome-v5' => 'AuthenticAMD',
-            'EPYC-Milan' => 'AuthenticAMD',
-            'EPYC-Milan-v2' => 'AuthenticAMD',
-            'EPYC-Milan-v3' => 'AuthenticAMD',
-            'EPYC-Genoa' => 'AuthenticAMD',
-            'EPYC-Genoa-v2' => 'AuthenticAMD',
-            'EPYC-Turin' => 'AuthenticAMD',
+    if (-f $cpu_models_x86_64_file) { # QEMU package is new enough to ship static model files
+        my $json_text = PVE::File::file_get_contents($cpu_models_x86_64_file);
+        ($json_text) = $json_text =~ /(.*)/s; # untaint multi-line string
+        $cpu_models_by_arch->{'x86_64'} = eval { decode_json($json_text) }
+            or die "unable to decode contents of '$cpu_models_x86_64_file' - $@\n";
 
-            # generic types, use vendor from host node
-            kvm32 => 'default',
-            kvm64 => 'default',
-            qemu32 => 'default',
-            qemu64 => 'default',
-            max => 'default',
-        },
-        aarch64 => {
-            'a64fx' => 'ARM',
-            'cortex-a35' => 'ARM',
-            'cortex-a53' => 'ARM',
-            'cortex-a55' => 'ARM',
-            'cortex-a57' => 'ARM',
-            'cortex-a710' => 'ARM',
-            'cortex-a72' => 'ARM',
-            'cortex-a76' => 'ARM',
-            'neoverse-n1' => 'ARM',
-            'neoverse-n2' => 'ARM',
-            'neoverse-v1' => 'ARM',
-            # 32 bit and deprecated models were not added
-            max => 'default',
-        },
-    };
+        $json_text = PVE::File::file_get_contents($cpu_models_aarch64_file);
+        ($json_text) = $json_text =~ /(.*)/s; # untaint multi-line string
+        $cpu_models_by_arch->{'aarch64'} = eval { decode_json($json_text) }
+            or die "unable to decode contents of '$cpu_models_aarch64_file' - $@\n";
+    } else { # FIXME: MAJOR VERSION: remove hard-coded list
+        $cpu_models_by_arch = {
+            x86_64 => {
+                # Intel CPUs
+                486 => 'GenuineIntel',
+                pentium => 'GenuineIntel',
+                pentium2 => 'GenuineIntel',
+                pentium3 => 'GenuineIntel',
+                coreduo => 'GenuineIntel',
+                core2duo => 'GenuineIntel',
+                Conroe => 'GenuineIntel',
+                Penryn => 'GenuineIntel',
+                Nehalem => 'GenuineIntel',
+                'Nehalem-IBRS' => 'GenuineIntel',
+                Westmere => 'GenuineIntel',
+                'Westmere-IBRS' => 'GenuineIntel',
+                SandyBridge => 'GenuineIntel',
+                'SandyBridge-IBRS' => 'GenuineIntel',
+                IvyBridge => 'GenuineIntel',
+                'IvyBridge-IBRS' => 'GenuineIntel',
+                Haswell => 'GenuineIntel',
+                'Haswell-IBRS' => 'GenuineIntel',
+                'Haswell-noTSX' => 'GenuineIntel',
+                'Haswell-noTSX-IBRS' => 'GenuineIntel',
+                Broadwell => 'GenuineIntel',
+                'Broadwell-IBRS' => 'GenuineIntel',
+                'Broadwell-noTSX' => 'GenuineIntel',
+                'Broadwell-noTSX-IBRS' => 'GenuineIntel',
+                'Skylake-Client' => 'GenuineIntel',
+                'Skylake-Client-IBRS' => 'GenuineIntel',
+                'Skylake-Client-noTSX-IBRS' => 'GenuineIntel',
+                'Skylake-Client-v4' => 'GenuineIntel',
+                'Skylake-Server' => 'GenuineIntel',
+                'Skylake-Server-IBRS' => 'GenuineIntel',
+                'Skylake-Server-noTSX-IBRS' => 'GenuineIntel',
+                'Skylake-Server-v4' => 'GenuineIntel',
+                'Skylake-Server-v5' => 'GenuineIntel',
+                'Cascadelake-Server' => 'GenuineIntel',
+                'Cascadelake-Server-v2' => 'GenuineIntel',
+                'Cascadelake-Server-noTSX' => 'GenuineIntel',
+                'Cascadelake-Server-v4' => 'GenuineIntel',
+                'Cascadelake-Server-v5' => 'GenuineIntel',
+                'Cooperlake' => 'GenuineIntel',
+                'Cooperlake-v2' => 'GenuineIntel',
+                KnightsMill => 'GenuineIntel',
+                'Icelake-Client' => 'GenuineIntel', # depreacated, removed with QEMU 7.1
+                'Icelake-Client-noTSX' => 'GenuineIntel', # depreacated, removed with QEMU 7.1
+                'Icelake-Server' => 'GenuineIntel',
+                'Icelake-Server-noTSX' => 'GenuineIntel',
+                'Icelake-Server-v3' => 'GenuineIntel',
+                'Icelake-Server-v4' => 'GenuineIntel',
+                'Icelake-Server-v5' => 'GenuineIntel',
+                'Icelake-Server-v6' => 'GenuineIntel',
+                'Icelake-Server-v7' => 'GenuineIntel',
+                'SapphireRapids' => 'GenuineIntel',
+                'SapphireRapids-v2' => 'GenuineIntel',
+                'SapphireRapids-v3' => 'GenuineIntel',
+                'SapphireRapids-v4' => 'GenuineIntel',
+                'GraniteRapids' => 'GenuineIntel',
+                'GraniteRapids-v2' => 'GenuineIntel',
+                'GraniteRapids-v3' => 'GenuineIntel',
+                'SierraForest' => 'GenuineIntel',
+                'SierraForest-v2' => 'GenuineIntel',
+                'SierraForest-v3' => 'GenuineIntel',
+                'ClearwaterForest' => 'GenuineIntel',
+
+                # AMD CPUs
+                athlon => 'AuthenticAMD',
+                phenom => 'AuthenticAMD',
+                Opteron_G1 => 'AuthenticAMD',
+                Opteron_G2 => 'AuthenticAMD',
+                Opteron_G3 => 'AuthenticAMD',
+                Opteron_G4 => 'AuthenticAMD',
+                Opteron_G5 => 'AuthenticAMD',
+                EPYC => 'AuthenticAMD',
+                'EPYC-IBPB' => 'AuthenticAMD',
+                'EPYC-v3' => 'AuthenticAMD',
+                'EPYC-v4' => 'AuthenticAMD',
+                'EPYC-v5' => 'AuthenticAMD',
+                'EPYC-Rome' => 'AuthenticAMD',
+                'EPYC-Rome-v2' => 'AuthenticAMD',
+                'EPYC-Rome-v3' => 'AuthenticAMD',
+                'EPYC-Rome-v4' => 'AuthenticAMD',
+                'EPYC-Rome-v5' => 'AuthenticAMD',
+                'EPYC-Milan' => 'AuthenticAMD',
+                'EPYC-Milan-v2' => 'AuthenticAMD',
+                'EPYC-Milan-v3' => 'AuthenticAMD',
+                'EPYC-Genoa' => 'AuthenticAMD',
+                'EPYC-Genoa-v2' => 'AuthenticAMD',
+                'EPYC-Turin' => 'AuthenticAMD',
+
+                # generic types, use vendor from host node
+                kvm32 => 'default',
+                kvm64 => 'default',
+                qemu32 => 'default',
+                qemu64 => 'default',
+                max => 'default',
+            },
+            aarch64 => {
+                'a64fx' => 'ARM',
+                'cortex-a35' => 'ARM',
+                'cortex-a53' => 'ARM',
+                'cortex-a55' => 'ARM',
+                'cortex-a57' => 'ARM',
+                'cortex-a710' => 'ARM',
+                'cortex-a72' => 'ARM',
+                'cortex-a76' => 'ARM',
+                'neoverse-n1' => 'ARM',
+                'neoverse-n2' => 'ARM',
+                'neoverse-v1' => 'ARM',
+                # 32 bit and deprecated models were not added
+                max => 'default',
+            },
+        };
+    }
 
     my $host_arch = get_host_arch();
     # The host CPU model only exists if the arch matches
