@@ -625,10 +625,10 @@ sub is_custom_model {
 # Use this to get a single model in the format described by $cpu_fmt.
 # Allows names with and without custom- prefix.
 sub get_custom_model {
-    my ($name, $noerr) = @_;
+    my ($name, $noerr, $conf) = @_;
 
     $name =~ s/^custom-//;
-    my $conf = load_custom_cpu_model_config();
+    $conf //= load_custom_cpu_model_config();
 
     my $entry = $conf->{ids}->{$name};
     if (!defined($entry)) {
