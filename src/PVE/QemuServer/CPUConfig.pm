@@ -6,7 +6,7 @@ use warnings;
 use JSON;
 
 use PVE::JSONSchema qw(json_bool);
-use PVE::Cluster qw(cfs_register_file cfs_read_file);
+use PVE::Cluster qw(cfs_register_file cfs_lock_file cfs_read_file cfs_write_file);
 use PVE::File;
 use PVE::ProcFSTools;
 use PVE::RESTEnvironment qw(log_warn);
@@ -49,6 +49,19 @@ cfs_register_file(
 
 sub load_custom_cpu_model_config {
     return cfs_read_file($cpu_models_filename);
+}
+
+sub write_custom_cpu_model_config {
+    my ($conf) = @_;
+    cfs_write_file($cpu_models_filename, $conf);
+}
+
+sub lock_custom_cpu_model_config {
+    my ($code, $errmsg) = @_;
+    cfs_lock_file($cpu_models_filename, undef, $code);
+    if (my $err = $@) {
+        $errmsg ? die "$errmsg: $err" : die $err;
+    }
 }
 
 #builtin models : reported-model is mandatory
