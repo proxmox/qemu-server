@@ -6,6 +6,7 @@ use warnings;
 use POSIX qw(strftime);
 
 use PVE::Cluster;
+use PVE::File;
 use PVE::RPCEnvironment;
 use PVE::Storage;
 
@@ -183,4 +184,32 @@ sub vm_resume {
     );
 }
 
+sub get_cleanup_flag_path {
+    my ($vmid) = @_;
+    return "/run/qemu-server/$vmid.cleanup";
+}
+
+sub create_cleanup_flag {
+    my ($vmid) = @_;
+    # write time so we could check in a timeout if needed
+    PVE::File::file_set_contents(get_cleanup_flag_path($vmid), time());
+}
+
+sub clear_cleanup_flag {
+    my ($vmid) = @_;
+    my $path = get_cleanup_flag_path($vmid);
+    unlink $path or $! == POSIX::ENOENT or die "removing cleanup flag for $vmid failed: $!\n";
+}
+
+sub cleanup_flag_exists {
+    my ($vmid) = @_;
+    return -f get_cleanup_flag_path($vmid);
+}
+
+# checks if /run/qemu-server/force-legacy-cleanup exists that will be created on
+# package update and cleared on bootup so we can be sure the guests were
+# started recently enough
+sub can_use_cleanup_flag {
+    !-f "/run/qemu-server/force-legacy-cleanup";
+}
 1;

@@ -1,0 +1,19 @@
+#!/bin/sh
+
+set -e
+
+#DEBHELPER#
+
+case "$1" in
+    upgrade)
+        if dpkg --compare-versions "$2" 'lt' '9.1.13'; then
+            # set force-legacy-cleanup flag file so the old cleanup code will be used until reboot
+            touch /run/qemu-server/force-legacy-cleanup \
+                || echo "warning: force-legacy-cleanup marker write failed - in-flight VMs may skip cleanup on stop" >&2
+        fi
+    ;;
+    install|abort-install)
+    ;;
+esac
+
+exit 0

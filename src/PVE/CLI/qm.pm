@@ -1120,12 +1120,18 @@ __PACKAGE__->register_method({
                     }
                 }
 
-                if (!$clean || $guest) {
-                    # vm was shutdown from inside the guest or crashed, doing api cleanup
+                my $can_use_cleanup_flag = PVE::QemuServer::RunState::can_use_cleanup_flag();
+
+                if (!$clean || $guest || $can_use_cleanup_flag) {
+                    # either we can use the new mechanism to check if cleanup is done, or
+                    # vm was shutdown from inside the guest or crashed
                     PVE::QemuServer::vm_stop_cleanup($storecfg, $vmid, $conf, 0, 0, 1);
                 }
 
-                PVE::GuestHelpers::exec_hookscript($conf, $vmid, 'post-stop');
+                if (!$can_use_cleanup_flag) {
+                    # if the new cleanup mechanism is used, this will be called from 'vm_stop_cleanup'
+                    PVE::GuestHelpers::exec_hookscript($conf, $vmid, 'post-stop');
+                }
 
                 $restart = eval { PVE::QemuServer::clear_reboot_request($vmid) };
                 warn $@ if $@;

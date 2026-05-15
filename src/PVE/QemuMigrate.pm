@@ -1858,8 +1858,15 @@ sub phase3_cleanup {
         $self->{errors} = 1;
     }
 
-    # stop with nocheck does not do a cleanup, so do it here with the original config
-    eval { PVE::QemuServer::vm_stop_cleanup($self->{storecfg}, $vmid, $oldconf) };
+    # stop with nocheck does not do a cleanup, so do it here with the original config.
+    # skip the post-stop hookscript - migration kept the guest active, the symmetric
+    # post-stop on the source side never fired before this codepath was added and
+    # hookscripts that release per-host resources should not be re-triggered here.
+    eval {
+        PVE::QemuServer::vm_stop_cleanup(
+            $self->{storecfg}, $vmid, $oldconf, undef, undef, undef, 1,
+        );
+    };
     if (my $err = $@) {
         $self->log('err', "Cleanup after stopping VM failed - $err");
         $self->{errors} = 1;

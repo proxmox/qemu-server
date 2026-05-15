@@ -5846,6 +5846,8 @@ sub vm_start_nolock {
 
     syslog("info", "VM $vmid started with PID $pid.");
 
+    PVE::QemuServer::RunState::create_cleanup_flag($vmid);
+
     if (defined(my $migrate = $res->{migrate})) {
         if ($migrate->{proto} eq 'tcp') {
             my $nodename = nodename();
@@ -6151,7 +6153,13 @@ sub cleanup_pci_devices {
 }
 
 sub vm_stop_cleanup {
-    my ($storecfg, $vmid, $conf, $keepActive, $apply_pending_changes, $noerr) = @_;
+    my ($storecfg, $vmid, $conf, $keepActive, $apply_pending_changes, $noerr, $skip_hookscript) =
+        @_;
+
+    my $can_use_cleanup_flag = PVE::QemuServer::RunState::can_use_cleanup_flag();
+    if ($can_use_cleanup_flag) {
+        return if !PVE::QemuServer::RunState::cleanup_flag_exists($vmid);
+    }
 
     eval {
         PVE::QemuServer::QSD::quit($vmid)
@@ -6187,6 +6195,16 @@ sub vm_stop_cleanup {
         die $err if !$noerr;
         warn $err;
     }
+
+    # under the new mechanism the hookscript is fired here, so all callers of
+    # vm_stop_cleanup observe it; with the old one 'qm cleanup' still drives it.
+    # callers that should not trigger the post-stop hook (e.g. the live-migration
+    # source, which would otherwise call it on every migration) pass skip_hookscript.
+    if ($can_use_cleanup_flag && !$skip_hookscript) {
+        PVE::GuestHelpers::exec_hookscript($conf, $vmid, 'post-stop');
+    }
+
+    PVE::QemuServer::RunState::clear_cleanup_flag($vmid);
 }
 
 # call only in locked context

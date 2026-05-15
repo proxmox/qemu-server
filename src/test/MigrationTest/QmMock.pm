@@ -77,6 +77,17 @@ $qemu_server_helpers_module->mock(
     },
 );
 
+my $qemu_server_runstate_module = Test::MockModule->new("PVE::QemuServer::RunState");
+$qemu_server_runstate_module->mock(
+    get_cleanup_flag_path => sub {
+        my ($vmid) = @_;
+        return "${RUN_DIR_PATH}/${vmid}.cleanup";
+    },
+    can_use_cleanup_flag => sub {
+        return 1;
+    },
+);
+
 our $qemu_server_machine_module = Test::MockModule->new("PVE::QemuServer::Machine");
 $qemu_server_machine_module->mock(
     get_current_qemu_machine => sub {
