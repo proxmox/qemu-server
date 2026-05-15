@@ -13,7 +13,7 @@
   -boot 'menu=on,strict=on,reboot-timeout=1000,splash=/usr/share/qemu-server/bootsplash.jpg' \
   -vnc 'unix:/var/run/qemu-server/8006.vnc,password=on' \
   -global 'kvm-pit.lost_tick_policy=discard' \
-  -cpu 'kvm64,enforce,hv_ipi,hv_relaxed,hv_reset,hv_runtime,hv_spinlocks=0x1fff,hv_stimer,hv_synic,hv_time,hv_vapic,hv_vpindex,+kvm_pv_eoi,+kvm_pv_unhalt,+lahf_lm,+sep' \
+  -cpu 'kvm64,-cet-ibt,-cet-ss,enforce,hv_ipi,hv_relaxed,hv_reset,hv_runtime,hv_spinlocks=0x1fff,hv_stimer,hv_synic,hv_time,hv_vapic,hv_vpindex,+kvm_pv_eoi,+kvm_pv_unhalt,+lahf_lm,+sep' \
   -m 512 \
   -readconfig /usr/share/qemu-server/pve-q35-4.0.cfg \
   -device 'usb-tablet,id=tablet,bus=ehci.0,port=1' \

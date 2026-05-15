@@ -896,7 +896,16 @@ my sub check_phys_bits_above_40_compat {
 
 # Calculate QEMU's '-cpu' argument from a given VM configuration
 sub get_cpu_options {
-    my ($conf, $arch, $kvm, $kvm_off, $machine_version, $winversion, $gpu_passthrough) = @_;
+    my (
+        $conf,
+        $arch,
+        $kvm,
+        $kvm_off,
+        $machine_version,
+        $winversion,
+        $gpu_passthrough,
+        $qemu_binary_version,
+    ) = @_;
 
     my $cputype = get_default_cpu_type($arch, $kvm);
 
@@ -933,7 +942,9 @@ sub get_cpu_options {
     die "CPU model '$cputype' does not exist for configured vCPU architecture '$arch'\n"
         if !defined(get_cpu_models_by_arch($arch)->{$cputype});
 
-    my $pve_flags = get_pve_cpu_flags($conf, $kvm, $cputype, $arch, $machine_version);
+    my $pve_flags = get_pve_cpu_flags(
+        $conf, $kvm, $cputype, $arch, $machine_version, $winversion, $qemu_binary_version,
+    );
 
     my $hv_flags;
     if ($kvm && $arch eq 'x86_64') {
@@ -1021,7 +1032,7 @@ sub get_cpu_options {
 
 # Some hardcoded flags required by certain configurations
 sub get_pve_cpu_flags {
-    my ($conf, $kvm, $cputype, $arch, $machine_version) = @_;
+    my ($conf, $kvm, $cputype, $arch, $machine_version, $winversion, $qemu_binary_version) = @_;
 
     my $pve_flags = {};
     my $pve_msg = "set by PVE;";
@@ -1062,6 +1073,17 @@ sub get_pve_cpu_flags {
         $pve_flags->{'kvm_pv_eoi'} = {
             op => '+',
             reason => "$pve_msg to improve Linux guest interrupt performance",
+        };
+    }
+
+    if ($arch eq 'x86_64' && min_version($qemu_binary_version, 11, 0) && $winversion >= 11) {
+        $pve_flags->{'cet-ibt'} = {
+            op => '-',
+            reason => "$pve_msg to avoid issues with certain Windows configurations like VBS",
+        };
+        $pve_flags->{'cet-ss'} = {
+            op => '-',
+            reason => "$pve_msg to avoid issues with certain Windows configurations like VBS",
         };
     }
 

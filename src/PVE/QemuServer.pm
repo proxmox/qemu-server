@@ -3397,7 +3397,14 @@ sub config_to_command {
     } else {
         push @$cmd,
             get_cpu_options(
-                $conf, $arch, $kvm, $kvm_off, $machine_version, $winversion, $gpu_passthrough,
+                $conf,
+                $arch,
+                $kvm,
+                $kvm_off,
+                $machine_version,
+                $winversion,
+                $gpu_passthrough,
+                $kvmver,
             );
     }
 
