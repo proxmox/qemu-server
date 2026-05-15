@@ -1101,7 +1101,7 @@ __PACKAGE__->register_method({
             60,
             sub {
                 my $conf = PVE::QemuConfig->load_config($vmid);
-                my $pid = PVE::QemuServer::check_running($vmid);
+                my $pid = PVE::QemuServer::Helpers::vm_running_locally($vmid);
 
                 if ($pid) {
                     # With a stop mode backup, we might run here into a running vm with a backup
@@ -1110,7 +1110,25 @@ __PACKAGE__->register_method({
                     die "skipping cleanup - 'backup' lock is present and vm is running again\n"
                         if $clean && $conf->{lock} && $conf->{lock} eq 'backup';
 
-                    die "vm still running\n";
+                    # wait for some time until the QEMU process exits after the QMP
+                    # 'SHUTDOWN' event, since this might not be instant
+
+                    my $timeout = 30;
+                    my $warned = 0;
+                    my $starttime = time();
+
+                    while ($pid && (time() - $starttime) < $timeout) {
+                        if (!$warned && (time() - $starttime) > 10) {
+                            warn
+                                "VM cleanup: QEMU process $pid for VM $vmid still running (or newly started)\n";
+                            $warned = 1;
+                        }
+                        sleep(1);
+                        $pid = PVE::QemuServer::Helpers::vm_running_locally($vmid);
+                    }
+
+                    die "aborting cleanup, VM is still running after $timeout seconds\n"
+                        if $pid;
                 }
 
                 # Rollback already does cleanup when preparing and afterwards temporarily drops the
