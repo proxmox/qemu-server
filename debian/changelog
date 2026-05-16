@@ -1,3 +1,16 @@
+qemu-server (9.1.12) trixie; urgency=medium
+
+  * cpu config: disable cet-ibt and cet-ss flags for modern Windows by
+    default. the cet-ibt and cet-ss flags cause boot issues for Windows guests
+    with VBS enabled and some other configurations, as reported in our
+    community forum. The flags are exposed by default since QEMU 11.0 and
+    kernel 7.x, which we both started to roll out recently. The flags can be
+    disabled without affecting actual functionality, as they are only for
+    defense-in-depth which can be enabled again once this issue has been
+    properly addressed.
+
+ -- Proxmox Support Team <support@proxmox.com>  Sat, 16 May 2026 20:39:56 +0200
+
 qemu-server (9.1.11) trixie; urgency=medium
 
   * qm unlock: log the operation to the system journal so manual lock removals
