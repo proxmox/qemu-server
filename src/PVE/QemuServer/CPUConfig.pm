@@ -1,7 +1,6 @@
 package PVE::QemuServer::CPUConfig;
 
-use strict;
-use warnings;
+use v5.36;
 
 use JSON;
 
@@ -51,13 +50,11 @@ sub load_custom_cpu_model_config {
     return cfs_read_file($cpu_models_filename);
 }
 
-sub write_custom_cpu_model_config {
-    my ($conf) = @_;
+sub write_custom_cpu_model_config($conf) {
     cfs_write_file($cpu_models_filename, $conf);
 }
 
-sub lock_custom_cpu_model_config {
-    my ($code, $errmsg) = @_;
+sub lock_custom_cpu_model_config($code, $errmsg = undef) {
     cfs_lock_file($cpu_models_filename, undef, $code);
     if (my $err = $@) {
         $errmsg ? die "$errmsg: $err" : die $err;
@@ -269,10 +266,7 @@ keys. The associated value is the vendor of the CPU model. The parameter C<$arch
 
 =cut
 
-sub get_cpu_models_by_arch {
-    my ($arch) = @_;
-    die "get_cpu_models_by_arch: required parameter 'arch' not specified\n" if !defined($arch);
-
+sub get_cpu_models_by_arch($arch) {
     initialize_cpu_models() if !defined($cpu_models_by_arch);
     return $cpu_models_by_arch->{$arch};
 }
@@ -436,8 +430,7 @@ PVE::JSONSchema::register_format('pve-qemu-tdx-fmt', $tdx_fmt);
 
 PVE::JSONSchema::register_format('pve-phys-bits', \&parse_phys_bits);
 
-sub parse_phys_bits {
-    my ($str, $noerr) = @_;
+sub parse_phys_bits($str, $noerr = undef) {
 
     my $err_msg = "value must be an integer between 8 and 64 or 'host'\n";
 
@@ -459,16 +452,14 @@ sub parse_phys_bits {
 # though, which we catch in the custom validation functions below.
 PVE::JSONSchema::register_format('pve-cpu-conf', $cpu_fmt, \&validate_cpu_conf);
 
-sub validate_cpu_conf {
-    my ($cpu) = @_;
+sub validate_cpu_conf($cpu, $noerr = undef) {
     # required, but can't be forced in schema since it's encoded in section header for custom models
     die "CPU is missing cputype\n" if !$cpu->{cputype};
     return $cpu;
 }
 PVE::JSONSchema::register_format('pve-vm-cpu-conf', $cpu_fmt, \&validate_vm_cpu_conf);
 
-sub validate_vm_cpu_conf {
-    my ($cpu) = @_;
+sub validate_vm_cpu_conf($cpu, $noerr = undef) {
 
     validate_cpu_conf($cpu);
 
@@ -517,8 +508,7 @@ sub type {
     return 'cpu-model';
 }
 
-sub parse_section_header {
-    my ($class, $line) = @_;
+sub parse_section_header($class, $line) {
 
     my ($type, $sectionId, $errmsg, $config) = $class->SUPER::parse_section_header($line);
 
@@ -535,8 +525,7 @@ sub parse_section_header {
     );
 }
 
-sub write_config {
-    my ($class, $filename, $cfg) = @_;
+sub write_config($class, $filename, $cfg) {
 
     mkdir "/etc/pve/virtual-guest";
 
@@ -560,8 +549,7 @@ sub write_config {
     $class->SUPER::write_config($filename, $cfg);
 }
 
-sub add_cpu_json_properties {
-    my ($prop) = @_;
+sub add_cpu_json_properties($prop) {
 
     foreach my $opt (keys %$cpu_fmt) {
         $prop->{$opt} //= $cpu_fmt->{$opt};
@@ -570,10 +558,8 @@ sub add_cpu_json_properties {
     return $prop;
 }
 
-sub get_cpu_models {
-    my ($include_custom, $arch) = @_;
-
-    $arch = get_host_arch() if !defined($arch);
+sub get_cpu_models($include_custom, $arch = undef) {
+    $arch //= get_host_arch();
     my $cpu_vendor_list = get_cpu_models_by_arch($arch);
 
     my $models = [];
@@ -617,15 +603,13 @@ sub get_cpu_models {
     return $models;
 }
 
-sub is_custom_model {
-    my ($cputype) = @_;
+sub is_custom_model($cputype) {
     return $cputype =~ m/^custom-/;
 }
 
 # Use this to get a single model in the format described by $cpu_fmt.
 # Allows names with and without custom- prefix.
-sub get_custom_model {
-    my ($name, $noerr, $conf) = @_;
+sub get_custom_model($name, $noerr = undef, $conf = undef) {
 
     $name =~ s/^custom-//;
     $conf //= load_custom_cpu_model_config();
@@ -647,8 +631,7 @@ sub get_custom_model {
 }
 
 # Print a QEMU device node for a given VM configuration for hotplugging CPUs
-sub print_cpu_device {
-    my ($conf, $arch, $id) = @_;
+sub print_cpu_device($conf, $arch, $id) {
 
     # FIXME: hot plugging other architectures like our unofficial aarch64 support?
     die "Hotplug of non x86_64 CPU not yet supported" if $arch ne 'x86_64';
@@ -700,8 +683,7 @@ determined from the configuration alone. Possible abstractions:
 
 =cut
 
-sub is_abstracted {
-    my ($cpu_property_string) = @_;
+sub is_abstracted($cpu_property_string) {
 
     my $cpu_conf = PVE::JSONSchema::parse_property_string('pve-cpu-conf', $cpu_property_string);
 
@@ -729,8 +711,7 @@ sub is_abstracted {
 #     },
 #     ...
 # }
-my sub resolve_cpu_flags {
-    my @flag_hashes = @_;
+my sub resolve_cpu_flags(@flag_hashes) {
 
     my $flags = {};
 
@@ -790,8 +771,7 @@ my sub resolve_cpu_flags {
     return $flags;
 }
 
-my sub print_cpu_flags {
-    my ($flags) = @_;
+my sub print_cpu_flags($flags) {
 
     my $flag_str = '';
     # sort for command line stability
@@ -806,8 +786,7 @@ my sub print_cpu_flags {
     return $flag_str;
 }
 
-sub print_cpuflag_hash {
-    my ($flag_name, $flag) = @_;
+sub print_cpuflag_hash($flag_name, $flag) {
     my $formatted = "'$flag->{op}$flag_name";
     $formatted .= "=$flag->{value}" if defined($flag->{value});
     $formatted .= "'";
@@ -815,8 +794,7 @@ sub print_cpuflag_hash {
     return $formatted;
 }
 
-sub parse_cpuflag_list {
-    my ($re, $reason, $flaglist) = @_;
+sub parse_cpuflag_list($re, $reason, $flaglist) {
 
     my $res = {};
     return $res if !$flaglist;
@@ -830,8 +808,7 @@ sub parse_cpuflag_list {
     return $res;
 }
 
-my sub check_phys_bits_above_40_compat {
-    my ($bios, $cpu_type, $cpu_flags) = @_;
+my sub check_phys_bits_above_40_compat($bios, $cpu_type, $cpu_flags) {
 
     # Would need to check CPU model expansion for others, but that information is not cheap to get
     # right now. Checking with 'qemu64' and 'kvm64' should cover most problematic scenarios.
@@ -846,17 +823,10 @@ my sub check_phys_bits_above_40_compat {
 }
 
 # Calculate QEMU's '-cpu' argument from a given VM configuration
-sub get_cpu_options {
-    my (
-        $conf,
-        $arch,
-        $kvm,
-        $kvm_off,
-        $machine_version,
-        $winversion,
-        $gpu_passthrough,
-        $qemu_binary_version,
-    ) = @_;
+sub get_cpu_options(
+    $conf, $arch, $kvm, $kvm_off, $machine_version, $winversion, $gpu_passthrough,
+    $qemu_binary_version,
+) {
 
     my $cputype = get_default_cpu_type($arch, $kvm);
 
@@ -982,8 +952,9 @@ sub get_cpu_options {
 }
 
 # Some hardcoded flags required by certain configurations
-sub get_pve_cpu_flags {
-    my ($conf, $kvm, $cputype, $arch, $machine_version, $winversion, $qemu_binary_version) = @_;
+sub get_pve_cpu_flags(
+    $conf, $kvm, $cputype, $arch, $machine_version, $winversion, $qemu_binary_version,
+) {
 
     my $pve_flags = {};
     my $pve_msg = "set by PVE;";
@@ -1041,8 +1012,9 @@ sub get_pve_cpu_flags {
     return $pve_flags;
 }
 
-sub get_hyperv_enlightenments {
-    my ($winversion, $machine_version, $bios, $gpu_passthrough, $hv_vendor_id) = @_;
+sub get_hyperv_enlightenments(
+    $winversion, $machine_version, $bios, $gpu_passthrough, $hv_vendor_id = undef,
+) {
 
     return if $winversion < 6;
     return if $bios && $bios eq 'ovmf' && $winversion < 8;
@@ -1100,8 +1072,7 @@ sub get_hyperv_enlightenments {
     return $flags;
 }
 
-sub get_cpu_from_running_vm {
-    my ($pid) = @_;
+sub get_cpu_from_running_vm($pid) {
 
     my $cmdline = PVE::QemuServer::Helpers::parse_cmdline($pid);
     die "could not read commandline of running machine\n"
@@ -1112,8 +1083,7 @@ sub get_cpu_from_running_vm {
     return $1;
 }
 
-sub get_default_cpu_type {
-    my ($arch, $kvm) = @_;
+sub get_default_cpu_type($arch, $kvm) {
 
     my $cputype = $kvm ? 'kvm64' : 'qemu64';
     $cputype = 'cortex-a57' if $arch eq 'aarch64';
@@ -1121,13 +1091,11 @@ sub get_default_cpu_type {
     return $cputype;
 }
 
-sub is_native_arch($) {
-    my ($arch) = @_;
+sub is_native_arch($arch) {
     return get_host_arch() eq $arch;
 }
 
-sub get_cpu_bitness {
-    my ($cpu_prop_str, $arch) = @_;
+sub get_cpu_bitness($cpu_prop_str, $arch = undef) {
 
     $arch //= get_host_arch();
 
@@ -1171,8 +1139,7 @@ sub get_hw_capabilities {
     return $hw_capabilities;
 }
 
-sub get_cvm_type {
-    my ($conf) = @_;
+sub get_cvm_type($conf) {
 
     if ($conf->{'amd-sev'}) {
         my $sev = PVE::JSONSchema::parse_property_string($sev_fmt, $conf->{'amd-sev'});
@@ -1185,8 +1152,7 @@ sub get_cvm_type {
     }
 }
 
-sub get_amd_sev_object {
-    my ($amd_sev, $bios) = @_;
+sub get_amd_sev_object($amd_sev, $bios) {
 
     my $amd_sev_conf = PVE::JSONSchema::parse_property_string($sev_fmt, $amd_sev);
     my $sev_hw_caps = get_hw_capabilities()->{'amd-sev'};
@@ -1238,8 +1204,7 @@ sub get_amd_sev_object {
     return $sev_mem_object;
 }
 
-sub get_quote_generation_socket {
-    my ($conf) = @_;
+sub get_quote_generation_socket($conf) {
 
     my $socket = { type => 'vsock' };
 
@@ -1253,8 +1218,7 @@ sub get_quote_generation_socket {
     return $socket;
 }
 
-sub get_intel_tdx_object {
-    my ($intel_tdx, $bios) = @_;
+sub get_intel_tdx_object($intel_tdx, $bios) {
     my $intel_tdx_conf = PVE::JSONSchema::parse_property_string($tdx_fmt, $intel_tdx);
     my $tdx_hw_caps = get_hw_capabilities()->{'intel-tdx'};
 
