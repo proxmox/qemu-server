@@ -45,6 +45,13 @@ __PACKAGE__->register_method({
                     type => 'boolean',
                     description => "True if this is a custom CPU model.",
                 },
+                abstract => {
+                    type => 'boolean',
+                    description => "True for PVE-internal abstract profiles like x86-64-v2,"
+                        . " -v3, -v4. These do not correspond to a QEMU CPU type and"
+                        . " cannot be used as a custom model's 'reported-model'.",
+                    optional => 1,
+                },
                 vendor => {
                     type => 'string',
                     description => "CPU vendor visible to the guest when this"

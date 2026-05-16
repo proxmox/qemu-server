@@ -581,6 +581,7 @@ sub get_cpu_models($include_custom, $arch = undef) {
             {
                 name => $model,
                 custom => 0,
+                abstract => 1,
                 vendor => $vendor,
             };
     }
