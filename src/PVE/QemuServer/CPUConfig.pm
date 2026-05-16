@@ -564,7 +564,7 @@ sub add_cpu_json_properties {
     my ($prop) = @_;
 
     foreach my $opt (keys %$cpu_fmt) {
-        $prop->{$opt} = $cpu_fmt->{$opt};
+        $prop->{$opt} //= $cpu_fmt->{$opt};
     }
 
     return $prop;
