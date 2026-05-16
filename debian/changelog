@@ -1,3 +1,55 @@
+qemu-server (9.1.13) trixie; urgency=medium
+
+  * api: cpu models: gate both setting a custom CPU model on a VM and the
+    visibility of custom models in the CPU model listing on Mapping.Use on
+    /mapping/cpu/<name>, instead of Sys.Audit on /nodes. This matches the new
+    custom-cpu-models CRUD ACL and lets administrators delegate access to
+    specific custom models. Note: setups that relied on Sys.Audit on /nodes
+    for custom-model assignment must grant Mapping.Use on /mapping/cpu (or on
+    a specific model) instead. Sys.Audit on /nodes continues to grant blanket
+    visibility of all custom models in the listing for back-compat.
+
+  * api: cpu flags: extend the per-node and cluster-wide flag listings to
+    return the set of cluster nodes that report supporting each flag, plus an
+    'accel' parameter (kvm/tcg) to scope the per-node match. Allows the UI and
+    other consumers to spot heterogeneous-cluster gaps when picking flags.
+
+  * api: cpu models: tag the synthetic PVE x86-64-v2/v3/v4/v2-AES profiles
+    with a new 'abstract' field. They do not correspond to real QEMU CPU types
+    and cannot be used as a custom CPU model's 'reported-model'; consumers can
+    use this field to filter them out where a real CPU model is required.
+
+  * cpu config: pick up the CPU model list shipped by the pve-qemu-kvm package
+    instead of the hard-coded fallback when available, so newly added QEMU CPU
+    types become selectable automatically on QEMU package updates.
+
+  * cpu flags: normalize per-node flag names broadcast by pvestatd to QEMU's
+    canonical form (matching the recognized-flags file shipped by
+    pve-qemu-kvm), so flag-name variants such as lahf-lm and lahf_lm map to
+    the same form across the cluster-wide listing.
+
+  * fix #7119: qm cleanup: wait up to 30 seconds for QEMU to actually exit
+    before tearing down resources, avoiding races where cleanup proceeded
+    against a still-running process - which previously skipped the post-stop
+    hookscript on guest-initiated power-down.
+
+  * qm cleanup: refactor the flow so the qm-cleanup invocation triggered by
+    qmeventd does not redundantly re-run the cleanup that an API stop with
+    'keepActive' already handled, and abort early with a clear message when a
+    stop-mode backup is still using the VM. The post-stop hookscript is now
+    fired from vm_stop_cleanup unconditionally, except on the live-migration
+    source where it would otherwise newly fire on every migration.
+
+  * api: human monitor: emit a deprecation warning when the legacy
+    'stopcapture' or 'wavcapture' HMP commands are invoked, ahead of eventual
+    removal upstream.
+
+  * cfg2cmd: drop the deprecated 'debug-threads' name= modifier for QEMU
+    binary 11.0 and newer to silence the deprecation warning emitted by QEMU
+    at startup.
+
+ -- Proxmox Support Team <support@proxmox.com>  Sun, 17 May 2026 00:59:26 +0200
+
 qemu-server (9.1.12) trixie; urgency=medium
 
   * cpu config: disable cet-ibt and cet-ss flags for modern Windows by
