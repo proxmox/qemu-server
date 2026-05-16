@@ -724,7 +724,8 @@ my $check_cpu_model_access = sub {
     }
 
     if (PVE::QemuServer::CPUConfig::is_custom_model($cputype)) {
-        $rpcenv->check($authuser, "/nodes", ['Sys.Audit']);
+        (my $name = $cputype) =~ s/^custom-//;
+        $rpcenv->check($authuser, "/mapping/cpu/$name", ['Mapping.Use']);
     }
 };
 

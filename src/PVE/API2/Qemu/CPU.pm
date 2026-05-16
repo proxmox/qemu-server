@@ -19,8 +19,9 @@ __PACKAGE__->register_method({
     description => 'List all custom and default CPU models.',
     permissions => {
         user => 'all',
-        description => 'Only returns custom models when the current user has'
-            . ' Sys.Audit on /nodes.',
+        description => "Custom models are filtered to those the current user has any of"
+            . " Mapping.{Audit,Use,Modify} on /mapping/cpu/<name>; Sys.Audit on /nodes"
+            . " continues to grant visibility of all custom models for back-compat.",
     },
     parameters => {
         additionalProperties => 0,
@@ -59,11 +60,27 @@ __PACKAGE__->register_method({
 
         my $rpcenv = PVE::RPCEnvironment::get();
         my $authuser = $rpcenv->get_user();
-        my $include_custom = $rpcenv->check($authuser, "/nodes", ['Sys.Audit'], 1);
-
         my $arch = extract_param($param, 'arch');
 
-        return PVE::QemuServer::CPUConfig::get_cpu_models($include_custom, $arch);
+        my $models = PVE::QemuServer::CPUConfig::get_cpu_models(1, $arch);
+
+        my $see_all_custom = $rpcenv->check($authuser, "/nodes", ['Sys.Audit'], 1);
+
+        return [
+            grep {
+                !$_->{custom}
+                    || $see_all_custom
+                    || do {
+                        (my $name = $_->{name}) =~ s/^custom-//;
+                        $rpcenv->check_any(
+                            $authuser,
+                            "/mapping/cpu/$name",
+                            ['Mapping.Audit', 'Mapping.Use', 'Mapping.Modify'],
+                            1,
+                        );
+                    };
+            } @$models
+        ];
     },
 });
 
