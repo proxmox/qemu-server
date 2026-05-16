@@ -5842,7 +5842,8 @@ __PACKAGE__->register_method({
         }
 
         if ($command_name eq 'stopcapture' || $command_name eq 'wavcapture') {
-            warn "command '$command_name' is deprecated and will be dropped in a future release\n";
+            warn
+                "command '$command_name' is deprecated and will be dropped in a future release\n";
         }
 
         my $vmid = $param->{vmid};
