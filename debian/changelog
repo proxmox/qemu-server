@@ -1,3 +1,23 @@
+qemu-server (9.1.14) trixie; urgency=medium
+
+  * cpu config: expose the QEMU 'level' property. Windows guests with Hyper-V
+    enabled fail to boot with certain CPU types like 'host' or 'max' on recent
+    Intel CPUs unless 'level=30' is set; the workaround previously required
+    custom 'args', which then lost other Proxmox VE CPU configuration. Expose
+    it as a first-class property instead.
+
+  * volume rescan: also consider volumes that storage plugins list with only
+    an approximate size, so 'qm rescan' picks up inactive qcow2 LVs on LVM for
+    unused-volume detection without trying to update the recorded size from an
+    approximate value.
+
+  * d/control: depend on the EDK2 firmware package matching the host
+    architecture (pve-edk2-firmware-ovmf, -aarch64 or -riscv64), and suggest
+    the others. The previous architecture-independent metapackage is being
+    phased out.
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 18 May 2026 21:10:33 +0200
+
 qemu-server (9.1.13) trixie; urgency=medium
 
   * api: cpu models: gate both setting a custom CPU model on a VM and the
