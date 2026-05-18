@@ -355,6 +355,16 @@ my $cpu_fmt = {
             . " note that doing so will break live migration to CPUs with other values.",
         optional => 1,
     },
+    'level' => {
+        type => 'integer',
+        minimum => 0,
+        maximum => 4294967295, # It's a uint32_t in QEMU
+        description =>
+            "The CPUID topology level. Limits the topology presented by the virtual CPU, in"
+            . " particular, limits the set of CPUID leaves. Only applies when the vCPU architecture"
+            . " is x86_64.",
+        optional => 1,
+    },
 };
 PVE::JSONSchema::register_standard_option('pve-qm-custom-cpu-model', $cpu_fmt);
 
@@ -909,6 +919,14 @@ sub get_cpu_options(
     }
 
     my $cpu_str = $cputype;
+
+    if (defined(my $level = $cpu->{level} // $custom_cpu->{level})) {
+        if ($arch eq 'x86_64') {
+            $cpu_str .= ",level=${level}";
+        } else {
+            warn "CPU 'level' property is ignored for architecture '$arch'\n";
+        }
+    }
 
     # will be resolved in parameter order
     my $resolved_flags = resolve_cpu_flags(
