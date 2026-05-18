@@ -360,9 +360,11 @@ my $cpu_fmt = {
         minimum => 0,
         maximum => 4294967295, # It's a uint32_t in QEMU
         description =>
-            "The CPUID topology level. Limits the topology presented by the virtual CPU, in"
-            . " particular, limits the set of CPUID leaves. Only applies when the vCPU architecture"
-            . " is x86_64.",
+            "Maximum input value for the basic CPUID leaves the guest can query - that is the"
+            . " vendor (leaf 0), family/model/stepping and feature bits (leaf 1), cache and"
+            . " topology info (leaves 4 and B), and so on. Higher-numbered leaves are hidden."
+            . " Setting '30' is a common workaround for Hyper-V boot failures on Windows guests"
+            . " running on recent Intel hosts. Only applies when the vCPU architecture is x86_64.",
         optional => 1,
     },
 };
