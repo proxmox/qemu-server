@@ -4424,6 +4424,15 @@ sub qemu_volume_snapshot_delete {
         # improve-me: if firstsnap > child : commit, if firstsnap < child do a stream.
         if (!$parentsnap) {
             print "delete first snapshot $snap\n";
+
+            my $snap_size = $snapshots->{$snap}->{'virtual-size'};
+            my $child_size = $snapshots->{$childsnap}->{'virtual-size'};
+            if (defined($child_size) && defined($snap_size) && $child_size > $snap_size) {
+                print
+                    "resize '$snap' ($snap_size bytes) to match '$childsnap' ($child_size bytes)\n";
+                PVE::Storage::volume_resize($storecfg, $volid, $child_size, $running, $snap);
+            }
+
             PVE::QemuServer::VolumeChain::blockdev_commit(
                 $storecfg,
                 $qmp_peer,
