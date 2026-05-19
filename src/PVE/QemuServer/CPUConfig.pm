@@ -604,13 +604,15 @@ sub get_cpu_models($include_custom, $arch = undef) {
     for my $custom_model (keys %{ $conf->{ids} }) {
         my $reported_model = $conf->{ids}->{$custom_model}->{'reported-model'};
         $reported_model //= $cpu_fmt->{'reported-model'}->{default};
-        my $vendor = get_all_cpu_models()->{$reported_model};
-        push @$models,
-            {
-                name => "custom-$custom_model",
-                custom => 1,
-                vendor => $vendor,
-            };
+        if (defined($cpu_models_by_arch->{$arch}->{$reported_model})) {
+            my $vendor = get_all_cpu_models()->{$reported_model};
+            push @$models,
+                {
+                    name => "custom-$custom_model",
+                    custom => 1,
+                    vendor => $vendor,
+                };
+        }
     }
 
     return $models;
