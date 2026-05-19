@@ -554,6 +554,8 @@ sub write_config($class, $filename, $cfg) {
                 . " $model_conf->{cputype}) not equal to \$cfg->ids entry ($model)\n";
         }
 
+        $model_conf->{'reported-model'} //= $cpu_fmt->{'reported-model'}->{default};
+
         # saved in section header
         delete $model_conf->{cputype};
     }
