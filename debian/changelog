@@ -1,3 +1,21 @@
+qemu-server (9.1.15) trixie; urgency=medium
+
+  * cpu models: only include custom CPU models matching the host architecture
+    in the model listing, instead of also showing custom models with an
+    incompatible architecture (e.g. aarch64 on an x86_64 host).
+
+  * cpu config: write the default 'reported-model' (kvm64) explicitly when
+    saving a custom CPU model config, making the default visible in the config
+    file.
+
+  * api: clone: enforce Mapping.Use on /mapping/cpu/<name> when the source VM
+    uses a custom CPU model, matching the check already performed on create
+    and update. Otherwise a user with VM.Clone and VM.Allocate but no
+    Mapping.Use on the source VM's custom CPU mapping could end up owning a VM
+    using that model, bypassing the intended permission boundary.
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 19 May 2026 21:41:25 +0200
+
 qemu-server (9.1.14) trixie; urgency=medium
 
   * cpu config: expose the QEMU 'level' property. Windows guests with Hyper-V
