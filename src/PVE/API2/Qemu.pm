@@ -4447,6 +4447,8 @@ __PACKAGE__->register_method({
 
             PVE::QemuServer::check_bridge_access($rpcenv, $authuser, $oldconf);
 
+            $check_cpu_model_access->($rpcenv, $authuser, $oldconf);
+
             die "can't clone VM to node '$target' (VM uses local storage)\n"
                 if $target && !$sharedvm;
 
