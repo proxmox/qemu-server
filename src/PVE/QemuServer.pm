@@ -2982,12 +2982,15 @@ sub query_supported_cpu_flags {
         my $rc = run_command($cmd, noerr => 1, quiet => 0);
         die "QEMU flag querying VM exited with code " . $rc if $rc;
 
+        my $model = { name => $kvm ? 'host' : 'max' };
+        $model->{props} = { 'hv-passthrough' => JSON::true } if $kvm;
+
         eval {
             my $cmd_result = mon_cmd(
                 $fakevmid,
                 'query-cpu-model-expansion',
                 type => 'full',
-                model => { name => $kvm ? 'host' : 'max' },
+                model => $model,
             );
 
             my $props = $cmd_result->{model}->{props};
