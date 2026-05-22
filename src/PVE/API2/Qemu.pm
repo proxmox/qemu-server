@@ -1500,6 +1500,10 @@ __PACKAGE__->register_method({
 
                     $conf->{lock} = 'import' if $live_import_mapping;
 
+                    if (defined $conf->{tags}) {
+                        $conf->{tags} = PVE::GuestHelpers::get_unique_tags($conf->{tags});
+                    }
+
                     PVE::QemuConfig->write_config($vmid, $conf);
                 };
                 my $err = $@;
