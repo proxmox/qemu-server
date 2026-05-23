@@ -4105,8 +4105,12 @@ __PACKAGE__->register_method({
                 { completion => \&PVE::QemuServer::complete_vmid_running },
             ),
             skiplock => get_standard_option('skiplock'),
-            nocheck => { type => 'boolean', optional => 1 },
-
+            nocheck => {
+                type => 'boolean',
+                optional => 1,
+                description => "Do not check whether the VM is running, used"
+                    . " internally during migration. Only root may use this option.",
+            },
         },
     },
     returns => {
