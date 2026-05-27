@@ -671,9 +671,10 @@ sub do_test($config_fn) {
     }
 
     # check if QEMU version set correctly and test version_cmp
-    (my $qemu_major = get_test_qemu_version()) =~ s/\..*$//;
-    die "runs_at_least_qemu_version returned false, maybe error in version_cmp?"
-        if !PVE::QemuServer::QMPHelpers::runs_at_least_qemu_version($vmid, $qemu_major);
+    (my $qemu_major, my $qemu_minor) = get_test_qemu_version() =~ m/^(\d+)\.(\d+)/;
+    if (!PVE::QemuServer::QMPHelpers::runs_at_least_qemu_version($vmid, $qemu_major, $qemu_minor)) {
+        die "runs_at_least_qemu_version returned false, maybe error in version_cmp?";
+    }
 
     $cmdline =~ s/ -/ \\\n  -/g; # same as qm showcmd --pretty
     $cmdline .= "\n";
