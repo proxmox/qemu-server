@@ -449,6 +449,8 @@ sub scan_local_volumes {
             $local_volumes->{$volid}->{bwlimit} = $self->get_bwlimit($sid, $targetsid);
             $local_volumes->{$volid}->{targetsid} = $targetsid;
 
+            # For some volumes, like qcow2 on LVM, it is necessary to activate to query the size.
+            PVE::Storage::activate_volumes($storecfg, [$volid]);
             $local_volumes->{$volid}->@{qw(size format)} =
                 PVE::Storage::volume_size_info($storecfg, $volid);
             die "unable to determine size for volume '$volid'\n"
