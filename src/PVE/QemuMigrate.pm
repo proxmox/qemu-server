@@ -451,6 +451,10 @@ sub scan_local_volumes {
 
             $local_volumes->{$volid}->@{qw(size format)} =
                 PVE::Storage::volume_size_info($storecfg, $volid);
+            die "unable to determine size for volume '$volid'\n"
+                if !defined($local_volumes->{$volid}->{size});
+            die "unable to determine format for volume '$volid'\n"
+                if !defined($local_volumes->{$volid}->{format});
 
             $local_volumes->{$volid}->{is_vmstate} = $attr->{is_vmstate} ? 1 : 0;
             $local_volumes->{$volid}->{is_cloudinit} = $attr->{is_cloudinit} ? 1 : 0;
