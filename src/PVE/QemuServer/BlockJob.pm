@@ -261,7 +261,7 @@ my sub common_mirror_qmp_options {
 
     if (defined($bwlimit)) {
         $opts->{speed} = $bwlimit * 1024;
-        print "drive mirror is starting for $device_id with bandwidth limit: ${bwlimit} KB/s\n";
+        print "drive mirror is starting for $device_id with bandwidth limit: ${bwlimit} KiB/s\n";
     } else {
         print "drive mirror is starting for $device_id\n";
     }
