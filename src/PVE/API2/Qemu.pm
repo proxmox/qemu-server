@@ -6953,7 +6953,6 @@ __PACKAGE__->register_method({
                             warn $@ if $@;
                         }
 
-                        PVE::QemuServer::DBusVMState::qemu_del_dbus_vmstate($state->{vmid});
                         PVE::QemuServer::destroy_vm($state->{storecfg}, $state->{vmid}, 1);
                     }
 
