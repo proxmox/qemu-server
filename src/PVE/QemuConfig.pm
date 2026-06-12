@@ -371,7 +371,7 @@ sub __snapshot_create_vol_snapshots_hook {
                     if $snap->{vmstate};
             };
             warn $@ if $@;
-        } elsif ($hook eq "after-freeze") {
+        } elsif ($hook eq "after-unfreeze") {
             # savevm-end is async, we need to wait
             for (;;) {
                 my $stat = mon_cmd($vmid, "query-savevm");

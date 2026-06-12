@@ -374,14 +374,17 @@ sub qmp_cmd {
     if ($exec eq "savevm-start") {
         die "savevm-start disabled\n"
             if !$vm_mon->{savevm_start};
+        $vm_mon->{savevm_ended} = 0;
         return;
     }
     if ($exec eq "savevm-end") {
         die "savevm-end disabled\n"
             if !$vm_mon->{savevm_end};
+        $vm_mon->{savevm_ended} = 1;
         return;
     }
     if ($exec eq "query-savevm") {
+        return {} if $vm_mon->{savevm_ended};
         return {
             "status" => "completed",
             "bytes" => 1024 * 1024 * 1024,
