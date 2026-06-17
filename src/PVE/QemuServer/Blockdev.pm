@@ -637,7 +637,7 @@ sub attach {
 
 =head3 detach
 
-    detach($qmp_peer, $node_name);
+    detach($qmp_peer, $node_name, $opts);
 
 Detach the block device C<$node_name> from the QMP peer C<$qmp_peer>. Also removes associated child
 block nodes.
@@ -650,14 +650,24 @@ Parameters:
 
 =item C<$node_name>: The node name identifying the block node in QEMU.
 
+=item C<$opts> Additional options. Possible values:
+
+=over
+
+=item C<'follow-backing'>: also detach the 'backing' children.
+
+=back
+
 =back
 
 =cut
 
 sub detach {
-    my ($qmp_peer, $node_name) = @_;
+    my ($qmp_peer, $node_name, $opts) = @_;
 
     die "Blockdev::detach - no node name\n" if !$node_name;
+
+    my $follow_backing = $opts->{'follow-backing'};
 
     my $block_info = qmp_cmd($qmp_peer, "query-named-block-nodes");
     $block_info = { map { $_->{'node-name'} => $_ } $block_info->@* };
@@ -667,12 +677,13 @@ sub detach {
         $remove_throttle_group_id = throttle_group_id($drive_id);
     }
 
-    while ($node_name) {
-        last if !$block_info->{$node_name}; # already gone
+    my @queue = ($node_name);
+    while (defined(my $node_name = shift @queue)) {
+        next if !$block_info->{$node_name}; # already gone
 
         my $res = qmp_cmd($qmp_peer, 'blockdev-del', 'node-name' => "$node_name", noerr => 1);
         if (my $err = $res->{error}) {
-            last if $err =~ m/Failed to find node with node-name/; # already gone
+            next if $err =~ m/Failed to find node with node-name/; # already gone
             die "deleting blockdev '$node_name' failed : $err\n";
         }
 
@@ -680,7 +691,10 @@ sub detach {
         # Recursively remove 'file' child nodes. QEMU will auto-remove implicitly added child nodes,
         # but e.g. the child of the top throttle node might have been explicitly added as a mirror
         # target, and needs to be removed manually.
-        $node_name = $children->{file}->{'node-name'};
+        # 'backing' is only followed when requested, because there are callers that only want to
+        # detach a single node in a chain.
+        push @queue, $children->{file}->{'node-name'} if $children->{file};
+        push @queue, $children->{backing}->{'node-name'} if $follow_backing && $children->{backing};
     }
 
     if ($remove_throttle_group_id) {

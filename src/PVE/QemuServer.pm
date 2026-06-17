@@ -4122,7 +4122,11 @@ sub qemu_drivedel {
 
     # for the switch to -blockdev
     if (PVE::QemuServer::Machine::is_machine_version_at_least($machine_type, 10, 0)) {
-        PVE::QemuServer::Blockdev::detach(vm_qmp_peer($vmid), "drive-$deviceid");
+        PVE::QemuServer::Blockdev::detach(
+            vm_qmp_peer($vmid),
+            "drive-$deviceid",
+            { 'follow-backing' => 1 },
+        );
         return 1;
     } else {
         my $ret = PVE::QemuServer::Monitor::hmp_cmd($vmid, "drive_del drive-$deviceid", 10 * 60);

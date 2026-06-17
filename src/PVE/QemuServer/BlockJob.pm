@@ -34,7 +34,9 @@ sub qemu_handle_concluded_blockjob {
     $job->{'detach-node-name'} = $job->{'target-node-name'} if $qmp_info->{error} || $job->{cancel};
 
     if (my $node_name = $job->{'detach-node-name'}) {
-        eval { PVE::QemuServer::Blockdev::detach($qmp_peer, $node_name); };
+        eval {
+            PVE::QemuServer::Blockdev::detach($qmp_peer, $node_name, { 'follow-backing' => 1 });
+        };
         log_warn($@) if $@;
     }
 
