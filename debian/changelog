@@ -1,3 +1,25 @@
+qemu-server (9.1.17) trixie; urgency=medium
+
+  * cpu flags: include Hyper-V enlightenment flags in supported flags
+
+  * partially fix #7094: when removing an external snapshot while the VM is
+    running, ensure the snapshot-commit target is large enough, since it might
+    still be smaller if the volume was resized since the snapshot was created
+
+  * improve handling of local volumes during migration:
+    - abort early when size or format cannot be determined
+    - activate volumes earlier, for querying size of qcow2-on-LVM volumes
+
+  * fix #7480: api: apply tag case-sensitivity setting on VM creation, instead
+    of only doing it when updating tags of existing VMs
+
+  * remote migration: mtunnel: avoid warning from superfluous call for removing
+    dbus-vmstate, there is no support for it in this context
+
+  * block job: mirror: use correct 'KiB' unit for logging bandwidth limit
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 17 Jun 2026 10:20:19 +0200
+
 qemu-server (9.1.16) trixie; urgency=medium
 
   * api schema: vm resume: add description for the nocheck parameter.
