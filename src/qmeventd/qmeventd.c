@@ -26,6 +26,7 @@
 #include <fcntl.h>
 #include <gmodule.h>
 #include <json.h>
+#include <limits.h>
 #include <signal.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -593,11 +594,13 @@ int main(int argc, char *argv[]) {
         case 't':
             errno = 0;
             char *endptr = NULL;
-            kill_timeout = strtoul(optarg, &endptr, 10);
-            if (errno != 0 || *endptr != '\0' || kill_timeout == 0) {
+            unsigned long timeout_val = strtoul(optarg, &endptr, 10);
+            if (errno != 0 || *endptr != '\0' || timeout_val == 0 ||
+                timeout_val > (unsigned long)INT_MAX) {
                 usage();
                 exit(EXIT_FAILURE);
             }
+            kill_timeout = (int)timeout_val;
             break;
         case 'h':
             usage();
