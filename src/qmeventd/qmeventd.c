@@ -344,10 +344,21 @@ void add_new_client(int client_fd) {
     client->state = STATE_HANDSHAKE;
     client->type = CLIENT_NONE;
     client->fd = client_fd;
+    client->pidfd = -1;
     client->pid = get_pid_from_fd(client_fd);
     if (client->pid == 0) {
         fprintf(stderr, "could not get pid from client\n");
         goto err;
+    }
+
+    // open the pidfd while the process is still alive, so a later signal can
+    // never hit a recycled PID after it exits
+    client->pidfd = pidfd_open(client->pid, 0);
+    if (client->pidfd < 0) {
+        if (errno != ENOSYS && errno != ESRCH) {
+            perror("failed to open pidfd for client");
+        }
+        client->pidfd = -1;
     }
 
     struct epoll_event ev;
@@ -363,6 +374,9 @@ void add_new_client(int client_fd) {
 
     return;
 err:
+    if (client->pidfd > 0) {
+        (void)close(client->pidfd);
+    }
     (void)close(client_fd);
     free(client);
 }
@@ -429,25 +443,11 @@ void terminate_client(struct Client *client) {
 
     client->state = STATE_TERMINATING;
 
-    // open a pidfd before kill for later cleanup
-    int pidfd = pidfd_open(client->pid, 0);
-    if (pidfd < 0) {
-        switch (errno) {
-        case ESRCH:
-            // process already dead for some reason, cleanup done
-            VERBOSE_PRINT(
-                "%s: failed to open pidfd, process already dead (pid %d)\n", client->qemu.vmid,
-                client->pid
-            );
+    // bail out if the process already exited, so we never signal a recycled PID
+    if (client->pidfd > 0) {
+        if (pidfd_send_signal(client->pidfd, 0, NULL, 0) < 0 && errno == ESRCH) {
+            VERBOSE_PRINT("%s: process already dead (pid %d)\n", client->qemu.vmid, client->pid);
             return;
-
-        // otherwise fall back to just using the PID directly, but don't
-        // print if we only failed because we're running on an older kernel
-        case ENOSYS:
-            break;
-        default:
-            perror("failed to open QEMU pidfd for cleanup");
-            break;
         }
     }
 
@@ -456,13 +456,15 @@ void terminate_client(struct Client *client) {
     VERBOSE_PRINT("%s: sending 'quit' via QMP\n", client->qemu.vmid);
     if (!must_write(client->fd, qmp_quit_command, sizeof(qmp_quit_command) - 1)) {
         VERBOSE_PRINT("%s: sending 'SIGTERM' to pid %d\n", client->qemu.vmid, client->pid);
-        int err = kill(client->pid, SIGTERM);
-        log_neg(err, "kill");
+        if (client->pidfd > 0) {
+            log_neg(pidfd_send_signal(client->pidfd, SIGTERM, NULL, 0), "pidfd_send_signal");
+        } else {
+            log_neg(kill(client->pid, SIGTERM), "kill");
+        }
     }
 
     time_t timeout = time(NULL) + kill_timeout;
 
-    client->pidfd = pidfd;
     client->timeout = timeout;
 
     forced_cleanups = g_slist_prepend(forced_cleanups, (void *)client);
