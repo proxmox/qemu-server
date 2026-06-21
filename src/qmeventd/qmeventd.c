@@ -370,6 +370,7 @@ static void cleanup_qemu_client(struct Client *client) {
     unsigned short guest = client->qemu.guest;
     char vmid[sizeof(client->qemu.vmid)];
     strncpy(vmid, client->qemu.vmid, sizeof(vmid));
+    vmid[sizeof(vmid) - 1] = '\0';
     g_hash_table_remove(vm_clients, &vmid); // frees key, ignore errors
     VERBOSE_PRINT("%s: executing cleanup (graceful: %d, guest: %d)\n", vmid, graceful, guest);
 
