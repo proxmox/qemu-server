@@ -65,10 +65,13 @@ static void usage() {
     fprintf(stderr, "  PATH     use PATH for socket\n");
 }
 
-static pid_t get_pid_from_fd(int fd) {
+static pid_t get_pid_from_fd(int fd, uid_t *uid) {
     struct ucred credentials = {.pid = 0, .uid = 0, .gid = 0};
     socklen_t len = sizeof(struct ucred);
     log_neg(getsockopt(fd, SOL_SOCKET, SO_PEERCRED, &credentials, &len), "getsockopt");
+    if (uid) {
+        *uid = credentials.uid;
+    }
     return credentials.pid;
 }
 
@@ -345,9 +348,14 @@ void add_new_client(int client_fd) {
     client->type = CLIENT_NONE;
     client->fd = client_fd;
     client->pidfd = -1;
-    client->pid = get_pid_from_fd(client_fd);
+    uid_t uid = 0;
+    client->pid = get_pid_from_fd(client_fd, &uid);
     if (client->pid == 0) {
         fprintf(stderr, "could not get pid from client\n");
+        goto err;
+    }
+    if (uid != 0) {
+        fprintf(stderr, "rejecting non-root client (pid %d, uid %d)\n", client->pid, uid);
         goto err;
     }
 
