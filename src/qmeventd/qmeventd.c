@@ -34,6 +34,7 @@
 #include <string.h>
 #include <sys/epoll.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/un.h>
 #include <sys/wait.h>
@@ -631,6 +632,7 @@ int main(int argc, char *argv[]) {
 
     unlink(socket_path);
     bail_neg(bind(sock, (struct sockaddr *)&addr, sizeof(addr)), "bind");
+    bail_neg(chmod(socket_path, 0600), "chmod");
 
     struct epoll_event ev, events[1];
     epoll_fd = epoll_create1(EPOLL_CLOEXEC);
