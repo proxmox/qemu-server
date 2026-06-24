@@ -378,7 +378,7 @@ sub __snapshot_create_vol_snapshots_hook {
                 if (!$stat->{bytes}) {
                     last;
                 } else {
-                    print "savevm not yet finished\n";
+                    print "waiting for QEMU to finish the 'savevm-end' command...\n";
                     sleep(1);
                     next;
                 }
