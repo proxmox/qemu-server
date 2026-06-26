@@ -1419,6 +1419,13 @@ sub print_netdevice_full {
         $tmpstr .= ",romfile=$romfile" if $romfile;
     }
 
+    # FIXME: MAJOR VERSION: consider re-enabling by default if most guest kernels are expected to
+    # include the fix "virtio_net: do not allow tunnel csum offload for non GSO packets" with a
+    # prominent notice in the upgrade guide.
+    if (min_version($machine_version, 11, 0, 1) && $net->{model} eq 'virtio') {
+        $tmpstr .= ",host_tunnel=off";
+    }
+
     return $tmpstr;
 }
 

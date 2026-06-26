@@ -43,6 +43,12 @@ our $PVE_MACHINE_VERSION = {
             '+pve1' => 'Set host_mtu vNIC option even with default value for migration compat.',
         },
     },
+    '11.0' => {
+        highest => 1,
+        revisions => {
+            '+pve1' => 'Use host_tunnel=off by default for VirtIO NICs.',
+        },
+    },
 };
 
 my $machine_fmt = {
