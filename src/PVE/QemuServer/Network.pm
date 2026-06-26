@@ -116,6 +116,16 @@ my $net_fmt = {
             "Force MTU of network device (VirtIO only). Setting to '1' or empty will use the bridge MTU",
         optional => 1,
     },
+    'host-tunnel' => {
+        type => 'boolean',
+        description => 'Enable host GSO over UDP tunnel offload. (VirtIO only).',
+        verbose_description =>
+            'Enable host GSO over UDP tunnel offload (VirtIO only). Requires QEMU > 10.2 and guest'
+            . ' and host kernel support. Disabled by default starting with machine version'
+            . ' 11.0+pve1 to work around an issue with the virtio-net driver in guest kernels. With'
+            . ' machine versions 10.2 and 11.0, this is enabled by default.',
+        optional => 1,
+    },
 };
 
 our $netdesc = {

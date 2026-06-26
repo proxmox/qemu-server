@@ -1422,8 +1422,15 @@ sub print_netdevice_full {
     # FIXME: MAJOR VERSION: consider re-enabling by default if most guest kernels are expected to
     # include the fix "virtio_net: do not allow tunnel csum offload for non GSO packets" with a
     # prominent notice in the upgrade guide.
-    if (min_version($machine_version, 11, 0, 1) && $net->{model} eq 'virtio') {
-        $tmpstr .= ",host_tunnel=off";
+    if ($net->{model} eq 'virtio') {
+        if (min_version($machine_version, 11, 0, 1)) {
+            # Turn off if not explicitly enabled starting with 11.0+pve1
+            $tmpstr .= ",host_tunnel=off" if !$net->{'host-tunnel'};
+        } elsif (min_version($machine_version, 10, 2)) {
+            # The feature was introduced in QEMU 10.2. Turn off if explicitly disabled.
+            $tmpstr .= ",host_tunnel=off"
+                if defined($net->{'host-tunnel'}) && !$net->{'host-tunnel'};
+        }
     }
 
     return $tmpstr;
