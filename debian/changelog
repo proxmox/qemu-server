@@ -1,3 +1,28 @@
+qemu-server (9.1.18) trixie; urgency=medium
+
+  * fix #7627: network: virtio: disable the host UDP tunnel offload feature by
+    default for new VMs (machine version 11.0+pve1 and later), as it can break
+    connectivity for some guest network setups, in particular VXLAN traffic
+    that leaves the host over a physical NIC. The new per-NIC 'host-tunnel'
+    option allows re-enabling it explicitly.
+
+  * fix #7697: snapshot: correct the hook name checked after thawing the
+    guest, so the post-unfreeze hook runs again and the loop waiting for
+    savevm-end cleanup is no longer skipped.
+
+  * snapshot: improve the user-facing message shown while waiting for
+    savevm-end cleanup to finish.
+
+  * qmeventd: harden the control socket and client handling:
+    - reject non-root clients via an explicit SO_PEERCRED uid check
+    - set the socket to mode 0600 after bind, independent of the umask
+    - open the pidfd already at accept time, to avoid signaling an unrelated
+      process should the QEMU PID be reused before cleanup
+    - validate the -t kill-timeout argument to reject values that would wrap
+      to a negative timeout
+
+ -- Proxmox Support Team <support@proxmox.com>  Sat, 27 Jun 2026 18:20:12 +0200
+
 qemu-server (9.1.17) trixie; urgency=medium
 
   * cpu flags: include Hyper-V enlightenment flags in supported flags
