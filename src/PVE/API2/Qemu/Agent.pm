@@ -28,6 +28,18 @@ my $guest_agent_commands = {
         method => 'POST',
         perms => 'VM.GuestAgent.Audit',
     },
+    'get-load' => {
+        method => 'GET',
+        perms => 'VM.GuestAgent.Audit',
+    },
+    'get-cpustats' => {
+        method => 'GET',
+        perms => 'VM.GuestAgent.Audit',
+    },
+    'get-diskstats' => {
+        method => 'GET',
+        perms => 'VM.GuestAgent.Audit',
+    },
     'get-time' => {
         method => 'GET',
         perms => 'VM.GuestAgent.Audit',
@@ -72,6 +84,10 @@ my $guest_agent_commands = {
         perms => 'VM.GuestAgent.Audit',
     },
     'get-fsinfo' => {
+        method => 'GET',
+        perms => 'VM.GuestAgent.Audit',
+    },
+    'get-disks' => {
         method => 'GET',
         perms => 'VM.GuestAgent.Audit',
     },
