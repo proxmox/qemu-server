@@ -7937,6 +7937,67 @@ my sub clone_disk_check_io_uring {
         if $src_uses_io_uring && !storage_allows_io_uring_default($dst_scfg, $cache_direct);
 }
 
+my sub clone_disk_copy_data {
+    my ($storecfg, $source, $dest, $use_drive_mirror, $jobs, $completion, $qga, $bwlimit) = @_;
+
+    my ($vmid, $drive, $size, $snapname) = $source->@{qw(vmid drive size snapname)};
+    my ($newvmid, $newvolid, $dst_drivename, $dst_format) =
+        $dest->@{qw(vmid volid drivename format)};
+
+    my $sparseinit = PVE::Storage::volume_has_feature($storecfg, 'sparseinit', $newvolid);
+    if ($use_drive_mirror) {
+        my $source_info = { vmid => $vmid, drive => $drive };
+        my $dest_info = { volid => $newvolid };
+        $dest_info->{'zero-initialized'} = 1 if $sparseinit;
+        $dest_info->{vmid} = $newvmid if defined($newvmid);
+        my $mirror_opts = {};
+        $mirror_opts->{'guest-agent'} = $qga;
+        $mirror_opts->{bwlimit} = $bwlimit if defined($bwlimit);
+        PVE::QemuServer::BlockJob::mirror(
+            $source_info,
+            $dest_info,
+            $jobs,
+            $completion,
+            $mirror_opts,
+        );
+    } else {
+        if ($dst_drivename eq 'efidisk0') {
+            # the relevant data on the efidisk may be smaller than the source
+            # e.g. on RBD/ZFS, so we use dd to copy only the amount
+            # that is given by the OVMF_VARS.fd
+            my $src_path = PVE::Storage::path($storecfg, $drive->{file}, $snapname);
+            my $dst_path = PVE::Storage::path($storecfg, $newvolid);
+
+            my $src_format = (PVE::Storage::parse_volname($storecfg, $drive->{file}))[6];
+
+            # better for Ceph if block size is not too small, see bug #3324
+            my $bs = 1024 * 1024;
+
+            my $cmd = ['qemu-img', 'dd', '-n', '-f', $src_format, '-O', $dst_format];
+
+            if ($src_format eq 'qcow2' && $snapname) {
+                die "cannot clone qcow2 EFI disk snapshot - requires QEMU >= 6.2\n"
+                    if !min_version(kvm_user_version(), 6, 2);
+
+                my $method = PVE::Storage::volume_qemu_snapshot_method($storecfg, $drive->{file});
+                # in case of snapshot-as-volume-chain, $src_path points to the snapshot volume
+                push $cmd->@*, '-l', $snapname if $method eq 'qemu';
+            }
+            push $cmd->@*, "bs=$bs", "osize=$size", "if=$src_path", "of=$dst_path";
+            run_command($cmd);
+        } else {
+            my $opts = {
+                bwlimit => $bwlimit,
+                'is-zero-initialized' => $sparseinit,
+                snapname => $snapname,
+            };
+            PVE::QemuServer::QemuImage::convert($drive->{file}, $newvolid, $size, $opts);
+        }
+    }
+
+    return;
+}
+
 sub clone_disk {
     my ($storecfg, $source, $dest, $full, $newvollist, $jobs, $completion, $qga, $bwlimit) = @_;
 
@@ -7981,6 +8042,7 @@ sub clone_disk {
             warn "format '$format' is not supported by the target storage '$storeid' - using"
                 . " '$dst_format' instead\n";
         }
+        $dest->{format} = $dst_format;
 
         my $name = undef;
         my $size = undef;
@@ -8003,6 +8065,7 @@ sub clone_disk {
 
             $size = PVE::Storage::volume_size_info($storecfg, $drive->{file}, 10);
         }
+        $source->{size} = $size;
         $newvolid = PVE::Storage::vdisk_alloc(
             $storecfg,
             $storeid,
@@ -8012,6 +8075,7 @@ sub clone_disk {
             ($size / 1024),
         );
         push @$newvollist, $newvolid;
+        $dest->{volid} = $newvolid;
 
         print("allocated target volume '$newvolid'\n");
 
@@ -8026,63 +8090,14 @@ sub clone_disk {
                     vm_qmp_peer($vmid), $newvmid, $jobs, $completion, $qga,
                 );
             }
-            goto no_data_clone;
-        }
-
-        my $sparseinit = PVE::Storage::volume_has_feature($storecfg, 'sparseinit', $newvolid);
-        if ($use_drive_mirror) {
-            my $source_info = { vmid => $vmid, drive => $drive };
-            my $dest_info = { volid => $newvolid };
-            $dest_info->{'zero-initialized'} = 1 if $sparseinit;
-            $dest_info->{vmid} = $newvmid if defined($newvmid);
-            my $mirror_opts = {};
-            $mirror_opts->{'guest-agent'} = $qga;
-            $mirror_opts->{bwlimit} = $bwlimit if defined($bwlimit);
-            PVE::QemuServer::BlockJob::mirror(
-                $source_info,
-                $dest_info,
-                $jobs,
-                $completion,
-                $mirror_opts,
-            );
+            # No data needs to be copied for the cloudinit drive.
         } else {
-            if ($dst_drivename eq 'efidisk0') {
-                # the relevant data on the efidisk may be smaller than the source
-                # e.g. on RBD/ZFS, so we use dd to copy only the amount
-                # that is given by the OVMF_VARS.fd
-                my $src_path = PVE::Storage::path($storecfg, $drive->{file}, $snapname);
-                my $dst_path = PVE::Storage::path($storecfg, $newvolid);
-
-                my $src_format = (PVE::Storage::parse_volname($storecfg, $drive->{file}))[6];
-
-                # better for Ceph if block size is not too small, see bug #3324
-                my $bs = 1024 * 1024;
-
-                my $cmd = ['qemu-img', 'dd', '-n', '-f', $src_format, '-O', $dst_format];
-
-                if ($src_format eq 'qcow2' && $snapname) {
-                    die "cannot clone qcow2 EFI disk snapshot - requires QEMU >= 6.2\n"
-                        if !min_version(kvm_user_version(), 6, 2);
-
-                    my $method =
-                        PVE::Storage::volume_qemu_snapshot_method($storecfg, $drive->{file});
-                    # in case of snapshot-as-volume-chain, $src_path points to the snapshot volume
-                    push $cmd->@*, '-l', $snapname if $method eq 'qemu';
-                }
-                push $cmd->@*, "bs=$bs", "osize=$size", "if=$src_path", "of=$dst_path";
-                run_command($cmd);
-            } else {
-                my $opts = {
-                    bwlimit => $bwlimit,
-                    'is-zero-initialized' => $sparseinit,
-                    snapname => $snapname,
-                };
-                PVE::QemuServer::QemuImage::convert($drive->{file}, $newvolid, $size, $opts);
-            }
+            clone_disk_copy_data(
+                $storecfg, $source, $dest, $use_drive_mirror, $jobs, $completion, $qga, $bwlimit,
+            );
         }
     }
 
-    no_data_clone:
     my $size = eval { PVE::Storage::volume_size_info($storecfg, $newvolid, 10) };
 
     my $disk = dclone($drive);
