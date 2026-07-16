@@ -1483,13 +1483,23 @@ my $vga_map = {
     'virtio-gl' => 'virtio-vga-gl',
 };
 
+# QEMU builds only the non-VGA variants of the virtio GPU for aarch64
+my $vga_map_aarch64 = {
+    $vga_map->%*,
+    'virtio' => 'virtio-gpu',
+    'virtio-gl' => 'virtio-gpu-gl',
+};
+
+my sub map_vga_model {
+    my ($vga_type, $arch) = @_;
+
+    return $arch eq 'aarch64' ? $vga_map_aarch64->{$vga_type} : $vga_map->{$vga_type};
+}
+
 sub print_vga_device {
     my ($conf, $vga, $arch, $machine_version, $id, $qxlnum, $bridges) = @_;
 
-    my $type = $vga_map->{ $vga->{type} };
-    if ($arch eq 'aarch64' && defined($type) && $type eq 'virtio-vga') {
-        $type = 'virtio-gpu';
-    }
+    my $type = map_vga_model($vga->{type}, $arch);
     my $vgamem_mb = $vga->{memory};
 
     my $max_outputs = '';
