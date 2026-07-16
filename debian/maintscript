@@ -1,0 +1,1 @@
+rm_conffile /etc/modules-load.d/qemu-server.conf 9.2.1~ qemu-server

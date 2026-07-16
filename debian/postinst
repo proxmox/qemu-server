@@ -1,0 +1,18 @@
+#!/bin/sh
+
+set -e
+
+#DEBHELPER#
+
+case "$1" in
+    configure)
+
+    if test -n "$2" && dpkg --compare-versions "$2" 'lt' '9.2.1'; then
+        if test -f  /etc/modules-load.d/qemu-server.conf.dpkg-bak; then
+            printf "Moving qemu-server.conf.dpkg-bak back to qemu-server.conf\n"
+            mv /etc/modules-load.d/qemu-server.conf.dpkg-bak /etc/modules-load.d/qemu-server.conf
+        fi
+    fi
+esac
+
+exit 0
