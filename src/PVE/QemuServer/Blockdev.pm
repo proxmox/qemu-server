@@ -72,9 +72,9 @@ sub qdev_id_to_drive_id {
 
     if ($qdev_id =~ m|^/machine/peripheral/(virtio(\d+))/virtio-backend$|) {
         return $1;
-    } elsif ($qdev_id =~ m|^/machine/system\.flash0$|) {
+    } elsif ($qdev_id =~ m{^/machine/(?:system|virt)\.flash0$}) {
         return 'pflash0';
-    } elsif ($qdev_id =~ m|^/machine/system\.flash1$|) {
+    } elsif ($qdev_id =~ m{^/machine/(?:system|virt)\.flash1$}) {
         return 'efidisk0';
     }
 
