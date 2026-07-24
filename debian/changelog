@@ -1,3 +1,12 @@
+qemu-server (9.2.1) trixie; urgency=medium
+
+  * fix #7828: register unused drive: fix failure to handle non-PVE managed
+    volumes, such as pass-through host block devices
+
+  * ensure modules.load snippet in /etc is correctly cleaned up on upgrades
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 24 Jul 2026 11:12:14 +0200
+
 qemu-server (9.2.0) trixie; urgency=medium
 
   * fix #6424: qmp: increase the timeout for the 'quit' command to 60 seconds,
