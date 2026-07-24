@@ -1576,7 +1576,8 @@ sub vmconfig_register_unused_drive {
         delete $conf->{'special-sections'}->{cloudinit};
     } elsif (!drive_is_cdrom($drive)) {
         my $volid = $drive->{file};
-        my ($storeid, undef) = PVE::Storage::parse_volume_id($volid);
+        my ($storeid, undef) = PVE::Storage::parse_volume_id($volid, 1);
+        return if !$storeid; # Not a PVE-managed volume, don't register as unused.
         if (PVE::Storage::storage_config($storecfg, $storeid, 1)) {
             if (vm_is_volid_owner($storecfg, $vmid, $volid)) {
                 PVE::QemuConfig->add_unused_volume($conf, $volid, $vmid);
