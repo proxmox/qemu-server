@@ -11,6 +11,7 @@ use PVE::Cluster;
 use PVE::INotify;
 use PVE::ProcFSTools;
 use PVE::Tools;
+use PVE::Tools qw(version_cmp);
 
 use base 'Exporter';
 our @EXPORT_OK = qw(
@@ -248,37 +249,12 @@ sub min_version {
     my ($verstr, $major, $minor, $pve) = @_;
 
     if (my ($got_major, $got_minor, $got_patch, $got_pve) = version_parts($verstr)) {
-        return 1 if version_cmp($got_major, $major, $got_minor, $minor, $got_pve, $pve) >= 0;
+        return 1
+            if PVE::Tools::version_cmp($got_major, $major, $got_minor, $minor, $got_pve, $pve) >= 0;
         return 0;
     }
 
     die "internal error: cannot check version of invalid string '$verstr'";
-}
-
-# gets in pairs the versions you want to compares, i.e.:
-# ($a-major, $b-major, $a-minor, $b-minor, $a-extra, $b-extra, ...)
-# returns 0 if same, -1 if $a is older than $b, +1 if $a is newer than $b
-sub version_cmp {
-    my @versions = @_;
-
-    my $size = scalar(@versions);
-
-    return 0 if $size == 0;
-
-    if ($size & 1) {
-        my (undef, $fn, $line) = caller(0);
-        die "cannot compare odd count of versions, called from $fn:$line\n";
-    }
-
-    for (my $i = 0; $i < $size; $i += 2) {
-        my ($left, $right) = splice(@versions, 0, 2);
-        $left //= 0;
-        $right //= 0;
-
-        return 1 if $left > $right;
-        return -1 if $left < $right;
-    }
-    return 0;
 }
 
 sub config_aware_timeout {
@@ -325,19 +301,6 @@ sub get_node_pvecfg_version {
 
     my $version_info = decode_json($nodes_version_info->{$node});
     return $version_info->{version};
-}
-
-sub pvecfg_min_version {
-    my ($verstr, $major, $minor, $release) = @_;
-
-    return 0 if !$verstr;
-
-    if ($verstr =~ m/^(\d+)\.(\d+)(?:[.-](\d+))?/) {
-        return 1 if version_cmp($1, $major, $2, $minor, $3 // 0, $release) >= 0;
-        return 0;
-    }
-
-    die "internal error: cannot check version of invalid string '$verstr'";
 }
 
 sub parse_number_sets {

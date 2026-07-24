@@ -23,6 +23,7 @@ use PVE::Storage::Plugin;
 use PVE::Storage;
 use PVE::StorageTunnel;
 use PVE::Tools;
+use PVE::Tools qw(pvecfg_min_version);
 use PVE::Tunnel;
 
 use PVE::QemuConfig;
@@ -1402,7 +1403,7 @@ sub phase2 {
         # Check if target is new enough for having the port encoded in the proxy ticket.
         if (
             $target_version
-            && PVE::QemuServer::Helpers::pvecfg_min_version($target_version, 9, 1, 9)
+            && PVE::Tools::pvecfg_min_version($target_version, 9, 1, 9)
         ) {
             $ticket_port = $spice_port;
         }
