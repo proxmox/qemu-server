@@ -49,6 +49,9 @@ my $OVMF = {
         ],
     },
     aarch64 => {
+        ms => [
+            "$EDK2_FW_BASE/AAVMF_CODE.secboot.fd", "$EDK2_FW_BASE/AAVMF_VARS.ms.fd",
+        ],
         default => [
             "$EDK2_FW_BASE/AAVMF_CODE.fd", "$EDK2_FW_BASE/AAVMF_VARS.fd",
         ],
@@ -82,6 +85,20 @@ my sub get_ovmf_files($$$$) {
             $type .= '-ms' if $efidisk->{'pre-enrolled-keys'};
         } else {
             # TODO: log_warn about use of legacy images for x86_64 with Promxox VE 9
+        }
+    } elsif ($arch eq 'aarch64') {
+        if ($efidisk->{'pre-enrolled-keys'}) {
+            # FIXME: MAJOR VERSION: drop this check and expect that the secure-boot-enabled CODE
+            # image is present. pve-edk2-firmware-aarch64 <= 4.2025.05-2 didn't ship it.
+            if (file_exists("$EDK2_FW_BASE/AAVMF_CODE.secboot.fd")) {
+                $type = 'ms';
+            } else {
+                log_warn("requested EFI image with pre-enrolled-keys, but ignoring because"
+                    . " $EDK2_FW_BASE/AAVMF_CODE.secboot.fd' file is missing - check that"
+                    . " pve-edk2-firmware-aarch64 is correctly installed with version > 4.2025.05-2"
+                );
+                delete($efidisk->{'pre-enrolled-keys'});
+            }
         }
     }
 
