@@ -204,6 +204,7 @@ int main() {
         eprintf("Error writing to file '" OUTPUT_PATH "': %s\n", strerror(errno));
     }
 
+#ifdef __x86_64__
     if (strncmp(vendor, "AuthenticAMD", 12) == 0) {
         cpu_caps_amd_sev_t caps_sev;
         query_cpu_capabilities_sev(&caps_sev);
@@ -233,27 +234,28 @@ int main() {
             );
         }
     }
-#ifdef __aarch64__
-    else {
-        cpu_caps_arm_t caps_arm;
-        query_cpu_capabilities_arm(&caps_arm);
-
-        ret = fprintf(file,
-            " \"arm-caps\": {"
-            " \"vendor\": \"%s\","
-            " \"aes\": %s,"
-            " \"sha2\": %s"
-            " }",
-            vendor,
-            caps_arm.aes ? "true" : "false",
-            caps_arm.sha2 ? "true" : "false"
-        );
-    }
-#endif
 
     if (ret < 0) {
         eprintf("Error writing to file '" OUTPUT_PATH "': %s\n", strerror(errno));
     }
+#elif defined(__aarch64__)
+    cpu_caps_arm_t caps_arm;
+    query_cpu_capabilities_arm(&caps_arm);
+
+    ret = fprintf(file,
+        " \"arm-caps\": {"
+        " \"vendor\": \"%s\","
+        " \"aes\": %s,"
+        " \"sha2\": %s"
+        " }",
+        vendor,
+        caps_arm.aes ? "true" : "false",
+        caps_arm.sha2 ? "true" : "false"
+    );
+    if (ret < 0) {
+        eprintf("Error writing to file '" OUTPUT_PATH "': %s\n", strerror(errno));
+    }
+#endif
 
     ret = fprintf(file, " }\n");
     if (ret < 0) {
