@@ -3409,16 +3409,7 @@ __PACKAGE__->register_method({
                 default => 'max(30, vm memory in GiB)',
                 optional => 1,
             },
-            'nets-host-mtu' => {
-                type => 'string',
-                pattern => 'net\d+=\d+(,net\d+=\d+)*',
-                optional => 1,
-                description =>
-                    'Used for migration compat. List of VirtIO network devices and their effective'
-                    . ' host_mtu setting according to the QEMU object model on the source side of'
-                    . ' the migration. A value of 0 means that the host_mtu parameter is to be'
-                    . ' avoided for the corresponding device.',
-            },
+            'nets-host-mtu' => get_standard_option('pve-qm-nets-host-mtu'),
         },
     },
     returns => {
