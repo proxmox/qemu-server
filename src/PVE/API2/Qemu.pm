@@ -6758,10 +6758,59 @@ __PACKAGE__->register_method({
                     start_params => {
                         type => 'object',
                         description => 'params passed to vm_start_nolock',
+                        properties => {
+                            statefile => {
+                                type => 'string',
+                                enum => ['unix'],
+                            },
+                            forcemachine => get_standard_option('pve-qemu-machine'),
+                            forcecpu => {
+                                type => 'string',
+                                optional => 1,
+                            },
+                            skiplock => get_standard_option('skiplock'), # could stop setting it with a capability check
+                            'nets-host-mtu' => get_standard_option('pve-qm-nets-host-mtu'),
+                        },
                     },
                     migrate_opts => {
                         type => 'object',
                         description => 'migrate_opts passed to vm_start_nolock',
+                        properties => {
+                            migratedfrom => get_standard_option('pve-node'), # could stop setting it with a capability check
+                            spice_ticket => {
+                                type => "string",
+                                # currently SHA1 hex encoded
+                                pattern => '[a-fA-F0-9]+',
+                                optional => 1,
+                            },
+                            type => {
+                                type => 'string',
+                                enum => ['websocket'],
+                            },
+                            remote_node => get_standard_option('pve-node'),
+                            network => {
+                                type => 'string',
+                                format => 'CIDR',
+                                description =>
+                                    "CIDR of the (sub) network that is used for migration.",
+                                optional => 1,
+                            },
+                            storagemap => {
+                                type => 'object',
+                                optional => 1, # not used at all..
+                                # parsed `pve-targetstorage`..
+                            },
+                            nbd_proto_version => {
+                                type => 'integer',
+                                minimum => 1,
+                                optional => 1, # could stop setting it with a capability check
+                            },
+                            nbd => {
+                                # validated in handler against `disk` state
+                                type => 'object',
+                                optional => 1, # could stop setting it with a capability check
+                            },
+                        },
                     },
                 },
                 ticket => {
@@ -6932,6 +6981,13 @@ __PACKAGE__->register_method({
                 },
                 'start' => sub {
                     my ($params) = @_;
+
+                    # always required, we could stop setting it after a capability check
+                    $params->{start_params}->{skiplock} = 1;
+
+                    # not used, but in schema for compat reasons, could stop setting it..
+                    delete $params->{migrate_opts}->{storagemap};
+                    delete $params->{migrate_opts}->{network};
 
                     my $info = PVE::QemuServer::vm_start_nolock(
                         $state->{storecfg},
