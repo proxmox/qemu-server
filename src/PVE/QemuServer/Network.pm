@@ -136,6 +136,19 @@ our $netdesc = {
 };
 
 PVE::JSONSchema::register_standard_option("pve-qm-net", $netdesc);
+PVE::JSONSchema::register_standard_option(
+    "pve-qm-nets-host-mtu",
+    {
+        type => 'string',
+        pattern => 'net\d+=\d+(,net\d+=\d+)*',
+        optional => 1,
+        description =>
+            'Used for migration compat. List of VirtIO network devices and their effective'
+            . ' host_mtu setting according to the QEMU object model on the source side of'
+            . ' the migration. A value of 0 means that the host_mtu parameter is to be'
+            . ' avoided for the corresponding device.',
+    },
+);
 
 my $ipconfig_fmt = {
     ip => {
