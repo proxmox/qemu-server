@@ -6957,7 +6957,9 @@ __PACKAGE__->register_method({
                         $state->{storecfg}, $state->{vmid}, $source_volumes, $storagemap,
                     );
                     if (defined($res->{disk})) {
-                        $state->{cleanup}->{volumes}->{ $res->{disk}->{volid} } = 1;
+                        my $volid = $res->{disk}->{volid};
+                        $state->{cleanup}->{volumes}->{$volid} = 1;
+                        $state->{nbd}->{$volid} = $res->{disk};
                         return $res->{disk};
                     } else {
                         die "failed to allocate NBD disk..\n";
@@ -6981,6 +6983,32 @@ __PACKAGE__->register_method({
                 },
                 'start' => sub {
                     my ($params) = @_;
+
+                    if (my $nbd = $params->{migrate_opts}->{nbd}) {
+                        for my $ds (keys $nbd->%*) {
+                            my $drive = $nbd->{$ds};
+                            # not removed by client side, added by tunnel command handling
+                            delete $drive->{success};
+
+                            my $volid = $drive->{volid}
+                                or die "No volid set for NBD volume '$ds'\n";
+
+                            my $drivestr = $drive->{drivestr}
+                                or die "No drivestr set for NBD volume '$ds:$volid'\n";
+
+                            for my $key (keys $drive->%*) {
+                                # checked against $state->{nbd} below
+                                next if $key eq 'volid' || $key eq 'drivestr';
+                                die "Unknown NBD volume key for '$ds:$volid': '$key'\n";
+                            }
+
+                            my $expected = $state->{nbd}->{$volid}->{drivestr}
+                                or die "Unknown NBD volume '$ds:$volid'\n";
+
+                            die "NBD mismatch for '$ds': '$drivestr' vs' $expected\n"
+                                if $drivestr ne $expected;
+                        }
+                    }
 
                     # always required, we could stop setting it after a capability check
                     $params->{start_params}->{skiplock} = 1;
