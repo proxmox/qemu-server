@@ -6939,6 +6939,11 @@ __PACKAGE__->register_method({
                     my $storeid = $params->{storage};
                     my $drive = $params->{drive};
 
+                    # we do not set `use_existing` below, but better make sure
+                    delete $drive->{file};
+                    delete $drive->{volume};
+                    delete $drive->{format};
+
                     $check_storage_access_migrate->(
                         $rpcenv, $authuser, $state->{storecfg}, $storeid, $node,
                     );
