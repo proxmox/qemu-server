@@ -251,6 +251,27 @@ my $check_storage_access = sub {
         },
     );
 
+    for my $opt (sort keys $settings->%*) {
+        next if $opt !~ /^unused\d+$/;
+
+        my $drive = PVE::QemuServer::Drive::parse_drive($opt, $settings->{$opt})
+            or raise_param_exc({
+                $opt => "failed to parse value '$settings->{$opt}'",
+            });
+
+        my $volid = $drive->{file}
+            or raise_param_exc({
+                $opt => "value does not have a volid set",
+            });
+
+        my ($storeid, $volname) = PVE::Storage::parse_volume_id($volid, 1);
+        raise_param_exc({ $opt => "not a valid volid: $volid" }) if !$storeid;
+
+        PVE::Storage::check_volume_access(
+            $rpcenv, $authuser, $storecfg, $vmid, $volid, 'images',
+        );
+    }
+
     $rpcenv->check(
         $authuser,
         "/storage/$settings->{vmstatestorage}",
