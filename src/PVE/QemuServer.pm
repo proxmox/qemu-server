@@ -5325,6 +5325,10 @@ my $log_filter_catch_outdated_zen5_firmware = sub {
     }
 };
 
+# Statefile starts can take a long time, depending on the state size and I/O throughput,
+# so only use a very high safeguard.
+my $STATEFILE_START_FORK_TIMEOUT = 24 * 60 * 60;
+
 # see vm_start_nolock for parameters, additionally:
 # migrate_opts:
 #   storagemap = parsed storage map for allocating NBD disks
@@ -5627,43 +5631,100 @@ sub vm_start_nolock {
     }
     $systemd_properties{timeout} = 10 if $statefile; # setting up the scope should be quick
 
-    my $cleanup_qsd = sub {
+    my $cleanup_failed_start = sub {
+        my ($tpmpid, $tpmpstart) = @_;
+
+        if ($tpmpid && PVE::ProcFSTools::check_process_running($tpmpid, $tpmpstart)) {
+            warn "stopping swtpm instance (pid $tpmpid) due to QEMU startup error\n";
+            kill 'TERM', $tpmpid;
+        }
+
         if (PVE::QemuServer::Helpers::qsd_running_locally($vmid)) {
             eval { PVE::QemuServer::QSD::quit($vmid); };
             warn "stopping QEMU storage daemon failed - $@" if $@;
         }
+
+        eval {
+            run_command(
+                [
+                    '/bin/systemctl', 'kill',
+                    '--kill-whom=all',
+                    '--signal=KILL',
+                    "$vmid.scope",
+                ],
+                %silence_std_outs,
+                noerr => 1,
+                timeout => 10,
+            );
+            PVE::Systemd::wait_for_unit_removed("$vmid.scope", 20);
+        };
+        warn "failed to clean up VM start scope - $@" if $@;
     };
 
     my $run_qemu = sub {
-        PVE::Tools::run_fork sub {
+        pipe(my $tpm_reader, my $tpm_writer)
+            or die "failed to create swtpm process info pipe: $!\n";
+        my $flags = fcntl($tpm_writer, F_GETFD, 0)
+            // die "failed to get swtpm process info pipe flags: $!\n";
+        fcntl($tpm_writer, F_SETFD, $flags | FD_CLOEXEC)
+            // die "failed to set CLOEXEC on swtpm process info pipe: $!\n";
+
+        my $run_qemu_child = sub {
+            close($tpm_reader);
+
             PVE::Systemd::enter_systemd_scope($vmid, "Proxmox VE VM $vmid",
                 %systemd_properties);
 
             my $virtiofs_sockets = start_all_virtiofsd($conf, $vmid);
 
-            my $tpmpid;
             if ((my $tpm = $conf->{tpmstate0}) && !PVE::QemuConfig->is_template($conf)) {
-                # start the TPM emulator so QEMU can connect on start
-                eval { $tpmpid = start_swtpm($storecfg, $vmid, $tpm, $migratedfrom); };
-                if (my $err = $@) {
-                    $cleanup_qsd->();
-                    die $err;
-                }
+                my $tpmpid = start_swtpm($storecfg, $vmid, $tpm, $migratedfrom);
+                my $tpmpstart = PVE::ProcFSTools::read_proc_starttime($tpmpid)
+                    or die "failed to read swtpm process start time\n";
+                my $msg = "$tpmpid $tpmpstart\n";
+                syswrite($tpm_writer, $msg) == length($msg)
+                    or die "failed to send swtpm process info to parent: $!\n";
             }
+            close($tpm_writer);
 
             my $exitcode = run_command($cmd, %run_params);
             eval { PVE::QemuServer::Virtiofs::close_sockets(@$virtiofs_sockets); };
             log_warn("closing virtiofs sockets failed - $@") if $@;
-            if ($exitcode) {
-                if ($tpmpid) {
-                    warn "stopping swtpm instance (pid $tpmpid) due to QEMU startup error\n";
-                    kill 'TERM', $tpmpid;
-                }
-                $cleanup_qsd->();
-
-                die "QEMU exited with code $exitcode\n";
-            }
+            die "QEMU exited with code $exitcode\n" if $exitcode;
         };
+
+        my ($tpmpid, $tpmpstart);
+        my $afterfork = sub {
+            close($tpm_writer);
+            if (defined(my $msg = <$tpm_reader>)) {
+                die "received invalid swtpm process info from startup child\n"
+                    if $msg !~ m/^(\d+) (\d+)\n$/;
+                ($tpmpid, $tpmpstart) = ($1, $2);
+            }
+            close($tpm_reader);
+        };
+
+        # Allow the same amount of time once more for entering the scope and starting helpers.
+        my $fork_timeout = $statefile
+            ? ($params->{timeout} // $STATEFILE_START_FORK_TIMEOUT)
+            : 2 * $start_timeout;
+        $fork_timeout = undef if !$fork_timeout;
+
+        my $timed_out;
+        eval {
+            (undef, $timed_out) = PVE::Tools::run_fork_with_timeout(
+                $fork_timeout,
+                $run_qemu_child,
+                { afterfork => $afterfork },
+            );
+        };
+        my $err = $@;
+        $err = "QEMU start timed out after $fork_timeout seconds\n" if $timed_out;
+
+        if ($err) {
+            $cleanup_failed_start->($tpmpid, $tpmpstart);
+            die $err;
+        }
     };
 
     if ($conf->{hugepages}) {
