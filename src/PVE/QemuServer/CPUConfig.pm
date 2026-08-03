@@ -1152,7 +1152,11 @@ sub get_cpu_from_running_vm($pid) {
 sub get_default_cpu_type($arch, $kvm) {
 
     my $cputype = $kvm ? 'kvm64' : 'qemu64';
-    $cputype = 'cortex-a57' if $arch eq 'aarch64';
+    if ($arch eq 'aarch64') {
+        # KVM on aarch64 only accepts 'host'/'max' (plus the legacy cortex-a53/-a57 targets); use
+        # 'host' to pass the real host CPU through. Without KVM, the emulated 'max' works instead.
+        $cputype = $kvm ? 'host' : 'max';
+    }
 
     return $cputype;
 }
