@@ -16,7 +16,7 @@
   -nodefaults \
   -boot 'menu=on,strict=on,reboot-timeout=1000,splash=/usr/share/qemu-server/bootsplash.jpg' \
   -vnc 'unix:/var/run/qemu-server/8006.vnc,password=on' \
-  -cpu cortex-a57 \
+  -cpu host \
   -m 768 \
   -object '{"id":"throttle-drive-scsi0","limits":{},"qom-type":"throttle-group"}' \
   -device 'pci-bridge,id=pci.1,chassis_nr=1,bus=pcie.0,addr=0x1e' \
