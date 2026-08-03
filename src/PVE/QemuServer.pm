@@ -8069,7 +8069,7 @@ sub clone_disk {
         }
     }
 
-no_data_clone:
+    no_data_clone:
     my $size = eval { PVE::Storage::volume_size_info($storecfg, $newvolid, 10) };
 
     my $disk = dclone($drive);
