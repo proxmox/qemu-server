@@ -1,3 +1,9 @@
+qemu-server (9.2.3) trixie; urgency=medium
+
+  * cpu: default aarch64 guests to a KVM-usable CPU model
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 04 Aug 2026 01:27:26 +0200
+
 qemu-server (9.2.2) trixie; urgency=medium
 
   * improve support for VMs running on the aarch64 (ARM) architecture:
