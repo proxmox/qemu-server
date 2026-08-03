@@ -1,3 +1,34 @@
+qemu-server (9.2.2) trixie; urgency=medium
+
+  * api: also check that the calling user or token may access the volume
+    referenced by an 'unusedX' entry when creating or updating a VM, as such
+    entries were not covered by the storage access check so far.
+
+  * remote migration: harden the target side of the migration tunnel, so that
+    it validates what the source side sends instead of trusting it:
+    - restrict the parameters accepted by the tunnel's 'start' command through
+      an explicit schema, both for the VM start and the migration options
+    - accept only NBD volumes that were allocated over the same tunnel before
+      and whose drive string still matches the one recorded at allocation time
+    - drop the file, volume and format properties when allocating an NBD disk,
+      as that code path does not use them
+
+  * improve support for VMs running on the aarch64 (ARM) architecture:
+    - honor the 'pre-enrolled-keys' setting of the EFI disk, which requires a
+      pve-edk2-firmware-aarch64 newer than 4.2025.05-2 for the secure-boot
+      enabled firmware image. Older versions keep the previous behavior and now
+      log a warning pointing at the outdated firmware package.
+    - recognize the EFI firmware pflash devices of QEMU's 'virt' machine, so
+      that cloning a running VM with an EFI disk no longer fails
+    - use the 'virtio-gpu-gl' display device, as QEMU provides only the non-VGA
+      variant here. VMs configured with 'vga: virtio-gl' previously failed to
+      start.
+    - look up libGL and libEGL in the architecture-specific library directory,
+      so that the VirGL prerequisite check no longer reports them as missing
+      even though they are installed
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 03 Aug 2026 23:18:11 +0200
+
 qemu-server (9.2.1) trixie; urgency=medium
 
   * fix #7828: register unused drive: fix failure to handle non-PVE managed
