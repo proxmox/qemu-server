@@ -1,3 +1,9 @@
+qemu-server (9.2.4) trixie; urgency=medium
+
+  * api: remote migrate tunnel: reject unknown parameters.
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 04 Aug 2026 13:38:58 +0200
+
 qemu-server (9.2.3) trixie; urgency=medium
 
   * cpu: default aarch64 guests to a KVM-usable CPU model
