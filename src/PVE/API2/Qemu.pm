@@ -6771,6 +6771,7 @@ __PACKAGE__->register_method({
                             skiplock => get_standard_option('skiplock'), # could stop setting it with a capability check
                             'nets-host-mtu' => get_standard_option('pve-qm-nets-host-mtu'),
                         },
+                        additionalProperties => 0,
                     },
                     migrate_opts => {
                         type => 'object',
@@ -6811,6 +6812,7 @@ __PACKAGE__->register_method({
                                 optional => 1, # could stop setting it with a capability check
                             },
                         },
+                        additionalProperties => 0,
                     },
                 },
                 ticket => {
@@ -7190,6 +7192,7 @@ __PACKAGE__->register_method({
                             my $schema = {
                                 type => 'object',
                                 properties => $props,
+                                additionalProperties => 0,
                             };
                             PVE::JSONSchema::validate($parsed, $schema);
                         } else {
