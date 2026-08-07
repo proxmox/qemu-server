@@ -495,6 +495,9 @@ my sub create_disks : prototype($$$$$$$$$$$) {
             if ($scfg->{path}) {
                 $fmt = $disk->{format} // "qcow2";
                 $name .= ".$fmt";
+            } elsif ($scfg->{'snapshot-as-volume-chain'}) {
+                $fmt = $disk->{format} // "qcow2";
+                $name .= ".$fmt" if $fmt eq 'qcow2';
             } else {
                 $fmt = $disk->{format} // "raw";
             }
