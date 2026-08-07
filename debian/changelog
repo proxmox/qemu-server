@@ -1,3 +1,18 @@
+qemu-server (9.2.5) trixie; urgency=medium
+
+  * api: create disks: use correct volume name for a cloudinit disk on a
+    snapshot-as-volume-chain storage
+
+  * Improve cross-architecture support for query-machine-capabilities helper.
+
+  * fix #7705: blockdev: detach backing chain on disk move/hot-unplug. When
+    using snapshot-as-volume-chain, and doing snapshot, followed by disk move
+    or hot-unplug, followed by removing the snapshot, all while the VM is
+    running, there would be an error removing the unused disk, as it was still
+    attached to the VM.
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 07 Aug 2026 14:07:57 +0200
+
 qemu-server (9.2.4) trixie; urgency=medium
 
   * api: remote migrate tunnel: reject unknown parameters.
