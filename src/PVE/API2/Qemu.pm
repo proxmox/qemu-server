@@ -6381,6 +6381,8 @@ __PACKAGE__->register_method({
 
         die "snapshot '$snapname' does not exist\n" if !defined($snap);
 
+        $snap->{cipassword} = '**********' if defined($snap->{cipassword});
+
         return $snap;
     },
 });
