@@ -277,6 +277,15 @@ my $check_storage_access = sub {
         "/storage/$settings->{vmstatestorage}",
         ['Datastore.AllocateSpace'],
     ) if defined($settings->{vmstatestorage});
+
+    if (my $cicustom = $settings->{cicustom}) {
+        my $ci_volids = PVE::QemuServer::Cloudinit::get_custom_cloudinit_volids($cicustom);
+        for my $volid (sort values $ci_volids->%*) {
+            PVE::Storage::check_volume_access(
+                $rpcenv, $authuser, $storecfg, $vmid, $volid, 'snippets',
+            );
+        }
+    }
 };
 
 my $check_storage_access_clone = sub {
@@ -1024,6 +1033,7 @@ my $check_vm_modify_config_perm = sub {
         } elsif ($opt =~ m/^net\d+$/ || $opt eq 'running-nets-host-mtu') {
             $rpcenv->check_vm_perm($authuser, $vmid, $pool, ['VM.Config.Network']);
         } elsif ($cloudinitoptions->{$opt} || $opt =~ m/^ipconfig\d+$/) {
+            # Storage-related privs for cicustom volumes are checked in check_storage_access()
             $rpcenv->check_vm_perm(
                 $authuser, $vmid, $pool, ['VM.Config.Cloudinit', 'VM.Config.Network'], 1,
             );

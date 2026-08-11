@@ -634,12 +634,17 @@ sub generate_nocloud {
     commit_cloudinit_disk($conf, $vmid, $drive, $volname, $storeid, $files, 'cidata');
 }
 
+sub get_custom_cloudinit_volids {
+    my ($cicustom) = @_;
+    return $cicustom ? PVE::JSONSchema::parse_property_string('pve-qm-cicustom', $cicustom) : {};
+}
+
 sub get_custom_cloudinit_files {
     my ($conf) = @_;
 
     my $cicustom = $conf->{cicustom};
-    my $files =
-        $cicustom ? PVE::JSONSchema::parse_property_string('pve-qm-cicustom', $cicustom) : {};
+
+    my $files = get_custom_cloudinit_volids($conf->{cicustom});
 
     my $network_volid = $files->{network};
     my $user_volid = $files->{user};
