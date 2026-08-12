@@ -43,7 +43,6 @@ use PVE::PBSClient;
 use PVE::RESTEnvironment qw(log_warn);
 use PVE::RPCEnvironment;
 use PVE::SafeSyslog;
-use PVE::Storage;
 use PVE::SysFSTools;
 use PVE::Systemd;
 use PVE::Tools qw(run_command file_read_firstline file_get_contents dir_glob_foreach $IPV6RE);
@@ -73,6 +72,8 @@ use PVE::QemuServer::CPUFlags;
 use PVE::QemuServer::Drive qw(
     is_valid_drivename
     checked_volume_format
+    classify_drive_file
+    drive_has_absolute_path
     drive_is_cloudinit
     drive_is_cdrom
     parse_drive
@@ -1103,7 +1104,10 @@ sub cleanup_drive_path {
         $drive->{file} = $volid;
     }
 
-    $drive->{media} = 'cdrom' if !$drive->{media} && $drive->{file} =~ m/^(cdrom|none)$/;
+    my $file_type = classify_drive_file($drive->{file});
+
+    $drive->{media} = 'cdrom'
+        if !$drive->{media} && ($file_type eq "cdrom" || $file_type eq "none");
 }
 
 sub parse_hotplug_features {
@@ -1532,7 +1536,7 @@ sub print_vga_device {
 sub vm_is_volid_owner {
     my ($storecfg, $vmid, $volid) = @_;
 
-    if ($volid !~ m|^/|) {
+    if (classify_drive_file($volid) ne "absolute") {
         my ($path, $owner);
         eval { ($path, $owner) = PVE::Storage::path($storecfg, $volid); };
         log_warn("ownership of volume '$volid' could not be determined: $@") if $@;
@@ -1822,7 +1826,7 @@ sub destroy_vm {
                 return if drive_is_cdrom($drive);
 
                 my $volid = $drive->{file};
-                return if !$volid || $volid =~ m|^/|;
+                return if !$volid || drive_has_absolute_path($drive);
 
                 my $result = eval { PVE::Storage::volume_is_base_and_used($storecfg, $volid) };
                 # early check, removal of volume will fail later anyway, so warning here is fine
@@ -1840,7 +1844,7 @@ sub destroy_vm {
         return if drive_is_cdrom($drive, 1);
 
         my $volid = $drive->{file};
-        return if !$volid || $volid =~ m|^/|;
+        return if !$volid || drive_has_absolute_path($drive);
         return if $volids->{$volid};
 
         my ($path, $owner) = eval { PVE::Storage::path($storecfg, $volid) };
@@ -3624,7 +3628,7 @@ sub config_to_command {
             my $live_restore = $live_restore_backing->{$ds};
 
             if (min_version($machine_version, 10, 0)) { # for the switch to -blockdev
-                if ($drive->{file} ne 'none') {
+                if (classify_drive_file($drive->{file}) ne "none") {
                     my $throttle_group =
                         PVE::QemuServer::Blockdev::generate_throttle_group($drive);
                     push @$cmd, '-object', to_json($throttle_group, { canonical => 1 });
@@ -5143,7 +5147,10 @@ sub vmconfig_update_disk {
             eval { PVE::QemuServer::Blockdev::change_medium($storecfg, $vmid, $opt, $drive); };
             my $err = $@;
 
-            if ($drive->{file} eq 'none' && drive_is_cloudinit($old_drive)) {
+            if (
+                classify_drive_file($drive->{file}) eq "none"
+                && drive_is_cloudinit($old_drive)
+            ) {
                 vmconfig_register_unused_drive($storecfg, $vmid, $conf, $old_drive);
             }
 
@@ -5927,7 +5934,7 @@ sub get_vm_volumes {
         sub {
             my ($volid, $attr) = @_;
 
-            return if $volid =~ m|^/|;
+            return if classify_drive_file($volid) eq "absolute";
 
             my ($sid, $volname) = PVE::Storage::parse_volume_id($volid, 1);
             return if !$sid;
@@ -5951,7 +5958,7 @@ sub get_current_vm_volumes {
         sub {
             my ($ds, $drive) = @_;
 
-            if (PVE::Storage::parse_volume_id($drive->{file}, 1)) {
+            if (classify_drive_file($drive->{file}) eq "volume") {
                 check_volume_storage_type($storecfg, $drive->{file});
                 push $volumes->@*, $drive->{file};
             }
@@ -6327,7 +6334,7 @@ sub tar_restore_cleanup {
             if ($line =~ m/vzdump:([^\s:]*):(\S+)$/) {
                 my $volid = $2;
                 eval {
-                    if ($volid =~ m|^/|) {
+                    if (classify_drive_file($volid) eq "absolute") {
                         unlink $volid || die 'unlink failed\n';
                     } else {
                         PVE::Storage::vdisk_free($storecfg, $volid);
@@ -6375,7 +6382,7 @@ my $restore_cleanup_oldconf = sub {
             return if drive_is_cdrom($drive, 1);
 
             my $volid = $drive->{file};
-            return if !$volid || $volid =~ m|^/|;
+            return if !$volid || drive_has_absolute_path($drive);
 
             my ($path, $owner) = PVE::Storage::path($storecfg, $volid);
             return if !$path || !$owner || ($owner != $vmid);

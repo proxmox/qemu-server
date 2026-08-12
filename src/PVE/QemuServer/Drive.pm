@@ -22,6 +22,8 @@ our @EXPORT_OK = qw(
     is_valid_drivename
     checked_parse_volname
     checked_volume_format
+    classify_drive_file
+    drive_has_absolute_path
     drive_is_cloudinit
     drive_is_cdrom
     parse_drive
@@ -784,6 +786,30 @@ sub verify_volume_id_or_absolute_path {
     return $volid;
 }
 
+# Tries to classify the drive file as either 'none', 'cdrom', 'absolute'
+# or 'volume'. In all other cases it will return 'unknown'.
+sub classify_drive_file {
+    my ($volid) = @_;
+
+    return 'unknown' if !$volid;
+
+    if ($volid eq 'none') {
+        return 'none';
+    }
+
+    if ($volid eq 'cdrom') {
+        return 'cdrom';
+    }
+
+    if ($volid =~ m|^/|) {
+        return 'absolute';
+    }
+
+    return PVE::Storage::parse_volume_id($volid, 1)
+        ? 'volume'
+        : 'unknown';
+}
+
 sub drive_is_cloudinit {
     my ($drive) = @_;
     return $drive->{file} =~ m@[:/](?:vm-\d+-)?cloudinit(?:\.$QEMU_FORMAT_RE)?$@;
@@ -795,6 +821,11 @@ sub drive_is_cdrom {
     return 0 if $exclude_cloudinit && drive_is_cloudinit($drive);
 
     return $drive && $drive->{media} && ($drive->{media} eq 'cdrom');
+}
+
+sub drive_has_absolute_path {
+    my ($drive) = @_;
+    return classify_drive_file($drive->{file}) eq "absolute";
 }
 
 # version ranges of the VirtIO driver ISO for Windows that are known to cause issues, see
