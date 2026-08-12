@@ -884,6 +884,10 @@ my sub check_hostpci_perm {
         die "either 'host' or 'mapping' must be set.\n";
     }
 
+    if (defined($device->{romfile})) {
+        raise_param_exc({ $opt => "only root\@pam can set 'romfile' option" });
+    }
+
     return 1;
 }
 
