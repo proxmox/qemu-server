@@ -896,34 +896,6 @@ sub pve_verify_cpuset {
     return PVE::CpuSet->new($members)->short_string();
 }
 
-PVE::JSONSchema::register_format('pve-volume-id-or-qm-path', \&verify_volume_id_or_qm_path);
-
-sub verify_volume_id_or_qm_path {
-    my ($volid, $noerr) = @_;
-
-    return $volid if $volid eq 'none' || $volid eq 'cdrom';
-
-    return verify_volume_id_or_absolute_path($volid, $noerr);
-}
-
-PVE::JSONSchema::register_format(
-    'pve-volume-id-or-absolute-path',
-    \&verify_volume_id_or_absolute_path,
-);
-
-sub verify_volume_id_or_absolute_path {
-    my ($volid, $noerr) = @_;
-
-    return $volid if $volid =~ m|^/|;
-
-    $volid = eval { PVE::JSONSchema::check_format('pve-volume-id', $volid, '') };
-    if ($@) {
-        return if $noerr;
-        die $@;
-    }
-    return $volid;
-}
-
 my $serialdesc = {
     optional => 1,
     type => 'string',
