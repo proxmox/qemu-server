@@ -1823,11 +1823,10 @@ sub destroy_vm {
             { include_unused => 1 },
             sub {
                 my ($ds, $drive) = @_;
-                return if drive_is_cdrom($drive);
+
+                return if drive_is_cdrom($drive) || drive_has_absolute_path($drive);
 
                 my $volid = $drive->{file};
-                return if !$volid || drive_has_absolute_path($drive);
-
                 my $result = eval { PVE::Storage::volume_is_base_and_used($storecfg, $volid) };
                 # early check, removal of volume will fail later anyway, so warning here is fine
                 log_warn("failed to check if volume '$volid' is used by linked clones: $@")
@@ -1844,8 +1843,7 @@ sub destroy_vm {
         return if drive_is_cdrom($drive, 1);
 
         my $volid = $drive->{file};
-        return if !$volid || drive_has_absolute_path($drive);
-        return if $volids->{$volid};
+        return if drive_has_absolute_path($drive) || $volids->{$volid};
 
         my ($path, $owner) = eval { PVE::Storage::path($storecfg, $volid) };
         log_warn("failed to get path and owner of volume '$volid': $@") if $@;
@@ -6379,11 +6377,9 @@ my $restore_cleanup_oldconf = sub {
         sub {
             my ($ds, $drive) = @_;
 
-            return if drive_is_cdrom($drive, 1);
+            return if drive_is_cdrom($drive, 1) || drive_has_absolute_path($drive);
 
             my $volid = $drive->{file};
-            return if !$volid || drive_has_absolute_path($drive);
-
             my ($path, $owner) = PVE::Storage::path($storecfg, $volid);
             return if !$path || !$owner || ($owner != $vmid);
 
