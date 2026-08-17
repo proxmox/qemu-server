@@ -1,3 +1,13 @@
+qemu-server (9.2.6) trixie; urgency=medium
+
+  * cloud-init: commit: activate volume early enough to fix regression with
+    qcow2 on LVM.
+
+  * api: hostpci: restore permission check for 'romfile' option that was
+    accidentally changed when PCI mappings were introduced.
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 17 Aug 2026 13:32:45 +0200
+
 qemu-server (9.2.5) trixie; urgency=medium
 
   * api: create disks: use correct volume name for a cloudinit disk on a
