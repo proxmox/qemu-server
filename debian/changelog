@@ -1,3 +1,10 @@
+qemu-server (8.4.10) bookworm; urgency=medium
+
+  * api: hostpci: restore permission check for 'romfile' option that was
+    accidentally changed when PCI mappings were introduced.
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 14 Aug 2026 15:53:52 +0200
+
 qemu-server (8.4.9) bookworm; urgency=medium
 
   * api: also check that the calling user or token may access the volume
