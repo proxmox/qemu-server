@@ -39,16 +39,34 @@ sub commit_cloudinit_disk {
     my $scfg = PVE::Storage::storage_config($storecfg, $storeid);
     my $format = checked_volume_format($storecfg, $drive->{file});
 
+    # Some kinds of volumes, like qcow2 on LVM, need to be active to query the size. Note that this
+    # also activates the storage. Failure is expected if the volume does not exist.
+    # TODO use a proper existence check once there is a storage function for it. For vdisk_list(),
+    # not all plugin implementations filter early for $vollist, so there can be overhead and some
+    # plugins even might fail when there are issues with unrelated volumes.
+    eval { PVE::Storage::activate_volumes($storecfg, [$drive->{file}]); };
+    my $activation_error = $@;
+
     my $size = eval { PVE::Storage::volume_size_info($storecfg, $drive->{file}) };
     if (!defined($size) || $size <= 0) {
         $volname =~ m/(vm-$vmid-cloudinit(.\Q$format\E)?)/;
         my $name = $1;
         $size = 4 * 1024;
-        PVE::Storage::vdisk_alloc($storecfg, $storeid, $vmid, $format, $name, $size);
+
+        eval { PVE::Storage::vdisk_alloc($storecfg, $storeid, $vmid, $format, $name, $size); };
+        if (my $err = $@) {
+            # Log the activation failure from earlier, since it might be relevant. The volume might
+            # have existed and the failed activation might be the cause of not getting a size.
+            warn $activation_error if $activation_error;
+            die $err;
+        }
+        PVE::Storage::activate_volumes($storecfg, [$drive->{file}]);
+
         $size *= 1024; # vdisk alloc takes KB, qemu-img dd's osize takes byte
+    } elsif ($activation_error) {
+        # The volume does exist, so abort if activation failed.
+        die $activation_error;
     }
-    my $plugin = PVE::Storage::Plugin->lookup($scfg->{type});
-    $plugin->activate_volume($storeid, $scfg, $volname);
 
     print "generating cloud-init ISO\n";
     eval {
