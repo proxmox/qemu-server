@@ -4764,6 +4764,9 @@ __PACKAGE__->register_method({
                     warn $@ if $@;
                 }
 
+                eval { PVE::QemuServer::Network::delete_ifaces_ipams_ips($newconf, $newid) };
+                warn $@ if $@;
+
                 PVE::Firewall::remove_vmfw_conf($newid);
 
                 unlink $conffile; # avoid races -> last thing before die
