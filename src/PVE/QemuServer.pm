@@ -3777,9 +3777,9 @@ sub config_to_command {
     PVE::QemuServer::Machine::assert_valid_machine_property($machine_conf);
 
     if (my $viommu = $machine_conf->{viommu}) {
-        my $viommu_devstr = '';
+        my $aw_bits = '';
         if ($machine_conf->{'aw-bits'}) {
-            $viommu_devstr .= ",aw-bits=$machine_conf->{'aw-bits'}";
+            $aw_bits .= ",aw-bits=$machine_conf->{'aw-bits'}";
 
             # TODO remove message once this gets properly checked/warned about in QEMU itself.
             print "vIOMMU 'aw-bits' set to $machine_conf->{'aw-bits'}. Sometimes it is necessary to"
@@ -3787,12 +3787,10 @@ sub config_to_command {
         }
 
         if ($viommu eq 'intel') {
-            $viommu_devstr = "intel-iommu,intremap=on,caching-mode=on$viommu_devstr";
-            unshift @$devices, '-device', $viommu_devstr;
+            unshift @$devices, '-device', "intel-iommu,intremap=on,caching-mode=on$aw_bits";
             push @$machineFlags, 'kernel-irqchip=split';
         } elsif ($viommu eq 'virtio') {
-            $viommu_devstr = "virtio-iommu-pci$viommu_devstr";
-            push @$devices, '-device', $viommu_devstr;
+            push @$devices, '-device', "virtio-iommu-pci$aw_bits";
         }
     }
 
