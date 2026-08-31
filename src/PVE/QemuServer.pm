@@ -3023,7 +3023,7 @@ sub query_supported_cpu_flags {
         die "QEMU flag querying VM exited with code " . $rc if $rc;
 
         my $model = { name => $kvm ? 'host' : 'max' };
-        $model->{props} = { 'hv-passthrough' => JSON::true } if $kvm;
+        $model->{props} = { 'hv-passthrough' => JSON::true } if $kvm && $arch eq 'x86_64';
 
         eval {
             my $cmd_result = mon_cmd(
