@@ -86,7 +86,7 @@ use PVE::QemuServer::MetaInfo;
 use PVE::QemuServer::Monitor qw(mon_cmd qmp_cmd vm_qmp_peer);
 use PVE::QemuServer::Network;
 use PVE::QemuServer::OVMF;
-use PVE::QemuServer::PCI qw(print_pci_addr print_pcie_addr print_pcie_root_port parse_hostpci);
+use PVE::QemuServer::PCI qw(print_pci_addr print_pcie_addr parse_hostpci);
 use PVE::QemuServer::PCI::Mdev;
 use PVE::QemuServer::QemuImage;
 use PVE::QemuServer::QMPHelpers

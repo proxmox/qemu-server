@@ -19,7 +19,6 @@ use base 'Exporter';
 our @EXPORT_OK = qw(
     print_pci_addr
     print_pcie_addr
-    print_pcie_root_port
     parse_hostpci
 );
 
@@ -372,7 +371,7 @@ sub print_pcie_addr {
 
 # Generates the device strings for additional pcie root ports. The first 4 pcie
 # root ports are defined in the pve-q35*.cfg files.
-sub print_pcie_root_port {
+my sub print_pcie_root_port {
     my ($i) = @_;
     my $res = '';
 
