@@ -3899,13 +3899,11 @@ sub vm_devices_list {
 sub vm_deviceplug {
     my ($storecfg, $conf, $vmid, $deviceid, $device, $arch, $machine_type) = @_;
 
-    my $q35 = PVE::QemuServer::Machine::machine_type_is_q35($conf);
-
     my $devices_list = vm_devices_list($vmid);
     return 1 if defined($devices_list->{$deviceid});
 
-    # add PCI bridge if we need it for the device
-    qemu_add_pci_bridge($storecfg, $conf, $vmid, $deviceid, $arch, $machine_type);
+    # we can't hotplug bridges, so check if the necessary one exists
+    assert_pci_bridge_present($vmid, $deviceid);
 
     if ($deviceid eq 'tablet') {
         qemu_deviceadd($vmid, print_tabletdevice_full($conf, $arch));
@@ -3992,13 +3990,6 @@ sub vm_deviceplug {
             warn $@ if $@;
             die $err;
         }
-    } elsif (!$q35 && $deviceid =~ m/^(pci\.)(\d+)$/) {
-        my $bridgeid = $2;
-        my $pciaddr = print_pci_addr($deviceid, undef, $arch);
-        my $devicefull = "pci-bridge,id=pci.$bridgeid,chassis_nr=$bridgeid$pciaddr";
-
-        qemu_deviceadd($vmid, $devicefull);
-        qemu_deviceaddverify($vmid, $deviceid);
     } else {
         die "can't hotplug device '$deviceid'\n";
     }
@@ -4215,8 +4206,8 @@ sub qemu_deletescsihw {
     return 1;
 }
 
-sub qemu_add_pci_bridge {
-    my ($storecfg, $conf, $vmid, $device, $arch, $machine_type) = @_;
+sub assert_pci_bridge_present {
+    my ($vmid, $device) = @_;
 
     my $bridgeid = PVE::QemuServer::PCI::get_pci_bridge_for_device($device);
     return 1 if !defined($bridgeid) || $bridgeid < 1;
@@ -4225,7 +4216,7 @@ sub qemu_add_pci_bridge {
     my $devices_list = vm_devices_list($vmid);
 
     if (!defined($devices_list->{$bridge})) {
-        vm_deviceplug($storecfg, $conf, $vmid, $bridge, $arch, $machine_type);
+        die "can't hotplug bridge necessary for '$device'\n";
     }
 
     return 1;
