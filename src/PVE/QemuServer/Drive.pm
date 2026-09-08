@@ -152,7 +152,7 @@ sub get_path_and_format {
 }
 
 my $MAX_IDE_DISKS = 4;
-my $MAX_SCSI_DISKS = 31;
+our $MAX_SCSI_DISKS = 31;
 my $MAX_VIRTIO_DISKS = 16;
 our $MAX_SATA_DISKS = 6;
 our $MAX_UNUSED_DISKS = 256;

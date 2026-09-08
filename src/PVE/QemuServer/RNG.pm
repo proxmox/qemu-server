@@ -87,7 +87,7 @@ sub check_rng_source {
 }
 
 sub print_rng_device_commandline {
-    my ($id, $rng, $bridges, $arch) = @_;
+    my ($id, $rng, $arch) = @_;
 
     die "no rng device specified\n" if !$rng;
 
@@ -98,7 +98,7 @@ sub print_rng_device_commandline {
         $limiter_str = ",max-bytes=$max_bytes,period=$period";
     }
 
-    my $rng_addr = print_pci_addr($id, $bridges, $arch);
+    my $rng_addr = print_pci_addr($id, $arch);
 
     return "virtio-rng-pci,rng=$id$limiter_str$rng_addr";
 }

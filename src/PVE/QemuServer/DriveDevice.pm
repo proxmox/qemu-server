@@ -49,8 +49,27 @@ sub scsihw_infos {
     return ($maxdev, $controller, $controller_prefix);
 }
 
+# Gets the maximum scsihw index that will be used
+sub get_max_scsihw_index {
+    my ($conf) = @_;
+
+    my $max_index = 0;
+
+    for (my $i = 0; $i < $PVE::QemuServer::Drive::MAX_SCSI_DISKS; $i++) {
+        next if !defined($conf->{"scsi$i"});
+        my (undef, $index, $prefix) = scsihw_infos($conf->{scsihw}, $i);
+        last if $prefix ne 'scsihw'; # must be the same for all
+
+        if ($index > $max_index) {
+            $max_index = $index;
+        }
+    }
+
+    return $max_index;
+}
+
 sub print_drivedevice_full {
-    my ($storecfg, $conf, $vmid, $drive, $bridges, $arch, $machine_type) = @_;
+    my ($storecfg, $conf, $vmid, $drive, $arch, $machine_type) = @_;
 
     my $device = '';
     my $maxdev = 0;
@@ -61,7 +80,7 @@ sub print_drivedevice_full {
 
     my $drive_id = PVE::QemuServer::Drive::get_drive_id($drive);
     if ($drive->{interface} eq 'virtio') {
-        my $pciaddr = print_pci_addr("$drive_id", $bridges, $arch);
+        my $pciaddr = print_pci_addr("$drive_id", $arch);
         $device = 'virtio-blk-pci';
         # for the switch to -blockdev, there is no blockdev for 'none'
         if (!min_version($machine_version, 10, 0) || $drive->{file} ne 'none') {

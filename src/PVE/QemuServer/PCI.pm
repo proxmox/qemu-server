@@ -20,6 +20,7 @@ our @EXPORT_OK = qw(
     print_pci_addr
     print_pcie_addr
     parse_hostpci
+    get_pci_bridges
 );
 
 our $MAX_HOSTPCI_DEVICES = 16;
@@ -303,7 +304,7 @@ sub get_pci_bridge_for_device {
 }
 
 sub print_pci_addr {
-    my ($id, $bridges, $arch) = @_;
+    my ($id, $arch) = @_;
 
     die "aarch64 cannot use IDE devices\n" if $arch eq 'aarch64' && $id =~ /^ide/;
 
@@ -316,7 +317,6 @@ sub print_pci_addr {
         my $busname = $arch eq 'aarch64' && $d->{bus} eq 0 ? 'pcie' : 'pci';
 
         $res = ",bus=$busname.$d->{bus},addr=$d->{addr}";
-        $bridges->{ $d->{bus} } = 1 if $bridges;
     }
 
     return $res;
@@ -627,7 +627,7 @@ sub choose_hostpci_devices {
 }
 
 sub print_hostpci_devices {
-    my ($vmid, $conf, $devices, $vga, $winversion, $bridges, $arch, $bootorder, $dry_run) = @_;
+    my ($vmid, $conf, $devices, $vga, $winversion, $arch, $bootorder, $dry_run) = @_;
 
     my $kvm_off = 0;
     my $gpu_passthrough = 0;
@@ -658,7 +658,7 @@ sub print_hostpci_devices {
             }
         } else {
             my $pci_name = $d->{'legacy-igd'} ? 'legacy-igd' : $id;
-            $pciaddr = print_pci_addr($pci_name, $bridges, $arch);
+            $pciaddr = print_pci_addr($pci_name, $arch);
         }
 
         my $num_devices = scalar($d->{ids}->@*);
@@ -879,6 +879,52 @@ sub reserve_pci_usage {
         },
     );
     die $@ if $@;
+}
+
+# Returns a list of bridge devices which are necessary for the remaining
+# devices.
+sub get_pci_bridges {
+    my ($conf, $arch, $q35, $max_scsihw) = @_;
+
+    my $bridges = {
+        # 0 => 1, always present
+        1 => 1,
+        2 => 1,
+    };
+
+    $bridges->{3} = 1 if ($conf->{scsihw} // '') =~ m/^virtio-scsi-single/;
+
+    # some scsi controllers can only have 7 scsi disks per controller,
+    # so scsi14 and upwards need scsihw2,3,4 which live on bridge 4
+    $bridges->{4} = 1 if $max_scsihw > 1;
+
+    # use cheap legacy igd check instead of a full parse_hostpci
+    my $legacy_igd = 0;
+    for (my $i = 0; $i < $MAX_HOSTPCI_DEVICES; $i++) {
+        next if !defined($conf->{"hostpci$i"});
+        my $res = PVE::JSONSchema::parse_property_string($hostpci_fmt, $conf->{"hostpci$i"});
+        next if !defined($res);
+        if ($res->{'legacy-igd'}) {
+            $legacy_igd = 1;
+            last;
+        }
+    }
+
+    my $devices = [];
+    for my $k (sort { $a <=> $b } keys %$bridges) {
+        next if $q35 && $k < 4; # q35.cfg already includes bridges up to 3
+
+        my $k_name = $k;
+        if ($k == 2 && $legacy_igd) {
+            $k_name = "$k-igd";
+        }
+        my $pciaddr = print_pci_addr("pci.$k_name", $arch);
+        my $devstr = "pci-bridge,id=pci.$k,chassis_nr=$k$pciaddr";
+
+        push @$devices, '-device', $devstr;
+    }
+
+    return $devices;
 }
 
 1;
