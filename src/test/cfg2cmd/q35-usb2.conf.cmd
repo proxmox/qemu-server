@@ -19,7 +19,7 @@
   -device 'vmgenid,guid=c773c261-d800-4348-9f5d-167fadd53cf8' \
   -chardev 'spicevmc,id=usbredirchardev1,name=usbredir' \
   -device 'usb-redir,chardev=usbredirchardev1,id=usbredirdev1,bus=ehci.0' \
-  -device 'qxl-vga,id=vga,bus=pcie.0,addr=0x1' \
+  -device 'qxl-vga,id=vga,max_outputs=4,bus=pcie.0,addr=0x1' \
   -device 'virtio-serial,id=spice,bus=pci.0,addr=0x9' \
   -chardev 'spicevmc,id=vdagent,name=vdagent' \
   -device 'virtserialport,chardev=vdagent,name=com.redhat.spice.0' \
@@ -28,4 +28,4 @@
   -iscsi 'initiator-name=iqn.1993-08.org.debian:01:aabbccddeeff' \
   -netdev 'type=tap,id=net0,ifname=tap8006i0,script=/usr/libexec/qemu-server/pve-bridge,downscript=/usr/libexec/qemu-server/pve-bridgedown,vhost=on' \
   -device 'virtio-net-pci,mac=A2:C0:43:77:08:A1,netdev=net0,bus=pci.0,addr=0x12,id=net0,bootindex=300' \
-  -machine 'type=pc-q35-4.0+pve0'
+  -machine 'type=pc-q35-5.0+pve0'

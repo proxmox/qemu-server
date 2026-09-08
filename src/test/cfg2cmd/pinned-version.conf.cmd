@@ -15,7 +15,7 @@
   -vnc 'unix:/var/run/qemu-server/8006.vnc,password=on' \
   -cpu kvm64,enforce,+kvm_pv_eoi,+kvm_pv_unhalt,+lahf_lm,+sep \
   -m 1024 \
-  -readconfig /usr/share/qemu-server/pve-q35.cfg \
+  -readconfig /usr/share/qemu-server/pve-q35-4.0.cfg \
   -device 'vmgenid,guid=bdd46b98-fefc-11e9-97b4-d72c378e0f96' \
   -device 'usb-tablet,id=tablet,bus=ehci.0,port=1' \
   -device 'VGA,id=vga,bus=pcie.0,addr=0x1' \
@@ -28,4 +28,4 @@
   -device 'scsi-hd,bus=scsihw0.0,channel=0,scsi-id=0,lun=0,drive=drive-scsi0,id=scsi0,bootindex=100' \
   -netdev 'type=tap,id=net0,ifname=tap8006i0,script=/usr/libexec/qemu-server/pve-bridge,downscript=/usr/libexec/qemu-server/pve-bridgedown,vhost=on' \
   -device 'virtio-net-pci,mac=A2:C0:43:77:08:A1,netdev=net0,bus=pci.0,addr=0x12,id=net0,bootindex=300' \
-  -machine 'type=pc-q35-3.1+pve0'
+  -machine 'type=pc-q35-5.0+pve0'

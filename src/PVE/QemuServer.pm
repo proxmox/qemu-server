@@ -3192,6 +3192,11 @@ sub config_to_command {
             . " or enable in BIOS.\n";
     }
 
+    # There is a dependency on QEMU 11.0 in d/control, so the oldest possible machine version is 5.0
+    if (!$version_guard->(5, 0)) {
+        die "Unsupported machine version '$machine_version'. At least version 5.0 is required.\n";
+    }
+
     my $q35 = PVE::QemuServer::Machine::machine_type_is_q35($conf);
     my $hotplug_features =
         parse_hotplug_features(defined($conf->{hotplug}) ? $conf->{hotplug} : '1');

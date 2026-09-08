@@ -19,7 +19,7 @@
   -device 'pci-bridge,id=pci.2,chassis_nr=2,bus=pci.0,addr=0x1f' \
   -device 'vmgenid,guid=719b9591-1b0d-4e43-bca2-22b9ffbd3568' \
   -device 'piix3-usb-uhci,id=uhci,bus=pci.0,addr=0x1.0x2' \
-  -device 'qxl-vga,id=vga,bus=pci.0,addr=0x2' \
+  -device 'qxl-vga,id=vga,max_outputs=4,bus=pci.0,addr=0x2' \
   -device 'virtio-serial,id=spice,bus=pci.0,addr=0x9' \
   -chardev 'spicevmc,id=vdagent,name=vdagent' \
   -device 'virtserialport,chardev=vdagent,name=com.redhat.spice.0' \
@@ -28,4 +28,4 @@
   -spice 'tls-port=61000,addr=127.0.0.1,tls-ciphers=HIGH,seamless-migration=on,streaming-video=all' \
   -device 'virtio-balloon-pci,id=balloon0,bus=pci.0,addr=0x3' \
   -iscsi 'initiator-name=iqn.1993-08.org.debian:01:aabbccddeeff' \
-  -machine 'type=pc-i440fx-4.0+pve0'
+  -machine 'type=pc-i440fx-5.0+pve0'
