@@ -3289,7 +3289,7 @@ sub config_to_command {
     }
 
     my $max_scsihw = PVE::QemuServer::DriveDevice::get_max_scsihw_index($conf);
-    if (my $bridges = get_pci_bridges($conf, $arch, $q35, $max_scsihw)) {
+    if (my $bridges = get_pci_bridges($conf, $arch, $q35, $max_scsihw, $version_guard)) {
         push @$devices, $bridges->@*;
     }
 

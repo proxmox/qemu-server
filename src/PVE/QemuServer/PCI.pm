@@ -884,7 +884,7 @@ sub reserve_pci_usage {
 # Returns a list of bridge devices which are necessary for the remaining
 # devices.
 sub get_pci_bridges {
-    my ($conf, $arch, $q35, $max_scsihw) = @_;
+    my ($conf, $arch, $q35, $max_scsihw, $version_guard) = @_;
 
     my $bridges = {
         # 0 => 1, always present
@@ -896,7 +896,7 @@ sub get_pci_bridges {
 
     # some scsi controllers can only have 7 scsi disks per controller,
     # so scsi14 and upwards need scsihw2,3,4 which live on bridge 4
-    $bridges->{4} = 1 if $max_scsihw > 1;
+    $bridges->{4} = 1 if $max_scsihw > 1 || $version_guard->(11, 1);
 
     # use cheap legacy igd check instead of a full parse_hostpci
     my $legacy_igd = 0;
