@@ -291,6 +291,17 @@ my $get_addr_mapping_from_id = sub {
     return { bus => $d->{bus}, addr => sprintf("0x%x", $d->{addr}) };
 };
 
+sub get_pci_bridge_for_device {
+    my ($id) = @_;
+
+    my $map = get_pci_addr_map();
+    if (my $d = $get_addr_mapping_from_id->($map, $id)) {
+        return $d->{bus};
+    }
+
+    return;
+}
+
 sub print_pci_addr {
     my ($id, $bridges, $arch) = @_;
 

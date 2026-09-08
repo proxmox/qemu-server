@@ -4218,15 +4218,7 @@ sub qemu_deletescsihw {
 sub qemu_add_pci_bridge {
     my ($storecfg, $conf, $vmid, $device, $arch, $machine_type) = @_;
 
-    my $bridges = {};
-
-    my $bridgeid;
-
-    print_pci_addr($device, $bridges, $arch);
-
-    while (my ($k, $v) = each %$bridges) {
-        $bridgeid = $k;
-    }
+    my $bridgeid = PVE::QemuServer::PCI::get_pci_bridge_for_device($device);
     return 1 if !defined($bridgeid) || $bridgeid < 1;
 
     my $bridge = "pci.$bridgeid";
