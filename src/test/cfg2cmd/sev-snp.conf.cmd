@@ -3,9 +3,9 @@
   -name vm8006 \
   -no-shutdown \
   -chardev 'socket,id=qmp,path=/var/run/qemu-server/8006.qmp,server=on,wait=off' \
-  -mon 'chardev=qmp,mode=control' \
+  -object 'monitor-qmp,chardev=qmp,id=monitor-qmp' \
   -chardev 'socket,id=qmp-event,path=/var/run/qmeventd.sock,reconnect-ms=5000' \
-  -mon 'chardev=qmp-event,mode=control' \
+  -object 'monitor-qmp,chardev=qmp-event,id=monitor-qmp-event' \
   -pidfile /var/run/qemu-server/8006.pid \
   -daemonize \
   -smbios 'type=1,uuid=7b10d7af-b932-4c66-b2c3-3996152ec465' \
@@ -20,6 +20,7 @@
   -global 'PIIX4_PM.disable_s4=1' \
   -device 'pci-bridge,id=pci.1,chassis_nr=1,bus=pci.0,addr=0x1e' \
   -device 'pci-bridge,id=pci.2,chassis_nr=2,bus=pci.0,addr=0x1f' \
+  -device 'pci-bridge,id=pci.4,chassis_nr=4,bus=pci.1,addr=0x1c' \
   -device 'piix3-usb-uhci,id=uhci,bus=pci.0,addr=0x1.0x2' \
   -device 'usb-tablet,id=tablet,bus=uhci.0,port=1' \
   -device 'VGA,id=vga,bus=pci.0,addr=0x2' \

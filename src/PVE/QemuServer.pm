@@ -2988,6 +2988,7 @@ sub query_supported_cpu_flags {
 
     my $kvm_supported = defined(kvm_version()) && $arch eq $host_arch;
     my $qemu_cmd = PVE::QemuServer::Helpers::get_command_for_arch($arch);
+    my $qemu_binary_version = kvm_user_version($qemu_cmd);
     my $fakevmid = -1;
     my $pidfile = PVE::QemuServer::Helpers::vm_pidfile_name($fakevmid);
 
@@ -3004,8 +3005,7 @@ sub query_supported_cpu_flags {
             'none',
             '-chardev',
             "socket,id=qmp,path=/var/run/qemu-server/$fakevmid.qmp,server=on,wait=off",
-            '-mon',
-            'chardev=qmp,mode=control',
+            PVE::QemuServer::Monitor::object_commandline($qemu_binary_version, 'qmp')->@*,
             '-pidfile',
             $pidfile,
             '-S',
@@ -3225,7 +3225,7 @@ sub config_to_command {
 
     my $qmpsocket = PVE::QemuServer::Helpers::qmp_socket(vm_qmp_peer($vmid));
     push @$cmd, '-chardev', "socket,id=qmp,path=$qmpsocket,server=on,wait=off";
-    push @$cmd, '-mon', "chardev=qmp,mode=control";
+    push @$cmd, PVE::QemuServer::Monitor::object_commandline($kvmver, 'qmp')->@*;
 
     if (min_version($machine_version, 2, 12)) {
         # QEMU 9.2 introduced a new 'reconnect-ms' option while deprecating the 'reconnect' option
@@ -3234,7 +3234,7 @@ sub config_to_command {
             $reconnect_param = "reconnect-ms=5000";
         }
         push @$cmd, '-chardev', "socket,id=qmp-event,path=/var/run/qmeventd.sock,$reconnect_param";
-        push @$cmd, '-mon', "chardev=qmp-event,mode=control";
+        push @$cmd, PVE::QemuServer::Monitor::object_commandline($kvmver, 'qmp-event')->@*;
     }
 
     push @$cmd, '-pidfile', PVE::QemuServer::Helpers::vm_pidfile_name($vmid);

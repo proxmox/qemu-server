@@ -3,9 +3,9 @@
   -name simple \
   -no-shutdown \
   -chardev 'socket,id=qmp,path=/var/run/qemu-server/8006.qmp,server=on,wait=off' \
-  -mon 'chardev=qmp,mode=control' \
+  -object 'monitor-qmp,chardev=qmp,id=monitor-qmp' \
   -chardev 'socket,id=qmp-event,path=/var/run/qmeventd.sock,reconnect-ms=5000' \
-  -mon 'chardev=qmp-event,mode=control' \
+  -object 'monitor-qmp,chardev=qmp-event,id=monitor-qmp-event' \
   -pidfile /var/run/qemu-server/8006.pid \
   -daemonize \
   -smbios 'type=1,uuid=7b10d7af-b932-4c66-b2c3-3996152ec465' \
@@ -21,6 +21,7 @@
   -object '{"id":"throttle-drive-scsi0","limits":{},"qom-type":"throttle-group"}' \
   -device 'pci-bridge,id=pci.1,chassis_nr=1,bus=pcie.0,addr=0x1e' \
   -device 'pci-bridge,id=pci.2,chassis_nr=2,bus=pcie.0,addr=0x1f' \
+  -device 'pci-bridge,id=pci.4,chassis_nr=4,bus=pci.1,addr=0x1c' \
   -device 'vmgenid,guid=c773c261-d800-4348-9f5d-167fadd53cf8' \
   -device 'usb-ehci,id=ehci,bus=pcie.0,addr=0x1' \
   -device 'usb-tablet,id=tablet,bus=ehci.0,port=1' \

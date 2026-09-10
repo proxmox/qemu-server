@@ -3,9 +3,9 @@
   -name netdev \
   -no-shutdown \
   -chardev 'socket,id=qmp,path=/var/run/qemu-server/8006.qmp,server=on,wait=off' \
-  -mon 'chardev=qmp,mode=control' \
+  -object 'monitor-qmp,chardev=qmp,id=monitor-qmp' \
   -chardev 'socket,id=qmp-event,path=/var/run/qmeventd.sock,reconnect-ms=5000' \
-  -mon 'chardev=qmp-event,mode=control' \
+  -object 'monitor-qmp,chardev=qmp-event,id=monitor-qmp-event' \
   -pidfile /var/run/qemu-server/8006.pid \
   -daemonize \
   -smp '3,sockets=1,cores=3,maxcpus=3' \

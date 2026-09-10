@@ -140,4 +140,15 @@ sub hmp_cmd {
     );
 }
 
+sub object_commandline {
+    my ($qemu_binary_version, $chardev) = @_;
+
+    if (PVE::QemuServer::Helpers::min_version($qemu_binary_version, 11, 1)) {
+        # use new style to avoid deprecation warning
+        return ['-object', "monitor-qmp,chardev=${chardev},id=monitor-${chardev}"];
+    }
+
+    return ['-mon', "chardev=${chardev},mode=control"];
+}
+
 1;

@@ -3,9 +3,9 @@
   -name vm8006 \
   -no-shutdown \
   -chardev 'socket,id=qmp,path=/var/run/qemu-server/8006.qmp,server=on,wait=off' \
-  -mon 'chardev=qmp,mode=control' \
+  -object 'monitor-qmp,chardev=qmp,id=monitor-qmp' \
   -chardev 'socket,id=qmp-event,path=/var/run/qmeventd.sock,reconnect-ms=5000' \
-  -mon 'chardev=qmp-event,mode=control' \
+  -object 'monitor-qmp,chardev=qmp-event,id=monitor-qmp-event' \
   -pidfile /var/run/qemu-server/8006.pid \
   -daemonize \
   -smp '1,sockets=1,cores=1,maxcpus=1' \

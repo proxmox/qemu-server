@@ -3,9 +3,9 @@
   -name vm8006 \
   -no-shutdown \
   -chardev 'socket,id=qmp,path=/var/run/qemu-server/8006.qmp,server=on,wait=off' \
-  -mon 'chardev=qmp,mode=control' \
+  -object 'monitor-qmp,chardev=qmp,id=monitor-qmp' \
   -chardev 'socket,id=qmp-event,path=/var/run/qmeventd.sock,reconnect-ms=5000' \
-  -mon 'chardev=qmp-event,mode=control' \
+  -object 'monitor-qmp,chardev=qmp-event,id=monitor-qmp-event' \
   -pidfile /var/run/qemu-server/8006.pid \
   -daemonize \
   -smp '1,sockets=1,cores=1,maxcpus=1' \
@@ -18,6 +18,7 @@
   -global 'ICH9-LPC.disable_s4=1' \
   -device 'intel-iommu,intremap=on,caching-mode=on,aw-bits=39' \
   -readconfig /usr/share/qemu-server/pve-q35-4.0.cfg \
+  -device 'pci-bridge,id=pci.4,chassis_nr=4,bus=pci.1,addr=0x1c' \
   -device 'usb-tablet,id=tablet,bus=ehci.0,port=1' \
   -device 'VGA,id=vga,bus=pcie.0,addr=0x1' \
   -device 'virtio-balloon-pci,id=balloon0,bus=pci.0,addr=0x3,free-page-reporting=on' \
