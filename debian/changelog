@@ -1,3 +1,32 @@
+qemu-server (9.2.8) trixie; urgency=medium
+
+  * schema: memory: improve description for NUMA policy.
+
+  * test: img_convert: use the auth_client_required option instead of the
+    deprecated auth_supported option for Ceph.
+
+  * code cleanup: cfg2cmd: viommu: avoid unintuitive variable reuse.
+
+  * fix #7981: cpu flags: query for Hyper-V enlightenments on x86_64 only.
+    This would lead to an error for other architectures.
+
+  * test: cfg2cmd: add various tests covering more configurations:
+    - q35 and scsihw2
+    - legacy-igd passthrough
+    - ivshmem with q35
+    - q35 + win7 + hostpci
+
+  * hotplug: don't try to hotplug bridges and cleanup related code.
+
+  * cfg2cmd: reject guests with machine version below 5.0. QEMU 11.0 already is
+    a hard dependency and does not support machine versions older than 5.0.
+
+  * cfg2cmd: pci: add bridges to device list up front.
+
+  * cfg2cmd: pci: add pci.4 by default starting with machine version 11.1.
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 10 Sep 2026 11:25:29 +0200
+
 qemu-server (9.2.7) trixie; urgency=medium
 
   * restore: bypass the host page cache when restoring to a ZFS zvol, both for
