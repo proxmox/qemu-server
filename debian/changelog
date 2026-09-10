@@ -1,3 +1,10 @@
+qemu-server (9.2.9) trixie; urgency=medium
+
+  * qemu monitor: use new object syntax in the VM command line when running
+    with QEMU 11.1 to avoid deprecation warning.
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 10 Sep 2026 21:45:14 +0200
+
 qemu-server (9.2.8) trixie; urgency=medium
 
   * schema: memory: improve description for NUMA policy.
