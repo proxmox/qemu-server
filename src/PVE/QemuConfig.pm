@@ -238,8 +238,6 @@ sub __snapshot_save_vmstate {
     my $name = "vm-$vmid-state-$snapname";
     $name .= ".raw" if $scfg->{path}; # add filename extension for file base storage
 
-    my $statefile =
-        PVE::Storage::vdisk_alloc($storecfg, $target, $vmid, 'raw', $name, $size * 1024);
     my $runningmachine = PVE::QemuServer::Machine::get_current_qemu_machine($vmid);
 
     # get current QEMU -cpu argument to ensure consistency of custom CPU models
@@ -248,6 +246,11 @@ sub __snapshot_save_vmstate {
     my $runningcpu = PVE::QemuServer::CPUConfig::get_cpu_from_running_vm($pid);
 
     my $nets_host_mtu = PVE::QemuServer::Network::get_nets_host_mtu($vmid, $conf);
+
+    # allocate only after querying the running instance, nothing below can fail, so a failed
+    # query cannot leave an orphaned state volume behind
+    my $statefile =
+        PVE::Storage::vdisk_alloc($storecfg, $target, $vmid, 'raw', $name, $size * 1024);
 
     if (!$suspend) {
         $conf = $conf->{snapshots}->{$snapname};
