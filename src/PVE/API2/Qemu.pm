@@ -1511,6 +1511,8 @@ __PACKAGE__->register_method({
                     my $vga = PVE::QemuServer::parse_vga($conf->{vga});
                     PVE::QemuServer::assert_clipboard_config($vga);
 
+                    PVE::QemuServer::Drive::warn_about_virtio_win_issues_in_config($conf);
+
                     # auto generate uuid if user did not specify smbios1 option
                     if (!$conf->{smbios1}) {
                         $conf->{smbios1} = PVE::QemuServer::generate_smbios1_uuid();
@@ -2411,6 +2413,15 @@ my $update_vm_api = sub {
 
                 # new drive
                 $check_drive_perms->($opt, $param->{$opt});
+
+                # warn about virtio win known issues only on windows
+                my $ostype = $param->{ostype} // $conf->{pending}->{ostype} // $conf->{ostype};
+                if (PVE::QemuServer::Helpers::windows_version($ostype)) {
+                    my $drive = PVE::QemuServer::Drive::parse_drive($opt, $param->{$opt}, 1);
+                    PVE::QemuServer::Drive::warn_about_virtio_win_issues($opt, $drive->{file})
+                        if $drive && PVE::QemuServer::Drive::drive_is_cdrom($drive, 1);
+                }
+
                 PVE::QemuServer::vmconfig_register_unused_drive(
                     $storecfg,
                     $vmid,
