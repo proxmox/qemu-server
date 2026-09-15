@@ -13,6 +13,7 @@ use PVE::Storage;
 use PVE::Storage::Common;
 use PVE::JSONSchema qw(get_standard_option);
 
+use PVE::QemuServer::Helpers;
 use PVE::QemuServer::Monitor qw(qsd_qmp_peer vm_qmp_peer);
 
 use base qw(Exporter);
@@ -764,6 +765,66 @@ sub drive_is_cdrom {
     return 0 if $exclude_cloudinit && drive_is_cloudinit($drive);
 
     return $drive && $drive->{media} && ($drive->{media} eq 'cdrom');
+}
+
+# version ranges of the VirtIO driver ISO for Windows that are known to cause issues, see
+# https://pve.proxmox.com/wiki/Windows_VirtIO_Drivers#Known_Issues
+my $virtio_win_issues = [
+    { from => [0, 1, 215], to => [0, 1, 262] }, { from => [0, 1, 285], to => [0, 1, 285] },
+];
+
+# returns the version of the VirtIO driver ISO referenced by $volid if it is known to cause
+# issues, undef otherwise
+sub virtio_win_iso_issue {
+    my ($volid) = @_;
+
+    my @version = ($volid // '') =~ m/virtio-win[_-](\d+)\.(\d+)\.(\d+)/i;
+    return if !@version;
+
+    my $cmp_with = sub {
+        my ($other) = @_;
+
+        return PVE::QemuServer::Helpers::version_cmp(map { ($version[$_], $other->[$_]) }
+            0 .. 2);
+    };
+
+    for my $issue ($virtio_win_issues->@*) {
+        return join('.', @version)
+            if $cmp_with->($issue->{from}) >= 0 && $cmp_with->($issue->{to}) <= 0;
+    }
+
+    return;
+}
+
+# warn if the CD-ROM drive $opt contains a VirtIO driver ISO that is known to cause issues
+sub warn_about_virtio_win_issues {
+    my ($opt, $volid) = @_;
+
+    my $version = virtio_win_iso_issue($volid);
+    return if !defined($version);
+
+    log_warn("$opt: version $version of the VirtIO drivers for Windows is known to cause issues,"
+        . " see https://pve.proxmox.com/wiki/Windows_VirtIO_Drivers#Known_Issues");
+
+    return;
+}
+
+# warn about every CD-ROM drive in $conf that contains a problematic VirtIO driver ISO
+sub warn_about_virtio_win_issues_in_config {
+    my ($conf) = @_;
+
+    return if !PVE::QemuServer::Helpers::windows_version($conf->{ostype});
+
+    for my $opt (valid_drive_names()) {
+        next if !defined($conf->{$opt});
+
+        my $drive = eval { parse_drive($opt, $conf->{$opt}) };
+        next if !$drive || !drive_is_cdrom($drive, 1);
+
+        warn_about_virtio_win_issues($opt, $drive->{file});
+    }
+
+    return;
 }
 
 sub parse_drive_interface {
