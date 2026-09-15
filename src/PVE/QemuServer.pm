@@ -5627,6 +5627,8 @@ sub vm_start_nolock {
 
         check_efi_vars($storecfg, $vmid, $conf) if $conf->{bios} && $conf->{bios} eq 'ovmf';
 
+        PVE::QemuServer::Drive::warn_about_virtio_win_issues_in_config($conf);
+
         # Note that for certain cases like templates, the configuration is minimized, so need to ensure
         # the rest of the function here uses the same configuration that was used to build the command
         ($cmd, $spice_port, my $pci_devices, $conf) = config_to_command(
