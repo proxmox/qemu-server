@@ -859,15 +859,21 @@ my $diskoptions = {
     'vmstatestorage' => 1,
 };
 
+# The following options require VM.Config.Cloudinit or VM.Config.Network.
+my $cloudinitoptions_net = {
+    nameserver => 1,
+    searchdomain => 1,
+};
+
+# The following options require VM.Config.Cloudinit.
 my $cloudinitoptions = {
     cicustom => 1,
     cipassword => 1,
     citype => 1,
     ciuser => 1,
     ciupgrade => 1,
-    nameserver => 1,
-    searchdomain => 1,
     sshkeys => 1,
+    $cloudinitoptions_net->%*,
 };
 
 my $check_vm_create_serial_perm = sub {
@@ -1034,9 +1040,13 @@ my $check_vm_modify_config_perm = sub {
             $rpcenv->check_vm_perm($authuser, $vmid, $pool, ['VM.Config.Network']);
         } elsif ($cloudinitoptions->{$opt} || $opt =~ m/^ipconfig\d+$/) {
             # Storage-related privs for cicustom volumes are checked in check_storage_access()
-            $rpcenv->check_vm_perm(
-                $authuser, $vmid, $pool, ['VM.Config.Cloudinit', 'VM.Config.Network'], 1,
-            );
+            if ($cloudinitoptions_net->{$opt}) {
+                $rpcenv->check_vm_perm(
+                    $authuser, $vmid, $pool, ['VM.Config.Cloudinit', 'VM.Config.Network'], 1,
+                );
+            } else {
+                $rpcenv->check_vm_perm($authuser, $vmid, $pool, ['VM.Config.Cloudinit']);
+            }
         } elsif ($opt eq 'vmstate') {
             # the user needs Disk and PowerMgmt privileges to change the vmstate
             # also needs privileges on the storage, that will be checked later
