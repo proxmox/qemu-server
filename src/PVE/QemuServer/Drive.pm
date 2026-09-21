@@ -3,15 +3,15 @@ package PVE::QemuServer::Drive;
 use strict;
 use warnings;
 
-use Storable qw(dclone);
-
 use IO::File;
 use List::Util qw(first);
+use Storable qw(dclone);
 
+use PVE::JSONSchema qw(get_standard_option);
 use PVE::RESTEnvironment qw(log_warn);
 use PVE::Storage;
 use PVE::Storage::Common;
-use PVE::JSONSchema qw(get_standard_option);
+use PVE::Tools;
 
 use PVE::QemuServer::Helpers;
 use PVE::QemuServer::Monitor qw(qsd_qmp_peer vm_qmp_peer);
