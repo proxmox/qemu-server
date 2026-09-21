@@ -5069,6 +5069,11 @@ __PACKAGE__->register_method({
             my $target_conf = PVE::QemuConfig->load_config($target_vmid);
             PVE::QemuConfig->check_lock($target_conf);
 
+            PVE::QemuConfig->check_protection(
+                $source_conf,
+                "Can't move disks from protected VMs",
+            );
+
             die "Can't move disks from or to template VMs\n"
                 if ($source_conf->{template} || $target_conf->{template});
 
