@@ -5559,7 +5559,7 @@ sub vm_start_nolock {
             next if !$d->{mdev} && !$d->{nvidia};
             die "could not create mediated device\n" if !defined($chosen_mdev);
 
-            # nvidia grid needs the uuid of the mdev as qemu parameter
+            # nvidia vgpu needs a uuid as qemu parameter
             if (!defined($uuid) && $chosen_mdev->{vendor} =~ m/^(0x)?10de$/) {
                 $uuid = PVE::QemuServer::PCI::Mdev::generate_mdev_uuid($vmid, $index);
             }
