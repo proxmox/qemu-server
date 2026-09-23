@@ -729,13 +729,13 @@ sub prepare_pci_devices {
     reserve_pci_usage($pci_reserve_list, $vmid, $start_timeout);
 
     for my $id (sort keys %$pci_devices) {
-        my $d = $pci_devices->{$id};
+        my $pci_device = $pci_devices->{$id};
         my ($index) = ($id =~ m/^hostpci(\d+)$/);
 
         my $chosen_mdev;
-        for my $dev ($d->{ids}->@*) {
-            my $info = eval { prepare_pci_device($vmid, $dev->{id}, $index, $d) };
-            if ($d->{mdev} || $d->{nvidia}) {
+        for my $dev ($pci_device->{ids}->@*) {
+            my $info = eval { prepare_pci_device($vmid, $dev->{id}, $index, $pci_device) };
+            if ($pci_device->{mdev} || $pci_device->{nvidia}) {
                 warn $@ if $@;
                 $chosen_mdev = $info;
                 last if $chosen_mdev; # if successful, we're done
@@ -744,7 +744,7 @@ sub prepare_pci_devices {
             }
         }
 
-        next if !$d->{mdev} && !$d->{nvidia};
+        next if !$pci_device->{mdev} && !$pci_device->{nvidia};
         die "could not create mediated device\n" if !defined($chosen_mdev);
 
         # nvidia vgpu needs a uuid as qemu parameter
