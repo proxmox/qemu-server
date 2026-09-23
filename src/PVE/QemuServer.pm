@@ -5530,40 +5530,8 @@ sub vm_start_nolock {
 
         push $cmd->@*, $state_cmdline->@*;
 
-        for my $device (values $pci_devices->%*) {
-            next if $device->{mdev}; # we don't reserve for mdev devices
-            push $pci_reserve_list->@*, map { $_->{id} } $device->{ids}->@*;
-        }
-
-        # reserve all PCI IDs before actually doing anything with them
-        PVE::QemuServer::PCI::reserve_pci_usage($pci_reserve_list, $vmid, $start_timeout);
-
-        my $uuid;
-        for my $id (sort keys %$pci_devices) {
-            my $d = $pci_devices->{$id};
-            my ($index) = ($id =~ m/^hostpci(\d+)$/);
-
-            my $chosen_mdev;
-            for my $dev ($d->{ids}->@*) {
-                my $info =
-                    eval { PVE::QemuServer::PCI::prepare_pci_device($vmid, $dev->{id}, $index, $d) };
-                if ($d->{mdev} || $d->{nvidia}) {
-                    warn $@ if $@;
-                    $chosen_mdev = $info;
-                    last if $chosen_mdev; # if successful, we're done
-                } else {
-                    die $@ if $@;
-                }
-            }
-
-            next if !$d->{mdev} && !$d->{nvidia};
-            die "could not create mediated device\n" if !defined($chosen_mdev);
-
-            # nvidia vgpu needs a uuid as qemu parameter
-            if (!defined($uuid) && $chosen_mdev->{vendor} =~ m/^(0x)?10de$/) {
-                $uuid = PVE::QemuServer::PCI::Mdev::generate_mdev_uuid($vmid, $index);
-            }
-        }
+        ($pci_reserve_list, my $uuid) =
+            PVE::QemuServer::PCI::prepare_pci_devices($conf, $vmid, $pci_devices, $start_timeout);
 
         # uuid for nvidia vgpu
         # prefer the smbios1 uuid if we have and need it

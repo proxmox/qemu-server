@@ -714,6 +714,48 @@ sub print_hostpci_devices {
     return ($kvm_off, $gpu_passthrough, $legacy_igd, $pci_devices);
 }
 
+sub prepare_pci_devices {
+    my ($conf, $vmid, $pci_devices, $start_timeout) = @_;
+
+    my $pci_reserve_list = [];
+    my $uuid;
+
+    for my $device (values $pci_devices->%*) {
+        next if $device->{mdev}; # we don't reserve for mdev devices
+        push $pci_reserve_list->@*, map { $_->{id} } $device->{ids}->@*;
+    }
+
+    # reserve all PCI IDs before actually doing anything with them
+    reserve_pci_usage($pci_reserve_list, $vmid, $start_timeout);
+
+    for my $id (sort keys %$pci_devices) {
+        my $d = $pci_devices->{$id};
+        my ($index) = ($id =~ m/^hostpci(\d+)$/);
+
+        my $chosen_mdev;
+        for my $dev ($d->{ids}->@*) {
+            my $info = eval { prepare_pci_device($vmid, $dev->{id}, $index, $d) };
+            if ($d->{mdev} || $d->{nvidia}) {
+                warn $@ if $@;
+                $chosen_mdev = $info;
+                last if $chosen_mdev; # if successful, we're done
+            } else {
+                die $@ if $@;
+            }
+        }
+
+        next if !$d->{mdev} && !$d->{nvidia};
+        die "could not create mediated device\n" if !defined($chosen_mdev);
+
+        # nvidia vgpu needs a uuid as qemu parameter
+        if (!defined($uuid) && $chosen_mdev->{vendor} =~ m/^(0x)?10de$/) {
+            $uuid = PVE::QemuServer::PCI::Mdev::generate_mdev_uuid($vmid, $index);
+        }
+    }
+
+    return ($pci_reserve_list, $uuid);
+}
+
 # A device that dropped off the bus answers all config space reads with all ones. Check the header
 # type, as the vendor ID of an SR-IOV virtual function always reads as 0xffff by specification.
 my $pci_device_responds = sub {
