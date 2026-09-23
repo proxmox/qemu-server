@@ -749,7 +749,8 @@ sub prepare_pci_devices {
 
         # nvidia vgpu needs a uuid as qemu parameter
         if (!defined($uuid) && $chosen_mdev->{vendor} =~ m/^(0x)?10de$/) {
-            $uuid = PVE::QemuServer::PCI::Mdev::generate_mdev_uuid($vmid, $index);
+            $uuid = $chosen_mdev->{uuid}
+                // PVE::QemuServer::PCI::Mdev::generate_mdev_uuid($vmid, $index);
         }
     }
 
@@ -790,6 +791,7 @@ sub prepare_pci_device {
     } elsif (my $mdev = $device->{mdev}) {
         my $uuid = PVE::QemuServer::PCI::Mdev::generate_mdev_uuid($vmid, $index);
         PVE::QemuServer::PCI::Mdev::pci_create_mdev_device($pciid, $uuid, $mdev);
+        $info->{uuid} = $uuid;
     } else {
         die "can't unbind/bind PCI group to VFIO '$pciid'\n"
             if !PVE::SysFSTools::pci_dev_group_bind_to_vfio($pciid);
