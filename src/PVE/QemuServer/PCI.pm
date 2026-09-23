@@ -5,6 +5,7 @@ use strict;
 
 use IO::File;
 
+use PVE::GuestHelpers;
 use PVE::JSONSchema;
 use PVE::Mapping::PCI;
 use PVE::SysFSTools;
@@ -738,10 +739,17 @@ sub prepare_pci_devices {
             if ($pci_device->{mdev} || $pci_device->{nvidia}) {
                 warn $@ if $@;
                 $chosen_mdev = $info;
-                last if $chosen_mdev; # if successful, we're done
             } else {
                 die $@ if $@;
             }
+
+            next if !defined($info);
+
+            my $params = { id => $id, pciid => $info->{name} };
+            $params->{mdev_uuid} = $info->{uuid} if defined($info->{uuid});
+            PVE::GuestHelpers::exec_hookscript($conf, $vmid, 'post-pci-prepare', 1, $params);
+
+            last if defined($chosen_mdev);
         }
 
         next if !$pci_device->{mdev} && !$pci_device->{nvidia};
