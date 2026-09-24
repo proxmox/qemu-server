@@ -176,6 +176,8 @@ sub convert {
         push @$cmd, '-O', $dst_format;
     }
 
+    push @$cmd, '--';
+
     push @$cmd, $src_path;
 
     if (!$dst_uses_target_image_opts && $opts->{'is-zero-initialized'}) {
