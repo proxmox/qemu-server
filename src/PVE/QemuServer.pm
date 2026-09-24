@@ -7534,7 +7534,12 @@ sub restore_vma_archive {
     if ($comp) {
         my $info = PVE::Storage::decompressor_info('vma', $comp);
         my $cmd = $info->{decompressor};
-        push @$cmd, $readfrom;
+        # The decompressor commands terminate their options with '--'. Some of them, like zstd and
+        # bzcat, don't interpret '-' as stdin anymore if '--' is specified before '-'. The
+        # decompressor commands read from stdin by default, so avoid adding an explicit '-'.
+        if ($readfrom ne '-') {
+            push @$cmd, $readfrom;
+        }
         $add_pipe->($cmd);
     }
 
