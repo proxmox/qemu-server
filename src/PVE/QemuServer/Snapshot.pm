@@ -1,7 +1,6 @@
 package PVE::QemuServer::Snapshot;
 
-use strict;
-use warnings;
+use v5.36;
 
 use PVE::Storage;
 
@@ -11,9 +10,7 @@ use PVE::QemuServer::Machine;
 use PVE::QemuServer::Monitor qw(qmp_cmd);
 use PVE::QemuServer::VolumeChain;
 
-sub do_snapshots_type {
-    my ($storecfg, $drive, $deviceid, $running) = @_;
-
+sub do_snapshots_type($storecfg, $drive, $deviceid, $running) {
     #we use storage snapshot if vm is not running or if disk is unused;
     return 'storage' if !$running || !$deviceid;
 
@@ -31,9 +28,7 @@ sub do_snapshots_type {
     return 'storage';
 }
 
-sub qemu_volume_snapshot {
-    my ($vmid, $deviceid, $storecfg, $drive, $snap) = @_;
-
+sub qemu_volume_snapshot($vmid, $deviceid, $storecfg, $drive, $snap) {
     my $volid = $drive->{file};
     my $running = PVE::QemuServer::Helpers::vm_running_locally($vmid);
 
@@ -64,9 +59,7 @@ sub qemu_volume_snapshot {
     }
 }
 
-sub qemu_volume_snapshot_delete {
-    my ($vmid, $storecfg, $drive, $snap, $attached_deviceid, $running) = @_;
-
+sub qemu_volume_snapshot_delete($vmid, $storecfg, $drive, $snap, $attached_deviceid, $running) {
     my $volid = $drive->{file};
 
     my $do_snapshots_type = do_snapshots_type($storecfg, $drive, $attached_deviceid, $running);
