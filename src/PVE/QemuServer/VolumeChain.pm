@@ -72,8 +72,6 @@ sub blockdev_delete {
     #delete the file (don't use vdisk_free as we don't want to delete all snapshot chain)
     print "delete old $file_blockdev->{filename}\n";
 
-    my $storage_name = PVE::Storage::parse_volume_id($drive->{file});
-
     my $volid = $drive->{file};
     PVE::Storage::volume_snapshot_delete($storecfg, $volid, $snap, 1);
 }
