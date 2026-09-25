@@ -441,13 +441,19 @@ sub __snapshot_delete_vol_snapshot {
     my $running = PVE::QemuServer::Helpers::vm_running_locally($vmid);
     my $attached_deviceid;
 
+    # Need to operate on the currently attached device if the VM is running for QMP handling to
+    # work correctly. For blockdev generation, it's also important that the same drive information
+    # as currently attached is used, because otherwise node names and other settings might differ.
     if ($running) {
         my $conf = $class->load_config($vmid);
         $class->foreach_volume(
             $conf,
             sub {
-                my ($ds, $drive) = @_;
-                $attached_deviceid = "drive-$ds" if $drive->{file} eq $volid;
+                my ($ds, $current_drive) = @_;
+                if ($current_drive->{file} eq $volid) {
+                    $attached_deviceid = "drive-$ds";
+                    $drive = $current_drive;
+                }
             },
         );
     }
