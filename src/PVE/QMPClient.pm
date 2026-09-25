@@ -3,6 +3,7 @@ package PVE::QMPClient;
 use strict;
 use warnings;
 
+use Encode qw();
 use IO::Multiplex;
 use IO::Socket::UNIX;
 use JSON;
@@ -10,7 +11,9 @@ use POSIX qw(EINTR EAGAIN);
 use Scalar::Util qw(weaken);
 use Time::HiRes qw(usleep gettimeofday tv_interval);
 
+use PVE::Format;
 use PVE::IPCC;
+
 use PVE::QemuServer::Helpers;
 
 # QEMU Monitor Protocol (QMP) client.
@@ -19,6 +22,15 @@ use PVE::QemuServer::Helpers;
 # allows you to issue qmp and qga commands to different VMs in parallel.
 
 # Note: qemu can only handle 1 connection, so we close connections asap
+
+# For commands executed via the guest agent, the maximum size for stdout and stderr in the standard
+# QGA implementation is 16 MiB each (GUEST_EXEC_MAX_OUTPUT in QEMU's qga/commands.c). This is before
+# base64 encoding, which results in ceil(2 * 16 MiB / 3) * 4, which is approximately 42.67 MiB. Use
+# 43 MiB as the limit, since there also needs a bit of extra space for other metadata.
+# For QMP, the largest response might be from 'query-qmp-schema' with a bit over 500 KiB. For QGA
+# 'file-read', the limit is 48 MiB in the standard QGA implementation, but the endpoint in Agent.pm
+# uses a 1 MiB limit already.
+my $MAX_RESPONSE_SIZE = 43 * 1024 * 1024;
 
 sub new {
     my ($class, $eventcb) = @_;
@@ -418,6 +430,15 @@ sub mux_input {
     die "unable to lookup current command for $peer_name ($sname)\n" if !$curcmd;
 
     my $raw;
+
+    if (length(Encode::encode('UTF-8', $$input)) > $MAX_RESPONSE_SIZE) {
+        $$input = ''; # Clear the buffer.
+        my $peer = $qga ? 'guest agent' : 'QMP';
+        my $max_size = PVE::Format::render_bytes($MAX_RESPONSE_SIZE);
+        $queue_info->{error} = "$peer response is bigger than the allowed maximum of $max_size\n";
+        $check_queue->($self);
+        return;
+    }
 
     if ($qga) {
         return if $$input !~ s/^.*\xff([^\n]+}\r?\n[^\n]+})\r?\n(.*)$/$2/so;

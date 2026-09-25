@@ -533,6 +533,7 @@ __PACKAGE__->register_method({
 
         my $bytes_read = 0;
         my $eof = 0;
+        # NOTE: must be compatible with MAX_RESPONSE_SIZE in QMPClient.pm
         my $read_size = 1024 * 1024;
         my $content = "";
 
