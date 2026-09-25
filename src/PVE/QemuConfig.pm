@@ -438,7 +438,23 @@ sub __snapshot_delete_vol_snapshot {
     my $storecfg = PVE::Storage::config();
     my $volid = $drive->{file};
 
-    PVE::QemuServer::qemu_volume_snapshot_delete($vmid, $storecfg, $drive, $snapname);
+    my $running = PVE::QemuServer::Helpers::vm_running_locally($vmid);
+    my $attached_deviceid;
+
+    if ($running) {
+        my $conf = $class->load_config($vmid);
+        $class->foreach_volume(
+            $conf,
+            sub {
+                my ($ds, $drive) = @_;
+                $attached_deviceid = "drive-$ds" if $drive->{file} eq $volid;
+            },
+        );
+    }
+
+    PVE::QemuServer::qemu_volume_snapshot_delete(
+        $vmid, $storecfg, $drive, $snapname, $attached_deviceid, $running,
+    );
 
     push @$unused, $volid;
 }
