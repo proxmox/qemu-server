@@ -18,6 +18,7 @@ use PVE::QemuServer::Monitor qw(mon_cmd);
 use PVE::QemuServer;
 use PVE::QemuServer::Machine;
 use PVE::QemuServer::Memory qw(get_current_memory);
+use PVE::QemuServer::Snapshot;
 use PVE::RESTEnvironment qw(log_warn);
 use PVE::Storage;
 use PVE::Tools;
@@ -401,7 +402,7 @@ sub __snapshot_create_vol_snapshot {
 
     print "snapshotting '$device' ($drive->{file})\n";
 
-    PVE::QemuServer::qemu_volume_snapshot($vmid, $device, $storecfg, $drive, $snapname);
+    PVE::QemuServer::Snapshot::qemu_volume_snapshot($vmid, $device, $storecfg, $drive, $snapname);
 }
 
 sub __snapshot_delete_remove_drive {
@@ -458,7 +459,7 @@ sub __snapshot_delete_vol_snapshot {
         );
     }
 
-    PVE::QemuServer::qemu_volume_snapshot_delete(
+    PVE::QemuServer::Snapshot::qemu_volume_snapshot_delete(
         $vmid, $storecfg, $drive, $snapname, $attached_deviceid, $running,
     );
 

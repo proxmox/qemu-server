@@ -27,6 +27,7 @@ SOURCES=Agent.pm	\
 	QSD.pm		\
 	RNG.pm		\
 	RunState.pm	\
+	Snapshot.pm	\
 	StateFile.pm	\
 	USB.pm		\
 	Virtiofs.pm	\

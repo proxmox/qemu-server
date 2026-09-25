@@ -404,10 +404,6 @@ sub set_migration_caps { } # ignored
 
 # BEGIN redefine PVE::QemuServer methods
 
-sub do_snapshots_type {
-    return 'storage';
-}
-
 sub vm_start {
     my ($storecfg, $vmid, $params, $migrate_opts) = @_;
 
@@ -462,6 +458,9 @@ $qemu_config_module->mock('write_config', \&write_config);
 $qemu_config_module->mock('has_feature', \&has_feature);
 $qemu_config_module->mock('__snapshot_save_vmstate', \&__snapshot_save_vmstate);
 $qemu_config_module->mock('assert_config_exists_on_node', \&assert_config_exists_on_node);
+
+my $qemu_snapshot_module = Test::MockModule->new('PVE::QemuServer::Snapshot');
+$qemu_snapshot_module->mock('do_snapshots_type' => sub { return 'storage'; });
 
 # ignore existing replication config
 my $repl_config_module = Test::MockModule->new('PVE::ReplicationConfig');
