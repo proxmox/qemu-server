@@ -63,8 +63,8 @@ sub blockdev_external_snapshot {
     );
 }
 
-sub blockdev_delete {
-    my ($storecfg, $qmp_peer, $drive, $file_blockdev, $fmt_blockdev, $snap) = @_;
+my sub blockdev_delete {
+    my ($storecfg, $qmp_peer, $volid, $file_blockdev, $fmt_blockdev, $snap) = @_;
 
     eval { PVE::QemuServer::Blockdev::detach($qmp_peer, $fmt_blockdev->{'node-name'}); };
     warn "detaching block node for $file_blockdev->{filename} failed - $@" if $@;
@@ -72,7 +72,6 @@ sub blockdev_delete {
     #delete the file (don't use vdisk_free as we don't want to delete all snapshot chain)
     print "delete old $file_blockdev->{filename}\n";
 
-    my $volid = $drive->{file};
     PVE::Storage::volume_snapshot_delete($storecfg, $volid, $snap, 1);
 }
 
@@ -192,7 +191,6 @@ sub blockdev_replace {
 sub blockdev_commit {
     my ($storecfg, $qmp_peer, $machine_version, $deviceid, $drive, $src_snap, $target_snap) = @_;
 
-    my $volid = $drive->{file};
     my $target_was_read_only;
 
     print "block-commit $src_snap to base:$target_snap\n";
@@ -256,7 +254,12 @@ sub blockdev_commit {
         PVE::QemuServer::BlockJob::monitor($qmp_peer, undef, $jobs, $complete, 0, 'commit');
 
         blockdev_delete(
-            $storecfg, $qmp_peer, $drive, $src_file_blockdev, $src_fmt_blockdev, $src_snap,
+            $storecfg,
+            $qmp_peer,
+            $drive->{file},
+            $src_file_blockdev,
+            $src_fmt_blockdev,
+            $src_snap,
         );
     };
     my $err = $@;
@@ -286,7 +289,6 @@ sub blockdev_stream {
         $target_snap,
     ) = @_;
 
-    my $volid = $drive->{file};
     $target_snap = undef if $target_snap eq 'current';
 
     my $parent_file_blockdev = generate_file_blockdev(
@@ -338,7 +340,7 @@ sub blockdev_stream {
     PVE::QemuServer::BlockJob::monitor($qmp_peer, undef, $jobs, 'auto', 0, 'stream');
 
     blockdev_delete(
-        $storecfg, $qmp_peer, $drive, $snap_file_blockdev, $snap_fmt_blockdev, $snap,
+        $storecfg, $qmp_peer, $drive->{file}, $snap_file_blockdev, $snap_fmt_blockdev, $snap,
     );
 }
 
