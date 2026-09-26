@@ -17,6 +17,7 @@ $memory_module->mock('hugepages_chunk_size_supported', sub { return 1; });
 my $tests = [
     ['0', '0', 1],
     ['9', '9', 1],
+    ['10', '10', 1],
     ['0;1', '0,1', 0],
     ['0;10', '0,10', 0],
     ['0;1;10', '0,1,10', 0],

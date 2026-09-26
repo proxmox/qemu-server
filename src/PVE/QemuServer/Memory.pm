@@ -649,7 +649,7 @@ sub hugepages_topology {
         my $hostnodes = print_numa_hostnodes($hostnodelists);
 
         die "more than 1 hostnode value in numa node is not supported when hugepages are enabled"
-            if $hostnodes !~ m/^(\d)$/;
+            if $hostnodes !~ m/^\d+$/;
         my $hugepages_size = hugepages_size($conf, $numa_memory);
         $hugepages_topology->{$hugepages_size}->{$hostnodes} +=
             hugepages_nr($numa_memory, $hugepages_size);
