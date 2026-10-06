@@ -4569,7 +4569,7 @@ sub vmconfig_hotplug_pending {
 
     my $defaults = load_defaults();
     my $arch = PVE::QemuServer::Helpers::get_vm_arch($conf);
-    my $machine_type = PVE::QemuServer::Machine::get_vm_machine($conf);
+    my $machine_type = PVE::QemuServer::Machine::get_current_qemu_machine($vmid);
 
     # commit values which do not have any impact on running VM first
     # Note: those option cannot raise errors, we we do not care about
@@ -4668,7 +4668,7 @@ sub vmconfig_hotplug_pending {
     my $is_usb_hotplug_supported = sub {
         return $usb_hotplug if defined($usb_hotplug);
         my $ostype = $conf->{ostype};
-        my $version = extract_version($machine_type, get_running_qemu_version($vmid));
+        my $version = PVE::QemuServer::Machine::extract_version($machine_type);
         $usb_hotplug =
             $hotplug_features->{usb}
             && min_version($version, 7, 1)
