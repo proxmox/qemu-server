@@ -4569,7 +4569,13 @@ sub vmconfig_hotplug_pending {
 
     my $defaults = load_defaults();
     my $arch = PVE::QemuServer::Helpers::get_vm_arch($conf);
-    my $machine_type = PVE::QemuServer::Machine::get_current_qemu_machine($vmid);
+
+    my $_machine_type;
+    my $machine_type = sub {
+        return $_machine_type if defined($_machine_type);
+        $_machine_type = PVE::QemuServer::Machine::get_current_qemu_machine($vmid);
+        return $_machine_type;
+    };
 
     # commit values which do not have any impact on running VM first
     # Note: those option cannot raise errors, we we do not care about
@@ -4668,7 +4674,7 @@ sub vmconfig_hotplug_pending {
     my $is_usb_hotplug_supported = sub {
         return $usb_hotplug if defined($usb_hotplug);
         my $ostype = $conf->{ostype};
-        my $version = PVE::QemuServer::Machine::extract_version($machine_type);
+        my $version = PVE::QemuServer::Machine::extract_version($machine_type->());
         $usb_hotplug =
             $hotplug_features->{usb}
             && min_version($version, 7, 1)
@@ -4689,8 +4695,8 @@ sub vmconfig_hotplug_pending {
             } elsif ($opt eq 'tablet') {
                 die "skip\n" if !$hotplug_features->{usb};
                 if ($defaults->{tablet}) {
-                    vm_deviceplug($storecfg, $conf, $vmid, 'tablet', $arch, $machine_type);
-                    vm_deviceplug($storecfg, $conf, $vmid, 'keyboard', $arch, $machine_type)
+                    vm_deviceplug($storecfg, $conf, $vmid, 'tablet', $arch, $machine_type->());
+                    vm_deviceplug($storecfg, $conf, $vmid, 'keyboard', $arch, $machine_type->())
                         if $arch eq 'aarch64';
                 } else {
                     vm_deviceunplug($vmid, $conf, 'tablet');
@@ -4760,8 +4766,8 @@ sub vmconfig_hotplug_pending {
             } elsif ($opt eq 'tablet') {
                 die "skip\n" if !$hotplug_features->{usb};
                 if ($value == 1) {
-                    vm_deviceplug($storecfg, $conf, $vmid, 'tablet', $arch, $machine_type);
-                    vm_deviceplug($storecfg, $conf, $vmid, 'keyboard', $arch, $machine_type)
+                    vm_deviceplug($storecfg, $conf, $vmid, 'tablet', $arch, $machine_type->());
+                    vm_deviceplug($storecfg, $conf, $vmid, 'keyboard', $arch, $machine_type->())
                         if $arch eq 'aarch64';
                 } elsif ($value == 0) {
                     vm_deviceunplug($vmid, $conf, 'tablet');
@@ -4775,7 +4781,7 @@ sub vmconfig_hotplug_pending {
                 if ($d->{host} =~ m/^spice$/i) {
                     $id = "usbredirdev$index";
                 }
-                qemu_usb_hotplug($storecfg, $conf, $vmid, $id, $d, $arch, $machine_type);
+                qemu_usb_hotplug($storecfg, $conf, $vmid, $id, $d, $arch, $machine_type->());
             } elsif ($opt eq 'vcpus') {
                 die "skip\n" if !$hotplug_features->{cpu};
                 qemu_cpu_hotplug($vmid, $conf, $value);
@@ -4802,7 +4808,7 @@ sub vmconfig_hotplug_pending {
                     $opt,
                     $value,
                     $arch,
-                    $machine_type,
+                    $machine_type->(),
                 );
             } elsif (is_valid_drivename($opt)) {
                 die "skip\n" if $opt eq 'efidisk0' || $opt eq 'tpmstate0';
@@ -4821,7 +4827,7 @@ sub vmconfig_hotplug_pending {
                     $opt,
                     $value,
                     $arch,
-                    $machine_type,
+                    $machine_type->(),
                 );
             } elsif ($opt =~ m/^memory$/) { #dimms
                 die "skip\n" if !$hotplug_features->{memory};
@@ -4862,7 +4868,7 @@ sub vmconfig_hotplug_pending {
                 $opt,
                 $value,
                 $arch,
-                $machine_type,
+                $machine_type->(),
             );
         };
         if (my $err = $@) {
