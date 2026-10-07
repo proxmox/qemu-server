@@ -4185,7 +4185,7 @@ sub assert_pci_bridge_present {
     my $devices_list = vm_devices_list($vmid);
 
     if (!defined($devices_list->{$bridge})) {
-        die "can't hotplug bridge necessary for '$device'\n";
+        die "can't hotplug bridge '$bridge' necessary for '$device'\n";
     }
 
     return 1;
