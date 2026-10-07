@@ -4566,9 +4566,20 @@ sub vmconfig_hotplug_pending {
             } elsif ($opt eq 'tablet') {
                 die "skip\n" if !$hotplug_features->{usb};
                 if ($defaults->{tablet}) {
-                    vm_deviceplug($storecfg, $conf, $vmid, 'tablet', $arch, $machine_type->());
-                    vm_deviceplug($storecfg, $conf, $vmid, 'keyboard', $arch, $machine_type->())
-                        if $arch eq 'aarch64';
+                    vm_deviceplug(
+                        $storecfg, $conf, $vmid, 'tablet', undef, $arch, $machine_type->(),
+                    );
+                    if ($arch eq 'aarch64') {
+                        vm_deviceplug(
+                            $storecfg,
+                            $conf,
+                            $vmid,
+                            'keyboard',
+                            undef,
+                            $arch,
+                            $machine_type->(),
+                        );
+                    }
                 } else {
                     vm_deviceunplug($vmid, $conf, 'tablet');
                     vm_deviceunplug($vmid, $conf, 'keyboard') if $arch eq 'aarch64';
@@ -4637,9 +4648,20 @@ sub vmconfig_hotplug_pending {
             } elsif ($opt eq 'tablet') {
                 die "skip\n" if !$hotplug_features->{usb};
                 if ($value == 1) {
-                    vm_deviceplug($storecfg, $conf, $vmid, 'tablet', $arch, $machine_type->());
-                    vm_deviceplug($storecfg, $conf, $vmid, 'keyboard', $arch, $machine_type->())
-                        if $arch eq 'aarch64';
+                    vm_deviceplug(
+                        $storecfg, $conf, $vmid, 'tablet', undef, $arch, $machine_type->(),
+                    );
+                    if ($arch eq 'aarch64') {
+                        vm_deviceplug(
+                            $storecfg,
+                            $conf,
+                            $vmid,
+                            'keyboard',
+                            undef,
+                            $arch,
+                            $machine_type->(),
+                        );
+                    }
                 } elsif ($value == 0) {
                     vm_deviceunplug($vmid, $conf, 'tablet');
                     vm_deviceunplug($vmid, $conf, 'keyboard') if $arch eq 'aarch64';

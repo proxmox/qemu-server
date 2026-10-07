@@ -1,1 +1,2 @@
-hmp device_add driver=usb-tablet,id=tablet,bus=uhci.0,port=1
+hmp device_add driver=usb-tablet,id=tablet,bus=ehci.0,port=1
+hmp device_add driver=usb-kbd,id=keyboard,bus=ehci.0,port=2
