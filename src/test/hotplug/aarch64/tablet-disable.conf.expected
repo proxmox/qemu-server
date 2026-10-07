@@ -1,0 +1,2 @@
+hmp device_del tablet
+hmp device_del keyboard

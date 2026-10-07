@@ -3866,12 +3866,12 @@ sub vm_devices_list {
         }
     }
 
-    # for usb devices there is no query-usb
-    # but we can iterate over the entries in
-    # qom-list path=/machine/peripheral
+    # Query from /machine/peripheral:
+    # USB devices (there is no query-usb except experimental x-query-usb)
+    # keyboard device (for aarch64)
     my $resperipheral = mon_cmd($vmid, 'qom-list', path => '/machine/peripheral');
     foreach my $per (@$resperipheral) {
-        if ($per->{name} =~ m/^usb(?:redirdev)?\d+$/) {
+        if ($per->{name} =~ m/^(?:usb(?:redirdev)?\d+|keyboard)$/) {
             $devices->{ $per->{name} } = 1;
         }
     }
