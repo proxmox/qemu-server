@@ -53,7 +53,7 @@ our $hmp_command_perms = {
     hostfwd_add => 'root', # redirect TCP or UDP connections from host to guest (requires -net user)
     # root-only: because hostfwd_add is
     hostfwd_remove => 'root', # remove host-to-guest TCP or UDP redirection
-    # root-only: read from IO adress space (e.g. PCI devices)
+    # root-only: read from IO address space (e.g. PCI devices)
     i => 'root', # I/O port read
     # root-only: log to arbitrary target file
     logfile => 'root', # output logs to 'filename'
@@ -81,7 +81,7 @@ our $hmp_command_perms = {
     netdev_del => 'root', # remove host network device
     # root-only: no guarantee there are no KVM bugs that could afffect the real CPU
     nmi => 'root', # inject an NMI
-    # root-only: write to IO adress space (e.g. PCI devices)
+    # root-only: write to IO address space (e.g. PCI devices)
     o => 'root', # I/O port write
     # root-only: create arbitrary objects, e.g. serial
     object_add => 'root', # create QOM object
@@ -94,7 +94,7 @@ our $hmp_command_perms = {
     # root-only: modify arbitrary object properties
     'qom-set' => 'root', # set QOM property.
     # root-only: because savevm-start is
-    'savevm-end' => 'root', # Resume VM after snaphot.
+    'savevm-end' => 'root', # Resume VM after snapshot.
     # root-only: save VM state to arbitrary target file
     'savevm-start' => 'root', # Prepare for snapshot and halt VM. Save VM state to statefile.
     # root-only: dump to arbitrary target file
@@ -150,7 +150,7 @@ our $hmp_command_perms = {
     print => 'Sys.Modify', # print expression value (use $reg for CPU register access)
     p => 'Sys.Modify', # alias for 'print'
     'qemu-io' => 'Sys.Modify', # run a qemu-io command on a block device
-    # decidedly not root-only even if qom-set ist, because it is just too useful
+    # decidedly not root-only even if qom-set is, because it is just too useful
     'qom-get' => 'Sys.Modify', # print QOM property
     'qom-list' => 'Sys.Modify', # list QOM properties
     quit => 'Sys.Modify', # quit the emulator
