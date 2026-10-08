@@ -5,6 +5,7 @@ use warnings;
 
 use JSON;
 use MIME::Base64 qw(encode_base64 decode_base64);
+use POSIX qw(ceil);
 
 use PVE::JSONSchema qw(get_standard_option);
 use PVE::RESTHandler;
@@ -545,12 +546,24 @@ __PACKAGE__->register_method({
                     mon_cmd($vmid, "guest-file-read", handle => $qgafh, count => int($chunk_size));
                 check_agent_error($read, "can't read from file");
 
-                my $chunk = $read->{'buf-b64'};
+                my $chunk = "$read->{'buf-b64'}";
+                my $read_count = int($read->{count});
+                $eof = 1 if $read->{eof};
+
+                if ($read_count <= 0 || $read_count > $chunk_size) {
+                    last if $read_count == 0 && $eof;
+                    die "agent file-read: got invalid count '$read_count'\n";
+                }
+
+                my $expected_length = ceil($read_count / 3) * 4; # overhead from base64 encoding
+                if (length($chunk) != $expected_length) {
+                    die "agent file-read: mismatch between returned count and buffer length\n";
+                }
+
                 $chunk = decode_base64($chunk) if $decode;
                 $content .= $chunk;
 
-                $bytes_read += $read->{count};
-                $eof = $read->{eof} // 0;
+                $bytes_read += $read_count;
             }
         };
         my $read_error = $@;
