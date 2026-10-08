@@ -537,23 +537,28 @@ __PACKAGE__->register_method({
         my $read_size = 1024 * 1024;
         my $content = "";
 
-        while ($bytes_read < $count && !$eof) {
-            my $bytes_left = $count - $bytes_read;
-            my $chunk_size = $bytes_left < $read_size ? $bytes_left : $read_size;
-            my $read =
-                mon_cmd($vmid, "guest-file-read", handle => $qgafh, count => int($chunk_size));
-            check_agent_error($read, "can't read from file");
+        eval {
+            while ($bytes_read < $count && !$eof) {
+                my $bytes_left = $count - $bytes_read;
+                my $chunk_size = $bytes_left < $read_size ? $bytes_left : $read_size;
+                my $read =
+                    mon_cmd($vmid, "guest-file-read", handle => $qgafh, count => int($chunk_size));
+                check_agent_error($read, "can't read from file");
 
-            my $chunk = $read->{'buf-b64'};
-            $chunk = decode_base64($chunk) if $decode;
-            $content .= $chunk;
+                my $chunk = $read->{'buf-b64'};
+                $chunk = decode_base64($chunk) if $decode;
+                $content .= $chunk;
 
-            $bytes_read += $read->{count};
-            $eof = $read->{eof} // 0;
-        }
+                $bytes_read += $read->{count};
+                $eof = $read->{eof} // 0;
+            }
+        };
+        my $read_error = $@;
 
         my $res = mon_cmd($vmid, "guest-file-close", handle => $qgafh);
         check_agent_error($res, "can't close file", 1);
+
+        die $read_error if $read_error;
 
         my $result = {
             content => $content,
