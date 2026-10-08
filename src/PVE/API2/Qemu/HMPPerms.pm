@@ -46,15 +46,15 @@ our $hmp_command_perms = {
     # root-only: starts GDB server on the host
     gdbserver => 'root', # start gdbserver on given device (default 'tcp::1234'), stop with 'none'
     # root-only: host information leak
-    gpa2hpa => 'Sys.Modify', # print the host physical address corresponding to a guest physical address
+    gpa2hpa => 'root', # print the host physical address corresponding to a guest physical address
     # root-only: host information leak
-    gpa2hva => 'Sys.Modify', # print the host virtual address corresponding to a guest physical address
+    gpa2hva => 'root', # print the host virtual address corresponding to a guest physical address
     # root-only: redirect TCP or UDP connections from host to guest
     hostfwd_add => 'root', # redirect TCP or UDP connections from host to guest (requires -net user)
     # root-only: because hostfwd_add is
     hostfwd_remove => 'root', # remove host-to-guest TCP or UDP redirection
     # root-only: read from IO adress space (e.g. PCI devices)
-    i => 'Sys.Modify', # I/O port read
+    i => 'root', # I/O port read
     # root-only: log to arbitrary target file
     logfile => 'root', # output logs to 'filename'
     # root-only: no guarantee there are no KVM bugs that could afffect the real CPU
