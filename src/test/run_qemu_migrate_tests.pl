@@ -37,6 +37,7 @@ my $storage_config = {
         local => {
             content => {
                 images => 1,
+                iso => 1,
             },
             path => "/var/lib/vz",
             type => "dir",
@@ -438,7 +439,18 @@ my $source_vdisks = {
 
 # Non-image volumes on the source, e.g. ISO images, with the same structure as $source_vdisks. They
 # are only used for the mocked volume_size_info(), because vdisk_list() only returns images.
-my $source_other_volumes = {};
+my $source_other_volumes = {
+    'local' => [
+        {
+            'ctime' => 1589439681,
+            'format' => 'iso',
+            'parent' => undef,
+            'size' => 663748608,
+            'used' => 663748608,
+            'volid' => 'local:iso/debian.iso',
+        },
+    ],
+};
 
 my $default_expected_calls_online = {
     move_config_to_node => 1,
@@ -1231,6 +1243,41 @@ my $tests = [
                     snapshots => {
                         ohsnap => {
                             ide2 => 'cdrom,media=cdrom',
+                        },
+                    },
+                },
+            ),
+            vm_status => {
+                running => 0,
+            },
+        },
+    },
+    {
+        name => '105_local_iso_in_snapshot',
+        target => 'pve1',
+        vmid => 105,
+        vm_status => {
+            running => 0,
+        },
+        config_patch => {
+            snapshots => {
+                ohsnap => {
+                    ide2 => 'local:iso/debian.iso,media=cdrom',
+                },
+            },
+        },
+        expected_calls => {},
+        expect_die => "can't migrate local disk 'local:iso/debian.iso': local cdrom image"
+            . " (referenced in snapshot - ohsnap)",
+        expected => {
+            source_volids => local_volids_for_vm(105),
+            target_volids => {},
+            vm_config => get_patched_config(
+                105,
+                {
+                    snapshots => {
+                        ohsnap => {
+                            ide2 => 'local:iso/debian.iso,media=cdrom',
                         },
                     },
                 },

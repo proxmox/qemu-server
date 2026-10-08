@@ -412,15 +412,16 @@ sub scan_local_volumes {
             }
 
             my $snaprefs = $attr->{referenced_in_snapshot};
+            my $snapshot_hint = '';
+            if (defined($snaprefs) && !$attr->{is_attached}) {
+                my $snapnames = join(', ', sort keys %$snaprefs);
+                my $plural = scalar(keys %$snaprefs) > 1 ? 's' : '';
+                $snapshot_hint = " (referenced in snapshot$plural - $snapnames)";
+            }
 
             if ($attr->{cdrom}) {
                 if ($volid eq 'cdrom') {
-                    my $msg = "can't migrate local cdrom drive";
-                    if (defined($snaprefs) && !$attr->{is_attached}) {
-                        my $snapnames = join(', ', sort keys %$snaprefs);
-                        $msg .= " (referenced in snapshot - $snapnames)";
-                    }
-                    &$log_error("$msg\n");
+                    &$log_error("can't migrate local cdrom drive$snapshot_hint\n");
                     return;
                 }
                 return if $volid eq 'none';
@@ -475,7 +476,7 @@ sub scan_local_volumes {
                     $local_volumes->{$volid}->{ref} = 'generated';
                     return;
                 }
-                die "local cdrom image\n";
+                die "local cdrom image$snapshot_hint\n";
             }
 
             my ($path, $owner) = PVE::Storage::path($storecfg, $volid);
