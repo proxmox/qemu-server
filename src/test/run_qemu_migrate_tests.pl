@@ -436,6 +436,10 @@ my $source_vdisks = {
     ],
 };
 
+# Non-image volumes on the source, e.g. ISO images, with the same structure as $source_vdisks. They
+# are only used for the mocked volume_size_info(), because vdisk_list() only returns images.
+my $source_other_volumes = {};
+
 my $default_expected_calls_online = {
     move_config_to_node => 1,
     ssh_qm_start => 1,
@@ -1732,6 +1736,7 @@ foreach my $test (@{$tests}) {
     file_set_contents("${run_dir}/replication_config", to_json($replication_config));
     file_set_contents("${run_dir}/storage_config", to_json($storage_config));
     file_set_contents("${run_dir}/source_vdisks", to_json($source_vdisks));
+    file_set_contents("${run_dir}/source_other_volumes", to_json($source_other_volumes));
 
     my $expect_die = $test->{expect_die};
     my $expected = $test->{expected};

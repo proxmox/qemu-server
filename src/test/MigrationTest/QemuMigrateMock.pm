@@ -21,6 +21,7 @@ my $QM_LIB_PATH = $ENV{QM_LIB_PATH} or die "no QM_LIB_PATH set\n";
 
 my $source_volids = decode_json(file_get_contents("${RUN_DIR_PATH}/source_volids"));
 my $source_vdisks = decode_json(file_get_contents("${RUN_DIR_PATH}/source_vdisks"));
+my $source_other_volumes = decode_json(file_get_contents("${RUN_DIR_PATH}/source_other_volumes"));
 my $vm_status = decode_json(file_get_contents("${RUN_DIR_PATH}/vm_status"));
 my $expected_calls = decode_json(file_get_contents("${RUN_DIR_PATH}/expected_calls"));
 my $fail_config = decode_json(file_get_contents("${RUN_DIR_PATH}/fail_config"));
@@ -304,11 +305,11 @@ $MigrationTest::Shared::storage_module->mock(
         my ($scfg, $volid) = @_;
         my ($storeid, $volname) = PVE::Storage::parse_volume_id($volid);
 
-        for my $v ($source_vdisks->{$storeid}->@*) {
+        for my $v ($source_vdisks->{$storeid}->@*, $source_other_volumes->{$storeid}->@*) {
             return wantarray ? ($v->{size}, $v->{format}, $v->{used}, $v->{parent}) : $v->{size}
                 if $v->{volid} eq $volid;
         }
-        die "could not find '$volid' in mock 'source_vdisks'\n";
+        die "could not find '$volid' in mock 'source_vdisks' or 'source_other_volumes'\n";
     },
 );
 
