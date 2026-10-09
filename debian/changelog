@@ -1,3 +1,24 @@
+qemu-server (9.2.11) trixie; urgency=medium
+
+  * hotplug pending: improve handling of machine type, only querying it when
+    required, but use running instance as source
+
+  * QMP/QGA clients: limit response sizes to protect against misbehaving guests
+    or buggy implementations, improve error handling in guest-file-read
+
+  * monitor: HMP perms: fix permissions for 'gpa2hpa', 'gpa2hva' and 'i' commands
+
+  * api: cloud-init: check storage access for cicustom volume IDs, in addition
+    to the existing VM.Config.* checks
+
+  * api: cloud-init: adapt privilege checks to limit scope of
+    `VM.Config.Network`, requiring `VM.Config.Cloudinit` for most options
+
+  * api: get snapshot config: align masking behaviour with regular config
+    endpoint
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 09 Oct 2026 12:09:23 +0200
+
 qemu-server (9.2.10) trixie; urgency=medium
 
   * partially fix #7801: warn when configuring a CDROM drive with a VirtIO
