@@ -1,6 +1,6 @@
 all: test
 
-test: test_snapshot test_cfg_to_cmd test_cfg_to_cmd_aarch64 test_pci_addr_conflicts test_pci_reservation test_qemu_img_convert test_migration test_restore_config test_parse_config
+test: test_snapshot test_cfg_to_cmd test_cfg_to_cmd_aarch64 test_pci_addr_conflicts test_pci_reservation test_qemu_img_convert test_migration test_restore_config test_parse_config test_memory
 
 test_snapshot: run_snapshot_tests.pl
 	./run_snapshot_tests.pl
@@ -33,6 +33,9 @@ test_restore_config: run_qemu_restore_config_tests.pl
 
 test_parse_config: run_parse_config_tests.pl
 	./run_parse_config_tests.pl
+
+test_memory: run_memory_tests.pl
+	./run_memory_tests.pl
 
 .PHONY: clean
 clean:

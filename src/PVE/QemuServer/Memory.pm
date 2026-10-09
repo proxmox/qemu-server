@@ -527,7 +527,7 @@ sub print_numa_hostnodes {
     my $hostnodes;
     foreach my $hostnoderange (@$hostnodelists) {
         my ($start, $end) = @$hostnoderange;
-        $hostnodes .= ',' if $hostnodes;
+        $hostnodes .= ',' if defined($hostnodes);
         $hostnodes .= $start;
         $hostnodes .= "-$end" if defined($end);
         $end //= $start;
