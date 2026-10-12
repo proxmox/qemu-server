@@ -27,6 +27,7 @@ use PVE::JSONSchema qw(get_standard_option);
 use PVE::RESTHandler;
 use PVE::ReplicationConfig;
 use PVE::GuestHelpers qw(assert_tag_permissions);
+use PVE::GuestID;
 use PVE::GuestImport;
 use PVE::QemuConfig;
 use PVE::QemuServer;
@@ -2907,6 +2908,10 @@ __PACKAGE__->register_method({
         };
 
         $early_checks->();
+
+        # record before destroying anything, so a failure here leaves the VM intact
+        eval { PVE::GuestID::register_used_id($vmid) };
+        die "unable to destroy VM $vmid - $@" if $@;
 
         my $realcmd = sub {
             my $upid = shift;

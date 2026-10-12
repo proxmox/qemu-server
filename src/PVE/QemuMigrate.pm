@@ -14,6 +14,7 @@ use PVE::Cmd qw(build_ssh_command);
 use PVE::Format qw(render_bytes);
 use PVE::Firewall::Helpers;
 use PVE::GuestHelpers qw(safe_boolean_ne safe_string_ne);
+use PVE::GuestID;
 use PVE::INotify;
 use PVE::JSONSchema;
 use PVE::RPCEnvironment;
@@ -1924,6 +1925,9 @@ sub phase3_cleanup {
     }
 
     if ($self->{opts}->{remote} && $self->{opts}->{delete}) {
+        eval { PVE::GuestID::register_used_id($vmid) };
+        warn $@ if $@;
+
         eval { PVE::QemuServer::destroy_vm($self->{storecfg}, $vmid, 1, undef, 0) };
         warn "Failed to remove source VM - $@\n" if $@;
     }
