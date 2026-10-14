@@ -438,7 +438,16 @@ sub config {
                 # > specify a policy other than default
                 my $policy = $numa->{policy};
                 die "you need to define a policy for hostnode $hostnodes\n" if !$policy;
-                $mem_object .= ",host-nodes=$hostnodes,policy=$policy";
+
+                # QEMU splits object options at commas, so each range needs its own host-nodes key
+                my $host_node_ranges = join(
+                    ',host-nodes=',
+                    map {
+                        my ($start, $end) = @$_;
+                        defined($end) ? "$start-$end" : $start
+                    } @$hostnodelists,
+                );
+                $mem_object .= ",host-nodes=$host_node_ranges,policy=$policy";
             } else {
                 die "numa hostnodes need to be defined to use hugepages" if $conf->{hugepages};
             }
