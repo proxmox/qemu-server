@@ -119,6 +119,15 @@ my sub assert_usb_index_is_useable {
     return undef;
 }
 
+sub get_default_usb_bus {
+    my ($conf, $arch) = @_;
+
+    my $q35 = PVE::QemuServer::Machine::machine_type_is_q35($conf);
+
+    # we use uhci for old VMs because tablet driver was buggy in older qemu
+    return $q35 || $arch eq 'aarch64' ? 'ehci' : 'uhci';
+}
+
 sub get_usb_controllers {
     my ($conf, $arch, $machine_version) = @_;
 

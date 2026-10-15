@@ -1182,15 +1182,7 @@ sub assert_clipboard_config {
 sub print_tabletdevice_full {
     my ($conf, $arch) = @_;
 
-    my $q35 = PVE::QemuServer::Machine::machine_type_is_q35($conf);
-
-    # we use uhci for old VMs because tablet driver was buggy in older qemu
-    my $usbbus;
-    if ($q35 || $arch eq 'aarch64') {
-        $usbbus = 'ehci';
-    } else {
-        $usbbus = 'uhci';
-    }
+    my $usbbus = PVE::QemuServer::USB::get_default_usb_bus($conf, $arch);
 
     return "usb-tablet,id=tablet,bus=$usbbus.0,port=1";
 }
