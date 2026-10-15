@@ -78,12 +78,14 @@ sub print_drivedevice_full {
         PVE::QemuServer::Machine::extract_version($machine_type, kvm_user_version());
     my $has_write_cache = 1; # whether the device has a 'write-cache' option
 
+    my $use_blockdev = min_version($machine_version, 10, 0);
+
     my $drive_id = PVE::QemuServer::Drive::get_drive_id($drive);
     if ($drive->{interface} eq 'virtio') {
         my $pciaddr = print_pci_addr("$drive_id", $arch);
         $device = 'virtio-blk-pci';
         # for the switch to -blockdev, there is no blockdev for 'none'
-        if (!min_version($machine_version, 10, 0) || $drive->{file} ne 'none') {
+        if (!$use_blockdev || $drive->{file} ne 'none') {
             $device .= ",drive=drive-$drive_id";
         }
         $device .= ",id=${drive_id}${pciaddr}";
@@ -104,16 +106,14 @@ sub print_drivedevice_full {
                 . ",lun=$drive->{index}";
         }
         # for the switch to -blockdev, there is no blockdev for 'none'
-        if (!min_version($machine_version, 10, 0) || $drive->{file} ne 'none') {
+        if (!$use_blockdev || $drive->{file} ne 'none') {
             $device .= ",drive=drive-$drive_id";
         }
         $device .= ",id=$drive_id";
 
         # For the switch to -blockdev, the SCSI device ID needs to be explicitly specified. Note
         # that only ide-cd and ide-hd have a 'device_id' option.
-        if (
-            min_version($machine_version, 10, 0) && ($device_type eq 'cd' || $device_type eq 'hd')
-        ) {
+        if ($use_blockdev && ($device_type eq 'cd' || $device_type eq 'hd')) {
             $device .= ",device_id=drive-${drive_id}";
         }
 
@@ -169,7 +169,7 @@ sub print_drivedevice_full {
         } else {
             $device .= ",bus=ahci$controller.$unit";
         }
-        if (!min_version($machine_version, 10, 0) || $drive->{file} ne 'none') {
+        if (!$use_blockdev || $drive->{file} ne 'none') {
             $device .= ",drive=drive-$drive_id";
         }
         $device .= ",id=$drive_id";
@@ -198,7 +198,7 @@ sub print_drivedevice_full {
         $device .= ",serial=$serial";
     }
 
-    if (min_version($machine_version, 10, 0)) { # for the switch to -blockdev
+    if ($use_blockdev) { # for the switch to -blockdev
         if (!drive_is_cdrom($drive) && $has_write_cache) {
             my $write_cache = 'on';
             if (my $cache = $drive->{cache}) {
