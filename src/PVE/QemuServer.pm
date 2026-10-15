@@ -1327,7 +1327,7 @@ sub print_netdevice_full {
         $netid,
         $use_old_bios_files,
         $arch,
-        $machine_version,
+        $version_guard, # checks the machine version and records the required +pveX revision
         $host_mtu_migration, # force this value for host_mtu, 0 means force absence of param
     ) = @_;
 
@@ -1343,12 +1343,12 @@ sub print_netdevice_full {
         # and out of each queue plus one config interrupt and control vector queue
         my $vectors = $net->{queues} * 2 + 2;
         $tmpstr .= ",vectors=$vectors,mq=on";
-        if (min_version($machine_version, 7, 1)) {
+        if ($version_guard->(7, 1)) {
             $tmpstr .= ",packed=on";
         }
     }
 
-    if (min_version($machine_version, 7, 1) && $net->{model} eq 'virtio') {
+    if ($version_guard->(7, 1) && $net->{model} eq 'virtio') {
         $tmpstr .= ",rx_queue_size=1024,tx_queue_size=256";
     }
 
@@ -1378,7 +1378,7 @@ sub print_netdevice_full {
                 . " that the bridge is configured as desired.\n";
         }
 
-        if (min_version($machine_version, 10, 0, 1) || $host_mtu_migration) {
+        if ($version_guard->(10, 0, 1) || $host_mtu_migration) {
             # Always add host_mtu for migration compatibility, because the presence of host_mtu
             # means that the virtual hardware is generated differently (at least for i440fx)
             $tmpstr .= ",host_mtu=$mtu";
@@ -1390,7 +1390,7 @@ sub print_netdevice_full {
         if ($migration_skip_host_mtu) {
             # When the machine version is less than 10.0+pve1 and the MTU is 1500, not having the
             # host_mtu parameter is fully expected. Only log when not expected to avoid confusion.
-            if (min_version($machine_version, 10, 0, 1) || $mtu != 1500) {
+            if ($version_guard->(10, 0, 1) || $mtu != 1500) {
                 log_warn(
                     "$msg_prefix, not used on the source side according to migration parameters");
             }
@@ -1423,10 +1423,10 @@ sub print_netdevice_full {
     # include the fix "virtio_net: do not allow tunnel csum offload for non GSO packets" with a
     # prominent notice in the upgrade guide.
     if ($net->{model} eq 'virtio') {
-        if (min_version($machine_version, 11, 0, 1)) {
+        if ($version_guard->(11, 0, 1)) {
             # Turn off if not explicitly enabled starting with 11.0+pve1
             $tmpstr .= ",host_tunnel=off" if !$net->{'host-tunnel'};
-        } elsif (min_version($machine_version, 10, 2)) {
+        } elsif ($version_guard->(10, 2)) {
             # The feature was introduced in QEMU 10.2. Turn off if explicitly disabled.
             $tmpstr .= ",host_tunnel=off"
                 if defined($net->{'host-tunnel'}) && !$net->{'host-tunnel'};
@@ -3706,7 +3706,7 @@ sub config_to_command {
             $netname,
             $use_old_bios_files,
             $arch,
-            $machine_version,
+            $version_guard,
             $nets_host_mtu->{$netname},
         );
 
@@ -3941,8 +3941,13 @@ sub vm_deviceplug {
         my $use_old_bios_files = undef;
         ($use_old_bios_files, $machine_type) = qemu_use_old_bios_files($machine_type);
 
+        # the machine is already running, so there is no required version to record
+        my $version_guard = sub {
+            my ($major, $minor, $pve) = @_;
+            return min_version($machine_version, $major, $minor, $pve);
+        };
         my $netdevicefull = print_netdevice_full(
-            $vmid, $conf, $device, $deviceid, $use_old_bios_files, $arch, $machine_version,
+            $vmid, $conf, $device, $deviceid, $use_old_bios_files, $arch, $version_guard,
         );
         qemu_deviceadd($vmid, $netdevicefull);
         eval {
