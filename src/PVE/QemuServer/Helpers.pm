@@ -21,6 +21,7 @@ our @EXPORT_OK = qw(
     parse_number_sets
     windows_version
     get_host_arch
+    version_parts
 );
 
 my $nodename = PVE::INotify::nodename();
@@ -224,11 +225,30 @@ sub vm_running_locally {
     return instance_running_locally($pidfile);
 }
 
+# Parses a version string like X.Y.Z+pveW and returns (X, Y, Z, W) as numeric values. The micro and
+# pve version are optional and will be undefined in the result if not specified in the version
+# string.
+sub version_parts {
+    my ($verstr) = @_;
+
+    if ($verstr =~ m/^(\d+)\.(\d+)(?:\.(\d+))?(?:\+pve(\d+))?/) {
+        my $major = $1 + 0;
+        my $minor = $2 + 0;
+        my $patch = $3;
+        $patch += 0 if defined($patch);
+        my $pve = $4;
+        $pve += 0 if defined($pve);
+        return ($major, $minor, $patch, $pve);
+    }
+
+    return;
+}
+
 sub min_version {
     my ($verstr, $major, $minor, $pve) = @_;
 
-    if ($verstr =~ m/^(\d+)\.(\d+)(?:\.(\d+))?(?:\+pve(\d+))?/) {
-        return 1 if version_cmp($1, $major, $2, $minor, $4, $pve) >= 0;
+    if (my ($got_major, $got_minor, $got_patch, $got_pve) = version_parts($verstr)) {
+        return 1 if version_cmp($got_major, $major, $got_minor, $minor, $got_pve, $pve) >= 0;
         return 0;
     }
 
