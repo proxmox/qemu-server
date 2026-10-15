@@ -168,7 +168,7 @@ sub get_usb_controllers {
 }
 
 sub get_usb_devices {
-    my ($conf, $features, $bootorder, $machine_version) = @_;
+    my ($conf, $bootorder, $machine_version) = @_;
 
     my $devices = [];
 
@@ -190,7 +190,7 @@ sub get_usb_devices {
         if ($d->{host} && $d->{host} =~ m/^spice$/) {
             # usb redir support for spice
             my $bus = 'ehci';
-            $bus = 'xhci' if ($d->{usb3} && $features->{spice_usb3}) || $use_qemu_xhci;
+            $bus = 'xhci' if $d->{usb3} || $use_qemu_xhci;
 
             push @$devices, '-chardev', "spicevmc,id=usbredirchardev$i,name=usbredir";
             push @$devices, '-device', print_spice_usbdevice($i, $bus, $port);

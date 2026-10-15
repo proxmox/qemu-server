@@ -3326,12 +3326,7 @@ sub config_to_command {
         );
 
     # usb devices
-    my $usb_dev_features = {};
-    $usb_dev_features->{spice_usb3} = 1 if min_version($machine_version, 4, 0);
-
-    my @usbdevices = PVE::QemuServer::USB::get_usb_devices(
-        $conf, $usb_dev_features, $bootorder, $machine_version,
-    );
+    my @usbdevices = PVE::QemuServer::USB::get_usb_devices($conf, $bootorder, $machine_version);
     push @$devices, @usbdevices if @usbdevices;
 
     # serial devices
