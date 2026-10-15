@@ -1,3 +1,26 @@
+qemu-server (9.2.12) trixie; urgency=medium
+
+  * partially fix #4012: migrate: name the snapshots that still reference a
+    local ISO image when refusing to migrate, as such a reference is not
+    visible in the current VM configuration.
+
+  * fix #8071, #8092: volume snapshot delete: use the currently attached drive
+    configuration when removing a snapshot of a running VM on storage with
+    snapshot-as-volume-chain. If the disk was re-attached on a different bus or
+    its options changed since the snapshot was taken, the removal failed and
+    left the VM locked.
+
+  * memory: fix custom NUMA nodes bound to multiple host node ranges, such as
+    'hostnodes=1;3'. Such VMs failed to start, and some lists starting with
+    host node 0 silently bound the guest memory to other host nodes than
+    configured.
+
+  * fix #6907: memory: allow binding custom NUMA nodes to host nodes 10 and
+    higher when hugepages are enabled. These were rejected with a misleading
+    'more than 1 hostnode value' error.
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 16 Oct 2026 01:03:40 +0200
+
 qemu-server (9.2.11) trixie; urgency=medium
 
   * hotplug pending: improve handling of machine type, only querying it when
