@@ -20,6 +20,7 @@ use PVE::RRD;
 use PVE::SafeSyslog;
 use PVE::Tools qw(extract_param run_command);
 use PVE::Exception qw(raise raise_param_exc raise_perm_exc);
+use PVE::File qw(file_exists);
 use PVE::Storage;
 use PVE::JSONSchema qw(get_standard_option);
 use PVE::RESTHandler;
@@ -1314,6 +1315,7 @@ __PACKAGE__->register_method({
         my $filename = PVE::QemuConfig->config_file($vmid);
         my $storecfg = PVE::Storage::config();
 
+        my $vm_exists = file_exists($filename);
         if (defined($pool)) {
             $rpcenv->check_pool_exist($pool);
         }
@@ -1336,12 +1338,16 @@ __PACKAGE__->register_method({
         } elsif (
             $archive
             && $force
-            && (-f $filename)
+            && $vm_exists
             && $rpcenv->check($authuser, "/vms/$vmid", ['VM.Backup'], 1)
         ) {
             # OK: user has VM.Backup permissions and wants to restore an existing VM
         } else {
             raise_perm_exc();
+        }
+
+        if (!($vm_exists && $is_restore && $force)) {
+            PVE::Cluster::check_vmid_unused($vmid);
         }
 
         if ($archive) {
