@@ -1462,7 +1462,7 @@ sub phase2 {
         }
 
         my $status = $stat->{status};
-        if (defined($status) && $status =~ m/^(cancelling|setup|wait-unplug)$/im) {
+        if (defined($status) && $status =~ m/^(cancelling|failing|setup|wait-unplug)$/im) {
             $self->log('info', "migration in status '$status' - waiting for transition");
             sleep(1);
             next;
