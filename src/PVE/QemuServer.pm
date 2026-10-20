@@ -2914,6 +2914,10 @@ sub start_swtpm {
         push @$setup_cmd, "--tpm2" if $tpm->{version} && $tpm->{version} eq 'v2.0';
         # TPM 2.0 supports ECC crypto, use if possible
         push @$setup_cmd, "--ecc" if $tpm->{version} && $tpm->{version} eq 'v2.0';
+        # The profile defines the commands and algorithms of a TPM 2.0 and is fixed once the state
+        # exists. Pin it instead of using the swtpm_setup.conf default, which can differ per node.
+        push @$setup_cmd, "--profile-name", "builtin:default-v1"
+            if $tpm->{version} && $tpm->{version} eq 'v2.0';
 
         run_command(
             $setup_cmd,
