@@ -1,3 +1,57 @@
+qemu-server (9.2.13) trixie; urgency=medium
+
+  * migrate: wait for the 'failing' migration status introduced with QEMU 11.0
+    to transition to 'failed', so that the error reported by QEMU gets logged.
+    Previously, such a migration was aborted with an 'unable to parse
+    migration status' error before QEMU finished its cleanup.
+
+  * hotplug: name the missing PCI bridge in the error message when hotplugging
+    a device fails because of it.
+
+  * net: fix VirtIO NICs of VMs started with an unversioned machine type on
+    QEMU 11.0 getting the 'host_tunnel' feature enabled again after a live
+    migration, or when resuming from a snapshot with RAM or from hibernation.
+    Such VMs were started with the feature disabled, but without recording
+    the '+pve1' machine version revision this requires. Affected VMs that are
+    already running keep the previously recorded version, also across
+    migrations, until they are stopped and started again.
+
+  * api: remote migrate: additionally require 'VM.Audit' and 'VM.Config.Disk'
+    on the VM, as remote migration transfers its configuration and disks to
+    another cluster. Using 'delete' requires 'VM.Allocate', and migrating a VM
+    with 'cicustom' or 'cipassword' set requires 'VM.Config.Cloudinit'.
+
+  * tpm: fix starting aarch64 VMs with a TPM state, by using the
+    'tpm-tis-device' model of the aarch64 virt machine, which is also what its
+    EDK2 firmware detects. The 'tpm-tis' model used before only exists for x86
+    machines.
+
+  * tpm: only allow TPM version 2.0 for aarch64 VMs, as QEMU only exposes a
+    TPM 2.0 to aarch64 guests and their EDK2 firmware has no TPM 1.2 support.
+    The API rejects adding a v1.2 TPM state to such VMs, and starting one with
+    an existing v1.2 TPM state fails before the state gets initialized.
+
+  * tpm: create new TPM 2.0 states with the 'default-v1' profile available
+    since swtpm 0.10. Compared to existing TPM states, which keep their feature
+    set, it adds the ECC_Encrypt, ECC_Decrypt, PolicyCapability and
+    PolicyParameters commands and 192-bit AES and Camellia keys, and stores
+    persistent objects more compactly. As the profile of a TPM state cannot be
+    changed after its creation, it is set explicitly instead of depending on
+    the /etc/swtpm_setup.conf of the node the VM is first started on. TPM
+    states with this profile cannot be used with libtpms older than 0.10.
+
+  * api: create VM: check early whether the VMID is already used by another
+    guest, for example a container or a VM on another node. A forced restore
+    to such a VMID previously only failed when writing the configuration, with
+    a less clear error.
+
+  * api: restore: require 'VM.Allocate' or 'VM.Backup' on the VM itself for
+    overwriting an existing VM, which includes privileges inherited from a pool
+    the VM is a member of. Previously, 'VM.Allocate' on any pool passed with
+    the request was sufficient, even if the VM was not a member of it.
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 20 Oct 2026 21:01:40 +0200
+
 qemu-server (9.2.12) trixie; urgency=medium
 
   * partially fix #4012: migrate: name the snapshots that still reference a
