@@ -2844,15 +2844,16 @@ sub get_tpm_paths {
 }
 
 sub add_tpm_device {
-    my ($vmid, $devices, $conf) = @_;
+    my ($vmid, $devices, $conf, $arch) = @_;
 
     return if !$conf->{tpmstate0};
 
     my $paths = get_tpm_paths($vmid);
+    my $model = $arch eq 'aarch64' ? 'tpm-tis-device' : 'tpm-tis';
 
     push @$devices, "-chardev", "socket,id=tpmchar,path=$paths->{socket}";
     push @$devices, "-tpmdev", "emulator,id=tpmdev,chardev=tpmchar";
-    push @$devices, "-device", "tpm-tis,tpmdev=tpmdev";
+    push @$devices, "-device", "$model,tpmdev=tpmdev";
 }
 
 sub start_swtpm {
@@ -3360,7 +3361,7 @@ sub config_to_command {
 
     # Add a TPM only if the VM is not a template,
     # to support backing up template VMs even if the TPM disk is write-protected.
-    add_tpm_device($vmid, $devices, $conf) if !$is_template;
+    add_tpm_device($vmid, $devices, $conf, $arch) if !$is_template;
 
     my $sockets = 1;
     $sockets = $conf->{smp} if $conf->{smp}; # old style - no longer iused
