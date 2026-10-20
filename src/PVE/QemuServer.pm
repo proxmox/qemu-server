@@ -2843,10 +2843,25 @@ sub get_tpm_paths {
     };
 }
 
+# The aarch64 virt machine only provides a TPM TIS device, which QEMU only describes to the guest
+# as TPM 2.0, and the aarch64 EDK2 firmware has no TPM 1.2 support either.
+sub assert_tpm_version_supported {
+    my ($version, $arch) = @_;
+
+    $version //= 'v1.2';
+    die "TPM version '$version' is not supported for the '$arch' architecture, use 'v2.0'\n"
+        if $arch eq 'aarch64' && $version ne 'v2.0';
+
+    return;
+}
+
 sub add_tpm_device {
     my ($vmid, $devices, $conf, $arch) = @_;
 
     return if !$conf->{tpmstate0};
+
+    my $tpm = parse_drive('tpmstate0', $conf->{tpmstate0});
+    assert_tpm_version_supported($tpm->{version}, $arch);
 
     my $paths = get_tpm_paths($vmid);
     my $model = $arch eq 'aarch64' ? 'tpm-tis-device' : 'tpm-tis';

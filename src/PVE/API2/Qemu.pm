@@ -478,6 +478,9 @@ my sub create_disks : prototype($$$$$$$$$$$) {
     my $code = sub {
         my ($ds, $disk) = @_;
 
+        PVE::QemuServer::assert_tpm_version_supported($disk->{version}, $arch)
+            if $ds eq 'tpmstate0';
+
         my $volid = $disk->{file};
         my ($storeid, $volname) = PVE::Storage::parse_volume_id($volid, 1);
 
