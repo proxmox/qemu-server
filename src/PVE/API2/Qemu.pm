@@ -5706,7 +5706,12 @@ __PACKAGE__->register_method({
     description =>
         "Migrate virtual machine to a remote cluster. Creates a new migration task. EXPERIMENTAL feature!",
     permissions => {
-        check => ['perm', '/vms/{vmid}', ['VM.Migrate']],
+        # FIXME: MAJOR VERSION: require Sys.AccessNetwork or a new Sys.Outgoing privilege?
+        description =>
+            "'VM.Migrate', 'VM.Audit', and 'VM.Config.Disk' on '/vms/{vmid}'. If using 'delete',"
+            . " additionally 'VM.Allocate' on '/vms/{vmid}'. If 'cicustom' or 'cipassword' is set,"
+            . " additionally 'VM.Config.Cloudinit' on '/vms/{vmid}'.",
+        check => ['perm', '/vms/{vmid}', ['VM.Audit', 'VM.Config.Disk', 'VM.Migrate']],
     },
     parameters => {
         additionalProperties => 0,
@@ -5768,11 +5773,21 @@ __PACKAGE__->register_method({
         my $target_vmid = extract_param($param, 'target-vmid') // $source_vmid;
 
         my $delete = extract_param($param, 'delete') // 0;
+        if ($delete) {
+            $rpcenv->check($authuser, "/vms/${source_vmid}", ['VM.Allocate']);
+        }
 
         PVE::Cluster::check_cfs_quorum();
 
         # test if VM exists
         my $conf = PVE::QemuConfig->load_config($source_vmid);
+
+        # Require additional permissions where cloud-init credentials could be exposed. While the
+        # cicustom snippet volumes are not migrated themselves, the VM's disks are, and if running,
+        # also the memory, which could expose the contents.
+        if (defined($conf->{cicustom}) || defined($conf->{cipassword})) {
+            $rpcenv->check($authuser, "/vms/${source_vmid}", ['VM.Config.Cloudinit']);
+        }
 
         PVE::QemuConfig->check_lock($conf);
 
