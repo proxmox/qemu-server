@@ -16,6 +16,7 @@ use PVE::QemuServer::CPUConfig;
 use PVE::Storage;
 
 use QemuServerTest::CommandLineMocks qw(get_storage_config get_test_qemu_version set_test_env);
+use QemuServerTest::Utils qw(diff);
 
 my $vmid = 8006;
 
@@ -120,37 +121,6 @@ $qemu_monitor_module->mock(
     },
 );
 
-sub diff($a, $b) {
-    return if $a eq $b;
-
-    my ($ra, $wa) = POSIX::pipe();
-    my ($rb, $wb) = POSIX::pipe();
-    my $ha = IO::Handle->new_from_fd($wa, 'w');
-    my $hb = IO::Handle->new_from_fd($wb, 'w');
-
-    open my $diffproc, '-|', 'diff', '-up', "/proc/self/fd/$ra", "/proc/self/fd/$rb" ## no critic
-        or die "failed to run program 'diff': $!";
-    POSIX::close($ra);
-    POSIX::close($rb);
-
-    open my $f1, '<', \$a;
-    open my $f2, '<', \$b;
-    my ($line1, $line2);
-    do {
-        $ha->print($line1) if defined($line1 = <$f1>);
-        $hb->print($line2) if defined($line2 = <$f2>);
-    } while (defined($line1 // $line2));
-    close $f1;
-    close $f2;
-    close $ha;
-    close $hb;
-
-    local $/ = undef;
-    my $diff = <$diffproc>;
-    close $diffproc;
-    die "files differ:\n$diff";
-}
-
 $SIG{__WARN__} = sub {
     my $warning = shift;
     chomp $warning;
@@ -222,10 +192,10 @@ sub do_test($config_fn) {
 
         my $exp = join("\n", @$cmd_expected);
         my $got = join("\n", @$cmd);
-        eval { diff($exp, $got) };
-        if (my $err = $@) {
+
+        if (my $diff = diff($exp, $got)) {
             fail("$testname");
-            note($err);
+            note("files differ:\n$diff");
         } else {
             pass("$testname");
         }

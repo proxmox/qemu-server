@@ -11,9 +11,7 @@
 use strict;
 use warnings;
 
-use lib qw(..);
-
-use File::Path qw(make_path remove_tree);
+use lib qw(.. .);
 
 use Test::MockModule;
 use Test::More;
@@ -21,8 +19,9 @@ use Test::More;
 use PVE::QemuServer;
 use PVE::Tools;
 
+use QemuServerTest::Utils qw(diff);
+
 my $INPUT_DIR = './parse-config-input';
-my $OUTPUT_DIR = './parse-config-output';
 my $EXPECTED_DIR = './parse-config-expected';
 
 # NOTE update when you add/remove tests
@@ -72,25 +71,23 @@ sub run_tests {
                 return;
             }
 
-            my $output_file = "${OUTPUT_DIR}/${file}";
-            PVE::Tools::file_set_contents($output_file, $output);
-
             my $expected_file = "${EXPECTED_DIR}/${file}";
-            $expected_file = $input_file if !-f $expected_file;
+            my $expected = $input;
+            if (-f $expected_file) {
+                $expected = PVE::Tools::file_get_contents($expected_file);
+            }
 
-            my $cmd = ['diff', '-u', $expected_file, $output_file];
-            if (system(@$cmd) == 0) {
-                pass($file);
-            } else {
+            if (my $diff = diff($expected, $output)) {
+                note($diff);
                 fail($file);
+            } else {
+                pass($file);
             }
         },
     );
 }
 
-make_path(${OUTPUT_DIR});
 run_tests(0);
 run_tests(1);
-remove_tree(${OUTPUT_DIR}) or die "failed to remove output directory\n";
 
 done_testing();

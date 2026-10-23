@@ -31,7 +31,7 @@ $(MIGRATION_TEST_TARGETS):
 test_restore_config: run_qemu_restore_config_tests.pl
 	./run_qemu_restore_config_tests.pl
 
-test_parse_config: run_parse_config_tests.pl
+test_parse_config: run_parse_config_tests.pl QemuServerTest/Utils.pm
 	./run_parse_config_tests.pl
 
 test_memory: run_memory_tests.pl
@@ -39,4 +39,4 @@ test_memory: run_memory_tests.pl
 
 .PHONY: clean
 clean:
-	rm -rf MigrationTest/run parse-config-output
+	rm -rf MigrationTest/run
