@@ -1,0 +1,2 @@
+hmp device_del usb0
+hmp device_del xhci

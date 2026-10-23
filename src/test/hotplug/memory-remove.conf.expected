@@ -1,0 +1,4 @@
+hmp device_del dimm3
+qmp object-del {"id":"mem-dimm3"}
+hmp device_del dimm2
+qmp object-del {"id":"mem-dimm2"}

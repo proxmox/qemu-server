@@ -1,0 +1,4 @@
+qmp blockdev-open-tray {"force":true,"id":"ide2"}
+qmp blockdev-remove-medium {"id":"ide2"}
+qmp blockdev-del {"node-name":"drive-ide2"}
+qmp object-del {"id":"throttle-drive-ide2"}

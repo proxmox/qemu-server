@@ -1,0 +1,7 @@
+storage activate_volumes ["local:8006/vm-8006-disk-1.qcow2"]
+qmp object-add {"id":"iothread-virtioscsi1","qom-type":"iothread"}
+hmp device_add driver=virtio-scsi-pci,id=virtioscsi1,bus=pci.3,addr=0x2,iothread=iothread-virtioscsi1
+qmp object-del {"id":"throttle-drive-scsi1"}
+qmp object-add {"id":"throttle-drive-scsi1","limits":{},"qom-type":"throttle-group"}
+qmp blockdev-add {"detect-zeroes":"on","discard":"ignore","driver":"throttle","file":{"cache":{"direct":true,"no-flush":false},"detect-zeroes":"on","discard":"ignore","driver":"qcow2","file":{"aio":"io_uring","cache":{"direct":true,"no-flush":false},"detect-zeroes":"on","discard":"ignore","driver":"file","filename":"/var/lib/vz/images/8006/vm-8006-disk-1.qcow2","node-name":"e70a10e5fb0473d3fc55686f720db61","read-only":false},"node-name":"f70a10e5fb0473d3fc55686f720db61","read-only":false},"node-name":"drive-scsi1","read-only":false,"throttle-group":"throttle-drive-scsi1"}
+hmp device_add driver=scsi-hd,bus=virtioscsi1.0,channel=0,scsi-id=0,lun=1,drive=drive-scsi1,id=scsi1,device_id=drive-scsi1,write-cache=on

@@ -1,0 +1,4 @@
+hmp device_del virtio1
+qmp blockdev-del {"node-name":"drive-virtio1"}
+qmp object-del {"id":"throttle-drive-virtio1"}
+qmp object-del {"id":"iothread-virtio1"}

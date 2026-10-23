@@ -1,0 +1,2 @@
+qmp chardev-add {"backend":{"data":{"type":"usbredir"},"type":"spicevmc"},"id":"usbredirchardev1"}
+hmp device_add driver=usb-redir,chardev=usbredirchardev1,id=usbredirdev1,bus=xhci.0,port=2

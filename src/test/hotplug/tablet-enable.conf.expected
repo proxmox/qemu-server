@@ -1,0 +1,1 @@
+hmp device_add driver=usb-tablet,id=tablet,bus=uhci.0,port=1

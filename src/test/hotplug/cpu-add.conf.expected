@@ -1,0 +1,2 @@
+hmp device_add driver=kvm64-x86_64-cpu,id=cpu3,socket-id=0,core-id=2,thread-id=0
+hmp device_add driver=kvm64-x86_64-cpu,id=cpu4,socket-id=0,core-id=3,thread-id=0

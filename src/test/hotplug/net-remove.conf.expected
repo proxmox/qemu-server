@@ -1,0 +1,3 @@
+hmp device_del net1
+qmp netdev_del {"id":"net1"}
+sdn del_ips_from_mac ["vmbr0","BA:DC:0F:FE:E0:01","hotplug"]

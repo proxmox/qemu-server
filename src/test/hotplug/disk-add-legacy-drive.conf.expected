@@ -1,0 +1,3 @@
+storage activate_volumes ["local:8006/vm-8006-disk-1.qcow2"]
+hmp drive_add auto "file=/var/lib/vz/images/8006/vm-8006-disk-1.qcow2,if=none,id=drive-virtio1,format=qcow2,cache=none,aio=io_uring,detect-zeroes=on"
+hmp device_add driver=virtio-blk-pci,drive=drive-virtio1,id=virtio1,bus=pci.0,addr=0xb

@@ -1,0 +1,4 @@
+qmp object-add {"id":"mem-dimm2","qom-type":"memory-backend-ram","size":536870912}
+qmp device_add {"driver":"pc-dimm","id":"dimm2","memdev":"mem-dimm2","node":0}
+qmp object-add {"id":"mem-dimm3","qom-type":"memory-backend-ram","size":536870912}
+qmp device_add {"driver":"pc-dimm","id":"dimm3","memdev":"mem-dimm3","node":0}

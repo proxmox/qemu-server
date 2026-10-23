@@ -1,0 +1,6 @@
+storage activate_volumes ["local:8006/vm-8006-disk-1.qcow2"]
+qmp object-add {"id":"iothread-virtio1","qom-type":"iothread"}
+qmp object-del {"id":"throttle-drive-virtio1"}
+qmp object-add {"id":"throttle-drive-virtio1","limits":{},"qom-type":"throttle-group"}
+qmp blockdev-add {"detect-zeroes":"on","discard":"ignore","driver":"throttle","file":{"cache":{"direct":true,"no-flush":false},"detect-zeroes":"on","discard":"ignore","driver":"qcow2","file":{"aio":"io_uring","cache":{"direct":true,"no-flush":false},"detect-zeroes":"on","discard":"ignore","driver":"file","filename":"/var/lib/vz/images/8006/vm-8006-disk-1.qcow2","node-name":"ef4c217a7f08cf59741edc1790023f5","read-only":false},"node-name":"ff4c217a7f08cf59741edc1790023f5","read-only":false},"node-name":"drive-virtio1","read-only":false,"throttle-group":"throttle-drive-virtio1"}
+hmp device_add driver=virtio-blk-pci,drive=drive-virtio1,id=virtio1,bus=pcie.0,addr=0xb,iothread=iothread-virtio1,write-cache=on

@@ -1,0 +1,6 @@
+net tap_unplug ["tap8006i0"]
+qmp set_link {"name":"net0","up":false}
+sdn del_ips_from_mac ["vmbr0","A2:C0:43:77:08:A0","hotplug"]
+sdn add_next_free_cidr ["vmbr1","hotplug","A2:C0:43:77:08:A0","8006",null,1]
+net tap_plug ["tap8006i0","vmbr1","100",null,null,null]
+qmp set_link {"name":"net0","up":true}

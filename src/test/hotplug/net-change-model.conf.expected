@@ -1,0 +1,8 @@
+hmp device_del net0
+qmp netdev_del {"id":"net0"}
+sdn del_ips_from_mac ["vmbr0","A2:C0:43:77:08:A0","hotplug"]
+sdn add_next_free_cidr ["vmbr0","hotplug","A2:C0:43:77:08:A0","8006",null,1]
+sdn add_dhcp_mapping ["vmbr0","A2:C0:43:77:08:A0","8006","hotplug"]
+qmp netdev_add {"downscript":"/usr/libexec/qemu-server/pve-bridgedown","id":"net0","ifname":"tap8006i0","script":"/usr/libexec/qemu-server/pve-bridge-hotplug","type":"tap"}
+hmp device_add driver=e1000,mac=A2:C0:43:77:08:A0,netdev=net0,bus=pci.0,addr=0x12,id=net0
+qmp set_link {"name":"net0","up":true}

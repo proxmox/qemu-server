@@ -1,0 +1,5 @@
+sdn add_next_free_cidr ["vmbr0","hotplug","BA:DC:0F:FE:E0:06","8006",null,1]
+sdn add_dhcp_mapping ["vmbr0","BA:DC:0F:FE:E0:06","8006","hotplug"]
+qmp netdev_add {"downscript":"/usr/libexec/qemu-server/pve-bridgedown","id":"net6","ifname":"tap8006i6","script":"/usr/libexec/qemu-server/pve-bridge-hotplug","type":"tap","vhost":true}
+hmp device_add driver=virtio-net-pci,mac=BA:DC:0F:FE:E0:06,netdev=net6,bus=pci.1,addr=0x1,id=net6,rx_queue_size=1024,tx_queue_size=256,host_mtu=1500
+qmp set_link {"name":"net6","up":true}

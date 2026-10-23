@@ -1,6 +1,6 @@
 all: test
 
-test: test_snapshot test_cfg_to_cmd test_cfg_to_cmd_aarch64 test_pci_addr_conflicts test_pci_reservation test_qemu_img_convert test_migration test_restore_config test_parse_config test_memory
+test: test_snapshot test_cfg_to_cmd test_cfg_to_cmd_aarch64 test_hotplug test_hotplug_aarch64 test_pci_addr_conflicts test_pci_reservation test_qemu_img_convert test_migration test_restore_config test_parse_config test_memory
 
 test_snapshot: run_snapshot_tests.pl
 	./run_snapshot_tests.pl
@@ -11,6 +11,12 @@ test_cfg_to_cmd: run_config2command_tests.pl QemuServerTest/*.pm cfg2cmd/*.conf
 
 test_cfg_to_cmd_aarch64: run_config2command_tests.pl QemuServerTest/*.pm cfg2cmd/aarch64/*.conf
 	perl -I../ ./run_config2command_tests.pl cfg2cmd/aarch64
+
+test_hotplug: run_hotplug_tests.pl QemuServerTest/*.pm hotplug/*.conf
+	perl -I../ ./run_hotplug_tests.pl
+
+test_hotplug_aarch64: run_hotplug_tests.pl QemuServerTest/*.pm hotplug/aarch64/*.conf
+	perl -I../ ./run_hotplug_tests.pl hotplug/aarch64
 
 test_qemu_img_convert: run_qemu_img_convert_tests.pl
 	perl -I../ ./run_qemu_img_convert_tests.pl

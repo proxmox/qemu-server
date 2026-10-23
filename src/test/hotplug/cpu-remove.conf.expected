@@ -1,0 +1,2 @@
+hmp device_del cpu4
+hmp device_del cpu3

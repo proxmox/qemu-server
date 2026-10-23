@@ -1,0 +1,2 @@
+hmp device_add driver=qemu-xhci,p2=15,p3=15,id=xhci,bus=pci.1,addr=0x1b
+hmp device_add driver=usb-host,bus=xhci.0,port=1,vendorid=0x1234,productid=0x5678,id=usb0
