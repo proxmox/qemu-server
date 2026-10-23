@@ -6,10 +6,10 @@ test_snapshot: run_snapshot_tests.pl
 	./run_snapshot_tests.pl
 	./test_get_replicatable_volumes.pl
 
-test_cfg_to_cmd: run_config2command_tests.pl cfg2cmd/*.conf
+test_cfg_to_cmd: run_config2command_tests.pl QemuServerTest/*.pm cfg2cmd/*.conf
 	perl -I../ ./run_config2command_tests.pl
 
-test_cfg_to_cmd_aarch64: run_config2command_tests.pl cfg2cmd/aarch64/*.conf
+test_cfg_to_cmd_aarch64: run_config2command_tests.pl QemuServerTest/*.pm cfg2cmd/aarch64/*.conf
 	perl -I../ ./run_config2command_tests.pl cfg2cmd/aarch64
 
 test_qemu_img_convert: run_qemu_img_convert_tests.pl
