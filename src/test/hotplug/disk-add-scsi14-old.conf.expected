@@ -1,0 +1,1 @@
+storage activate_volumes ["local:8006/vm-8006-disk-1.qcow2"]
