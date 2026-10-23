@@ -383,6 +383,26 @@ sub latest_installed_machine_version {
     return $version;
 }
 
+# Expands a basic machine type like 'pc' or 'q35' to the full string required by QEMU and appends
+# the given version. For example, 'pc' and '10.0' as inputs will result in 'pc-i440fx-10.0'.
+sub expand_basic_machine_type {
+    my ($basic_machine_type, $version) = @_;
+
+    my $machine = $basic_machine_type;
+
+    if ($basic_machine_type eq 'pc') {
+        $machine = "pc-i440fx-$version";
+    } elsif ($basic_machine_type eq 'q35') {
+        $machine = "pc-q35-$version";
+    } elsif ($basic_machine_type eq 'virt') {
+        $machine = "virt-$version";
+    } else {
+        warn "unknown machine type '$basic_machine_type', not touching that!\n";
+    }
+
+    return $machine;
+}
+
 sub windows_get_pinned_machine_version {
     my ($machine, $base_version, $kvmversion) = @_;
 
@@ -392,15 +412,8 @@ sub windows_get_pinned_machine_version {
     if (!defined($base_version) || !can_run_pve_machine_version($base_version, $kvmversion)) {
         $pin_version = latest_installed_machine_version($kvmversion);
     }
-    if ($machine eq 'pc') {
-        $machine = "pc-i440fx-$pin_version";
-    } elsif ($machine eq 'q35') {
-        $machine = "pc-q35-$pin_version";
-    } elsif ($machine eq 'virt') {
-        $machine = "virt-$pin_version";
-    } else {
-        warn "unknown machine type '$machine', not touching that!\n";
-    }
+
+    $machine = expand_basic_machine_type($machine, $pin_version);
 
     return $machine;
 }
