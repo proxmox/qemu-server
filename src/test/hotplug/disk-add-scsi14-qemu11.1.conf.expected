@@ -1,0 +1,6 @@
+storage activate_volumes ["local:8006/vm-8006-disk-1.qcow2"]
+hmp device_add driver=lsi,id=scsihw2,bus=pci.4,addr=0x1
+qmp object-del {"id":"throttle-drive-scsi14"}
+qmp object-add {"id":"throttle-drive-scsi14","limits":{},"qom-type":"throttle-group"}
+qmp blockdev-add {"detect-zeroes":"on","discard":"ignore","driver":"throttle","file":{"cache":{"direct":true,"no-flush":false},"detect-zeroes":"on","discard":"ignore","driver":"qcow2","file":{"aio":"io_uring","cache":{"direct":true,"no-flush":false},"detect-zeroes":"on","discard":"ignore","driver":"file","filename":"/var/lib/vz/images/8006/vm-8006-disk-1.qcow2","node-name":"efa063c24a1f5d262b573eeb1ba16a3","read-only":false},"node-name":"ffa063c24a1f5d262b573eeb1ba16a3","read-only":false},"node-name":"drive-scsi14","read-only":false,"throttle-group":"throttle-drive-scsi14"}
+hmp device_add driver=scsi-hd,bus=scsihw2.0,scsi-id=0,drive=drive-scsi14,id=scsi14,device_id=drive-scsi14,write-cache=on
