@@ -30,7 +30,7 @@ use PVE::QemuMigrate::Helpers;
 use PVE::QemuServer::Agent;
 use PVE::QemuServer::BlockJob;
 use PVE::QemuServer::CPUConfig;
-use PVE::QemuServer::Drive qw(checked_volume_format);
+use PVE::QemuServer::Drive qw(checked_volume_format update_tpmstate_size);
 use PVE::QemuServer::Helpers qw(min_version);
 use PVE::QemuServer::Machine;
 use PVE::QemuServer::Monitor qw(mon_cmd vm_qmp_peer);
@@ -685,10 +685,11 @@ sub config_update_local_disksizes {
         PVE::QemuServer::update_efidisk_size($conf);
     }
 
-    # TPM state might have an irregular filesize, to avoid problems on transfer
-    # we always assume the static size of 4M to allocate on the target
+    # TPM state might have an irregular file size, or have increased
+    # significantly due to differences in granularity. To avoid problems on
+    # transfer, update the TPM disk size.
     if (defined($conf->{tpmstate0})) {
-        PVE::QemuServer::update_tpmstate_size($conf);
+        update_tpmstate_size($conf, $self->{storecfg});
     }
 }
 

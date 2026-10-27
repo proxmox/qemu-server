@@ -27,6 +27,8 @@ our @EXPORT_OK = qw(
     parse_drive
     print_drive
     storage_allows_io_uring_default
+    update_tpmstate_size
+    get_tpmstate_size
 );
 
 my $DROPPED_PROPERTIES = ['cyls', 'heads', 'secs', 'trans'];
@@ -1238,6 +1240,48 @@ sub drive_qmp_peer {
     my ($storecfg, $vmid, $drive) = @_;
 
     return drive_uses_qsd_fuse($storecfg, $drive) ? qsd_qmp_peer($vmid) : vm_qmp_peer($vmid);
+}
+
+# Takes a VM config and the storage configuration. Parses the configuration,
+# checks the drive size and updates it to the maximum between the actual size
+# and the static TPMSTATE_DISK_SIZE which is 4MiB.
+sub update_tpmstate_size {
+    my ($conf, $storecfg) = @_;
+
+    die "a configuration has to be supplied in which to update the tpm state size"
+        if !defined($conf);
+
+    die "the storage config has to be supplied to determine tpm state size"
+        if !defined($storecfg);
+
+    return if !defined($conf->{tpmstate0});
+
+    my $disk = parse_drive('tpmstate0', $conf->{tpmstate0});
+
+    $disk->{size} = get_tpmstate_size($disk->{file}, $storecfg);
+    $conf->{tpmstate0} = print_drive($disk);
+}
+
+# Takes in a volume id and the storage configuration. Will then try to find
+# the actual storage size of the TPM drive. The final value has a minimum
+# determined by the TPMSTATE_DISK_SIZE static, which is 4MiB.
+sub get_tpmstate_size {
+    my ($volid, $storecfg) = @_;
+
+    die "a volume id has to be supplied to determine tpm state size"
+        if !defined($volid);
+
+    die "the storage config has to be supplied to determine tpm state size"
+        if !defined($storecfg);
+
+    my $size = eval { PVE::Storage::volume_size_info($storecfg, $volid, 10) };
+    warn "failed to get size of the tpm drive $volid: $@" if $@;
+
+    if (!$size || $size < TPMSTATE_DISK_SIZE) {
+        $size = TPMSTATE_DISK_SIZE;
+    }
+
+    return $size;
 }
 
 1;

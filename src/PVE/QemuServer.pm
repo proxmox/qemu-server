@@ -8006,14 +8006,6 @@ sub update_efidisk_size {
     return;
 }
 
-sub update_tpmstate_size {
-    my ($conf) = @_;
-
-    my $disk = PVE::QemuServer::parse_drive('tpmstate0', $conf->{tpmstate0});
-    $disk->{size} = PVE::QemuServer::Drive::TPMSTATE_DISK_SIZE;
-    $conf->{tpmstate0} = print_drive($disk);
-}
-
 sub vm_iothreads_list {
     my ($vmid) = @_;
 
