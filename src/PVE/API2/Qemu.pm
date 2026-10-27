@@ -34,7 +34,11 @@ use PVE::QemuServer::Blockdev;
 use PVE::QemuServer::BlockJob;
 use PVE::QemuServer::Cloudinit;
 use PVE::QemuServer::CPUConfig;
-use PVE::QemuServer::Drive qw(checked_volume_format checked_parse_volname);
+use PVE::QemuServer::Drive qw(
+    checked_volume_format
+    checked_parse_volname
+    get_tpmstate_size
+);
 use PVE::QemuServer::Helpers;
 use PVE::QemuServer::ImportDisk;
 use PVE::QemuServer::Monitor qw(mon_cmd vm_qmp_peer);
@@ -669,13 +673,18 @@ my sub create_disks : prototype($$$$$$$$$$$) {
                         $storecfg, $storeid, $vmid, $fmt, $arch, $disk, $smm, $cvm_type,
                     );
                 } elsif ($ds eq 'tpmstate0') {
-                    # A fixed size is used for TPM state volumes
-                    $size = PVE::Tools::convert_size(
+                    # A fixed size is requested for TPM state volumes, but the
+                    # storage might increase it up to its allocation granularity
+                    my $target_size = PVE::Tools::convert_size(
                         PVE::QemuServer::Drive::TPMSTATE_DISK_SIZE,
                         'b' => 'kb',
                     );
-                    $volid =
-                        PVE::Storage::vdisk_alloc($storecfg, $storeid, $vmid, $fmt, undef, $size);
+                    $volid = PVE::Storage::vdisk_alloc(
+                        $storecfg, $storeid, $vmid, $fmt, undef, $target_size,
+                    );
+                    $size = PVE::Tools::convert_size(
+                        get_tpmstate_size($volid, $storecfg), 'b' => 'kb',
+                    );
                 } else {
                     $volid =
                         PVE::Storage::vdisk_alloc($storecfg, $storeid, $vmid, $fmt, undef, $size);
