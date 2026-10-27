@@ -78,6 +78,7 @@ use PVE::QemuServer::Drive qw(
     parse_drive
     print_drive
     storage_allows_io_uring_default
+    get_tpmstate_size
 );
 use PVE::QemuServer::DriveDevice qw(print_drivedevice_full scsihw_infos);
 use PVE::QemuServer::Machine;
@@ -7910,7 +7911,7 @@ sub clone_disk {
         } elsif ($dst_drivename eq 'efidisk0') {
             $size = $efisize or die "internal error - need to specify EFI disk size\n";
         } elsif ($dst_drivename eq 'tpmstate0') {
-            $size = PVE::QemuServer::Drive::TPMSTATE_DISK_SIZE;
+            $size = get_tpmstate_size($drive->{file}, $storecfg);
         } else {
             clone_disk_check_io_uring(
                 $vmid, $drive, $storecfg, $src_storeid, $storeid, $use_drive_mirror,
