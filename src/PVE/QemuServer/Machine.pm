@@ -404,18 +404,16 @@ sub expand_basic_machine_type {
 }
 
 sub windows_get_pinned_machine_version {
-    my ($machine, $base_version, $kvmversion) = @_;
+    my ($basic_machine_type, $base_version, $kvmversion) = @_;
 
-    die "internal error - no machine provided" if !$machine;
+    die "internal error - no machine provided" if !$basic_machine_type;
 
     my $pin_version = $base_version;
     if (!defined($base_version) || !can_run_pve_machine_version($base_version, $kvmversion)) {
         $pin_version = latest_installed_machine_version($kvmversion);
     }
 
-    $machine = expand_basic_machine_type($machine, $pin_version);
-
-    return $machine;
+    return expand_basic_machine_type($basic_machine_type, $pin_version);
 }
 
 sub get_vm_machine {
