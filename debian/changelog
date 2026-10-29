@@ -1,3 +1,30 @@
+qemu-server (9.2.14) trixie; urgency=medium
+
+  * hotplug: fix enabling the tablet and keyboard devices on running aarch64
+    VMs. When disabling the tablet, also remove the keyboard to avoid device
+    mismatches that caused subsequent live migrations to fail.
+
+  * clone: release IPAM addresses reserved for a clone if cloning fails, so
+    they do not remain allocated to a nonexistent VM.
+
+  * tpm: account for storage allocating TPM volumes larger than 4 MiB. Report
+    their actual size after creation and allocate enough space when cloning,
+    moving or migrating them, avoiding transfer failures.
+
+  * fix #7590: start: extend timeout handling to VM scope and helper setup, so
+    a stalled startup does not hold the VM configuration lock indefinitely.
+    Clean up helper processes on startup errors and timeouts. Starts with
+    saved or incoming state honor an explicit timeout or use a 24-hour
+    safeguard by default.
+
+  * api: guest agent: expose queries for guest load, CPU and disk statistics,
+    and disk information when supported by the installed guest agent.
+
+  * disk reassignment: reject moving disks out of a protected VM, enforcing
+    protection against disk removal.
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 29 Oct 2026 15:08:28 +0100
+
 qemu-server (9.2.13) trixie; urgency=medium
 
   * migrate: wait for the 'failing' migration status introduced with QEMU 11.0
