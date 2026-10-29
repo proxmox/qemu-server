@@ -5647,10 +5647,7 @@ sub vm_start_nolock {
         eval {
             run_command(
                 [
-                    '/bin/systemctl', 'kill',
-                    '--kill-whom=all',
-                    '--signal=KILL',
-                    "$vmid.scope",
+                    '/bin/systemctl', 'kill', '--kill-whom=all', '--signal=KILL', "$vmid.scope",
                 ],
                 %silence_std_outs,
                 noerr => 1,
@@ -5705,7 +5702,8 @@ sub vm_start_nolock {
         };
 
         # Allow the same amount of time once more for entering the scope and starting helpers.
-        my $fork_timeout = $statefile
+        my $fork_timeout =
+            $statefile
             ? ($params->{timeout} // $STATEFILE_START_FORK_TIMEOUT)
             : 2 * $start_timeout;
         $fork_timeout = undef if !$fork_timeout;
