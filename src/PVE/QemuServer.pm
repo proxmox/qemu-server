@@ -5000,6 +5000,9 @@ sub vmconfig_update_net {
                     $newnet->{trunks},
                     $newnet->{rate},
                 );
+                # unplugging the interface dropped its forwarding database entries
+                eval { PVE::QemuServer::Network::add_nets_bridge_fdb({ $opt => $value }, $vmid) };
+                log_warn("failed to add forwarding database entries of '$iface' - $@") if $@;
 
             } elsif (safe_num_ne($oldnet->{rate}, $newnet->{rate})) {
                 # Rate can be applied on its own but any change above needs to
@@ -5029,6 +5032,11 @@ sub vmconfig_update_net {
             $newnet->{bridge}, $newnet->{macaddr}, $vmid, $conf->{name},
         );
         vm_deviceplug($storecfg, $conf, $vmid, $opt, $newnet, $arch, $machine_type);
+        if ($newnet->{bridge}) {
+            # the NIC is plugged already, so do not fail the hotplug
+            eval { PVE::QemuServer::Network::add_nets_bridge_fdb({ $opt => $value }, $vmid) };
+            log_warn("failed to add forwarding database entries of '$opt' - $@") if $@;
+        }
     } else {
         die "skip\n";
     }
