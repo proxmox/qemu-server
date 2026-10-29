@@ -309,7 +309,8 @@ sub del_nets_bridge_fdb {
         my $mac = $net->{macaddr} or next;
 
         my $bridge = $net->{bridge};
-        PVE::Network::SDN::Zones::del_bridge_fdb($iface, $mac, $bridge);
+        eval { PVE::Network::SDN::Zones::del_bridge_fdb($iface, $mac, $bridge) };
+        log_warn("failed to delete forwarding database entries of '$iface' - $@") if $@;
     }
 }
 
