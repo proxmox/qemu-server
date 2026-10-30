@@ -3972,25 +3972,20 @@ sub vm_deviceunplug {
         qemu_devicedel($vmid, $deviceid);
         qemu_devicedelverify($vmid, $deviceid);
     } elsif ($deviceid =~ m/^(virtio)(\d+)$/) {
-        my $device = parse_drive($deviceid, $conf->{$deviceid});
-
         qemu_devicedel($vmid, $deviceid);
         qemu_devicedelverify($vmid, $deviceid);
         qemu_drivedel($vmid, $deviceid);
-        qemu_iothread_del($vmid, $deviceid, $device);
+        qemu_iothread_del($vmid, $deviceid);
     } elsif ($deviceid =~ m/^(virtioscsi|scsihw)(\d+)$/) {
         qemu_devicedel($vmid, $deviceid);
         qemu_devicedelverify($vmid, $deviceid, 15);
+        qemu_iothread_del($vmid, $deviceid) if $deviceid =~ m/^virtioscsi\d+$/;
     } elsif ($deviceid =~ m/^(scsi)(\d+)$/) {
-        my $device = parse_drive($deviceid, $conf->{$deviceid});
-
         qemu_devicedel($vmid, $deviceid);
         qemu_devicedelverify($vmid, $deviceid);
         qemu_drivedel($vmid, $deviceid);
+        # the iothread of a virtio-scsi-single disk belongs to its controller and is removed there
         qemu_deletescsihw($conf, $vmid, $deviceid);
-
-        qemu_iothread_del($vmid, "virtioscsi$device->{index}", $device)
-            if $conf->{scsihw} && ($conf->{scsihw} eq 'virtio-scsi-single');
     } elsif ($deviceid =~ m/^(net)(\d+)$/) {
         qemu_devicedel($vmid, $deviceid);
         qemu_devicedelverify($vmid, $deviceid);
@@ -4031,12 +4026,10 @@ sub qemu_iothread_add {
 }
 
 sub qemu_iothread_del {
-    my ($vmid, $deviceid, $device) = @_;
+    my ($vmid, $deviceid) = @_;
 
-    if ($device->{iothread}) {
-        my $iothreads = vm_iothreads_list($vmid);
-        qemu_objectdel($vmid, "iothread-$deviceid") if $iothreads->{"iothread-$deviceid"};
-    }
+    my $iothreads = vm_iothreads_list($vmid);
+    qemu_objectdel($vmid, "iothread-$deviceid") if $iothreads->{"iothread-$deviceid"};
 }
 
 sub qemu_driveadd {
