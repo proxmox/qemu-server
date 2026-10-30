@@ -1,0 +1,3 @@
+hmp device_del scsi0
+qmp blockdev-del {"node-name":"drive-scsi0"}
+qmp object-del {"id":"throttle-drive-scsi0"}

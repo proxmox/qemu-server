@@ -4144,15 +4144,11 @@ sub qemu_deletescsihw {
 
     my $devices_list = vm_devices_list($vmid);
     foreach my $opt (keys %{$devices_list}) {
-        if (is_valid_drivename($opt)) {
-            my $drive = parse_drive($opt, $conf->{$opt});
-            if (
-                $drive->{interface} eq 'scsi'
-                && $drive->{index} < (($maxdev - 1) * ($controller + 1))
-            ) {
-                return 1;
-            }
-        }
+        next if !PVE::QemuServer::Drive::is_valid_drivename($opt);
+        my ($interface, $index) = PVE::QemuServer::Drive::parse_drive_interface($opt);
+        next if $interface ne 'scsi';
+        my (undef, $drive_controller) = scsihw_infos($conf->{scsihw}, $index);
+        return 1 if $drive_controller == $controller;
     }
 
     my $scsihwid = "scsihw$controller";
