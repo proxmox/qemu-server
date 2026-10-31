@@ -810,6 +810,7 @@ my $confdesc_cloudinit = {
     cipassword => {
         optional => 1,
         type => 'string',
+        sensitive => 1,
         description => 'cloud-init: Password to assign the user. Using this is generally not'
             . ' recommended. Use ssh keys instead. Also note that older cloud-init versions do not'
             . ' support hashed passwords.',
