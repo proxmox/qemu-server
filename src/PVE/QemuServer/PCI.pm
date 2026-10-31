@@ -714,6 +714,26 @@ sub print_hostpci_devices {
     return ($kvm_off, $gpu_passthrough, $legacy_igd, $pci_devices);
 }
 
+# A device that dropped off the bus answers all config space reads with all ones. Check the header
+# type, as the vendor ID of an SR-IOV virtual function always reads as 0xffff by specification.
+my $pci_device_responds = sub {
+    my ($pciid) = @_;
+
+    my $header_type;
+    eval {
+        open(my $fh, '<', "/sys/bus/pci/devices/$pciid/config") or die "$!\n";
+        sysseek($fh, 0x0e, SEEK_SET) // die "$!\n";
+        my $read = sysread($fh, $header_type, 1) // die "$!\n";
+        die "nothing read\n" if $read != 1;
+    };
+    if (my $err = $@) {
+        warn "unable to check whether PCI device '$pciid' responds - $err";
+        return 1;
+    }
+
+    return ord($header_type) != 0xff;
+};
+
 sub prepare_pci_device {
     my ($vmid, $pciid, $index, $device) = @_;
 
@@ -734,6 +754,11 @@ sub prepare_pci_device {
         warn
             "failed to reset PCI device '$pciid', but trying to continue as not all devices need a reset\n"
             if $info->{has_fl_reset} && !PVE::SysFSTools::pci_dev_reset($info);
+        # only check after the reset, which can bring back an unresponsive device
+        if (!$pci_device_responds->($pciid)) {
+            die "cannot prepare PCI pass-through - device '$pciid' is not responding; recovering"
+                . " it may need a host reboot\n";
+        }
     }
 
     return $info;
