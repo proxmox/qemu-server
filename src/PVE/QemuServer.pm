@@ -2046,7 +2046,10 @@ sub parse_vm_config {
                 $conf->{$key} = $value;
             }
         } else {
-            $handle_error->("vm $vmid - unable to parse config: $line\n");
+            my $shown = PVE::JSONSchema::redact_raw_config(
+                { properties => $confdesc }, $line, '<hidden>',
+            );
+            $handle_error->("vm $vmid - unable to parse config: $shown\n");
         }
     }
 
