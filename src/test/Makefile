@@ -1,6 +1,6 @@
 all: test
 
-test: test_snapshot test_cfg_to_cmd test_cfg_to_cmd_aarch64 test_hotplug test_hotplug_aarch64 test_pci_addr_conflicts test_pci_reservation test_qemu_img_convert test_migration test_restore_config test_parse_config test_memory test_raw_config_write test_api
+test: test_snapshot test_cfg_to_cmd test_cfg_to_cmd_aarch64 test_hotplug test_hotplug_aarch64 test_pci_addr_conflicts test_pci_reservation test_qemu_img_convert test_migration test_restore_config test_parse_config test_memory test_raw_config_write test_api test_api_cloudinit_dump
 
 test_snapshot: run_snapshot_tests.pl
 	./run_snapshot_tests.pl
@@ -50,6 +50,9 @@ test_raw_config_write: run_raw_config_write_tests.pl
 
 test_api: run_api_tests.pl
 	./run_api_tests.pl
+
+test_api_cloudinit_dump: run_api_cloudinit_dump_tests.pl
+	./run_api_cloudinit_dump_tests.pl
 
 .PHONY: clean
 clean:

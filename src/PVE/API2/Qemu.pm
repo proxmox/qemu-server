@@ -6696,6 +6696,8 @@ __PACKAGE__->register_method({
     proxyto => 'node',
     description => "Get automatically generated cloudinit config.",
     permissions => {
+        description => "Without 'VM.Config.Cloudinit' on /vms/{vmid}, the password is masked in"
+            . " the user data, and the meta data is not available if a password is set.",
         check => ['perm', '/vms/{vmid}', ['VM.Audit']],
     },
     parameters => {
@@ -6724,6 +6726,10 @@ __PACKAGE__->register_method({
 
         my $mask_password =
             !$rpcenv->check($authuser, "/vms/$param->{vmid}", ['VM.Config.Cloudinit'], 1);
+
+        # the instance ID in the meta data is derived from the unmasked user data
+        raise_perm_exc("/vms/$param->{vmid}, VM.Config.Cloudinit")
+            if $mask_password && $param->{type} eq 'meta' && defined($conf->{cipassword});
 
         return PVE::QemuServer::Cloudinit::dump_cloudinit_config(
             $conf,
