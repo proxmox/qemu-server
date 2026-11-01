@@ -803,9 +803,10 @@ sub prepare_pci_device {
     } else {
         die "can't unbind/bind PCI group to VFIO '$pciid'\n"
             if !PVE::SysFSTools::pci_dev_group_bind_to_vfio($pciid);
-        warn
-            "failed to reset PCI device '$pciid', but trying to continue as not all devices need a reset\n"
-            if $info->{has_fl_reset} && !PVE::SysFSTools::pci_dev_reset($info);
+        if ($info->{has_fl_reset} && !PVE::SysFSTools::pci_dev_reset($info)) {
+            warn "failed to reset PCI device '$pciid', but trying to continue as not all devices"
+                . " need a reset\n";
+        }
         # only check after the reset, which can bring back an unresponsive device
         if (!$pci_device_responds->($pciid)) {
             die "cannot prepare PCI pass-through - device '$pciid' is not responding; recovering"
@@ -906,9 +907,10 @@ sub reserve_pci_usage {
                 my $reservation = $reservation_list->{$id};
                 if ($reservation && $reservation->{vmid} != $vmid) {
                     # check time based reservation
-                    die
-                        "PCI device '$id' is currently reserved for use by VMID '$reservation->{vmid}'\n"
-                        if defined($reservation->{time}) && $reservation->{time} > $ctime;
+                    if (defined($reservation->{time}) && $reservation->{time} > $ctime) {
+                        die "PCI device '$id' is currently reserved for use by VMID"
+                            . " '$reservation->{vmid}'\n";
+                    }
 
                     if (my $reserved_pid = $reservation->{pid}) {
                         # check running vm
