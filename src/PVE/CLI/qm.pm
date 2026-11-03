@@ -1343,7 +1343,7 @@ our $cmddef = {
             exit 0 if (!scalar(@$vmlist));
 
             printf "%10s %-20s %-10s %-10s %12s %-10s\n",
-                qw(VMID NAME STATUS MEM(MB) BOOTDISK(GB) PID);
+                qw(VMID NAME STATUS MEM(MiB) BOOTDISK(GiB) PID);
 
             foreach my $rec (sort { $a->{vmid} <=> $b->{vmid} } @$vmlist) {
                 printf "%10s %-20s %-10s %-10s %12.2f %-10s\n", $rec->{vmid}, $rec->{name},
