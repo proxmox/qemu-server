@@ -845,8 +845,7 @@ sub virtio_win_iso_issue {
     my $cmp_with = sub {
         my ($other) = @_;
 
-        return PVE::QemuServer::Helpers::version_cmp(map { ($version[$_], $other->[$_]) }
-            0 .. 2);
+        return PVE::Tools::version_cmp(map { ($version[$_], $other->[$_]) } 0 .. 2);
     };
 
     for my $issue ($virtio_win_issues->@*) {

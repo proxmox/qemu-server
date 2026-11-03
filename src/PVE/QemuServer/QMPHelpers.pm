@@ -2,6 +2,8 @@ package PVE::QemuServer::QMPHelpers;
 
 use v5.36;
 
+use PVE::Tools;
+
 use PVE::QemuServer::Helpers;
 use PVE::QemuServer::Monitor qw(mon_cmd);
 
@@ -59,7 +61,7 @@ sub runs_at_least_qemu_version($vmid, $major, $minor, $extra = undef) {
     die "could not query currently running version for VM $vmid\n" if !defined($v);
     $v = $v->{qemu};
 
-    return PVE::QemuServer::Helpers::version_cmp(
+    return PVE::Tools::version_cmp(
         $v->{major}, $major, $v->{minor}, $minor, $v->{micro}, $extra,
     ) >= 0;
 }

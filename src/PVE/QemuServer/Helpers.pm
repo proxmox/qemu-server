@@ -11,7 +11,6 @@ use PVE::Cluster;
 use PVE::INotify;
 use PVE::ProcFSTools;
 use PVE::Tools;
-use PVE::Tools qw(version_cmp);
 
 use base 'Exporter';
 our @EXPORT_OK = qw(

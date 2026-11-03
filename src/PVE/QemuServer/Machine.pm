@@ -3,6 +3,8 @@ package PVE::QemuServer::Machine;
 use strict;
 use warnings;
 
+use PVE::Tools;
+
 use PVE::QemuServer::Helpers;
 use PVE::QemuServer::MetaInfo;
 use PVE::QemuServer::Monitor;
@@ -298,13 +300,8 @@ sub machine_version_cmp {
     my ($major_a, $minor_a, $pve_a) = extract_version_parts($machine_type_a);
     my ($major_b, $minor_b, $pve_b) = extract_version_parts($machine_type_b);
 
-    return PVE::QemuServer::Helpers::version_cmp(
-        $major_a,
-        $major_b,
-        $minor_a,
-        $minor_b,
-        $pve_a,
-        $pve_b,
+    return PVE::Tools::version_cmp(
+        $major_a, $major_b, $minor_a, $minor_b, $pve_a, $pve_b,
     );
 }
 
@@ -345,7 +342,7 @@ sub can_run_pve_machine_version {
     my $pvever = $3;
 
     $kvmversion =~ m/(\d+)\.(\d+)/;
-    return 0 if PVE::QemuServer::Helpers::version_cmp($1, $major, $2, $minor) < 0;
+    return 0 if PVE::Tools::version_cmp($1, $major, $2, $minor) < 0;
 
     # if $pvever is missing or 0, we definitely support it as long as we didn't
     # fail the QEMU version check above
