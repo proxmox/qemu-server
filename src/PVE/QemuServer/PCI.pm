@@ -3,6 +3,7 @@ package PVE::QemuServer::PCI;
 use warnings;
 use strict;
 
+use Fcntl qw(SEEK_SET);
 use IO::File;
 
 use PVE::GuestHelpers;
