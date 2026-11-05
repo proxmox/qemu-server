@@ -164,6 +164,8 @@ my $pci_devs = [
     "0000:07:10.0",
     "0000:07:10.1",
     "0000:07:10.4",
+    "0000:02:00.4",
+    "0000:02:00.5",
 ];
 
 my $pci_map_config = {
@@ -183,6 +185,15 @@ my $pci_map_config = {
                 'node=localhost,path=0000:07:10.0,id=8086:1520,iommugroup=2',
                 'node=localhost,path=0000:07:10.1,id=8086:1520,iommugroup=2',
                 'node=localhost,path=0000:07:10.4,id=8086:1520,iommugroup=2',
+            ],
+        },
+        someVgpu => {
+            type => 'pci',
+            mdev => 1,
+            'live-migration-capable' => 1,
+            map => [
+                'node=localhost,path=0000:02:00.4,id=10de:2236,iommugroup=3',
+                'node=localhost,path=0000:02:00.5,id=10de:2236,iommugroup=3',
             ],
         },
     },
@@ -258,6 +269,8 @@ $procfs_tools_module->mock(
         my $res = $procfs_tools_module->original('read_cpuinfo')->();
         my $vendor = $test_env->{'host-cpu-vendor'};
         $res->{vendor} = $vendor;
+        # resolving the 'nested-virt' CPU flag must not depend on the host running the tests
+        $res->{flags} = $vendor eq 'AuthenticAMD' ? 'fpu svm lm' : 'fpu vmx lm';
         return $res;
     },
 );
@@ -508,7 +521,7 @@ $pve_common_sysfstools->mock(
         my ($filter, $verbose) = @_;
 
         return [
-            map { { id => $_ } }
+            map { { id => $_, m/^0000:02:00/ ? (nvidia => 1) : () } }
             grep {
                 !defined($filter)
                     || (!ref($filter) && $_ =~ m/^(0000:)?\Q$filter\E/)
@@ -527,6 +540,13 @@ $pve_common_sysfstools->mock(
                 vendor => "0x10de",
                 device => "0x2231",
             };
+        } elsif ($path =~ m/^0000:02:00/) {
+            return {
+                mdev => 1,
+                iommugroup => 3,
+                vendor => "0x10de",
+                device => "0x2236",
+            };
         } elsif ($path =~ m/^0000:07:10/) {
             return {
                 iommugroup => 2,
@@ -542,6 +562,13 @@ $pve_common_sysfstools->mock(
 our $qemu_drive_module;
 $qemu_drive_module = Test::MockModule->new('PVE::QemuServer::Drive');
 $qemu_drive_module->mock(
+    path_is_scsi => sub {
+        my ($path) = @_;
+        # SCSI inquiry results, any other path is not a SCSI device, whatever the host has
+        return { type => 0 } if $path eq '/dev/test-scsi-disk';
+        return { type => 1 } if $path eq '/dev/test-scsi-tape';
+        return undef;
+    },
     get_cdrom_path => sub {
         return "/dev/cdrom";
     },
