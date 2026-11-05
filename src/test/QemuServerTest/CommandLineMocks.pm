@@ -397,6 +397,17 @@ $qemu_server_helpers->mock(
     get_host_phys_address_bits => sub {
         return 46;
     },
+    kvm_user_version => sub {
+        return get_test_qemu_version();
+    },
+);
+
+our $qemu_server_drive_device;
+$qemu_server_drive_device = Test::MockModule->new('PVE::QemuServer::DriveDevice');
+$qemu_server_drive_device->mock(
+    kvm_user_version => sub {
+        return get_test_qemu_version();
+    },
 );
 
 our $qemu_server_memory;
