@@ -459,6 +459,11 @@ sub get_vm_machine {
         $machine .= '.pxe' if $is_pxe;
     }
 
+    # QEMU does not report this suffix, so a machine read back from an instance does not include it,
+    # but the ROM files it selects are part of the saved state.
+    $machine .= '.pxe'
+        if $forcemachine && $machine !~ m/\.pxe$/ && ($machine_conf->{type} // '') =~ m/\.pxe$/;
+
     return $machine;
 }
 
