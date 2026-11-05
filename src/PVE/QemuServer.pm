@@ -3854,6 +3854,20 @@ sub vm_devices_list {
     return $devices;
 }
 
+# clean up disks and their controllers (if unused afterwards)
+sub delete_disk_hardware {
+    my ($conf, $vmid, $deviceid, $device, $timeout) = @_;
+
+    qemu_devicedel($vmid, $deviceid);
+    qemu_devicedelverify($vmid, $deviceid, $timeout);
+    qemu_drivedel($vmid, $deviceid) if $deviceid =~ m/^(virtio|scsi)\d+$/;
+    # the iothread of a virtio-scsi-single disk belongs to its controller and is removed there
+    qemu_deletescsihw($conf, $vmid, $device) if $deviceid =~ m/^scsi\d+$/;
+    qemu_iothread_del($vmid, $deviceid) if $deviceid =~ m/^virtio(scsi)?\d+$/;
+
+    return;
+}
+
 sub vm_deviceplug {
     my ($storecfg, $conf, $vmid, $deviceid, $device, $arch, $machine_type) = @_;
 
@@ -3972,20 +3986,12 @@ sub vm_deviceunplug {
         qemu_devicedel($vmid, $deviceid);
         qemu_devicedelverify($vmid, $deviceid);
     } elsif ($deviceid =~ m/^(virtio)(\d+)$/) {
-        qemu_devicedel($vmid, $deviceid);
-        qemu_devicedelverify($vmid, $deviceid);
-        qemu_drivedel($vmid, $deviceid);
-        qemu_iothread_del($vmid, $deviceid);
+        delete_disk_hardware($conf, $vmid, $deviceid);
     } elsif ($deviceid =~ m/^(virtioscsi|scsihw)(\d+)$/) {
-        qemu_devicedel($vmid, $deviceid);
-        qemu_devicedelverify($vmid, $deviceid, 15);
-        qemu_iothread_del($vmid, $deviceid) if $deviceid =~ m/^virtioscsi\d+$/;
+        delete_disk_hardware($conf, $vmid, $deviceid, undef, 15);
     } elsif ($deviceid =~ m/^(scsi)(\d+)$/) {
-        qemu_devicedel($vmid, $deviceid);
-        qemu_devicedelverify($vmid, $deviceid);
-        qemu_drivedel($vmid, $deviceid);
-        # the iothread of a virtio-scsi-single disk belongs to its controller and is removed there
-        qemu_deletescsihw($conf, $vmid, $deviceid);
+        my $device = parse_drive($deviceid, $conf->{$deviceid});
+        delete_disk_hardware($conf, $vmid, $deviceid, $device);
     } elsif ($deviceid =~ m/^(net)(\d+)$/) {
         qemu_devicedel($vmid, $deviceid);
         qemu_devicedelverify($vmid, $deviceid);
@@ -4124,9 +4130,7 @@ sub qemu_findorcreatescsihw {
 }
 
 sub qemu_deletescsihw {
-    my ($conf, $vmid, $opt) = @_;
-
-    my $device = parse_drive($opt, $conf->{$opt});
+    my ($conf, $vmid, $device) = @_;
 
     if ($conf->{scsihw} && ($conf->{scsihw} eq 'virtio-scsi-single')) {
         vm_deviceunplug($vmid, $conf, "virtioscsi$device->{index}");
