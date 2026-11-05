@@ -478,8 +478,7 @@ sub config {
         }
     } elsif ($virtiofs_enabled) {
         # kvm: '-machine memory-backend' and '-numa memdev' properties are mutually exclusive
-        push @$cmd, '-object',
-            'memory-backend-memfd,id=virtiofs-mem' . ",size=$conf->{memory}M,share=on";
+        push @$cmd, '-object', 'memory-backend-memfd,id=virtiofs-mem' . ",size=${memory}M,share=on";
         push @$machine_flags, 'memory-backend=virtiofs-mem';
     }
 
