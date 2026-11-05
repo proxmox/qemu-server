@@ -23,7 +23,6 @@ use PVE::Storage::Plugin;
 use PVE::Storage;
 use PVE::StorageTunnel;
 use PVE::Tools;
-use PVE::Tools qw(pvecfg_min_version);
 use PVE::Tunnel;
 
 use PVE::QemuConfig;
