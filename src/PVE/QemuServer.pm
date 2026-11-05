@@ -3891,16 +3891,18 @@ sub vm_deviceplug {
             PVE::QemuServer::USB::print_usbdevice_full($conf, $deviceid, $device, {}, $1 + 1),
         );
     } elsif ($deviceid =~ m/^(virtio)(\d+)$/) {
-        qemu_iothread_add($vmid, $deviceid, $device);
-
-        qemu_driveadd($storecfg, $vmid, $device);
         my $devicefull =
             print_drivedevice_full($storecfg, $conf, $vmid, $device, $arch, $machine_type);
 
-        qemu_deviceadd($vmid, $devicefull);
-        eval { qemu_deviceaddverify($vmid, $deviceid); };
+        eval {
+            qemu_iothread_add($vmid, $deviceid, $device);
+            qemu_driveadd($storecfg, $vmid, $device);
+            qemu_deviceadd($vmid, $devicefull);
+            qemu_deviceaddverify($vmid, $deviceid);
+        };
+
         if (my $err = $@) {
-            eval { qemu_drivedel($vmid, $deviceid); };
+            eval { delete_disk_hardware($conf, $vmid, $deviceid, $device); };
             warn $@ if $@;
             die $err;
         }
@@ -3912,7 +3914,6 @@ sub vm_deviceplug {
         my $devicefull = "$scsihw_type,id=$deviceid$pciaddr";
 
         if ($deviceid =~ m/^virtioscsi(\d+)$/ && $device->{iothread}) {
-            qemu_iothread_add($vmid, $deviceid, $device);
             $devicefull .= ",iothread=iothread-$deviceid";
         }
 
@@ -3920,17 +3921,29 @@ sub vm_deviceplug {
             $devicefull .= ",num_queues=$device->{queues}";
         }
 
-        qemu_deviceadd($vmid, $devicefull);
-        qemu_deviceaddverify($vmid, $deviceid);
+        eval {
+            qemu_iothread_add($vmid, $deviceid, $device) if $deviceid =~ m/^virtioscsi/;
+            qemu_deviceadd($vmid, $devicefull);
+            qemu_deviceaddverify($vmid, $deviceid);
+        };
+        if (my $err = $@) {
+            eval { delete_disk_hardware($conf, $vmid, $deviceid, $device); };
+            warn $@ if $@;
+            die $err;
+        }
     } elsif ($deviceid =~ m/^(scsi)(\d+)$/) {
-        qemu_findorcreatescsihw($storecfg, $conf, $vmid, $device, $arch, $machine_type);
-        qemu_driveadd($storecfg, $vmid, $device);
-
         my $devicefull =
             print_drivedevice_full($storecfg, $conf, $vmid, $device, $arch, $machine_type);
-        eval { qemu_deviceadd($vmid, $devicefull); };
+
+        qemu_findorcreatescsihw($storecfg, $conf, $vmid, $device, $arch, $machine_type);
+
+        eval {
+            qemu_driveadd($storecfg, $vmid, $device);
+            qemu_deviceadd($vmid, $devicefull);
+            qemu_deviceaddverify($vmid, $deviceid);
+        };
         if (my $err = $@) {
-            eval { qemu_drivedel($vmid, $deviceid); };
+            eval { delete_disk_hardware($conf, $vmid, $deviceid, $device); };
             warn $@ if $@;
             die $err;
         }
