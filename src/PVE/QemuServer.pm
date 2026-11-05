@@ -1388,8 +1388,6 @@ sub print_netdevice_full {
             $romfile = 'pxe-virtio.rom';
         } elsif ($device eq 'e1000') {
             $romfile = 'pxe-e1000.rom';
-        } elsif ($device eq 'e1000e') {
-            $romfile = 'pxe-e1000e.rom';
         } elsif ($device eq 'ne2k') {
             $romfile = 'pxe-ne2k_pci.rom';
         } elsif ($device eq 'pcnet') {
