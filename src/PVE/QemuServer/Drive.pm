@@ -927,7 +927,7 @@ sub parse_drive {
 
     my $error = 0;
     foreach my $opt (qw(bps bps_rd bps_wr)) {
-        if (my $bps = defined(delete $res->{$opt})) {
+        if (defined(my $bps = delete $res->{$opt})) {
             if (defined($res->{"m$opt"})) {
                 warn "both $opt and m$opt specified\n";
                 ++$error;
