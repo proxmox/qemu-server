@@ -333,6 +333,7 @@ $MigrationTest::Shared::tools_module->mock(
                 if ($cmd eq '/bin/true') {
                     return 0;
                 } elsif ($cmd eq 'qm') {
+                    $cmd_tail = [map { $_ =~ s/^\'(.*)\'$/$1/r } $cmd_tail->@*];
                     $cmd = shift @{$cmd_tail};
                     if ($cmd eq 'start') {
                         delete $expected_calls->{ssh_qm_start};

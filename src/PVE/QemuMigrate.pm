@@ -10,6 +10,7 @@ use Time::HiRes qw( usleep );
 
 use PVE::AccessControl;
 use PVE::Cluster;
+use PVE::Cmd qw(build_ssh_command);
 use PVE::Format qw(render_bytes);
 use PVE::Firewall::Helpers;
 use PVE::GuestHelpers qw(safe_boolean_ne safe_string_ne);
@@ -801,7 +802,7 @@ sub cleanup_remotedisks {
 
         my ($storeid, $volname) = PVE::Storage::parse_volume_id($volid);
 
-        my $cmd = [@{ $self->{rem_ssh} }, 'pvesm', 'free', '--', "$storeid:$volname"];
+        my $cmd = build_ssh_command($self->{rem_ssh}, ['pvesm', 'free', '--', "$storeid:$volname"]);
 
         eval {
             PVE::Tools::run_command($cmd, outfunc => sub { }, errfunc => sub { });
@@ -993,7 +994,7 @@ sub phase2_start_local_cluster {
     my $tunnel_info = {};
 
     ## start on remote node
-    my $cmd = [@{ $self->{rem_ssh} }];
+    my $cmd = [];
 
     push @$cmd, 'qm', 'start', $vmid;
 
@@ -1073,7 +1074,7 @@ sub phase2_start_local_cluster {
     # Note: We try to keep $spice_ticket secret (do not pass via command line parameter)
     # instead we pipe it through STDIN
     my $exitcode = PVE::Tools::run_command(
-        $cmd,
+        build_ssh_command($self->{rem_ssh}, $cmd),
         input => $input,
         outfunc => sub {
             my $line = shift;
@@ -1649,8 +1650,10 @@ sub phase2_cleanup {
     if ($self->{tunnel} && $self->{tunnel}->{version} >= 2) {
         PVE::Tunnel::write_tunnel($self->{tunnel}, 10, 'stop');
     } else {
-        my $cmd =
-            [@{ $self->{rem_ssh} }, 'qm', 'stop', $vmid, '--skiplock', '--migratedfrom', $nodename];
+        my $cmd = build_ssh_command(
+            $self->{rem_ssh},
+            ['qm', 'stop', $vmid, '--skiplock', '--migratedfrom', $nodename],
+        );
         eval {
             PVE::Tools::run_command($cmd, outfunc => sub { }, errfunc => sub { });
         };
@@ -1733,7 +1736,7 @@ sub phase3_cleanup {
                     $self->{errors} = 1;
                 }
             } else {
-                my $cmd = [@{ $self->{rem_ssh} }, 'qm', 'nbdstop', $vmid];
+                my $cmd = build_ssh_command($self->{rem_ssh}, ['qm', 'nbdstop', $vmid]);
 
                 eval {
                     PVE::Tools::run_command($cmd, outfunc => sub { }, errfunc => sub { });
@@ -1759,7 +1762,10 @@ sub phase3_cleanup {
                 }
             } else {
                 # nocheck in case target node hasn't processed the config move/rename yet
-                my $cmd = [@{ $self->{rem_ssh} }, 'qm', 'resume', $vmid, '--skiplock', '--nocheck'];
+                my $cmd = build_ssh_command(
+                    $self->{rem_ssh},
+                    ['qm', 'resume', $vmid, '--skiplock', '--nocheck'],
+                );
                 my $logf = sub {
                     my $line = shift;
                     $self->log('err', $line);
@@ -1784,7 +1790,10 @@ sub phase3_cleanup {
                 if ($self->{opts}->{remote}) {
                     PVE::Tunnel::write_tunnel($self->{tunnel}, 600, 'fstrim');
                 } else {
-                    my $cmd = [@{ $self->{rem_ssh} }, 'qm', 'guest', 'cmd', $vmid, 'fstrim'];
+                    my $cmd = build_ssh_command(
+                        $self->{rem_ssh},
+                        ['qm', 'guest', 'cmd', $vmid, 'fstrim'],
+                    );
                     eval {
                         PVE::Tools::run_command($cmd, outfunc => sub { }, errfunc => sub { });
                     };
@@ -1901,7 +1910,7 @@ sub phase3_cleanup {
 
         PVE::Tunnel::finish_tunnel($tunnel);
     } else {
-        my $cmd = [@{ $self->{rem_ssh} }, 'qm', 'unlock', $vmid];
+        my $cmd = build_ssh_command($self->{rem_ssh}, ['qm', 'unlock', $vmid]);
         $self->cmd_logerr($cmd, errmsg => "failed to clear migrate lock");
     }
 
