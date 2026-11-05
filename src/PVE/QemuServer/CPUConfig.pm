@@ -422,6 +422,7 @@ my $tdx_fmt = {
         description => "Enable TDX attestation by including quote-generation-socket",
         type => 'boolean',
         default => 1,
+        optional => 1,
     },
     'vsock-cid' => {
         type => 'integer',
@@ -1278,12 +1279,12 @@ sub get_quote_generation_socket($conf) {
 
     my $socket = { type => 'vsock' };
 
-    die "Missing cid for vsock.\n" if !defined($conf->{'vsock-cid'});
-    die "Missing port for vsock.\n" if !defined($conf->{'vsock-port'});
+    my $cid = $conf->{'vsock-cid'} // $tdx_fmt->{'vsock-cid'}->{default};
+    my $port = $conf->{'vsock-port'} // $tdx_fmt->{'vsock-port'}->{default};
 
     # Both are strings in the QMP schema
-    $socket->{'cid'} = "$conf->{'vsock-cid'}";
-    $socket->{'port'} = "$conf->{'vsock-port'}";
+    $socket->{'cid'} = "$cid";
+    $socket->{'port'} = "$port";
 
     return $socket;
 }
@@ -1305,7 +1306,7 @@ sub get_intel_tdx_object($intel_tdx, $bios) {
     };
 
     $tdx_object->{'quote-generation-socket'} = get_quote_generation_socket($intel_tdx_conf)
-        if $intel_tdx_conf->{'attestation'};
+        if $intel_tdx_conf->{'attestation'} // $tdx_fmt->{'attestation'}->{default};
 
     return $tdx_object;
 }
