@@ -149,6 +149,10 @@ $pci_module->mock(
 
         return undef;
     },
+);
+
+my $mdev_module = Test::MockModule->new("PVE::QemuServer::PCI::Mdev");
+$mdev_module->mock(
     create_nvidia_device => sub {
         return 1;
     },

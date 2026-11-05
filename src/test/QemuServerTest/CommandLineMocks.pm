@@ -617,6 +617,10 @@ $pci_module->mock(
     reserve_pci_usage => sub {
         die "reserve_pci_usage should not be called for 'qm showcmd'\n";
     },
+);
+
+our $mdev_module = Test::MockModule->new("PVE::QemuServer::PCI::Mdev");
+$mdev_module->mock(
     create_nvidia_device => sub {
         die "create_nvidia_device should not be called for 'qm showcmd'\n";
     },

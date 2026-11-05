@@ -605,9 +605,6 @@ my $monitor_module = Test::MockModule->new('PVE::QemuServer::Monitor');
 $monitor_module->mock(qmp_cmd => \&mocked_qmp_cmd);
 
 # qmp_cmd is imported by these modules, so the imported copies need to be replaced too
-my $qemu_server_module = Test::MockModule->new('PVE::QemuServer');
-$qemu_server_module->mock(qmp_cmd => \&mocked_qmp_cmd);
-
 my $blockdev_module = Test::MockModule->new('PVE::QemuServer::Blockdev');
 $blockdev_module->mock(qmp_cmd => \&mocked_qmp_cmd);
 
