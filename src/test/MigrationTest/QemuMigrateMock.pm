@@ -378,6 +378,7 @@ $MigrationTest::Shared::tools_module->mock(
                     }
                     die "run_command (mocked) ssh qm command - implement me: ${cmd_msg}";
                 } elsif ($cmd eq 'pvesm') {
+                    $cmd_tail = [map { $_ =~ s/^\'(.*)\'$/$1/r } $cmd_tail->@*];
                     $cmd = shift @{$cmd_tail};
                     if ($cmd eq 'free') {
                         my $volid = shift @{$cmd_tail};
