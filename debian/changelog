@@ -1,3 +1,27 @@
+qemu-server (9.2.15) trixie; urgency=medium
+
+  * pci: fail the VM start early if a device passed through with VFIO stopped
+    responding, naming the device and noting that recovering it may need a
+    host reboot. QEMU failed to start with an error that did not point to the
+    cause in this case, like 'invalid PCI interrupt pin 255'.
+
+  * pci: add a 'post-pci-prepare' hookscript phase that runs for each prepared
+    passed-through PCI device before QEMU is started, receiving the device
+    through 'PVE_HOOK_*' environment variables. This allows for additional
+    setup, for example setting 'vgpu_params' or the 'gpu_instance_id' of MIG
+    devices with NVIDIA vGPUs. A failing hookscript aborts the VM start, except
+    for copies of the previous example hookscript, which reject unknown phases.
+
+  * hotplug: scsi: remove an LSI controller exactly when its last disk gets
+    unplugged. Previously, unplugging scsi0 with only scsi6 left also removed
+    the controller scsi6 is attached to, and unplugging scsi7 with scsi0 still
+    present kept the then unused second controller.
+
+  * migration: shell-quote the arguments of commands run on the target node to
+    preserve spaces and special characters.
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 05 Nov 2026 22:59:48 +0100
+
 qemu-server (9.2.14) trixie; urgency=medium
 
   * hotplug: fix enabling the tablet and keyboard devices on running aarch64
