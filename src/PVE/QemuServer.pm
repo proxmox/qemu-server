@@ -1446,11 +1446,10 @@ sub print_netdev_full {
     if ($net->{bridge}) {
         $netdev = "type=tap,id=$netid,ifname=${ifname},script=/usr/libexec/qemu-server/$script"
             . ",downscript=/usr/libexec/qemu-server/pve-bridgedown$vhostparam";
+        $netdev .= ",queues=$net->{queues}" if $net->{queues} && $net->{model} eq 'virtio';
     } else {
         $netdev = "type=user,id=$netid,hostname=$vmname";
     }
-
-    $netdev .= ",queues=$net->{queues}" if ($net->{queues} && $net->{model} eq 'virtio');
 
     return $netdev;
 }
