@@ -3742,9 +3742,14 @@ sub config_to_command {
 
     push @$machineFlags, 'smm=off' if should_disable_smm($conf, $vga, $machine_type);
 
+    # A forced machine can describe an existing instance. Not all guards get evaluated for it, for
+    # example not the ones for the CPU if that is forced too, but the next migration target derives
+    # the hardware from the version recorded here.
     my $machine_type_min = $machine_type;
-    $machine_type_min =~ s/\+pve\d+$//;
-    $machine_type_min .= "+pve$required_pve_version";
+    if (!$forcemachine) {
+        $machine_type_min =~ s/\+pve\d+$//;
+        $machine_type_min .= "+pve$required_pve_version";
+    }
     push @$machineFlags, "type=${machine_type_min}";
 
     PVE::QemuServer::Machine::assert_valid_machine_property($machine_conf);
