@@ -2003,7 +2003,7 @@ sub parse_vm_config {
         if ($line =~ m/^(description):\s*(.*\S)\s*$/) {
             $descr = '' if !defined($descr);
             $descr .= PVE::Tools::decode_text($2);
-        } elsif ($line =~ m/snapstate:\s*(prepare|delete)\s*$/) {
+        } elsif ($line =~ m/^snapstate:\s*(prepare|delete)\s*$/) {
             $conf->{snapstate} = $1;
         } elsif ($line =~ m/^(args):\s*(.*\S)\s*$/) {
             my $key = $1;
