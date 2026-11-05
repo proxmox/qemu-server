@@ -801,7 +801,7 @@ sub cleanup_remotedisks {
 
         my ($storeid, $volname) = PVE::Storage::parse_volume_id($volid);
 
-        my $cmd = [@{ $self->{rem_ssh} }, 'pvesm', 'free', "$storeid:$volname"];
+        my $cmd = [@{ $self->{rem_ssh} }, 'pvesm', 'free', '--', "$storeid:$volname"];
 
         eval {
             PVE::Tools::run_command($cmd, outfunc => sub { }, errfunc => sub { });

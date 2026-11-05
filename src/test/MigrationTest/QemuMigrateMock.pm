@@ -380,6 +380,7 @@ $MigrationTest::Shared::tools_module->mock(
                     $cmd = shift @{$cmd_tail};
                     if ($cmd eq 'free') {
                         my $volid = shift @{$cmd_tail};
+                        $volid = shift @{$cmd_tail} if $volid eq '--';
                         PVE::Storage::parse_volume_id($volid);
                         return 1
                             if $fail_config->{ssh_pvesm_free}
