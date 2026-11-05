@@ -9,6 +9,7 @@ use PVE::JSONSchema qw(get_standard_option);
 use PVE::RESTHandler;
 use PVE::Tools qw(extract_param file_get_contents);
 
+use PVE::QemuServer::CPUConfig;
 use PVE::QemuServer::Machine;
 use PVE::QemuServer::Helpers qw(get_host_arch);
 

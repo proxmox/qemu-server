@@ -6,6 +6,7 @@ use PVE::JSONSchema qw(get_standard_option);
 use PVE::RESTHandler;
 use PVE::Tools qw(extract_param);
 
+use PVE::QemuServer::CPUConfig;
 use PVE::QemuServer::CPUFlags;
 use PVE::QemuServer::Helpers;
 

@@ -9,6 +9,7 @@ use Data::Dumper;
 
 use PVE::Storage;
 use PVE::QemuConfig;
+use PVE::QemuServer;
 
 use Test::More;
 

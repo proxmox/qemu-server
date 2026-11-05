@@ -18,6 +18,7 @@ use PVE::QemuServer::Monitor qw(mon_cmd);
 use PVE::QemuServer;
 use PVE::QemuServer::Machine;
 use PVE::QemuServer::Memory qw(get_current_memory);
+use PVE::QemuServer::Network;
 use PVE::QemuServer::Snapshot;
 use PVE::RESTEnvironment qw(log_warn);
 use PVE::Storage;

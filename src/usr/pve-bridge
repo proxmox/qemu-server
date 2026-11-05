@@ -7,6 +7,7 @@ use PVE::Tools qw(run_command);
 use PVE::Network::SDN::Vnets;
 use PVE::Network::SDN::Zones;
 use PVE::Firewall;
+use PVE::QemuConfig;
 
 use PVE::QemuServer::Network;
 

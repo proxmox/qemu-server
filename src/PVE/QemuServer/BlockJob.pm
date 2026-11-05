@@ -13,6 +13,7 @@ use PVE::Storage;
 use PVE::QemuServer::Agent qw(qga_check_running);
 use PVE::QemuServer::Blockdev;
 use PVE::QemuServer::Drive qw(checked_volume_format);
+use PVE::QemuServer::Machine;
 use PVE::QemuServer::Monitor qw(mon_cmd qmp_cmd vm_qmp_peer);
 use PVE::QemuServer::RunState;
 
