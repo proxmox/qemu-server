@@ -39,6 +39,7 @@ my $current_test; # = {
 #   EXPECT_ERROR: <error message> For negative tests
 #   EXPECT_WARN(ING): <warning message> that is expected
 #   HW_CAPABILITIES: <cpu-type-or-json-string> to defined the HW caps the test should expose
+#   SNAPSHOT: <name> of a snapshot in the config to generate the command for
 # all fields are optional
 sub parse_test($config_fn) {
     $current_test = {}; # reset
@@ -71,6 +72,8 @@ sub parse_test($config_fn) {
             $current_test->{expect_warning} = "$1";
         } elsif ($line =~ /^HW_CAPABILITIES:\s*(.*)\s*$/) {
             $current_test->{hw_capabilities} = "$1"; # either a CPU from above hash or raw JSON
+        } elsif ($line =~ /^SNAPSHOT:\s*(.*)\s*$/) {
+            $current_test->{snapshot} = "$1";
         }
     }
 
@@ -147,7 +150,8 @@ sub do_test($config_fn) {
 
     my $storecfg = get_storage_config();
 
-    my $cmdline = eval { PVE::QemuServer::vm_commandline($storecfg, $vmid) };
+    my $cmdline =
+        eval { PVE::QemuServer::vm_commandline($storecfg, $vmid, $current_test->{snapshot}); };
     my $err = $@;
 
     if (my $err_expect = $current_test->{expect_error}) {
