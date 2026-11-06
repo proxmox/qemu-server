@@ -370,6 +370,10 @@ $add_throttle_desc->('mbps_wr', 'number', 'write speed', 'mbps', 'megabytes per 
 $add_throttle_desc->('iops', 'integer', 'r/w I/O', 'iops', 'operations per second');
 $add_throttle_desc->('iops_rd', 'integer', 'read I/O', 'iops', 'operations per second');
 $add_throttle_desc->('iops_wr', 'integer', 'write I/O', 'iops', 'operations per second');
+# Only kept for existing configs, as an unknown key would invalidate the whole drive.
+for my $opt (qw(bps bps_rd bps_wr)) {
+    $drivedesc_base{$opt}->{description} .= " Deprecated: Use 'm$opt' instead.";
+}
 
 # pools: (pool of IO before throttling starts taking effect)
 $add_throttle_desc->('mbps_max', 'number', 'unthrottled r/w pool', 'mbps', 'megabytes per second');
