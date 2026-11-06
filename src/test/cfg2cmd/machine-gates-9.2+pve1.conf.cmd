@@ -1,0 +1,33 @@
+/usr/bin/kvm \
+  -id 8006 \
+  -name vm8006 \
+  -no-shutdown \
+  -chardev 'socket,id=qmp,path=/var/run/qemu-server/8006.qmp,server=on,wait=off' \
+  -object 'monitor-qmp,chardev=qmp,id=monitor-qmp' \
+  -chardev 'socket,id=qmp-event,path=/var/run/qmeventd.sock,reconnect-ms=5000' \
+  -object 'monitor-qmp,chardev=qmp-event,id=monitor-qmp-event' \
+  -pidfile /var/run/qemu-server/8006.pid \
+  -daemonize \
+  -smbios 'type=1,uuid=7b10d7af-b932-4c66-b2c3-3996152ec465' \
+  -drive 'if=pflash,unit=0,format=raw,readonly=on,file=/usr/share/pve-edk2-firmware//OVMF_CODE_4M.secboot.fd' \
+  -drive 'if=pflash,unit=1,id=drive-efidisk0,format=qcow2,file=/var/lib/vz/images/8006/vm-8006-disk-1.qcow2' \
+  -smp '2,sockets=1,cores=2,maxcpus=2' \
+  -nodefaults \
+  -boot 'menu=on,strict=on,reboot-timeout=1000,splash=/usr/share/qemu-server/bootsplash.jpg' \
+  -vnc 'unix:/var/run/qemu-server/8006.vnc,password=on' \
+  -cpu host,+kvm_pv_eoi,+kvm_pv_unhalt,-vmx-mbec \
+  -m 2048 \
+  -global 'ICH9-LPC.disable_s3=1' \
+  -global 'ICH9-LPC.disable_s4=1' \
+  -readconfig /usr/share/qemu-server/pve-q35-4.0.cfg \
+  -device 'vmgenid,guid=c773c261-d800-4348-9f5d-167fadd53cf8' \
+  -device 'usb-tablet,id=tablet,bus=ehci.0,port=1' \
+  -device 'VGA,id=vga,bus=pcie.0,addr=0x1' \
+  -device 'virtio-balloon-pci,id=balloon0,bus=pci.0,addr=0x3,free-page-reporting=on' \
+  -iscsi 'initiator-name=iqn.1993-08.org.debian:01:aabbccddeeff' \
+  -device 'virtio-scsi-pci,id=scsihw0,bus=pci.0,addr=0x5' \
+  -drive 'file=/var/lib/vz/images/8006/vm-8006-disk-0.qcow2,if=none,id=drive-scsi0,format=qcow2,cache=none,aio=io_uring,detect-zeroes=on' \
+  -device 'scsi-hd,bus=scsihw0.0,channel=0,scsi-id=0,lun=0,drive=drive-scsi0,id=scsi0,bootindex=100' \
+  -netdev 'type=tap,id=net0,ifname=tap8006i0,script=/usr/libexec/qemu-server/pve-bridge,downscript=/usr/libexec/qemu-server/pve-bridgedown,vhost=on' \
+  -device 'virtio-net-pci,mac=A2:C0:43:77:08:A0,netdev=net0,bus=pci.0,addr=0x12,id=net0,rx_queue_size=1024,tx_queue_size=256,bootindex=300' \
+  -machine 'type=pc-q35-9.2+pve1'
