@@ -5791,6 +5791,8 @@ sub vm_start_nolock {
         die "start failed: $err";
     }
 
+    PVE::QemuServer::RunState::create_cleanup_flag($vmid);
+
     # re-reserve all PCI IDs now that we can know the actual VM PID
     my $pid = PVE::QemuServer::Helpers::vm_running_locally($vmid);
     eval { PVE::QemuServer::PCI::reserve_pci_usage($pci_reserve_list, $vmid, undef, $pid) };
@@ -5798,8 +5800,6 @@ sub vm_start_nolock {
 
     my $qemu_pkg_string = PVE::QemuServer::QMPHelpers::get_qemu_package_string($vmid);
     syslog("info", "VM $vmid started with PID $pid using $qemu_pkg_string.");
-
-    PVE::QemuServer::RunState::create_cleanup_flag($vmid);
 
     if (defined(my $migrate = $res->{migrate})) {
         if ($migrate->{proto} eq 'tcp') {
