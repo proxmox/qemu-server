@@ -31,7 +31,6 @@ $cluster_module->mock(
         return {} if $file eq 'datacenter.cfg';
         die "cfs_read_file (mocked) - unexpected file '$file'\n";
     },
-    cfs_update => sub { return; },
 );
 
 my $qemu_config_module = Test::MockModule->new('PVE::QemuConfig');
@@ -39,6 +38,11 @@ $qemu_config_module->mock(
     config_file => sub {
         my ($class, $vmid) = @_;
         return "$config_dir/qemu-server/$vmid.conf";
+    },
+    write_config => sub {
+        my ($class, $vmid, $conf) = @_;
+        my $path = $class->config_file($vmid);
+        file_set_contents($path, PVE::QemuServer::write_vm_config($path, $conf));
     },
 );
 
