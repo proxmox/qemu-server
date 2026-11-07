@@ -1,0 +1,45 @@
+/usr/bin/kvm \
+  -id 8006 \
+  -name vm8006 \
+  -no-shutdown \
+  -chardev 'socket,id=qmp,path=/var/run/qemu-server/8006.qmp,server=on,wait=off' \
+  -object 'monitor-qmp,chardev=qmp,id=monitor-qmp' \
+  -chardev 'socket,id=qmp-event,path=/var/run/qmeventd.sock,reconnect-ms=5000' \
+  -object 'monitor-qmp,chardev=qmp-event,id=monitor-qmp-event' \
+  -pidfile /var/run/qemu-server/8006.pid \
+  -daemonize \
+  -smbios 'type=1,uuid=7b10d7af-b932-4c66-b2c3-3996152ec465' \
+  -global 'ICH9-LPC.acpi-pci-hotplug-with-bridge-support=off' \
+  -smp '2,sockets=1,cores=2,maxcpus=2' \
+  -nodefaults \
+  -boot 'menu=on,strict=on,reboot-timeout=1000,splash=/usr/share/qemu-server/bootsplash.jpg' \
+  -vnc 'unix:/var/run/qemu-server/8006.vnc,password=on' \
+  -cpu kvm64,enforce,+kvm_pv_eoi,+kvm_pv_unhalt,+lahf_lm,+sep \
+  -m 2048 \
+  -object '{"id":"throttle-drive-ide0","limits":{},"qom-type":"throttle-group"}' \
+  -object 'iothread,id=iothread-virtioscsi0' \
+  -object '{"id":"throttle-drive-scsi0","limits":{},"qom-type":"throttle-group"}' \
+  -object '{"id":"throttle-drive-virtio0","limits":{},"qom-type":"throttle-group"}' \
+  -object '{"id":"throttle-drive-sata0","limits":{},"qom-type":"throttle-group"}' \
+  -global 'ICH9-LPC.disable_s3=1' \
+  -global 'ICH9-LPC.disable_s4=1' \
+  -readconfig /usr/share/qemu-server/pve-q35-4.0.cfg \
+  -device 'pci-bridge,id=pci.4,chassis_nr=4,bus=pci.1,addr=0x1c' \
+  -device 'vmgenid,guid=c773c261-d800-4348-9f5d-167fadd53cf8' \
+  -device 'usb-tablet,id=tablet,bus=ehci.0,port=1' \
+  -device 'VGA,id=vga,bus=pcie.0,addr=0x1' \
+  -device 'virtio-balloon-pci,id=balloon0,bus=pci.0,addr=0x3,free-page-reporting=on' \
+  -iscsi 'initiator-name=iqn.1993-08.org.debian:01:aabbccddeeff' \
+  -blockdev '{"detect-zeroes":"on","discard":"ignore","driver":"throttle","file":{"cache":{"direct":true,"no-flush":false},"detect-zeroes":"on","discard":"ignore","driver":"qcow2","file":{"aio":"io_uring","cache":{"direct":true,"no-flush":false},"detect-zeroes":"on","discard":"ignore","driver":"file","filename":"/var/lib/vz/images/8006/vm-8006-disk-4.qcow2","node-name":"e4281f9c9bdaed31fc8f5799220529c","read-only":false},"node-name":"f4281f9c9bdaed31fc8f5799220529c","read-only":false},"node-name":"drive-ide0","read-only":false,"throttle-group":"throttle-drive-ide0"}' \
+  -device 'ide-hd,bus=ide.0,unit=0,drive=drive-ide0,id=ide0,model=Old,,Disk,rotation_rate=1,serial=IDE0,write-cache=on' \
+  -device 'virtio-scsi-pci,id=virtioscsi0,bus=pci.3,addr=0x1,iothread=iothread-virtioscsi0,num_queues=4' \
+  -blockdev '{"detect-zeroes":"on","discard":"ignore","driver":"throttle","file":{"cache":{"direct":true,"no-flush":false},"detect-zeroes":"on","discard":"ignore","driver":"qcow2","file":{"aio":"io_uring","cache":{"direct":true,"no-flush":false},"detect-zeroes":"on","discard":"ignore","driver":"file","filename":"/var/lib/vz/images/8006/vm-8006-disk-0.qcow2","node-name":"ecd04be4259153b8293415fefa2a84c","read-only":false},"node-name":"fcd04be4259153b8293415fefa2a84c","read-only":false},"node-name":"drive-scsi0","read-only":false,"throttle-group":"throttle-drive-scsi0"}' \
+  -device 'scsi-hd,bus=virtioscsi0.0,channel=0,scsi-id=0,lun=0,drive=drive-scsi0,id=scsi0,device_id=drive-scsi0,rotation_rate=1,wwn=0x5000c500a1b2c3d4,vendor=ACME,product=FastDisk,bootindex=101,serial=SCSI,,0,write-cache=on,rerror=stop,werror=enospc' \
+  -blockdev '{"detect-zeroes":"on","discard":"ignore","driver":"throttle","file":{"cache":{"direct":false,"no-flush":true},"detect-zeroes":"on","discard":"ignore","driver":"qcow2","file":{"aio":"io_uring","cache":{"direct":false,"no-flush":true},"detect-zeroes":"on","discard":"ignore","driver":"file","filename":"/var/lib/vz/images/8006/vm-8006-disk-5.qcow2","node-name":"e98133ae1ef2a3b5ffdc640e3367e60","read-only":true},"node-name":"f98133ae1ef2a3b5ffdc640e3367e60","read-only":true},"node-name":"drive-virtio0","read-only":true,"throttle-group":"throttle-drive-virtio0"}' \
+  -device 'virtio-blk-pci,drive=drive-virtio0,id=virtio0,bus=pci.0,addr=0xa,serial=VIRTIO0,write-cache=on' \
+  -device 'ahci,id=ahci0,multifunction=on,bus=pci.0,addr=0x7' \
+  -blockdev '{"detect-zeroes":"off","discard":"ignore","driver":"throttle","file":{"cache":{"direct":true,"no-flush":false},"detect-zeroes":"off","discard":"ignore","driver":"qcow2","file":{"aio":"io_uring","cache":{"direct":true,"no-flush":false},"detect-zeroes":"off","discard":"ignore","driver":"file","filename":"/var/lib/vz/images/8006/vm-8006-disk-2.qcow2","node-name":"e54b352ec07237af24190094e0e5137","read-only":false},"node-name":"f54b352ec07237af24190094e0e5137","read-only":false},"node-name":"drive-sata0","read-only":false,"throttle-group":"throttle-drive-sata0"}' \
+  -device 'ide-hd,bus=ahci0.0,drive=drive-sata0,id=sata0,rotation_rate=1,wwn=0x5000c500a1b2c3d6,serial=SATA,,0,write-cache=off' \
+  -netdev 'type=tap,id=net0,ifname=tap8006i0,script=/usr/libexec/qemu-server/pve-bridge,downscript=/usr/libexec/qemu-server/pve-bridgedown,vhost=on' \
+  -device 'virtio-net-pci,mac=A2:C0:43:77:08:A0,netdev=net0,bus=pci.0,addr=0x12,id=net0,rx_queue_size=1024,tx_queue_size=256,bootindex=300,host_mtu=1500,host_tunnel=off' \
+  -machine 'hpet=off,type=q35+pve0'
