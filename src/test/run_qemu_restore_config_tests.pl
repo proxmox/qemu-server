@@ -17,7 +17,7 @@ my $INPUT_DIR = './restore-config-input';
 my $EXPECTED_DIR = './restore-config-expected';
 
 # NOTE update when you add/remove tests
-plan tests => 4;
+plan tests => 5;
 
 my $pve_cluster_module = Test::MockModule->new("PVE::Cluster");
 $pve_cluster_module->mock(

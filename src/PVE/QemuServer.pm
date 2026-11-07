@@ -6591,6 +6591,13 @@ my $restore_allocate_devices = sub {
 sub restore_update_config_line {
     my ($cookie, $map, $line, $unique) = @_;
 
+    # vzdump never archives pending changes, and a pending change of a crafted backup would neither
+    # be checked against the privileges of the user nor be visible before the next start applies it
+    if ($line =~ m/^\[([^\]]*)\]\s*$/) {
+        $cookie->{'in-pending-section'} = $1 =~ m/^PENDING$/i;
+    }
+    return '' if $cookie->{'in-pending-section'};
+
     return '' if $line =~ m/^\#qmdump\#/;
     return '' if $line =~ m/^\#vzdump\#/;
     return '' if $line =~ m/^lock:/;
