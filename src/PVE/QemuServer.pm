@@ -6948,7 +6948,7 @@ sub restore_proxmox_backup_archive {
         # fixme: rate limit?
 
         # create empty/temp config
-        PVE::Tools::file_set_contents($conffile, "memory: 128\nlock: create");
+        PVE::QemuConfig->write_config($vmid, { memory => 128, lock => 'create' });
 
         $restore_cleanup_oldconf->($storecfg, $vmid, $oldconf, $virtdev_hash) if $oldconf;
 
@@ -7123,7 +7123,7 @@ sub restore_external_archive {
             $parse_backup_hints->($rpcenv, $user, $storecfg, $fh, $devinfo, $options);
 
         # create empty/temp config
-        PVE::Tools::file_set_contents($conffile, "memory: 128\nlock: create");
+        PVE::QemuConfig->write_config($vmid, { memory => 128, lock => 'create' });
 
         $restore_cleanup_oldconf->($storecfg, $vmid, $oldconf, $virtdev_hash) if $oldconf;
 
@@ -7549,7 +7549,7 @@ sub restore_vma_archive {
 
         # create empty/temp config
         if ($oldconf) {
-            PVE::Tools::file_set_contents($conffile, "memory: 128\n");
+            PVE::QemuConfig->write_config($vmid, { memory => 128 });
             $restore_cleanup_oldconf->($cfg, $vmid, $oldconf, $virtdev_hash);
         }
 
