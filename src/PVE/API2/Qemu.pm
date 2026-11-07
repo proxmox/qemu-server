@@ -4664,8 +4664,7 @@ __PACKAGE__->register_method({
             }
 
             # create empty/temp config - this fails if VM already exists on other node
-            # FIXME use PVE::QemuConfig->create_and_lock_config and adapt code
-            PVE::Tools::file_set_contents($conffile, "# qmclone temporary file\nlock: clone\n");
+            PVE::QemuConfig->create_and_lock_config($newid, 0, 'clone');
 
             PVE::Firewall::clone_vmfw_conf($vmid, $newid);
 
