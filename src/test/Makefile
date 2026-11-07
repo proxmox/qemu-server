@@ -34,8 +34,9 @@ test_migration: run_qemu_migrate_tests.pl MigrationTest/*.pm $(MIGRATION_TEST_TA
 $(MIGRATION_TEST_TARGETS):
 	./run_qemu_migrate_tests.pl $(@:test_migration_%=%)
 
-test_restore_config: run_qemu_restore_config_tests.pl
+test_restore_config: run_qemu_restore_config_tests.pl run_qemu_restore_permission_tests.pl
 	./run_qemu_restore_config_tests.pl
+	./run_qemu_restore_permission_tests.pl
 
 test_parse_config: run_parse_config_tests.pl QemuServerTest/Utils.pm
 	./run_parse_config_tests.pl

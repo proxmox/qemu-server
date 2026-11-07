@@ -7754,6 +7754,9 @@ sub restore_tar_archive {
 
     rmtree $tmpdir;
 
+    my $new_conf = restore_merge_config($conffile, $new_conf_raw, {});
+    check_restore_permissions(PVE::RPCEnvironment::get(), $user, $new_conf);
+
     PVE::Tools::file_set_contents($conffile, $new_conf_raw);
 
     PVE::Cluster::cfs_update(); # make sure we read new file
