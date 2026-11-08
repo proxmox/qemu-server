@@ -7088,7 +7088,7 @@ sub restore_external_archive {
     my ($storeid, $volname) = PVE::Storage::parse_volume_id($archive);
     my $scfg = PVE::Storage::storage_config($storecfg, $storeid);
 
-    my $tmpdir = "/run/qemu-server/vzdumptmp$$";
+    my $tmpdir = "$PVE::QemuServer::Helpers::var_run_tmpdir/vzdumptmp$$";
     rmtree($tmpdir);
     mkpath($tmpdir) or die "unable to create $tmpdir\n";
 
