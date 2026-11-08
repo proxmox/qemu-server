@@ -2165,6 +2165,8 @@ my $update_vm_api = sub {
             raise_param_exc({ revert => "unknown option '$opt'" });
         }
 
+        raise_param_exc({ revert => "option '$opt' is read-only" }) if $opt eq 'meta';
+
         raise_param_exc({
             delete => "you can't use '-$opt' and " . "-revert $opt' at the same time" })
             if defined($param->{$opt});
@@ -2187,6 +2189,8 @@ my $update_vm_api = sub {
         if (!PVE::QemuServer::option_exists($opt)) {
             raise_param_exc({ delete => "unknown option '$opt'" });
         }
+
+        raise_param_exc({ delete => "option '$opt' is read-only" }) if $opt eq 'meta';
 
         push @delete, $opt;
     }
