@@ -49,6 +49,9 @@ $qemu_config_module->mock(
 my $storage_module = Test::MockModule->new('PVE::Storage');
 $storage_module->mock(config => sub { return {}; });
 
+my $replication_state_module = Test::MockModule->new('PVE::ReplicationState');
+$replication_state_module->mock(delete_guest_states => sub { return; });
+
 my $guest_helpers_module = Test::MockModule->new('PVE::GuestHelpers');
 $guest_helpers_module->mock(
     check_vnet_access => sub {

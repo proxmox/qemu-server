@@ -40,6 +40,7 @@ use PVE::INotify;
 use PVE::JSONSchema qw(get_standard_option parse_property_string);
 use PVE::ProcFSTools;
 use PVE::PBSClient;
+use PVE::ReplicationState;
 use PVE::RESTEnvironment qw(log_warn);
 use PVE::RPCEnvironment;
 use PVE::SafeSyslog;
@@ -6947,6 +6948,8 @@ sub restore_proxmox_backup_archive {
         $param = [$pbs_backup_name, "qemu-server.conf", $cfgfn];
         PVE::Storage::PBSPlugin::run_raw_client_cmd($scfg, $storeid, $cmd, $param);
 
+        PVE::ReplicationState::delete_guest_states($vmid);
+
         if ($has_firewall_config) {
             $param = [$pbs_backup_name, "fw.conf", $firewall_config_fn];
             PVE::Storage::PBSPlugin::run_raw_client_cmd($scfg, $storeid, $cmd, $param);
@@ -7125,6 +7128,9 @@ sub restore_external_archive {
 
         my $data = $backup_provider->archive_get_guest_config($volname)
             or die "backup provider failed to extract guest configuration\n";
+
+        PVE::ReplicationState::delete_guest_states($vmid);
+
         PVE::Tools::file_set_contents($cfgfn, $data);
 
         if ($data = $backup_provider->archive_get_firewall_config($volname)) {
@@ -7537,6 +7543,8 @@ sub restore_vma_archive {
     my $print_devmap = sub {
         my $cfgfn = "$tmpdir/qemu-server.conf";
 
+        PVE::ReplicationState::delete_guest_states($vmid);
+
         # we can read the config - that is already extracted
         my $fh = IO::File->new($cfgfn, "r")
             || die "unable to read qemu-server.conf - $!\n";
@@ -7694,6 +7702,8 @@ sub restore_tar_archive {
     }
 
     my $storecfg = PVE::Storage::config();
+
+    PVE::ReplicationState::delete_guest_states($vmid);
 
     # avoid zombie disks when restoring over an existing VM -> cleanup first
     # pass keep_empty_config=1 to keep the config (thus VMID) reserved for us

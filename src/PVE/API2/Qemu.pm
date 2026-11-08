@@ -1489,9 +1489,6 @@ __PACKAGE__->register_method({
                     if $unique;
             };
 
-            # ensure no old replication state are exists
-            PVE::ReplicationState::delete_guest_states($vmid);
-
             PVE::QemuConfig->lock_config_full($vmid, 1, $realcmd);
 
             if ($start_after_create && !$live_restore) {
