@@ -4426,12 +4426,27 @@ for my $opt (keys %$confdesc_cloudinit) {
     $fast_plug_option->{$opt} = 1;
 }
 
+# 'meta' is read-only, so only a manual edit or an older version can have queued a change of it.
+# Drop such a change instead of applying it.
+my sub drop_pending_meta {
+    my ($conf) = @_;
+
+    my $pending_delete_hash = PVE::QemuConfig->parse_pending_delete($conf->{pending}->{delete});
+    return if !defined($conf->{pending}->{meta}) && !$pending_delete_hash->{meta};
+
+    warn "ignoring pending change of read-only option 'meta'\n";
+    delete $conf->{pending}->{meta};
+    PVE::QemuConfig->remove_from_pending_delete($conf, 'meta');
+}
+
 # hotplug changes in [PENDING]
 # $selection hash can be used to only apply specified options, for
 # example: { cores => 1 } (only apply changed 'cores')
 # $errors ref is used to return error messages
 sub vmconfig_hotplug_pending {
     my ($vmid, $conf, $storecfg, $selection, $errors) = @_;
+
+    drop_pending_meta($conf);
 
     my $defaults = load_defaults();
     my $arch = PVE::QemuServer::Helpers::get_vm_arch($conf);
@@ -4830,6 +4845,8 @@ sub vmconfig_apply_pending {
     my ($vmid, $conf, $storecfg, $errors, $skip_cloud_init) = @_;
 
     return if !scalar(keys %{ $conf->{pending} });
+
+    drop_pending_meta($conf);
 
     my $add_apply_error = sub {
         my ($opt, $msg) = @_;
