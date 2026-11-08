@@ -290,6 +290,7 @@ __PACKAGE__->register_method({
             },
             password => {
                 type => 'string',
+                sensitive => 1,
                 description => 'The new password.',
                 minLength => 5,
                 maxLength => 1024,
