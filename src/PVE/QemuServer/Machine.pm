@@ -435,11 +435,11 @@ sub get_vm_machine {
             my $base_version = '5.1';
             # TODO PVE 10 - die early if there is a Windows VM both without explicit machine version
             # and without meta info.
-            if (my $meta = PVE::QemuServer::MetaInfo::parse_meta_info($conf->{meta})) {
-                if (PVE::QemuServer::Helpers::min_version($meta->{'creation-qemu'}, 9, 1)) {
-                    # need only major.minor
-                    ($base_version) = ($meta->{'creation-qemu'} =~ m/^(\d+.\d+)/);
-                }
+            my $meta = PVE::QemuServer::MetaInfo::parse_meta_info($conf->{meta}) // {};
+            my $created = $meta->{'creation-qemu'};
+            if (defined($created) && PVE::QemuServer::Helpers::min_version($created, 9, 1)) {
+                # need only major.minor
+                ($base_version) = ($created =~ m/^(\d+.\d+)/);
             }
             $machine = windows_get_pinned_machine_version($machine, $base_version, $kvmversion);
         } else {
