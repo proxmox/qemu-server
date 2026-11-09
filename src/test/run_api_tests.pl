@@ -13,6 +13,7 @@ use Test::MockModule;
 use Test::More;
 
 use PVE::API2::Qemu;
+use PVE::GuestIdentity;
 use PVE::RPCEnvironment;
 
 my $rpcenv = PVE::RPCEnvironment->init('cli');
@@ -37,6 +38,23 @@ sub mock_unreachable_config {
     $qemu_config_module->unmock('write_config') if $qemu_config_module->is_mocked('write_config');
 }
 mock_unreachable_config();
+
+my $qemu_server_module = Test::MockModule->new('PVE::QemuServer');
+$qemu_server_module->mock(check_running => sub { return 0; });
+
+# Proxmox VE versions the cluster nodes report, undef for none
+my $node_versions = {};
+
+my $cluster_module = Test::MockModule->new('PVE::Cluster');
+$cluster_module->mock(
+    check_cfs_quorum => sub { return 1; },
+    check_node_exists => sub { return 1; },
+    remote_node_ip => sub { return '192.0.2.2'; },
+    get_node_pvecfg_version => sub {
+        my ($node) = @_;
+        return $node_versions->{$node};
+    },
+);
 
 # Returns the error of calling the API method $method with $param, either the parameter errors as
 # hash or the error message.
@@ -142,6 +160,148 @@ subtest 'pending changes of meta are dropped' => sub {
         );
     }
 
+    mock_unreachable_config();
+};
+
+my $min_version = PVE::GuestIdentity::MIN_PVE_MANAGER_VERSION;
+my $node_cases = [
+    [$min_version, "reached load_config\n"],
+    ['10.0.0', "reached load_config\n"],
+    [
+        '9.2.0',
+        "node 'pve2' runs Proxmox VE 9.2.0, keeping the guest identity requires $min_version or"
+            . " newer - upgrade the node first\n",
+    ],
+    [
+        undef,
+        "node 'pve2' does not report its Proxmox VE version, so it is unknown whether the node"
+            . " keeps the guest identity\n",
+    ],
+];
+
+for my $case ($node_cases->@*) {
+    my ($version, $expected) = $case->@*;
+    $node_versions->{pve2} = $version;
+    my $what = 'target node with ' . ($version // 'no') . ' version';
+
+    is(
+        api_error('migrate_vm', { target => 'pve2' }), $expected, "migrate_vm: offline, $what",
+    );
+    is(
+        api_error('migrate_vm', { target => 'pve2', online => 1 }),
+        $expected,
+        "migrate_vm: online, $what",
+    );
+    is(
+        api_error('clone_vm', { newid => 101, target => 'pve2' }), $expected, "clone_vm: $what",
+    );
+}
+
+$node_versions->{pve2} = undef;
+is(
+    api_error('clone_vm', { newid => 101 }),
+    "reached load_config\n",
+    'clone_vm: no check without target node',
+);
+
+subtest 'migration preconditions' => sub {
+    my $nodes = ['localhost', 'pve2', 'pve3', 'pve4'];
+    $cluster_module->mock(get_nodelist => sub { return $nodes; });
+    my $inotify_module = Test::MockModule->new('PVE::INotify');
+    $inotify_module->mock(nodename => sub { return 'localhost'; });
+
+    $qemu_config_module->mock(load_config => sub { return { memory => 512 }; });
+    my $migrate_helpers_module = Test::MockModule->new('PVE::QemuMigrate::Helpers');
+    $migrate_helpers_module->mock(
+        check_local_resources => sub {
+            return ([], {}, { map { $_ => [] } $nodes->@* });
+        },
+    );
+    my $ha_config_module = Test::MockModule->new('PVE::HA::Config');
+    $ha_config_module->mock(vm_is_ha_managed => sub { return 0; });
+
+    $node_versions->@{ 'pve2', 'pve3', 'pve4' } = ($min_version, '9.2.0', undef);
+
+    my $res = PVE::API2::Qemu->migrate_vm_precondition({ node => 'localhost', vmid => 100 });
+
+    is_deeply($res->{allowed_nodes}, ['pve2'], 'only the node keeping the identity is allowed');
+    is_deeply(
+        $res->{not_allowed_nodes}->{pve3},
+        {
+            'guest-identity-unsupported' => {
+                version => '9.2.0',
+                'required-version' => $min_version,
+            },
+        },
+        'node with an older version is not allowed',
+    );
+    is_deeply(
+        $res->{not_allowed_nodes}->{pve4},
+        { 'guest-identity-unsupported' => { 'required-version' => $min_version } },
+        'node without version is not allowed',
+    );
+
+    my $returns = PVE::API2::Qemu->map_method_by_name('migrate_vm_precondition')->{returns};
+    # every reason of a node must be documented
+    my $strict = dclone($returns);
+    my $node_schema = $strict->{properties}->{not_allowed_nodes}->{additionalProperties};
+    $node_schema->{additionalProperties} = 0;
+    eval { PVE::JSONSchema::validate($res, $strict) };
+    is($@, '', 'result matches the schema, including the reasons of each node');
+    my $undocumented = { $res->%*, not_allowed_nodes => { pve3 => { 'other-reason' => 1 } } };
+    eval { PVE::JSONSchema::validate($undocumented, $strict) };
+    like($@, qr/other-reason/, 'an undocumented reason does not');
+
+    $cluster_module->unmock('get_nodelist');
+    mock_unreachable_config();
+};
+
+subtest 'clone target nodes' => sub {
+    my $inotify_module = Test::MockModule->new('PVE::INotify');
+    $inotify_module->mock(nodename => sub { return 'pve1'; });
+
+    $qemu_config_module->mock(
+        load_config => sub { return { memory => 512 }; },
+        has_feature => sub { return 1; },
+    );
+    $qemu_server_module->mock(
+        shared_nodes => sub {
+            return { map { $_ => 1 } 'pve1', 'pve2', 'pve3', 'pve4' };
+        },
+    );
+
+    # the version of the local node does not matter, a clone on the same node needs no check
+    $node_versions->@{ 'pve1', 'pve2', 'pve3', 'pve4' } = (undef, $min_version, '9.2.0', undef);
+
+    # the local node is the one the handler runs on, whatever name the API path used for it
+    for my $node ('pve1', 'localhost') {
+        my $res =
+            PVE::API2::Qemu->vm_feature({ node => $node, vmid => 100, feature => 'clone' });
+        is_deeply(
+            [sort $res->{nodes}->@*],
+            ['pve1', 'pve2'],
+            "node '$node': only nodes that keep the identity are offered as clone target",
+        );
+    }
+
+    # the web interface polls the snapshot feature, which needs no version lookups
+    my $lookups = 0;
+    my $node_identity_unsupported = \&PVE::GuestIdentity::node_identity_unsupported;
+    my $guest_identity_module = Test::MockModule->new('PVE::GuestIdentity');
+    $guest_identity_module->mock(
+        node_identity_unsupported => sub {
+            $lookups++;
+            return $node_identity_unsupported->(@_);
+        },
+    );
+    my $res =
+        PVE::API2::Qemu->vm_feature({ node => 'pve1', vmid => 100, feature => 'snapshot' });
+    is_deeply([sort $res->{nodes}->@*], ['pve1', 'pve2', 'pve3', 'pve4'], 'snapshot: nodes');
+    is($lookups, 0, 'snapshot: no version lookup');
+    $guest_identity_module->unmock('node_identity_unsupported');
+
+    $qemu_server_module->unmock('shared_nodes');
+    $qemu_config_module->unmock('has_feature');
     mock_unreachable_config();
 };
 

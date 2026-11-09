@@ -28,6 +28,7 @@ use PVE::RESTHandler;
 use PVE::ReplicationConfig;
 use PVE::GuestHelpers qw(assert_tag_permissions);
 use PVE::GuestID;
+use PVE::GuestIdentity;
 use PVE::GuestImport;
 use PVE::QemuConfig;
 use PVE::QemuServer;
@@ -4538,6 +4539,8 @@ __PACKAGE__->register_method({
         properties => {
             hasFeature => { type => 'boolean' },
             nodes => {
+                description => "Nodes on which the storages of the VM are available, for"
+                    . " 'clone' and 'copy' only those that keep the guest identity.",
                 type => 'array',
                 items => { type => 'string' },
             },
@@ -4566,6 +4569,15 @@ __PACKAGE__->register_method({
         my $storecfg = PVE::Storage::config();
 
         my $nodelist = PVE::QemuServer::shared_nodes($conf, $storecfg);
+        # a clone to another node is refused if that node would drop the guest identity
+        if ($feature ne 'snapshot') {
+            my $nodename = PVE::INotify::nodename();
+            for my $other (keys $nodelist->%*) {
+                next if $other eq $nodename;
+                delete $nodelist->{$other}
+                    if PVE::GuestIdentity::node_identity_unsupported($other);
+            }
+        }
         my $hasFeature =
             PVE::QemuConfig->has_feature($feature, $conf, $storecfg, $snapname, $running);
 
@@ -4698,7 +4710,10 @@ __PACKAGE__->register_method({
 
         my $load_and_check = sub {
             $rpcenv->check_pool_exist($pool) if defined($pool);
-            PVE::Cluster::check_node_exists($target) if $target;
+            if ($target) {
+                PVE::Cluster::check_node_exists($target);
+                PVE::GuestIdentity::assert_node_supports_identity($target);
+            }
 
             my $storecfg = PVE::Storage::config();
 
@@ -5587,6 +5602,8 @@ __PACKAGE__->register_method({
                                 },
                             },
                         },
+                        'guest-identity-unsupported' =>
+                            PVE::GuestIdentity::node_identity_unsupported_schema(),
                     },
                 },
                 description => "Not allowed nodes, keyed by node name, with the reasons.",
@@ -5729,6 +5746,12 @@ __PACKAGE__->register_method({
                     $blocking_ha_resources;
             }
 
+            # the migration refuses nodes that would drop the guest identity
+            if (my $unsupported = PVE::GuestIdentity::node_identity_unsupported($node)) {
+                $res->{not_allowed_nodes}->{$node}->{'guest-identity-unsupported'} =
+                    $unsupported;
+            }
+
             # if nothing came up, add it to the allowed nodes
             if (scalar($res->{not_allowed_nodes}->{$node}->%*) == 0) {
                 push $res->{allowed_nodes}->@*, $node;
@@ -5780,6 +5803,8 @@ __PACKAGE__->register_method({
         PVE::Cluster::check_cfs_quorum();
 
         PVE::Cluster::check_node_exists($target);
+
+        PVE::GuestIdentity::assert_node_supports_identity($target);
 
         my $targetip = PVE::Cluster::remote_node_ip($target);
 
