@@ -1509,12 +1509,15 @@ __PACKAGE__->register_method({
         # 'force' only covers the VM that the checks above saw, not one created in the meantime, and
         # the permission to overwrite a VM does not cover creating it anew if it is gone by now
         my $allow_existing = $overwrite_only ? 'require' : $force && $vm_exists;
-        eval { PVE::QemuConfig->create_and_lock_config($vmid, $allow_existing) };
+        my $reservation =
+            eval { PVE::QemuConfig->create_and_lock_config($vmid, $allow_existing) };
         die "$emsg $@" if $@;
 
         my $restored_data = 0;
-        # the restore paths record whether the restored volumes stay with the VM
+        # the restore paths record whether they changed the VM, whether the restored volumes stay
+        # with it, and whether they could not remove all volumes after a failure
         my $restore_progress = {};
+        my $restore_started; # whether the restore got its guest lock
         my $restorefn = sub {
             my $conf = PVE::QemuConfig->load_config($vmid);
 
@@ -1590,15 +1593,36 @@ __PACKAGE__->register_method({
 
             my $restore_locked = sub {
                 my $firewall_conf = PVE::GuestHelpers::get_firewall_config_raw($vmid);
+                $restore_started = 1;
                 eval { $realcmd->() };
                 my $err = $@ or return;
 
                 # the VM that keeps its restored volumes also keeps the firewall config of the backup
                 die $err if $restore_progress->{'volumes-kept'};
 
+                my @left =
+                    $restore_progress->{'volumes-left'} ? ('volumes of the restore') : ();
                 # any other failed restore must not leave that firewall config behind
                 eval { PVE::GuestHelpers::set_firewall_config_raw($vmid, $firewall_conf) };
-                warn "unable to reset the firewall config - $@" if $@;
+                if (my $firewall_err = $@) {
+                    warn "unable to reset the firewall config - $firewall_err";
+                    push @left, 'the firewall config';
+                }
+
+                if (!$reservation->{existed}) {
+                    if (@left) {
+                        # what is left keeps the VMID, so that no other guest gets it
+                        log_warn("keeping VM $vmid locked, the cleanup left behind "
+                            . join(', ', @left));
+                    } else {
+                        # Release the VMID while the guest lock is still held, so that no other
+                        # operation can take the VMID in between and then lose its config here.
+                        # The firewall config is settled before that, as another node can take
+                        # the VMID as soon as the config is gone.
+                        eval { PVE::QemuConfig->destroy_config($vmid) };
+                        warn $@ if $@;
+                    }
+                }
                 die $err;
             };
 
@@ -1735,13 +1759,26 @@ __PACKAGE__->register_method({
             $code = sub {
                 eval { $restorefn->() };
                 if (my $err = $@) {
+                    # For a VMID that was free before, the restore already removed the config, or
+                    # kept it locked because its cleanup left something behind. Only unlock a VM
+                    # that existed before or that keeps its restored volumes.
+                    if (!$reservation->{existed} && !$restore_progress->{'volumes-kept'}) {
+                        # the reservation of a restore that did not start is untouched, for example
+                        # if taking its guest lock timed out
+                        if (!$restore_started) {
+                            eval { PVE::QemuConfig->remove_unused_reservation($vmid) };
+                            warn $@ if $@;
+                        }
+                        die $err;
+                    }
+
                     eval { PVE::QemuConfig->remove_lock($vmid, 'create') };
                     warn $@ if $@;
                     if ($restored_data) {
                         warn
                             "error after data was restored, VM disks should be OK but config may "
                             . "require adaptions. VM $vmid state is NOT cleaned up.\n";
-                    } else {
+                    } elsif ($restore_progress->{'target-changed'}) {
                         warn "error before or during data restore, some or all disks were not "
                             . "completely restored. VM $vmid state is NOT cleaned up.\n";
                     }

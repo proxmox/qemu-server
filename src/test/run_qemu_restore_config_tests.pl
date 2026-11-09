@@ -5,7 +5,7 @@ use warnings;
 
 use lib qw(.. .);
 
-use Fcntl qw(O_RDONLY O_NONBLOCK);
+use Fcntl qw(:flock O_RDONLY O_NONBLOCK);
 use File::Path qw(make_path remove_tree);
 use File::Temp qw(tempdir);
 use JSON;
@@ -98,6 +98,9 @@ my $BACKUP_FIREWALL = "[OPTIONS]\nenable: 1\n";
 our $current_backup; # raw config of the backup
 # where the restore fails: 'read-config', 'command', 'data', 'after-restore' or 'live'
 our $fail_at = '';
+# the stat file that qmextract leaves: undef for none, 'directory' for one that cannot be read, or
+# its content
+our $tar_stat_file;
 my $calls = {}; # calls with effects on the target VM that tests check
 
 sub backup_config {
@@ -216,6 +219,16 @@ $qemu_server_module->mock(
         if (!ref($cmd) && $cmd =~ m/^zcat -f\|tar xf /) {
             die "unable to read the backup\n" if $fail_at eq 'read-config';
             file_set_contents("$ENV{VZDUMP_TMPDIR}/qemu-server.conf", $current_backup);
+            # a failed restore leaves its temporary directory behind
+            my $statfile = "$ENV{VZDUMP_TMPDIR}/qmrestore.stat";
+            remove_tree($statfile);
+            if (defined($tar_stat_file)) {
+                if ($tar_stat_file eq 'directory') {
+                    make_path($statfile);
+                } else {
+                    file_set_contents($statfile, $tar_stat_file);
+                }
+            }
             return 0;
         }
 
@@ -301,6 +314,7 @@ sub restore_api {
 
 my $TARGET_CONF = "memory: 1024\nmeta: creation-qemu=10.0.0,ctime=1700000000\nname: target\n";
 my $NOT_CLEANED_UP = qr/VM 100 state is NOT cleaned up/;
+my $KEPT_LOCKED = 'WARN: keeping VM 100 locked, the cleanup left behind';
 
 for my $type (sort keys $ARCHIVES->%*) {
     subtest "$type: restore to a free VMID" => sub {
@@ -318,6 +332,34 @@ for my $type (sort keys $ARCHIVES->%*) {
         );
     };
 }
+
+for my $type (sort keys $ARCHIVES->%*) {
+    subtest "$type: failed restore to a free VMID" => sub {
+        reset_cluster();
+
+        local $fail_at = 'data';
+        my ($err, $output) = restore_api($type, backup_config(), {});
+        is($err, "restoring the data failed\n", 'restore failed');
+        ok(!defined(stored_config(100)), 'reserved config removed');
+        is(PVE::GuestHelpers::get_firewall_config_raw(100), undef, 'no firewall config left');
+        unlike($output, $NOT_CLEANED_UP, 'no warning about a VM left behind');
+
+        $fail_at = '';
+        ($err, $output) = restore_api($type, backup_config(), {});
+        is($err, '', 'retry needs no force') or diag($output);
+        like(stored_config(100), qr/^name: backup$/m, 'VM restored');
+    };
+}
+
+subtest 'failed restore to a free VMID before reading the backup' => sub {
+    reset_cluster();
+
+    local $fail_at = 'read-config';
+    my ($err, $output) = restore_api('pbs', backup_config(), {});
+    is($err, "unable to read the backup\n", 'restore failed');
+    ok(!defined(stored_config(100)), 'reserved config removed');
+    unlike($output, $NOT_CLEANED_UP, 'no warning about a VM left behind');
+};
 
 subtest 'vma: an error of the restore setup is reported without the command line' => sub {
     reset_cluster();
@@ -380,6 +422,128 @@ subtest 'failure once the data is restored keeps the firewall config of the back
     }
 };
 
+subtest 'firewall config that cannot be put back keeps the VMID' => sub {
+    reset_cluster();
+
+    # only the removal of the firewall config of the backup fails
+    my $set_firewall_config_raw = \&PVE::GuestHelpers::set_firewall_config_raw;
+    local *PVE::GuestHelpers::set_firewall_config_raw = sub {
+        my ($vmid, $raw) = @_;
+        die "unable to remove the file - Permission denied\n" if !defined($raw);
+        return $set_firewall_config_raw->($vmid, $raw);
+    };
+
+    local $fail_at = 'data';
+    my ($err, $output) = restore_api('pbs', backup_config(), {});
+    is($err, "restoring the data failed\n", 'restore failed');
+    my $reported = 'unable to reset the firewall config - unable to remove the file';
+    like($output, qr/^\Q$reported\E - Permission denied$/m, 'failure is reported');
+    like($output, qr/^\Q$KEPT_LOCKED\E the firewall config$/m, 'what is left is reported');
+    like(stored_config(100), qr/^lock: create$/m, 'reservation is kept, locked');
+    unlike($output, $NOT_CLEANED_UP, 'no other warning about the VM left behind');
+};
+
+subtest 'firewall config is put back before the VMID is released' => sub {
+    reset_cluster();
+
+    my $reserved;
+    my $set_firewall_config_raw = \&PVE::GuestHelpers::set_firewall_config_raw;
+    local *PVE::GuestHelpers::set_firewall_config_raw = sub {
+        $reserved = defined(stored_config(100));
+        return $set_firewall_config_raw->(@_);
+    };
+
+    local $fail_at = 'data';
+    restore_api('pbs', backup_config(), {});
+    ok($reserved, 'VMID was still reserved');
+    ok(!defined(stored_config(100)), 'and is released afterwards');
+};
+
+subtest 'tar: an allocation record that cannot be read keeps the VMID' => sub {
+    for my $case (
+        ['line that cannot be parsed', "garbage\n", qr/^unable to parse line in statfile/m],
+        [
+            'stat file that cannot be read',
+            'directory',
+            qr/^unable to read '.*qmrestore\.stat'/m,
+        ],
+    ) {
+        my ($what, $stat_file, $reported) = $case->@*;
+        reset_cluster();
+
+        local $fail_at = 'data';
+        local $tar_stat_file = $stat_file;
+        my ($err, $output) = restore_api('tar', backup_config(), {});
+        is($err, "restoring the data failed\n", "$what: restore failed");
+        like($output, $reported, "$what: reported");
+        like(stored_config(100), qr/^lock: create$/m, "$what: reservation is kept, locked");
+        like(
+            $output,
+            qr/^\Q$KEPT_LOCKED\E volumes of the restore$/m,
+            "$what: what is left is reported",
+        );
+    }
+};
+
+subtest 'failed removal of a restored volume keeps the VMID' => sub {
+    reset_cluster();
+
+    my $allocated = [];
+    my $run_raw_client_cmd = \&PVE::Storage::PBSPlugin::run_raw_client_cmd;
+    local *PVE::Storage::PBSPlugin::run_raw_client_cmd = sub {
+        my ($scfg, $storeid, $cmd, $param) = @_;
+        my (undef, $file, $target) = $param->@*;
+        return $run_raw_client_cmd->(@_) if $file ne 'index.json';
+        my $files = [
+            { filename => 'qemu-server.conf.blob' },
+            { filename => 'drive-scsi0.img.fidx', size => 1048576 },
+        ];
+        file_set_contents($target, encode_json({ files => $files }));
+    };
+    local *PVE::Storage::storage_config = sub {
+        my ($cfg, $storeid) = @_;
+        return { type => 'pbs', server => 'localhost', datastore => 'ds' } if $storeid eq 'pbs';
+        return { type => 'dir', path => '/nonexistent', content => { images => 1 } };
+    };
+    local *PVE::Storage::resolve_format_hint = sub { return 'raw'; };
+    local *PVE::Storage::vdisk_alloc = sub {
+        my ($cfg, $storeid, $vmid) = @_;
+        push $allocated->@*, "$storeid:vm-$vmid-disk-0";
+        return "$storeid:vm-$vmid-disk-0";
+    };
+    local *PVE::Storage::activate_volumes = sub { return; };
+    local *PVE::Storage::path = sub { return '/nonexistent/vm-100-disk-0.raw'; };
+    local *PVE::Storage::volume_has_feature = sub { return 0; };
+    local *PVE::Storage::vdisk_free = sub { die "volume is busy\n"; };
+    my $run_command = \&PVE::QemuServer::run_command;
+    local *PVE::QemuServer::run_command = sub {
+        my ($cmd) = @_;
+        return 0 if ref($cmd) && $cmd->[0] eq '/usr/bin/pbs-restore';
+        return $run_command->(@_);
+    };
+
+    local $fail_at = 'data';
+    my $backup = backup_config()
+        . "scsi0: target:vm-100-disk-0,size=1M\n#qmdump#map:scsi0:drive-scsi0:target:raw:\n";
+    my ($err, $output) = restore_api('pbs', $backup, {});
+    is($err, "restoring the data failed\n", 'restore failed after allocating the volume');
+    is_deeply($allocated, ['target:vm-100-disk-0'], 'volume was allocated');
+    like($output, qr/^unable to cleanup 'target:vm-100-disk-0' - volume is busy$/m, 'reported');
+    like(stored_config(100), qr/^lock: create$/m, 'reservation is kept, locked');
+    like(
+        $output, qr/^\Q$KEPT_LOCKED\E volumes of the restore$/m, 'what is left is reported',
+    );
+
+    # the leftover is no VM to restore over
+    $fail_at = '';
+    ($err) = restore_api('pbs', backup_config(), { force => 1 });
+    is(
+        $err,
+        "unable to restore VM 100 - VM is locked (create)\n",
+        'retry needs an unlock first',
+    );
+};
+
 subtest "'force' does not overwrite a VM created after the checks" => sub {
     reset_cluster();
 
@@ -390,6 +554,38 @@ subtest "'force' does not overwrite a VM created after the checks" => sub {
     my ($err) = restore_api('pbs', backup_config(), { force => 1 });
     is($err, "unable to restore VM 100 - VM 100 already exists\n", 'restore refused');
     is(stored_config(100), $TARGET_CONF, 'VM created in between unchanged');
+};
+
+subtest 'a restore that cannot take its guest lock removes the reservation' => sub {
+    my $lock_config_full = PVE::QemuConfig->can('lock_config_full');
+    my $before_timeout = sub { };
+    local *PVE::QemuConfig::lock_config_full = sub {
+        my ($class, $vmid, $timeout, @param) = @_;
+        # the restore waits one second for the lock
+        if ($timeout == 1) {
+            $before_timeout->();
+            die "can't lock file 'lock-$vmid.conf' - got timeout\n";
+        }
+        return $lock_config_full->($class, $vmid, $timeout, @param);
+    };
+
+    reset_cluster();
+    my ($err, $output) = restore_api('pbs', backup_config(), {});
+    like($err, qr/got timeout/, 'free VMID: restore failed');
+    ok(!defined(stored_config(100)), 'free VMID: reservation removed');
+
+    reset_cluster($TARGET_CONF);
+    ($err, $output) = restore_api('pbs', backup_config(), { force => 1 });
+    like($err, qr/got timeout/, 'existing VM: restore failed');
+    like(stored_config(100), qr/^name: target$/m, 'existing VM: kept');
+    unlike(stored_config(100), qr/^lock:/m, 'existing VM: lock removed');
+
+    # without the lock of the reservation, the config is not one of this restore anymore
+    reset_cluster();
+    $before_timeout = sub { QemuServerTest::FakeCFS::set_config(100, "memory: 512\n"); };
+    ($err, $output) = restore_api('pbs', backup_config(), {});
+    like($err, qr/got timeout/, 'config changed meanwhile: restore failed');
+    is(stored_config(100), "memory: 512\n", 'config changed meanwhile: kept');
 };
 
 subtest 'the permission to overwrite a VM does not cover creating it' => sub {
@@ -418,6 +614,41 @@ subtest 'the permission to overwrite a VM does not cover creating it' => sub {
     is_deeply($QemuServerTest::FakeCFS::written, {}, 'with VM.Backup only: nothing written');
 };
 
+subtest 'another restore right after a failed restore to a free VMID' => sub {
+    reset_cluster();
+
+    # run a second restore with 'force' as soon as the failed one releases the guest lock
+    my $lock_config_full = PVE::QemuConfig->can('lock_config_full');
+    my ($interposed, $lock_free, $second_err) = (0, 0, '');
+    local *PVE::QemuConfig::lock_config_full = sub {
+        my ($class, $vmid, @param) = @_;
+        my $res = eval { $lock_config_full->($class, $vmid, @param) };
+        my $err = $@;
+        if ($err && !$interposed++) {
+            open(my $fh, '>>', PVE::QemuConfig->config_file_lock($vmid)) or die "$!\n";
+            $lock_free = flock($fh, LOCK_EX | LOCK_NB);
+            close($fh);
+            local $fail_at = '';
+            ($second_err) = restore_api('pbs', backup_config(), { force => 1 });
+        }
+        die $err if $err;
+        return $res;
+    };
+
+    local $fail_at = 'data';
+    my ($err) = restore_api('vma file', backup_config(), {});
+
+    is($err, "restoring the data failed\n", 'first restore failed');
+    ok($lock_free, 'guest lock was free for the second restore');
+    is($second_err, '', 'second restore succeeded');
+    like(stored_config(100), qr/^name: backup$/m, 'its config stays');
+    is(
+        PVE::GuestHelpers::get_firewall_config_raw(100),
+        $BACKUP_FIREWALL,
+        'and its firewall config',
+    );
+};
+
 for my $type ('pbs', 'provider', 'vma file', 'vma stdin') {
     subtest "$type: failed restore over an existing VM" => sub {
         reset_cluster($TARGET_CONF);
@@ -427,6 +658,7 @@ for my $type ('pbs', 'provider', 'vma file', 'vma stdin') {
         like($err, qr/unable to read the backup\n$/, 'fails before changing the VM');
         is(stored_config(100), $TARGET_CONF, 'config unchanged');
         is_deeply($calls, {}, 'replication state and firewall config untouched');
+        unlike($output, $NOT_CLEANED_UP, 'no warning about a changed VM');
 
         $fail_at = 'data';
         ($err, $output) = restore_api($type, backup_config(), { force => 1 });

@@ -6422,30 +6422,48 @@ sub tar_archive_read_firstfile {
     return $firstfile;
 }
 
+# Returns the number of volumes that could not be removed. qmextract creates the stat file before it
+# allocates a volume, so a stat file or a line of it that cannot be read counts as one.
 sub tar_restore_cleanup {
     my ($storecfg, $statfile) = @_;
 
     print STDERR "starting cleanup\n";
 
-    if (my $fd = IO::File->new($statfile, "r")) {
-        while (defined(my $line = <$fd>)) {
-            if ($line =~ m/vzdump:([^\s:]*):(\S+)$/) {
-                my $volid = $2;
-                eval {
-                    if (classify_drive_file($volid) eq "absolute") {
-                        unlink($volid) || $!{ENOENT} || die "unlink failed - $!\n";
-                    } else {
-                        PVE::Storage::vdisk_free($storecfg, $volid);
-                    }
-                    print STDERR "temporary volume '$volid' successfully removed\n";
-                };
-                print STDERR "unable to cleanup '$volid' - $@" if $@;
-            } else {
-                print STDERR "unable to parse line in statfile - $line";
-            }
-        }
-        $fd->close();
+    my $fd = IO::File->new($statfile, "r");
+    if (!$fd) {
+        return 0 if $!{ENOENT};
+        print STDERR "unable to read '$statfile' - $!\n";
+        return 1;
     }
+
+    my $left = 0;
+    while (defined(my $line = <$fd>)) {
+        if ($line =~ m/vzdump:([^\s:]*):(\S+)$/) {
+            my $volid = $2;
+            eval {
+                if (classify_drive_file($volid) eq "absolute") {
+                    unlink($volid) || $!{ENOENT} || die "unlink failed - $!\n";
+                } else {
+                    PVE::Storage::vdisk_free($storecfg, $volid);
+                }
+                print STDERR "temporary volume '$volid' successfully removed\n";
+            };
+            if (my $err = $@) {
+                print STDERR "unable to cleanup '$volid' - $err";
+                $left++;
+            }
+        } else {
+            print STDERR "unable to parse line in statfile - $line";
+            $left++;
+        }
+    }
+    if ($fd->error()) {
+        print STDERR "unable to read '$statfile'\n";
+        $left++;
+    }
+    $fd->close();
+
+    return $left;
 }
 
 sub restore_file_archive {
@@ -6712,17 +6730,24 @@ my $restore_deactivate_volumes = sub {
     print STDERR $@ if $@;
 };
 
+# Returns the number of volumes that could not be removed.
 my $restore_destroy_volumes = sub {
     my ($storecfg, $virtdev_hash) = @_;
 
+    my $left = 0;
     for my $dev (values $virtdev_hash->%*) {
         my $volid = $dev->{volid} or next;
         eval {
             PVE::Storage::vdisk_free($storecfg, $volid);
             print STDERR "temporary volume '$volid' successfully removed\n";
         };
-        print STDERR "unable to cleanup '$volid' - $@" if $@;
+        if (my $err = $@) {
+            print STDERR "unable to cleanup '$volid' - $err";
+            $left++;
+        }
     }
+
+    return $left;
 };
 
 sub restore_merge_config {
@@ -6972,6 +6997,7 @@ sub restore_proxmox_backup_archive {
         $param = [$pbs_backup_name, "qemu-server.conf", $cfgfn];
         PVE::Storage::PBSPlugin::run_raw_client_cmd($scfg, $storeid, $cmd, $param);
 
+        $options->{progress}->{'target-changed'} = 1;
         PVE::ReplicationState::delete_guest_states($vmid);
 
         if ($has_firewall_config) {
@@ -7061,7 +7087,9 @@ sub restore_proxmox_backup_archive {
     rmtree $tmpdir;
 
     if ($err) {
-        $restore_destroy_volumes->($storecfg, $virtdev_hash);
+        # what could not be removed keeps the VMID taken
+        $options->{progress}->{'volumes-left'} = 1
+            if $restore_destroy_volumes->($storecfg, $virtdev_hash);
         die $err;
     }
     $options->{progress}->{'volumes-kept'} = 1;
@@ -7151,6 +7179,7 @@ sub restore_external_archive {
         my $data = $backup_provider->archive_get_guest_config($volname)
             or die "backup provider failed to extract guest configuration\n";
 
+        $options->{progress}->{'target-changed'} = 1;
         PVE::ReplicationState::delete_guest_states($vmid);
 
         PVE::Tools::file_set_contents($cfgfn, $data);
@@ -7235,7 +7264,9 @@ sub restore_external_archive {
     rmtree($tmpdir);
 
     if ($err) {
-        $restore_destroy_volumes->($storecfg, $virtdev_hash);
+        # what could not be removed keeps the VMID taken
+        $options->{progress}->{'volumes-left'} = 1
+            if $restore_destroy_volumes->($storecfg, $virtdev_hash);
         die $err;
     }
     $options->{progress}->{'volumes-kept'} = 1;
@@ -7563,6 +7594,7 @@ sub restore_vma_archive {
     my $print_devmap = sub {
         my $cfgfn = "$tmpdir/qemu-server.conf";
 
+        $opts->{progress}->{'target-changed'} = 1;
         PVE::ReplicationState::delete_guest_states($vmid);
 
         # we can read the config - that is already extracted
@@ -7699,7 +7731,9 @@ sub restore_vma_archive {
     rmtree $tmpdir;
 
     if ($err) {
-        $restore_destroy_volumes->($cfg, $virtdev_hash);
+        # what could not be removed keeps the VMID taken
+        $opts->{progress}->{'volumes-left'} = 1
+            if $restore_destroy_volumes->($cfg, $virtdev_hash);
         die $err;
     }
     $opts->{progress}->{'volumes-kept'} = 1;
@@ -7730,6 +7764,7 @@ sub restore_tar_archive {
 
     my $storecfg = PVE::Storage::config();
 
+    $opts->{progress}->{'target-changed'} = 1;
     PVE::ReplicationState::delete_guest_states($vmid);
 
     # avoid zombie disks when restoring over an existing VM -> cleanup first
@@ -7809,7 +7844,9 @@ sub restore_tar_archive {
         $srcfd->close();
     };
     if (my $err = $@) {
-        tar_restore_cleanup($storecfg, "$tmpdir/qmrestore.stat") if !$opts->{info};
+        # what could not be removed keeps the VMID taken
+        $opts->{progress}->{'volumes-left'} = 1
+            if !$opts->{info} && tar_restore_cleanup($storecfg, "$tmpdir/qmrestore.stat");
         die $err;
     }
     $opts->{progress}->{'volumes-kept'} = 1;
