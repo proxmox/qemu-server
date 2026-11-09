@@ -1439,7 +1439,8 @@ our $cmddef = {
         'move' =>
             ["PVE::API2::Qemu", 'move_vm_disk', ['vmid', 'disk', 'storage'], {%node}, $upid_exit],
         rescan => [__PACKAGE__, 'rescan', []],
-        resize => ["PVE::API2::Qemu", 'resize_vm', ['vmid', 'disk', 'size'], {%node}],
+        resize =>
+            ["PVE::API2::Qemu", 'resize_vm', ['vmid', 'disk', 'size'], {%node}, $upid_exit],
         unlink => ["PVE::API2::Qemu", 'unlink', ['vmid'], {%node}],
     },
 
