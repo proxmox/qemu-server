@@ -5225,6 +5225,12 @@ sub vm_migrate_get_nbd_disks {
 
             return if !$volid;
 
+            # Matching the check in scan_local_volumes().
+            if ($volid =~ m|^/|) {
+                return if $drive->{shared};
+                die "$ds: unexpected non-shared local file/device '$volid'\n";
+            }
+
             my ($storeid, $volname) = PVE::Storage::parse_volume_id($volid);
 
             my $scfg = PVE::Storage::storage_config($storecfg, $storeid);
