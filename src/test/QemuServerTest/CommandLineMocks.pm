@@ -13,6 +13,7 @@ use Socket qw(AF_INET AF_INET6);
 use Test::MockModule;
 
 use PVE::INotify;
+use PVE::Mapping::Dir;
 use PVE::Mapping::PCI;
 use PVE::Mapping::USB;
 use PVE::ProcFSTools;
@@ -187,7 +188,38 @@ my $pci_map_config = {
     },
 };
 
-my $usb_map_config = {};
+my $usb_map_config = {
+    ids => {
+        someUsbDevice => {
+            type => 'usb',
+            map => [
+                'node=localhost,id=1234:5678',
+            ],
+        },
+        someUsbPort => {
+            type => 'usb',
+            map => [
+                'node=localhost,id=1234:5678,path=2-1.3',
+            ],
+        },
+    },
+};
+
+# one directory mapping per possible virtiofs entry, 'share0' to 'share9'
+my $dir_map_config = {
+    ids => {
+        map {
+            (
+                "share$_" => {
+                    type => 'dir',
+                    map => [
+                        "node=localhost,path=/mnt/share$_",
+                    ],
+                },
+            )
+        } (0 .. 9),
+    },
+};
 
 my $cpu_hw_capabilities = {
     # Gathered from an AMD EPYC 9475F running kernel 6.11.11-2-pve
@@ -519,6 +551,19 @@ our $mapping_usb_module = Test::MockModule->new("PVE::Mapping::USB");
 $mapping_usb_module->mock(
     config => sub {
         return $usb_map_config;
+    },
+    assert_valid => sub {
+        return 1; # the mapped devices do not exist on the host running the tests
+    },
+);
+
+our $mapping_dir_module = Test::MockModule->new("PVE::Mapping::Dir");
+$mapping_dir_module->mock(
+    config => sub {
+        return $dir_map_config;
+    },
+    assert_valid => sub {
+        return 1; # the mapped directories do not exist on the host running the tests
     },
 );
 
