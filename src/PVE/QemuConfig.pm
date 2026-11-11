@@ -672,6 +672,13 @@ sub write_config {
     return $class->SUPER::write_config($vmid, $conf);
 }
 
+# the format of the 'meta' property includes the guest identity, see PVE::QemuServer::MetaInfo
+sub __identity_enabled {
+    my ($class) = @_;
+
+    return 1;
+}
+
 # END implemented abstract methods from PVE::AbstractConfig
 
 sub has_cloudinit {

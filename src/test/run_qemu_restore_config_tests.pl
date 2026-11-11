@@ -312,7 +312,8 @@ sub restore_api {
     return ($err, $output);
 }
 
-my $TARGET_CONF = "memory: 1024\nmeta: creation-qemu=10.0.0,ctime=1700000000\nname: target\n";
+my $TARGET_CONF = "memory: 1024\nmeta: creation-qemu=10.0.0,ctime=1700000000,"
+    . "rtime=1700000000000,uid=tttttttttttttttttttt\nname: target\n";
 my $NOT_CLEANED_UP = qr/VM 100 state is NOT cleaned up/;
 my $KEPT_LOCKED = 'WARN: keeping VM 100 locked, the cleanup left behind';
 

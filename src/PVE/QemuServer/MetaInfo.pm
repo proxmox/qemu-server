@@ -3,6 +3,7 @@ package PVE::QemuServer::MetaInfo;
 use strict;
 use warnings;
 
+use PVE::GuestIdentity;
 use PVE::JSONSchema;
 
 use PVE::QemuServer::Helpers;
@@ -20,6 +21,7 @@ our $meta_info_fmt = {
         pattern => '\d+(\.\d+)+',
         optional => 1,
     },
+    PVE::GuestIdentity::meta_format_properties()->%*,
 };
 
 sub parse_meta_info {

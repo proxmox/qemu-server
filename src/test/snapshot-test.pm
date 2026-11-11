@@ -7,6 +7,7 @@ use lib qw(..);
 
 use JSON;
 
+use PVE::GuestHelpers;
 use PVE::Storage;
 use PVE::Storage::Plugin;
 use PVE::QemuServer;
@@ -33,6 +34,9 @@ my $stop_possible;
 my $save_vmstate_works;
 my $vm_mon = {};
 my $vm_start_sync_time;
+my $real_write_config;
+
+my $original_write_config = \&PVE::QemuConfig::write_config;
 
 # Mocked methods
 
@@ -312,6 +316,13 @@ sub cfs_config_path {
     return "snapshot-working/$node/qemu-server/$vmid.conf";
 }
 
+# the same file that mocked_get_config reads, so that nothing looks at the host's /etc/pve
+sub config_file {
+    my ($class, $vmid, $node) = @_;
+
+    return $class->cfs_config_path($vmid, $node);
+}
+
 sub load_config {
     my ($class, $vmid, $node) = @_;
 
@@ -326,18 +337,10 @@ sub load_config {
 sub write_config {
     my ($class, $vmid, $conf) = @_;
 
-    my $filename = $class->cfs_config_path($vmid);
+    # the real method with the guest identity handling, which writes through mocked_cfs_write_file
+    return $original_write_config->($class, $vmid, $conf) if $real_write_config;
 
-    if ($conf->{snapshots}) {
-        foreach my $snapname (keys %{ $conf->{snapshots} }) {
-            $conf->{snapshots}->{$snapname}->{snaptime} = "1234567890"
-                if $conf->{snapshots}->{$snapname}->{snaptime};
-        }
-    }
-
-    my $raw = PVE::QemuServer::write_vm_config($filename, $conf);
-
-    PVE::Tools::file_set_contents($filename, $raw);
+    mocked_cfs_write_file($class->cfs_config_path($vmid), $conf);
 }
 
 sub has_feature {
@@ -360,6 +363,31 @@ sub assert_config_exists_on_node {
     return -f cfs_config_path("PVE::QemuConfig", $vmid, $node);
 }
 # END mocked PVE::QemuConfig methods
+
+# BEGIN mocked PVE::Cluster methods
+
+sub mocked_get_config {
+    my ($path) = @_;
+
+    return -e $path ? PVE::Tools::file_get_contents($path) : undef;
+}
+
+sub mocked_cfs_write_file {
+    my ($filename, $conf) = @_;
+
+    if ($conf->{snapshots}) {
+        foreach my $snapname (keys %{ $conf->{snapshots} }) {
+            $conf->{snapshots}->{$snapname}->{snaptime} = "1234567890"
+                if $conf->{snapshots}->{$snapname}->{snaptime};
+        }
+    }
+
+    my $raw = PVE::QemuServer::write_vm_config($filename, $conf);
+
+    PVE::Tools::file_set_contents($filename, $raw);
+}
+
+# END mocked PVE::Cluster methods
 
 # BEGIN mocked PVE::QemuServer::Helpers methods
 
@@ -477,6 +505,16 @@ sub vm_stop {
 PVE::Tools::run_command("rm -rf snapshot-working");
 PVE::Tools::run_command("cp -a snapshot-input snapshot-working");
 
+$PVE::GuestHelpers::lockdir = "snapshot-working/lock";
+
+my $cluster_module = Test::MockModule->new('PVE::Cluster');
+$cluster_module->mock('get_config', \&mocked_get_config);
+$cluster_module->mock('cfs_write_file', \&mocked_cfs_write_file);
+
+my $guest_identity_module = Test::MockModule->new('PVE::GuestIdentity');
+$guest_identity_module->mock('__random_bytes', sub { return '0123456789abcdefghij'; });
+$guest_identity_module->mock('__time_ms', sub { return 1234567890123; });
+
 my $qemu_migrate_helpers_module = Test::MockModule->new('PVE::QemuMigrate::Helpers');
 $qemu_migrate_helpers_module->mock('set_migration_caps', \&set_migration_caps);
 
@@ -489,6 +527,7 @@ $qemu_monitor_module->mock('qmp_cmd', \&qmp_cmd);
 my $qemu_config_module = Test::MockModule->new('PVE::QemuConfig');
 $qemu_config_module->mock('config_file_lock', \&config_file_lock);
 $qemu_config_module->mock('cfs_config_path', \&cfs_config_path);
+$qemu_config_module->mock('config_file', \&config_file);
 $qemu_config_module->mock('load_config', \&load_config);
 $qemu_config_module->mock('write_config', \&write_config);
 $qemu_config_module->mock('has_feature', \&has_feature);
@@ -694,6 +733,16 @@ testcase_create("303", "test", 1, "test comment", "storage activation failed\n\n
 
 $activate_storage_possible = 1;
 
+$real_write_config = 1;
+
+printf("Successful snapshot_create keeping the guest identity\n");
+testcase_create("401", "test", 0, "test comment", "", { "local:snapshotable-disk-1" => "test" });
+
+printf("Successful snapshot_create assigning a guest identity to a config without one\n");
+testcase_create("402", "test", 0, "test comment", "", { "local:snapshotable-disk-1" => "test" });
+
+$real_write_config = 0;
+
 $nodename = "delete";
 printf("\n");
 printf("Running delete tests\n");
@@ -844,6 +893,17 @@ printf("Expected error for snapshot_rollback when storage activation is not poss
 testcase_rollback("303", "test", "storage activation failed\n");
 
 $activate_storage_possible = 1;
+
+$real_write_config = 1;
+
+printf("Successful snapshot_rollback keeping the current guest identity, not the snapshot's\n");
+testcase_rollback("401", "test", "", { "local:snapshotable-disk-1" => "test" });
+
+printf(
+    "Successful snapshot_rollback to a snapshot without meta info, keeping the guest identity\n");
+testcase_rollback("402", "test", "", { "local:snapshotable-disk-1" => "test" });
+
+$real_write_config = 0;
 
 done_testing();
 

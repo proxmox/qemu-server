@@ -1,0 +1,275 @@
+#!/usr/bin/perl
+
+# Tests the guest identity of VM configs through the real config class methods, with a fake cluster
+# filesystem, see QemuServerTest::FakeCFS.
+
+use v5.36;
+
+use lib qw(.. .);
+
+use File::Temp qw(tempdir);
+use Test::MockModule;
+use Test::More;
+
+use PVE::JSONSchema;
+use PVE::RPCEnvironment;
+
+use PVE::QemuConfig;
+use PVE::QemuConfig::NoWrite;
+use PVE::QemuServer;
+use PVE::QemuServer::MetaInfo;
+
+use PVE::API2::Qemu;
+
+use QemuServerTest::FakeCFS;
+use QemuServerTest::Utils qw(capture_output);
+
+my $UID_A = 'abcdefghijklmnopqrst';
+my $UID_B = 'bbbbbbbbbbbbbbbbbbbb';
+
+my $helpers_module = Test::MockModule->new('PVE::QemuServer::Helpers');
+$helpers_module->mock(kvm_user_version => sub { return '10.1.2'; });
+
+my $rpcenv = PVE::RPCEnvironment->init('cli');
+$rpcenv->set_user('root@pam');
+
+my $rpcenv_module = Test::MockModule->new('PVE::RPCEnvironment');
+$rpcenv_module->mock(
+    check => sub { return 1; },
+    check_vm_perm => sub { return 1; },
+    fork_worker => sub {
+        my ($self, $type, $id, $user, $code) = @_;
+        $code->('UPID:test');
+        return 'UPID:test';
+    },
+);
+$QemuServerTest::FakeCFS::cluster_module->mock(check_cfs_quorum => sub { return 1; });
+my $network_module = Test::MockModule->new('PVE::QemuServer::Network');
+$network_module->mock(create_ifaces_ipams_ips => sub { return; });
+
+sub configs { return $QemuServerTest::FakeCFS::configs; }
+sub generated_uid { return QemuServerTest::FakeCFS::generated_uid(@_); }
+sub stored_identity { return QemuServerTest::FakeCFS::stored_identity(@_); }
+
+sub load_meta($vmid) {
+    return PVE::QemuServer::MetaInfo::parse_meta_info(PVE::QemuConfig->load_config($vmid)->{meta});
+}
+
+subtest 'meta format' => sub {
+    my $meta =
+        'creation-qemu=10.1.2,ctime=1700000000,rtime=1700000000123,uid=abcdefghijklmnopqrst';
+
+    is_deeply(
+        PVE::QemuServer::MetaInfo::parse_meta_info($meta),
+        {
+            'creation-qemu' => '10.1.2',
+            ctime => 1700000000,
+            rtime => 1700000000123,
+            uid => $UID_A,
+        },
+        'identity members get parsed',
+    );
+    is(
+        PVE::JSONSchema::print_property_string(
+            PVE::QemuServer::MetaInfo::parse_meta_info($meta),
+            $PVE::QemuServer::MetaInfo::meta_info_fmt,
+        ),
+        $meta,
+        'printing the parsed property gives the same string',
+    );
+};
+
+subtest 'identities are enabled, but not for writing temporary configs' => sub {
+    QemuServerTest::FakeCFS::reset();
+
+    ok(PVE::QemuConfig->__identity_enabled(), 'enabled for PVE::QemuConfig');
+
+    my $conf = { name => 'template-cmd' };
+    PVE::QemuConfig::NoWrite->mark_config($conf);
+    eval { PVE::QemuConfig->write_config(100, $conf) };
+    is($@, "refusing to write temporary configuration\n", 'NoWrite refuses');
+    eval { PVE::QemuConfig::NoWrite->write_config(100, $conf) };
+    is(
+        $@,
+        "refusing to write temporary configuration\n",
+        'NoWrite refuses when called directly',
+    );
+    is_deeply(configs(), {}, 'nothing written');
+    is($QemuServerTest::FakeCFS::generated, 0, 'no identity generated');
+};
+
+subtest 'config writes keep the stored identity' => sub {
+    QemuServerTest::FakeCFS::reset();
+
+    PVE::QemuConfig->write_config(100, { memory => 512, meta => "rtime=1,uid=$UID_B" });
+    is_deeply(
+        stored_identity(100),
+        { uid => generated_uid(1), rtime => 1700000000000 },
+        'first write ignores a carried identity and generates one',
+    );
+    like(configs()->{100}, qr/^meta: rtime=1700000000000,uid=\w+$/m,
+        'written as meta property');
+
+    $QemuServerTest::FakeCFS::now_ms = 1800000000000;
+
+    my $conf = PVE::QemuConfig->load_config(100);
+    $conf->{meta} = "creation-qemu=9.2.0,ctime=1600000000,rtime=1,uid=$UID_B";
+    PVE::QemuConfig->write_config(100, $conf);
+    is_deeply(
+        load_meta(100),
+        {
+            'creation-qemu' => '9.2.0',
+            ctime => 1600000000,
+            rtime => 1700000000000,
+            uid => generated_uid(1),
+        },
+        'foreign identity replaced by the stored one, other members kept',
+    );
+
+    $conf = PVE::QemuConfig->load_config(100);
+    delete $conf->{meta};
+    PVE::QemuConfig->write_config(100, $conf);
+    is_deeply(
+        load_meta(100),
+        { rtime => 1700000000000, uid => generated_uid(1) },
+        'identity kept when the property is gone',
+    );
+
+    configs()->{101} = "memory: 512\nmeta: creation-qemu=8.0.2,ctime=1500000000\n";
+    $conf = PVE::QemuConfig->load_config(101);
+    $conf->{name} = 'old';
+    PVE::QemuConfig->write_config(101, $conf);
+    is_deeply(
+        load_meta(101),
+        {
+            'creation-qemu' => '8.0.2',
+            ctime => 1500000000,
+            rtime => 1800000000000,
+            uid => generated_uid(2),
+        },
+        'existing guest without identity gets one on its first write',
+    );
+};
+
+subtest 'create' => sub {
+    QemuServerTest::FakeCFS::reset();
+
+    my $storage_module = Test::MockModule->new('PVE::Storage');
+    $storage_module->mock(config => sub { return {}; });
+    my $replication_state_module = Test::MockModule->new('PVE::ReplicationState');
+    $replication_state_module->mock(delete_guest_states => sub { return; });
+
+    capture_output(sub {
+        PVE::API2::Qemu->create_vm({ node => 'localhost', vmid => 100, memory => 512 });
+    });
+
+    my $reserved = $QemuServerTest::FakeCFS::written->{100}->[0];
+    like(
+        $reserved,
+        qr/^meta: rtime=1700000000000,uid=\w+$/m,
+        'reservation stores a new identity',
+    );
+    my $meta = load_meta(100);
+    is_deeply(
+        [$meta->@{qw(creation-qemu uid rtime)}],
+        ['10.1.2', generated_uid(1), 1700000000000],
+        'final config keeps the reserved identity next to the creation info',
+    );
+    ok($meta->{ctime}, 'creation time set');
+};
+
+subtest 'clone' => sub {
+    QemuServerTest::FakeCFS::reset();
+
+    my $disk = "scsi0: local:100/vm-100-disk-0.raw,size=4G\n";
+    my $source = "memory: 512\nmeta: creation-qemu=9.2.0,ctime=1600000000,"
+        . "rtime=1600000000000,uid=$UID_A\nname: source\n$disk";
+    # a snapshot can carry any identity
+    configs()->{100} =
+        "$source\n[snap]\nmemory: 256\nmeta: rtime=1,uid=$UID_B\n${disk}snaptime: 1600000001\n";
+
+    my $storage_module = Test::MockModule->new('PVE::Storage');
+    $storage_module->mock(
+        activate_volumes => sub { return; },
+        config => sub {
+            return {
+                ids => {
+                    local =>
+                        { type => 'dir', path => '/var/lib/vz', content => { images => 1 } },
+                },
+            };
+        },
+        deactivate_volumes => sub { return; },
+        get_bandwidth_limit => sub { return undef; },
+        volume_has_feature => sub { return 1; },
+    );
+    my $qemu_server_module = Test::MockModule->new('PVE::QemuServer');
+    $qemu_server_module->mock(
+        check_running => sub { return 0; },
+        clone_disk => sub {
+            my ($storecfg, $source, $dest) = @_;
+            return { file => "local:$dest->{vmid}/vm-$dest->{vmid}-disk-0.raw", size => '4G' };
+        },
+    );
+    my $firewall_module = Test::MockModule->new('PVE::Firewall');
+    $firewall_module->mock(clone_vmfw_conf => sub { return; });
+
+    my $output = capture_output(sub {
+        PVE::API2::Qemu->clone_vm({ node => 'localhost', vmid => 100, newid => 300 });
+        PVE::API2::Qemu->clone_vm(
+            { node => 'localhost', vmid => 100, newid => 301, snapname => 'snap' });
+    });
+
+    is(stored_identity(300)->{uid}, generated_uid(1), 'clone has a new uid');
+    is_deeply(
+        load_meta(300),
+        {
+            'creation-qemu' => '9.2.0',
+            ctime => 1600000000,
+            rtime => 1700000000000,
+            uid => generated_uid(1),
+        },
+        'clone keeps the creation info of its source',
+    );
+    is_deeply(
+        load_meta(301),
+        { rtime => 1700000000000, uid => generated_uid(2) },
+        'clone of a snapshot has a new uid as well',
+    );
+    is(stored_identity(100)->{uid}, $UID_A, 'source keeps its uid');
+};
+
+subtest 'importovf' => sub {
+    QemuServerTest::FakeCFS::reset();
+
+    require PVE::CLI::qm;
+
+    my $tmpdir = tempdir('importovf-XXXXXX', DIR => '.', CLEANUP => 1);
+    my $manifest = "$tmpdir/test.ovf";
+    PVE::Tools::file_set_contents($manifest, "<ovf/>\n");
+
+    my $storage_module = Test::MockModule->new('PVE::Storage');
+    $storage_module->mock(
+        config => sub { return {}; },
+        storage_check_enabled => sub { return {}; },
+    );
+    my $ovf_module = Test::MockModule->new('PVE::GuestImport::OVF');
+    $ovf_module->mock(
+        parse_ovf => sub {
+            return { qm => { name => 'imported', memory => 1024, cores => 2 }, disks => [] };
+        },
+    );
+
+    PVE::CLI::qm->importovf({ vmid => 100, manifest => $manifest, storage => 'local' });
+
+    my $conf = PVE::QemuConfig->load_config(100);
+    is($conf->{name}, 'imported', 'config imported');
+    ok(!defined($conf->{lock}), 'create lock removed');
+    is_deeply(
+        stored_identity(100),
+        { uid => generated_uid(1), rtime => 1700000000000 },
+        'imported VM got a new identity on reservation and kept it',
+    );
+};
+
+done_testing();

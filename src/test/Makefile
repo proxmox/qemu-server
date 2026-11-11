@@ -1,6 +1,6 @@
 all: test
 
-test: test_snapshot test_cfg_to_cmd test_cfg_to_cmd_aarch64 test_hotplug test_hotplug_aarch64 test_pci_addr_conflicts test_pci_reservation test_qemu_img_convert test_migration test_restore_config test_parse_config test_memory test_agent test_raw_config_write test_api test_api_cloudinit_dump test_mtunnel
+test: test_snapshot test_cfg_to_cmd test_cfg_to_cmd_aarch64 test_hotplug test_hotplug_aarch64 test_pci_addr_conflicts test_pci_reservation test_qemu_img_convert test_migration test_restore_config test_parse_config test_memory test_agent test_raw_config_write test_api test_api_cloudinit_dump test_mtunnel test_guest_identity
 
 test_snapshot: run_snapshot_tests.pl
 	./run_snapshot_tests.pl
@@ -59,6 +59,9 @@ test_api_cloudinit_dump: run_api_cloudinit_dump_tests.pl
 
 test_mtunnel: run_mtunnel_tests.pl QemuServerTest/FakeCFS.pm QemuServerTest/MTunnel.pm
 	./run_mtunnel_tests.pl
+
+test_guest_identity: run_guest_identity_tests.pl QemuServerTest/FakeCFS.pm
+	./run_guest_identity_tests.pl
 
 .PHONY: clean
 clean:
