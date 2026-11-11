@@ -274,8 +274,16 @@ my $confdesc = {
         type => 'string',
         description => "Lock/unlock the VM.",
         enum => [
-            qw(backup clone create import migrate rollback snapshot snapshot-delete),
-            qw(suspending suspended),
+            'backup',
+            'clone',
+            'create',
+            'import',
+            'migrate',
+            'rollback',
+            'snapshot',
+            'snapshot-delete',
+            'suspending',
+            'suspended',
         ],
     },
     cpulimit => {
