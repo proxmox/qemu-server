@@ -483,6 +483,8 @@ __PACKAGE__->register_method({
                 } else {
                     $tunnel_write->("ERR: resume failed - VM $vmid not running");
                 }
+            } else {
+                $tunnel_write->("ERR: unknown command '$line'");
             }
         }
 
