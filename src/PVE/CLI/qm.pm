@@ -226,6 +226,7 @@ __PACKAGE__->register_method({
                 minimum => '0',
                 default => 'migrate limit from datacenter or storage config',
             },
+            'allow-new-uid' => get_standard_option('pve-guest-allow-new-uid'),
         },
     },
     returns => {
