@@ -348,10 +348,18 @@ sub prepare {
         $self->log('info', "local WS tunnel version: $WS_TUNNEL_VERSION");
         $self->log('info', "remote WS tunnel version: $tunnel->{version}");
         $self->log('info', "minimum required WS tunnel version: $min_version");
-        die "Remote tunnel endpoint not compatible, upgrade required\n"
+        my $version_err;
+        $version_err = "Remote tunnel endpoint not compatible, upgrade required\n"
             if $WS_TUNNEL_VERSION < $min_version;
-        die "Remote tunnel endpoint too old, upgrade required\n"
+        $version_err = "Remote tunnel endpoint too old, upgrade required\n"
             if $WS_TUNNEL_VERSION > $tunnel->{version};
+
+        if ($version_err) {
+            # the target already reserved the VMID with a locked config
+            eval { PVE::Tunnel::finish_tunnel($tunnel, 1); };
+            $self->log('warn', "cleanup of the target failed - $@") if $@;
+            die $version_err;
+        }
 
         print "websocket tunnel started\n";
         $self->{tunnel} = $tunnel;
