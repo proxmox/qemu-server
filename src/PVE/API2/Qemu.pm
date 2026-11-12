@@ -151,7 +151,9 @@ my $migrate_json_properties = {
 # Properties that will be forwarded via the HA stack to the LRM, which will then use them for its
 # own invocation of the migration API endpoint. Values the caller supplies for other properties are
 # not forwarded for HA migrations, the LRM uses hard-coded values for many of those properties.
-my $ha_migrate_props = {};
+my $ha_migrate_props = {
+    'with-conntrack-state' => 1,
+};
 
 sub ha_migrate_json_properties {
     my $forwarded_props = {};
