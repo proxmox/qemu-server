@@ -13,6 +13,7 @@ use Test::MockModule;
 use Test::More;
 
 use PVE::API2::Qemu;
+use PVE::CLI::qmrestore;
 use PVE::GuestIdentity;
 use PVE::RPCEnvironment;
 
@@ -122,6 +123,18 @@ is(
     api_error('update_vm', { revert => 'name' }),
     "reached load_config\n",
     'update_vm: reverting other options passes the parameter checks',
+);
+
+is_deeply(
+    api_error('create_vm', { 'allow-identity-mismatch' => 1 }),
+    { archive => "missing property required by 'allow-identity-mismatch'" },
+    "create_vm: 'allow-identity-mismatch' only for restores",
+);
+my $qmrestore_param = PVE::CLI::qmrestore->map_method_by_name('qmrestore')->{parameters};
+is(
+    $qmrestore_param->{properties}->{'allow-identity-mismatch'}->{type},
+    'boolean',
+    "qmrestore has 'allow-identity-mismatch'",
 );
 
 subtest 'pending changes of meta are dropped' => sub {

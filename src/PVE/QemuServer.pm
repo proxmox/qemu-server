@@ -32,6 +32,7 @@ use PVE::DataCenterConfig;
 use PVE::Exception qw(raise raise_param_exc);
 use PVE::Format qw(render_duration render_bytes);
 use PVE::GuestHelpers qw(safe_string_ne safe_num_ne safe_boolean_ne);
+use PVE::GuestIdentity;
 use PVE::Mapping::Dir;
 use PVE::Mapping::PCI;
 use PVE::Mapping::USB;
@@ -4430,19 +4431,6 @@ for my $opt (keys %$confdesc_cloudinit) {
     $fast_plug_option->{$opt} = 1;
 }
 
-# 'meta' is read-only, so only a manual edit or an older version can have queued a change of it.
-# Drop such a change instead of applying it.
-my sub drop_pending_meta {
-    my ($conf) = @_;
-
-    my $pending_delete_hash = PVE::QemuConfig->parse_pending_delete($conf->{pending}->{delete});
-    return if !defined($conf->{pending}->{meta}) && !$pending_delete_hash->{meta};
-
-    warn "ignoring pending change of read-only option 'meta'\n";
-    delete $conf->{pending}->{meta};
-    PVE::QemuConfig->remove_from_pending_delete($conf, 'meta');
-}
-
 # hotplug changes in [PENDING]
 # $selection hash can be used to only apply specified options, for
 # example: { cores => 1 } (only apply changed 'cores')
@@ -4450,7 +4438,7 @@ my sub drop_pending_meta {
 sub vmconfig_hotplug_pending {
     my ($vmid, $conf, $storecfg, $selection, $errors) = @_;
 
-    drop_pending_meta($conf);
+    PVE::QemuConfig->drop_pending_meta($conf);
 
     my $defaults = load_defaults();
     my $arch = PVE::QemuServer::Helpers::get_vm_arch($conf);
@@ -4850,7 +4838,13 @@ sub vmconfig_apply_pending {
 
     return if !scalar(keys %{ $conf->{pending} });
 
-    drop_pending_meta($conf);
+    # a restore keeps its pending uid while it holds the 'create' lock, also when it starts the VM
+    # for a live restore, and removes it itself, see restore_check_identity
+    my $restore_uid =
+        ($conf->{lock} // '') eq 'create' ? PVE::GuestIdentity::get_pending_uid($conf) : undef;
+    PVE::GuestIdentity::set_pending_uid($conf, undef) if defined($restore_uid);
+
+    PVE::QemuConfig->drop_pending_meta($conf);
 
     my $add_apply_error = sub {
         my ($opt, $msg) = @_;
@@ -4958,6 +4952,8 @@ sub vmconfig_apply_pending {
             $conf->{$opt} = delete $conf->{pending}->{$opt};
         }
     }
+
+    PVE::GuestIdentity::set_pending_uid($conf, $restore_uid) if defined($restore_uid);
 
     # write all changes at once to avoid unnecessary i/o
     PVE::QemuConfig->write_config($vmid, $conf);
@@ -6761,6 +6757,49 @@ sub restore_merge_config {
     return $backup_conf;
 }
 
+# Checks the guest identity of the backup against the one of the target VM and prepares adopting its
+# uid, see PVE::GuestIdentity::prepare_restore. Must run before the restore resets the replication
+# state, restores the firewall config or replaces data of the target VM.
+#
+# A uid that the restore could adopt at its end becomes the pending uid of the VM until then, so
+# that a VM left behind by a failure or an abort of the restore still has it for a retry, see
+# restore_write_config. That holds with 'unique' too, which only keeps the restore itself from
+# adopting the uid.
+my sub restore_check_identity {
+    my ($vmid, $backup_conf_raw, $opts) = @_;
+
+    my $backup = PVE::GuestIdentity::parse_identity_from_raw_config($backup_conf_raw);
+    $opts->{'backup-uid'} = $backup ? $backup->{uid} : undef;
+    $opts->{'pending-uid'} = PVE::GuestIdentity::prepare_restore(
+        'PVE::QemuConfig',
+        $vmid,
+        $opts->{reservation},
+        $opts->{'backup-uid'},
+        $opts->{'allow-identity-mismatch'},
+    );
+}
+
+# Writes $conf, a config that the restore assembled itself, like a temporary or the restored one,
+# with the pending uid of the restore, see restore_check_identity.
+my sub restore_write_config {
+    my ($vmid, $conf, $opts) = @_;
+
+    PVE::GuestIdentity::set_pending_uid($conf, $opts->{'pending-uid'});
+    PVE::QemuConfig->write_config($vmid, $conf);
+}
+
+# Adopts the uid of the backup for the restored VM where the identity rules allow it, see
+# PVE::GuestIdentity::adopt, which also removes the pending uid. Must be the last step of a
+# successful restore, with the config lock still held, so that a failure before leaves the pending
+# uid behind. A failure only warns, as the restored VM keeps the identity of its reservation.
+sub restore_adopt_identity {
+    my ($vmid, $opts) = @_;
+
+    my $uid = $opts->{unique} ? undef : $opts->{'backup-uid'};
+
+    PVE::GuestIdentity::adopt_from_backup('PVE::QemuConfig', $vmid, $uid, $opts->{reservation});
+}
+
 sub scan_volids {
     my ($cfg, $vmid) = @_;
 
@@ -6997,6 +7036,8 @@ sub restore_proxmox_backup_archive {
         $param = [$pbs_backup_name, "qemu-server.conf", $cfgfn];
         PVE::Storage::PBSPlugin::run_raw_client_cmd($scfg, $storeid, $cmd, $param);
 
+        restore_check_identity($vmid, PVE::Tools::file_get_contents($cfgfn), $options);
+
         $options->{progress}->{'target-changed'} = 1;
         PVE::ReplicationState::delete_guest_states($vmid);
 
@@ -7016,7 +7057,7 @@ sub restore_proxmox_backup_archive {
         # fixme: rate limit?
 
         # create empty/temp config
-        PVE::QemuConfig->write_config($vmid, { memory => 128, lock => 'create' });
+        restore_write_config($vmid, { memory => 128, lock => 'create' }, $options);
 
         $restore_cleanup_oldconf->($storecfg, $vmid, $oldconf, $virtdev_hash);
 
@@ -7101,7 +7142,7 @@ sub restore_proxmox_backup_archive {
 
     my $new_conf = restore_merge_config($conffile, $new_conf_raw, $options->{override_conf});
     check_restore_permissions($rpcenv, $user, $new_conf);
-    PVE::QemuConfig->write_config($vmid, $new_conf);
+    restore_write_config($vmid, $new_conf, $options);
 
     eval { rescan($vmid, 1); };
     warn $@ if $@;
@@ -7179,6 +7220,8 @@ sub restore_external_archive {
         my $data = $backup_provider->archive_get_guest_config($volname)
             or die "backup provider failed to extract guest configuration\n";
 
+        restore_check_identity($vmid, $data, $options);
+
         $options->{progress}->{'target-changed'} = 1;
         PVE::ReplicationState::delete_guest_states($vmid);
 
@@ -7195,7 +7238,7 @@ sub restore_external_archive {
             $parse_backup_hints->($rpcenv, $user, $storecfg, $fh, $devinfo, $options);
 
         # create empty/temp config
-        PVE::QemuConfig->write_config($vmid, { memory => 128, lock => 'create' });
+        restore_write_config($vmid, { memory => 128, lock => 'create' }, $options);
 
         $restore_cleanup_oldconf->($storecfg, $vmid, $oldconf, $virtdev_hash);
 
@@ -7273,7 +7316,7 @@ sub restore_external_archive {
 
     my $new_conf = restore_merge_config($conffile, $new_conf_raw, $options->{override_conf});
     check_restore_permissions($rpcenv, $user, $new_conf);
-    PVE::QemuConfig->write_config($vmid, $new_conf);
+    restore_write_config($vmid, $new_conf, $options);
 
     eval { rescan($vmid, 1); };
     warn $@ if $@;
@@ -7594,6 +7637,8 @@ sub restore_vma_archive {
     my $print_devmap = sub {
         my $cfgfn = "$tmpdir/qemu-server.conf";
 
+        restore_check_identity($vmid, PVE::Tools::file_get_contents($cfgfn), $opts);
+
         $opts->{progress}->{'target-changed'} = 1;
         PVE::ReplicationState::delete_guest_states($vmid);
 
@@ -7621,7 +7666,7 @@ sub restore_vma_archive {
         }
 
         # create empty/temp config
-        PVE::QemuConfig->write_config($vmid, { memory => 128, lock => 'create' });
+        restore_write_config($vmid, { memory => 128, lock => 'create' }, $opts);
         $restore_cleanup_oldconf->($cfg, $vmid, $oldconf, $virtdev_hash);
 
         # allocate volumes
@@ -7740,7 +7785,7 @@ sub restore_vma_archive {
 
     my $new_conf = restore_merge_config($conffile, $new_conf_raw, $opts->{override_conf});
     check_restore_permissions($rpcenv, $user, $new_conf);
-    PVE::QemuConfig->write_config($vmid, $new_conf);
+    restore_write_config($vmid, $new_conf, $opts);
 
     eval { rescan($vmid, 1); };
     warn $@ if $@;

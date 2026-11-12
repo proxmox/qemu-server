@@ -184,6 +184,8 @@ subtest 'clone' => sub {
     my $disk = "scsi0: local:100/vm-100-disk-0.raw,size=4G\n";
     my $source = "memory: 512\nmeta: creation-qemu=9.2.0,ctime=1600000000,"
         . "rtime=1600000000000,uid=$UID_A\nname: source\n$disk";
+    # like a VM left behind by a restore of a backup with uid B, with another pending change
+    $source .= "\n[PENDING]\nmemory: 1024\nmeta: uid=$UID_B\n";
     # a snapshot can carry any identity
     configs()->{100} =
         "$source\n[snap]\nmemory: 256\nmeta: rtime=1,uid=$UID_B\n${disk}snaptime: 1600000001\n";
@@ -237,6 +239,19 @@ subtest 'clone' => sub {
         'clone of a snapshot has a new uid as well',
     );
     is(stored_identity(100)->{uid}, $UID_A, 'source keeps its uid');
+
+    my $writes = $QemuServerTest::FakeCFS::written->{300};
+    ok(scalar(grep { m/^scsi0: local:300\//m } $writes->@*) >= 2,
+        'clone writes the disk first');
+    ok(!scalar(grep { m/uid=$UID_B/ } $writes->@*),
+        'no write of the clone has the pending uid');
+    like(
+        $output,
+        qr/pending changes for 'memory', discarding for clone/,
+        'other pending changes are discarded as before',
+    );
+    unlike(configs()->{300}, qr/^\[PENDING\]/m, 'clone has no pending section');
+    like(configs()->{100}, qr/^meta: uid=$UID_B$/m, 'source keeps its pending uid');
 };
 
 subtest 'importovf' => sub {

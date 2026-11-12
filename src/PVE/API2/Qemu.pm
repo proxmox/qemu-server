@@ -1329,9 +1329,14 @@ __PACKAGE__->register_method({
                 unique => {
                     optional => 1,
                     type => 'boolean',
-                    description => "Assign a unique random ethernet address.",
+                    description => "Assign a unique random ethernet address and do not adopt"
+                        . " the guest uid of the backup.",
                     requires => 'archive',
                 },
+                'allow-identity-mismatch' => get_standard_option(
+                    'pve-guest-allow-identity-mismatch',
+                    { requires => 'archive' },
+                ),
                 'live-restore' => {
                     optional => 1,
                     type => 'boolean',
@@ -1400,6 +1405,7 @@ __PACKAGE__->register_method({
         my $ha_managed = extract_param($param, 'ha-managed');
         my $storage = extract_param($param, 'storage');
         my $unique = extract_param($param, 'unique');
+        my $allow_identity_mismatch = extract_param($param, 'allow-identity-mismatch');
         my $live_restore = extract_param($param, 'live-restore');
         my $extraction_storage = extract_param($param, 'import-working-storage');
 
@@ -1535,6 +1541,8 @@ __PACKAGE__->register_method({
                     live => $live_restore,
                     override_conf => $param,
                     progress => $restore_progress,
+                    reservation => $reservation,
+                    'allow-identity-mismatch' => $allow_identity_mismatch,
                 };
                 if (my $volid = $archive->{volid}) {
                     # best effort, real check is after restoring!
@@ -1590,6 +1598,8 @@ __PACKAGE__->register_method({
 
                 PVE::QemuServer::Network::create_ifaces_ipams_ips($restored_conf, $vmid)
                     if $unique;
+
+                PVE::QemuServer::restore_adopt_identity($vmid, $restore_options);
             };
 
             my $restore_locked = sub {
@@ -4838,6 +4848,10 @@ __PACKAGE__->register_method({
                         next if PVE::QemuServer::drive_is_cloudinit($drive);
                         push @$vollist, $volid;
                     }
+                } elsif ($opt eq 'pending') {
+                    # a pending uid only belongs to the source, see PVE::GuestIdentity
+                    $newconf->{pending} = { $value->%* };
+                    PVE::GuestIdentity::set_pending_uid($newconf, undef);
                 } else {
                     # copy everything else
                     $newconf->{$opt} = $value;

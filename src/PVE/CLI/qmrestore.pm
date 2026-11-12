@@ -52,8 +52,11 @@ __PACKAGE__->register_method({
             unique => {
                 optional => 1,
                 type => 'boolean',
-                description => "Assign a unique random ethernet address.",
+                description => "Assign a unique random ethernet address and do not adopt"
+                    . " the guest uid of the backup.",
             },
+            'allow-identity-mismatch' =>
+                get_standard_option('pve-guest-allow-identity-mismatch'),
             pool => {
                 optional => 1,
                 type => 'string',

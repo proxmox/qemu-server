@@ -16,9 +16,11 @@ use File::Basename;
 
 use PVE::API2::Qemu;
 use PVE::GuestHelpers;
+use PVE::GuestIdentity;
 use PVE::QemuConfig;
 use PVE::QemuServer;
 use PVE::QemuServer::Helpers;
+use PVE::QemuServer::MetaInfo;
 use PVE::RPCEnvironment;
 use PVE::Tools qw(dir_glob_foreach file_get_contents file_set_contents);
 
@@ -96,7 +98,7 @@ my $ARCHIVES = {
 my $BACKUP_FIREWALL = "[OPTIONS]\nenable: 1\n";
 
 our $current_backup; # raw config of the backup
-# where the restore fails: 'read-config', 'command', 'data', 'after-restore' or 'live'
+# where the restore fails: 'read-config', 'command', 'firewall', 'data', 'after-restore' or 'live'
 our $fail_at = '';
 # the stat file that qmextract leaves: undef for none, 'directory' for one that cannot be read, or
 # its content
@@ -199,11 +201,15 @@ $qemu_server_module->mock(
     check_running => sub { return 0; },
     pbs_live_restore => sub {
         my ($vmid, $conf, $storecfg) = @_;
+        # like the start of the VM for the live phase
+        PVE::QemuServer::vmconfig_apply_pending($vmid, $conf, $storecfg)
+            if scalar(keys(($conf->{pending} // {})->%*));
         die "live restore failed\n" if $fail_at eq 'live';
         $calls->{live_restore}++;
     },
     rescan => sub { return; },
     restore_firewall_config => sub {
+        die "unable to restore the firewall config\n" if $fail_at eq 'firewall';
         $calls->{firewall}++;
         return $qemu_server_module->original('restore_firewall_config')->(@_);
     },
@@ -703,5 +709,514 @@ subtest 'failure after the data was restored keeps the VM' => sub {
     like(stored_config(100), qr/^name: backup$/m, 'restored config kept');
     like($output, qr/error after data was restored/, 'warning about the VM left behind');
 };
+
+# Guest identity of restored VMs
+
+my $UID_BACKUP = 'bbbbbbbbbbbbbbbbbbbb';
+my $UID_TARGET = 'tttttttttttttttttttt';
+
+my $TARGET_CONF_NO_UID = "memory: 1024\nmeta: creation-qemu=8.0.2,ctime=1500000000\nname: target\n";
+
+my $NOW = 1800000000000;
+my $BACKUP_META = 'creation-qemu=9.2.0,ctime=1600000000';
+my $REFUSED =
+    "backup belongs to another guest: its uid '$UID_BACKUP' differs from uid '$UID_TARGET' of the"
+    . " existing VM 100 - use 'allow-identity-mismatch' to overwrite the VM anyway\n";
+my $IGNORED = "guest identity: ignoring backup uid $UID_BACKUP, VM 100 keeps uid $UID_TARGET";
+# captures the uid that the VM keeps
+my $ADOPT_FAILED = "WARN: guest identity: unable to adopt backup uid $UID_BACKUP, keeping uid"
+    . " ([a-z2-7]{20}) - cfs-lock 'domain-guest-identity' error: no quorum!";
+$ADOPT_FAILED = qr/^$ADOPT_FAILED$/m;
+my $KEPT_TARGET = qr/^guest identity: kept uid $UID_TARGET$/m;
+
+# legacy tar archives get no guest identity handling
+my @IDENTITY_ARCHIVES = grep { $_ ne 'tar' } sort keys $ARCHIVES->%*;
+
+my $cases = [
+    {
+        name => 'free VMID, backup uid unused',
+        backup => "$BACKUP_META,rtime=1600000000000,uid=$UID_BACKUP",
+        result => { uid => $UID_BACKUP, rtime => $NOW },
+        output => qr/^guest identity: adopted uid $UID_BACKUP from the backup$/m,
+    },
+    {
+        name => 'free VMID, backup uid in use by another guest',
+        backup => "$BACKUP_META,rtime=1600000000000,uid=$UID_BACKUP",
+        other => "rtime=1,uid=$UID_BACKUP",
+        result => { uid => 'generated', rtime => $NOW },
+        output => qr/: backup uid $UID_BACKUP is in use by guest 300, keeping uid \w{20}$/m,
+    },
+    {
+        name => 'free VMID, backup without uid',
+        backup => $BACKUP_META,
+        result => { uid => 'generated', rtime => $NOW },
+        output => qr/^guest identity: new uid aaaaaaaaaaaaaaaaaaab$/m,
+    },
+    {
+        name => 'free VMID, unique',
+        backup => "$BACKUP_META,rtime=1600000000000,uid=$UID_BACKUP",
+        param => { unique => 1 },
+        result => { uid => 'generated', rtime => $NOW },
+        output => qr/^guest identity: new uid aaaaaaaaaaaaaaaaaaab$/m,
+    },
+    {
+        name => 'free VMID, identity lock fails',
+        backup => "$BACKUP_META,rtime=1600000000000,uid=$UID_BACKUP",
+        lock_error => "cfs-lock 'domain-guest-identity' error: no quorum!\n",
+        result => { uid => 'generated', rtime => $NOW },
+        output => $ADOPT_FAILED,
+    },
+    {
+        name => 'free VMID, backup meta with a member unknown to this version',
+        backup => "$BACKUP_META,future=1,rtime=1600000000000,uid=$UID_BACKUP",
+        result => { uid => $UID_BACKUP, rtime => $NOW },
+        # the parser drops the whole property of the backup, as it does for other members
+        meta => { rtime => $NOW, uid => $UID_BACKUP },
+        output => qr/^guest identity: adopted uid $UID_BACKUP from the backup$/m,
+    },
+    {
+        name => 'in place, backup of another guest',
+        target => $TARGET_CONF,
+        backup => "$BACKUP_META,rtime=1600000000000,uid=$UID_BACKUP",
+        error => $REFUSED,
+    },
+    {
+        name => 'in place, backup of another guest, unique',
+        target => $TARGET_CONF,
+        backup => "$BACKUP_META,rtime=1600000000000,uid=$UID_BACKUP",
+        param => { unique => 1 },
+        error => $REFUSED,
+    },
+    {
+        name => 'in place, backup of another guest, override',
+        target => $TARGET_CONF,
+        backup => "$BACKUP_META,rtime=1600000000000,uid=$UID_BACKUP",
+        param => { 'allow-identity-mismatch' => 1 },
+        result => { uid => $UID_TARGET, rtime => 1700000000000 },
+        output => qr/^\Q$IGNORED\E\n(?:.*\n)*guest identity: kept uid $UID_TARGET$/m,
+    },
+    {
+        name => 'in place, backup of the same guest',
+        target => $TARGET_CONF,
+        backup => "$BACKUP_META,rtime=1600000000000,uid=$UID_TARGET",
+        result => { uid => $UID_TARGET, rtime => 1700000000000 },
+        output => $KEPT_TARGET,
+    },
+    {
+        name => 'in place, backup without uid',
+        target => $TARGET_CONF,
+        backup => $BACKUP_META,
+        result => { uid => $UID_TARGET, rtime => 1700000000000 },
+        output => $KEPT_TARGET,
+    },
+    {
+        name => 'in place, target without uid',
+        target => $TARGET_CONF_NO_UID,
+        backup => "$BACKUP_META,rtime=1600000000000,uid=$UID_BACKUP",
+        result => { uid => $UID_BACKUP, rtime => $NOW },
+        output => qr/^guest identity: adopted uid $UID_BACKUP from the backup$/m,
+    },
+    {
+        name => 'in place, target without uid, unique',
+        target => $TARGET_CONF_NO_UID,
+        backup => "$BACKUP_META,rtime=1600000000000,uid=$UID_BACKUP",
+        param => { unique => 1 },
+        result => { uid => 'generated', rtime => $NOW },
+        output => qr/^guest identity: new uid aaaaaaaaaaaaaaaaaaab$/m,
+    },
+];
+
+sub meta_of {
+    my ($vmid) = @_;
+
+    my $conf = PVE::QemuConfig->load_config($vmid);
+    return PVE::QemuServer::MetaInfo::parse_meta_info($conf->{meta});
+}
+
+for my $type (@IDENTITY_ARCHIVES) {
+    for my $case ($cases->@*) {
+        subtest "$type: $case->{name}" => sub {
+            QemuServerTest::FakeCFS::reset();
+            $QemuServerTest::FakeCFS::now_ms = $NOW;
+            QemuServerTest::FakeCFS::set_config(100, $case->{target}) if $case->{target};
+            $QemuServerTest::FakeCFS::other_guests->{300} = $case->{other} if $case->{other};
+            $QemuServerTest::FakeCFS::lock_domain_error = $case->{lock_error};
+
+            my $param = { ($case->{param} // {})->%* };
+            $param->{force} = 1 if $case->{target};
+            my ($err, $output) = restore_api($type, backup_config($case->{backup}), $param);
+
+            if (my $expected_err = $case->{error}) {
+                is($err, $expected_err, 'restore refused');
+                is(
+                    $QemuServerTest::FakeCFS::configs->{100},
+                    $case->{target},
+                    'config unchanged',
+                );
+                is_deeply($calls, {}, 'replication state and firewall config untouched');
+                unlike($output, $NOT_CLEANED_UP, 'no warning about a changed VM');
+                return;
+            }
+
+            is($err, '', 'restore succeeded') or diag($output);
+            like($output, $case->{output}, 'task log reports the identity');
+
+            my $expected = { $case->{result}->%* };
+            $expected->{uid} = QemuServerTest::FakeCFS::generated_uid(1)
+                if $expected->{uid} eq 'generated';
+            is_deeply(
+                QemuServerTest::FakeCFS::stored_identity(100),
+                $expected,
+                'stored identity',
+            );
+            is_deeply(
+                meta_of(100),
+                $case->{meta}
+                    // { 'creation-qemu' => '9.2.0', ctime => 1600000000, $expected->%* },
+                'other members of meta come from the backup',
+            );
+        };
+    }
+}
+
+subtest 'retry of a failed restore to a free VMID adopts the uid of the backup' => sub {
+    QemuServerTest::FakeCFS::reset();
+    my $backup = backup_config("$BACKUP_META,rtime=1600000000000,uid=$UID_BACKUP");
+
+    $fail_at = 'data';
+    my ($err) = restore_api('pbs', $backup, {});
+    is($err, "restoring the data failed\n", 'first attempt failed');
+
+    # the web interface sets 'force' for a retry
+    $fail_at = '';
+    ($err) = restore_api('pbs', $backup, { force => 1 });
+    is($err, '', 'retry succeeds');
+    is(QemuServerTest::FakeCFS::stored_identity(100)->{uid}, $UID_BACKUP, 'uid adopted');
+};
+
+subtest 'live restore adopts the uid of the backup only when complete' => sub {
+    my $backup = backup_config("$BACKUP_META,rtime=1600000000000,uid=$UID_BACKUP");
+    my $template = "$backup" . "template: 1\n";
+
+    for my $failure ('before the live phase', 'during the live phase') {
+        QemuServerTest::FakeCFS::reset();
+
+        $fail_at = $failure eq 'during the live phase' ? 'live' : '';
+        my ($err, $output) = restore_api(
+            'pbs',
+            $failure eq 'before the live phase' ? $template : $backup,
+            { 'live-restore' => 1 },
+        );
+        ok($err, "restore fails $failure");
+        isnt(
+            QemuServerTest::FakeCFS::stored_identity(100)->{uid},
+            $UID_BACKUP,
+            "leftover VM does not have the uid of the backup ($failure)",
+        );
+        unlike($output, qr/^guest identity:/m, "no identity reported ($failure)");
+
+        $fail_at = '';
+        ($err, $output) = restore_api('pbs', $backup, { vmid => 101, 'live-restore' => 1 });
+        is($err, '', "retry at another VMID succeeds ($failure)") or diag($output);
+        is($calls->{live_restore}, 1, 'live phase ran');
+        is(
+            QemuServerTest::FakeCFS::stored_identity(101)->{uid},
+            $UID_BACKUP,
+            "retry adopts the uid of the backup ($failure)",
+        );
+        like(
+            $output,
+            qr/^guest identity: adopted uid $UID_BACKUP from the backup$/m,
+            "adoption reported ($failure)",
+        );
+    }
+};
+
+# A VM that a restore leaves behind keeps the uid of the backup as pending uid, so that retrying
+# the restore over it adopts the uid.
+
+my $BACKUP_WITH_UID = backup_config("$BACKUP_META,rtime=1600000000000,uid=$UID_BACKUP");
+my $ADOPTED = qr/^guest identity: adopted uid $UID_BACKUP from the backup$/m;
+
+sub pending_uid_of {
+    my ($vmid) = @_;
+
+    return PVE::GuestIdentity::get_pending_uid(PVE::QemuConfig->load_config($vmid));
+}
+
+sub stored_uid_of {
+    my ($vmid) = @_;
+
+    my $identity = QemuServerTest::FakeCFS::stored_identity($vmid);
+    return $identity ? $identity->{uid} : undef;
+}
+
+# Fails the live restore of a backup with uid to the free VMID 100 in its live phase.
+sub failed_live_restore {
+    QemuServerTest::FakeCFS::reset();
+    $QemuServerTest::FakeCFS::now_ms = $NOW;
+
+    local $fail_at = 'live';
+    my ($err, $output) = restore_api('pbs', $BACKUP_WITH_UID, { 'live-restore' => 1 });
+    is($err, "live restore failed\n", 'live restore failed in its live phase');
+    unlike($output, qr/dropping pending uid/, 'starting the VM keeps the pending uid');
+    isnt(stored_uid_of(100), $UID_BACKUP, 'leftover VM has a uid of its own');
+    is(pending_uid_of(100), $UID_BACKUP, 'leftover VM has the uid of the backup as pending uid');
+    unlike($QemuServerTest::FakeCFS::configs->{100}, qr/^lock:/m, 'leftover VM is not locked');
+}
+
+subtest 'retry in place after a failed live restore' => sub {
+    for my $retry ({ 'live-restore' => 1 }, {}) {
+        my $what = $retry->{'live-restore'} ? 'live' : 'regular';
+
+        failed_live_restore();
+
+        # the web interface restores from the backup list of the VM with 'force'
+        my ($err, $output) = restore_api('pbs', $BACKUP_WITH_UID, { force => 1, $retry->%* });
+        is($err, '', "$what retry succeeds") or diag($output);
+        like($output, $ADOPTED, "$what retry adopts the uid of the backup");
+        is(stored_uid_of(100), $UID_BACKUP, "$what retry: stored");
+        is(pending_uid_of(100), undef, "$what retry: pending uid is removed");
+    }
+};
+
+subtest 'retry in place after a failure once the restored volumes stay' => sub {
+    QemuServerTest::FakeCFS::reset();
+    my $backup = $BACKUP_WITH_UID . "hostpci0: 0000:01:00.0\n";
+
+    # the permission check needs the restored config, so it runs once the data is restored
+    $rpcenv->set_user('user@pve');
+    my ($err, $output) = restore_api('vma file', $backup, {});
+    $rpcenv->set_user('root@pam');
+    is(
+        $err,
+        "only root can set 'hostpci0' config for non-mapped devices\n",
+        'restore refused after restoring the data',
+    );
+    ok(defined($QemuServerTest::FakeCFS::configs->{100}), 'VM is left behind');
+    is(pending_uid_of(100), $UID_BACKUP,
+        'leftover VM has the uid of the backup as pending uid');
+
+    ($err, $output) = restore_api('vma file', $backup, { force => 1 });
+    is($err, '', 'retry succeeds') or diag($output);
+    is(stored_uid_of(100), $UID_BACKUP, 'retry adopts the uid of the backup');
+    is(pending_uid_of(100), undef, 'retry: pending uid is removed');
+};
+
+my $FAILURES = {
+    # right after the check, before the restore writes a config itself
+    firewall => "unable to restore the firewall config\n",
+    data => "restoring the data failed\n",
+};
+
+for my $type ('pbs', 'provider', 'vma file', 'vma stdin') {
+    for my $failure (sort keys $FAILURES->%*) {
+        my $what = "$type: retry in place after a failed restore over a VM without uid";
+
+        subtest "$what ($failure)" => sub {
+            QemuServerTest::FakeCFS::reset();
+            QemuServerTest::FakeCFS::set_config(100, $TARGET_CONF_NO_UID);
+
+            local $fail_at = $failure;
+            my ($err) = restore_api($type, $BACKUP_WITH_UID, { force => 1 });
+            is($err, $FAILURES->{$failure}, 'restore failed');
+            ok(stored_uid_of(100), 'VM got a uid of its own');
+            isnt(stored_uid_of(100), $UID_BACKUP, 'not the one of the backup');
+            is(pending_uid_of(100), $UID_BACKUP, 'VM has the uid of the backup as pending uid');
+
+            $fail_at = '';
+            ($err, my $output) = restore_api($type, $BACKUP_WITH_UID, { force => 1 });
+            is($err, '', 'retry succeeds') or diag($output);
+            is(stored_uid_of(100), $UID_BACKUP, 'retry adopts the uid of the backup');
+            is(pending_uid_of(100), undef, 'retry: pending uid is removed');
+        };
+    }
+}
+
+subtest 'retry elsewhere, then over the VM left behind' => sub {
+    failed_live_restore();
+    my $leftover = stored_uid_of(100);
+
+    my ($err, $output) = restore_api('pbs', $BACKUP_WITH_UID, { vmid => 101 });
+    is($err, '', 'restore to another VMID succeeds') or diag($output);
+    is(stored_uid_of(101), $UID_BACKUP, 'pending uid of the leftover VM is not in use');
+    is(pending_uid_of(100), $UID_BACKUP, 'leftover VM keeps its pending uid');
+
+    ($err, $output) = restore_api('pbs', $BACKUP_WITH_UID, { force => 1 });
+    is($err, '', 'restore over the leftover VM is not refused') or diag($output);
+    like(
+        $output,
+        qr/^guest identity: backup uid $UID_BACKUP is in use by guest 101, keeping uid $leftover$/m,
+        'uid of the backup is in use by now',
+    );
+    is(stored_uid_of(100), $leftover, 'leftover VM keeps its uid');
+    is(pending_uid_of(100), undef, 'pending uid is removed');
+};
+
+subtest 'using the VM left behind drops its pending uid' => sub {
+    failed_live_restore();
+    my $leftover = stored_uid_of(100);
+
+    # like a start, or a config change of the stopped VM
+    my $warnings = '';
+    {
+        local $SIG{__WARN__} = sub { $warnings .= $_[0]; };
+        my $conf = PVE::QemuConfig->load_config(100);
+        PVE::QemuServer::vmconfig_apply_pending(100, $conf, {});
+    }
+    my $dropped = "guest identity: dropping pending uid $UID_BACKUP of an unfinished restore"
+        . " - a retry now needs 'allow-identity-mismatch'";
+    like($warnings, qr/^\Q$dropped\E$/m, 'dropped');
+    is(pending_uid_of(100), undef, 'pending uid is gone');
+
+    my ($err) = restore_api('pbs', $BACKUP_WITH_UID, { force => 1 });
+    like(
+        $err,
+        qr/^backup belongs to another guest: its uid .$UID_BACKUP. differs/,
+        'retry is refused',
+    );
+    is(stored_uid_of(100), $leftover, 'VM stays its own guest');
+};
+
+subtest 'a restore with unique keeps a pending uid, but never adopts it' => sub {
+    for my $retry ({ unique => 1 }, {}) {
+        my $what = $retry->{unique} ? 'retry with unique' : 'retry without unique';
+        QemuServerTest::FakeCFS::reset();
+
+        # registering the addresses of the new MACs is the last step before the adoption
+        local $fail_at = 'after-restore';
+        my ($err) = restore_api('pbs', $BACKUP_WITH_UID, { unique => 1 });
+        is($err, "unable to register IPs\n", 'restore with unique failed at its end');
+        my $leftover = stored_uid_of(100);
+        is(pending_uid_of(100), $UID_BACKUP, 'VM left behind has the pending uid');
+
+        $fail_at = '';
+        my $output;
+        ($err, $output) = restore_api('pbs', $BACKUP_WITH_UID, { force => 1, $retry->%* });
+        is($err, '', "$what succeeds") or diag($output);
+        is(pending_uid_of(100), undef, "$what: pending uid is removed");
+        if ($retry->{unique}) {
+            is(stored_uid_of(100), $leftover, "$what: uid of the backup is not adopted");
+        } else {
+            is(stored_uid_of(100), $UID_BACKUP, "$what: uid of the backup is adopted");
+        }
+    }
+};
+
+subtest 'a failed adoption keeps the pending uid' => sub {
+    QemuServerTest::FakeCFS::reset();
+
+    $QemuServerTest::FakeCFS::lock_domain_error =
+        "cfs-lock 'domain-guest-identity' error: no quorum!\n";
+    my ($err, $output) = restore_api('pbs', $BACKUP_WITH_UID, {});
+    $QemuServerTest::FakeCFS::lock_domain_error = undef;
+    is($err, '', 'restore succeeds') or diag($output);
+    my ($kept) = $output =~ $ADOPT_FAILED;
+    ok(defined($kept), 'failed adoption is a warning') or diag($output);
+    isnt(stored_uid_of(100), $UID_BACKUP, 'VM has a uid of its own');
+    is($kept, stored_uid_of(100), 'warning names the uid that the VM keeps');
+    is(pending_uid_of(100), $UID_BACKUP, 'nothing decided, pending uid stays');
+
+    ($err, $output) = restore_api('pbs', $BACKUP_WITH_UID, { force => 1 });
+    is($err, '', 'restore of the backup again is not refused') or diag($output);
+    is(stored_uid_of(100), $UID_BACKUP, 'uid of the backup is adopted');
+};
+
+subtest 'config of a VM left behind shows its stored identity' => sub {
+    failed_live_restore();
+    my $meta = PVE::QemuConfig->load_config(100)->{meta};
+
+    my $conf = PVE::API2::Qemu->vm_config({ node => 'localhost', vmid => 100 });
+    is($conf->{meta}, $meta, 'config with pending changes applied: stored identity');
+    $conf = PVE::API2::Qemu->vm_config({ node => 'localhost', vmid => 100, current => 1 });
+    is($conf->{meta}, $meta, 'current config: stored identity');
+
+    my $pending = PVE::API2::Qemu->vm_pending({ node => 'localhost', vmid => 100 });
+    my ($item) = grep { $_->{key} eq 'meta' } $pending->@*;
+    is($item->{value}, $meta, 'pending view: current value');
+    is($item->{pending}, "uid=$UID_BACKUP", 'pending view: pending uid');
+};
+
+subtest 'removing the pending uid keeps an identity that the parser cannot read' => sub {
+    QemuServerTest::FakeCFS::reset();
+
+    # a member of a newer version makes the parser drop the whole property
+    my $target_meta = "creation-qemu=10.0.0,ctime=1700000000,future-member=1,"
+        . "rtime=1700000000000,uid=$UID_TARGET";
+    QemuServerTest::FakeCFS::set_config(
+        100,
+        "memory: 512\nmeta: $target_meta\n\n[PENDING]\nmeta: uid=$UID_BACKUP\n",
+    );
+    my $reservation = {
+        existed => 1,
+        previous => { uid => $UID_TARGET, rtime => 1700000000000 },
+        'previous-pending-uid' => $UID_BACKUP,
+        assigned => { uid => $UID_TARGET, rtime => 1700000000000 },
+    };
+    my $res;
+    {
+        local $SIG{__WARN__} = sub { };
+        $res =
+            PVE::GuestIdentity::adopt('PVE::QemuConfig', 100, 'cccccccccccccccccccc', $reservation);
+    }
+    is($res->{result}, 'kept', 'identity of another backup is not adopted');
+    is(stored_uid_of(100), $UID_TARGET, 'stored identity is kept');
+    is(pending_uid_of(100), undef, 'pending uid is removed');
+};
+
+# vzdump never archives pending changes, a crafted backup must not bring any along
+for my $type (sort keys $ARCHIVES->%*) {
+    subtest "$type: pending changes of the backup are dropped" => sub {
+        QemuServerTest::FakeCFS::reset();
+
+        my $crafted = $BACKUP_WITH_UID
+            . "\n[PENDING]\nargs: -device foo\nhostpci0: 0000:01:00.0\nmeta: uid=$UID_TARGET\n";
+        my ($err, $output) = restore_api($type, $crafted, {});
+        is($err, '', 'restore succeeds') or diag($output);
+        my @writes = $QemuServerTest::FakeCFS::written->{100}->@*;
+        ok(!grep({ m/^(args|hostpci0):|uid=$UID_TARGET/m } @writes), 'no write has them');
+        unlike(
+            $QemuServerTest::FakeCFS::configs->{100},
+            qr/^\[PENDING\]/m,
+            'no pending section',
+        );
+    };
+}
+
+# Once a write of the config of VMID 100 has the pending uid of the backup, all later writes of the
+# restore have it, so that the VM keeps it whenever the restore stops. Only the adoption removes it.
+for my $type (@IDENTITY_ARCHIVES, 'pbs live') {
+    for my $target (undef, $TARGET_CONF_NO_UID) {
+        my $what = $type . ($target ? ', in place over a VM without uid' : ', free VMID');
+
+        subtest "$what: every write of the restore keeps the pending uid" => sub {
+            QemuServerTest::FakeCFS::reset();
+            QemuServerTest::FakeCFS::set_config(100, $target) if $target;
+
+            my $param = { $target ? (force => 1) : () };
+            $param->{'live-restore'} = 1 if $type eq 'pbs live';
+            my ($err, $output) = restore_api($type =~ s/ live$//r, $BACKUP_WITH_UID, $param);
+            is($err, '', 'restore succeeds') or diag($output);
+            like($output, $ADOPTED, 'uid of the backup is adopted');
+
+            my @writes = $QemuServerTest::FakeCFS::written->{100}->@*;
+            my $last = pop(@writes);
+            my $first = 0;
+            $first++ while $first < @writes && $writes[$first] !~ m/^\[PENDING\]/m;
+            ok($first < @writes, 'pending uid is written') or return;
+            is(
+                scalar(
+                    grep { m/^\[PENDING\]\nmeta: uid=$UID_BACKUP$/m }
+                        @writes[$first .. $#writes]
+                ),
+                scalar(@writes) - $first,
+                'all later writes keep it',
+            );
+            unlike($last, qr/^\[PENDING\]/m, 'adoption removes it');
+        };
+    }
+}
+
+$fail_at = '';
 
 done_testing();
