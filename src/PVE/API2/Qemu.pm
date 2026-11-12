@@ -6486,11 +6486,20 @@ __PACKAGE__->register_method({
 
         my $snapname = extract_param($param, 'snapname');
 
+        my $conf = PVE::QemuConfig->load_config($vmid);
+        my $snap = $conf->{snapshots}->{$snapname};
+        die "snapshot '$snapname' does not exist\n" if !defined($snap);
+        my $with_state = $snap->{vmstate};
+
         # vm_start is invoked directly from the worker, so its own permissions
         # predicate doesn't fire here - check VM.PowerMgmt up front so a user
-        # with only VM.Snapshot.Rollback can't power the VM on as a side effect.
-        $rpcenv->check($authuser, "/vms/$vmid", ['VM.PowerMgmt'])
-            if $param->{start};
+        # with only VM.Snapshot.Rollback can't start or stop the VM on as a
+        # side effect, unless it is already running/stopped.
+        my $will_start = ($param->{start} || $with_state) ? 1 : 0;
+        my $is_running = PVE::QemuServer::Helpers::vm_running_locally($vmid) ? 1 : 0;
+        if ($will_start != $is_running) {
+            $rpcenv->check($authuser, "/vms/$vmid", ['VM.PowerMgmt']);
+        }
 
         my $realcmd = sub {
             PVE::Cluster::log_msg('info', $authuser, "rollback snapshot VM $vmid: $snapname");
