@@ -18,6 +18,7 @@ use URI::Escape;
 use PVE::APIClient::LWP;
 use PVE::Cluster;
 use PVE::Exception qw(raise_param_exc);
+use PVE::File;
 use PVE::GuestHelpers;
 use PVE::GuestImport::OVF;
 use PVE::INotify;
@@ -482,6 +483,18 @@ __PACKAGE__->register_method({
                     }
                 } else {
                     $tunnel_write->("ERR: resume failed - VM $vmid not running");
+                }
+            } elsif ($line =~ /^config ([0-9]+) (\S+)$/) {
+                my ($vmid, $node) = ($1, $2);
+                eval {
+                    my $conf_fn = PVE::QemuConfig->config_file($vmid, $node);
+                    my $raw = PVE::File::file_get_contents($conf_fn);
+                    PVE::QemuServer::parse_vm_config($conf_fn, $raw, 1);
+                };
+                if (my $err = $@) {
+                    $tunnel_write->("ERR: strict config check for target node failed - $err");
+                } else {
+                    $tunnel_write->("OK");
                 }
             } else {
                 $tunnel_write->("ERR: unknown command '$line'");
