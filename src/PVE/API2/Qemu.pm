@@ -5759,7 +5759,7 @@ __PACKAGE__->register_method({
         } else {
             warn "VM isn't running. Doing offline migration instead.\n" if $param->{online};
             $param->{online} = 0;
-            $param->{'with-conntrack-state'} = 0;
+            delete $param->{'with-conntrack-state'};
         }
 
         my $storecfg = PVE::Storage::config();
