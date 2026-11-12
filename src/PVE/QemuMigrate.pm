@@ -1407,14 +1407,9 @@ sub phase2 {
         my $rpcenv = PVE::RPCEnvironment::get();
         my $authuser = $rpcenv->get_user();
 
-        my $target_version = PVE::QemuServer::Helpers::get_node_pvecfg_version($self->{node});
-
         my $ticket_port = undef;
         # Check if target is new enough for having the port encoded in the proxy ticket.
-        if (
-            $target_version
-            && PVE::Tools::pvecfg_min_version($target_version, 9, 1, 9)
-        ) {
+        if (PVE::Cluster::node_pvecfg_version_at_least($self->{node}, 9, 1, 9)) {
             $ticket_port = $spice_port;
         }
 

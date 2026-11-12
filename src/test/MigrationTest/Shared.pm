@@ -84,6 +84,9 @@ $cluster_module->mock(
     check_cfs_quorum => sub {
         return 1;
     },
+    node_pvecfg_version_at_least => sub {
+        return 1;
+    },
 );
 
 our $mapping_usb_module = Test::MockModule->new("PVE::Mapping::USB");

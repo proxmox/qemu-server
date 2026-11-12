@@ -5,9 +5,7 @@ use warnings;
 
 use File::stat;
 use IO::File;
-use JSON;
 
-use PVE::Cluster;
 use PVE::INotify;
 use PVE::ProcFSTools;
 use PVE::Tools;
@@ -290,16 +288,6 @@ sub config_aware_timeout {
     $timeout += $nic_count * 5;
 
     return $timeout;
-}
-
-sub get_node_pvecfg_version {
-    my ($node) = @_;
-
-    my $nodes_version_info = PVE::Cluster::get_node_kv('version-info', $node);
-    return if !$nodes_version_info->{$node};
-
-    my $version_info = decode_json($nodes_version_info->{$node});
-    return $version_info->{version};
 }
 
 sub parse_number_sets {
