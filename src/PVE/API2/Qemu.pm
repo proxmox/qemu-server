@@ -88,6 +88,77 @@ BEGIN {
 
 use base qw(PVE::RESTHandler);
 
+my $migrate_json_properties = {
+    node => get_standard_option('pve-node'),
+    vmid => get_standard_option('pve-vmid', { completion => \&PVE::QemuServer::complete_vmid }),
+    target => get_standard_option(
+        'pve-node',
+        {
+            description => "Target node.",
+            completion => \&PVE::Cluster::complete_migration_target,
+        },
+    ),
+    online => {
+        type => 'boolean',
+        description => "Use online/live migration if VM is running. Ignored if VM is stopped.",
+        optional => 1,
+    },
+    force => {
+        type => 'boolean',
+        description =>
+            "Allow to migrate VMs which use local devices. Only root may use this option.",
+        optional => 1,
+    },
+    migration_type => {
+        type => 'string',
+        enum => ['secure', 'insecure'],
+        description =>
+            "Migration traffic is encrypted using an SSH tunnel by default. On secure, completely private networks this can be disabled to increase performance.",
+        optional => 1,
+    },
+    migration_network => {
+        type => 'string',
+        format => 'CIDR',
+        description => "CIDR of the (sub) network that is used for migration.",
+        optional => 1,
+    },
+    "with-local-disks" => {
+        type => 'boolean',
+        description => "Enable live storage migration for local disk",
+        optional => 1,
+    },
+    targetstorage => get_standard_option(
+        'pve-targetstorage',
+        {
+            completion => \&PVE::QemuServer::complete_migration_storage,
+        },
+    ),
+    bwlimit => {
+        description => "Override I/O bandwidth limit (in KiB/s).",
+        optional => 1,
+        type => 'integer',
+        minimum => '0',
+        default => 'migrate limit from datacenter or storage config',
+    },
+    'with-conntrack-state' => {
+        type => 'boolean',
+        optional => 1,
+        default => 0,
+        description => 'Whether to migrate conntrack entries for running VMs.',
+    },
+};
+
+# Properties that will be forwarded via the HA stack to the LRM, which will then use them for its
+# own invocation of the migration API endpoint. Values the caller supplies for other properties are
+# not forwarded for HA migrations, the LRM uses hard-coded values for many of those properties.
+my $ha_migrate_props = {};
+
+sub ha_migrate_json_properties {
+    my $forwarded_props = {};
+    $forwarded_props->{$_} = $migrate_json_properties->{$_} for keys $ha_migrate_props->%*;
+    return $forwarded_props;
+}
+
 my $opt_force_description =
     "Force physical removal. Without this, we simple remove the disk from the config file and create an additional configuration entry called 'unused[n]', which contains the volume ID. Unlink of unused[n] always cause physical removal.";
 
@@ -5620,67 +5691,7 @@ __PACKAGE__->register_method({
     },
     parameters => {
         additionalProperties => 0,
-        properties => {
-            node => get_standard_option('pve-node'),
-            vmid =>
-                get_standard_option('pve-vmid', { completion => \&PVE::QemuServer::complete_vmid }),
-            target => get_standard_option(
-                'pve-node',
-                {
-                    description => "Target node.",
-                    completion => \&PVE::Cluster::complete_migration_target,
-                },
-            ),
-            online => {
-                type => 'boolean',
-                description =>
-                    "Use online/live migration if VM is running. Ignored if VM is stopped.",
-                optional => 1,
-            },
-            force => {
-                type => 'boolean',
-                description =>
-                    "Allow to migrate VMs which use local devices. Only root may use this option.",
-                optional => 1,
-            },
-            migration_type => {
-                type => 'string',
-                enum => ['secure', 'insecure'],
-                description =>
-                    "Migration traffic is encrypted using an SSH tunnel by default. On secure, completely private networks this can be disabled to increase performance.",
-                optional => 1,
-            },
-            migration_network => {
-                type => 'string',
-                format => 'CIDR',
-                description => "CIDR of the (sub) network that is used for migration.",
-                optional => 1,
-            },
-            "with-local-disks" => {
-                type => 'boolean',
-                description => "Enable live storage migration for local disk",
-                optional => 1,
-            },
-            targetstorage => get_standard_option(
-                'pve-targetstorage',
-                {
-                    completion => \&PVE::QemuServer::complete_migration_storage,
-                },
-            ),
-            bwlimit => {
-                description => "Override I/O bandwidth limit (in KiB/s).",
-                optional => 1,
-                type => 'integer',
-                minimum => '0',
-                default => 'migrate limit from datacenter or storage config',
-            },
-            'with-conntrack-state' => {
-                type => 'boolean',
-                optional => 1,
-                default => 0,
-                description => 'Whether to migrate conntrack entries for running VMs.',
-            },
-        },
+        properties => $migrate_json_properties,
     },
     returns => {
         type => 'string',
@@ -5772,9 +5783,24 @@ __PACKAGE__->register_method({
             my $hacmd = sub {
                 my $upid = shift;
 
-                print "Requesting HA migration for VM $vmid to node $target\n";
-
+                my $extra_opts = '';
                 my $cmd = ['ha-manager', 'migrate', "vm:$vmid", $target];
+                # Only nodes with pve-manager 9.2.31 or newer have an ha-manager that accepts
+                # additional migration options.
+                if (PVE::Cluster::node_pvecfg_version_at_least($localnode, 9, 2, 31)) {
+                    for my $prop (sort keys $ha_migrate_props->%*) {
+                        if (defined(my $value = $param->{$prop})) {
+                            push($cmd->@*, "--$prop", $value);
+                            $extra_opts .= ', ' if $extra_opts;
+                            $extra_opts .= "$prop=$value";
+                        }
+                    }
+                }
+
+                my $msg = "Requesting HA migration for VM $vmid to node $target";
+                $msg .= " (${extra_opts})" if $extra_opts;
+                print "$msg\n";
+
                 run_command($cmd);
                 return;
             };
