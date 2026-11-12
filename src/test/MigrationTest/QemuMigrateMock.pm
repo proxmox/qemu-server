@@ -66,6 +66,10 @@ $tunnel_module->mock(
             my $vmid = $1;
             die "resuming wrong VM '$vmid'\n" if $vmid ne $test_vmid;
             return;
+        } elsif ($command =~ m/^config ([0-9]+) (\S+)$/) {
+            my ($vmid, $node) = ($1, $2);
+            die "check config for wrong VM '$vmid'\n" if $vmid ne $test_vmid;
+            return;
         }
         die "write_tunnel (mocked) - implement me: $command\n";
     },
@@ -74,7 +78,12 @@ $tunnel_module->mock(
 my $qemu_migrate_module = Test::MockModule->new("PVE::QemuMigrate");
 $qemu_migrate_module->mock(
     fork_tunnel => sub {
-        die "fork_tunnel (mocked) - implement me\n"; # currently no call should lead here
+        return {
+            writer => "mocked",
+            reader => "mocked",
+            pid => 123456,
+            version => 1,
+        };
     },
     start_remote_tunnel => sub {
         my ($self, $raddr, $rport, $ruri, $unix_socket_info) = @_;
