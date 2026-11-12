@@ -3683,6 +3683,7 @@ __PACKAGE__->register_method({
                 enum => ['vnc'],
                 optional => 1,
             },
+            uid => PVE::GuestIdentity::meta_format_properties()->{uid},
         },
     },
     code => sub {
@@ -3704,6 +3705,10 @@ __PACKAGE__->register_method({
             $status->{clipboard} = $vga->{clipboard};
         }
         $status->{agent} = 1 if PVE::QemuServer::Agent::get_qga_key($conf, 'enabled');
+
+        if (my $identity = PVE::QemuConfig->get_identity($conf)) {
+            $status->{uid} = $identity->{uid};
+        }
 
         return $status;
     },

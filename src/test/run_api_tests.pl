@@ -318,4 +318,29 @@ subtest 'clone target nodes' => sub {
     mock_unreachable_config();
 };
 
+subtest 'status' => sub {
+    my $vm_conf;
+    $qemu_config_module->mock(load_config => sub { return $vm_conf; });
+    $qemu_server_module->mock(
+        vmstatus => sub { return { 100 => { vmid => 100, status => 'stopped' } }; });
+    my $ha_config_module = Test::MockModule->new('PVE::HA::Config');
+    $ha_config_module->mock(get_service_status => sub { return { managed => 0 }; });
+
+    my $returns = PVE::API2::Qemu->map_method_by_name('vm_status')->{returns};
+
+    $vm_conf =
+        { meta => 'creation-qemu=10.1.2,ctime=1,rtime=1700000000000,uid=abcdefghijklmnopqrst' };
+    my $status = PVE::API2::Qemu->vm_status({ node => 'localhost', vmid => 100 });
+    is($status->{uid}, 'abcdefghijklmnopqrst', 'uid returned');
+    eval { PVE::JSONSchema::validate($status, $returns) };
+    is($@, '', 'result matches the schema');
+
+    $vm_conf = { meta => 'creation-qemu=10.1.2,ctime=1' };
+    $status = PVE::API2::Qemu->vm_status({ node => 'localhost', vmid => 100 });
+    ok(!exists($status->{uid}), 'no uid for config without identity');
+
+    mock_unreachable_config();
+    $qemu_server_module->unmock('vmstatus');
+};
+
 done_testing();
