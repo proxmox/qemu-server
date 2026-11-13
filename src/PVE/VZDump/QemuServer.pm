@@ -1308,10 +1308,14 @@ sub cleanup {
         }
 
         if (my $info = $task->{cleanup}->{'backup-access-teardown'}) {
+            # A successful teardown drops the record of the blocks the provider just read. If the
+            # task failed later on, the provider is told so and may discard the backup, so the
+            # bitmap must keep covering those blocks.
+            my $success = $info->{success} && !$task->{err};
             my $params = {
                 'target-id' => $info->{'target-id'},
                 timeout => 60,
-                success => $info->{success} ? JSON::true : JSON::false,
+                success => $success ? JSON::true : JSON::false,
             };
 
             $self->loginfo("tearing down backup-access");
