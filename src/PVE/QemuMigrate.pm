@@ -20,6 +20,7 @@ use PVE::RPCEnvironment;
 use PVE::Replication;
 use PVE::ReplicationConfig;
 use PVE::ReplicationState;
+use PVE::Storage::Common;
 use PVE::Storage::Plugin;
 use PVE::Storage;
 use PVE::StorageTunnel;
@@ -177,7 +178,7 @@ sub target_storage_check_available {
         );
         my ($vtype) = PVE::Storage::parse_volname($storecfg, $volid);
         die "$volid: content type '$vtype' is not available on storage '$targetsid'\n"
-            if !$target_scfg->{content}->{$vtype};
+            if !PVE::Storage::Common::content_allows($target_scfg->{content}, $vtype);
     }
 }
 

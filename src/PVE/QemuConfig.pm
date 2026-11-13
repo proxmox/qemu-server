@@ -22,6 +22,7 @@ use PVE::QemuServer::Network;
 use PVE::QemuServer::Snapshot;
 use PVE::RESTEnvironment qw(log_warn);
 use PVE::Storage;
+use PVE::Storage::Common;
 use PVE::Tools;
 use PVE::Format qw(render_bytes render_duration);
 
@@ -162,7 +163,7 @@ sub get_replicatable_volumes {
         my ($path, $owner, $vtype) = PVE::Storage::path($storecfg, $volid);
         return if !$owner || ($owner != $vmid);
 
-        if ($vtype ne 'images') {
+        if (!PVE::Storage::Common::is_guest_vtype($vtype)) {
             return if $cleanup || $noerr;
             die "unable to replicate volume '$volid', type '$vtype'\n";
         }

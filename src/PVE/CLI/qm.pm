@@ -25,6 +25,7 @@ use PVE::JSONSchema qw(get_standard_option);
 use PVE::Network;
 use PVE::RPCEnvironment;
 use PVE::SafeSyslog;
+use PVE::Storage::Common;
 use PVE::Tools qw(extract_param file_get_contents);
 
 use PVE::API2::Qemu::Agent;
@@ -283,7 +284,7 @@ __PACKAGE__->register_method({
 
             my $content_types = [PVE::Tools::split_list($found->{content})];
             die "remote: storage '$storage' cannot store images\n"
-                if !grep { $_ eq 'images' } @$content_types;
+                if !grep { $_ eq 'images' || $_ eq 'vm-vol' } @$content_types;
         };
 
         foreach my $target_sid (values %{ $storagemap->{entries} }) {
@@ -671,7 +672,7 @@ __PACKAGE__->register_method({
 
         my $target_storage_config = PVE::Storage::storage_config($storecfg, $storeid);
         die "storage $storeid does not support vm images\n"
-            if !$target_storage_config->{content}->{images};
+            if !PVE::Storage::Common::content_allows($target_storage_config->{content}, 'vm-vol');
 
         print "importing disk '$source' to VM $vmid ...\n";
 

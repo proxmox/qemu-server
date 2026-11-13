@@ -44,6 +44,7 @@ use PVE::ReplicationState;
 use PVE::RESTEnvironment qw(log_warn);
 use PVE::RPCEnvironment;
 use PVE::SafeSyslog;
+use PVE::Storage::Common;
 use PVE::SysFSTools;
 use PVE::Systemd;
 use PVE::Tools qw(run_command file_read_firstline file_get_contents dir_glob_foreach $IPV6RE);
@@ -1092,7 +1093,7 @@ sub verify_media_type {
         die "internal error";
     }
 
-    return if ($vtype eq $etype);
+    return if PVE::Storage::Common::vtype_matches($vtype, $etype);
 
     raise_param_exc({ $opt => "unexpected media type ($vtype != $etype)" });
 }
@@ -2230,7 +2231,7 @@ sub check_storage_availability {
             my ($vtype) = PVE::Storage::parse_volname($storecfg, $volid);
 
             die "$volid: content type '$vtype' is not available on storage '$sid'\n"
-                if !$scfg->{content}->{$vtype};
+                if !PVE::Storage::Common::content_allows($scfg->{content}, $vtype);
         },
     );
 }
@@ -6513,7 +6514,7 @@ my $parse_backup_hints = sub {
     my $check_storage = sub { # assert if an image can be allocate
         my ($storeid, $scfg) = @_;
         die "Content type 'images' is not available on storage '$storeid'\n"
-            if !$scfg->{content}->{images};
+            if !PVE::Storage::Common::content_allows($scfg->{content}, 'vm-vol');
         $rpcenv->check($user, "/storage/$storeid", ['Datastore.AllocateSpace'])
             if $user ne 'root@pam';
     };
@@ -8322,7 +8323,7 @@ sub complete_storage {
     my $res = [];
     foreach my $sid (keys %$ids) {
         next if !PVE::Storage::storage_check_enabled($cfg, $sid, undef, 1);
-        next if !$ids->{$sid}->{content}->{images};
+        next if !PVE::Storage::Common::content_allows($ids->{$sid}->{content}, 'vm-vol');
         push @$res, $sid;
     }
 
@@ -8340,7 +8341,7 @@ sub complete_migration_storage {
     my $res = [];
     foreach my $sid (keys %$ids) {
         next if !PVE::Storage::storage_check_enabled($cfg, $sid, $targetnode, 1);
-        next if !$ids->{$sid}->{content}->{images};
+        next if !PVE::Storage::Common::content_allows($ids->{$sid}->{content}, 'vm-vol');
         push @$res, $sid;
     }
 
@@ -8368,7 +8369,7 @@ sub check_volume_storage_type {
     my ($vtype) = PVE::Storage::parse_volname($storecfg, $vol);
 
     die "storage '$storeid' does not support content-type '$vtype'\n"
-        if !$scfg->{content}->{$vtype};
+        if !PVE::Storage::Common::content_allows($scfg->{content}, $vtype);
 
     return 1;
 }

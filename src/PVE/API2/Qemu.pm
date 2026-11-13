@@ -22,6 +22,7 @@ use PVE::Tools qw(extract_param run_command);
 use PVE::Exception qw(raise raise_param_exc raise_perm_exc);
 use PVE::File qw(file_exists);
 use PVE::Storage;
+use PVE::Storage::Common;
 use PVE::JSONSchema qw(get_standard_option);
 use PVE::RESTHandler;
 use PVE::ReplicationConfig;
@@ -194,13 +195,14 @@ my $check_storage_access = sub {
                 $rpcenv->check($authuser, "/storage/$storeid", ['Datastore.AllocateSpace']);
                 my $scfg = PVE::Storage::storage_config($storecfg, $storeid);
                 raise_param_exc({ storage => "storage '$storeid' does not support vm images" })
-                    if !$scfg->{content}->{images};
+                    if !PVE::Storage::Common::content_allows($scfg->{content}, 'vm-vol');
             } else {
                 PVE::Storage::check_volume_access($rpcenv, $authuser, $storecfg, $vmid, $volid);
                 if ($storeid) {
                     my ($vtype) = PVE::Storage::parse_volname($storecfg, $volid);
                     raise_param_exc({ $ds => "content type needs to be 'images' or 'iso'" })
-                        if $vtype ne 'images' && $vtype ne 'iso';
+                        if !PVE::Storage::Common::vtype_matches($vtype, 'images')
+                        && $vtype ne 'iso';
                 }
             }
 
@@ -217,7 +219,9 @@ my $check_storage_access = sub {
                             $ds =>
                                 "$src_image has wrong type '$vtype' - needs to be 'images' or 'import'",
                         },
-                    ) if $vtype ne 'images' && $vtype ne 'import';
+                        )
+                        if !PVE::Storage::Common::vtype_matches($vtype, 'images')
+                        && $vtype ne 'import';
 
                     if (PVE::QemuServer::Helpers::needs_extraction($vtype, $fmt)) {
                         my $extraction_scfg =
@@ -229,7 +233,10 @@ my $check_storage_access = sub {
                         my $extraction_id = $extraction_storage // $storeid;
 
                         if (
-                            !$extraction_scfg->{content}->{images} || !$extraction_scfg->{path}
+                            !PVE::Storage::Common::content_allows(
+                                $extraction_scfg->{content}, 'vm-vol',
+                            )
+                            || !$extraction_scfg->{path}
                         ) {
                             raise_param_exc({
                                 $extraction_param =>
@@ -345,7 +352,7 @@ my $check_storage_access_migrate = sub {
 
     my $scfg = PVE::Storage::storage_config($storecfg, $storage);
     die "storage '$storage' does not support vm images\n"
-        if !$scfg->{content}->{images};
+        if !PVE::Storage::Common::content_allows($scfg->{content}, 'vm-vol');
 };
 
 my $import_from_volid = sub {
@@ -708,7 +715,7 @@ my sub create_disks : prototype($$$$$$$$$$$) {
                 my ($vtype, $volume_format) = (checked_parse_volname($storecfg, $volid))[0, 6];
 
                 die "cannot use volume $volid - content type needs to be 'images' or 'iso'"
-                    if $vtype ne 'images' && $vtype ne 'iso';
+                    if !PVE::Storage::Common::vtype_matches($vtype, 'images') && $vtype ne 'iso';
 
                 # TODO PVE 9 - consider disallowing setting an explicit format for managed volumes.
                 if ($disk->{format} && $disk->{format} ne $volume_format) {
@@ -4509,7 +4516,7 @@ __PACKAGE__->register_method({
                 # check if storage is enabled on local node and supports vm images
                 my $scfg = PVE::Storage::storage_check_enabled($storecfg, $storage);
                 raise_param_exc({ storage => "storage '$storage' does not support vm images" })
-                    if !$scfg->{content}->{images};
+                    if !PVE::Storage::Common::content_allows($scfg->{content}, 'vm-vol');
 
                 if ($target) {
                     # check if storage is available on target node
@@ -4937,7 +4944,7 @@ __PACKAGE__->register_method({
 
             my $scfg = PVE::Storage::storage_check_enabled($storecfg, $storeid);
             raise_param_exc({ storage => "storage '$storeid' does not support vm images" })
-                if !$scfg->{content}->{images};
+                if !PVE::Storage::Common::content_allows($scfg->{content}, 'vm-vol');
 
             # this only checks snapshots because $disk is passed!
             my $snapshotted = PVE::QemuServer::Drive::is_volume_in_use(
