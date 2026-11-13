@@ -5,6 +5,7 @@ test: test_snapshot test_cfg_to_cmd test_cfg_to_cmd_aarch64 test_hotplug test_ho
 test_snapshot: run_snapshot_tests.pl
 	./run_snapshot_tests.pl
 	./test_get_replicatable_volumes.pl
+	./test_vmstate_storage.pl
 
 test_cfg_to_cmd: run_config2command_tests.pl QemuServerTest/*.pm cfg2cmd/*.conf
 	perl -I../ ./run_config2command_tests.pl

@@ -219,6 +219,16 @@ sub __snapshot_assert_no_blockers {
     PVE::QemuMigrate::Helpers::check_non_migratable_resources($vmconf, $save_vmstate, 0);
 }
 
+# A storage without any VM content type is not excluded: the fallback to 'local' for a VM without
+# disks relies on state volumes being accepted there.
+my sub storage_excludes_vmstate {
+    my ($scfg) = @_;
+
+    my $content = $scfg->{content};
+    return PVE::Storage::Common::content_allows($content, 'images')
+        && !PVE::Storage::Common::content_allows($content, 'vm-state');
+}
+
 sub __snapshot_save_vmstate {
     my ($class, $vmid, $conf, $snapname, $storecfg, $statestorage, $suspend) = @_;
 
@@ -237,6 +247,8 @@ sub __snapshot_save_vmstate {
     # memory content + state to minimize vm downtime
     my $size = $mem_size * 2 + $driver_state_size;
     my $scfg = PVE::Storage::storage_config($storecfg, $target);
+
+    die "storage '$target' does not allow VM state volumes\n" if storage_excludes_vmstate($scfg);
 
     my $name = "vm-$vmid-state-$snapname";
     $name .= ".raw" if $scfg->{path}; # add filename extension for file base storage
@@ -771,6 +783,7 @@ sub find_vmstate_storage {
         sub {
             my ($sid) = @_;
             my $scfg = PVE::Storage::storage_config($storecfg, $sid);
+            return if storage_excludes_vmstate($scfg);
             my $dst = $scfg->{shared} ? \$shared : \$local;
             $$dst = $sid if !$$dst || $scfg->{path}; # prefer file based storage
         },
