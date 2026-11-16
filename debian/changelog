@@ -1,3 +1,20 @@
+qemu-server (9.2.17) trixie; urgency=medium
+
+  * storage: handle the volume types that libpve-storage-perl 9.1.17 uses to
+    tell the disks ('vm-vol') and the saved states ('vm-state') of VMs apart.
+    A storage that is restricted to the disks of VMs can be used for them like
+    one with the 'images' content type, including for migration, replication
+    and restore. Nothing changes for storages with the 'images' content type,
+    which allows both types.
+
+  * vm state: do not place the state of a snapshot with RAM or of a hibernated
+    VM on a storage that allows the disks of VMs but not their states. Such a
+    storage is skipped when the state storage is chosen from the storages of
+    the VM's disks. It is refused with an error if it is requested explicitly,
+    set as 'vmstatestorage', or is the 'local' storage used as fallback.
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 16 Nov 2026 02:56:41 +0100
+
 qemu-server (9.2.16) trixie; urgency=medium
 
   * hotplug: remove the parts of a disk that were already added if
