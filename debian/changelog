@@ -1,3 +1,96 @@
+qemu-server (9.2.16) trixie; urgency=medium
+
+  * hotplug: remove the parts of a disk that were already added if
+    hotplugging it fails, and detect a failed SCSI disk hotplug instead of
+    moving the disk from the pending changes into the config.
+
+  * qm list: label the memory and boot disk columns with MiB and GiB, the
+    units of their values.
+
+  * qm disk resize: return the exit status of the resize task instead of
+    always reporting success.
+
+  * fix #6490: network: add the bridge forwarding database entries of a NIC
+    when hotplugging or re-plugging it, for example after changing its
+    firewall setting, so the guest keeps connectivity on bridges with MAC
+    learning disabled. A missing entry no longer fails a live migration at
+    its end.
+
+  * fix #8251: migrate: fix migrating local disks of VMs that also use a disk
+    passed through by its absolute path and marked as shared.
+
+  * fix #8120: config: accept the 'import' lock set during live imports, which
+    made 'qm config' fail for such VMs.
+
+  * watchdog: remove the 'ib700' model, which could not be used since 2011, as
+    QEMU cannot attach it to a PCI bus.
+
+  * api: rollback: require the 'VM.PowerMgmt' privilege if rolling back to a
+    snapshot starts or stops the VM.
+
+  * backup provider: keep the changes covered by a backup in the dirty bitmap
+    if the backup task fails after archiving, for example while pruning, so
+    that the next incremental backup does not miss them.
+
+  * restore:
+    - check the permissions for the config of legacy tar archives, like for
+      the other backup formats.
+    - drop pending changes from the config of the backup, which vzdump never
+      includes.
+    - only reset the replication state of an existing VM once the config of
+      the backup could be read, so an early failure does not force a full
+      sync.
+
+  * config:
+    - do not show the values of sensitive options, like the cloud-init
+      password, in warnings about lines that cannot be parsed.
+    - protect the read-only 'meta' property: the API rejects deleting or
+      reverting it, and pending changes to it are dropped with a warning.
+    - keep 'args' lines that end in text like 'snapstate: delete', which were
+      dropped on the next write.
+
+  * remote migration: remove the VM config reserved on the target if the
+    tunnel versions do not match, which kept the VMID blocked there.
+
+  * machine: keep the exact version of a forced machine, as used when resuming
+    from hibernation, rolling back to a snapshot with RAM, and with 'qm start
+    --machine'. Its '+pve' revision could be lowered, so a later live
+    migration of a Windows 11 VM on an Intel host left out 'hv_evmcs' on the
+    target. VMs already running with a lowered revision need a restart.
+
+  * machine: keep the '.pxe' suffix of the configured machine when resuming
+    from hibernation or rolling back to a snapshot with RAM, so that the NICs
+    use the same ROM files as when the state was saved, which QEMU requires to
+    load it.
+
+  * fix starting VMs with:
+    - virtio-fs without NUMA and a memory setting that is unset or uses the
+      'current' key.
+    - a VirtIO NIC with multiqueue but without a bridge.
+    - an e1000e NIC on a machine with the '.pxe' suffix.
+    - a Windows OS type, no machine version and a 'meta' property without the
+      QEMU creation version.
+
+  * drive: apply limits set with the 'bps', 'bps_rd' and 'bps_wr' options,
+    which were ignored and replaced by no limit when updating the drive.
+    Limits still present in a config take effect on the next VM start. These
+    options are now deprecated in favor of their 'mbps' variants, which the
+    web interface uses.
+
+  * cpu affinity: pin the VM to the first host CPU if 'affinity' is set to
+    '0', instead of ignoring the setting.
+
+  * tdx: apply the documented defaults, enabling attestation unless disabled,
+    with CID 2 and port 4050 for the Quote Generation Service. Previously,
+    attestation without CID and port failed to start, and a TDX setting
+    without the attestation option was ignored with a warning.
+
+  * vm start: deactivate the volumes and run the post-stop hookscript when
+    stopping a VM whose start failed late, for example on a timeout querying
+    the QEMU version on a busy host.
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 16 Nov 2026 02:21:38 +0100
+
 qemu-server (9.2.15) trixie; urgency=medium
 
   * pci: fail the VM start early if a device passed through with VFIO stopped
