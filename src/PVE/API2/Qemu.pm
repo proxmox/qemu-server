@@ -1897,7 +1897,7 @@ __PACKAGE__->register_method({
         } else {
             $conf = PVE::QemuConfig->load_current_config($param->{vmid}, $param->{current});
         }
-        $conf->{cipassword} = '**********' if $conf->{cipassword};
+        $conf->{cipassword} = '**********' if defined($conf->{cipassword});
         return $conf;
 
     },
