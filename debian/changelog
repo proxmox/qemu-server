@@ -1,3 +1,12 @@
+qemu-server (9.2.18) trixie; urgency=medium
+
+  * api: agent: mark the new guest password as sensitive.
+
+  * api: record used VM IDs for supporting the new 'unique' property for the
+    'next-id' datacenter configuration option.
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 17 Nov 2026 12:26:51 +0100
+
 qemu-server (9.2.17) trixie; urgency=medium
 
   * storage: handle the volume types that libpve-storage-perl 9.1.17 uses to
