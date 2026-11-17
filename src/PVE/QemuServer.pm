@@ -6868,6 +6868,15 @@ sub rescan {
     }
 }
 
+# Copies the firewall config of a backup from the file $path to the firewall config of the VM $vmid.
+sub restore_firewall_config {
+    my ($vmid, $path) = @_;
+
+    my $pve_firewall_dir = '/etc/pve/firewall';
+    mkdir $pve_firewall_dir; # make sure the dir exists
+    PVE::Tools::file_copy($path, "${pve_firewall_dir}/$vmid.fw");
+}
+
 sub restore_proxmox_backup_archive {
     my ($archive, $vmid, $user, $options) = @_;
 
@@ -6957,9 +6966,7 @@ sub restore_proxmox_backup_archive {
             $param = [$pbs_backup_name, "fw.conf", $firewall_config_fn];
             PVE::Storage::PBSPlugin::run_raw_client_cmd($scfg, $storeid, $cmd, $param);
 
-            my $pve_firewall_dir = '/etc/pve/firewall';
-            mkdir $pve_firewall_dir; # make sure the dir exists
-            PVE::Tools::file_copy($firewall_config_fn, "${pve_firewall_dir}/$vmid.fw");
+            restore_firewall_config($vmid, $firewall_config_fn);
         }
 
         my $fh = IO::File->new($cfgfn, "r")
@@ -7138,9 +7145,7 @@ sub restore_external_archive {
 
         if ($data = $backup_provider->archive_get_firewall_config($volname)) {
             PVE::Tools::file_set_contents($firewall_config_fn, $data);
-            my $pve_firewall_dir = '/etc/pve/firewall';
-            mkdir $pve_firewall_dir; # make sure the dir exists
-            PVE::Tools::file_copy($firewall_config_fn, "${pve_firewall_dir}/$vmid.fw");
+            restore_firewall_config($vmid, $firewall_config_fn);
         }
 
         my $fh = IO::File->new($cfgfn, "r") or die "unable to read qemu-server.conf - $!\n";
@@ -7553,11 +7558,7 @@ sub restore_vma_archive {
             || die "unable to read qemu-server.conf - $!\n";
 
         my $fwcfgfn = "$tmpdir/qemu-server.fw";
-        if (-f $fwcfgfn) {
-            my $pve_firewall_dir = '/etc/pve/firewall';
-            mkdir $pve_firewall_dir; # make sure the dir exists
-            PVE::Tools::file_copy($fwcfgfn, "${pve_firewall_dir}/$vmid.fw");
-        }
+        restore_firewall_config($vmid, $fwcfgfn) if -f $fwcfgfn;
 
         $virtdev_hash = $parse_backup_hints->($rpcenv, $user, $cfg, $fh, $devinfo, $opts);
 
