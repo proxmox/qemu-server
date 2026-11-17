@@ -12,6 +12,7 @@ use IPC::Open3;
 use JSON;
 use URI::Escape;
 use Socket qw(SOCK_STREAM);
+use Time::HiRes qw(usleep);
 
 use PVE::APIClient::LWP;
 use PVE::CGroup;
@@ -6946,6 +6947,21 @@ __PACKAGE__->register_method({
                 bwlimit => $PVE::StorageTunnel::cmd_schema->{bwlimit},
             };
 
+            # Removes what the tunnel created on this node, must run with the config lock held.
+            my $cleanup = sub {
+                if ($state->{cleanup}->{fw}) {
+                    PVE::Firewall::remove_vmfw_conf($state->{vmid});
+                }
+
+                for my $volid (keys $state->{cleanup}->{volumes}->%*) {
+                    print "freeing volume '$volid' as part of cleanup\n";
+                    eval { PVE::Storage::vdisk_free($state->{storecfg}, $volid) };
+                    warn $@ if $@;
+                }
+
+                PVE::QemuServer::destroy_vm($state->{storecfg}, $state->{vmid}, 1);
+            };
+
             my $cmd_handlers = {
                 'version' => sub {
                     # compared against other end's version
@@ -7204,19 +7220,7 @@ __PACKAGE__->register_method({
                 'quit' => sub {
                     my ($params) = @_;
 
-                    if ($params->{cleanup}) {
-                        if ($state->{cleanup}->{fw}) {
-                            PVE::Firewall::remove_vmfw_conf($state->{vmid});
-                        }
-
-                        for my $volid (keys $state->{cleanup}->{volumes}->%*) {
-                            print "freeing volume '$volid' as part of cleanup\n";
-                            eval { PVE::Storage::vdisk_free($state->{storecfg}, $volid) };
-                            warn $@ if $@;
-                        }
-
-                        PVE::QemuServer::destroy_vm($state->{storecfg}, $state->{vmid}, 1);
-                    }
+                    $cleanup->() if $params->{cleanup};
 
                     print "switching to exit-mode, waiting for client to disconnect\n";
                     $state->{exit} = 1;
@@ -7326,6 +7330,35 @@ __PACKAGE__->register_method({
             if ($state->{exit}) {
                 print "mtunnel exited\n";
             } else {
+                # Without the config, the source cannot have finished the migration, so what the
+                # tunnel created here is of no use. Clean up as if the source had asked for it.
+                if (($state->{lock} // '') eq 'create') {
+                    warn "tunnel closed before the config arrived, cleaning up\n";
+                    eval {
+                        $run_locked->(sub {
+                            # The volume of a transfer is only known once it got collected. One that
+                            # still runs ends with the tunnel, so wait for that, and keep everything
+                            # if it does not end or cannot be collected.
+                            my $deadline = time() + 60;
+                            while ($state->{disk_import} && time() < $deadline) {
+                                eval {
+                                    PVE::StorageTunnel::handle_query_disk_import($state, {});
+                                };
+                                if (my $err = $@) {
+                                    warn $err;
+                                    last;
+                                }
+                                # a query returns at once while a transfer that closed its output
+                                # has not exited yet
+                                usleep(100_000) if $state->{disk_import};
+                            }
+                            die "a volume transfer is still running\n" if $state->{disk_import};
+
+                            $cleanup->();
+                        });
+                    };
+                    warn "cleanup failed - $@" if $@;
+                }
                 die "mtunnel exited unexpectedly\n";
             }
         };
