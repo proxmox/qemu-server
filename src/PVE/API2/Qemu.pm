@@ -7313,8 +7313,11 @@ __PACKAGE__->register_method({
                         my $res = $run_locked->($handler, $parsed);
                         $reply_ok->($res);
                     };
-                    $reply_err->("failed to handle '$cmd' command - $@")
-                        if $@;
+                    if (my $err = $@) {
+                        # the reply only reaches the source
+                        warn "failed to handle '$cmd' command - $err";
+                        $reply_err->("failed to handle '$cmd' command - $err");
+                    }
                 } else {
                     $reply_err->("unknown command '$cmd' given");
                 }
