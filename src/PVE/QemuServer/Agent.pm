@@ -4,6 +4,8 @@ use v5.36;
 
 use JSON;
 use MIME::Base64 qw(decode_base64 encode_base64);
+use POSIX qw(strftime);
+use Time::HiRes qw(time);
 
 use PVE::JSONSchema;
 
@@ -51,6 +53,25 @@ our $agent_fmt = {
         type => 'boolean',
         optional => 1,
         default => 1,
+    },
+    # FIXME: MAJOR VERSION: reconsider enabling this option by default
+    'sync-time-on-resume' => {
+        description =>
+            "Synchronize the guest's clock through QGA after operations that can leave"
+            . " the guest's clock behind.",
+        verbose_description =>
+            "Whether to issue the 'guest-set-time' QEMU guest agent command to synchronize the"
+            . " guest's clock to the host's current time after operations that can leave the"
+            . " guest's clock behind. This happens when resuming from hibernation, resuming from a"
+            . " paused state, taking a snapshot, after a live migration, after a backup in suspend"
+            . " mode, and after rolling back to a snapshot that includes RAM. In these cases the"
+            . " guest's clock may still reflect an earlier time. The time is only synchronized"
+            . " when the QEMU Guest Agent option is enabled in the guest's configuration and the"
+            . " agent is running inside of the guest. For resume, hibernation resume and snapshot"
+            . " rollback, the synchronization can be overridden per operation.",
+        type => 'boolean',
+        optional => 1,
+        default => 0,
     },
     type => {
         description => "Select the agent type",
@@ -329,6 +350,48 @@ sub guest_fs_freeze_applicable($agent_str, $vmid, $logfunc = undef) {
         return;
     }
 
+    return 1;
+}
+
+=head3 should_sync_time_on_resume
+
+Returns whether the guest's clock should be synchronized to the host's via the QEMU Guest Agent
+after operations that can leave the guest's clock behind. Returns 0 if the agent is not enabled. An
+explicit C<$override> (from an API parameter) takes precedence over the C<sync-time-on-resume> agent
+config property when defined; otherwise the config value is used (defaulting to off). Does B<not>
+check whether the agent is actually running.
+
+=cut
+
+sub should_sync_time_on_resume($agent_str, $override = undef) {
+    my $agent = parse_guest_agent($agent_str);
+    return 0 if !$agent->{enabled};
+    return $override ? 1 : 0 if defined($override);
+    return $agent->{'sync-time-on-resume'} // 0;
+}
+
+=head3 guest_set_time
+
+Sets the guest's clock to the current host time via the QEMU Guest Agent's C<guest-set-time>
+command. The host time is passed explicitly (as nanoseconds since the UNIX epoch) because the
+argument-less form reads the time from the guest's RTC, which isn't supported on all platforms
+(e.g. Windows); passing the value directly works regardless of guest OS.
+
+Returns 1 if the time was set, 0 if it was skipped because the agent is not running. Dies if the
+agent returns an error.
+
+=cut
+
+sub guest_set_time($vmid, $quiet = undef) {
+    if (!qga_check_running($vmid, 1)) {
+        print "skipping guest time sync - agent configured but not running?\n" if !$quiet;
+        return 0;
+    }
+    my $time_ns = time() * 1_000_000_000;
+    my $res = PVE::QemuServer::Monitor::mon_cmd($vmid, 'guest-set-time', time => int($time_ns));
+    check_agent_error($res, "unable to set guest time");
+    my $time_str = strftime("%F %T", localtime($time_ns / 1_000_000_000));
+    print "synced guest clock via guest agent to $time_str\n" if !$quiet;
     return 1;
 }
 

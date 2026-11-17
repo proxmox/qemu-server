@@ -474,7 +474,7 @@ __PACKAGE__->register_method({
                 if (PVE::QemuServer::Helpers::vm_running_locally($vmid)) {
                     # vm_resume with nocheck, since local node might not have processed config
                     # move/rename yet
-                    eval { PVE::QemuServer::RunState::vm_resume($vmid, 1, 1); };
+                    eval { PVE::QemuServer::RunState::vm_resume($vmid, 1, 1, undef, 1); };
                     if ($@) {
                         $tunnel_write->("ERR: resume failed - $@");
                     } else {

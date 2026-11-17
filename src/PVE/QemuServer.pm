@@ -5082,7 +5082,10 @@ sub vmconfig_update_agent {
 
     die "skip\n" if !$conf->{$opt};
 
-    my $hotplug_options = { fstrim_cloned_disks => 1 };
+    my $hotplug_options = {
+        fstrim_cloned_disks => 1,
+        'sync-time-on-resume' => 1,
+    };
 
     my $old_agent = parse_guest_agent($conf->{agent});
     my $agent = parse_guest_agent($value);
@@ -5949,6 +5952,18 @@ sub vm_start_nolock {
             "current machine version '$current_machine' is deprecated - see the documentation and "
                 . "change to a newer one",
         );
+    }
+
+    # $resume = hibernation resume, $statefile = rollback with RAM. For rollback, $conf is already
+    # the restored config and params carry the API override or the pre-rollback sync preference.
+    if ($resume || ($statefile && !$migratedfrom)) {
+        if (PVE::QemuServer::Agent::should_sync_time_on_resume(
+            $conf->{agent},
+            $params->{'sync-time-on-resume'},
+        )) {
+            eval { PVE::QemuServer::Agent::guest_set_time($vmid); };
+            warn "could not sync guest time after resume from saved state - $@" if $@;
+        }
     }
 
     return $res;

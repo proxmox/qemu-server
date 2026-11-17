@@ -401,6 +401,11 @@ sub __snapshot_create_vol_snapshots_hook {
                     next;
                 }
             }
+            my $conf = $class->load_config($vmid);
+            if (PVE::QemuServer::Agent::should_sync_time_on_resume($conf->{agent})) {
+                eval { PVE::QemuServer::Agent::guest_set_time($vmid); };
+                warn "could not sync guest time after snapshot - $@" if $@;
+            }
         }
     }
 }
@@ -486,6 +491,11 @@ sub __snapshot_rollback_hook {
     if ($prepare) {
         # we save the machine of the current config
         $data->{oldmachine} = $conf->{machine};
+        # use the current 'sync-time-on-resume' preference, as the snapshot may have been taken
+        # before the option was enabled. With the agent disabled now, the snapshot's value applies.
+        my $agent = PVE::QemuServer::Agent::parse_guest_agent($conf->{agent});
+        $data->{'sync-time-on-resume'} = $agent->{'sync-time-on-resume'} // 0
+            if $agent->{enabled};
     } else {
         # if we have a 'runningmachine' entry in the snapshot we use that
         # for the forcemachine parameter, else we use the old logic
@@ -549,7 +559,7 @@ sub __snapshot_rollback_vm_stop {
 }
 
 sub __snapshot_rollback_vm_start {
-    my ($class, $vmid, $vmstate, $data) = @_;
+    my ($class, $vmid, $vmstate, $data, $opts) = @_;
 
     my $storecfg = PVE::Storage::config();
     my $params = {
@@ -557,6 +567,8 @@ sub __snapshot_rollback_vm_start {
         forcemachine => $data->{forcemachine},
         forcecpu => $data->{forcecpu},
         'nets-host-mtu' => $data->{'nets-host-mtu'},
+        'sync-time-on-resume' => $opts->{'sync-time-on-resume'}
+            // $data->{'sync-time-on-resume'},
     };
     PVE::QemuServer::vm_start($storecfg, $vmid, $params);
 }

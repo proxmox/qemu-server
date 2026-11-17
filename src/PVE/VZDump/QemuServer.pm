@@ -1185,20 +1185,41 @@ sub enforce_vm_running_for_backup {
     die $@ if $@;
 }
 
+my sub sync_guest_time_after_resume {
+    my ($self, $vmid) = @_;
+
+    my $agent_str = $self->{vmlist}->{$vmid}->{agent};
+    return if !PVE::QemuServer::Agent::should_sync_time_on_resume($agent_str);
+
+    my $synced = eval { PVE::QemuServer::Agent::guest_set_time($vmid, 1) };
+    if (my $err = $@) {
+        $self->log('warn', "could not sync guest time - $err");
+    } elsif ($synced) {
+        $self->loginfo("synced guest clock via guest agent");
+    } else {
+        $self->loginfo("skipping guest time sync - agent configured but not running?");
+    }
+}
+
 # resume VM again once in a clear state (stop mode backup of running VM)
 sub resume_vm_after_job_start {
     my ($self, $task, $vmid) = @_;
 
     return if !$self->{vm_was_running} || $self->{vm_was_paused};
 
-    if (my $stoptime = $task->{vmstoptime}) {
-        my $delay = time() - $task->{vmstoptime};
+    my $stoptime = $task->{vmstoptime};
+    if ($stoptime) {
+        my $delay = time() - $stoptime;
         $task->{vmstoptime} = undef; # avoid printing 'online after ..' twice
         $self->loginfo("resuming VM again after $delay seconds");
     } else {
         $self->loginfo("resuming VM again");
     }
     mon_cmd($vmid, 'cont', timeout => 45);
+
+    # only after a real vCPU pause: in stop mode the guest just booted, and $stoptime is
+    # cleared after the first call, so the error path does not sync twice
+    sync_guest_time_after_resume($self, $vmid) if $stoptime && $task->{mode} eq 'suspend';
 }
 
 # stop again if VM was not running before

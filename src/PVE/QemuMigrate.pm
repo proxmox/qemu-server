@@ -1788,6 +1788,12 @@ sub phase3_cleanup {
                     $self->{errors} = 1;
                 }
             }
+            if (
+                !$self->{errors}
+                && PVE::QemuServer::Agent::should_sync_time_on_resume($conf->{agent})
+            ) {
+                $self->log('info', "guest clock sync via guest agent was requested on target");
+            }
         }
 
         if (

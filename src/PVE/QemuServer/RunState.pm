@@ -131,7 +131,7 @@ sub vm_suspend($vmid, $skiplock = undef, $includestate = undef, $statestorage = 
 # $nocheck is set when called as part of a migration - in this context the
 # location of the config file (source or target node) is not deterministic,
 # since migration cannot wait for pmxcfs to process the rename
-sub vm_resume($vmid, $skiplock = undef, $nocheck = undef) {
+sub vm_resume($vmid, $skiplock = undef, $nocheck = undef, $sync_time = undef, $quiet = undef) {
 
     PVE::QemuConfig->lock_config(
         $vmid,
@@ -183,6 +183,21 @@ sub vm_resume($vmid, $skiplock = undef, $nocheck = undef) {
                 if $resume_cmd eq 'cont';
 
             mon_cmd($vmid, $resume_cmd);
+
+            # A VM in 'prelaunch' never ran, and a VM that shut down during a backup is reset
+            # above. Both boot fresh, so the clock is not behind and the agent is not up yet.
+            my $status = $res->{status} // '';
+            my $guest_was_running = $status ne 'prelaunch' && $status ne 'shutdown';
+            if (
+                $resume_cmd eq 'cont'
+                && $guest_was_running
+                && PVE::QemuServer::Agent::should_sync_time_on_resume(
+                    $conf->{agent}, $sync_time,
+                )
+            ) {
+                eval { PVE::QemuServer::Agent::guest_set_time($vmid, $quiet); };
+                warn "could not sync guest time after resume - $@" if $@;
+            }
         },
     );
 }

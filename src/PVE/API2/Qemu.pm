@@ -3614,6 +3614,24 @@ __PACKAGE__->register_method({
                 description => 'Whether to migrate conntrack entries for running VMs.',
             },
             'nets-host-mtu' => get_standard_option('pve-qm-nets-host-mtu'),
+            'sync-time-on-resume' => {
+                type => 'boolean',
+                description =>
+                    "Override the 'sync-time-on-resume' setting from the VM's guest agent (QGA)"
+                    . " config for this start only. Controls whether the guest's clock is"
+                    . " synchronized when starting a hibernated VM. No effect on a regular start.",
+                verbose_description =>
+                    "Override the 'sync-time-on-resume' setting from the VM's guest agent (QGA)"
+                    . " config for this start only. When enabled, the 'guest-set-time' QEMU guest"
+                    . " agent command is issued to synchronize the guest's clock to the host's"
+                    . " current time after the RAM state is restored, which happens here when"
+                    . " starting a VM that was hibernated (suspended to disk). Without"
+                    . " synchronization the guest's clock may still reflect the time from when the"
+                    . " VM was hibernated. The time is only synchronized when the QEMU Guest Agent"
+                    . " option is enabled in the guest's configuration and the agent is running"
+                    . " inside of the guest.",
+                optional => 1,
+            },
         },
     },
     returns => {
@@ -3629,6 +3647,7 @@ __PACKAGE__->register_method({
         my $vmid = extract_param($param, 'vmid');
         my $timeout = extract_param($param, 'timeout');
         my $machine = extract_param($param, 'machine');
+        my $sync_time = extract_param($param, 'sync-time-on-resume');
 
         my $get_root_param = sub {
             my $value = extract_param($param, $_[0]);
@@ -3735,6 +3754,7 @@ __PACKAGE__->register_method({
                     timeout => $timeout,
                     forcecpu => $force_cpu,
                     'nets-host-mtu' => $nets_host_mtu,
+                    'sync-time-on-resume' => $sync_time,
                 };
 
                 PVE::QemuServer::vm_start($storecfg, $vmid, $params, $migrate_opts);
@@ -4219,6 +4239,23 @@ __PACKAGE__->register_method({
                 description => "Do not check whether the VM is running, used"
                     . " internally during migration. Only root may use this option.",
             },
+            'sync-time-on-resume' => {
+                type => 'boolean',
+                description =>
+                    "Override the 'sync-time-on-resume' setting from the VM's guest agent (QGA)"
+                    . " config for this resume only. Controls whether the guest's clock is"
+                    . " synchronized after resuming the VM.",
+                verbose_description =>
+                    "Override the 'sync-time-on-resume' setting from the VM's guest agent (QGA)"
+                    . " config for this resume only. When enabled, the 'guest-set-time' QEMU guest"
+                    . " agent command is issued to synchronize the guest's clock to the host's"
+                    . " current time after resuming the VM from a paused or hibernated state."
+                    . " Without synchronization the guest's clock may still reflect the time from"
+                    . " when the VM was paused or hibernated. The time is only synchronized when"
+                    . " the QEMU Guest Agent option is enabled in the guest's configuration and"
+                    . " the agent is running inside of the guest.",
+                optional => 1,
+            },
         },
     },
     returns => {
@@ -4234,6 +4271,8 @@ __PACKAGE__->register_method({
         my $node = extract_param($param, 'node');
 
         my $vmid = extract_param($param, 'vmid');
+
+        my $sync_time = extract_param($param, 'sync-time-on-resume');
 
         my $skiplock = extract_param($param, 'skiplock');
         raise_param_exc({ skiplock => "Only root may use this option." })
@@ -4265,10 +4304,14 @@ __PACKAGE__->register_method({
             syslog('info', "resume VM $vmid: $upid\n");
 
             if (!$to_disk_suspended) {
-                PVE::QemuServer::RunState::vm_resume($vmid, $skiplock, $nocheck);
+                PVE::QemuServer::RunState::vm_resume($vmid, $skiplock, $nocheck, $sync_time);
             } else {
                 my $storecfg = PVE::Storage::config();
-                PVE::QemuServer::vm_start($storecfg, $vmid, { skiplock => $skiplock });
+                PVE::QemuServer::vm_start(
+                    $storecfg,
+                    $vmid,
+                    { skiplock => $skiplock, 'sync-time-on-resume' => $sync_time },
+                );
             }
 
             return;
@@ -6494,6 +6537,23 @@ __PACKAGE__->register_method({
                 optional => 1,
                 default => 0,
             },
+            'sync-time-on-resume' => {
+                type => 'boolean',
+                description =>
+                    "Override the 'sync-time-on-resume' setting from the VM's guest agent (QGA)"
+                    . " config for this rollback only. Controls whether the guest's clock is"
+                    . " synchronized after the RAM state is restored.",
+                verbose_description =>
+                    "Override the 'sync-time-on-resume' setting from the VM's guest agent (QGA)"
+                    . " config for this rollback only. When enabled, the 'guest-set-time' QEMU"
+                    . " guest agent command is issued to synchronize the guest's clock to the"
+                    . " host's current time after rolling back to a snapshot that includes RAM."
+                    . " Without synchronization the guest's clock may still reflect the time from"
+                    . " when the snapshot was taken. The time is only synchronized when the QEMU"
+                    . " Guest Agent option is enabled in the guest's configuration and the agent"
+                    . " is running inside of the guest.",
+                optional => 1,
+            },
         },
     },
     returns => {
@@ -6513,6 +6573,8 @@ __PACKAGE__->register_method({
 
         my $snapname = extract_param($param, 'snapname');
 
+        my $sync_time = extract_param($param, 'sync-time-on-resume');
+
         my $conf = PVE::QemuConfig->load_config($vmid);
         my $snap = $conf->{snapshots}->{$snapname};
         die "snapshot '$snapname' does not exist\n" if !defined($snap);
@@ -6530,7 +6592,11 @@ __PACKAGE__->register_method({
 
         my $realcmd = sub {
             PVE::Cluster::log_msg('info', $authuser, "rollback snapshot VM $vmid: $snapname");
-            PVE::QemuConfig->snapshot_rollback($vmid, $snapname);
+            PVE::QemuConfig->snapshot_rollback(
+                $vmid,
+                $snapname,
+                { 'sync-time-on-resume' => $sync_time },
+            );
 
             if ($param->{start} && !PVE::QemuServer::Helpers::vm_running_locally($vmid)) {
                 PVE::API2::Qemu->vm_start({ vmid => $vmid, node => $node });
@@ -7207,7 +7273,7 @@ __PACKAGE__->register_method({
                 },
                 'resume' => sub {
                     if (PVE::QemuServer::Helpers::vm_running_locally($state->{vmid})) {
-                        PVE::QemuServer::RunState::vm_resume($state->{vmid}, 1, 1);
+                        PVE::QemuServer::RunState::vm_resume($state->{vmid}, 1, 1, undef, 1);
                     } else {
                         die "VM $state->{vmid} not running\n";
                     }
