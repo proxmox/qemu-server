@@ -8,8 +8,27 @@ use POSIX qw();
 use base 'Exporter';
 
 our @EXPORT_OK = qw(
+    capture_output
     diff
 );
+
+# Runs $code and returns what it prints to the selected output handle and to STDERR, which includes
+# warnings.
+sub capture_output($code) {
+    my $output = '';
+    open(my $fh, '>', \$output) or die "unable to open an in-memory file - $!\n";
+    my $oldfh = select($fh);
+    eval {
+        local *STDERR = $fh;
+        $code->();
+    };
+    my $err = $@;
+    select($oldfh);
+    close($fh);
+    die $err if $err;
+
+    return $output;
+}
 
 sub diff($expected, $got) {
     return if $expected eq $got;
