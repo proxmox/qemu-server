@@ -377,6 +377,8 @@ sub qmp_cmd {
     my $cmd = { execute => $execute, arguments => \%arguments };
 
     my $exec = $cmd->{execute};
+    die "$peer->{name} not running\n" if $vm_mon->{exited};
+
     if ($exec eq "guest-ping") {
         die "guest-ping disabled\n"
             if !$vm_mon->{guest_ping};
@@ -391,6 +393,7 @@ sub qmp_cmd {
         die "savevm-start disabled\n"
             if !$vm_mon->{savevm_start};
         $vm_mon->{savevm_ended} = 0;
+        $vm_mon->{exited} = $vm_mon->{exit_after_savevm_start};
         return;
     }
     if ($exec eq "savevm-end") {
@@ -674,6 +677,12 @@ testcase_create(
     "unable to save VM state and RAM - savevm failed\n\n",
 );
 $vm_mon->{savevm_fail} = 0;
+
+$vm_mon->{exit_after_savevm_start} = 1;
+printf("Expected error for snapshot_create when QEMU exits while saving the VM state\n");
+testcase_create("205", "test", 1, "test comment", "VM 205 not running\n\n");
+$vm_mon->{exit_after_savevm_start} = 0;
+$vm_mon->{exited} = 0;
 
 printf("Successful snapshot_create with no existing snapshots but set machine type\n");
 testcase_create("301", "test", 1, "test comment", "", { "local:snapshotable-disk-1" => "test" });

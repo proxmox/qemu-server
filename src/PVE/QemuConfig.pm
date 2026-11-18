@@ -394,7 +394,13 @@ sub __snapshot_create_vol_snapshots_hook {
             my $timeout = 35;
             my $start_time = time();
             for (;;) {
-                my $stat = mon_cmd($vmid, "query-savevm");
+                # This runs outside the error handling of the snapshot creation, so dying here
+                # would skip the cleanup of a failed snapshot.
+                my $stat = eval { mon_cmd($vmid, "query-savevm") };
+                if (my $err = $@) {
+                    warn "could not check if 'savevm-end' completed - $err";
+                    last;
+                }
 
                 if (defined($stat->{'savevm-end-active'})) {
                     last if !$stat->{'savevm-end-active'};
