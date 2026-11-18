@@ -7347,7 +7347,7 @@ __PACKAGE__->register_method({
             };
 
             $run_locked->(sub {
-                my $socket_addr = "/run/qemu-server/$state->{vmid}.mtunnel";
+                my $socket_addr = PVE::QemuServer::Helpers::mtunnel_socket($state->{vmid});
                 unlink $socket_addr;
 
                 $state->{socket} = IO::Socket::UNIX->new(
@@ -7370,7 +7370,7 @@ __PACKAGE__->register_method({
                 warn "Failed to accept tunnel connection - $@\n";
 
                 warn "Removing tunnel socket..\n";
-                unlink $state->{socket};
+                unlink PVE::QemuServer::Helpers::mtunnel_socket($state->{vmid});
 
                 warn "Removing temporary VM config..\n";
                 $run_locked->(sub {
@@ -7481,7 +7481,7 @@ __PACKAGE__->register_method({
             }
         };
 
-        my $socket_addr = "/run/qemu-server/$vmid.mtunnel";
+        my $socket_addr = PVE::QemuServer::Helpers::mtunnel_socket($vmid);
         my $ticket =
             PVE::AccessControl::assemble_tunnel_ticket($authuser, "/socket/$socket_addr");
         my $upid = $rpcenv->fork_worker('qmtunnel', $vmid, $authuser, $realcmd);

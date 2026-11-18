@@ -139,6 +139,11 @@ sub vnc_socket {
     return "${var_run_tmpdir}/$vmid.vnc";
 }
 
+sub mtunnel_socket {
+    my ($vmid) = @_;
+    return "/run/qemu-server/$vmid.mtunnel";
+}
+
 # Parse the cmdline of a running kvm/qemu-* process and return arguments as hash
 sub parse_cmdline {
     my ($pid) = @_;
