@@ -146,6 +146,15 @@ my $migrate_json_properties = {
         default => 0,
         description => 'Whether to migrate conntrack entries for running VMs.',
     },
+    'skip-config-check' => {
+        type => 'boolean',
+        optional => 1,
+        default => 0,
+        description =>
+            'For intra-cluster migration. Skip checking if the configuration can be parsed'
+            . ' successfully by the target. Using this flag can lead to dropped'
+            . ' configuration options if the target is too old to parse them.',
+    },
 };
 
 # Properties that will be forwarded via the HA stack to the LRM, which will then use them for its
@@ -153,6 +162,7 @@ my $migrate_json_properties = {
 # not forwarded for HA migrations, the LRM uses hard-coded values for many of those properties.
 my $ha_migrate_props = {
     'with-conntrack-state' => 1,
+    'skip-config-check' => 1,
 };
 
 sub ha_migrate_json_properties {
