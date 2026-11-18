@@ -1,6 +1,6 @@
 all: test
 
-test: test_snapshot test_cfg_to_cmd test_cfg_to_cmd_aarch64 test_hotplug test_hotplug_aarch64 test_pci_addr_conflicts test_pci_reservation test_qemu_img_convert test_migration test_restore_config test_parse_config test_memory test_raw_config_write test_api test_api_cloudinit_dump
+test: test_snapshot test_cfg_to_cmd test_cfg_to_cmd_aarch64 test_hotplug test_hotplug_aarch64 test_pci_addr_conflicts test_pci_reservation test_qemu_img_convert test_migration test_restore_config test_parse_config test_memory test_agent test_raw_config_write test_api test_api_cloudinit_dump
 
 test_snapshot: run_snapshot_tests.pl
 	./run_snapshot_tests.pl
@@ -44,6 +44,9 @@ test_parse_config: run_parse_config_tests.pl QemuServerTest/Utils.pm
 
 test_memory: run_memory_tests.pl
 	./run_memory_tests.pl
+
+test_agent: run_agent_tests.pl
+	./run_agent_tests.pl
 
 test_raw_config_write: run_raw_config_write_tests.pl
 	./run_raw_config_write_tests.pl

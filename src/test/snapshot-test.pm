@@ -30,6 +30,7 @@ my $freeze_possible;
 my $stop_possible;
 my $save_vmstate_works;
 my $vm_mon = {};
+my $vm_start_sync_time;
 
 # Mocked methods
 
@@ -284,6 +285,19 @@ sub testcase_rollback {
     };
 }
 
+sub testcase_rollback_sync_time {
+    my ($vmid, $snapname, $vm_start_opts, $exp_sync_time) = @_;
+    subtest "Guest time sync after rolling back to snapshot '$snapname' of vm '$vmid'" => sub {
+        plan tests => 2;
+        $running = 1;
+        $vm_start_sync_time = undef;
+        $@ = undef;
+        eval { PVE::QemuConfig->snapshot_rollback($vmid, $snapname, $vm_start_opts); };
+        is($@, "", "\$@ correct");
+        is($vm_start_sync_time, $exp_sync_time, "guest time sync decision correct");
+    };
+}
+
 # BEGIN mocked PVE::QemuConfig methods
 sub config_file_lock {
     return "snapshot-working/pve-test.lock";
@@ -413,6 +427,13 @@ sub vm_start {
     die "statefile and forcemachine must be both defined or undefined! aborting\n"
         if defined($params->{statefile})
         xor defined($params->{forcemachine});
+
+    # vm_start_nolock decides with the restored config, which is only on disk at this point
+    my $conf = PVE::QemuConfig->load_config($vmid);
+    $vm_start_sync_time = PVE::QemuServer::Agent::should_sync_time_on_resume(
+        $conf->{agent},
+        $params->{'sync-time-on-resume'},
+    );
 
     return;
 }
@@ -730,6 +751,21 @@ printf(
     "Successful snapshot_rollback to only existing snapshot, with saved vmstate and machine config\n"
 );
 testcase_rollback("106", "test", "", { "local:snapshotable-disk-1" => "test" });
+
+printf("Guest time sync uses the pre-rollback preference if the snapshot predates it\n");
+testcase_rollback_sync_time("107", "test", undef, 1);
+
+printf("Guest time sync override takes precedence over the pre-rollback preference\n");
+testcase_rollback_sync_time("108", "test", { 'sync-time-on-resume' => 0 }, 0);
+
+printf("Guest time sync uses the snapshot preference if the agent was disabled before\n");
+testcase_rollback_sync_time("109", "test", {}, 1);
+
+printf("No guest time sync if the agent is disabled in the snapshot, despite the override\n");
+testcase_rollback_sync_time("110", "test", { 'sync-time-on-resume' => 1 }, 0);
+
+printf("Guest time sync uses the pre-rollback preference over the snapshot preference\n");
+testcase_rollback_sync_time("111", "test", {}, 0);
 
 printf("Expected error for snapshot_rollback with non-existing snapshot\n");
 testcase_rollback("201", "test2", "snapshot 'test2' does not exist\n");
