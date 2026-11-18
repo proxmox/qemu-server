@@ -1431,6 +1431,7 @@ __PACKAGE__->register_method({
         $rpcenv->check_vm_perm($authuser, $vmid, $pool, ['VM.PowerMgmt'])
             if $start_after_create;
 
+        my $overwrite_only;
         if ($rpcenv->check($authuser, "/vms/$vmid", ['VM.Allocate'], 1)) {
             # OK
         } elsif (
@@ -1446,6 +1447,7 @@ __PACKAGE__->register_method({
             && $rpcenv->check($authuser, "/vms/$vmid", ['VM.Backup'], 1)
         ) {
             # OK: user has VM.Backup permissions and wants to restore an existing VM
+            $overwrite_only = 1;
         } else {
             raise_perm_exc();
         }
@@ -1504,8 +1506,10 @@ __PACKAGE__->register_method({
 
         my $emsg = $is_restore ? "unable to restore VM $vmid -" : "unable to create VM $vmid -";
 
-        # 'force' only covers the VM that the checks above saw, not one created in the meantime
-        eval { PVE::QemuConfig->create_and_lock_config($vmid, $force && $vm_exists) };
+        # 'force' only covers the VM that the checks above saw, not one created in the meantime, and
+        # the permission to overwrite a VM does not cover creating it anew if it is gone by now
+        my $allow_existing = $overwrite_only ? 'require' : $force && $vm_exists;
+        eval { PVE::QemuConfig->create_and_lock_config($vmid, $allow_existing) };
         die "$emsg $@" if $@;
 
         my $restored_data = 0;

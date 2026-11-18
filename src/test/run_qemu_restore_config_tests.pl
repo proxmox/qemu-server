@@ -332,6 +332,32 @@ subtest "'force' does not overwrite a VM created after the checks" => sub {
     is(stored_config(100), $TARGET_CONF, 'VM created in between unchanged');
 };
 
+subtest 'the permission to overwrite a VM does not cover creating it' => sub {
+    # the VM goes away after the permission checks
+    local *PVE::Storage::check_volume_access =
+        sub { QemuServerTest::FakeCFS::set_config(100, undef); };
+
+    reset_cluster($TARGET_CONF);
+    my ($err) = restore_api('pbs', backup_config(), { force => 1 });
+    is($err, '', 'with VM.Allocate: restored as a new VM');
+    like(stored_config(100), qr/^name: backup$/m, 'with VM.Allocate: VM');
+
+    local *PVE::RPCEnvironment::check = sub {
+        my ($self, $user, $path, $privs) = @_;
+        return !grep { $_ eq 'VM.Allocate' } $privs->@*;
+    };
+    reset_cluster($TARGET_CONF);
+    ($err) = restore_api('pbs', backup_config(), { force => 1 });
+    my $config_path = PVE::QemuConfig->cfs_config_path(100);
+    is(
+        $err,
+        "unable to restore VM 100 - Configuration file '$config_path' does not exist\n",
+        'with VM.Backup only: restore refused',
+    );
+    ok(!defined(stored_config(100)), 'with VM.Backup only: no VM');
+    is_deeply($QemuServerTest::FakeCFS::written, {}, 'with VM.Backup only: nothing written');
+};
+
 for my $type ('pbs', 'provider', 'vma file', 'vma stdin') {
     subtest "$type: failed restore over an existing VM" => sub {
         reset_cluster($TARGET_CONF);
