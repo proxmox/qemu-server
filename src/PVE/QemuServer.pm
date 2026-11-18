@@ -7578,7 +7578,7 @@ sub restore_vma_archive {
 
         # create empty/temp config
         if ($oldconf) {
-            PVE::QemuConfig->write_config($vmid, { memory => 128 });
+            PVE::QemuConfig->write_config($vmid, { memory => 128, lock => 'create' });
             $restore_cleanup_oldconf->($cfg, $vmid, $oldconf, $virtdev_hash);
         }
 
