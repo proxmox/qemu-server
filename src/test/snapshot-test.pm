@@ -5,6 +5,8 @@ use warnings;
 
 use lib qw(..);
 
+use JSON;
+
 use PVE::Storage;
 use PVE::Storage::Plugin;
 use PVE::QemuServer;
@@ -398,6 +400,16 @@ sub qmp_cmd {
         return;
     }
     if ($exec eq "query-savevm") {
+        if ($vm_mon->{savevm_fail}) {
+            # QEMU keeps reporting the failed state also after 'savevm-end'
+            return {
+                "status" => "failed",
+                "error" => "savevm failed",
+                "bytes" => 1024 * 1024,
+                "total-time" => 5000,
+                "savevm-end-active" => JSON::false,
+            };
+        }
         return {} if $vm_mon->{savevm_ended};
         return {
             "status" => "completed",
@@ -651,6 +663,17 @@ $vm_mon->{savevm_start} = 0;
 printf("Expected error for snapshot_create when QEMU mon command 'savevm-start' fails\n");
 testcase_create("203", "test", 0, "test comment", "savevm-start disabled\n\n");
 $vm_mon->{savevm_start} = 1;
+
+$vm_mon->{savevm_fail} = 1;
+printf("Expected error for snapshot_create when saving the VM state fails\n");
+testcase_create(
+    "204",
+    "test",
+    1,
+    "test comment",
+    "unable to save VM state and RAM - savevm failed\n\n",
+);
+$vm_mon->{savevm_fail} = 0;
 
 printf("Successful snapshot_create with no existing snapshots but set machine type\n");
 testcase_create("301", "test", 1, "test comment", "", { "local:snapshotable-disk-1" => "test" });
