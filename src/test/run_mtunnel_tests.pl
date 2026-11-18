@@ -88,4 +88,43 @@ subtest 'no connection: socket and reservation are removed' => sub {
     ok(!defined(configs()->{100}), 'reservation is removed');
 };
 
+subtest 'tunnel end before the config arrived with a volume transfer' => sub {
+    my $import_cmd = {
+        cmd => 'disk-import',
+        volname => 'vm-100-disk-0',
+        format => 'raw',
+        export_formats => 'raw+size',
+        storage => 'local',
+    };
+    local *PVE::Storage::storage_check_enabled = sub { return 1; };
+    local *PVE::Storage::storage_config = sub { return { content => { images => 1 } }; };
+    local *PVE::Storage::volume_import_start =
+        sub { die "no matching import/export format found\n"; };
+
+    QemuServerTest::FakeCFS::reset();
+    my ($replies, $output, $err) = run_mtunnel(100, [$import_cmd]);
+    ok(!$replies->[0]->{success}, 'transfer that fails to start: command fails');
+    unlike($output, qr/^cleanup failed/m, 'transfer that fails to start: cleanup runs');
+    ok(!defined(configs()->{100}), 'transfer that fails to start: reservation is removed');
+
+    # the volume of a transfer is only known once the transfer is done
+    local *PVE::StorageTunnel::handle_disk_import = sub {
+        my ($state) = @_;
+        $state->{disk_import} = { pid => 1 };
+        return {};
+    };
+    local *PVE::StorageTunnel::handle_query_disk_import =
+        sub { die "unable to query the transfer\n"; };
+
+    QemuServerTest::FakeCFS::reset();
+    ($replies, $output, $err) = run_mtunnel(100, [$import_cmd]);
+    ok($replies->[0]->{success}, 'transfer that still runs: it started');
+    like(
+        $output,
+        qr/^cleanup failed - a volume transfer is still running$/m,
+        'transfer that still runs: it is reported',
+    );
+    ok(defined(configs()->{100}), 'transfer that still runs: reservation is kept');
+};
+
 done_testing();

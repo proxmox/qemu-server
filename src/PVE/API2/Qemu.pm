@@ -12,7 +12,6 @@ use IPC::Open3;
 use JSON;
 use URI::Escape;
 use Socket qw(SOCK_STREAM);
-use Time::HiRes qw(usleep);
 
 use PVE::APIClient::LWP;
 use PVE::CGroup;
@@ -7457,20 +7456,7 @@ __PACKAGE__->register_method({
                             # The volume of a transfer is only known once it got collected. One that
                             # still runs ends with the tunnel, so wait for that, and keep everything
                             # if it does not end or cannot be collected.
-                            my $deadline = time() + 60;
-                            while ($state->{disk_import} && time() < $deadline) {
-                                eval {
-                                    PVE::StorageTunnel::handle_query_disk_import($state, {});
-                                };
-                                if (my $err = $@) {
-                                    warn $err;
-                                    last;
-                                }
-                                # a query returns at once while a transfer that closed its output
-                                # has not exited yet
-                                usleep(100_000) if $state->{disk_import};
-                            }
-                            die "a volume transfer is still running\n" if $state->{disk_import};
+                            PVE::StorageTunnel::wait_for_disk_import($state);
 
                             $cleanup->();
                         });
