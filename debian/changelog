@@ -1,3 +1,51 @@
+qemu-server (9.2.19) trixie; urgency=medium
+
+  * fix #5032: agent: add the 'sync-time-on-resume' option to set the guest
+    clock to the host time through the guest agent after operations that
+    leave it behind: resuming from hibernation or pause, rolling back to a
+    snapshot with RAM, live migration, taking a snapshot, and backups in
+    suspend mode. The option is off by default. The start, resume and rollback
+    API endpoints get a 'sync-time-on-resume' parameter to override it for a
+    single operation.
+
+  * migration: check that the target node can parse the VM config before an
+    intra-cluster migration, as already done for remote migrations. This
+    prevents an outdated target from dropping settings it cannot parse yet,
+    like a new option of the EFI disk. The check needs pve-manager 9.2.31 or
+    newer on both nodes and can be skipped with the new 'skip-config-check'
+    option.
+
+  * fix #7053: migration: pass the 'with-conntrack-state' and
+    'skip-config-check' options through the HA stack, so they also apply to
+    HA-managed VMs. This needs pve-manager 9.2.31 or newer on all nodes.
+
+  * remote migration: on the target side of the tunnel:
+    - also log failed tunnel commands in the task log of the target.
+    - clean up the reserved VMID and the volumes received so far if the
+      tunnel closes before the source sent the VM config, for example because
+      the source task got killed. The source keeps the VM in that case.
+
+  * restore:
+    - with 'force', only overwrite a VM that already existed for the
+      permission checks. A VM created in the meantime makes the restore fail,
+      as without 'force'.
+    - keep the 'create' lock on the temporary config of a VMA restore, so the
+      VM cannot be started, changed, backed up or migrated before the restore
+      finished, as for the other archive types.
+    - report a temporary volume of a failed tar archive restore that could not
+      be removed, instead of reporting it as removed.
+
+  * api: cloud-init:
+    - only return the dumped meta data of a VM with a cloud-init password to
+      users with the 'VM.Config.Cloudinit' privilege, since it is generated
+      from the unmasked user data.
+    - also mask a cloud-init password of '0' when reading the VM config.
+
+  * api: migration preconditions: describe the reasons why a migration to a
+    node is not allowed per node in the schema, matching the returned data.
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 18 Nov 2026 14:35:28 +0100
+
 qemu-server (9.2.18) trixie; urgency=medium
 
   * api: agent: mark the new guest password as sensitive.
