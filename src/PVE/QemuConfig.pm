@@ -390,10 +390,15 @@ sub __snapshot_create_vol_snapshots_hook {
             };
             warn $@ if $@;
         } elsif ($hook eq "after-unfreeze") {
-            # savevm-end is async, we need to wait
+            # savevm-end is async and waits for up to 30 seconds for closing the target.
+            my $timeout = 35;
+            my $start_time = time();
             for (;;) {
                 my $stat = mon_cmd($vmid, "query-savevm");
                 if (!$stat->{bytes}) {
+                    last;
+                } elsif ((time() - $start_time) >= $timeout) {
+                    warn "timeout waiting for 'savevm-end' to complete\n";
                     last;
                 } else {
                     print "waiting for QEMU to finish the 'savevm-end' command...\n";
