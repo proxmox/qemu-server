@@ -219,16 +219,14 @@ my $usb_map_config = {
 # one directory mapping per possible virtiofs entry, 'share0' to 'share9'
 my $dir_map_config = {
     ids => {
-        map {
-            (
-                "share$_" => {
-                    type => 'dir',
-                    map => [
-                        "node=localhost,path=/mnt/share$_",
-                    ],
-                },
-            )
-        } (0 .. 9),
+        map { (
+            "share$_" => {
+                type => 'dir',
+                map => [
+                    "node=localhost,path=/mnt/share$_",
+                ],
+            },
+        ) } (0 .. 9),
     },
 };
 
