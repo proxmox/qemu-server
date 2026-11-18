@@ -94,7 +94,7 @@ my $ARCHIVES = {
 my $BACKUP_FIREWALL = "[OPTIONS]\nenable: 1\n";
 
 our $current_backup; # raw config of the backup
-# where the restore fails: 'read-config', 'data', 'after-restore' or 'live'
+# where the restore fails: 'read-config', 'command', 'data', 'after-restore' or 'live'
 our $fail_at = '';
 my $calls = {}; # calls with effects on the target VM that tests check
 
@@ -230,7 +230,8 @@ $qemu_server_module->mock(
             or die "unable to open fifo - $!\n";
         # the real run_command, which reports an error of the output callback as one of the command
         my $header = 'echo "CTIME: Wed Jan  1 00:00:00 2025"';
-        eval { $qemu_server_module->original('run_command')->(['sh', '-c', $header], %param) };
+        my $script = $fail_at eq 'command' ? 'exit 1' : $header;
+        eval { $qemu_server_module->original('run_command')->(['sh', '-c', $script], %param) };
         my $err = $@;
         close($reader);
         die $err if $err;
@@ -306,6 +307,18 @@ for my $type (sort keys $ARCHIVES->%*) {
         unlike(stored_config(100), qr/^lock:/m, 'lock removed');
     };
 }
+
+subtest 'vma: an error of the restore setup is reported without the command line' => sub {
+    reset_cluster();
+    local $fail_at = 'data';
+    my ($err) = restore_api('vma file', backup_config(), {});
+    is($err, "restoring the data failed\n", 'error of the setup alone');
+
+    reset_cluster();
+    $fail_at = 'command';
+    ($err) = restore_api('vma file', backup_config(), {});
+    like($err, qr/^command 'sh -c .*' failed: exit code 1$/, 'failed command is named');
+};
 
 subtest "'force' does not overwrite a VM created after the checks" => sub {
     reset_cluster();

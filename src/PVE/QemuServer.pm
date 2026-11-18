@@ -7646,6 +7646,7 @@ sub restore_vma_archive {
     };
 
     my $oldtimeout;
+    my $parser_err;
 
     eval {
         my $timeout_message = "got timeout preparing VMA restore\n";
@@ -7678,10 +7679,21 @@ sub restore_vma_archive {
             }
         };
 
+        # run_command reports an error of the parser as a failure of the command line, so keep it
+        # to report it alone
+        my $outfunc = sub {
+            eval { $parser->(@_) };
+            if (my $parse_err = $@) {
+                $parser_err //= $parse_err;
+                die $parse_err;
+            }
+        };
+
         print "restore vma archive: $dbg_cmdstring\n";
-        run_command($commands, input => $input, outfunc => $parser, afterfork => $openfifo);
+        run_command($commands, input => $input, outfunc => $outfunc, afterfork => $openfifo);
     };
     my $err = $@;
+    $err = $parser_err if $err && defined($parser_err);
 
     alarm($oldtimeout) if $oldtimeout;
 
