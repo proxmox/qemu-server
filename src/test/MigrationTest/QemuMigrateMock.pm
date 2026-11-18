@@ -37,6 +37,14 @@ my $vm_stop_executed = 0;
 
 # mocked modules
 
+$MigrationTest::Shared::cluster_module->mock(
+    node_pvecfg_version_at_least => sub {
+        my ($node) = @_;
+        my $old_node = $fail_config->{node_pvecfg_version_at_least};
+        return defined($old_node) && $node eq $old_node ? 0 : 1;
+    },
+);
+
 my $inotify_module = Test::MockModule->new("PVE::INotify");
 $inotify_module->mock(
     nodename => sub {
@@ -69,6 +77,9 @@ $tunnel_module->mock(
         } elsif ($command =~ m/^config ([0-9]+) (\S+)$/) {
             my ($vmid, $node) = ($1, $2);
             die "check config for wrong VM '$vmid'\n" if $vmid ne $test_vmid;
+            die "tunnel replied 'ERR: strict config check for target node failed - vm $vmid -"
+                . " unable to parse value of 'foo'' to command '$command'\n"
+                if $fail_config->{config_check};
             return;
         }
         die "write_tunnel (mocked) - implement me: $command\n";

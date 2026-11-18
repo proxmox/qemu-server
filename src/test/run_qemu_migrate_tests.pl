@@ -821,6 +821,73 @@ my $tests = [
         },
     },
     {
+        name => '4567_config_check_fail',
+        target => 'pve1',
+        vmid => 4567,
+        vm_status => {
+            running => 0,
+        },
+        fail_config => {
+            config_check => 1,
+        },
+        expected_calls => {},
+        expect_die => "use 'skip-config-check' flag to migrate regardless",
+        expected => {
+            source_volids => local_volids_for_vm(4567),
+            target_volids => {},
+            vm_config => $vm_configs->{4567},
+            vm_status => {
+                running => 0,
+            },
+        },
+    },
+    {
+        # the config check would fail, but must not run
+        name => '4567_config_check_skipped',
+        target => 'pve1',
+        vmid => 4567,
+        vm_status => {
+            running => 0,
+        },
+        opts => {
+            'skip-config-check' => 1,
+        },
+        fail_config => {
+            config_check => 1,
+        },
+        expected_calls => $default_expected_calls_offline,
+        expected => {
+            source_volids => {},
+            target_volids => local_volids_for_vm(4567),
+            vm_config => $vm_configs->{4567},
+            vm_status => {
+                running => 0,
+            },
+        },
+    },
+    {
+        # the config check would fail, but must not run against a target without the command
+        name => '4567_config_check_old_target',
+        target => 'pve1',
+        vmid => 4567,
+        vm_status => {
+            running => 0,
+        },
+        fail_config => {
+            config_check => 1,
+            node_pvecfg_version_at_least => 'pve1',
+        },
+        expected_calls => $default_expected_calls_offline,
+        expected => {
+            source_volids => {},
+            target_volids => local_volids_for_vm(4567),
+            vm_config => $vm_configs->{4567},
+            vm_status => {
+                running => 0,
+            },
+        },
+    },
+    {
         name => '149_running_orphaned_disk_targetstorage_zfs',
         target => 'pve1',
         vmid => 149,
