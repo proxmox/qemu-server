@@ -6418,7 +6418,7 @@ sub tar_restore_cleanup {
                 my $volid = $2;
                 eval {
                     if (classify_drive_file($volid) eq "absolute") {
-                        unlink $volid || die 'unlink failed\n';
+                        unlink($volid) || $!{ENOENT} || die "unlink failed - $!\n";
                     } else {
                         PVE::Storage::vdisk_free($storecfg, $volid);
                     }
