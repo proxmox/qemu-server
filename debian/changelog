@@ -1,3 +1,18 @@
+qemu-server (9.2.20) trixie; urgency=medium
+
+  * fix #8331: snapshot: limit the wait for QEMU to finish the 'savevm-end'
+    command to 35 seconds. After saving the VM state and RAM failed, the
+    snapshot task waited endlessly and kept the VM locked. For VMs running
+    with pve-qemu-kvm 11.1.3-3 or newer, the task checks directly whether the
+    command finished and does not run into the timeout.
+
+  * snapshot: clean up a failed snapshot also if QEMU exited while the
+    snapshot was taken, for example because the guest shut down while its RAM
+    was saved. Previously, the task failed without the cleanup and left the
+    snapshot lock and the partial snapshot in the VM config.
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 18 Nov 2026 21:02:35 +0100
+
 qemu-server (9.2.19) trixie; urgency=medium
 
   * fix #5032: agent: add the 'sync-time-on-resume' option to set the guest
