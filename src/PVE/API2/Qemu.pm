@@ -1422,7 +1422,8 @@ __PACKAGE__->register_method({
 
         my $emsg = $is_restore ? "unable to restore VM $vmid -" : "unable to create VM $vmid -";
 
-        eval { PVE::QemuConfig->create_and_lock_config($vmid, $force) };
+        # 'force' only covers the VM that the checks above saw, not one created in the meantime
+        eval { PVE::QemuConfig->create_and_lock_config($vmid, $force && $vm_exists) };
         die "$emsg $@" if $@;
 
         my $restored_data = 0;
