@@ -5359,40 +5359,53 @@ __PACKAGE__->register_method({
             not_allowed_nodes => {
                 type => 'object',
                 optional => 1,
-                properties => {
-                    unavailable_storages => {
-                        type => 'array',
-                        optional => 1,
-                        description => 'A list of not available storages.',
-                        items => {
-                            type => 'string',
-                            description => 'A storage',
+                additionalProperties => {
+                    type => 'object',
+                    description => "Why migrating to the node is not allowed.",
+                    properties => {
+                        unavailable_storages => {
+                            type => 'array',
+                            optional => 1,
+                            description => 'A list of not available storages.',
+                            items => {
+                                type => 'string',
+                                description => 'A storage',
+                            },
                         },
-                    },
-                    'blocking-ha-resources' => {
-                        description => "HA resources, which are blocking the"
-                            . " VM from being migrated to the node.",
-                        type => 'array',
-                        optional => 1,
-                        items => {
-                            description => "A blocking HA resource",
-                            type => 'object',
-                            properties => {
-                                sid => {
-                                    type => 'string',
-                                    description => "The blocking HA resource id",
-                                },
-                                cause => {
-                                    type => 'string',
-                                    description => "The reason why the HA"
-                                        . " resource is blocking the migration.",
-                                    enum => ['node-affinity', 'resource-affinity'],
+                        'unavailable-resources' => {
+                            type => 'array',
+                            optional => 1,
+                            description => 'Mapped resources without a mapping on the node.',
+                            items => {
+                                type => 'string',
+                                description => 'The config key of a mapped resource',
+                            },
+                        },
+                        'blocking-ha-resources' => {
+                            description => "HA resources, which are blocking the"
+                                . " VM from being migrated to the node.",
+                            type => 'array',
+                            optional => 1,
+                            items => {
+                                description => "A blocking HA resource",
+                                type => 'object',
+                                properties => {
+                                    sid => {
+                                        type => 'string',
+                                        description => "The blocking HA resource id",
+                                    },
+                                    cause => {
+                                        type => 'string',
+                                        description => "The reason why the HA"
+                                            . " resource is blocking the migration.",
+                                        enum => ['node-affinity', 'resource-affinity'],
+                                    },
                                 },
                             },
                         },
                     },
                 },
-                description => "List of not allowed nodes with additional information.",
+                description => "Not allowed nodes, keyed by node name, with the reasons.",
             },
             local_disks => {
                 type => 'array',
