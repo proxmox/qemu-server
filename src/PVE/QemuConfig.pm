@@ -395,9 +395,14 @@ sub __snapshot_create_vol_snapshots_hook {
             my $start_time = time();
             for (;;) {
                 my $stat = mon_cmd($vmid, "query-savevm");
-                if (!$stat->{bytes}) {
-                    last;
-                } elsif ((time() - $start_time) >= $timeout) {
+
+                if (defined($stat->{'savevm-end-active'})) {
+                    last if !$stat->{'savevm-end-active'};
+                } else { # Fallback for older QEMU binaries that did not report savevm-end-active
+                    last if !$stat->{bytes};
+                }
+
+                if ((time() - $start_time) >= $timeout) {
                     warn "timeout waiting for 'savevm-end' to complete\n";
                     last;
                 } else {
