@@ -1,3 +1,50 @@
+qemu-server (9.2.21) trixie; urgency=medium
+
+  * fix #7846: give every VM a guest identity in the read-only 'meta' property
+    of its config: a random 'uid' and the time the VM was registered in the
+    cluster. Backup software and other tools can use it to recognize a VM, also
+    after its VMID got reused or changed. New VMs and clones get an identity
+    when they get created, existing VMs with their next config change.
+    - restore: a restore to an unused VMID adopts the uid of the backup if no
+      other guest in the cluster has it. Restoring a backup with another uid
+      over an existing VM is refused unless the new 'allow-identity-mismatch'
+      option is set. 'force' alone is not enough anymore.
+    - remote migration: the VM keeps its uid in the target cluster. If another
+      guest there already has the uid, the migration is refused unless the new
+      'allow-new-uid' option is set. The tunnel version got bumped, so a
+      migration to a cluster without guest identities is refused.
+    - migration and clone: refuse target nodes whose version would drop the
+      identity. Older versions lose the whole 'meta' property when they write
+      the config.
+    - api: return the uid in the status of a VM.
+    - vzdump: pass the uid and the ID of the cluster to backup providers, as
+      'guest-uid' and 'cluster-id' in the info hash of the backup call.
+
+  * restore: fixes for failed restores:
+    - release the VMID again if a restore to an unused VMID fails before the
+      data is restored. A locked, empty config kept the VMID taken before. If
+      the cleanup cannot remove a volume, the VM stays and is kept locked.
+    - put the previous firewall config back if a restore fails after it replaced
+      the firewall config with the one of the backup.
+    - do not create a VM if the user may only overwrite an existing one and that
+      VM got removed in the meantime.
+    - tar: fix removing the lock after a failed restore of a legacy tar archive,
+      which failed with "found lock 'restore' trying to remove 'create' lock".
+    - tar: fail the restore of a legacy tar archive if the list of restored
+      volumes cannot be written, for example on a full file system. The restored
+      config could reference a disk of the original VM before.
+    - vma: report errors of the restore setup without the long command line of
+      the archive tools in front.
+
+  * cli: importdisk: take the config lock when converting the imported disk of a
+    template to a base volume. A config change made at the same time could get
+    lost before.
+
+  * api: mtunnel: remove the socket of the migration tunnel if no connection
+    arrived in time.
+
+ -- Proxmox Support Team <support@proxmox.com>  Thu, 19 Nov 2026 23:35:52 +0100
+
 qemu-server (9.2.20) trixie; urgency=medium
 
   * fix #8331: snapshot: limit the wait for QEMU to finish the 'savevm-end'
