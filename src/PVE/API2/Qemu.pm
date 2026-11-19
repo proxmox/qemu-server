@@ -1513,6 +1513,8 @@ __PACKAGE__->register_method({
         die "$emsg $@" if $@;
 
         my $restored_data = 0;
+        # the restore paths record whether the restored volumes stay with the VM
+        my $restore_progress = {};
         my $restorefn = sub {
             my $conf = PVE::QemuConfig->load_config($vmid);
 
@@ -1528,6 +1530,7 @@ __PACKAGE__->register_method({
                     bwlimit => $bwlimit,
                     live => $live_restore,
                     override_conf => $param,
+                    progress => $restore_progress,
                 };
                 if (my $volid = $archive->{volid}) {
                     # best effort, real check is after restoring!
@@ -1585,7 +1588,21 @@ __PACKAGE__->register_method({
                     if $unique;
             };
 
-            PVE::QemuConfig->lock_config_full($vmid, 1, $realcmd);
+            my $restore_locked = sub {
+                my $firewall_conf = PVE::GuestHelpers::get_firewall_config_raw($vmid);
+                eval { $realcmd->() };
+                my $err = $@ or return;
+
+                # the VM that keeps its restored volumes also keeps the firewall config of the backup
+                die $err if $restore_progress->{'volumes-kept'};
+
+                # any other failed restore must not leave that firewall config behind
+                eval { PVE::GuestHelpers::set_firewall_config_raw($vmid, $firewall_conf) };
+                warn "unable to reset the firewall config - $@" if $@;
+                die $err;
+            };
+
+            PVE::QemuConfig->lock_config_full($vmid, 1, $restore_locked);
 
             if ($start_after_create && !$live_restore) {
                 print "Execute autostart\n";

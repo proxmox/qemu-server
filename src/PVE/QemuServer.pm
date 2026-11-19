@@ -6887,9 +6887,7 @@ sub rescan {
 sub restore_firewall_config {
     my ($vmid, $path) = @_;
 
-    my $pve_firewall_dir = '/etc/pve/firewall';
-    mkdir $pve_firewall_dir; # make sure the dir exists
-    PVE::Tools::file_copy($path, "${pve_firewall_dir}/$vmid.fw");
+    PVE::GuestHelpers::set_firewall_config_raw($vmid, PVE::Tools::file_get_contents($path));
 }
 
 sub restore_proxmox_backup_archive {
@@ -7067,6 +7065,7 @@ sub restore_proxmox_backup_archive {
         $restore_destroy_volumes->($storecfg, $virtdev_hash);
         die $err;
     }
+    $options->{progress}->{'volumes-kept'} = 1;
 
     if ($options->{live}) {
         # keep lock during live-restore
@@ -7241,6 +7240,7 @@ sub restore_external_archive {
         $restore_destroy_volumes->($storecfg, $virtdev_hash);
         die $err;
     }
+    $options->{progress}->{'volumes-kept'} = 1;
 
     my $new_conf = restore_merge_config($conffile, $new_conf_raw, $options->{override_conf});
     check_restore_permissions($rpcenv, $user, $new_conf);
@@ -7707,6 +7707,7 @@ sub restore_vma_archive {
         $restore_destroy_volumes->($cfg, $virtdev_hash);
         die $err;
     }
+    $opts->{progress}->{'volumes-kept'} = 1;
 
     my $new_conf = restore_merge_config($conffile, $new_conf_raw, $opts->{override_conf});
     check_restore_permissions($rpcenv, $user, $new_conf);
@@ -7816,6 +7817,7 @@ sub restore_tar_archive {
         tar_restore_cleanup($storecfg, "$tmpdir/qmrestore.stat") if !$opts->{info};
         die $err;
     }
+    $opts->{progress}->{'volumes-kept'} = 1;
 
     rmtree $tmpdir;
 

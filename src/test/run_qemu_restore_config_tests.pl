@@ -6,7 +6,7 @@ use warnings;
 use lib qw(.. .);
 
 use Fcntl qw(O_RDONLY O_NONBLOCK);
-use File::Path qw(make_path);
+use File::Path qw(make_path remove_tree);
 use File::Temp qw(tempdir);
 use JSON;
 use Test::MockModule;
@@ -15,6 +15,7 @@ use Test::More;
 use File::Basename;
 
 use PVE::API2::Qemu;
+use PVE::GuestHelpers;
 use PVE::QemuConfig;
 use PVE::QemuServer;
 use PVE::QemuServer::Helpers;
@@ -80,6 +81,7 @@ dir_glob_foreach(
 
 my $runtime_dir = tempdir('restore-run-XXXXXX', DIR => '.', CLEANUP => 1);
 $PVE::QemuServer::Helpers::var_run_tmpdir = $runtime_dir;
+$PVE::GuestHelpers::firewall_config_dir = "$runtime_dir/firewall";
 
 my $rpcenv = PVE::RPCEnvironment->init('cli');
 $rpcenv->set_user('root@pam');
@@ -198,8 +200,10 @@ $qemu_server_module->mock(
         $calls->{live_restore}++;
     },
     rescan => sub { return; },
-    # the real one writes to the cluster filesystem of the host
-    restore_firewall_config => sub { $calls->{firewall}++; },
+    restore_firewall_config => sub {
+        $calls->{firewall}++;
+        return $qemu_server_module->original('restore_firewall_config')->(@_);
+    },
     restore_update_config_line => sub {
         die "restoring the data failed\n" if $fail_at eq 'data';
         return $qemu_server_module->original('restore_update_config_line')->(@_);
@@ -260,6 +264,7 @@ sub reset_cluster {
 
     QemuServerTest::FakeCFS::reset();
     QemuServerTest::FakeCFS::set_config(100, $conf) if defined($conf);
+    remove_tree($PVE::GuestHelpers::firewall_config_dir);
 }
 
 sub stored_config {
@@ -305,6 +310,12 @@ for my $type (sort keys $ARCHIVES->%*) {
         is($err, '', 'restore succeeded') or diag($output);
         like(stored_config(100), qr/^name: backup$/m, 'VM restored');
         unlike(stored_config(100), qr/^lock:/m, 'lock removed');
+        is(
+            PVE::GuestHelpers::get_firewall_config_raw(100),
+            # legacy tar archives have no firewall config
+            $type eq 'tar' ? undef : $BACKUP_FIREWALL,
+            'firewall config of the backup restored',
+        );
     };
 }
 
@@ -318,6 +329,55 @@ subtest 'vma: an error of the restore setup is reported without the command line
     $fail_at = 'command';
     ($err) = restore_api('vma file', backup_config(), {});
     like($err, qr/^command 'sh -c .*' failed: exit code 1$/, 'failed command is named');
+};
+
+# legacy tar archives have no firewall config
+for my $type (grep { $_ ne 'tar' } sort keys $ARCHIVES->%*) {
+    subtest "$type: failed restore puts the previous firewall config back" => sub {
+        local $fail_at = 'data';
+        for my $previous (undef, "[RULES]\nIN ACCEPT -p tcp -dport 22\n") {
+            my $what =
+                defined($previous) ? 'firewall config before' : 'no firewall config before';
+
+            for my $target (undef, $TARGET_CONF) {
+                reset_cluster($target);
+                PVE::GuestHelpers::set_firewall_config_raw(100, $previous);
+
+                my ($err) = restore_api($type, backup_config(), { force => $target ? 1 : 0 });
+                like($err, qr/restoring the data failed\n$/, 'restore failed');
+                is(
+                    PVE::GuestHelpers::get_firewall_config_raw(100),
+                    $previous,
+                    ($target ? 'existing VM' : 'free VMID') . ", $what: as before",
+                );
+            }
+        }
+    };
+}
+
+subtest 'failure once the data is restored keeps the firewall config of the backup' => sub {
+    my $previous = "[RULES]\nIN ACCEPT -p tcp -dport 22\n";
+    # in the live phase, and after the restore of the data returned
+    for my $case (['live', { 'live-restore' => 1 }], ['after-restore', { unique => 1 }]) {
+        my ($failure, $param) = $case->@*;
+
+        local $fail_at = $failure;
+        for my $target (undef, $TARGET_CONF) {
+            reset_cluster($target);
+            PVE::GuestHelpers::set_firewall_config_raw(100, $previous);
+
+            my ($err) =
+                restore_api('pbs', backup_config(), { $param->%*, force => $target ? 1 : 0 });
+            ok($err, "$failure: restore failed");
+            is(
+                PVE::GuestHelpers::get_firewall_config_raw(100),
+                $BACKUP_FIREWALL,
+                "$failure, "
+                    . ($target ? 'existing VM' : 'free VMID')
+                    . ': the one of the backup',
+            );
+        }
+    }
 };
 
 subtest "'force' does not overwrite a VM created after the checks" => sub {
