@@ -196,17 +196,64 @@ sub cmd {
 my $cmdid_seq = 0;
 my $cmdid_seq_qga = 0;
 
+# For QGA, the sequence number is converted to octal and '8' is used as separator between the PID
+# and the sequence number. For QMP, ':' is used as the separator.
 my $next_cmdid = sub {
     my ($qga) = @_;
 
     if ($qga) {
         $cmdid_seq_qga++;
-        return "$$" . "0" . $cmdid_seq_qga;
+        return "$$" . "8" . sprintf("%o", $cmdid_seq_qga);
     } else {
         $cmdid_seq++;
         return "$$:$cmdid_seq";
     }
 };
+
+# Returns the PID and the sequence number (in decimal) of a command ID used for QGA. Returns undef
+# if not able to parse.
+my sub parse_qga_command_id {
+    my ($cmdid) = @_;
+
+    if ($cmdid =~ m/^([0-9]+)8([0-7]+)\z/) {
+        return ($1, oct($2));
+    }
+
+    return;
+}
+
+# Warns and returns if $cmd_id cannot be parsed or belongs to a different PID, and returns without a
+# warning if it belongs to an earlier command of the same PID. Dies if $expected_cmd_id cannot be
+# parsed or if $cmd_id belongs to the same PID, but has a higher sequence number. Returns 1 if the
+# command IDs match.
+my sub should_handle_qga_response {
+    my ($peer_name, $expected_cmd_id, $cmd_id) = @_;
+
+    my ($expected_cmd_pid, $expected_cmd_seq) = parse_qga_command_id($expected_cmd_id);
+    if (!defined($expected_cmd_pid)) {
+        die "internal error - unable to parse QGA command ID '$expected_cmd_id'\n";
+    }
+
+    my ($cmd_pid, $cmd_seq) = parse_qga_command_id($cmd_id);
+    if (!defined($cmd_pid)) {
+        warn "$peer_name: skipping result with unexpected QGA command ID '$cmd_id'\n";
+        return;
+    }
+
+    if ($expected_cmd_pid != $cmd_pid) {
+        warn "$peer_name: skipping result from other PID '$cmd_pid' left in QGA buffer\n";
+        return;
+    }
+
+    if ($cmd_seq < $expected_cmd_seq) {
+        # skip results from previous commands
+        return;
+    } elsif ($cmd_seq > $expected_cmd_seq) {
+        die "got wrong command id '$cmd_id' (expected $expected_cmd_id)\n";
+    }
+
+    return 1;
+}
 
 my $lookup_queue_info = sub {
     my ($self, $fh, $noerr) = @_;
@@ -460,12 +507,7 @@ sub mux_input {
             my $cmdid = $obj->{'return'};
             die "received response without command id\n" if !$cmdid;
 
-            # skip results from previous commands
-            return if $cmdid < $curcmd->{id};
-
-            if ($curcmd->{id} ne $cmdid) {
-                die "got wrong command id '$cmdid' (expected $curcmd->{id})\n";
-            }
+            return if !should_handle_qga_response($peer_name, $curcmd->{id}, $cmdid);
 
             delete $queue_info->{current};
 
