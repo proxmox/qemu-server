@@ -14,6 +14,7 @@ use POSIX qw(EINTR EAGAIN);
 use Time::HiRes qw(usleep);
 
 use PVE::Cluster qw(cfs_read_file);
+use PVE::GuestIdentity;
 use PVE::INotify;
 use PVE::IPCC;
 use PVE::JSONSchema;
@@ -1552,6 +1553,10 @@ sub archive_external {
             die "interrupted by signal\n";
         };
 
+        # the uid from the config that the provider gets, so that both name the same one
+        my $identity = PVE::GuestIdentity::parse_identity_from_raw_config($guest_config);
+        my $cluster_id = PVE::Cluster::get_cluster_id();
+
         my $qemu_support = mon_cmd($vmid, "query-proxmox-support");
 
         if (!$qemu_support->{'backup-access-api'}) {
@@ -1680,6 +1685,8 @@ sub archive_external {
         $param->{'bandwidth-limit'} = $opts->{bwlimit} * 1024 if $opts->{bwlimit};
         $param->{'firewall-config'} = PVE::Tools::file_get_contents($firewall_file)
             if -e $firewall_file;
+        $param->{'guest-uid'} = $identity->{uid} if $identity;
+        $param->{'cluster-id'} = $cluster_id if defined($cluster_id);
 
         $backup_provider->backup_vm($vmid, $guest_config, $volumes, $param);
     };
