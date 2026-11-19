@@ -703,11 +703,16 @@ __PACKAGE__->register_method({
             },
         );
 
-        $vm_conf = PVE::QemuConfig->load_config($vmid);
-
         # change imported _used_ disk to a base volume in case the VM is a template
-        PVE::QemuServer::template_create($vmid, $vm_conf, $drive_id)
-            if is_valid_drivename($drive_id) && PVE::QemuConfig->is_template($vm_conf);
+        $vm_conf = PVE::QemuConfig->lock_config(
+            $vmid,
+            sub {
+                my $conf = PVE::QemuConfig->load_config($vmid);
+                PVE::QemuServer::template_create($vmid, $conf, $drive_id)
+                    if is_valid_drivename($drive_id) && PVE::QemuConfig->is_template($conf);
+                return $conf;
+            },
+        );
 
         print "$drive_id: successfully imported disk '$vm_conf->{$drive_id}'\n";
 
