@@ -6925,7 +6925,6 @@ sub restore_proxmox_backup_archive {
     local $SIG{INT} = local $SIG{TERM} = local $SIG{QUIT} = local $SIG{HUP} =
         sub { print STDERR "got interrupt - ignored\n"; };
 
-    # Note: $oldconf is undef if VM does not exists
     my $cfs_path = PVE::QemuConfig->cfs_config_path($vmid);
     my $oldconf = PVE::Cluster::cfs_read_file($cfs_path);
     my $new_conf_raw = '';
@@ -6993,7 +6992,7 @@ sub restore_proxmox_backup_archive {
         # create empty/temp config
         PVE::QemuConfig->write_config($vmid, { memory => 128, lock => 'create' });
 
-        $restore_cleanup_oldconf->($storecfg, $vmid, $oldconf, $virtdev_hash) if $oldconf;
+        $restore_cleanup_oldconf->($storecfg, $vmid, $oldconf, $virtdev_hash);
 
         # allocate volumes
         my $map = $restore_allocate_devices->($storecfg, $virtdev_hash, $vmid);
@@ -7124,7 +7123,6 @@ sub restore_external_archive {
     local $SIG{INT} = local $SIG{TERM} = local $SIG{QUIT} = local $SIG{HUP} =
         sub { print STDERR "got interrupt - ignored\n"; };
 
-    # Note: $oldconf is undef if VM does not exists
     my $cfs_path = PVE::QemuConfig->cfs_config_path($vmid);
     my $oldconf = PVE::Cluster::cfs_read_file($cfs_path);
     my $new_conf_raw = '';
@@ -7170,7 +7168,7 @@ sub restore_external_archive {
         # create empty/temp config
         PVE::QemuConfig->write_config($vmid, { memory => 128, lock => 'create' });
 
-        $restore_cleanup_oldconf->($storecfg, $vmid, $oldconf, $virtdev_hash) if $oldconf;
+        $restore_cleanup_oldconf->($storecfg, $vmid, $oldconf, $virtdev_hash);
 
         # allocate volumes
         my $map = $restore_allocate_devices->($storecfg, $virtdev_hash, $vmid);
@@ -7556,7 +7554,6 @@ sub restore_vma_archive {
 
     my $conffile = PVE::QemuConfig->config_file($vmid);
 
-    # Note: $oldconf is undef if VM does not exist
     my $cfs_path = PVE::QemuConfig->cfs_config_path($vmid);
     my $oldconf = PVE::Cluster::cfs_read_file($cfs_path);
     my $new_conf_raw = '';
@@ -7592,10 +7589,8 @@ sub restore_vma_archive {
         }
 
         # create empty/temp config
-        if ($oldconf) {
-            PVE::QemuConfig->write_config($vmid, { memory => 128, lock => 'create' });
-            $restore_cleanup_oldconf->($cfg, $vmid, $oldconf, $virtdev_hash);
-        }
+        PVE::QemuConfig->write_config($vmid, { memory => 128, lock => 'create' });
+        $restore_cleanup_oldconf->($cfg, $vmid, $oldconf, $virtdev_hash);
 
         # allocate volumes
         my $map = $restore_allocate_devices->($cfg, $virtdev_hash, $vmid);
