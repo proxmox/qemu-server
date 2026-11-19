@@ -7741,7 +7741,7 @@ sub restore_tar_archive {
     # pass keep_empty_config=1 to keep the config (thus VMID) reserved for us
     # skiplock=1 because qmrestore has set the 'create' lock itself already
     my $vmcfgfn = PVE::QemuConfig->config_file($vmid);
-    destroy_vm($storecfg, $vmid, 1, { lock => 'restore' }) if -f $vmcfgfn;
+    destroy_vm($storecfg, $vmid, 1, { lock => 'create' }) if -f $vmcfgfn;
 
     my $tocmd = "/usr/lib/qemu-server/qmextract";
 

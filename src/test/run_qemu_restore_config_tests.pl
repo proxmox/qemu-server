@@ -438,6 +438,18 @@ for my $type ('pbs', 'provider', 'vma file', 'vma stdin') {
     };
 }
 
+subtest 'tar: failed restore over an existing VM' => sub {
+    reset_cluster($TARGET_CONF);
+
+    local $fail_at = 'data';
+    my ($err, $output) = restore_api('tar', backup_config(), { force => 1 });
+    is($err, "restoring the data failed\n", 'restore failed');
+    unlike($output, qr/trying to remove 'create' lock/, "emptied config had the 'create' lock");
+    ok(defined(stored_config(100)), 'emptied config is kept');
+    unlike(stored_config(100), qr/^lock:/m, 'lock removed');
+    like($output, qr/error before or during data restore/, 'warning about the changed VM');
+};
+
 subtest 'failed live restore to a free VMID keeps the restored config' => sub {
     reset_cluster();
 
