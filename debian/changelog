@@ -1,3 +1,39 @@
+qemu-server (9.2.22) trixie; urgency=medium
+
+  * d/control: require pve-cluster 9.1.13, which ships the helper that backups
+    to a backup provider use to read the cluster ID. Requiring
+    libpve-cluster-perl 9.1.13 did not ensure that, so a partial upgrade could
+    break such backups.
+
+  * restore: legacy tar archives:
+    - fail the restore if the config of the backup cannot be written in full,
+      for example on a full file system. Before, the restore went on with the
+      partial config, which could lack some of the disks.
+    - free a restored volume right away if it cannot be recorded. Before, a
+      restore to an unused VMID that failed this way left the volume behind.
+
+  * vzdump: backup provider: also pass the registration time of the VM as
+    'guest-rtime', if available. It changes when a VM is registered anew, for
+    example by a restore to an unused VMID, so providers can tell such
+    registrations apart without parsing the 'meta' property of the config.
+
+  * fix #8355: guest agent: skip responses that another process left unread
+    in the buffer of the guest agent. Such a left-over could make a command
+    fail with a "got wrong command id" error.
+
+  * fix #8354: config: do not save an empty 'running-nets-host-mtu' value when
+    hibernating a VM or taking a snapshot with RAM, which could happen for VMs
+    without VirtIO network devices. Existing empty values are ignored, so
+    'qm config' no longer fails with a result verification error on such
+    configs.
+
+  * agent: retry a failed automatic thaw of the guest file systems once if the
+    guest agent still reports them as frozen. A lost thaw could leave them
+    frozen, as later backups, snapshots and replication runs skip both freeze
+    and thaw when they find the file systems already frozen.
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 20 Nov 2026 12:59:12 +0100
+
 qemu-server (9.2.21) trixie; urgency=medium
 
   * fix #7846: give every VM a guest identity in the read-only 'meta' property
