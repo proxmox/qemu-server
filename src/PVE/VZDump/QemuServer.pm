@@ -1686,6 +1686,8 @@ sub archive_external {
         $param->{'firewall-config'} = PVE::Tools::file_get_contents($firewall_file)
             if -e $firewall_file;
         $param->{'guest-uid'} = $identity->{uid} if $identity;
+        $param->{'guest-rtime'} = $identity->{rtime}
+            if $identity && defined($identity->{rtime});
         $param->{'cluster-id'} = $cluster_id if defined($cluster_id);
 
         $backup_provider->backup_vm($vmid, $guest_config, $volumes, $param);
