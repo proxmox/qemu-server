@@ -123,7 +123,7 @@ sub extract_archive {
         $path = "$dir/$filename";
 
         print $statfd "vzdump::$path\n";
-        $statfd->close();
+        $statfd->close() or die "unable to write file '$statfile' - $!\n";
 
     } else {
 
@@ -178,7 +178,8 @@ sub extract_archive {
         print STDERR "new volume ID is '$volid'\n";
 
         print $statfd "vzdump:$info->{virtdev}:$volid\n";
-        $statfd->close();
+        # the restore takes the new volume from this file, else it keeps the one of the backup
+        $statfd->close() or die "unable to write file '$statfile' - $!\n";
 
         $path = PVE::Storage::path($cfg, $volid);
     }
