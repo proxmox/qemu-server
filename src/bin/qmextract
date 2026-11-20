@@ -81,7 +81,7 @@ sub extract_archive {
             print STDERR "CONFIG: $line" if $opts->{info};
         }
 
-        $outfd->close();
+        $outfd->close() or die "unable to write file '$conffile' - $!\n";
 
         exit(0);
     }
