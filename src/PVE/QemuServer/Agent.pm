@@ -286,13 +286,30 @@ sub guest_fs_freeze($vmid) {
 
 Thaws the file systems of the guest C<$vmid>. Dies if the file systems cannot be thawed.
 
+If the thaw fails and the guest still reports its file systems as frozen, the thaw is retried once.
+
 See C<guest_fs_freeze()> for more details.
 
 =cut
 
 sub guest_fs_thaw($vmid) {
-    my $res = PVE::QemuServer::Monitor::mon_cmd($vmid, "guest-fsfreeze-thaw");
-    check_agent_error($res, "unable to thaw guest filesystem");
+    my $thaw = sub {
+        my $res = PVE::QemuServer::Monitor::mon_cmd($vmid, "guest-fsfreeze-thaw");
+        check_agent_error($res, "unable to thaw guest filesystem");
+    };
+
+    eval { $thaw->() };
+    my $err = $@;
+    return if !$err;
+
+    # A failed thaw can leave the guest frozen, for example, if the connection is closed with the
+    # command still unsent. Later jobs skip freeze and thaw for a guest reported as frozen, so retry.
+    die $err if !eval { guest_fs_is_frozen($vmid) };
+
+    chomp($err);
+    print "thawing guest filesystem failed - $err\n";
+    print "guest filesystem is still frozen, trying to thaw it again\n";
+    $thaw->();
 
     return;
 }
