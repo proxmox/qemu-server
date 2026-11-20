@@ -1776,6 +1776,7 @@ sub cloudinit_pending_properties {
     return $p;
 }
 
+# FIXME: MAJOR VERSION: use JSONSchema::check_prop() on the returned value to check 'pattern', etc.
 sub check_type {
     my ($key, $value, $schema) = @_;
 
