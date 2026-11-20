@@ -2021,6 +2021,10 @@ sub parse_vm_config {
         } elsif ($line =~ m/^([a-z][a-z_\-]*\d*):\s*(.+?)\s*$/) {
             my $key = $1;
             my $value = $2;
+
+            # Ignore accidentally written empty 'running-nets-host-mtu'.
+            next if $key eq 'running-nets-host-mtu' && $value !~ m/\S/;
+
             if ($section->{name} eq 'cloudinit' && $section->{type} eq 'special') {
                 # ignore validation only used for informative purpose
                 $conf->{$key} = $value;

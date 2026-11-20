@@ -274,7 +274,7 @@ sub __snapshot_save_vmstate {
     $conf->{vmstate} = $statefile;
     $conf->{runningmachine} = $runningmachine;
     $conf->{runningcpu} = $runningcpu;
-    $conf->{'running-nets-host-mtu'} = $nets_host_mtu;
+    $conf->{'running-nets-host-mtu'} = $nets_host_mtu if $nets_host_mtu;
 
     return $statefile;
 }
