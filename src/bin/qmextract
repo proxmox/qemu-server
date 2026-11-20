@@ -179,7 +179,13 @@ sub extract_archive {
 
         print $statfd "vzdump:$info->{virtdev}:$volid\n";
         # the restore takes the new volume from this file, else it keeps the one of the backup
-        $statfd->close() or die "unable to write file '$statfile' - $!\n";
+        if (!$statfd->close()) {
+            my $err = $!;
+            # the cleanup of the failed restore only frees what this file records
+            eval { PVE::Storage::vdisk_free($cfg, $volid) };
+            warn "unable to free volume '$volid' - $@" if $@;
+            die "unable to write file '$statfile' - $err\n";
+        }
 
         $path = PVE::Storage::path($cfg, $volid);
     }
