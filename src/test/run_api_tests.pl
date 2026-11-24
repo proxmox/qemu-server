@@ -185,11 +185,8 @@ my $node_cases = [
         "node 'pve2' runs Proxmox VE 9.2.0, keeping the guest identity requires $min_version or"
             . " newer - upgrade the node first\n",
     ],
-    [
-        undef,
-        "node 'pve2' does not report its Proxmox VE version, so it is unknown whether the node"
-            . " keeps the guest identity\n",
-    ],
+    # a node that did not report its version yet is accepted
+    [undef, "reached load_config\n"],
 ];
 
 for my $case ($node_cases->@*) {
@@ -237,7 +234,11 @@ subtest 'migration preconditions' => sub {
 
     my $res = PVE::API2::Qemu->migrate_vm_precondition({ node => 'localhost', vmid => 100 });
 
-    is_deeply($res->{allowed_nodes}, ['pve2'], 'only the node keeping the identity is allowed');
+    is_deeply(
+        $res->{allowed_nodes},
+        ['pve2', 'pve4'],
+        'node keeping the identity and node without version are allowed',
+    );
     is_deeply(
         $res->{not_allowed_nodes}->{pve3},
         {
@@ -247,11 +248,6 @@ subtest 'migration preconditions' => sub {
             },
         },
         'node with an older version is not allowed',
-    );
-    is_deeply(
-        $res->{not_allowed_nodes}->{pve4},
-        { 'guest-identity-unsupported' => { 'required-version' => $min_version } },
-        'node without version is not allowed',
     );
 
     my $returns = PVE::API2::Qemu->map_method_by_name('migrate_vm_precondition')->{returns};
@@ -283,8 +279,9 @@ subtest 'clone target nodes' => sub {
         },
     );
 
-    # the version of the local node does not matter, a clone on the same node needs no check
-    $node_versions->@{ 'pve1', 'pve2', 'pve3', 'pve4' } = (undef, $min_version, '9.2.0', undef);
+    # a clone on the same node needs no check, so the old version of the local node does not matter
+    $node_versions->@{ 'pve1', 'pve2', 'pve3', 'pve4' } =
+        ('9.2.0', $min_version, '9.2.0', undef);
 
     # the local node is the one the handler runs on, whatever name the API path used for it
     for my $node ('pve1', 'localhost') {
@@ -292,8 +289,8 @@ subtest 'clone target nodes' => sub {
             PVE::API2::Qemu->vm_feature({ node => $node, vmid => 100, feature => 'clone' });
         is_deeply(
             [sort $res->{nodes}->@*],
-            ['pve1', 'pve2'],
-            "node '$node': only nodes that keep the identity are offered as clone target",
+            ['pve1', 'pve2', 'pve4'],
+            "node '$node': only nodes that keep the identity or report no version are offered",
         );
     }
 
