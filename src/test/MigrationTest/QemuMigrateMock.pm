@@ -43,6 +43,11 @@ $MigrationTest::Shared::cluster_module->mock(
         my $old_node = $fail_config->{node_pvecfg_version_at_least};
         return defined($old_node) && $node eq $old_node ? 0 : 1;
     },
+    get_node_pvecfg_version => sub {
+        my ($node) = @_;
+        my $old_node = $fail_config->{node_pvecfg_version_at_least};
+        return defined($old_node) && $node eq $old_node ? '9.2.0' : '9.3.0';
+    },
 );
 
 my $inotify_module = Test::MockModule->new("PVE::INotify");
@@ -53,6 +58,7 @@ $inotify_module->mock(
 );
 
 $MigrationTest::Shared::qemu_config_module->mock(
+    has_stored_identity => sub { return $fail_config->{stored_identity} ? 1 : 0; },
     move_config_to_node => sub {
         my ($self, $vmid, $target) = @_;
         die "moving wrong config: '$vmid'\n" if $vmid ne $test_vmid;

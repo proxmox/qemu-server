@@ -177,35 +177,77 @@ subtest 'pending changes of meta are dropped' => sub {
 };
 
 my $min_version = PVE::GuestIdentity::MIN_PVE_MANAGER_VERSION;
+# the version of the target node, and the error if it gets refused as it would drop the identity
 my $node_cases = [
-    [$min_version, "reached load_config\n"],
-    ['10.0.0', "reached load_config\n"],
+    [$min_version, undef],
+    ['10.0.0', undef],
     [
         '9.2.0',
         "node 'pve2' runs Proxmox VE 9.2.0, keeping the guest identity requires $min_version or"
             . " newer - upgrade the node first\n",
     ],
     # a node that did not report its version yet is accepted
-    [undef, "reached load_config\n"],
+    [undef, undef],
 ];
 
+# the stored config of a VM with and one without guest identity
+my $raw_with_identity = "meta: creation-qemu=10.1.0,ctime=1700000000,rtime=1700000000000,"
+    . "uid=gaytemzugu3doobzmfrg\nmemory: 512\n";
+my $raw_without_identity = "meta: creation-qemu=10.1.0,ctime=1700000000\nmemory: 512\n";
+
 for my $case ($node_cases->@*) {
-    my ($version, $expected) = $case->@*;
+    my ($version, $refused) = $case->@*;
     $node_versions->{pve2} = $version;
     my $what = 'target node with ' . ($version // 'no') . ' version';
 
     is(
-        api_error('migrate_vm', { target => 'pve2' }), $expected, "migrate_vm: offline, $what",
-    );
-    is(
-        api_error('migrate_vm', { target => 'pve2', online => 1 }),
-        $expected,
-        "migrate_vm: online, $what",
-    );
-    is(
-        api_error('clone_vm', { newid => 101, target => 'pve2' }), $expected, "clone_vm: $what",
+        api_error('clone_vm', { newid => 101, target => 'pve2' }),
+        $refused // "reached load_config\n",
+        "clone_vm: $what",
     );
 }
+
+subtest 'migration only refuses nodes that drop the identity of a VM that has one' => sub {
+    my $raw_config;
+    # the paths of the config files read for the stored identity
+    my $read_paths = [];
+    $cluster_module->mock(
+        get_config => sub { push $read_paths->@*, $_[0]; return $raw_config; });
+    $qemu_config_module->mock(
+        load_config => sub { return { memory => 512 }; },
+        check_lock => sub { die "reached check_lock\n"; },
+    );
+
+    for my $case ($node_cases->@*) {
+        my ($version, $refused) = $case->@*;
+        $node_versions->{pve2} = $version;
+        my $what = 'target node with ' . ($version // 'no') . ' version';
+
+        $raw_config = $raw_with_identity;
+        for my $online (0, 1) {
+            is(
+                api_error('migrate_vm', { target => 'pve2', online => $online }),
+                $refused // "reached check_lock\n",
+                "VM with identity, " . ($online ? 'online' : 'offline') . ", $what",
+            );
+        }
+
+        $raw_config = $raw_without_identity;
+        is(
+            api_error('migrate_vm', { target => 'pve2' }),
+            "reached check_lock\n",
+            "VM without identity, $what",
+        );
+    }
+
+    $cluster_module->unmock('get_config');
+    $qemu_config_module->unmock('check_lock');
+    mock_unreachable_config();
+
+    my @other = grep { !m{^nodes/[^/]+/qemu-server/100\.conf\z} } $read_paths->@*;
+    ok(scalar($read_paths->@*) && !@other, 'only the config file of the VM is read')
+        or diag(explain($read_paths));
+};
 
 $node_versions->{pve2} = undef;
 is(
@@ -232,7 +274,18 @@ subtest 'migration preconditions' => sub {
 
     $node_versions->@{ 'pve2', 'pve3', 'pve4' } = ($min_version, '9.2.0', undef);
 
+    my $raw_config = $raw_without_identity;
+    $cluster_module->mock(get_config => sub { return $raw_config; });
+
     my $res = PVE::API2::Qemu->migrate_vm_precondition({ node => 'localhost', vmid => 100 });
+    is_deeply(
+        $res->{allowed_nodes},
+        ['pve2', 'pve3', 'pve4'],
+        'a VM without identity can go to every node',
+    );
+
+    $raw_config = $raw_with_identity;
+    $res = PVE::API2::Qemu->migrate_vm_precondition({ node => 'localhost', vmid => 100 });
 
     is_deeply(
         $res->{allowed_nodes},
@@ -261,7 +314,7 @@ subtest 'migration preconditions' => sub {
     eval { PVE::JSONSchema::validate($undocumented, $strict) };
     like($@, qr/other-reason/, 'an undocumented reason does not');
 
-    $cluster_module->unmock('get_nodelist');
+    $cluster_module->unmock('get_nodelist', 'get_config');
     mock_unreachable_config();
 };
 

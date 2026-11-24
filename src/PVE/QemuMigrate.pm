@@ -10,6 +10,7 @@ use Time::HiRes qw( usleep );
 
 use PVE::AccessControl;
 use PVE::Cluster;
+use PVE::GuestIdentity;
 use PVE::Cmd qw(build_ssh_command);
 use PVE::Format qw(render_bytes);
 use PVE::Firewall::Helpers;
@@ -203,6 +204,12 @@ sub prepare {
 
     # test if VM exists
     my $conf = $self->{vmconf} = PVE::QemuConfig->load_config($vmid);
+
+    # The API checked the target before the lock was taken. Since then, the VM may have gotten an
+    # identity, for example by the config write of the cleanup above.
+    if (!$self->{opts}->{remote} && PVE::QemuConfig->has_stored_identity($vmid)) {
+        PVE::GuestIdentity::assert_node_supports_identity($self->{node});
+    }
 
     my $repl_conf = PVE::ReplicationConfig->new();
     $self->{replication_jobcfg} = $repl_conf->find_local_replication_job($vmid, $self->{node});

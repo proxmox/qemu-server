@@ -888,6 +888,29 @@ my $tests = [
         },
     },
     {
+        # the API checked the target before the lock, but the VM got an identity since then
+        name => '4567_identity_old_target',
+        target => 'pve1',
+        vmid => 4567,
+        vm_status => {
+            running => 0,
+        },
+        fail_config => {
+            node_pvecfg_version_at_least => 'pve1',
+            stored_identity => 1,
+        },
+        expected_calls => {},
+        expect_die => "keeping the guest identity requires",
+        expected => {
+            source_volids => local_volids_for_vm(4567),
+            target_volids => {},
+            vm_config => $vm_configs->{4567},
+            vm_status => {
+                running => 0,
+            },
+        },
+    },
+    {
         name => '149_running_orphaned_disk_targetstorage_zfs',
         target => 'pve1',
         vmid => 149,

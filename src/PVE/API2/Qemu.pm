@@ -5743,6 +5743,8 @@ __PACKAGE__->register_method({
             $res->{'dependent-ha-resources'} = $dependent_ha_resource // [];
         }
 
+        my $has_identity = PVE::QemuConfig->has_stored_identity($vmid);
+
         my $nodelist = PVE::Cluster::get_nodelist();
         for my $node ($nodelist->@*) {
             next if $node eq $localnode;
@@ -5765,8 +5767,10 @@ __PACKAGE__->register_method({
                     $blocking_ha_resources;
             }
 
-            # the migration refuses nodes that would drop the guest identity
-            if (my $unsupported = PVE::GuestIdentity::node_identity_unsupported($node)) {
+            # the migration refuses nodes that would drop the guest identity, if the VM has one
+            my $unsupported =
+                $has_identity && PVE::GuestIdentity::node_identity_unsupported($node);
+            if ($unsupported) {
                 $res->{not_allowed_nodes}->{$node}->{'guest-identity-unsupported'} =
                     $unsupported;
             }
@@ -5823,8 +5827,6 @@ __PACKAGE__->register_method({
 
         PVE::Cluster::check_node_exists($target);
 
-        PVE::GuestIdentity::assert_node_supports_identity($target);
-
         my $targetip = PVE::Cluster::remote_node_ip($target);
 
         my $vmid = extract_param($param, 'vmid');
@@ -5841,6 +5843,10 @@ __PACKAGE__->register_method({
 
         # test if VM exists
         my $conf = PVE::QemuConfig->load_config($vmid);
+
+        # an older node drops the guest identity on its next write of the config
+        PVE::GuestIdentity::assert_node_supports_identity($target)
+            if PVE::QemuConfig->has_stored_identity($vmid);
 
         # try to detect errors early
 
