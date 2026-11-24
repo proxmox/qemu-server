@@ -1,3 +1,14 @@
+qemu-server (9.2.23) trixie; urgency=medium
+
+  * api: migrate: only refuse a target node that would drop the guest
+    identity, one with pve-manager before 9.2.33, if the VM has an identity.
+    VMs without one, which are common during a rolling upgrade, can be
+    migrated to such a node again, for example to put an upgraded node into
+    maintenance mode. Bulk migration still refuses such a node for all
+    guests.
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 24 Nov 2026 10:17:42 +0100
+
 qemu-server (9.2.22) trixie; urgency=medium
 
   * d/control: require pve-cluster 9.1.13, which ships the helper that backups
