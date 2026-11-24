@@ -77,6 +77,24 @@ dir_glob_foreach(
     },
 );
 
+subtest 'missing MAC addresses of the backup are added' => sub {
+    my $restore_line = sub {
+        my ($line, $unique) = @_;
+        return PVE::QemuServer::restore_update_config_line({ netcount => 0 }, {}, $line,
+            $unique);
+    };
+
+    my $with_mac = "net0: virtio=BC:24:11:00:00:01,bridge=vmbr0,firewall=1\n";
+    is($restore_line->($with_mac, 0), $with_mac, 'line with a MAC address is kept');
+
+    my $restored = $restore_line->("net1: virtio,bridge=vmbr0,firewall=1\n", 0);
+    my ($net1) = $restored =~ m/^net1: (.*)\n\z/;
+    my $net = PVE::QemuServer::Network::parse_net($net1, 1);
+    like($net->{macaddr}, qr/^[0-9A-F]{2}(?::[0-9A-F]{2}){5}$/i,
+        'missing MAC address is added');
+    is($net->{firewall}, 1, 'other properties are kept');
+};
+
 # Restores through the create API and the restore paths for PBS, backup providers, VMA and legacy
 # tar archives, against the fake cluster filesystem. Storage, archive tools and other external
 # effects are mocked. The backups have no disks, so that no volumes get allocated.

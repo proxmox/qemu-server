@@ -6692,6 +6692,9 @@ sub restore_update_config_line {
         $net->{macaddr} = PVE::Tools::random_ether_addr($dc->{mac_prefix}) if $net->{macaddr};
         $netstr = PVE::QemuServer::Network::print_net($net);
         $res .= "$id: $netstr\n";
+    } elsif ($line =~ m/^(net\d+):\s*(\S+)\s*$/) {
+        # a backup can have network devices without a MAC address
+        $res .= "$1: " . PVE::QemuServer::Network::add_missing_mac($2) . "\n";
     } elsif ($line =~ m/^((ide|scsi|virtio|sata|efidisk|tpmstate)\d+):\s*(\S+)\s*$/) {
         my $virtdev = $1;
         my $value = $3;
