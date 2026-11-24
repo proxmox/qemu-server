@@ -5490,6 +5490,14 @@ sub vm_start_nolock {
         $conf = PVE::QemuConfig->load_config($vmid); # update/reload
     }
 
+    # without a persisted MAC address, every user of the config would see a different random one,
+    # but migrated or resumed VMs already run with one and templates start without network devices
+    if (!$statefile && !$resume && !$migratedfrom && !PVE::QemuConfig->is_template($conf)) {
+        if (PVE::QemuServer::Network::add_missing_macs($conf)) {
+            PVE::QemuConfig->write_config($vmid, $conf);
+        }
+    }
+
     # don't regenerate the ISO if the VM is started as part of a live migration
     # this way we can reuse the old ISO with the correct config
     if (!$migratedfrom) {

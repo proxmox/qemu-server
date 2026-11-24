@@ -208,6 +208,7 @@ EODESCR
 sub parse_net {
     my ($data, $disable_mac_autogen) = @_;
 
+    local $@;
     my $res = eval { parse_property_string($net_fmt, $data) };
     if ($@) {
         warn $@;
@@ -270,6 +271,37 @@ sub add_random_macs {
         next if !$net;
         $settings->{$opt} = print_net($net);
     }
+}
+
+# Returns the network device with a generated MAC address if it has none.
+sub add_missing_mac {
+    my ($value) = @_;
+
+    my $net = parse_net($value, 1);
+    return $value if !$net || defined($net->{macaddr});
+
+    my $dc = PVE::Cluster::cfs_read_file('datacenter.cfg');
+    $net->{macaddr} = PVE::Tools::random_ether_addr($dc->{mac_prefix});
+
+    return print_net($net);
+}
+
+# Returns whether a MAC address was added to a network device.
+sub add_missing_macs {
+    my ($conf) = @_;
+
+    my $added;
+    for my $opt (sort keys %$conf) {
+        next if $opt !~ m/^net\d+$/;
+        next if !defined($conf->{$opt});
+        my $value = add_missing_mac($conf->{$opt});
+        next if $value eq $conf->{$opt};
+
+        $conf->{$opt} = $value;
+        $added = 1;
+    }
+
+    return $added;
 }
 
 sub add_nets_bridge_fdb {
