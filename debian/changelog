@@ -1,3 +1,15 @@
+qemu-server (9.2.24) trixie; urgency=medium
+
+  * persist a generated MAC address for network devices without one when
+    starting a VM, or when restoring a backup without 'unique'. Before, every
+    user of the config got another random address, for example the VM, the
+    SDN DHCP mapping and cloud-init. Starting such a VM thus changes its
+    config once. A VM that resumes from a saved state or arrives through a
+    live migration keeps running with the address it has, until its next
+    cold start.
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 24 Nov 2026 22:34:29 +0100
+
 qemu-server (9.2.23) trixie; urgency=medium
 
   * api: migrate: only refuse a target node that would drop the guest
